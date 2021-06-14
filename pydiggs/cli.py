@@ -18,8 +18,6 @@ def main():
 
     args = parser.parse_args()
 
-    print(args.command)
-    print(args.file[0])
     if args.command == 'check':
         validation(args.file[0])
 

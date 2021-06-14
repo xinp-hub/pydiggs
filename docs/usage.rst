@@ -2,10 +2,23 @@
 Usage
 =====
 
+DIGGS validation
+--------------
+
 To use pydiggs in a Python project::
 
-    import pydiggs
+    from pydiggs import validation
 
-To use pydiggs in the Command Line Interface::
+If the DIGGS file is in your current working directory::
 
-    pydiggs check "Your_DIGGS_File_Name" or "Your_DIGGS_File_Path"
+    validation("DIGGS_File_Name")
+
+If the DIGGS file is not in your current working directory::
+
+    validation("Full_DIGGS_File_Path")
+
+
+
+To use validate DIGGS file in the Command Line Interface::
+
+    pydiggs check "DIGGS_File_Name" or "Full_DIGGS_File_Path"
