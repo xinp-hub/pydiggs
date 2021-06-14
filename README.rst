@@ -7,7 +7,7 @@ pydiggs
         :target: https://pypi.python.org/pypi/pydiggs
 
 .. image:: https://img.shields.io/travis/xinp_hub/pydiggs.svg
-        :target: https://travis-ci.com/xinp_hub/pydiggs
+        :target: https://travis-ci.com/github/xinp-hub/pydiggs
 
 .. image:: https://readthedocs.org/projects/pydiggs/badge/?version=latest
         :target: https://pydiggs.readthedocs.io/en/latest/?version=latest
