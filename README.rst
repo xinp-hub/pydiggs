@@ -6,8 +6,8 @@ pydiggs
 .. image:: https://img.shields.io/pypi/v/pydiggs.svg
         :target: https://pypi.python.org/pypi/pydiggs
 
-.. image:: https://img.shields.io/travis/xinp_hub/pydiggs.svg
-        :target: https://travis-ci.com/xinp-hub/pydiggs.svg?branch=master
+.. image:: https://travis-ci.com/xinp-hub/pydiggs.svg?branch=master
+        :target: https://travis-ci.com/github/xinp-hub/pydiggs
         :alt: Build Status
 
 .. image:: https://readthedocs.org/projects/pydiggs/badge/?version=latest
@@ -15,7 +15,7 @@ pydiggs
         :alt: Documentation Status
 
 
-.. image:: https://pyup.io/repos/github/xinp_hub/pydiggs/shield.svg
+.. image:: https://pyup.io/repos/github/xinp-hub/pydiggs/shield.svg
      :target: https://pyup.io/account/repos/github/xinp-hub/pydiggs/
      :alt: Updates
 
