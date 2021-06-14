@@ -7,9 +7,11 @@ install: pip install -U tox-travis
 script: tox
 deploy:
   provider: pypi
+  distributions: sdist bdist_wheel  
   user: "__token__"
   password:
     secure: eEPTQ0iZ1jp5UEQxidJ3Y/7o7EonGA+rNf4iBOQggbrNHPAtPDYXCoO2IrwzGX+4sZaJsnF7nYdAeDLbFibYGmuyMCt8/TZCZojblQj/tthwzpeRsBUNW0FfNWyBQcp2fusMT0cdkpBn/q9eprEjShXP0+bP1ZiNaLfSTIfSZZPb+bLrmGGVusB3nO+qvRjGcvFitxyI25IiLZydpmOqQ14hWHfjesijUZQlgyzdBj2++iAcYhoFL4UopWcydpQ2slyg3OJytZC4qqbTNexll0okazVG1PCKf9fHbnH1Pv+G0NbIbBm9/hn5wJVN8MuADuPcgeCbSvukmBk8KPMC7nVhAMk9jw/8LsMMFvdUuaxwEwU9UqjgG6+59e/EXbyd7MllMs0vO7igPhqC+KrrBV06bzD0sSDX9ZsI2/Ipk41jpB1dPqYjX6KCG6p0lt82D0z/Ytv9xiQVRo4fOJX7cZb/aKXx6iXijI5gibSj9Dgzdd4tClAEAjWmAykVHLCp+NmSD1SnOuRITZzRDbgbMlawxQVj5NBpLkeGGrFFTnHyq0u88OUSoevkyNsMBbN6Ko8o7SNYQVTtXblDe1bldNfR7DerCcrp/c11C/kLiDiUU6+atJdobUbDiQZoWpzHBPSqo3T3bof23zE+G1kUNkgbK3nhC2eYgqOTYKAteAQ=
+  skip_cleanup: true
   on:
     repo: xinp-hub/pydiggs
     python: 3.8
