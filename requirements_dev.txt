@@ -11,4 +11,3 @@ pytest==6.2.4
 lxml==4.6.3
 rich==10.3.0
 myst_parser==0.15.0
-Rust ==1.41.0
