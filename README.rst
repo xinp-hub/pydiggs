@@ -8,6 +8,7 @@ pydiggs
 
 .. image:: https://img.shields.io/travis/xinp_hub/pydiggs.svg
         :target: https://travis-ci.com/github/xinp-hub/pydiggs
+        :alt: Build Status
 
 .. image:: https://readthedocs.org/projects/pydiggs/badge/?version=latest
         :target: https://pydiggs.readthedocs.io/en/latest/?version=latest
