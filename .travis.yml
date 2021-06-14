@@ -10,7 +10,7 @@ deploy:
   distributions: sdist bdist_wheel
   user: Xin.Peng
   password:
-    secure: PLEASE_REPLACE_ME
+    secure: eYZxJFPKrEEX9vdInzuXBCexu+WUk2Pdh3AP9QdW06BlhwGDkwZc1zWjPA38wPelGP2wU7g4ehQDj+6UWB74bcC787NQbmgh+ns9eS4XZD0+QSnSKmGwUS8ggepMIuKpKXLuw1idHhvkamZqfi9Rv4J9WX4wF1SmmX5RPEDylBbiZClNILaywCZJKUSi+VhhuCiB1EfYfzZ9qkT2darbKY8xNoQ9gRR4QwJ5Ib50EJDUZsJrJfjY0b2LrLJoqCYoGbYN/ooKNkXy6BQFJtzkX1jOnPsyh9yo22aN251zujAoT8dops0TCY0K3FFywNZCGNN2X+uGVZFf+qIP3BAaVksxAHB5k0F8BZkZeVz2WZ8Dj0jrbo1O6SbU/90P9S2EzUWLdTdGOLEN04Aq7DLZb2mqU0cApFU0z4SPHpavVBoDKx/sewpxElO+25J5PWWGHpWItx2dTIdAgvxTYWx7yfzviEFjICm+FU2dWmu+EX3JzcyhcaASP76svAb1SJ+j9HbUbbBqs/rbjrKJebIWDZHTB5PcjVoPs8KjqyL7ac+X5Q04jU29XPF/4zX2ihp8l7+/TXr+2MG6z60edQoPls5jsJkwdELGOriGUMofi+WdwdTM2mUNYBaOvj477zHgKPJQO3evmmdTMs5xlBS4Cr+Io18OIAX4btbJKrlMm+Y=
   on:
     tags: true
     repo: xinp_hub/pydiggs
