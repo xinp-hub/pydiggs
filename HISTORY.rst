@@ -2,7 +2,8 @@
 History
 =======
   
-0.0.3 (2021-06-13)
+0.1.0 (2021-06-14)
 ------------------
 
 * First release on PyPI.
+* DIGGS validation features have been added.
