@@ -43,7 +43,7 @@ setup(
     packages=find_packages(include=['pydiggs', 'pydiggs.*']),
     test_suite='tests',
     tests_require=test_requirements,
-    url='https://github.com/xinp_hub/pydiggs',
+    url='https://github.com/xinp-hub/pydiggs',
     version='0.0.3',
     zip_safe=False,
 )
