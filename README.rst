@@ -16,7 +16,7 @@ pydiggs
 
 
 .. image:: https://pyup.io/repos/github/xinp_hub/pydiggs/shield.svg
-     :target: https://pyup.io/repos/github/xinp_hub/pydiggs/
+     :target: https://pyup.io/account/repos/github/xinp-hub/pydiggs/
      :alt: Updates
 
 
