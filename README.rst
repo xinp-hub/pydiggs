@@ -30,4 +30,5 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 Features
 --------
 
-* TODO
+* Added Features for XML syntax and DIGGS Schema validation.
+* The validation process is also working with the Command Line Interface.

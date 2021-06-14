@@ -1,0 +1,5 @@
+jupyter
+lxml
+pytest
+pytest-runner
+rich
