@@ -8,4 +8,4 @@ To use pydiggs in a Python project::
 
 To use pydiggs in the Command Line Interface::
 
-    pydiggs check <Your_DIGGS_File_Name> or <Your_DIGGS_File_Path>
+    pydiggs check "Your_DIGGS_File_Name" or "Your_DIGGS_File_Path"
