@@ -32,13 +32,13 @@ You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/xinp_hub/pydiggs
+    $ git clone git://github.com/xinp-hub/pydiggs
 
 Or download the `tarball`_:
 
 .. code-block:: console
 
-    $ curl -OJL https://github.com/xinp_hub/pydiggs/tarball/master
+    $ curl -OJL https://github.com/xinp-hub/pydiggs/tarball/master
 
 Once you have a copy of the source, you can install it with:
 
@@ -47,5 +47,5 @@ Once you have a copy of the source, you can install it with:
     $ python setup.py install
 
 
-.. _Github repo: https://github.com/xinp_hub/pydiggs
-.. _tarball: https://github.com/xinp_hub/pydiggs/tarball/master
+.. _Github repo: https://github.com/xinp-hub/pydiggs
+.. _tarball: https://github.com/xinp-hub/pydiggs/tarball/master
