@@ -58,7 +58,10 @@ def validation(instance_file_name):
             error_log_file.write(str(err.error_log))
     
     except:
-        rprint('[red]Unknown error![/red]')def validate_against_schematron(xml_file, sch_file):
+        rprint('[red]Unknown error![/red]')
+
+
+def validate_against_schematron(xml_file, sch_file):
     '''Validate XML file against Schematron schema.
 
     Parameters
