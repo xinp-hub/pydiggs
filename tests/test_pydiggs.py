@@ -22,3 +22,11 @@ def test_content(response):
     """Sample pytest test function with the pytest fixture as an argument."""
     # from bs4 import BeautifulSoup
     # assert 'GitHub' in BeautifulSoup(response.content).title.string
+
+
+def test_validate_against_schematron(xml_file='tests/test_files/No_Error.xml', sch_file='tests/test_files/test_schematron.sch'):
+
+    error_log = pydiggs.validate_against_schematron(xml_file, sch_file)
+
+    assert "svrl:successful-report" in str(error_log)
+    assert "Project name is 'Demo Project'" in str(error_log)
