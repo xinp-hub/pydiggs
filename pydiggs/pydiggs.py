@@ -1,6 +1,6 @@
 """Main module."""
 
-from lxml import etree
+from lxml import etree, isoschematron
 import os.path
 from rich import print as rprint
 
@@ -59,3 +59,45 @@ def validation(instance_file_name):
     
     except:
         rprint('[red]Unknown error![/red]')
+
+
+def validate_against_schematron(xml_file, sch_file):
+    '''Validate XML file against Schematron schema.
+
+    Parameters
+    ----------
+    xml_file : str
+        Filepath to XML file to be validated
+    sch_file : str
+        Filepath to Schematron (.sch) file
+
+    Returns
+    -------
+    Prints error log.
+    '''
+
+    try:
+        # Read XML data
+        parsed_xml_tree = etree.parse(xml_file)
+
+        # Read Schmeatron schema
+        parsed_sch_tree = etree.parse(sch_file)
+
+        # The 'error_finder' kwarg is specified to return both failed asserts and successful reports.
+        # The default behavior is to only return failed asserts.
+        sch_schema = isoschematron.Schematron(parsed_sch_tree, error_finder=isoschematron.Schematron.ASSERTS_AND_REPORTS)
+
+        # Validate imported XML data against Schematron schema
+        sch_schema.validate(parsed_xml_tree)
+
+        return sch_schema.error_log
+
+    except etree.XMLSyntaxError as err:
+        # Error when parsing XML file
+        print('XMLSyntaxError:')
+        print(err)
+
+    except etree.SchematronParseError as err:
+        # Error when parsing Schematron file
+        print('SchematronParseError:')
+        print(err)
