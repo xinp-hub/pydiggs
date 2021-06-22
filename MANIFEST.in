@@ -3,6 +3,7 @@ include CONTRIBUTING.rst
 include HISTORY.rst
 include LICENSE
 include README.rst
+include requirements.txt
 
 recursive-include tests *
 recursive-include pydiggs/diggs-schema-2.5.a *
