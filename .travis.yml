@@ -14,7 +14,7 @@ deploy:
   cleanup: true
   skip_existing: true
   on:
-    tags: false
+    tags: true
     repo: xinp-hub/pydiggs
     python: 3.8
 env:
