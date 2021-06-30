@@ -1,4 +1,4 @@
-<Diggs xmlns="http://diggsml.org/schemas/2.5.d" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:diggs_geo="http://diggsml.org/schemas/2.5.a/geotechnical" xmlns:witsml="http://www.witsml.org/schemas/131" xmlns:glr="http://www.opengis.net/gml/3.3/lr" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:g3.3="http://www.opengis.net/gml/3.3/ce" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:diggs="http://diggsml.org/schemas/2.5.a" xmlns:glrov="http://www.opengis.net/gml/3.3/lrov" xsi:schemaLocation="http://diggsml.org/schemas/2.5.a https://raw.githubusercontent.com/DIGGSml/diggs-schema/2.5.a-dev/Complete.xsd" gml:id="T3TNWZ5LAXVWJBMESEHXZAEHQP3GQX7H0VGBHU6XKDFV3TNQS">
+<Diggs xmlns="http://diggsml.org/schemas/2.5.a" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:diggs_geo="http://diggsml.org/schemas/2.5.a/geotechnical" xmlns:witsml="http://www.witsml.org/schemas/131" xmlns:glr="http://www.opengis.net/gml/3.3/lr" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:g3.3="http://www.opengis.net/gml/3.3/ce" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:diggs="http://diggsml.org/schemas/2.5.a" xmlns:glrov="http://www.opengis.net/gml/3.3/lrov" xsi:schemaLocation="http://diggsml.org/schemas/2.5.a https://raw.githubusercontent.com/DIGGSml/diggs-schema/2.5.a-dev/Complete.xsd" gml:id="T3TNWZ5LAXVWJBMESEHXZAEHQP3GQX7H0VGBHU6XKDFV3TNQS">
     <documentInformation>
         <DocumentInformation gml:id="lu2c6-gevbb-lv9ga-nrhfq-fbjku">
             <creationDate>2021-03-28</creationDate>
@@ -196,7 +196,7 @@
                     <gml:name codeSpace="LADOTD">SH</gml:name>
                 </Specification>
             </samplingMethod>
-            <totalSampleRecoveryLength uom="in">24.0</totalSampleRecoveryLength> 
+            <totalSampleRecoveryLength uom="in">-24.0</totalSampleRecoveryLength> 
         </SamplingActivity>
     </samplingActivity>
     <samplingActivity>
@@ -217,7 +217,7 @@
                     <gml:name codeSpace="LADOTD">SH</gml:name>
                 </Specification>
             </samplingMethod>
-            <totalSampleRecoveryLength uom="in">24.0</totalSampleRecoveryLength> 
+            <totalSampleRecoveryLength uom="in">-24.0</totalSampleRecoveryLength> 
         </SamplingActivity>
     </samplingActivity>
     <samplingActivity>

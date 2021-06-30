@@ -5,7 +5,7 @@
 import pytest
 
 
-from pydiggs import pydiggs
+from pydiggs import validator
 
 
 @pytest.fixture
@@ -24,9 +24,38 @@ def test_content(response):
     # assert 'GitHub' in BeautifulSoup(response.content).title.string
 
 
-def test_validate_against_schematron(xml_file='tests/test_files/No_Error.xml', sch_file='tests/test_files/test_schematron.sch'):
+def test_schema_check_1(instance_path='tests/test_files/No_Error.xml'):
 
-    error_log = pydiggs.validate_against_schematron(xml_file, sch_file)
+    test = validator(instance_path)
+    test.schema_check()
+    error_log = test.schema_validation_log
+    assert error_log is None
 
-    assert "svrl:successful-report" in str(error_log)
-    assert "Project name is 'Demo Project'" in str(error_log)
+def test_schema_check_2(instance_path='tests/test_files/Syntax_Error_1.xml'):
+
+    test = validator(instance_path)
+    test.schema_check()
+    error_log = test.syntax_error_log
+    assert error_log is not None
+
+def test_schema_check_3(instance_path='tests/test_files/Schema_Error_1.xml'):
+
+    test = validator(instance_path)
+    test.schema_check()
+    error_log = test.schema_validation_log
+    assert error_log is not None
+
+def test_schematron_check_1(instance_path='tests/test_files/Schematron_Error_1.xml', schematron_path = 'tests/test_schematron_schema/test_schematron_1.sch'):
+
+    test = validator(instance_path, schematron_path = schematron_path)
+    test.schematron_check()
+    error_log = test.schematron_validation_log
+    assert error_log is None
+
+def test_schematron_check_2(instance_path='tests/test_files/Schematron_Error_1.xml', schematron_path = 'tests/test_schematron_schema/test_schematron_2.sch'):
+
+    test = validator(instance_path, schematron_path = schematron_path)
+    test.schematron_check()
+    error_log = test.schematron_validation_log
+    assert error_log is not None
+
