@@ -6,6 +6,7 @@ Development Lead
 ----------------
 
 * Xin Peng <xin_peng@outlook.com>
+* Asitha Senanayake <asitha.senanayake@utexas.edu>
 
 Contributors
 ------------
