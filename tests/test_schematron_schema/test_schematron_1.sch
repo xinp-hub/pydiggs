@@ -15,10 +15,4 @@
   </sch:rule>
 </sch:pattern>
 
-<sch:pattern>
-  <sch:rule context="diggs:Project">
-    <sch:report test="normalize-space(gml:name)='Demo Project'">Project name is 'Demo Project'.</sch:report>
-  </sch:rule>
-</sch:pattern>
-
 </sch:schema>

@@ -6,4 +6,12 @@ History
 ------------------
 
 * First release on PyPI.
-* DIGGS validation features have been added.
+* Added DIGGS Schema validation features.
+
+0.1.1 (2021-06-30)
+------------------
+
+* Created a "validator" Class is  to incorperate all the validation-related methods.
+* Added an argument to allow users specifiying a specific DIGGS Schema version for validation.
+* Added a Schematron validation method.
+* updated Documentation.
