@@ -14,4 +14,4 @@ History
 * Created a "validator" Class is  to incorperate all the validation-related methods.
 * Added an argument to allow users specifiying a specific DIGGS Schema version for validation.
 * Added a Schematron validation method.
-* updated Documentation.
+* Updated Documentation.
