@@ -16,6 +16,7 @@ deploy:
   on:
     tags: true
     repo: xinp-hub/pydiggs
+    branch: master
     python: 3.8
 env:
   global:
