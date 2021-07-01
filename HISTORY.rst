@@ -8,7 +8,7 @@ History
 * First release on PyPI.
 * Added DIGGS Schema validation features.
 
-0.1.1 (2021-06-30)
+0.1.2 (2021-06-30)
 ------------------
 
 * Created a "validator" Class is  to incorperate all the validation-related methods.
