@@ -3,28 +3,33 @@
 from lxml import etree, isoschematron
 import os.path
 from rich import print as rprint
+import xml.etree.ElementTree as ET
+import re
 
 
 class validator():
     """A Python Class for validating DIGGS instance files.
     """
 
-    def __init__(self, instance_path=None, schema_path=None, schematron_path=None):
+    def __init__(self, instance_path=None, schema_path=None, dictionary_path=None, schematron_path=None):
         """Initialize the arguments within the validator class.
 
         Args:
             instance_path (string, optional): Relative or full path of the DIGGS instance file. Defaults to None.
             schema_path (string, optional): Relative or full path of the DIGGS schema file. Defaults to None.
+            dictionary_path (string, optional): Relative or full path of the DIGGS dictionary file. Defaults to None.
             schematron_path (string, optional): Relative or full path of DIGGS schematron schema file. Defaults to None.
         """
 
         self.instance_path = instance_path
         self.schema_path = schema_path
+        self.dictionary_path = dictionary_path
         self.schematron_path = schematron_path
 
         self.syntax_error_log = None
         self.schema_validation_log = None
         self.schema_error_log = None
+        self.dictionary_error_log = None
         self.schematron_error_log = None
         self.schematron_validation_log = None
 
@@ -71,6 +76,41 @@ class validator():
                 self.schema_error_log = err
                 with open('schema_parse_error.log', 'w') as error_log_file:
                     error_log_file.write(str(self.schema_error_log))
+
+    def dictionary_check(self):
+        """Function to verify that definitions used in a DIGGS files.
+        """
+
+        if self.instance_path is not None:
+            try:
+                # Parse XML instance file:
+                rprint('[green]No syntax error is detected.[/green]')
+                propertyClass_set = self._get_propertyClass_values_from_instance_file()
+
+                # Parse DIGGS dictionary
+                if self.dictionary_path is None:
+                    self.dictionary_path = os.path.dirname(__file__) + '/DIGGSTestPropertyDefinitions.xml'
+
+                definition_id_set = self._get_definitions_from_dictionary()
+
+                # Check definitions
+                undefined_properties = propertyClass_set.difference(definition_id_set)
+
+                if undefined_properties:
+                    rprint('[red]Check failed!\nFollowing propertyClass entries were not found in the standard dictionary:[/red]')
+                    for item in undefined_properties:
+                        # Find potential matches
+                        temp = re.split(r'\s+|_+', item)
+                #         potential_matches = [val for val in definition_id_set if temp in val]
+                        potential_matches = [val for val in definition_id_set if any(x in val for x in temp)]
+
+                        rprint(f'[red]  {item:<25}(Did you mean any of these? {", ".join(potential_matches)})[/red]')
+                else:
+                    rprint('[green]Check passed![/green]')
+
+            # Check for file IO error:
+            except IOError:
+                rprint('[red]Invalid file path or file name. [/red]')
 
     def schematron_check(self):
         """Function to check schematron rules.
@@ -119,3 +159,40 @@ class validator():
                 self.schematron_error_log = err
                 with open('schematron_parse_error.log', 'w') as error_log_file:
                     error_log_file.write(str(self.schematron_error_log))
+
+    def _get_definitions_from_dictionary(self):
+        """Extract test definitions from DIGGS dictionary.
+        """
+
+        dictionary_tree = etree.parse(self.dictionary_path)
+        dictionary_root = dictionary_tree.getroot()
+
+        # Get namespaces used in the dictionary file
+        dictionary_ns = dict([node for _, node in ET.iterparse(self.dictionary_path, events=['start-ns'])])
+
+        # Extract definitions in the dictionary file to a Python set
+        definition_id_set = set()
+
+        for child in dictionary_root.findall('.//Definition', dictionary_ns):
+            definition_id_set.add(child.attrib['{http://www.opengis.net/gml/3.2}id'])
+
+        return definition_id_set
+
+    def _get_propertyClass_values_from_instance_file(self):
+        """Extract all propertyClass entries from data file.
+        """
+
+        # Load data in to element tree
+        data_tree = ET.parse(self.instance_path)
+        data_root = data_tree.getroot()
+
+        # Get namespaces used in the data file
+        data_ns = dict([node for _, node in ET.iterparse(self.instance_path, events=['start-ns'])])
+
+        # Extract propertyClass values in the data file in to a Python set
+        propertyClass_set = set()
+
+        for child in data_root.findall('.//propertyClass', data_ns):
+            propertyClass_set.add(child.text)
+
+        return propertyClass_set
