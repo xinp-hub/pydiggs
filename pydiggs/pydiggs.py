@@ -72,9 +72,6 @@ class validator():
                 with open('schema_parse_error.log', 'w') as error_log_file:
                     error_log_file.write(str(self.schema_error_log))
 
-            except:
-                rprint('[red]Unknown error.[/red]')
-
     def schematron_check(self):
         """Function to check schematron rules.
         """
@@ -122,6 +119,3 @@ class validator():
                 self.schematron_error_log = err
                 with open('schematron_parse_error.log', 'w') as error_log_file:
                     error_log_file.write(str(self.schematron_error_log))
-
-            except:
-                rprint('[red]Unknown error.[/red]')
