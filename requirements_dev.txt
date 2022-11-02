@@ -7,6 +7,6 @@ tox==3.23.1
 coverage==5.5
 Sphinx==4.0.2
 pytest==6.2.4
-lxml==4.7.1
+lxml==4.9.1
 rich==10.4.0
 myst_parser==0.15.1
