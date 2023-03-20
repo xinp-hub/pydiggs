@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pydiggs"
-version = "0.1.3a0"
+version = "0.1.3"
 description = "A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)."
 authors = ["xin.peng <xin_peng@outlook.com>"]
 license = "GPL-3.0"
