@@ -8,13 +8,12 @@ Welcome to pydiggs's documentation!
    readme
    installation
    usage
-   modules
    contributing
    authors
    history
 
 Indices and tables
 ==================
-* :ref:`genindex`
-* :ref:`modindex`
+.. * :ref:`genindex`
+.. * :ref:`modindex`
 * :ref:`search`

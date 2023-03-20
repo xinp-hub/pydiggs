@@ -1,0 +1,21 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: check-yaml
+      - id: debug-statements
+      # - id: end-of-file-fixer
+      # - id: trailing-whitespace
+  # - repo: local
+  #   hooks:
+  #     - id: pylint
+  #       name: pylint
+  #       entry: pylint
+  #       exclude: ^(tests/)
+  #       language: system
+  #       types: [python]
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: "v1.1.1"
+  #   hooks:
+  #     - id: mypy
+  #       exclude: ^(tests/)
