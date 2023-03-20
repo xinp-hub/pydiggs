@@ -1,6 +1,6 @@
 """Main module."""
 
-from lxml import etree, isoschematron
+from lxml import etree, isoschematron # type: ignore
 import os.path
 from rich import print as rprint
 import xml.etree.ElementTree as ET
@@ -173,8 +173,8 @@ class validator():
         # Extract definitions in the dictionary file to a Python set
         definition_id_set = set()
 
-        for child in dictionary_root.findall('.//Definition/gml:identifier', dictionary_ns):
-            definition_id_set.add(child.text.strip())
+        for child in dictionary_root.findall('.//Definition', dictionary_ns):
+            definition_id_set.add(child.attrib['{http://www.opengis.net/gml/3.2}id'])
 
         return definition_id_set
 
