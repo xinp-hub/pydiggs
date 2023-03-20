@@ -6,8 +6,8 @@ pydiggs
 .. image:: https://img.shields.io/pypi/v/pydiggs.svg
         :target: https://pypi.python.org/pypi/pydiggs
 
-.. image:: https://travis-ci.com/xinp-hub/pydiggs.svg?branch=master
-        :target: https://travis-ci.com/github/xinp-hub/pydiggs
+.. image:: https://github.com/xinp-hub/pydiggs/actions/workflows/python-package.yml/badge.svg
+        :target: https://github.com/xinp-hub/pydiggs/actions/workflows/python-package.yml
         :alt: Build Status
 
 .. image:: https://readthedocs.org/projects/pydiggs/badge/?version=latest
