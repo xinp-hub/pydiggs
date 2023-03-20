@@ -32,4 +32,4 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 Features
 --------
 
-* Validate DIGGS instance files against DIGGS XSD and Schematron schemas.
+* Validate DIGGS instance files against DIGGS XSD, Schematron schemas, and XML Dictionaries.
