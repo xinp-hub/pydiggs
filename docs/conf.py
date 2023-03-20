@@ -47,7 +47,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'pydiggs'
-copyright = "2021, Xin Peng"
+copyright = "2023, Xin Peng"
 author = "Xin Peng"
 
 # The version info for the project you're documenting, acts as replacement
