@@ -2,19 +2,19 @@
 Usage
 =====
 
-DIGGS `validator`
+DIGGS `Validator`
 ------------------
 
 1. Using Jupyter Notebooks or py files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To use `validator` in a Python project::
+To use `Validator` in a Python project::
 
-    from pydiggs import validator
+    from pydiggs import Validator
 
-Create a `validator` object for the target DIGGS instance file::
+Create a `Validator` object for the target DIGGS instance file::
 
-    validation = validator("DIGGS_Instance_File_Path")
+    validation = Validator("DIGGS_Instance_File_Path")
 
 Validate the DIGGS instance file against the default DIGGS XSD Schema::
 
@@ -22,7 +22,7 @@ Validate the DIGGS instance file against the default DIGGS XSD Schema::
 
 Validate the DIGGS instance file against a specific version of the DIGGS XSD Schema::
 
-    validation = validator("DIGGS_Instance_File_Path", schema_path = "DIGGS_Schema_File_Path")
+    validation = Validator("DIGGS_Instance_File_Path", schema_path = "DIGGS_Schema_File_Path")
     validation.schema_check()
 
 Print validation log::
@@ -31,12 +31,12 @@ Print validation log::
 
 Validate against a Schematron Schema::
 
-    validation = validator("DIGGS_Instance_File_Path", schematron_path = "DIGGS_Schematron_File_Path")
+    validation = Validator("DIGGS_Instance_File_Path", schematron_path = "DIGGS_Schematron_File_Path")
     validation.schematron_check()
 
 Validate against the standard XML Dictionary file::
 
-    validation = validator("DIGGS_Instance_File_Path")
+    validation = Validator("DIGGS_Instance_File_Path")
     validation.dictionary_check()
 
 
