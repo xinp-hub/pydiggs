@@ -30,9 +30,11 @@ jobs:
           poetry-version: 1.4.1
     - name: Install dependencies # install all dependencies
       run: poetry install
-#     - name: Pylint # Run pylint static analysis
-#       run: |
-#         poetry run pylint pydiggs
+    - name: Linting # Run pylint static analysis
+      run: |
+          poetry run black --check --diff --color pydiggs
+          poetry run isort --check-only pydiggs
+          poetry run pylint pydiggs
     - name: mypy  # Run mypy static analysis
       run: |
         poetry run mypy -p pydiggs
