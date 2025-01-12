@@ -19,3 +19,11 @@
 * Switched CI/CD workflows from Travis CI to GitHub Actions.
 * Updated the package publishing method to adopt Poetry.
 * Updated Documentation.
+
+0.1.4 (2025-01-12)
+------------------
+
+* Updated the default schema version to 2.6.
+* Added new test files for schema V2.6 schema validation.
+.. * Updated the dictionary validation method to support online checking "DIGGS Code Lists and Measurement Properties Dictionaries".
+.. * Updated the documentation.

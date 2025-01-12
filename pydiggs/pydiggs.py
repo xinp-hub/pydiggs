@@ -45,7 +45,9 @@ class validator():
 
                 # Parse DIGGS schema:
                 if self.schema_path is None:
-                    self.schema_path = os.path.dirname(__file__) + '/diggs-schema-2.5.a/Complete.xsd'
+                    # self.schema_path = os.path.dirname(__file__) + '/schemas/diggs-schema-2.5.a/Complete.xsd'
+                    self.schema_path = os.path.dirname(__file__) + '/schemas/diggs-schema-2.6/Diggs.xsd'
+
                 schema_doc = etree.parse(self.schema_path)
                 diggs_schema = etree.XMLSchema(schema_doc)
 
