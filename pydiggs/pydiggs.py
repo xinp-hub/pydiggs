@@ -91,22 +91,29 @@ class validator():
 
                 # Parse DIGGS dictionary
                 if self.dictionary_path is None:
-                    self.dictionary_path = os.path.dirname(__file__) + '/DIGGSTestPropertyDefinitions.xml'
+                    # self.dictionary_path = os.path.dirname(__file__) + '/dictionaries/DIGGSTestPropertyDefinitions.xml'
+                    self.dictionary_path = os.path.dirname(__file__) + '/dictionaries/properties.xml'
 
                 definition_id_set = self._get_definitions_from_dictionary()
-
                 # Check definitions
                 undefined_properties = propertyClass_set.difference(definition_id_set)
 
                 if undefined_properties:
                     rprint('[red]Check failed!\nFollowing propertyClass entries were not found in the standard dictionary:[/red]')
-                    for item in undefined_properties:
+                    self.dictionary_validation_log = []
+                    # Sort undefined properties for consistent order
+                    for item in sorted(undefined_properties):
                         # Find potential matches
                         temp = re.split(r'\s+|_+', item)
-                #         potential_matches = [val for val in definition_id_set if temp in val]
-                        potential_matches = [val for val in definition_id_set if any(x in val for x in temp)]
-
-                        rprint(f'[red]  {item:<25}(Did you mean any of these? {", ".join(potential_matches)})[/red]')
+                        # Sort potential matches for consistent order
+                        potential_matches = sorted([val for val in definition_id_set if any(x in val for x in temp)])
+                        
+                        error_msg = f"{item:<25}(Did you mean any of these? {', '.join(potential_matches)})"
+                        self.dictionary_validation_log.append(error_msg)
+                        rprint(f'[red]  {error_msg}[/red]')
+                    
+                    with open('dictionary_validation.log', 'w') as error_log_file:
+                        error_log_file.write('\n'.join(self.dictionary_validation_log))
                 else:
                     rprint('[green]Check passed![/green]')
 
@@ -175,8 +182,13 @@ class validator():
         # Extract definitions in the dictionary file to a Python set
         definition_id_set = set()
 
-        for child in dictionary_root.findall('.//Definition', dictionary_ns):
+        for child in dictionary_root.findall('.//diggs:Definition', dictionary_ns):
             definition_id_set.add(child.attrib['{http://www.opengis.net/gml/3.2}id'])
+
+        # save the set to a file
+        with open('definition_id_set.txt', 'w') as file:
+            for item in definition_id_set:
+                file.write(f"{item}\n")
 
         return definition_id_set
 
