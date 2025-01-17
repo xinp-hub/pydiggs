@@ -57,3 +57,23 @@ exclude_lines = [
     "pass",
     "raise ImportError",
 ]
+
+[tool.pylint.MASTER]
+extension-pkg-allow-list = ["lxml.etree"]
+max-line-length = 100
+ignore-paths = ["tests/*"]
+
+[tool.pylint.BASIC]
+good-names = ["i", "j", "k", "ex", "Run", "_", "fp"]
+
+[tool.pylint.MESSAGES_CONTROL]
+disable = [
+    "C0111",  # missing-docstring
+    "C0103",  # invalid-name
+]
+
+[tool.pylint.FORMAT]
+max-line-length = 100
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = ["C0111", "C0103"]  # missing-docstring, invalid-name
