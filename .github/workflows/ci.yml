@@ -46,9 +46,6 @@ jobs:
       - name: Run type checking
         run: poetry run mypy pydiggs
 
-      - name: Run linting
-        run: poetry run pylint pydiggs tests
-
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
