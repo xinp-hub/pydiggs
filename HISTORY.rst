@@ -20,10 +20,12 @@
 * Updated the package publishing method to adopt Poetry.
 * Updated Documentation.
 
-0.1.4 (2025-01-12)
+0.1.4 (2025-01-17)
 ------------------
 
 * Updated the default schema version to 2.6.
 * Added new test files for schema V2.6 schema validation.
-.. * Updated the dictionary validation method to support online checking "DIGGS Code Lists and Measurement Properties Dictionaries".
-.. * Updated the documentation.
+* Updated the default dictionary validation xml file to be consistent with the "DIGGS Measurement Properties" dictionary in "DIGGS Code Lists and Measurement Properties Dictionaries V0.1". (Note: if you want to validate against other dictionaries in "DIGGS Code Lists and Measurement Properties Dictionaries V0.1", you can download the dictionary file from the DIGGS website and specify the dictionary path in the validator class.)
+* Updated the pytest file for testing the updates above.
+* Updated the minimum python version to 3.10 to support the latest versions of dependencies.
+* Updated the dependencies with the latest versions.
