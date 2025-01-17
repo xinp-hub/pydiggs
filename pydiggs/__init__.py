@@ -1,7 +1,13 @@
-# """Top-level package for pydiggs."""
+"""A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 
-__author__ = """Xin Peng"""
-__email__ = 'xin_peng@outlook.com'
-__version__ = '0.1.3a'
+This package provides tools for validating DIGGS instance files against:
+1. XML Schema (XSD)
+2. DIGGS Dictionary
+3. Schematron Rules
 
-from .pydiggs import *
+For more information about DIGGS, visit: http://www.diggsml.org/
+"""
+
+from .pydiggs import Validator
+
+__all__ = ['Validator']
