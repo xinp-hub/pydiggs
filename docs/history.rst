@@ -1,5 +1,0 @@
-=======
-History
-=======
-
-.. include:: ../HISTORY.rst
