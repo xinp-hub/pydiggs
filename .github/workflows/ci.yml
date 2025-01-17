@@ -45,9 +45,3 @@ jobs:
 
       - name: Run type checking
         run: poetry run mypy pydiggs
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: true
