@@ -22,6 +22,7 @@ packages = [{include = "pydiggs"}]
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.4"
+pytest-cov = "^4.1.0"
 coverage = "^7.6.10"
 pylint = "^3.3.3"
 virtualenv = "^20.29.1"
@@ -37,3 +38,22 @@ mkdocs-autorefs = "^0.5.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = "--cov=pydiggs --cov-report=xml --cov-report=term-missing"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["pydiggs"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]

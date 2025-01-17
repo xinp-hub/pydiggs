@@ -41,7 +41,7 @@ jobs:
 
       - name: Run tests
         run: |
-          poetry run pytest tests/ --cov=pydiggs --cov-report=xml
+          poetry run pytest
 
       - name: Run type checking
         run: poetry run mypy pydiggs
