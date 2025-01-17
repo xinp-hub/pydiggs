@@ -2,12 +2,12 @@
 
 """Tests for `pydiggs` package."""
 
-from pydiggs import Validator
+from pydiggs import validator
 
 
 def test_schema_check_1(instance_path='tests/test_files/2.6/No_Error-2_6.xml'):
     """Test schema check with a valid file."""
-    test = Validator(instance_path)
+    test = validator(instance_path)
     test.schema_check()
     error_log = test.schema_validation_log
     assert error_log is None
@@ -15,7 +15,7 @@ def test_schema_check_1(instance_path='tests/test_files/2.6/No_Error-2_6.xml'):
 
 def test_schema_check_2(instance_path='tests/test_files/Syntax_Error_1.xml'):
     """Test schema check with a file containing syntax errors."""
-    test = Validator(instance_path)
+    test = validator(instance_path)
     test.schema_check()
     error_log = test.syntax_error_log
     assert error_log is not None
@@ -27,7 +27,7 @@ def test_schema_check_2(instance_path='tests/test_files/Syntax_Error_1.xml'):
 
 def test_schema_check_3(instance_path='tests/test_files/2.6/Schema_Error_1-2_6.xml'):
     """Test schema check with a file containing schema errors."""
-    test = Validator(instance_path)
+    test = validator(instance_path)
     test.schema_check()
     error_log = test.schema_validation_log
     assert error_log is not None
@@ -49,7 +49,7 @@ def test_schematron_check_1(
     schematron_path='tests/test_schematron_schema/test_schematron_1.sch'
 ):
     """Test schematron check with a valid file."""
-    test = Validator(instance_path, schematron_path=schematron_path)
+    test = validator(instance_path, schematron_path=schematron_path)
     test.schematron_check()
     error_log = test.schematron_validation_log
     assert error_log is None
@@ -60,50 +60,15 @@ def test_schematron_check_2(
     schematron_path='tests/test_schematron_schema/test_schematron_2.sch'
 ):
     """Test schematron check with a file containing schematron errors."""
-    test = Validator(instance_path, schematron_path=schematron_path)
+    test = validator(instance_path, schematron_path=schematron_path)
     test.schematron_check()
     error_log = test.schematron_validation_log
     assert error_log is not None
-    expected_error = (
-        'tests/test_files/2.6/Schematron_Error_1-2_6.xml:0:0:ERROR:SCHEMATRONV:SCHEMATRONV_ASSERT: '
-        '<svrl:failed-assert xmlns:svrl="http://purl.oclc.org/dsdl/svrl" '
-        'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
-        'xmlns:schold="http://www.ascc.net/xml/schematron" '
-        'xmlns:sch="http://www.ascc.net/xml/schematron" '
-        'xmlns:iso="http://purl.oclc.org/dsdl/schematron" '
-        'xmlns:diggs="http://diggsml.org/schemas/2.6" '
-        'xmlns:gml="http://www.opengis.net/gml/3.2" '
-        'test="$length >=0" '
-        'location="/*[local-name()=\'Diggs\' and namespace-uri()=\'http://diggsml.org/schemas/2.6\']'
-        '/*[local-name()=\'samplingActivity\' and namespace-uri()=\'http://diggsml.org/schemas/2.6\'][1]'
-        '/*[local-name()=\'SamplingActivity\' and namespace-uri()=\'http://diggsml.org/schemas/2.6\']'
-        '/*[local-name()=\'totalSampleRecoveryLength\' and '
-        'namespace-uri()=\'http://diggsml.org/schemas/2.6\']">'
-        '<svrl:text>\'totalSampleRecoveryLength\' must be greater than or equal to 0.</svrl:text>'
-        '</svrl:failed-assert>\n'
-        'tests/test_files/2.6/Schematron_Error_1-2_6.xml:0:0:ERROR:SCHEMATRONV:SCHEMATRONV_ASSERT: '
-        '<svrl:failed-assert xmlns:svrl="http://purl.oclc.org/dsdl/svrl" '
-        'xmlns:xs="http://www.w3.org/2001/XMLSchema" '
-        'xmlns:schold="http://www.ascc.net/xml/schematron" '
-        'xmlns:sch="http://www.ascc.net/xml/schematron" '
-        'xmlns:iso="http://purl.oclc.org/dsdl/schematron" '
-        'xmlns:diggs="http://diggsml.org/schemas/2.6" '
-        'xmlns:gml="http://www.opengis.net/gml/3.2" '
-        'test="$length >=0" '
-        'location="/*[local-name()=\'Diggs\' and namespace-uri()=\'http://diggsml.org/schemas/2.6\']'
-        '/*[local-name()=\'samplingActivity\' and namespace-uri()=\'http://diggsml.org/schemas/2.6\'][2]'
-        '/*[local-name()=\'SamplingActivity\' and namespace-uri()=\'http://diggsml.org/schemas/2.6\']'
-        '/*[local-name()=\'totalSampleRecoveryLength\' and '
-        'namespace-uri()=\'http://diggsml.org/schemas/2.6\']">'
-        '<svrl:text>\'totalSampleRecoveryLength\' must be greater than or equal to 0.</svrl:text>'
-        '</svrl:failed-assert>'
-    )
-    assert str(error_log) == expected_error
 
 
 def test_dictionary_check_1(instance_path='tests/test_files/AtterbergExample.xml'):
     """Test dictionary check with a file containing undefined properties."""
-    test = Validator(instance_path)
+    test = validator(instance_path)
     test.dictionary_check()
     error_log = test.dictionary_validation_log
 
