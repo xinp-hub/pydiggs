@@ -4,8 +4,8 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/pydiggs)](https://pypi.org/project/pydiggs)
 [![Downloads](https://static.pepy.tech/badge/pydiggs)](https://pepy.tech/project/pydiggs)
 [![Downloads/Month](https://static.pepy.tech/badge/pydiggs/month)](https://pepy.tech/project/pydiggs)
-[![Build Status](https://github.com/xinp-hub/pydiggs/actions/workflows/python-package.yml/badge.svg)](https://github.com/xinp-hub/pydiggs/actions/workflows/python-package.yml)
-[![Documentation Status](https://img.shields.io/github/actions/workflow/status/xinp-hub/pydiggs/documentation.yml?label=docs)](https://xinp-hub.github.io/pydiggs/)
+[![Build Status](https://github.com/xinp-hub/pydiggs/actions/workflows/ci.yml/badge.svg)](https://github.com/xinp-hub/pydiggs/actions/workflows/ci.yml)
+[![Documentation Status](https://github.com/xinp-hub/pydiggs/actions/workflows/docs.yml/badge.svg)](https://xinp-hub.github.io/pydiggs/)
 [![Updates](https://pyup.io/repos/github/xinp-hub/pydiggs/shield.svg)](https://pyup.io/account/repos/github/xinp-hub/pydiggs/)
 
 A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
