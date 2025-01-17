@@ -189,11 +189,6 @@ class validator():
         for child in dictionary_root.findall('.//diggs:Definition', dictionary_ns):
             definition_id_set.add(child.attrib['{http://www.opengis.net/gml/3.2}id'])
 
-        # save the set to a file
-        with open('definition_id_set.txt', 'w') as file:
-            for item in definition_id_set:
-                file.write(f"{item}\n")
-
         return definition_id_set
 
     def _get_propertyClass_values_from_instance_file(self):
