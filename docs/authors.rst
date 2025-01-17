@@ -1,5 +1,0 @@
-=======
-Credits
-=======
-
-.. include:: ../AUTHORS.rst
