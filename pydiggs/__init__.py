@@ -8,6 +8,6 @@ This package provides tools for validating DIGGS instance files against:
 For more information about DIGGS, visit: http://www.diggsml.org/
 """
 
-from .pydiggs import Validator
+from .pydiggs import validator
 
-__all__ = ['Validator']
+__all__ = ['validator']

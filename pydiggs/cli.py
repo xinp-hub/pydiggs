@@ -2,7 +2,7 @@
 import argparse
 import sys
 
-from pydiggs import Validator
+from pydiggs import validator
 
 
 def main():
@@ -42,17 +42,17 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'schema_check':
-        validation = Validator(args.diggs_file[0])
+        validation = validator(args.diggs_file[0])
         if args.schema_path is not None:
-            validation = Validator(args.diggs_file[0], schema_path=args.schema_path[0])
+            validation = validator(args.diggs_file[0], schema_path=args.schema_path[0])
         validation.schema_check()
 
     if args.command == 'schematron_check' and args.schematron_path is not None:
-        validation = Validator(args.diggs_file[0], schematron_path=args.schematron_path[0])
+        validation = validator(args.diggs_file[0], schematron_path=args.schematron_path[0])
         validation.schematron_check()
 
     if args.command == 'dictionary_check':
-        validation = Validator(args.diggs_file[0])
+        validation = validator(args.diggs_file[0])
         validation.dictionary_check()
 
 
