@@ -1,11 +1,11 @@
 [project]
 name = "pydiggs"
-version = "0.1.4"
+version = "0.1.5"
 description = "A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)."
 authors = [
     {name = "xin.peng", email = "xin_peng@outlook.com"}
 ]
-license = {text = "GPL-3.0"}
+license = {text = "Apache-2.0"}
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

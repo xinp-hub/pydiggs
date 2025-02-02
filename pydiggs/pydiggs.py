@@ -1,14 +1,30 @@
+"""
+Copyright 2021-2025 Xin Peng
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
 """A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 
 This module provides functionality for validating DIGGS instance files against schemas,
 dictionaries, and schematron rules.
 """
 
-from lxml import etree, isoschematron # type: ignore
 import os.path
-from rich import print as rprint
-import xml.etree.ElementTree as ET
 import re
+import xml.etree.ElementTree as ET
+from lxml import etree, isoschematron  # type: ignore
+from rich import print as rprint
 
 
 class validator():
@@ -67,7 +83,7 @@ class validator():
                     self.schema_validation_log = diggs_schema.error_log
                     if self.output_log:
                         rprint('[red]DIGGS Schema validation error, see [bold]schema_validation.log[/bold] file in detail. [/red]')
-                        with open('schema_validation.log', 'w') as error_log_file:
+                        with open('schema_validation.log', 'w', encoding='utf-8') as error_log_file:
                             error_log_file.write(str(self.schema_validation_log))
                     else:
                         rprint('[red]DIGGS Schema validation error:[/red]')
@@ -82,7 +98,7 @@ class validator():
                 self.syntax_error_log = err
                 if self.output_log:
                     rprint('[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]')
-                    with open('syntax_error.log', 'w') as error_log_file:
+                    with open('syntax_error.log', 'w', encoding='utf-8') as error_log_file:
                         error_log_file.write(str(self.syntax_error_log))
                 else:
                     rprint('[red]XML syntax error:[/red]')
@@ -95,7 +111,7 @@ class validator():
                 self.schema_error_log = err
                 if self.output_log:
                     rprint('[red]Schema parse error, see [bold]schema_parse_error.log[/bold] file in detail. [/red]')
-                    with open('schema_parse_error.log', 'w') as error_log_file:
+                    with open('schema_parse_error.log', 'w', encoding='utf-8') as error_log_file:
                         error_log_file.write(str(self.schema_error_log))
                 else:
                     print("Schema parse error:", self.schema_error_log)
@@ -128,13 +144,12 @@ class validator():
                         temp = re.split(r'\s+|_+', item)
                         # Sort potential matches for consistent order
                         potential_matches = sorted([val for val in definition_id_set if any(x in val for x in temp)])
-                        
                         error_msg = f"{item:<25}(Did you mean any of these? {', '.join(potential_matches)})"
                         self.dictionary_validation_log.append(error_msg)
                         rprint(f'[red]  {error_msg}[/red]')
                     
                     if self.output_log:
-                        with open('dictionary_validation.log', 'w') as error_log_file:
+                        with open('dictionary_validation.log', 'w', encoding='utf-8') as error_log_file:
                             error_log_file.write('\n'.join(self.dictionary_validation_log))
                 else:
                     rprint('[green]Check passed![/green]')
@@ -171,7 +186,7 @@ class validator():
                     self.schematron_validation_log = diggs_schematron.error_log
                     if self.output_log:
                         rprint('[red]DIGGS schematron validation Error, see [bold]schematron_validation.log[/bold] file in detail. [/red]')
-                        with open('schematron_validation.log', 'w') as error_log_file:
+                        with open('schematron_validation.log', 'w', encoding='utf-8') as error_log_file:
                             error_log_file.write(str(self.schematron_validation_log))
                     else:
                         rprint('[red]DIGGS schematron validation Error:[/red]')
@@ -186,7 +201,7 @@ class validator():
                 self.syntax_error_log = err
                 if self.output_log:
                     rprint('[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]')
-                    with open('syntax_error.log', 'w') as error_log_file:
+                    with open('syntax_error.log', 'w', encoding='utf-8') as error_log_file:
                         error_log_file.write(str(self.syntax_error_log))
                 else:
                     rprint('[red]XML syntax error:[/red]')
@@ -197,7 +212,7 @@ class validator():
                 self.schematron_error_log = err
                 if self.output_log:
                     rprint('[red]Schematron parse error, see [bold]schematron_parse_error.log[/bold] file in detail. [/red]')
-                    with open('schematron_parse_error.log', 'w') as error_log_file:
+                    with open('schematron_parse_error.log', 'w', encoding='utf-8') as error_log_file:
                         error_log_file.write(str(self.schematron_error_log))
                 else:
                     rprint('[red]Schematron parse error:[/red]')

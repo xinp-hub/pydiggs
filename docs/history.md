@@ -32,4 +32,5 @@
 ## 0.1.5 (2025-02-02)
 
 * Added a new argument to allow users to specify whether to output the log files.
+* Changed license from GNU General Public License v3 to Apache License 2.0.
 * Updated the documentation.

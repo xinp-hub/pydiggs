@@ -2,65 +2,131 @@ site_name: pyDIGGS
 site_description: A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)
 repo_url: https://github.com/xinp-hub/pydiggs
 repo_name: xinp-hub/pydiggs
+edit_uri: edit/main/docs/
 
 theme:
   name: material
+  # logo: assets/logo.svg
+  # favicon: assets/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+  font:
+    text: Roboto
+    code: Roboto Mono
   palette:
-    - scheme: slate
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: indigo
-      accent: indigo
+      accent: blue
       toggle:
-        icon: material/brightness-auto
-        name: Switch to light mode
-    - scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
+        icon: material/weather-sunny
         name: Switch to dark mode
-    - scheme: slate
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: indigo
-      accent: indigo
+      accent: blue
       toggle:
-        icon: material/brightness-4
-        name: Switch to system preference
+        icon: material/weather-night
+        name: Switch to light mode
   features:
     - navigation.instant
     - navigation.tracking
     - navigation.sections
     - navigation.expand
     - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - toc.follow
     - search.highlight
     - search.share
-    - toc.follow
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - content.tooltips
+    - announce.dismiss
 
 plugins:
   - search
+  - tags
   - mkdocstrings:
       default_handler: python
       handlers:
         python:
           options:
             show_source: true
+            show_root_heading: true
+            show_category_heading: true
+            show_bases: true
   - autorefs
 
 markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      title: On this page
+  
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
   - pymdownx.superfences
-  - admonition
-  - pymdownx.details
   - pymdownx.tabbed:
       alternate_style: true
-  - tables
-  - footnotes
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/xinp-hub/pydiggs
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pydiggs/
+  generator: false
+  consent:
+    title: Cookie consent
+    description: >- 
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+    actions:
+      - accept
+      - reject
+      - manage
+
+extra_css:
+  - assets/stylesheets/extra.css
+
+extra_javascript:
+  - assets/javascripts/extra.js
 
 nav:
   - Home: index.md
-  - Installation: installation.md
-  - Usage: usage.md
-  - Contributing: contributing.md
-  - Authors: authors.md
-  - History: history.md 
+  - Getting Started:
+    - Installation: installation.md
+    - Usage: usage.md
+  - Development:
+    - Contributing: contributing.md
+    - Authors: authors.md
+    - History: history.md 

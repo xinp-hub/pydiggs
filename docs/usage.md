@@ -2,53 +2,95 @@
 
 ## DIGGS `validator`
 
-### 1. Using Jupyter Notebooks or py files
+The DIGGS validator provides three types of validation:
+1. Schema validation against XSD files
+2. Dictionary validation against standard property definitions
+3. Schematron validation against business rules
 
-To use `validator` in a Python project:
+For all validation types, you can control the error output:
+```python
+# By default, validation errors will be written to log files
+validation = validator("DIGGS_Instance_File_Path", output_log=True)
+
+# To print validation errors directly instead of writing to log files
+validation = validator("DIGGS_Instance_File_Path", output_log=False)
+```
+
+### 1. Schema Validation
+
+#### Using Python
 
 ```python
 from pydiggs import validator
 
-# Create a validator object for the target DIGGS instance file
+# Using default DIGGS Schema (version 2.6)
 validation = validator("DIGGS_Instance_File_Path")
-
-# Validate the DIGGS instance file against the default DIGGS XSD Schema
 validation.schema_check()
 
-# Validate the DIGGS instance file against a specific version of the DIGGS XSD Schema
+# Using a specific DIGGS Schema version
 validation = validator("DIGGS_Instance_File_Path", schema_path="DIGGS_Schema_File_Path")
 validation.schema_check()
 
-# Print validation log
-print(validation.schema_validation_log)
-
-# Validate against a Schematron Schema
-validation = validator("DIGGS_Instance_File_Path", schematron_path="DIGGS_Schematron_File_Path")
-validation.schematron_check()
-
-# Validate against the standard XML Dictionary file
-validation = validator("DIGGS_Instance_File_Path")
-validation.dictionary_check()
+# Access schema validation results
+print(validation.syntax_error_log)      # Contains any XML syntax errors
+print(validation.schema_validation_log) # Contains schema validation errors
+print(validation.schema_error_log)      # Contains schema parse errors
 ```
 
-### 2. Using Command Line Interface (CLI)
-
-Validate a DIGGS instance File against the default DIGGS XSD Schema using Command Line Interface (CLI):
+#### Using Command Line Interface
 ```bash
+# Using default schema
 pydiggs schema_check "DIGGS_Instance_File_Path"
-```
 
-Validate a DIGGS instance File against a specific version of DIGGS XSD Schema using Command Line Interface:
-```bash
+# Using specific schema
 pydiggs schema_check "DIGGS_Instance_File_Path" --schema_path "DIGGS_Schema_File_Path"
 ```
 
-Validate a DIGGS instance File against a Schematron Schema using Command Line Interface:
-```bash
-pydiggs schematron_check "DIGGS_Instance_File_Path" --schematron_path "DIGGS_Schematron_File_Path"
+### 2. Dictionary Validation
+
+#### Using Python
+
+```python
+from pydiggs import validator
+
+# Using default DIGGS Dictionary
+validation = validator("DIGGS_Instance_File_Path")
+validation.dictionary_check()
+
+# Using a specific dictionary file
+validation = validator("DIGGS_Instance_File_Path", dictionary_path="DIGGS_Dictionary_File_Path")
+validation.dictionary_check()
+
+# Access dictionary validation results
+print(validation.dictionary_validation_log) # Contains dictionary validation errors
 ```
 
-Validate a DIGGS instance File against the standard Dictionary XML file using Command Line Interface:
+#### Using Command Line Interface
 ```bash
+# Using default dictionary
 pydiggs dictionary_check "DIGGS_Instance_File_Path"
+
+# Using specific dictionary
+pydiggs dictionary_check "DIGGS_Instance_File_Path" --dictionary_path "DIGGS_Dictionary_File_Path"
+```
+
+### 3. Schematron Validation
+
+#### Using Python
+
+```python
+from pydiggs import validator
+
+# Schematron validation requires a schematron schema file
+validation = validator("DIGGS_Instance_File_Path", schematron_path="DIGGS_Schematron_File_Path")
+validation.schematron_check()
+
+# Access schematron validation results
+print(validation.schematron_validation_log) # Contains schematron validation errors
+print(validation.schematron_error_log)      # Contains schematron parse errors
+```
+
+#### Using Command Line Interface
+```bash
+pydiggs schematron_check "DIGGS_Instance_File_Path" --schematron_path "DIGGS_Schematron_File_Path"
 ```
