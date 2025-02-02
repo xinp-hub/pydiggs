@@ -15,7 +15,7 @@ class validator():
     """A Python Class for validating DIGGS instance files.
     """
 
-    def __init__(self, instance_path=None, schema_path=None, dictionary_path=None, schematron_path=None):
+    def __init__(self, instance_path=None, schema_path=None, dictionary_path=None, schematron_path=None, output_log=True):
         """Initialize the arguments within the validator class.
 
         Args:
@@ -23,12 +23,14 @@ class validator():
             schema_path (string, optional): Relative or full path of the DIGGS schema file. Defaults to None.
             dictionary_path (string, optional): Relative or full path of the DIGGS dictionary file. Defaults to None.
             schematron_path (string, optional): Relative or full path of DIGGS schematron schema file. Defaults to None.
+            output_log (boolean, optional): Whether to output the log files. Defaults to True.
         """
 
         self.instance_path = instance_path
         self.schema_path = schema_path
         self.dictionary_path = dictionary_path
         self.schematron_path = schematron_path
+        self.output_log = output_log
 
         self.syntax_error_log = None
         self.schema_validation_log = None
@@ -37,9 +39,11 @@ class validator():
         self.schematron_error_log = None
         self.schematron_validation_log = None
 
+
     def schema_check(self):
         """Function to check schema definition (i.e. .xsd).
         """
+        print("self.output_log:", self.output_log)
 
         if self.instance_path is not None:
             try:
@@ -61,9 +65,13 @@ class validator():
                     rprint('[green]No schema validation error is detected.[/green]')
                 else:
                     self.schema_validation_log = diggs_schema.error_log
-                    rprint('[red]DIGGS Schema validation error, see [bold]schema_validation.log[/bold] file in detail. [/red]')
-                    with open('schema_validation.log', 'w') as error_log_file:
-                        error_log_file.write(str(self.schema_validation_log))
+                    if self.output_log:
+                        rprint('[red]DIGGS Schema validation error, see [bold]schema_validation.log[/bold] file in detail. [/red]')
+                        with open('schema_validation.log', 'w') as error_log_file:
+                            error_log_file.write(str(self.schema_validation_log))
+                    else:
+                        rprint('[red]DIGGS Schema validation error:[/red]')
+                        print(self.schema_validation_log)
 
             # Check for file IO error:
             except IOError:
@@ -71,17 +79,26 @@ class validator():
 
             # Check for XML syntax errors:
             except etree.XMLSyntaxError as err:
-                rprint('[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]')
                 self.syntax_error_log = err
-                with open('syntax_error.log', 'w') as error_log_file:
-                    error_log_file.write(str(self.syntax_error_log))
+                if self.output_log:
+                    rprint('[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]')
+                    with open('syntax_error.log', 'w') as error_log_file:
+                        error_log_file.write(str(self.syntax_error_log))
+                else:
+                    rprint('[red]XML syntax error:[/red]')
+                    print(self.syntax_error_log)
 
             # Check for schema parse error:
             except etree.XMLSchemaParseError as err:
-                rprint('[red]Schema parse error, see [bold]schema_parse_error.log[/bold] file in detail. [/red]')
+                print("self.output_log:", self.output_log)
+                # rprint('[red]Schema parse error, see [bold]schema_parse_error.log[/bold] file in detail. [/red]')
                 self.schema_error_log = err
-                with open('schema_parse_error.log', 'w') as error_log_file:
-                    error_log_file.write(str(self.schema_error_log))
+                if self.output_log:
+                    rprint('[red]Schema parse error, see [bold]schema_parse_error.log[/bold] file in detail. [/red]')
+                    with open('schema_parse_error.log', 'w') as error_log_file:
+                        error_log_file.write(str(self.schema_error_log))
+                else:
+                    print("Schema parse error:", self.schema_error_log)
 
     def dictionary_check(self):
         """Function to verify that definitions used in a DIGGS files.
@@ -116,8 +133,9 @@ class validator():
                         self.dictionary_validation_log.append(error_msg)
                         rprint(f'[red]  {error_msg}[/red]')
                     
-                    with open('dictionary_validation.log', 'w') as error_log_file:
-                        error_log_file.write('\n'.join(self.dictionary_validation_log))
+                    if self.output_log:
+                        with open('dictionary_validation.log', 'w') as error_log_file:
+                            error_log_file.write('\n'.join(self.dictionary_validation_log))
                 else:
                     rprint('[green]Check passed![/green]')
 
@@ -151,9 +169,13 @@ class validator():
                     rprint('[green]No schematron validation error is detected.[/green]')
                 else:
                     self.schematron_validation_log = diggs_schematron.error_log
-                    rprint('[red]DIGGS schematron validation Error, see [bold]schematron_validation.log[/bold] file in detail. [/red]')
-                    with open('schematron_validation.log', 'w') as error_log_file:
-                        error_log_file.write(str(self.schematron_validation_log))
+                    if self.output_log:
+                        rprint('[red]DIGGS schematron validation Error, see [bold]schematron_validation.log[/bold] file in detail. [/red]')
+                        with open('schematron_validation.log', 'w') as error_log_file:
+                            error_log_file.write(str(self.schematron_validation_log))
+                    else:
+                        rprint('[red]DIGGS schematron validation Error:[/red]')
+                        print(self.schematron_validation_log)
 
             # check for file IO error
             except IOError:
@@ -161,17 +183,25 @@ class validator():
 
             # Check for XML syntax errors:
             except etree.XMLSyntaxError as err:
-                rprint('[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]')
                 self.syntax_error_log = err
-                with open('syntax_error.log', 'w') as error_log_file:
-                    error_log_file.write(str(self.syntax_error_log))
+                if self.output_log:
+                    rprint('[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]')
+                    with open('syntax_error.log', 'w') as error_log_file:
+                        error_log_file.write(str(self.syntax_error_log))
+                else:
+                    rprint('[red]XML syntax error:[/red]')
+                    print(self.syntax_error_log)
 
             # Check for schematron parse error:
             except etree.SchematronParseError as err:
-                rprint('[red]Schematron parse error, see [bold]schematron_parse_error.log[/bold] file in detail. [/red]')
                 self.schematron_error_log = err
-                with open('schematron_parse_error.log', 'w') as error_log_file:
-                    error_log_file.write(str(self.schematron_error_log))
+                if self.output_log:
+                    rprint('[red]Schematron parse error, see [bold]schematron_parse_error.log[/bold] file in detail. [/red]')
+                    with open('schematron_parse_error.log', 'w') as error_log_file:
+                        error_log_file.write(str(self.schematron_error_log))
+                else:
+                    rprint('[red]Schematron parse error:[/red]')
+                    print(self.schematron_error_log)
 
     def _get_definitions_from_dictionary(self):
         """Extract test definitions from DIGGS dictionary.

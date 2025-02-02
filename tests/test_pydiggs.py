@@ -7,7 +7,7 @@ from pydiggs import validator
 
 def test_schema_check_1(instance_path='tests/test_files/2.6/No_Error-2_6.xml'):
     """Test schema check with a valid file."""
-    test = validator(instance_path)
+    test = validator(instance_path, output_log=False)
     test.schema_check()
     error_log = test.schema_validation_log
     assert error_log is None
@@ -15,7 +15,7 @@ def test_schema_check_1(instance_path='tests/test_files/2.6/No_Error-2_6.xml'):
 
 def test_schema_check_2(instance_path='tests/test_files/Syntax_Error_1.xml'):
     """Test schema check with a file containing syntax errors."""
-    test = validator(instance_path)
+    test = validator(instance_path, output_log=False)
     test.schema_check()
     error_log = test.syntax_error_log
     assert error_log is not None
@@ -27,7 +27,7 @@ def test_schema_check_2(instance_path='tests/test_files/Syntax_Error_1.xml'):
 
 def test_schema_check_3(instance_path='tests/test_files/2.6/Schema_Error_1-2_6.xml'):
     """Test schema check with a file containing schema errors."""
-    test = validator(instance_path)
+    test = validator(instance_path, output_log=True)
     test.schema_check()
     error_log = test.schema_validation_log
     assert error_log is not None
@@ -60,7 +60,7 @@ def test_schematron_check_2(
     schematron_path='tests/test_schematron_schema/test_schematron_2.sch'
 ):
     """Test schematron check with a file containing schematron errors."""
-    test = validator(instance_path, schematron_path=schematron_path)
+    test = validator(instance_path, schematron_path=schematron_path, output_log=False)
     test.schematron_check()
     error_log = test.schematron_validation_log
     assert error_log is not None
@@ -68,7 +68,7 @@ def test_schematron_check_2(
 
 def test_dictionary_check_1(instance_path='tests/test_files/AtterbergExample.xml'):
     """Test dictionary check with a file containing undefined properties."""
-    test = validator(instance_path)
+    test = validator(instance_path, output_log=False)
     test.dictionary_check()
     error_log = test.dictionary_validation_log
 
