@@ -10,13 +10,20 @@
 
 A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 
-* Free software: GNU General Public License v3
+* Licensed under the Apache License 2.0
 * Documentation: [https://xinp-hub.github.io/pydiggs](https://xinp-hub.github.io/pydiggs)
 * GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
 
 ## Features
 
-* Validate DIGGS instance files against DIGGS XSD, Schematron schemas, and XML Dictionaries.
+* Validate DIGGS instance files against:
+    * DIGGS XSD Schema (version 2.6 by default)
+    * Standard XML Dictionary (v0.1/properties.xml by default)
+    * Schematron rules for business logic validation
+* Flexible validation output:
+    * Write validation errors to log files
+    * Print validation errors directly to console
+* Command-line interface (CLI) for easy integration
 
 ## Quick Start
 
@@ -25,15 +32,34 @@ Install pydiggs:
 pip install pydiggs
 ```
 
-Basic usage:
+Basic usage with Python:
 ```python
 from pydiggs import validator
 
 # Create a validator instance
-v = validator.Validator()
+validation = validator("path/to/your/diggs_file.xml")
 
-# Validate a DIGGS XML file
-v.validate_schema("path/to/your/diggs_file.xml")
+# Schema validation (using default DIGGS Schema v2.6)
+validation.schema_check()
+
+# Dictionary validation (using default DIGGS Dictionary)
+validation.dictionary_check()
+
+# Schematron validation (requires schematron file)
+validation = validator("path/to/your/diggs_file.xml", schematron_path="path/to/schematron.sch")
+validation.schematron_check()
 ```
 
-For more information, please see the [documentation](https://xinp-hub.github.io/pydiggs). 
+Basic usage with CLI:
+```bash
+# Schema validation
+pydiggs schema_check "path/to/your/diggs_file.xml"
+
+# Dictionary validation
+pydiggs dictionary_check "path/to/your/diggs_file.xml"
+
+# Schematron validation
+pydiggs schematron_check "path/to/your/diggs_file.xml" --schematron_path "path/to/schematron.sch"
+```
+
+For more detailed information and advanced usage, please see the [documentation](https://xinp-hub.github.io/pydiggs). 

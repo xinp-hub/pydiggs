@@ -38,7 +38,7 @@ If you are proposing a feature:
 * Keep the scope as narrow as possible, to make it easier to implement.
 * Remember that this is a volunteer-driven project, and that contributions are welcome :)
 
-## Get Started!
+## Development Setup
 
 Ready to contribute? Here's how to set up `pydiggs` for local development.
 
@@ -47,62 +47,121 @@ Ready to contribute? Here's how to set up `pydiggs` for local development.
 2. Clone your fork locally:
 ```bash
 git clone git@github.com:your_name_here/pydiggs.git
+cd pydiggs
 ```
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
+3. Install Poetry if you haven't already:
 ```bash
-mkvirtualenv pydiggs
-cd pydiggs/
-python setup.py develop
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
-4. Create a branch for local development:
+4. Install dependencies and set up your development environment:
+```bash
+poetry install
+```
+
+This will create a virtual environment and install all dependencies, including development dependencies.
+
+5. Create a branch for local development:
 ```bash
 git checkout -b name-of-your-bugfix-or-feature
 ```
-Now you can make your changes locally.
 
-5. When you're done making changes, check that your changes pass flake8 and the tests, including testing other Python versions with tox:
-```bash
-flake8 pydiggs tests
-python setup.py test or pytest
-tox
-```
-To get flake8 and tox, just pip install them into your virtualenv.
+6. Make your changes locally. The project uses several development tools:
 
-6. Commit your changes and push your branch to GitHub:
+   * **pytest** for testing
+   * **pylint** for code quality
+   * **mypy** for type checking
+   * **pre-commit** for automated checks
+
+   Install pre-commit hooks:
+   ```bash
+   poetry run pre-commit install
+   ```
+
+7. When you're done making changes:
+   * Run tests with pytest:
+     ```bash
+     poetry run pytest
+     ```
+   * Check code quality:
+     ```bash
+     poetry run pylint pydiggs tests
+     ```
+   * Run type checking:
+     ```bash
+     poetry run mypy pydiggs
+     ```
+
+8. Commit your changes and push your branch to GitHub:
 ```bash
 git add .
 git commit -m "Your detailed description of your changes."
 git push origin name-of-your-bugfix-or-feature
 ```
 
-7. Submit a pull request through the GitHub website.
+9. Submit a pull request through the GitHub website.
 
 ## Pull Request Guidelines
 
 Before you submit a pull request, check that it meets these guidelines:
 
 1. The pull request should include tests.
-2. If the pull request adds functionality, the docs should be updated. Put your new functionality into a function with a docstring, and add the feature to the list in README.md.
-3. The pull request should work for Python 3.10 and above. Check [https://github.com/xinp-hub/pydiggs/pull_requests](https://github.com/xinp-hub/pydiggs/pull_requests) and make sure that the tests pass for all supported Python versions.
+2. If the pull request adds functionality:
+   * Add docstrings to new functions/classes
+   * Update the documentation under `docs/`
+   * Add the feature to the list in README.md
+3. The pull request should work for Python 3.10 and above.
+4. Check that all tests pass in the GitHub Actions CI pipeline.
 
-## Tips
+## Documentation
+
+To build and view the documentation locally:
+```bash
+poetry run mkdocs serve
+```
+
+Then visit `http://127.0.0.1:8000` in your web browser.
+
+## Testing
 
 To run a subset of tests:
 ```bash
-pytest tests.test_pydiggs
+poetry run pytest tests/test_pydiggs.py
 ```
+
+To run tests with coverage:
+```bash
+poetry run pytest --cov=pydiggs
+```
+
+## Type Checking
+
+The project uses type hints and mypy for type checking:
+```bash
+poetry run mypy pydiggs
+```
+
+## Code Style
+
+The project follows PEP 8 style guidelines. Code quality is enforced using:
+* pylint
+* pre-commit hooks
+* GitHub Actions CI
 
 ## Deploying
 
-A reminder for the maintainers on how to deploy.
-Make sure all your changes are committed (including an entry in HISTORY.md).
-Then run:
-```bash
-bump2version patch # possible: major / minor / patch
-git push
-git push --tags
-```
-
-GitHub Actions will then deploy to PyPI if tests pass. 
+A reminder for the maintainers on how to deploy:
+1. Update HISTORY.md with the new version changes
+2. Update version in pyproject.toml:
+   ```bash
+   poetry version patch  # possible: major / minor / patch
+   ```
+3. Commit the changes:
+   ```bash
+   git add pyproject.toml HISTORY.md
+   git commit -m "Bump version to x.x.x"
+   git push
+   ```
+4. Create a new release on GitHub with the version number
+5. GitHub Actions will automatically deploy to PyPI if tests pass. 
