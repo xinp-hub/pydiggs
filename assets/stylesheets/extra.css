@@ -1,0 +1,212 @@
+/* Custom CSS for modern design and animations */
+
+/* Layout structure */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.md-main {
+    flex: 1 0 auto;
+}
+
+/* Footer styling */
+.md-footer {
+    flex-shrink: 0;
+}
+
+[data-md-color-scheme="default"] .md-footer {
+    background: linear-gradient(45deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+}
+
+[data-md-color-scheme="default"] .md-footer-meta {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Pagination styling */
+[data-md-color-scheme="default"] .md-footer__link {
+    background-color: var(--md-accent-fg-color--transparent);
+    transition: background-color 0.2s ease;
+}
+
+[data-md-color-scheme="default"] .md-footer__link:hover {
+    background-color: var(--md-accent-fg-color);
+}
+
+[data-md-color-scheme="default"] .md-footer__title {
+    color: var(--md-primary-bg-color);
+}
+
+[data-md-color-scheme="default"] .md-footer__direction {
+    color: var(--md-primary-bg-color--light);
+}
+
+/* Gradient animation for headers */
+.md-header {
+    background: linear-gradient(270deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+    background-size: 200% 200%;
+    animation: gradient-animation 8s ease infinite;
+    position: fixed;
+    top: 0;
+    z-index: 100;
+}
+
+@keyframes gradient-animation {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Main content adjustments */
+.md-main__inner {
+    margin-top: 1.5rem;
+}
+
+.md-content {
+    padding-bottom: 3rem;
+}
+
+/* Smooth transitions */
+.md-nav__link,
+.md-typeset a,
+.md-search-result__link {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Card-like design for important sections */
+.md-typeset .admonition,
+.md-typeset details {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin: 1rem 0;
+}
+
+.md-typeset .admonition:hover,
+.md-typeset details:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,.15);
+}
+
+/* Code block enhancements */
+.highlight pre {
+    border-radius: 8px;
+    padding: 1em;
+    box-shadow: inset 0 0 8px rgba(0,0,0,.1);
+    margin: 1em 0;
+}
+
+/* Button styling */
+.md-typeset .md-button {
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    font-weight: 500;
+    padding: 0.5em 1em;
+    margin: 0.5em 0;
+}
+
+.md-typeset .md-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,.15);
+}
+
+/* Table enhancements */
+.md-typeset table:not([class]) {
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    overflow: hidden;
+    margin: 1em 0;
+}
+
+.md-typeset table:not([class]) th {
+    background-color: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 4rem; /* Account for fixed header */
+}
+
+/* Dark mode optimizations */
+[data-md-color-scheme="slate"] {
+    --md-code-bg-color: rgba(255,255,255,.05);
+    --md-code-fg-color: #c9d1d9;
+}
+
+/* Navigation adjustments */
+.md-nav {
+    transition: transform 0.2s ease-in-out;
+}
+
+.md-nav--primary .md-nav__title {
+    height: auto;
+    line-height: 1.5;
+    padding: 1rem;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--md-default-bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--md-accent-fg-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--md-primary-fg-color);
+}
+
+/* Fade-in animation for content */
+.fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+.fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Theme transition */
+.theme-transition {
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 76.1875em) {
+    .md-nav--primary .md-nav__title {
+        background: linear-gradient(270deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+        background-size: 200% 200%;
+        animation: gradient-animation 8s ease infinite;
+    }
+    
+    .md-main__inner {
+        margin-top: 0;
+    }
+}
+
+/* Print styles */
+@media print {
+    .md-typeset .admonition,
+    .md-typeset details {
+        box-shadow: none;
+        border: 1px solid #ddd;
+    }
+    
+    .md-footer {
+        display: none;
+    }
+} 
