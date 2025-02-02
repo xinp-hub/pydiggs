@@ -28,3 +28,8 @@
 * Updated the minimum python version to 3.10 to support the latest versions of dependencies.
 * Updated the dependencies with the latest versions.
 * Updated Documentation.
+
+## 0.1.5 (2025-02-02)
+
+* Added a new argument to allow users to specify whether to output the log files.
+* Updated the documentation.
