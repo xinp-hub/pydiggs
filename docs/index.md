@@ -31,7 +31,7 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 
 Not a Python user? Looking for leveraging the power of pyDIGGS in an modern web application? Check out:
 
-* [DXplorer](https://dx-plorer.com)
+* [DXplorer](https://www.dx-plorer.com)
 
 ## Quick Start
 
