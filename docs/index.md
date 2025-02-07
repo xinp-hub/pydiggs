@@ -27,6 +27,12 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
     * Print validation errors directly to console
 * Command-line interface (CLI) for easy integration
 
+## Web Application
+
+Not a Python user? Looking for leveraging the power of pyDIGGS in an modern web application? Check out:
+
+* [DXplorer](https://dx-plorer.com)
+
 ## Quick Start
 
 Install pydiggs:

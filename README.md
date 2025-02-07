@@ -7,12 +7,20 @@
 [![Build Status](https://github.com/xinp-hub/pydiggs/actions/workflows/ci.yml/badge.svg)](https://github.com/xinp-hub/pydiggs/actions/workflows/ci.yml)
 [![Documentation Status](https://github.com/xinp-hub/pydiggs/actions/workflows/docs.yml/badge.svg)](https://xinp-hub.github.io/pydiggs/)
 [![Updates](https://pyup.io/repos/github/xinp-hub/pydiggs/shield.svg)](https://pyup.io/account/repos/github/xinp-hub/pydiggs/)
+[![GitHub Issues](https://img.shields.io/github/issues/xinp-hub/pydiggs.svg)](https://github.com/xinp-hub/pydiggs/issues)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 
 * Licensed under the Apache License 2.0
 * Documentation: [https://xinp-hub.github.io/pydiggs](https://xinp-hub.github.io/pydiggs)
 * GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
+* PyPI: [https://pypi.org/project/pydiggs](https://pypi.org/project/pydiggs)
+
+## Project Lead
+
+    * Xin Peng (<xin_peng@outlook.com>)
+    * Asitha Senanayake (<asitha.senanayake@utexas.edu>)
 
 ## Features
 
@@ -24,6 +32,12 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
     * Write validation errors to log files
     * Print validation errors directly to console
 * Command-line interface (CLI) for easy integration
+
+## Web Application
+
+Not a Python user? Looking for leveraging the power of pyDIGGS in an modern web application? Check out:
+
+* [DXplorer](https://dx-plorer.com)
 
 ## Quick Start
 
