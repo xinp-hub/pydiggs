@@ -35,7 +35,7 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 
 ## Web Application
 
-Not a Python user? Looking for leveraging the power of pyDIGGS in an modern web application? Check out:
+Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web application? Check out:
 
 * [DXplorer](https://www.dx-plorer.com)
 
