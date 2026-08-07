@@ -25,7 +25,8 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 ## Features
 
 * Validate DIGGS instance files against:
-    * DIGGS XSD Schema (**2.6** by default; **2.5.a** supported via `schema_path`)
+    * DIGGS XSD Schema (**2.5.a**, **2.6**, **3.0.0**) with namespace auto-detect
+      (default profile **3.0.0** when the namespace is unknown)
     * DIGGS Standard dictionaries / codeSpace semantics (offline bundle from diggsml.org/def)
     * Schematron business rules (bundled DIGGS lxml-adapted rules by default)
 * Flexible validation output:

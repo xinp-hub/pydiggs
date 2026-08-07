@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-pydiggs requires Python 3.10 or later and depends on the following packages:
+pydiggs requires Python 3.11 or later and depends on the following packages:
 * lxml - for XML processing and validation
 * rich - for colored console output
 
@@ -45,8 +45,8 @@ curl -OJL https://github.com/xinp-hub/pydiggs/tarball/master
 Once you have a copy of the source, you can install it with:
 
 ```bash
-# If you have Poetry installed (recommended for development)
-poetry install
+# Recommended for development (FORGE / uv)
+uv sync --all-groups
 
 # Or using pip
 pip install .

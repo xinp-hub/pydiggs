@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from lxml import etree, isoschematron  # type: ignore
+from lxml import etree, isoschematron
 from rich import print as rprint
 
 from pydiggs.detect import DEFAULT_PROFILE, detect_diggs_version, schema_path_for
@@ -31,10 +31,10 @@ _DEFAULT_DICTIONARY = _PACKAGE_DIR / "dictionaries" / "properties.xml"
 _DEFAULT_SCHEMATRON = _PACKAGE_DIR / "schematron" / "diggs_schematron_rules_2.6.sch"
 
 
-class validator:  # noqa: N801 — published public API name
+class validator:
     """A Python Class for validating DIGGS instance files."""
 
-    def __init__(  # noqa: PLR0917 — published keyword surface
+    def __init__(
         self,
         instance_path=None,
         schema_path=None,
@@ -56,7 +56,6 @@ class validator:  # noqa: N801 — published public API name
             diggs_version (string, optional): Profile ``2.5.a``, ``2.6``, or ``3.0.0``.
                 If omitted, detected from the instance namespace (defaults to ``3.0.0`` when unknown).
         """
-
         self.instance_path = instance_path
         self.schema_path = schema_path
         self.dictionary_path = dictionary_path
@@ -75,14 +74,14 @@ class validator:  # noqa: N801 — published public API name
 
     def _resolve_profile(self, instance_doc: etree._ElementTree | None = None) -> str:
         if self.diggs_version:
-            return self.diggs_version
+            return str(self.diggs_version)
         if instance_doc is not None:
             return detect_diggs_version(instance_doc)
         if self.instance_path:
             return detect_diggs_version(self.instance_path)
         return DEFAULT_PROFILE
 
-    def schema_check(self) -> bool:  # noqa: PLR0911, PLR0912
+    def schema_check(self) -> bool:
         """Validate the instance against an XSD schema. Returns True on success."""
         if self.instance_path is None:
             return False

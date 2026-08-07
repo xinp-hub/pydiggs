@@ -53,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    validation = validator(
+    # validator is a published lowercase class name; callers rely on keyword args.
+    validation = validator(  # type: ignore[no-untyped-call]
         args.diggs_file,
         schema_path=args.schema_path,
         dictionary_path=args.dictionary_path,

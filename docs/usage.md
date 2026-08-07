@@ -37,9 +37,9 @@ validation = validator(
 )
 validation.schema_check()
 
-print(validation.syntax_error_log)       # XML syntax errors
+print(validation.syntax_error_log)  # XML syntax errors
 print(validation.schema_validation_log)  # XSD validation errors
-print(validation.schema_error_log)       # schema parse errors
+print(validation.schema_error_log)  # schema parse errors
 ```
 
 #### Using Command Line Interface
