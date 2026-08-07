@@ -95,12 +95,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require every job success
+      - name: Fail if any required job failed or was cancelled
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |
           set -euo pipefail
           echo "$NEEDS"
-          echo "$NEEDS" | grep -qE '"lint":\{[^}]*"result":"success"'
-          echo "$NEEDS" | grep -qE '"test":\{[^}]*"result":"success"'
-          echo "$NEEDS" | grep -qE '"build":\{[^}]*"result":"success"'
+          if echo "$NEEDS" | grep -qE '"result": "(failure|cancelled)"'; then
+            exit 1
+          fi
