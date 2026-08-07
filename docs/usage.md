@@ -25,7 +25,7 @@ from pydiggs import detect_diggs_version, validator
 validation = validator("DIGGS_Instance_File_Path", output_log=True)
 validation = validator("DIGGS_Instance_File_Path", output_log=False)
 
-print(detect_diggs_version("DIGGS_Instance_File_Path"))  # e.g. "2.6" or "3.0.0"
+print(detect_diggs_version("DIGGS_Instance_File_Path"))  # "2.5.a", "2.6", or "3.0.0"
 ```
 
 ### 1. Schema Validation
@@ -58,6 +58,10 @@ print(validation.schema_error_log)  # schema parse errors
 ```
 
 #### Using Command Line Interface
+
+The CLI auto-detects the DIGGS profile from the instance namespace (unknown → 3.0.0).
+There is no `--diggs_version` flag; pin a profile in Python with `diggs_version=`, or pass
+`--schema_path` to a specific XSD.
 
 ```bash
 pydiggs schema_check "DIGGS_Instance_File_Path"
@@ -140,6 +144,7 @@ pydiggs context_check "DIGGS_Instance_File_Path" --no-output_log
 
 ### Known limits
 
+- **1.0.0a1** is an alpha toward 1.0.0; APIs and bundled assets may change before 1.0.0.
 - Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files under
   `tests/fixtures/official/known_invalid/` fail schema (or XML syntax) against the bundled
   XSDs; they are pinned so we never silently accept them.
