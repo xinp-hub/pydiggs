@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # Actions are the highest-risk dependency in a publishing repo: a compromised
+  # action runs with your OIDC identity. Keep them current and SHA-pinned.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    # Wait a week before proposing a new release. A compromised version is usually yanked
+    # within days — that is the window where a mechanical bump is most dangerous.
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        patterns: ["*"]
+      runtime-minor-patch:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+    # Runtime majors get their own PR: they may require a compatibility change.
