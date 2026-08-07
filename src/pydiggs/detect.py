@@ -20,7 +20,8 @@ DEFAULT_PROFILE = "3.0.0"
 _PACKAGE_DIR = Path(__file__).resolve().parent
 
 SCHEMA_PATHS: dict[str, Path] = {
-    "2.5.a": _PACKAGE_DIR / "schemas" / "diggs-schema-2.5.a" / "Diggs.xsd",
+    # DIGGS 2.5.a publishes the document root schema as Complete.xsd (no Diggs.xsd).
+    "2.5.a": _PACKAGE_DIR / "schemas" / "diggs-schema-2.5.a" / "Complete.xsd",
     "2.6": _PACKAGE_DIR / "schemas" / "diggs-schema-2.6" / "Diggs.xsd",
     "3.0.0": _PACKAGE_DIR / "schemas" / "diggs-schema-3.0.0" / "Diggs.xsd",
 }

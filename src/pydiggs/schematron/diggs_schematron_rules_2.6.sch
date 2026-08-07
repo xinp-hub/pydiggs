@@ -61,7 +61,7 @@
       <assert test="number(.) &gt;= 0">percentRetained must be non-negative</assert>
     </rule>
     <rule context="//*[local-name()='Grading']/*[local-name()='weightRetained']">
-      <assert test="number(.) &gt; 0">weightRetained must be positive</assert>
+      <assert test="number(.) &gt;= 0">weightRetained must be non-negative</assert>
     </rule>
     <rule context="//*[local-name()='Grading']/*[local-name()='particleSize']">
       <assert test="number(.) &gt; 0">particleSize must be positive</assert>

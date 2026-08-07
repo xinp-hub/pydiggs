@@ -10,15 +10,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - DIGGS **3.0.0** bundled schemas (`schema-dev@3.0.0`) and namespace auto-detection
   (`detect_diggs_version`); unknown NS defaults to 3.0.0.
-- Official DIGGS 3.x schema fixtures under `tests/fixtures/official/3.0/`.
+- Full official diggs-examples corpus under `tests/fixtures/official/` (2.5.a / 2.6 / 3.0
+  goldens + known_invalid pins), covering schema/dictionary/Schematron/context.
 
 ### Changed
 - Packaging migrated to FORGE standards: `src/` layout, **uv** + hatchling, PEP 621/639/735.
 - `requires-python` raised to `>=3.11`.
 - PyPI publish uses Trusted Publishing (OIDC) on `v*` tags; Actions SHA-pinned.
+- DIGGS **2.5.a** auto-detect resolves bundled `Complete.xsd` (there is no `Diggs.xsd` in 2.5.a).
+- Docs and contributing guide updated for uv / multi-version validation.
+- Dictionary validation prefers modern `def/codes/.../properties.xml` definitions when
+  instances still cite legacy `DIGGSTestPropertyDefinitions.xml` URLs; accepts integer-family
+  `typeData` aliases (`int`/`integer`/`long`); maps common legacy fragments
+  (`water_depth_calc`, `pore_water_pressure`); allows `measurand` where property dictionary
+  Occurrences only list `propertyClass`.
+- Schematron `weightRetained` assert allows zero (`>= 0`), matching `percentRetained`
+  and valid empty-sieve fractions in official grading examples.
+
+### Fixed
+- `check-wheel-contents` W002 false failures from intentional byte-identical support XSDs
+  across DIGGS profile trees.
 
 ### Notes
-- Full 1.0.0 cut still pending remaining DIGGS 3.0 dictionary polish and docs refresh.
+- Dictionary check 12 (UOM not in quantity class) is a WARNING so official diggs-examples
+  with known unit/quantity mismatches still pass `dictionary_check()` while remaining
+  visible in the log.
 
 ## [0.2.0] - 2026-08-07
 

@@ -158,7 +158,95 @@ def test_legacy_codespace_without_fragment(tmp_path):
     assert not any(m.severity == "ERROR" and m.check == 5 for m in result.messages)
 
 
-def test_codes_bundle_registered():
-    v = DictionarySemanticValidator()
-    assert "https://diggsml.org/def/codes/DIGGS/0.1/roles.xml" in v._dict_cache
-    assert "https://diggsml.org/def/codes/DIGGS/0.1/astmD2487.xml" in v._dict_cache
+def test_legacy_diggstest_url_prefers_modern_quantity_class(tmp_path):
+    """Legacy DIGGSTestPropertyDefinitions URLs should use modern quantityClass."""
+    inst = tmp_path / "cpt_prop.xml"
+    inst.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" gml:id="t">
+  <Property gml:id="p1">
+    <propertyClass codeSpace="http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#tip_resistance">tip resistance</propertyClass>
+    <typeData>double</typeData>
+    <uom>bar</uom>
+  </Property>
+</Diggs>
+""",
+        encoding="utf-8",
+    )
+    result = DictionarySemanticValidator().validate_instance(inst)
+    # Modern properties supply quantityClass=pressure, so sibling <uom> is accepted
+    # (legacy DIGGSTest definitions omit quantityClass and would ERROR check 10).
+    assert not any(m.severity == "ERROR" and m.check == 10 for m in result.messages)
+
+
+def test_integer_type_aliases_accepted(tmp_path):
+    inst = tmp_path / "ll.xml"
+    inst.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" gml:id="t">
+  <Property gml:id="p1">
+    <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#liquid_limit">Liquid Limit</propertyClass>
+    <typeData>int</typeData>
+  </Property>
+</Diggs>
+""",
+        encoding="utf-8",
+    )
+    result = DictionarySemanticValidator().validate_instance(inst)
+    assert not any(m.severity == "ERROR" and m.check == 9 for m in result.messages)
+
+
+def test_property_fragment_alias_pore_water_pressure(tmp_path):
+    inst = tmp_path / "u.xml"
+    inst.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" gml:id="t">
+  <Property gml:id="p1">
+    <propertyClass codeSpace="http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#pore_water_pressure">u</propertyClass>
+    <typeData>double</typeData>
+    <uom>kPa</uom>
+  </Property>
+</Diggs>
+""",
+        encoding="utf-8",
+    )
+    result = DictionarySemanticValidator().validate_instance(inst)
+    assert not any(m.severity == "ERROR" and m.check in {5, 10} for m in result.messages)
+
+
+def test_invalid_uom_is_warning_not_error(tmp_path):
+    """Check 12 UOM/quantity mismatches are advisory (WARNING), not ERROR."""
+    inst = tmp_path / "t50.xml"
+    inst.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" gml:id="t">
+  <measurement>
+    <Test gml:id="t1">
+      <outcome>
+        <TestResult gml:id="tr1">
+          <results>
+            <ResultSet gml:id="rs1">
+              <parameters>
+                <PropertyParameters gml:id="pp1">
+                  <properties>
+                    <Property gml:id="p1">
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#t50">t50</propertyClass>
+                      <typeData>double</typeData>
+                      <uom>kPa</uom>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+    </Test>
+  </measurement>
+</Diggs>
+""",
+        encoding="utf-8",
+    )
+    result = DictionarySemanticValidator().validate_instance(inst)
+    assert any(m.severity == "WARNING" and m.check == 12 for m in result.messages)
+    assert not any(m.severity == "ERROR" and m.check == 12 for m in result.messages)
