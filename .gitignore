@@ -106,3 +106,9 @@ ENV/
 
 # macOS
 .DS_Store
+.DS_Store
+site/
+dist/
+*.egg-info/
+.coverage
+coverage.xml

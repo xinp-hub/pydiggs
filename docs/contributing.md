@@ -50,47 +50,46 @@ git clone git@github.com:your_name_here/pydiggs.git
 cd pydiggs
 ```
 
-3. Install Poetry if you haven't already:
+3. Install [uv](https://docs.astral.sh/uv/) if you haven't already:
 ```bash
-curl -sSL https://install.python-poetry.org | python3 -
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-4. Install dependencies and set up your development environment:
+4. Sync the environment (reads `uv.lock`):
 ```bash
-poetry install
+uv sync --all-groups
 ```
-
-This will create a virtual environment and install all dependencies, including development dependencies.
 
 5. Create a branch for local development:
 ```bash
 git checkout -b name-of-your-bugfix-or-feature
 ```
 
-6. Make your changes locally. The project uses several development tools:
+6. Make your changes locally. The project uses:
 
    * **pytest** for testing
-   * **pylint** for code quality
+   * **ruff** for lint and format
    * **mypy** for type checking
-   * **pre-commit** for automated checks
+   * **pre-commit** for automated checks (optional locally)
 
    Install pre-commit hooks:
    ```bash
-   poetry run pre-commit install
+   uv run pre-commit install
    ```
 
 7. When you're done making changes:
-   * Run tests with pytest:
+   * Run tests:
      ```bash
-     poetry run pytest
+     uv run pytest
      ```
-   * Check code quality:
+   * Lint and format:
      ```bash
-     poetry run pylint pydiggs tests
+     uv run ruff check .
+     uv run ruff format .
      ```
-   * Run type checking:
+   * Type check:
      ```bash
-     poetry run mypy pydiggs
+     uv run mypy src
      ```
 
 8. Commit your changes and push your branch to GitHub:
@@ -111,14 +110,15 @@ Before you submit a pull request, check that it meets these guidelines:
    * Add docstrings to new functions/classes
    * Update the documentation under `docs/`
    * Add the feature to the list in README.md
-3. The pull request should work for Python 3.10 and above.
+3. The pull request should work for Python 3.11 and above.
 4. Check that all tests pass in the GitHub Actions CI pipeline.
 
 ## Documentation
 
 To build and view the documentation locally:
 ```bash
-poetry run mkdocs serve
+uv sync --group docs
+uv run mkdocs serve
 ```
 
 Then visit `http://127.0.0.1:8000` in your web browser.
@@ -127,41 +127,31 @@ Then visit `http://127.0.0.1:8000` in your web browser.
 
 To run a subset of tests:
 ```bash
-poetry run pytest tests/test_pydiggs.py
+uv run pytest tests/test_pydiggs.py
 ```
 
 To run tests with coverage:
 ```bash
-poetry run pytest --cov=pydiggs
+uv run pytest --cov=pydiggs --cov-report=term-missing
 ```
 
 ## Type Checking
 
-The project uses type hints and mypy for type checking:
+The project uses type hints and mypy (strict) for type checking:
 ```bash
-poetry run mypy pydiggs
+uv run mypy src
 ```
 
 ## Code Style
 
-The project follows PEP 8 style guidelines. Code quality is enforced using:
-* pylint
-* pre-commit hooks
+The project follows ruff's formatter and linter. Style is enforced with:
+* ruff (lint + format)
 * GitHub Actions CI
 
 ## Deploying
 
 A reminder for the maintainers on how to deploy:
-1. Update HISTORY.md with the new version changes
-2. Update version in pyproject.toml:
-   ```bash
-   poetry version patch  # possible: major / minor / patch
-   ```
-3. Commit the changes:
-   ```bash
-   git add pyproject.toml HISTORY.md
-   git commit -m "Bump version to x.x.x"
-   git push
-   ```
-4. Create a new release on GitHub with the version number
-5. GitHub Actions will automatically deploy to PyPI if tests pass. 
+
+1. Update `CHANGELOG.md` and bump `version` in `pyproject.toml`.
+2. Tag a release (`vX.Y.Z`) and push the tag (HG3 / HG4 in the FORGE process).
+3. GitHub Actions `publish.yml` builds with a fixed `SOURCE_DATE_EPOCH` and publishes to PyPI via Trusted Publishing (OIDC; no API token). The `pypi` environment requires a human reviewer.

@@ -1,3 +1,4 @@
+# CI — uv + hatchling. Least privilege; Actions pinned via scripts/pin_actions.py.
 name: CI
 
 on:
@@ -5,43 +6,94 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FORCE_COLOR: "1"
+  PYTHONUNBUFFERED: "1"
+  UV_FROZEN: "1"
 
 jobs:
+  lint:
+    name: lint & types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
+        with:
+          enable-cache: true
+          python-version: "3.11"
+      - run: uv sync --all-groups
+      - name: ruff check
+        run: uv run ruff check --output-format=github .
+      - name: ruff format
+        run: uv run ruff format --check --diff .
+      - name: mypy
+        run: uv run mypy
+
   test:
+    name: test (${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
+        with:
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
+      - run: uv sync --all-groups
+      - name: pytest
+        run: uv run pytest --cov --cov-report=term-missing -p no:randomly
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+  build:
+    name: build & inspect
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
-          version: latest
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v3
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
         with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
-
-      - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --with test
-
-      - name: Run tests
+          enable-cache: true
+          python-version: "3.11"
+      - name: Build
         run: |
-          poetry run pytest
+          export SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
+          uv build
+      - name: Check distributions
+        run: |
+          uv run --group audit twine check --strict dist/*
+          uv run --group audit check-wheel-contents dist/*.whl
+      - name: Smoke-import the wheel
+        run: |
+          uv venv /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python dist/*.whl
+          /tmp/smoke/bin/python -c "import pydiggs; print(pydiggs.__version__)"
 
-      - name: Run type checking
-        run: poetry run mypy pydiggs
+  all-green:
+    name: all green
+    if: always()
+    needs: [lint, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job success
+        run: |
+          echo '${{ toJSON(needs) }}'
+          echo '${{ needs.lint.result }}' | grep -qx success
+          echo '${{ needs.test.result }}' | grep -qx success
+          echo '${{ needs.build.result }}' | grep -qx success

@@ -1,5 +1,13 @@
 # History
 
+## Unreleased (1.0.0a1 track)
+
+* DIGGS **3.0.0** schemas + namespace auto-detect (unknown NS → 3.0.0).
+* FORGE packaging: src/, uv, hatchling; Trusted Publishing.
+* Full official diggs-examples corpus (2.5.a / 2.6 / 3.0 + known_invalid).
+* Fix 2.5.a auto-detect to use ``Complete.xsd``.
+
+
 ## 0.2.0 (2026-08-07)
 
 * DIGGS 2.x correctness release (pre–DIGGS 3.0).
