@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="propertyClass">
+    <gml:description>This dictionary contains property class values for parameters interpreted (calculated) from static cone penetration test (CPT/CPTu) measurements. Each entry identifies both the parameter and the specific published method used to derive it, so that interpreted values carry their derivation provenance (one code per parameter-method pair). Interpreted properties are reported in the same ResultSet as the measured channels, flagged with measurementTechnique 'calculated'; method input parameters (e.g. Nkt, water table depth, unit weight method settings) are reported as Test-level otherMeasurementProperty Parameter records.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml</gml:identifier>
+    <gml:name>DIGGS CPT Interpreted Properties</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ic_robertson_2009">
+            <gml:description>Dimensionless soil behaviour type index Ic computed from normalized cone resistance (Qtn) and normalized friction ratio (Fr) using the Robertson (2009) unified approach with an iteratively determined stress exponent n (Zhang et al. 2002). Used to characterize soil behaviour type and as an input to many subsequent CPT correlations.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#ic_robertson_2009</gml:identifier>
+            <gml:name>Soil Behaviour Type Index (Robertson 2009)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. 2009. &quot;Interpretation of cone penetration tests - a unified approach.&quot; Canadian Geotechnical Journal 46(11): 1337-1355.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1139/T09-065</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="qtn_robertson_2009">
+            <gml:description>Dimensionless stress-normalized cone resistance Qtn = ((qt - sigma_v0)/pa) * (pa/sigma'_v0)^n, where the stress exponent n is determined iteratively as a function of Ic and effective stress per Robertson (2009).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#qtn_robertson_2009</gml:identifier>
+            <gml:name>Normalized Cone Resistance (Robertson 2009)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. 2009. &quot;Interpretation of cone penetration tests - a unified approach.&quot; Canadian Geotechnical Journal 46(11): 1337-1355.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1139/T09-065</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="fr_robertson_2009">
+            <gml:description>Normalized friction ratio Fr = fs / (qt - sigma_v0), expressed in percent, per the Robertson (2009) unified approach to CPT interpretation.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#fr_robertson_2009</gml:identifier>
+            <gml:name>Normalized Friction Ratio (Robertson 2009)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>force per force</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. 2009. &quot;Interpretation of cone penetration tests - a unified approach.&quot; Canadian Geotechnical Journal 46(11): 1337-1355.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1139/T09-065</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bq_pore_pressure_ratio">
+            <gml:description>Dimensionless pore pressure parameter Bq = (u2 - u0) / (qt - sigma_v0), where u2 is the pore pressure measured at the cone shoulder and u0 the in-situ equilibrium pore pressure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#bq_pore_pressure_ratio</gml:identifier>
+            <gml:name>Pore Pressure Ratio (Bq)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Lunne, T., Robertson, P.K., and Powell, J.J.M. 1997. Cone Penetration Testing in Geotechnical Practice. Blackie Academic &amp; Professional / Spon Press.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1201/9781482295047</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sbt_robertson_2009_ic">
+            <gml:description>Numeric normalized soil behaviour type (SBTn) zone (1-9) assigned from soil behaviour type index Ic band boundaries per Robertson (2009). This variant classifies by Ic bands; a separate code should be used for zones assigned from the full Qtn-Fr chart polygons.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#sbt_robertson_2009_ic</gml:identifier>
+            <gml:name>Soil Behaviour Type Zone (Robertson 2009, Ic bands)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. 2009. &quot;Interpretation of cone penetration tests - a unified approach.&quot; Canadian Geotechnical Journal 46(11): 1337-1355.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1139/T09-065</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="gamma_robertson_2010">
+            <gml:description>Total (moist) soil unit weight estimated from CPT sleeve friction ratio and corrected tip resistance per Robertson and Cabal (2010): gamma/gamma_w = 0.27 log10(Rf) + 0.36 log10(qt/pa) + 1.236.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#gamma_robertson_2010</gml:identifier>
+            <gml:name>Soil Unit Weight (Robertson and Cabal 2010)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>force per volume</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. and Cabal, K.L. 2010. &quot;Estimating soil unit weight from CPT.&quot; 2nd International Symposium on Cone Penetration Testing (CPT'10), Huntington Beach, California.</diggs:authority>
+            <diggs:reference>https://www.cpt-robertson.com/PublicationsPDF/Unit%20Weight%20Rob%20%26%20Cabal%20CPT10.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="su_nkt">
+            <gml:description>Undrained shear strength derived from net cone resistance using an empirical cone factor: Su = (qt - sigma_v0) / Nkt. The Nkt value (or the method by which a variable Nkt is determined) must be reported as a supporting input parameter alongside this property.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#su_nkt</gml:identifier>
+            <gml:name>Undrained Shear Strength (Nkt)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure</diggs:quantityClass>
+            <diggs:authority>Lunne, T., Robertson, P.K., and Powell, J.J.M. 1997. Cone Penetration Testing in Geotechnical Practice. Blackie Academic &amp; Professional / Spon Press.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1201/9781482295047</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="phi_kulhawy_mayne_1990">
+            <gml:description>Peak effective stress friction angle of predominantly sand-like soils estimated from normalized cone resistance per Kulhawy and Mayne (1990): phi' = 17.6 + 11 log10(Qtn).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#phi_kulhawy_mayne_1990</gml:identifier>
+            <gml:name>Peak Effective Friction Angle (Kulhawy and Mayne 1990)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>plane angle</diggs:quantityClass>
+            <diggs:authority>Kulhawy, F.H. and Mayne, P.W. 1990. Manual on Estimating Soil Properties for Foundation Design. Report EL-6800, Electric Power Research Institute, Palo Alto, California.</diggs:authority>
+            <diggs:reference>https://www.epri.com/research/products/EL-6800</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ocr_robertson_2009">
+            <gml:description>Overconsolidation ratio of fine-grained (clay-like) soils estimated from normalized cone resistance per Robertson (2009).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#ocr_robertson_2009</gml:identifier>
+            <gml:name>Overconsolidation Ratio (Robertson 2009)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. 2009. &quot;Interpretation of cone penetration tests - a unified approach.&quot; Canadian Geotechnical Journal 46(11): 1337-1355.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1139/T09-065</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="vs_wair_2012">
+            <gml:description>Shear wave velocity estimated from CPT measurements using the Wair, DeJong and Shantz (2012) all-soils correlation. This is a correlated estimate, distinct from directly measured seismic cone (SCPT) interval velocities.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#vs_wair_2012</gml:identifier>
+            <gml:name>Shear Wave Velocity (Wair et al. 2012)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length per time</diggs:quantityClass>
+            <diggs:authority>Wair, B.R., DeJong, J.T., and Shantz, T. 2012. Guidelines for Estimation of Shear Wave Velocity Profiles. PEER Report 2012/08, Pacific Earthquake Engineering Research Center, University of California, Berkeley.</diggs:authority>
+            <diggs:reference>https://peer.berkeley.edu/sites/default/files/webpeer-2012-08-bernard_r._wair_jason_t._dejong_and_thomas_shantz.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="n60_ic_based">
+            <gml:description>Equivalent SPT blow count corrected to 60% energy ratio, estimated from corrected tip resistance using a soil behaviour type index (Ic) dependent qt/N60 ratio.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#n60_ic_based</gml:identifier>
+            <gml:name>Equivalent SPT N60 (Ic-based)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Jefferies, M.G. and Davies, M.P. 1993. &quot;Use of CPTu to Estimate Equivalent SPT N60.&quot; Geotechnical Testing Journal 16(4): 458-468.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1520/GTJ10286J</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="effective_stress_vertical_calculated">
+            <gml:description>Effective vertical (overburden) stress sigma'_v0 = sigma_v0 - u0, obtained by depth integration of interpreted soil unit weight and subtraction of the reported equilibrium pore pressure profile. The unit weight method and pore pressure profile assumptions must be reported as supporting input parameters.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#effective_stress_vertical_calculated</gml:identifier>
+            <gml:name>Effective Vertical Stress (calculated)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure</diggs:quantityClass>
+            <diggs:authority>Lunne, T., Robertson, P.K., and Powell, J.J.M. 1997. Cone Penetration Testing in Geotechnical Practice. Blackie Academic &amp; Professional / Spon Press.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1201/9781482295047</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sbt_robertson_2009_qtn">
+            <gml:description>Numeric normalized soil behaviour type (SBTn) zone assigned from the normalized cone resistance (Qtn) versus normalized friction ratio (Fr) chart polygons per Robertson (2009). This chart-polygon variant is distinct from the Ic-band variant (sbt_robertson_2009_ic); ConeTec's SCREENzW 'SBT Qtn' output uses this chart.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#sbt_robertson_2009_qtn</gml:identifier>
+            <gml:name>Soil Behaviour Type Zone (Robertson 2009, Qtn-Fr chart)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. 2009. &quot;Interpretation of cone penetration tests - a unified approach.&quot; Canadian Geotechnical Journal 46(11): 1337-1355.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1139/T09-065</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="n60_ic_rw1998">
+            <gml:description>Equivalent SPT blow count at 60% energy ratio estimated from corrected tip resistance using a soil behaviour type index (Ic) dependent qt/N60 ratio per Robertson and Wride (1998). Distinct from n60_ic_based (Jefferies &amp; Davies 1993) and from SBT-zone-based N60.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#n60_ic_rw1998</gml:identifier>
+            <gml:name>Equivalent SPT N60 (Ic, Robertson &amp; Wride 1998)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. and Wride, C.E. 1998. &quot;Evaluating cyclic liquefaction potential using the cone penetration test.&quot; Canadian Geotechnical Journal 35(3): 442-459.</diggs:authority>
+            <diggs:reference>https://doi.org/10.1139/t98-017</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="gamma_sbt_qtn_zone">
+            <gml:description>Total soil unit weight assigned per normalized soil behaviour type (Qtn) zone, as used in ConeTec SCREENzW ('SBT Qtn zone assigned unit weights'). PROVISIONAL AUTHORITY - pending ConeTec/Jim Greig confirmation of the exact zone-unit-weight table and reference; one of the nine unit-weight methods to be registered.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#gamma_sbt_qtn_zone</gml:identifier>
+            <gml:name>Soil Unit Weight (SBT Qtn zone assigned)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>force per volume</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. 2010. &quot;Soil behaviour type from the CPT: an update.&quot; 2nd International Symposium on Cone Penetration Testing (CPT'10), Huntington Beach, California. [PROVISIONAL - confirm with ConeTec]</diggs:authority>
+            <diggs:reference>https://www.cpt-robertson.com/publications/</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ocr_pkr2015">
+            <gml:description>Overconsolidation ratio estimated from CPT per Robertson (2015), corresponding to ConeTec SCREENzW 'OCR (PKR2015)'. PROVISIONAL AUTHORITY - pending ConeTec/Jim Greig confirmation of reference; ConeTec also reports an 'OCR (JS1978)' variant whose citation is to be resolved.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cpt_interpreted_properties.xml#ocr_pkr2015</gml:identifier>
+            <gml:name>Overconsolidation Ratio (Robertson 2015)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>Robertson, P.K. and Cabal, K.L. 2015. Guide to Cone Penetration Testing for Geotechnical Engineering, 6th ed. Gregg Drilling &amp; Testing, Inc. [PROVISIONAL - confirm with ConeTec]</diggs:authority>
+            <diggs:reference>https://www.cpt-robertson.com/publications/</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:StaticConePenetrationTest</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

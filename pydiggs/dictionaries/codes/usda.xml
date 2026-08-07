@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="classificationCode">
+    <gml:description>Soil textural classsification codes based on the U.S. Department of Agriculture soil textural triangle for soil material &lt; 2 mm diameter. These codes are used for the value of the classificationCode property of the Lithology object.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml</gml:identifier>
+    <gml:name>DIGGS USDA Soil Texture Classification Definitionss</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="LFS">
+            <gml:description>Between 70 and 91 percent sand and the percentage of silt plus 1.5 times the percentage of clay is 15 or more; and the percentage of silt plus twice the percentage of clay is less than 30. 50 percent or more fine (0.25-0.1 mm diameter) sand or less than 50 percent very fine (0.1-0.05 mm diameter) sand and a total of less than 25 percent very coarse  (2-1 mm diameter), coarse (1-0.5 mm diameter), and medium (0.5-0.25 mm diameter) sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#LFS</gml:identifier>
+            <gml:name>Loamy fine sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="SIC">
+            <gml:description>40 percent or more clay and 40 percent or more silt.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#SIC</gml:identifier>
+            <gml:name>Silty clay</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="COS">
+            <gml:description>More than 85 percent sand, the percentage of silt plus 1.5 times the percentage of clay is less than 15. A total of 25 percent or more is very coarse (2-1 mm diameter) and coarse (1-0.5 mm diameter) sand, and less than 50 percent any other one grade of sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#COS</gml:identifier>
+            <gml:name>Coarse sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="LO">
+            <gml:description>7 to 27 percent clay (&lt;0.002 mm diameter), 28 to 50 percent silt (0.05-0.002 mm diameter), and 52 percent or less sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#LO</gml:identifier>
+            <gml:name>Loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="LCOS">
+            <gml:description>Between 70 and 91 percent sand and the percentage of silt plus 1.5 times the percentage of clay is 15 or more; and the percentage of silt plus twice the percentage of clay is less than 30. A total of 25 percent or more  very coarse (2-1 mm diameter) and coarse (1-0.5 mm diameter) sand, and less than 50 percent any other one grade of sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#LCOS</gml:identifier>
+            <gml:name>Loamy coarse sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="SC">
+            <gml:description>35 percent or more clay and 45 percent or more sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#SC</gml:identifier>
+            <gml:name>Sandy clay</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="CL">
+            <gml:description>27 to 40 percent clay and more than 20 to 46 percent sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#CL</gml:identifier>
+            <gml:name>Clay loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="SL">
+            <gml:description>7 to 20 percent clay, more than 52 percent sand, and the percentage of silt plus twice the percentage of clay is 30 or more; or less than 7 percent clay, less than 50 percent silt, and more than 43 percent sand. A total of 30% or more very coarse (2-1 mm diameter), coarse (1-0.5 mm diameter), and medium (0.5-0.25 mm diameter) sand, but a total of less than 25 percent very coarse sand, and less than 30 percent fine (0.25-0.1 mm diameter) and less than 30 percent very fine (0.1-0.05 mm diameter) sand; or a total of 15 percent or less very coarse, coarse and medium sand, less than 30 percent fine sand and less than 30 percent very fine sand with a total of 40 percent or less fine and very fine sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#SL</gml:identifier>
+            <gml:name>Sandy loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="COSL">
+            <gml:description>7 to 20 percent clay, more than 52 percent sand, and the percentage of silt plus twice the percentage of clay is 30 or more; or less than 7 percent clay, less than 50 percent silt, and more than 43 percent sand. A total of 25 percent or more is very coarse (2-1 mm diameter) and coarse (1-0.5 mm diameter) sand, and less than 50 percent any other one grade of sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#COSL</gml:identifier>
+            <gml:name>Coarse sandy loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="S">
+            <gml:description>More than 85 percent sand, the percentage of silt plus 1.5 times the percentage of clay is less than 15. A total of 25% or more is very coarse (2-1 mm diameter), coarse (1-0.5 mm diameter), and medium (0.5-0.25 mm diameter) sand, and less than 50% fine (0.25-0.1 mm diameter) and less than 50 percent very fine (0.1-0.05 mm diameter) sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#S</gml:identifier>
+            <gml:name>Sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="VFS">
+            <gml:description>More than 85 percent sand, the percentage of silt plus 1.5 times the percentage of clay is less than 15. 50 percent or more very fine (0.1-0.05 mm diameter) sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#VFS</gml:identifier>
+            <gml:name>Very fine sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="FS">
+            <gml:description>More than 85 percent sand, the percentage of silt plus 1.5 times the percentage of clay is less than 15. 50 percent or more fine sand  (0.25-0.1 mm diameter); or a total of less than 25 percent very coarse (2-1 mm diameter),coarse (1-0.5 mm diameter), and medium (0.5-0.25 mm diameter) sand and less than 50 percent very fine sand  (0.1-0.05 mm diameter).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#FS</gml:identifier>
+            <gml:name>Fine sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="LS">
+            <gml:description>Between 70 and 91 percent sand and the percentage of silt plus 1.5 times the percentage of clay is 15 or more; and the percentage of silt plus twice the percentage of clay is less than 30. A total of  25 percent or more is very coarse (2-1 mm diameter), coarse (1-0.5 mm diameter), and medium (0.5-0.25 mm diameter) sand, and a total of less than 50 percent fine (0.25-0.1 mm diameter) sand and less than 50 percentr very fine (0.1-0.05 mm diameter) sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#LS</gml:identifier>
+            <gml:name>Loamy sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="SICL">
+            <gml:description>27 to 40 percent clay and 20 percent or less sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#SICL</gml:identifier>
+            <gml:name>Silty clay loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="SCL">
+            <gml:description>20 to 35 percent clay, less than 28 percent silt, and more than 45 percent sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#SCL</gml:identifier>
+            <gml:name>Sandy clay loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="FSL">
+            <gml:description>7 to 20 percent clay, more than 52 percent sand, and the percentage of silt plus twice the percentage of clay is 30 or more; or less than 7 percent clay, less than 50 percent silt, and more than 43 percent sand. 30 percent or more fine (0.25-0.1 mm diameter) sand and less than 30 percent very fine (0.1-0.05 mm diameter)  sand; or a total of 15 to 30 percent very coarse (2-1 mm diameter, coarse )1-0.5 mm diameter), and medium (0.5-0.25 mm diameter) sand; or a total of more than 40 percent fine and very fine sand, one half or more of which is fine sand, and a total of 15 percent or less very coarse, coarse, and medium sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#FSL</gml:identifier>
+            <gml:name>Fine sandy loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="VFSL">
+            <gml:description>7 to 20 percent clay, more than 52 percent sand, and the percentage of silt plus twice the percentage of clay is 30 or more; or less than 7 percent clay, less than 50 percent silt, and more than 43 percent sand. 30 percent or more very fine (0.1-0.05 mm diameter) sand and a total of less than 15 percent very coarse (2-1 mm diameter, coarse (1-0.5 mm diameter), and medium (0.5-0.25 mm diameter) sand; or more than 40 percent fine (0.25-0.1 mm diameter)  and very fine sand, more than one half of which is very fine sand, and total of less than 15 percent very coarse, coarse, and medium sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#VFSL</gml:identifier>
+            <gml:name>Very fine sandy loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="SIL">
+            <gml:description>50 percent or more silt (0.05-0.002 mm diameter) and 12 to 27 percent clay (&lt;0.002 mm diameter), or 50 to 80 percent silt and less than 12 percent clay.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#SIL</gml:identifier>
+            <gml:name>Silt loam</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="LVFS">
+            <gml:description>Between 70 and 91 percent sand and the percentage of silt plus 1.5 times the percentage of clay is 15 or more; and the percentage of silt plus twice the percentage of clay is less than 30.  50 percent or more very fine (0.1-0.05 mm diameter) sand.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#LVFS</gml:identifier>
+            <gml:name>Loamy very fine sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="SI">
+            <gml:description>80 percent or more silt and less than 12 percent clay.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#SI</gml:identifier>
+            <gml:name>Silt</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="C">
+            <gml:description>40 percent or more clay, 45 percent or less sand, and less than 40 percent silt.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/usda.xml#C</gml:identifier>
+            <gml:name>Clay</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>https://www.nrcs.usda.gov/sites/default/files/2022-09/SSM-ch3.pdf</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>
