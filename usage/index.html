@@ -509,6 +509,24 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#4-context-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Context Validation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-limits-diggs-2x" class="md-nav__link">
+    <span class="md-ellipsis">
+      Known limits (DIGGS 2.x)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -787,6 +805,24 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#4-context-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Context Validation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#known-limits-diggs-2x" class="md-nav__link">
+    <span class="md-ellipsis">
+      Known limits (DIGGS 2.x)
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -812,78 +848,109 @@
 
 <h1 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h1>
 <h2 id="diggs-validator">DIGGS <code>validator</code><a class="headerlink" href="#diggs-validator" title="Permanent link">&para;</a></h2>
-<p>The DIGGS validator provides three types of validation:
-1. Schema validation against XSD files
-2. Dictionary validation against standard property definitions
-3. Schematron validation against business rules</p>
-<p>For all validation types, you can control the error output:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># By default, validation errors will be written to log files</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># To print validation errors directly instead of writing to log files</span>
+<p>pyDIGGS validates DIGGS instance files offline against:</p>
+<ol>
+<li><strong>XSD schema</strong> — bundled DIGGS <strong>2.6</strong> (<code>Diggs.xsd</code>) by default, or <strong>2.5.a</strong> via <code>schema_path</code></li>
+<li><strong>Dictionary / codeSpace semantics</strong> — progressive checks aligned with <a href="https://github.com/DIGGSml/validation">DIGGSml/validation</a> (steps 1–13), using bundled DIGGS Standard dictionaries from <a href="https://diggsml.org/def/">diggsml.org/def</a></li>
+<li><strong>Schematron</strong> — bundled lxml-adapted DIGGS rules by default (from DIGGSml/validation, with online Geosetta unit API replaced by offline DiggsUomDictionary conversion for casing diameters)</li>
+</ol>
+<p>All three methods return <code>True</code> on success (dictionary: no <code>ERROR</code> severity findings).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydiggs</span><span class="w"> </span><span class="kn">import</span> <span class="n">validator</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Write logs to the CWD (default), or print to the console:</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span></code></pre></div></p>
+</span></code></pre></div>
 <h3 id="1-schema-validation">1. Schema Validation<a class="headerlink" href="#1-schema-validation" title="Permanent link">&para;</a></h3>
 <h4 id="using-python">Using Python<a class="headerlink" href="#using-python" title="Permanent link">&para;</a></h4>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydiggs</span><span class="w"> </span><span class="kn">import</span> <span class="n">validator</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Using default DIGGS Schema (version 2.6)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">)</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">validation</span><span class="o">.</span><span class="n">schema_check</span><span class="p">()</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Default: embedded DIGGS Schema 2.6</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">assert</span> <span class="n">validation</span><span class="o">.</span><span class="n">schema_check</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">True</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Using a specific DIGGS Schema version</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">schema_path</span><span class="o">=</span><span class="s2">&quot;DIGGS_Schema_File_Path&quot;</span><span class="p">)</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">validation</span><span class="o">.</span><span class="n">schema_check</span><span class="p">()</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="c1"># Access schema validation results</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">syntax_error_log</span><span class="p">)</span>      <span class="c1"># Contains any XML syntax errors</span>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schema_validation_log</span><span class="p">)</span> <span class="c1"># Contains schema validation errors</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schema_error_log</span><span class="p">)</span>      <span class="c1"># Contains schema parse errors</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Explicit schema (e.g. DIGGS 2.5.a Complete.xsd)</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">schema_path</span><span class="o">=</span><span class="s2">&quot;path/to/diggs-schema-2.5.a/Complete.xsd&quot;</span><span class="p">,</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="p">)</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="n">validation</span><span class="o">.</span><span class="n">schema_check</span><span class="p">()</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">syntax_error_log</span><span class="p">)</span>       <span class="c1"># XML syntax errors</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schema_validation_log</span><span class="p">)</span>  <span class="c1"># XSD validation errors</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schema_error_log</span><span class="p">)</span>       <span class="c1"># schema parse errors</span>
 </span></code></pre></div>
 <h4 id="using-command-line-interface">Using Command Line Interface<a class="headerlink" href="#using-command-line-interface" title="Permanent link">&para;</a></h4>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Using default schema</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Using specific schema</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--schema_path<span class="w"> </span><span class="s2">&quot;DIGGS_Schema_File_Path&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--schema_path<span class="w"> </span><span class="s2">&quot;DIGGS_Schema_File_Path&quot;</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--no-output_log
 </span></code></pre></div>
 <h3 id="2-dictionary-validation">2. Dictionary Validation<a class="headerlink" href="#2-dictionary-validation" title="Permanent link">&para;</a></h3>
+<p>Dictionary validation implements DIGGS codeSpace semantics:</p>
+<ul>
+<li>Preferred (wiki guidance): <code>codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#liquid_limit"</code></li>
+<li>Legacy: <code>codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml"</code> with element text equal to a <code>gml:id</code> or <code>gml:name</code></li>
+<li>Offline resolution of bundled dictionaries under <code>pydiggs/dictionaries/codes/</code></li>
+<li>Offline UOM membership checks via <code>DiggsUomDictionary.xml</code></li>
+</ul>
 <h4 id="using-python_1">Using Python<a class="headerlink" href="#using-python_1" title="Permanent link">&para;</a></h4>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydiggs</span><span class="w"> </span><span class="kn">import</span> <span class="n">validator</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Using default DIGGS Dictionary</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">validation</span><span class="o">.</span><span class="n">dictionary_check</span><span class="p">()</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="c1"># Using a specific dictionary file</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">dictionary_path</span><span class="o">=</span><span class="s2">&quot;DIGGS_Dictionary_File_Path&quot;</span><span class="p">)</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">validation</span><span class="o">.</span><span class="n">dictionary_check</span><span class="p">()</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="c1"># Access dictionary validation results</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">dictionary_validation_log</span><span class="p">)</span> <span class="c1"># Contains dictionary validation errors</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">ok</span> <span class="o">=</span> <span class="n">validation</span><span class="o">.</span><span class="n">dictionary_check</span><span class="p">()</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">dictionary_validation_log</span><span class="p">)</span>  <span class="c1"># INFO / WARNING / ERROR messages</span>
 </span></code></pre></div>
 <h4 id="using-command-line-interface_1">Using Command Line Interface<a class="headerlink" href="#using-command-line-interface_1" title="Permanent link">&para;</a></h4>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Using default dictionary</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pydiggs<span class="w"> </span>dictionary_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Using specific dictionary</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>pydiggs<span class="w"> </span>dictionary_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--dictionary_path<span class="w"> </span><span class="s2">&quot;DIGGS_Dictionary_File_Path&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pydiggs<span class="w"> </span>dictionary_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pydiggs<span class="w"> </span>dictionary_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--dictionary_path<span class="w"> </span><span class="s2">&quot;path/to/properties.xml&quot;</span>
 </span></code></pre></div>
 <h3 id="3-schematron-validation">3. Schematron Validation<a class="headerlink" href="#3-schematron-validation" title="Permanent link">&para;</a></h3>
+<p>By default, <code>schematron_check()</code> uses the bundled
+<code>pydiggs/schematron/diggs_schematron_rules_2.6.sch</code> (ISO Schematron / <code>xslt1</code> for lxml).
+You may still supply a custom <code>.sch</code>. Cross-unit casing diameter comparison uses the
+bundled Diggs UOM dictionary (not the online Geosetta API).</p>
 <h4 id="using-python_2">Using Python<a class="headerlink" href="#using-python_2" title="Permanent link">&para;</a></h4>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pydiggs</span><span class="w"> </span><span class="kn">import</span> <span class="n">validator</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Schematron validation requires a schematron schema file</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">schematron_path</span><span class="o">=</span><span class="s2">&quot;DIGGS_Schematron_File_Path&quot;</span><span class="p">)</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">validation</span><span class="o">.</span><span class="n">schematron_check</span><span class="p">()</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1"># Bundled DIGGS Schematron rules</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="k">assert</span> <span class="n">validation</span><span class="o">.</span><span class="n">schematron_check</span><span class="p">()</span> <span class="ow">is</span> <span class="kc">True</span>
 </span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Access schematron validation results</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schematron_validation_log</span><span class="p">)</span> <span class="c1"># Contains schematron validation errors</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schematron_error_log</span><span class="p">)</span>      <span class="c1"># Contains schematron parse errors</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Custom Schematron</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">schematron_path</span><span class="o">=</span><span class="s2">&quot;path/to/rules.sch&quot;</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="p">)</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="n">validation</span><span class="o">.</span><span class="n">schematron_check</span><span class="p">()</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schematron_validation_log</span><span class="p">)</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schematron_error_log</span><span class="p">)</span>
 </span></code></pre></div>
 <h4 id="using-command-line-interface_2">Using Command Line Interface<a class="headerlink" href="#using-command-line-interface_2" title="Permanent link">&para;</a></h4>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pydiggs<span class="w"> </span>schematron_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--schematron_path<span class="w"> </span><span class="s2">&quot;DIGGS_Schematron_File_Path&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pydiggs<span class="w"> </span>schematron_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>pydiggs<span class="w"> </span>schematron_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--schematron_path<span class="w"> </span><span class="s2">&quot;path/to/rules.sch&quot;</span>
 </span></code></pre></div>
+<h3 id="4-context-validation">4. Context Validation<a class="headerlink" href="#4-context-validation" title="Permanent link">&para;</a></h3>
+<p>Lightweight ports of DIGGSml/validation structure, geometry SRS, in-document
+<code>xlink:href</code>, and dataBlock arity checks:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">validation</span><span class="o">.</span><span class="n">context_check</span><span class="p">()</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">context_validation_log</span><span class="p">)</span>
+</span></code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pydiggs<span class="w"> </span>context_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--no-output_log
+</span></code></pre></div>
+<h3 id="known-limits-diggs-2x">Known limits (DIGGS 2.x)<a class="headerlink" href="#known-limits-diggs-2x" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Official <a href="https://github.com/DIGGSml/diggs-examples">diggs-examples</a> files
+  <code>FieldSurveyExample.xml</code> and <code>Temporal_Spatial_CRS_Example.xml</code> are known not to
+  validate as Diggs XSD document roots (document with the DIGGS maintainers / omit from golden suites).</li>
+<li>Upstream Schematron <code>queryBinding="xslt3"</code> rules that call remote APIs are not executed by
+  lxml; pyDIGGS ships an adapted subset plus offline casing UOM checks.</li>
+<li>Full DIGGSml/validation XSLT modules for CRS / xlink / dataBlock structure remain out of scope
+  for this release train; see that repository for the Saxon pipeline.</li>
+</ul>
 
 
 
