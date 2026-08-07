@@ -43,7 +43,7 @@ Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web a
 
 ## Quick Start
 
-Install pydiggs:
+Install pydiggs (requires Python 3.11+):
 ```bash
 uv pip install pydiggs
 # or: pip install pydiggs
@@ -53,10 +53,13 @@ Basic usage with Python:
 ```python
 from pydiggs import detect_diggs_version, validator
 
-# Create a validator instance (profile auto-detected from the file namespace)
+# Profile auto-detected from the instance namespace (unknown → 3.0.0)
 validation = validator("path/to/your/diggs_file.xml")
 
-print(detect_diggs_version("path/to/your/diggs_file.xml"))
+print(detect_diggs_version("path/to/your/diggs_file.xml"))  # "2.5.a", "2.6", or "3.0.0"
+
+# Or pin a profile explicitly (Python API only)
+validation = validator("path/to/your/diggs_file.xml", diggs_version="2.6")
 
 # Schema validation
 validation.schema_check()
@@ -92,5 +95,9 @@ pydiggs context_check "path/to/your/diggs_file.xml"
 # Custom Schematron
 pydiggs schematron_check "path/to/your/diggs_file.xml" --schematron_path "path/to/schematron.sch"
 ```
+
+**1.0.0a1** is an alpha toward 1.0.0. See [usage](https://xinp-hub.github.io/pydiggs/usage/) for
+`diggs_version` / `schema_path` overrides, log output options, and [known limits](https://xinp-hub.github.io/pydiggs/usage/#known-limits)
+(dictionary check 12 as WARNING, bundled Schematron subset, and more).
 
 For more detailed information and advanced usage, please see the [documentation](https://xinp-hub.github.io/pydiggs).
