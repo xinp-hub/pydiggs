@@ -2,62 +2,41 @@
 
 ## Prerequisites
 
-pydiggs requires Python 3.10 or later and depends on the following packages:
-* lxml - for XML processing and validation
-* rich - for colored console output
+pydiggs requires Python 3.11 or later and depends on:
 
-## Stable Release
+* lxml — XML processing and validation
+* rich — colored console output
 
-To install pydiggs, run this command in your terminal:
+## Stable release
 
 ```bash
+uv pip install pydiggs
+# or
 pip install pydiggs
 ```
 
-This is the preferred method to install pydiggs, as it will always install the most recent stable release with all required dependencies.
+This installs the latest release from PyPI with its runtime dependencies.
 
-If you don't have [pip](https://pip.pypa.io) installed, this [Python installation guide](https://docs.python-guide.org/starting/installation/) can guide you through the process.
+## Development install
 
-## Development Version
-
-The latest development version can be installed directly from GitHub:
+Clone the repository and sync with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install git+https://github.com/xinp-hub/pydiggs.git
+git clone https://github.com/xinp-hub/pydiggs.git
+cd pydiggs
+uv sync --all-groups
 ```
 
-## From Sources
-
-The sources for pydiggs can be downloaded from the [GitHub repo](https://github.com/xinp-hub/pydiggs).
-
-You can either clone the public repository:
+Or from a local checkout without groups:
 
 ```bash
-git clone git://github.com/xinp-hub/pydiggs
-```
-
-Or download the [tarball](https://github.com/xinp-hub/pydiggs/tarball/master):
-
-```bash
-curl -OJL https://github.com/xinp-hub/pydiggs/tarball/master
-```
-
-Once you have a copy of the source, you can install it with:
-
-```bash
-# If you have Poetry installed (recommended for development)
-poetry install
-
-# Or using pip
-pip install .
+uv sync
 ```
 
 ## Verification
 
-After installation, you can verify that pydiggs is installed correctly by running:
-
 ```bash
+uv run python -c "import pydiggs; print(pydiggs.__version__)"
+# or, if installed into the ambient environment:
 python -c "import pydiggs; print(pydiggs.__version__)"
 ```
-
-This should print the version number of your installed pydiggs package. 

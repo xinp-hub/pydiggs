@@ -4,18 +4,28 @@
 
 pyDIGGS validates DIGGS instance files offline against:
 
-1. **XSD schema** — bundled DIGGS **2.6** (`Diggs.xsd`) by default, or **2.5.a** via `schema_path`
-2. **Dictionary / codeSpace semantics** — progressive checks aligned with [DIGGSml/validation](https://github.com/DIGGSml/validation) (steps 1–13), using bundled DIGGS Standard dictionaries from [diggsml.org/def](https://diggsml.org/def/)
-3. **Schematron** — bundled lxml-adapted DIGGS rules by default (from DIGGSml/validation, with online Geosetta unit API replaced by offline DiggsUomDictionary conversion for casing diameters)
+1. **XSD schema** — bundled DIGGS **2.5.a**, **2.6**, or **3.0.0**, selected by
+   namespace auto-detect (`detect_diggs_version`). Unknown namespaces default to
+   **3.0.0**. Override with `diggs_version=` or `schema_path=`.
+2. **Dictionary / codeSpace semantics** — progressive checks aligned with
+   [DIGGSml/validation](https://github.com/DIGGSml/validation) (steps 1–13), using
+   bundled DIGGS Standard dictionaries from [diggsml.org/def](https://diggsml.org/def/)
+3. **Schematron** — bundled lxml-adapted DIGGS rules by default (from DIGGSml/validation,
+   with online Geosetta unit API replaced by offline DiggsUomDictionary conversion for
+   casing diameters)
+4. **Context** — lightweight ports of DIGGSml/validation structure, geometry SRS,
+   in-document `xlink:href`, and dataBlock arity checks
 
-All three methods return `True` on success (dictionary: no `ERROR` severity findings).
+All four methods return `True` on success (dictionary: no `ERROR` severity findings).
 
 ```python
-from pydiggs import validator
+from pydiggs import detect_diggs_version, validator
 
 # Write logs to the CWD (default), or print to the console:
 validation = validator("DIGGS_Instance_File_Path", output_log=True)
 validation = validator("DIGGS_Instance_File_Path", output_log=False)
+
+print(detect_diggs_version("DIGGS_Instance_File_Path"))  # e.g. "2.6" or "3.0.0"
 ```
 
 ### 1. Schema Validation
@@ -25,21 +35,26 @@ validation = validator("DIGGS_Instance_File_Path", output_log=False)
 ```python
 from pydiggs import validator
 
-# Default: embedded DIGGS Schema 2.6
+# Auto-detect profile from instance namespace (unknown → 3.0.0)
 validation = validator("DIGGS_Instance_File_Path", output_log=False)
 assert validation.schema_check() is True
+print(validation.diggs_version)
 
-# Explicit schema (e.g. DIGGS 2.5.a Complete.xsd)
+# Pin a profile explicitly
+validation = validator("DIGGS_Instance_File_Path", diggs_version="2.5.a", output_log=False)
+validation.schema_check()
+
+# Or pass a custom XSD
 validation = validator(
     "DIGGS_Instance_File_Path",
-    schema_path="path/to/diggs-schema-2.5.a/Complete.xsd",
+    schema_path="path/to/Diggs.xsd",
     output_log=False,
 )
 validation.schema_check()
 
-print(validation.syntax_error_log)       # XML syntax errors
+print(validation.syntax_error_log)  # XML syntax errors
 print(validation.schema_validation_log)  # XSD validation errors
-print(validation.schema_error_log)       # schema parse errors
+print(validation.schema_error_log)  # schema parse errors
 ```
 
 #### Using Command Line Interface
@@ -113,9 +128,6 @@ pydiggs schematron_check "DIGGS_Instance_File_Path" --schematron_path "path/to/r
 
 ### 4. Context Validation
 
-Lightweight ports of DIGGSml/validation structure, geometry SRS, in-document
-`xlink:href`, and dataBlock arity checks:
-
 ```python
 validation = validator("DIGGS_Instance_File_Path", output_log=False)
 validation.context_check()
@@ -126,12 +138,16 @@ print(validation.context_validation_log)
 pydiggs context_check "DIGGS_Instance_File_Path" --no-output_log
 ```
 
-### Known limits (DIGGS 2.x)
+### Known limits
 
-- Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files
-  `FieldSurveyExample.xml` and `Temporal_Spatial_CRS_Example.xml` are known not to
-  validate as Diggs XSD document roots (document with the DIGGS maintainers / omit from golden suites).
+- Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files under
+  `tests/fixtures/official/known_invalid/` fail schema (or XML syntax) against the bundled
+  XSDs; they are pinned so we never silently accept them.
+- Dictionary check 12 (UOM/quantity mismatch) is reported as WARNING so those examples still
+  pass `dictionary_check()` with a visible advisory.
+- Legacy `http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#…` codeSpaces are
+  resolved against the modern `def/codes/DIGGS/0.1/properties.xml` definitions when present.
 - Upstream Schematron `queryBinding="xslt3"` rules that call remote APIs are not executed by
   lxml; pyDIGGS ships an adapted subset plus offline casing UOM checks.
-- Full DIGGSml/validation XSLT modules for CRS / xlink / dataBlock structure remain out of scope
-  for this release train; see that repository for the Saxon pipeline.
+- Full DIGGSml/validation XSLT modules for CRS / xlink / dataBlock structure remain out of
+  scope for this release train; see that repository for the Saxon pipeline.

@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:diggs="http://diggsml.org/schemas/3"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink"
+  xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:glr="http://www.opengis.net/gml/3.3/lr"
+  xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd"
+  gml:id="TrenchwallExample2">
+  <documentInformation>
+    <DocumentInformation gml:id="d1">
+      <creationDate>2010-01-01</creationDate>
+      <effectiveDate>2009-01-01</effectiveDate>
+      <author>
+        <BusinessAssociate gml:id="a23">
+          <gml:name>Joe Blow</gml:name>
+        </BusinessAssociate>
+      </author>
+      <sourceSoftware>
+        <SoftwareApplication gml:id="sap1">
+          <gml:name>Autocad</gml:name>
+        </SoftwareApplication>
+      </sourceSoftware>
+      <crs>
+        <!-- Coordinate reference system definition for coordinates describing locations of trench wall observations.
+             SVG source page units are mm; 1 mm = 0.1 m, so all local coordinates are scaled by 0.1.
+        -->
+        <LocalCartesianCRS gml:id="trench-wall-2d-crs-001">
+
+          <!-- ================================================================== -->
+          <!-- Standard GML CRS Properties -->
+          <!-- ================================================================== -->
+
+          <gml:description>
+            Two-dimensional local Cartesian coordinate reference system for a vertical
+            trench wall. The X-axis runs horizontally along the wall face (bearing ~37°
+            from North), and the D-axis (depth) points vertically downward. Origin is at
+            the top southwest corner of the wall. The wall is approximately 18.1 meters
+            wide and 5.5 meters deep.
+          </gml:description>
+
+          <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">
+            trench-wall-2d-crs-001
+          </gml:identifier>
+
+          <gml:name>Local Coordinate System for Trench b11</gml:name>
+
+          <gml:scope>
+            Trench wall mapping and geological logging with 2D representation
+          </gml:scope>
+
+          <gml:scope>
+            Documentation of soil layers, contacts, and features on vertical exposure in trench B11
+          </gml:scope>
+
+          <!-- ================================================================== -->
+          <!-- Cartesian Coordinate System Definition (2D) -->
+          <!-- ================================================================== -->
+
+          <gml:cartesianCS>
+            <gml:CartesianCS gml:id="trench-wall-2d-cs">
+              <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">
+                trench-wall-2d-cartesian-cs
+              </gml:identifier>
+              <gml:name>Trench Wall 2D Cartesian CS</gml:name>
+              <gml:remarks>
+                Two-dimensional Cartesian coordinate system for trench wall with
+                X along wall (horizontal) and D downward (depth from top of wall)
+              </gml:remarks>
+
+              <!-- X Axis - Horizontal along wall face -->
+              <gml:axis>
+                <gml:CoordinateSystemAxis gml:id="x-axis" uom="m">
+                  <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">x-horizontal-along-wall</gml:identifier>
+                  <gml:name>X - Horizontal Along Wall</gml:name>
+                  <gml:remarks>
+                    Horizontal axis running along the trench wall face from
+                    southwest to northeast (bearing ~37°). Origin is at the
+                    southwest corner at the top of the wall.
+                  </gml:remarks>
+                  <gml:axisAbbrev>X</gml:axisAbbrev>
+                  <gml:axisDirection codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">northeast</gml:axisDirection>
+                </gml:CoordinateSystemAxis>
+              </gml:axis>
+
+              <!-- Depth Axis - Depth (positive downward from top) -->
+              <gml:axis>
+                <gml:CoordinateSystemAxis gml:id="d-axis" uom="m">
+                  <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">d-depth-downward</gml:identifier>
+                  <gml:name>D - Depth Below Top of Wall</gml:name>
+                  <gml:remarks>
+                    Depth axis pointing vertically downward from the top of the wall.
+                    D=0 is at the top of the wall. Positive values indicate increasing
+                    depth downward.
+                  </gml:remarks>
+                  <gml:axisAbbrev>D</gml:axisAbbrev>
+                  <gml:axisDirection codeSpace="EPSG">down</gml:axisDirection>
+                </gml:CoordinateSystemAxis>
+              </gml:axis>
+            </gml:CartesianCS>
+          </gml:cartesianCS>
+
+          <!-- ================================================================== -->
+          <!-- Engineering Datum -->
+          <!-- ================================================================== -->
+
+          <gml:engineeringDatum>
+            <gml:EngineeringDatum gml:id="trench-wall-2d-datum">
+              <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">trench-wall-2d-datum-001</gml:identifier>
+              <gml:name>Trench Wall 2D Local Datum</gml:name>
+              <gml:remarks>
+                Datum defined by the southwest corner at the top of the trench wall
+              </gml:remarks>
+              <gml:scope/>
+              <gml:anchorDefinition>
+                Origin point at top of trench wall, southwest corner, elevation 5.0 m NAVD88.
+                The wall extends approximately 5.5 meters downward to elevation -0.50 m NAVD88
+                at the deepest point.
+              </gml:anchorDefinition>
+            </gml:EngineeringDatum>
+          </gml:engineeringDatum>
+
+          <!-- ================================================================== -->
+          <!-- Spatial Positioning: Origin Location (Top SW Corner) -->
+          <!-- ================================================================== -->
+
+          <originLocation>
+            <PointLocation gml:id="trench-wall-2d-origin" srsDimension="3"
+              srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911&amp;2=http://www.opengis.net/def/crs/EPSG/0/5703">
+              <gml:description>
+                Origin (0,0) at top of trench wall, southwest corner.
+                UTM Zone 11N (EPSG:26911) + NAVD88 height (EPSG:5703).
+                Origin location must be in a spatial CRS to allow for transformation
+                of local coordinates to spatial coordinates.
+              </gml:description>
+              <gml:pos>387516.6651 3742645.123 5.0</gml:pos>
+            </PointLocation>
+          </originLocation>
+
+          <!-- ================================================================== -->
+          <!-- Spatial Positioning: X Axis (Horizontal along wall) -->
+          <!-- ================================================================== -->
+          <!-- Direction vector: (0.6, 0.8, 0.0); wall width = 18.1058 m         -->
+          <!-- End point: origin + 18.1058 * (0.6, 0.8, 0.0)                     -->
+          <!--   = (387516.6651 + 10.8635, 3742645.123 + 14.4846, 5.0)           -->
+          <!--   = (387527.5285, 3742659.6076, 5.0)                               -->
+
+          <axisLocation>
+            <AxisLocation gml:id="x-axis-location">
+              <axisRef xlink:href="#x-axis"/>
+              <axisOrder>1</axisOrder>
+              <location>
+                <LinearExtent gml:id="ply1_top" srsDimension="3"
+                  srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911%262=http://www.opengis.net/def/crs/EPSG/0/5703">
+                  <gml:posList>387516.6651 3742645.123 5.0 387527.5285 3742659.6076 5.0</gml:posList>
+                </LinearExtent>
+              </location>
+              <directionVector>0.6 0.8 0.0</directionVector>
+            </AxisLocation>
+          </axisLocation>
+
+          <!-- ================================================================== -->
+          <!-- Spatial Positioning: D Axis (Depth, positive downward)             -->
+          <!-- ================================================================== -->
+          <!-- Direction vector: (0.0, 0.0, -1.0); wall depth = 5.4987 m         -->
+          <!-- End point: origin + 5.4987 * (0.0, 0.0, -1.0)                     -->
+          <!--   = (387516.6651, 3742645.123, 5.0 - 5.4987) = (..., -0.4987)     -->
+
+          <axisLocation>
+            <diggs:AxisLocation gml:id="d-axis-location">
+              <axisRef xlink:href="#d-axis"/>
+              <axisOrder>2</axisOrder>
+              <location>
+                <diggs:LinearExtent gml:id="d-axis-spatial-extent" srsDimension="3"
+                  srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911&amp;2=http://www.opengis.net/def/crs/EPSG/0/5703">
+                  <gml:description>
+                    Full extent of D-axis: approximately 5.5 meters vertically downward
+                    from top of wall. Starts at elevation 5.0 m (D=0) and extends to
+                    elevation -0.50 m (D=5.50 m) at the deepest point.
+                  </gml:description>
+                  <gml:posList>387516.6651 3742645.123 5.0 387516.6651 3742645.123 -0.4987</gml:posList>
+                </diggs:LinearExtent>
+              </location>
+              <directionVector>0.0 0.0 -1.0</directionVector>
+            </diggs:AxisLocation>
+          </axisLocation>
+
+          <!-- ================================================================== -->
+          <!-- Transformation Parameters -->
+          <!-- ================================================================== -->
+
+          <transformationMethod>affine</transformationMethod>
+          <rotationAngle uom="dega">36.8699</rotationAngle>
+          <scaleFactor>1.0</scaleFactor>
+          <transformationAccuracy uom="m">0.001</transformationAccuracy>
+        </LocalCartesianCRS>
+      </crs>
+    </DocumentInformation>
+  </documentInformation>
+
+  <project>
+    <Project gml:id="p1">
+      <gml:name>Test Project</gml:name>
+      <remark>
+        <Remark>
+          <content>This could be a virtual project that has no relevance outside of this instance</content>
+        </Remark>
+      </remark>
+    </Project>
+  </project>
+
+  <samplingFeature>
+    <TrenchWall gml:id="b11">
+      <gml:identifier codeSpace="usgs">urn:diggs:def:fi:USGS:usgs_b11</gml:identifier>
+      <gml:name>My trench</gml:name>
+      <investigationTarget>Natural Ground</investigationTarget>
+      <projectRef xlink:href="#p1"/>
+      <referencePoint>
+        <PointLocation gml:id="a34" srsDimension="3"
+          srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911%262=http://www.opengis.net/def/crs/EPSG/0/5703">
+          <gml:pos>387516.6651 3742645.123 5.0</gml:pos>
+        </PointLocation>
+      </referencePoint>
+      <featureExtent>
+        <!-- Feature extent polygon in local trench CRS (X m, D m).              -->
+        <!-- Derived from SVG Layer 1 path; SVG page units are mm, scaled x0.1   -->
+        <!-- to meters. Origin = upper-left corner of extent at SVG (19.44, 92.44) -->
+        <PlanarSurface srsDimension="2" srsName="#trench-wall-2d-crs-001" gml:id="ply1">
+          <gml:exterior>
+            <gml:LinearRing>
+              <gml:posList>
+                0.0 0.0 2.1676 0.2391 6.3912 0.4781 10.041 0.6057 14.2009 0.5738
+                17.3567 0.5419 18.1058 0.6375 17.6754 2.0082 16.5119 3.6817
+                14.3284 5.2277 8.9254 5.4987 5.3234 5.3234 1.7532 4.7496
+                0.7332 2.9804 0.3028 1.4344 0.0 0.0
+              </gml:posList>
+            </gml:LinearRing>
+          </gml:exterior>
+        </PlanarSurface>
+      </featureExtent>
+
+      <constructionMethod>
+        <TrenchConstructionMethod gml:id="cm22">
+          <gml:name>backhoe</gml:name>
+          <remark>
+            <Remark>
+              <content>Backhoe was brand new and worked like a charm</content>
+            </Remark>
+          </remark>
+        </TrenchConstructionMethod>
+      </constructionMethod>
+
+    </TrenchWall>
+  </samplingFeature>
+
+  <observation>
+
+    <!-- Fault observation in trench wall -->
+    <!-- Derived from SVG Layer 2 polyline, scaled from mm to meters (x0.1)  -->
+
+    <DiscontinuitySystem gml:id="lst1">
+      <gml:name>Faults</gml:name>
+      <projectRef xlink:href="#p1"/>
+      <samplingFeatureRef xlink:href="#b11"/>
+      <discontinuityType>fault</discontinuityType>
+      <discontinuityObservation>
+        <DiscontinuityObservation gml:id="flt-1">
+          <location>
+            <LinearExtent gml:id="twpl1" srsDimension="2" srsName="#trench-wall-2d-crs-001">
+              <gml:posList>8.9254 5.4987 7.6981 3.4108 6.8534 1.1794</gml:posList>
+            </LinearExtent>
+          </location>
+          <fractureObservation>
+            <FractureObservation gml:id="fd-1">
+              <gml:name>Fault A</gml:name>
+              <type>normal fault</type>
+            </FractureObservation>
+          </fractureObservation>
+        </DiscontinuityObservation>
+      </discontinuityObservation>
+    </DiscontinuitySystem>
+  </observation>
+
+  <observation>
+
+    <!-- Soil descriptions - three lithology observations from SVG Layer 3 polygons -->
+    <!-- All coordinates scaled from SVG mm page units to meters (x0.1)            -->
+
+    <LithologySystem gml:id="lst_usc">
+      <gml:name>Soils in trench wall</gml:name>
+      <projectRef xlink:href="#p1"/>
+      <samplingFeatureRef xlink:href="#b11" identifierRef="urn:diggs:def:fi:USGS:usgs_b11"/>
+      <lithologyClassificationType>Soil</lithologyClassificationType>
+
+      <!-- ============================================================ -->
+      <!-- Layer 1: SP - Poorly graded sand (brown, uppermost layer)    -->
+      <!-- ============================================================ -->
+      <lithologyObservation>
+        <LithologyObservation gml:id="lst-h1">
+          <location>
+            <PlanarObservationRepresentation gml:id="li-1" srsDimension="2" srsName="#trench-wall-2d-crs-001">
+
+              <!-- Top intersection: upper boundary of SP layer, L->R.           -->
+              <!-- Coincides with the top edge of the feature extent.             -->
+              <layerTopIntersection>
+                <LinearExtent gml:id="twp-int-11">
+                  <gml:posList>
+                    0.0 0.0 2.1676 0.2391 4.2794 0.3586 6.3912 0.4781 8.2161 0.5419
+                    10.041 0.6057 12.121 0.5897 14.2009 0.5738 15.7788 0.5578
+                    17.3567 0.5419 17.7312 0.5897 18.1058 0.6375
+                  </gml:posList>
+                </LinearExtent>
+              </layerTopIntersection>
+
+              <!-- Base intersection: lower boundary of SP layer, L->R.          -->
+              <!-- Shared with layerTopIntersection of sML layer below.           -->
+              <layerBaseIntersection>
+                <LinearExtent gml:id="twp-int-12">
+                  <gml:posList>
+                    0.2272 1.0762 1.3388 1.2751 4.1917 1.5938 7.0905 1.8056
+                    7.2758 2.2951 9.9932 2.072 11.6667 2.0242 13.149 2.0242
+                    14.8384 2.1357 16.4163 2.056 17.6754 2.0082
+                  </gml:posList>
+                </LinearExtent>
+              </layerBaseIntersection>
+
+              <!-- Representative surface: closed polygon of SP layer -->
+              <representativeSurface>
+                <PlanarSurface gml:id="lt1-p" srsDimension="2" srsName="#trench-wall-2d-crs-001">
+                  <gml:exterior>
+                    <gml:Ring>
+                      <!-- Top edge (L->R) -->
+                      <gml:curveMember xlink:href="#twp-int-11"/>
+                      <!-- Right edge -->
+                      <gml:curveMember>
+                        <gml:LineString gml:id="lt1-right">
+                          <gml:posList>18.1058 0.6375 17.9924 0.9985 17.6754 2.0082</gml:posList>
+                        </gml:LineString>
+                      </gml:curveMember>
+                      <!-- Base edge (R->L, reversed orientation) -->
+                      <gml:curveMember>
+                        <gml:OrientableCurve gml:id="OC_twp-int-12" orientation="-">
+                          <gml:baseCurve xlink:href="#twp-int-12"/>
+                        </gml:OrientableCurve>
+                      </gml:curveMember>
+                      <!-- Left edge -->
+                      <gml:curveMember>
+                        <gml:LineString gml:id="lt1-left">
+                          <gml:posList>0.2272 1.0762 0.0 0.0</gml:posList>
+                        </gml:LineString>
+                      </gml:curveMember>
+                    </gml:Ring>
+                  </gml:exterior>
+                </PlanarSurface>
+              </representativeSurface>
+            </PlanarObservationRepresentation>
+          </location>
+          <primaryLithology>
+            <Lithology gml:id="tw1">
+              <classificationCode codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/astmD2488.xml#SP">Poorly graded sand</classificationCode>
+              <lithDescription>coarse sand</lithDescription>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+
+      <!-- ============================================================ -->
+      <!-- Layer 2: sML - Sandy silt (middle layer)                     -->
+      <!-- ============================================================ -->
+      <lithologyObservation>
+        <LithologyObservation gml:id="lst-h2">
+          <location>
+            <PlanarObservationRepresentation gml:id="li-2" srsDimension="2" srsName="#trench-wall-2d-crs-001">
+
+              <!-- Top intersection: shared with base of SP layer above -->
+              <layerTopIntersection xlink:href="#twp-int-12"/>
+
+              <!-- Base intersection: lower boundary of sML layer, L->R.         -->
+              <!-- Shared with layerTopIntersection of GWs layer below.           -->
+              <layerBaseIntersection>
+                <LinearExtent gml:id="twp-int-22">
+                  <gml:posList>
+                    0.7332 2.9804 3.9048 3.1717 6.2637 3.3417 7.6981 3.4108
+                    8.3118 4.4547 9.5151 4.2874 11.1727 4.3511 12.6549 4.5105
+                    15.4202 4.4547 16.5119 3.6817
+                  </gml:posList>
+                </LinearExtent>
+              </layerBaseIntersection>
+
+              <!-- Representative surface: closed polygon of sML layer -->
+              <representativeSurface>
+                <PlanarSurface gml:id="lt2-p" srsDimension="2" srsName="#trench-wall-2d-crs-001">
+                  <gml:exterior>
+                    <gml:Ring>
+                      <!-- Top edge (L->R) -->
+                      <gml:curveMember xlink:href="#twp-int-12"/>
+                      <!-- Right edge -->
+                      <gml:curveMember>
+                        <gml:LineString gml:id="lt2-right">
+                          <gml:posList>17.6754 2.0082 16.5119 3.6817</gml:posList>
+                        </gml:LineString>
+                      </gml:curveMember>
+                      <!-- Base edge (R->L, reversed orientation) -->
+                      <gml:curveMember>
+                        <gml:OrientableCurve gml:id="OC_twp-int-22" orientation="-">
+                          <gml:baseCurve xlink:href="#twp-int-22"/>
+                        </gml:OrientableCurve>
+                      </gml:curveMember>
+                      <!-- Left edge -->
+                      <gml:curveMember>
+                        <gml:LineString gml:id="lt2-left">
+                          <gml:posList>0.7332 2.9804 0.3028 1.4344 0.2272 1.0762</gml:posList>
+                        </gml:LineString>
+                      </gml:curveMember>
+                    </gml:Ring>
+                  </gml:exterior>
+                </PlanarSurface>
+              </representativeSurface>
+            </PlanarObservationRepresentation>
+          </location>
+          <trueTopObserved>true</trueTopObserved>
+          <trueBaseObserved>true</trueBaseObserved>
+          <primaryLithology>
+            <Lithology gml:id="tw2">
+              <classificationCode codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/astmD2488.xml#sML">Sandy silt</classificationCode>
+              <lithDescription howDetermined="visual">grey sandy silt</lithDescription>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+
+      <!-- ============================================================ -->
+      <!-- Layer 3: GWs - Well-graded gravel with sand (bottom layer)   -->
+      <!-- ============================================================ -->
+      <lithologyObservation>
+        <LithologyObservation gml:id="lst-h3">
+          <location>
+            <PlanarObservationRepresentation gml:id="li-3" srsDimension="2" srsName="#trench-wall-2d-crs-001">
+
+              <!-- Top intersection: shared with base of sML layer above -->
+              <layerTopIntersection xlink:href="#twp-int-22"/>
+
+              <!-- Base intersection: lower boundary of GWs layer (base of trench), L->R -->
+              <layerBaseIntersection>
+                <LinearExtent gml:id="twp-int-32">
+                  <gml:posList>
+                    1.7532 4.7496 3.5383 5.0365 5.3234 5.3234 8.9254 5.4987 14.3284 5.2277
+                  </gml:posList>
+                </LinearExtent>
+              </layerBaseIntersection>
+
+              <!-- Representative surface: closed polygon of GWs layer -->
+              <representativeSurface>
+                <PlanarSurface gml:id="lt3-p" srsDimension="2" srsName="#trench-wall-2d-crs-001">
+                  <gml:exterior>
+                    <gml:Ring>
+                      <!-- Top edge (L->R) -->
+                      <gml:curveMember xlink:href="#twp-int-22"/>
+                      <!-- Right edge -->
+                      <gml:curveMember>
+                        <gml:LineString gml:id="lt3-right">
+                          <gml:posList>16.5119 3.6817 14.3284 5.2277</gml:posList>
+                        </gml:LineString>
+                      </gml:curveMember>
+                      <!-- Base edge (R->L, reversed orientation) -->
+                      <gml:curveMember>
+                        <gml:OrientableCurve gml:id="OC_twp-int-32" orientation="-">
+                          <gml:baseCurve xlink:href="#twp-int-32"/>
+                        </gml:OrientableCurve>
+                      </gml:curveMember>
+                      <!-- Left edge -->
+                      <gml:curveMember>
+                        <gml:LineString gml:id="lt3-left">
+                          <gml:posList>1.7532 4.7496 0.7332 2.9804</gml:posList>
+                        </gml:LineString>
+                      </gml:curveMember>
+                    </gml:Ring>
+                  </gml:exterior>
+                </PlanarSurface>
+              </representativeSurface>
+            </PlanarObservationRepresentation>
+          </location>
+          <trueTopObserved>true</trueTopObserved>
+          <trueBaseObserved>true</trueBaseObserved>
+          <primaryLithology>
+            <Lithology gml:id="tw3">
+              <classificationCode codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/astmD2488.xml#GWs">Well-graded gravel with sand</classificationCode>
+              <lithDescription howDetermined="visual">tight well graded gravel with coarse sand; minor silt and clay</lithDescription>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+
+    </LithologySystem>
+  </observation>
+</Diggs>

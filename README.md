@@ -25,9 +25,11 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 ## Features
 
 * Validate DIGGS instance files against:
-    * DIGGS XSD Schema (**2.6** by default; **2.5.a** supported via `schema_path`)
+    * DIGGS XSD Schema (**2.5.a**, **2.6**, **3.0.0**) with namespace auto-detect
+      (default profile **3.0.0** when the namespace is unknown)
     * DIGGS Standard dictionaries / codeSpace semantics (offline bundle from diggsml.org/def)
     * Schematron business rules (bundled DIGGS lxml-adapted rules by default)
+    * Lightweight context checks (structure / SRS / xlink / dataBlock arity)
 * Flexible validation output:
     * Write validation errors to log files
     * Print validation errors directly to console
@@ -43,17 +45,20 @@ Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web a
 
 Install pydiggs:
 ```bash
-pip install pydiggs
+uv pip install pydiggs
+# or: pip install pydiggs
 ```
 
 Basic usage with Python:
 ```python
-from pydiggs import validator
+from pydiggs import detect_diggs_version, validator
 
-# Create a validator instance
+# Create a validator instance (profile auto-detected from the file namespace)
 validation = validator("path/to/your/diggs_file.xml")
 
-# Schema validation (using default DIGGS Schema v2.6)
+print(detect_diggs_version("path/to/your/diggs_file.xml"))
+
+# Schema validation
 validation.schema_check()
 
 # Dictionary validation (DIGGSml semantic checks; offline dictionaries)
@@ -62,6 +67,9 @@ validation.dictionary_check()
 # Schematron validation (bundled DIGGS rules by default)
 validation.schematron_check()
 
+# Context checks
+validation.context_check()
+
 # Or supply a custom Schematron file
 validation = validator("path/to/your/diggs_file.xml", schematron_path="path/to/schematron.sch")
 validation.schematron_check()
@@ -69,7 +77,7 @@ validation.schematron_check()
 
 Basic usage with CLI:
 ```bash
-# Schema validation
+# Schema validation (auto-detects DIGGS 2.5.a / 2.6 / 3.0.0)
 pydiggs schema_check "path/to/your/diggs_file.xml"
 
 # Dictionary validation
@@ -78,8 +86,11 @@ pydiggs dictionary_check "path/to/your/diggs_file.xml"
 # Schematron validation (bundled rules)
 pydiggs schematron_check "path/to/your/diggs_file.xml"
 
+# Context validation
+pydiggs context_check "path/to/your/diggs_file.xml"
+
 # Custom Schematron
 pydiggs schematron_check "path/to/your/diggs_file.xml" --schematron_path "path/to/schematron.sch"
 ```
 
-For more detailed information and advanced usage, please see the [documentation](https://xinp-hub.github.io/pydiggs). 
+For more detailed information and advanced usage, please see the [documentation](https://xinp-hub.github.io/pydiggs).

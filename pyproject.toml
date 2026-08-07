@@ -1,90 +1,170 @@
+# FORGE conventions: PEP 621/639/735, hatchling, src/ layout, uv lockfile.
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
 [project]
 name = "pydiggs"
-version = "0.2.0"
-description = "A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)."
-authors = [
-    {name = "xin.peng", email = "xin_peng@outlook.com"}
-]
-license = {text = "Apache-2.0"}
+dynamic = ["version"]
+description = "Offline validation for DIGGS geotechnical XML instances (XSD, dictionary, Schematron)."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "xin.peng", email = "xin_peng@outlook.com" }]
+maintainers = [{ name = "xin.peng", email = "xin_peng@outlook.com" }]
+keywords = ["DIGGS", "geotechnical", "XML", "validation", "schema"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
 dependencies = [
-    "lxml>=5.3.0",
-    "rich>=13.9.4",
-    "myst-parser>=4.0.0"
+  "lxml>=5.3.0",
+  "rich>=13.9.4",
 ]
 
 [project.scripts]
 pydiggs = "pydiggs.cli:main"
 
-[tool.poetry]
-packages = [{include = "pydiggs"}]
+[project.urls]
+Homepage = "https://github.com/xinp-hub/pydiggs"
+Documentation = "https://xinp-hub.github.io/pydiggs/"
+Source = "https://github.com/xinp-hub/pydiggs"
+Issues = "https://github.com/xinp-hub/pydiggs/issues"
+Changelog = "https://github.com/xinp-hub/pydiggs/blob/master/CHANGELOG.md"
 
-[tool.poetry.group.test.dependencies]
-pytest = "^8.3.4"
-pytest-cov = "^4.1.0"
-coverage = "^7.6.10"
-pylint = "^3.3.3"
-virtualenv = "^20.29.1"
-mypy = "^1.14.1"
-pre-commit = "^4.0.1"
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "pytest-randomly>=3.16",
+  "hypothesis>=6.115",
+  "mypy>=1.13",
+  "ruff>=0.8",
+]
+docs = [
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.27",
+  "mkdocs-autorefs>=1.0",
+  "myst-parser>=4.0.0",
+]
+audit = ["pip-audit>=2.7", "check-wheel-contents>=0.6", "twine>=6.0"]
 
-[tool.poetry.group.docs.dependencies]
-mkdocs-material = "^9.5.6"
-mkdocs = "^1.5.3"
-mkdocstrings = {extras = ["python"], version = "^0.24.0"}
-mkdocs-autorefs = "^0.5.0"
+[tool.hatch.version]
+path = "src/pydiggs/__init__.py"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.hatch.build.targets.wheel]
+packages = ["src/pydiggs"]
 
-[tool.pytest.ini_options]
-addopts = "--cov=pydiggs --cov-report=xml --cov-report=term-missing"
-testpaths = ["tests"]
-
-[tool.coverage.run]
-source = ["pydiggs"]
-branch = true
-
-[tool.coverage.report]
-exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "if self.debug:",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "pass",
-    "raise ImportError",
+[tool.hatch.build.targets.sdist]
+include = [
+  "src",
+  "tests",
+  "docs",
+  "README.md",
+  "CHANGELOG.md",
+  "LICENSE",
+  "pyproject.toml",
 ]
 
-[tool.pylint.MASTER]
-extension-pkg-allow-list = ["lxml.etree"]
-max-line-length = 100
-ignore-paths = ["tests/*"]
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
 
-[tool.pylint.BASIC]
-good-names = ["i", "j", "k", "ex", "Run", "_", "fp"]
-
-[tool.pylint.MESSAGES_CONTROL]
-disable = [
-    "C0111",  # missing-docstring
-    "C0103",  # invalid-name
+[tool.ruff.lint]
+select = [
+  "A", "ANN", "ARG", "B", "C4", "D", "E", "F", "I", "N", "PERF", "PIE",
+  "PL", "PTH", "RUF", "S", "SIM", "UP", "W",
+]
+ignore = [
+  "ANN401",
+  "PLR0913",
+  "D100",
+  "D104",
+  "D105",
+  "D107",
 ]
 
-[tool.pylint.FORMAT]
-max-line-length = 100
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "ANN", "D", "PLR2004", "ARG", "SLF", "N801", "PLC0415", "E501"]
+"src/pydiggs/dictionary.py" = ["ANN", "PLR0911", "PLR0912", "PLR0915", "E501", "D102", "D103", "D101"]
+"src/pydiggs/semantic.py" = ["ANN", "E501", "D102", "D103", "D101"]
+"src/pydiggs/units.py" = ["ANN", "D"]
+"src/pydiggs/detect.py" = ["ANN", "D"]
+"src/pydiggs/cli.py" = ["ANN", "T20", "D"]
+"src/pydiggs/pydiggs.py" = ["N801", "T20", "PLR0911", "PLR0912", "PLR0915", "PLR0917", "ANN", "E501", "D"]
 
-[tool.pylint."MESSAGES CONTROL"]
-disable = ["C0111", "C0103"]  # missing-docstring, invalid-name
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+docstring-code-format = true
 
 [tool.mypy]
-python_version = "3.10"
-warn_unused_configs = true
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+warn_unused_ignores = true
+pretty = true
 show_error_codes = true
+files = ["src"]
+# Legacy validation modules are gradually typed; gate on clean package surface first.
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
 
-# lxml-stubs widens xpath()/findall() returns into large unions that drown real
-# typing signal; treat the C extension as untyped until the library ships narrower stubs.
 [[tool.mypy.overrides]]
 module = ["lxml", "lxml.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+  "--import-mode=importlib",
+]
+xfail_strict = true
+filterwarnings = [
+  "error",
+  # lxml ISO Schematron emits ResourceWarnings for temporary XSLT files on some platforms.
+  "ignore::ResourceWarning",
+]
+markers = [
+  "slow: excluded from the fast feedback loop",
+  "network: requires network access",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+]
+
+# Official DIGGS schema trees intentionally share byte-identical support files
+# (xml.xsd, xlinks.xsd, …) across 2.5.a / 2.6 / 3.0.0 package paths.
+[tool.check-wheel-contents]
+ignore = ["W002"]
