@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Release workflow skips republish when the tag version is already on PyPI (avoids
+  red `pypi` Environment deployments after intentional tag retargets).
+
 ### Added
 - FORGE-aligned **Release** workflow (`publish.yml`): tag/CHANGELOG guard, artifact handoff,
   TestPyPI + smoke install, PyPI attestations, Sigstore signing, GitHub Release creation.

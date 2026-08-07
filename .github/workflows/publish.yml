@@ -6,6 +6,10 @@
 #
 # Release path (FORGE): guard → build → TestPyPI → smoke → PyPI → Sigstore + GitHub Release.
 # `setup-uv` uses enable-cache: false on purpose (cache poisoning ↔ publish path).
+#
+# If the tag version is already on PyPI (e.g. tag retarget / re-run), guard sets
+# already_published=true and publish jobs are skipped *before* any Environment wait —
+# so canceling a duplicate run never paints the Deployments sidebar red.
 name: Release
 
 on:
@@ -32,6 +36,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       version: ${{ steps.check.outputs.version }}
+      already_published: ${{ steps.check.outputs.already_published }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
@@ -41,7 +46,7 @@ jobs:
           python-version: "3.11"
           enable-cache: false
       - id: check
-        name: Tag, __init__ and CHANGELOG must agree
+        name: Tag, __init__, CHANGELOG, and PyPI presence
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME#v}"
@@ -58,10 +63,34 @@ jobs:
             exit 1
           fi
           echo "version=$tag" >> "$GITHUB_OUTPUT"
+          # HEAD is enough: PyPI JSON 200 means the version number is spent.
+          if curl -sfI "https://pypi.org/pypi/pydiggs/${tag}/json" >/dev/null; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::pydiggs==${tag} already on PyPI — skipping republish (tag move / re-run)"
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  already-published:
+    name: already on PyPI
+    needs: guard
+    if: needs.guard.outputs.already_published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Report skip (success)
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo "pydiggs==${VERSION} is already on PyPI."
+          echo "Skipping TestPyPI / smoke / PyPI / GitHub Release republish."
+          echo "https://pypi.org/project/pydiggs/${VERSION}/"
 
   build:
     name: build distributions
     needs: guard
+    if: needs.guard.outputs.already_published != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -92,8 +121,10 @@ jobs:
 
   testpypi:
     name: publish to TestPyPI
-    needs: build
-    if: github.event_name == 'push' || !inputs.dry_run
+    needs: [guard, build]
+    if: >-
+      needs.guard.outputs.already_published != 'true'
+      && (github.event_name == 'push' || !inputs.dry_run)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -114,6 +145,7 @@ jobs:
   smoke:
     name: install from TestPyPI
     needs: [guard, testpypi]
+    if: needs.guard.outputs.already_published != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -140,7 +172,8 @@ jobs:
 
   pypi:
     name: publish to PyPI
-    needs: [build, smoke]
+    needs: [guard, build, smoke]
+    if: needs.guard.outputs.already_published != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -159,6 +192,7 @@ jobs:
   github-release:
     name: GitHub release
     needs: [guard, pypi]
+    if: needs.guard.outputs.already_published != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
