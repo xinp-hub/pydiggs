@@ -1090,8 +1090,13 @@ bundled Diggs UOM dictionary (not the online Geosetta API).</p>
 <li>Official <a href="https://github.com/DIGGSml/diggs-examples">diggs-examples</a> files under
   <code>tests/fixtures/official/known_invalid/</code> fail schema (or XML syntax) against the bundled
   XSDs; they are pinned so we never silently accept them.</li>
-<li>Dictionary check 12 (UOM/quantity mismatch) is reported as WARNING so those examples still
-  pass <code>dictionary_check()</code> with a visible advisory.</li>
+<li>Dictionary check 12 (UOM/quantity mismatch) is reported as <strong>WARNING</strong> so those examples
+  still pass <code>dictionary_check()</code> with a visible advisory. Tracking:
+  <a href="https://github.com/xinp-hub/pydiggs/issues/220">#220</a>.</li>
+<li>Some DIGGS 3.x example property codes are satisfied by <strong>local dictionary supplements</strong>
+  until the official DIGGS property dictionary grows them. Tracking:
+  <a href="https://github.com/xinp-hub/pydiggs/issues/221">#221</a>. Prefer contributing definitions
+  upstream over growing the local supplement file when official vocabularies accept them.</li>
 <li>Legacy <code>http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#…</code> codeSpaces are
   resolved against the modern <code>def/codes/DIGGS/0.1/properties.xml</code> definitions when present.</li>
 <li>Upstream Schematron <code>queryBinding="xslt3"</code> rules that call remote APIs are not executed by
