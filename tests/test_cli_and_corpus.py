@@ -120,3 +120,8 @@ def test_detect_diggs_version_profiles():
 
     assert detect_diggs_version(FIXTURES / "2.6" / "Aeromag.xml") == "2.6"
     assert detect_diggs_version(FIXTURES / "3.0" / "PileDrivingExample.xml") == "3.0.0"
+
+
+def test_schematron_runs_on_diggs_30():
+    v = validator(str(FIXTURES / "3.0" / "PileDrivingExample.xml"), output_log=False)
+    assert v.schematron_check() is True
