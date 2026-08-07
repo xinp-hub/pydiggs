@@ -24,6 +24,7 @@ jobs:
   lint:
     name: lint & types
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
@@ -43,6 +44,7 @@ jobs:
   test:
     name: test (${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -62,6 +64,7 @@ jobs:
   build:
     name: build & inspect
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
@@ -90,10 +93,14 @@ jobs:
     if: always()
     needs: [lint, test, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Require every job success
+      - name: Fail if any required job failed or was cancelled
+        env:
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          echo '${{ toJSON(needs) }}'
-          echo '${{ needs.lint.result }}' | grep -qx success
-          echo '${{ needs.test.result }}' | grep -qx success
-          echo '${{ needs.build.result }}' | grep -qx success
+          set -euo pipefail
+          echo "$NEEDS"
+          if echo "$NEEDS" | grep -qE '"result": "(failure|cancelled)"'; then
+            exit 1
+          fi

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- FORGE-aligned **Release** workflow (`publish.yml`): tag/CHANGELOG guard, artifact handoff,
+  TestPyPI + smoke install, PyPI attestations, Sigstore signing, GitHub Release creation.
+- `security.yml` (pip-audit, dependency-review, CodeQL, gitleaks) and Dependabot for `uv` +
+  GitHub Actions (weekly, 7-day cooldown).
+
+### Changed
+- CI jobs gain `timeout-minutes`; the `all green` gate reads `needs` via `env` (safer than
+  interpolating into `run:`).
+- Docs known limits link dictionary follow-ups to issues
+  [#220](https://github.com/xinp-hub/pydiggs/issues/220) and
+  [#221](https://github.com/xinp-hub/pydiggs/issues/221).
+
 ## [1.0.0] - 2026-08-07
 
 Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1.
