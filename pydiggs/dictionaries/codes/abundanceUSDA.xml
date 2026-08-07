@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="abundanceCode">
+    <gml:description>Code values that describes the relative abundance of component lithologies developed by the United States Department of Agriculture (USDA)  and the Food and Agriculture Organization (FAO)</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml</gml:identifier>
+    <gml:name>DIGGS Abundance Code Definitions from USDA and FAO</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="abundant">
+            <gml:description>Component descrbed  comprises 40 to 80% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#abundant</gml:identifier>
+            <gml:name>abundant</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>FAO</diggs:authority>
+            <diggs:reference>https://www.astm.org/d2488-17e01.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="common">
+            <gml:description>Component descrbed  comprises 5 to 15% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#common</gml:identifier>
+            <gml:name>common</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA, FAO</diggs:authority>
+            <diggs:reference>USDA soil description for coarse fragments; FAO Guidelines for Soil Description</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="dominant">
+            <gml:description>Component descrbed  comprises &gt;80% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#dominant</gml:identifier>
+            <gml:name>dominant</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>FAO</diggs:authority>
+            <diggs:reference>FAO Guidelines for Soil Description</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="extremely many">
+            <gml:description>Component descrbed  comprises &gt;80% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#extremely many</gml:identifier>
+            <gml:name>extremely many</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>USDA soil description for coarse fragments</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="few">
+            <gml:description>Component descrbed  comprises 2 to 5% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#few</gml:identifier>
+            <gml:name>few</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA, FAO</diggs:authority>
+            <diggs:reference>USDA soil description for coarse fragments; FAO Guidelines for Soil Description</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="many">
+            <gml:description>Component descrbed  comprises 15 to 40% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#many</gml:identifier>
+            <gml:name>many</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA, FAO</diggs:authority>
+            <diggs:reference>USDA soil description for coarse fragments; FAO Guidelines for Soil Description</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="very few">
+            <gml:description>Component descrbed  comprises &lt;2% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#very few</gml:identifier>
+            <gml:name>very few</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA, FAO</diggs:authority>
+            <diggs:reference>USDA soil description for coarse fragments; FAO Guidelines for Soil Description</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="very many">
+            <gml:description>Component descrbed  comprises 40 to 80% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#very many</gml:identifier>
+            <gml:name>very many</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>USDA</diggs:authority>
+            <diggs:reference>USDA soil description for coarse fragments</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

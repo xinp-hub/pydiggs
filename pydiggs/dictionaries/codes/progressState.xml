@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="progressState">
+    <gml:description>This dictionary contains standard code values for the progressState property of the diggs:ProgressEvent object when used within a program. These values serve to define the values used in reporting the status of a workflow chain. Certain terms are only applicable to specific contexts as specified in the sourceelementXpath</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml</gml:identifier>
+    <gml:name>DIGGS Progress Event State Code Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="submitted">
+            <gml:description>Testing schedule has been submitted to the receiving laboratory or the sample(s) have been sent for testing</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#submitted</gml:identifier>
+            <gml:name>Submitted</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:scheduleProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="received">
+            <gml:description>Testing schedule has been received by the receiving laboratory or the sample(s) has been received for testing</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#received</gml:identifier>
+            <gml:name>Received</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:scheduleProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="pending">
+            <gml:description>The sample record is created and tests are assigned, but the physical sample has not yet been processed for testing may not have arrived.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#pending</gml:identifier>
+            <gml:name>Pending</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="logged">
+            <gml:description>The initial data entry is complete, but the sample has not yet been physically verified for testing.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#logged</gml:identifier>
+            <gml:name>Logged</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="rejected">
+            <gml:description>The sample was received but deemed unsuitable for testing (e.g., contaminated, insufficient volume, or damaged container).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#rejected</gml:identifier>
+            <gml:name>Rejected</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="progress">
+            <gml:description>Tests assigned to the testing schedule are in progress or partially completed</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#progress</gml:identifier>
+            <gml:name>In Progress</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:scheduleProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="prep">
+            <gml:description>The sample is undergoing physical processing, such as air-drying, grinding, or sieving through a 2mm mesh.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#prep</gml:identifier>
+            <gml:name>In Preparation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="testing">
+            <gml:description>The sample is currently in the active extraction or measurement phase for specific result properties</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#testing</gml:identifier>
+            <gml:name>In Testing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="retest">
+            <gml:description>The sample has been scheduled for a subsequent analysis, often due to an initial result falling outside expected quality control parameters.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#retest</gml:identifier>
+            <gml:name>Retest In Queue</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="auth">
+            <gml:description>Testing is complete, and raw data is recorded, but a laboratory manager or supervisor has not yet reviewed it for accuracy</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#auth</gml:identifier>
+            <gml:name>Pending Authorization</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="review">
+            <gml:description>Results have been checked for consistency and adherence to laboratory policy.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#review</gml:identifier>
+            <gml:name>Reviewed</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="approved">
+            <gml:description>Results have been approved and the final report is being prepared for release to the issuing entity.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#approved</gml:identifier>
+            <gml:name>Approved</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="complete">
+            <gml:description>For requested tests, all testing criteria have been satisfied; the final report has been issued. For the testing schedule, all requested tests have been completed, rejected, or voided and all reports have been submitted.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#complete</gml:identifier>
+            <gml:name>Complete</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:scheduleProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="void">
+            <gml:description>The requested test is cancelled or the sample was inadvertently destroyed/contaminated during the process.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#void</gml:identifier>
+            <gml:name>Voided</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="retained">
+            <gml:description>The analysis is finished, and the remaining sample is being stored for the required retention period.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#retained</gml:identifier>
+            <gml:name>Retained</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="returned">
+            <gml:description>The analysis is finished, and the remaining sample has been returned to the issuing entity.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#returned</gml:identifier>
+            <gml:name>Returned</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="disposed">
+            <gml:description>The sample has been safely discarded following analysis or the completion of the retention period.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/progressState.xml#disposed</gml:identifier>
+            <gml:name>Disposed</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:testingProgress//diggs:progressState</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Dictionary xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns="http://www.opengis.net/gml/3.2" gml:id="DIGGS_Temporal_Spatial_Dictionary"
+    xsi:schemaLocation="http://www.opengis.net/gml/3.2 http://schemas.opengis.net/gml/3.2.1/gml.xsd">
+    <description>Example of a spatio-temporal coordinate reference system definition applicable to a seismic time section</description>
+    <identifier codeSpace="urn:diggs:def:codelist:DIGGS:authorities:DIGGS"
+        >urn:diggs:def:dictionary:DIGGS:0.1:temporal_spatial</identifier>
+    <dictionaryEntry>
+        <CompoundCRS gml:id="diggs-crs-seismic_ts_E001a">
+            <identifier codeSpace="urn:diggs:def:codelist:DIGGS:authorities:DIGGS"
+                >urn:diggs:def:crs:DIGGS:0.1:seismic_ts_E001a</identifier>
+            <name>Seismic line E001a + milliseconds</name>
+            <scope>Seismic time-section E001a</scope>
+            <componentReferenceSystem xlink:href="http://E001a.xml#lsrs-1"/> <!-- In this example, the spatial coordinate system 
+                references the linear spatial reference system defined for the seismic section's GP_Trackline sampling feature -->
+            <componentReferenceSystem xlink:href="https://diggsml.org/def/crs/DIGGS/0.1/twtt.xml#diggs-crs-TWTms"/>
+        </CompoundCRS>
+    </dictionaryEntry>
+</Dictionary>

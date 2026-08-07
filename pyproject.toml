@@ -1,6 +1,6 @@
 [project]
 name = "pydiggs"
-version = "0.1.5"
+version = "0.2.0"
 description = "A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)."
 authors = [
     {name = "xin.peng", email = "xin_peng@outlook.com"}
@@ -77,3 +77,14 @@ max-line-length = 100
 
 [tool.pylint."MESSAGES CONTROL"]
 disable = ["C0111", "C0103"]  # missing-docstring, invalid-name
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+show_error_codes = true
+
+# lxml-stubs widens xpath()/findall() returns into large unions that drown real
+# typing signal; treat the C extension as untyped until the library ships narrower stubs.
+[[tool.mypy.overrides]]
+module = ["lxml", "lxml.*"]
+ignore_missing_imports = true

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="classificationSymbol">
+    <gml:description>Group symbol codes as defined by the American Association of State Highway Transportation Officials (AASHTO M 145 or ASTM D 3282) for soils and soil-aggregate mixtures for highway construction purposes. These codes are used as values for the classificationCode property of the Lithology object.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml</gml:identifier>
+    <gml:name>DIGGS Soil Classification Definitions for  AASHTO M 145 Group Symbols</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-1">
+            <gml:description>Well-graded mixture of stone fragments or gravel, coarse sand, fine sand, and a nonplastic or feebly plastic soil binder.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-1</gml:identifier>
+            <gml:name>A-1</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-3">
+            <gml:description>Fine beach sand or fine desert blow sand without silty or clay fines or with a very small amount of nonplastic silt. The group includes also stream-deposited mixtures of poorly graded fine sand and limited amounts of coarse sand and gravel.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-3</gml:identifier>
+            <gml:name>A-3</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-2">
+            <gml:description>A wide variety of “granular” materials that are borderline between the materials falling in Groups A-1 and A-3 and the silt–clay materials of Groups A-4, A-5, A-6, and A-7.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-2</gml:identifier>
+            <gml:name>A-2</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-4">
+            <gml:description>A nonplastic or moderately plastic silty soil usually having 75 percent or more passing the 75-μm (No. 200) sieve. The group also includes mixtures of fine silty soil and up to 64 percent of sand and gravel retained on 75-μm (No. 200) sieve.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-4</gml:identifier>
+            <gml:name>A-4</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-5">
+            <gml:description>Similar to that described under Group A-4, except that it is usually of diatomaceous or micaceous character and may be highly elastic as indicated by the high liquid limit.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-5</gml:identifier>
+            <gml:name>A-5</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-6">
+            <gml:description>A plastic clay soil usually having 75 percent or more passing the 75-μm (No. 200) sieve. The group also includes mixtures of fine clayey soil and up to 64 percent of sand and gravel retained on the 75-μm (No. 200) sieve. Materials of this group usually have high-volume change between wet and dry states.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-6</gml:identifier>
+            <gml:name>A-6</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-7">
+            <gml:description>Similar to that described under Group A-6, except that it has the high liquid limits characteristic of the A-5 group and may be elastic as well as subject to high-volume change.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-7</gml:identifier>
+            <gml:name>A-7</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="a-8">
+            <gml:description>Highly organic soils (peat or muck)  based on visual inspection, and are not dependent on percentage passing the 75-μm (No. 200) sieve, liquid limit, or plasticity index. The material is composed primarily of partially decayed organic matter, and generally has a fibrous texture, dark brown or black color, and an odor of decay.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/grp-aashtoM145.xml#a-8</gml:identifier>
+            <gml:name>A-8</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>AASHTO D 145</diggs:authority>
+            <diggs:reference>https://store.transportation.org/item/publicationdetail/457</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LithologyObservation//diggs:classificationSymbol</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>
