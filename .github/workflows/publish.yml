@@ -1,43 +1,199 @@
 # Trusted Publishing (OIDC) — no API token.
-# PyPI pending/normal publisher must match:
+# Filename stays `publish.yml` so the existing PyPI pending/active publisher keeps working:
 #   owner: xinp-hub  repo: pydiggs  workflow: publish.yml  environment: pypi
-name: Publish to PyPI
+# Mirror that publisher on test.pypi.org with environment: testpypi.
+# Add required reviewers on the GitHub `pypi` Environment (optional on `testpypi`).
+#
+# Release path (FORGE): guard → build → TestPyPI → smoke → PyPI → Sigstore + GitHub Release.
+# `setup-uv` uses enable-cache: false on purpose (cache poisoning ↔ publish path).
+name: Release
 
 on:
   push:
     tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and check only; do not publish
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: publish-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  publish:
+  guard:
+    name: verify tag matches package version
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/pydiggs/
-    permissions:
-      id-token: write
-      contents: read
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
         with:
+          python-version: "3.11"
           enable-cache: false
-          python-version: "3.12"
+      - id: check
+        name: Tag, __init__ and CHANGELOG must agree
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="$(uv run --no-project python -c "import re,pathlib;print(re.search(r'__version__ = \"([^\"]+)\"', pathlib.Path('src/pydiggs/__init__.py').read_text()).group(1))")"
+          fi
+          code="$(uv run --no-project python -c "import re,pathlib;print(re.search(r'__version__ = \"([^\"]+)\"', pathlib.Path('src/pydiggs/__init__.py').read_text()).group(1))")"
+          if [ "$tag" != "$code" ]; then
+            echo "::error::tag v$tag does not match __version__ $code"
+            exit 1
+          fi
+          if ! grep -qE "^## \[$tag\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no released section for $tag"
+            exit 1
+          fi
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build distributions
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
+        with:
+          python-version: "3.11"
+          enable-cache: false
       - name: Build
         run: |
           export SOURCE_DATE_EPOCH="$(git log -1 --pretty=%ct)"
           uv build
-      - name: Record digests
-        run: sha256sum dist/* | tee dist-digests.txt
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
+      - name: Check and record digests
+        run: |
+          uv run --group audit twine check --strict dist/*
+          uv run --group audit check-wheel-contents dist/*.whl
+          sha256sum dist/* | tee dist-digests.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        with:
+          name: distributions
+          path: |
+            dist/
+            dist-digests.txt
+          if-no-files-found: error
+
+  testpypi:
+    name: publish to TestPyPI
+    needs: build
+    if: github.event_name == 'push' || !inputs.dry_run
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/pydiggs/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: distributions
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          attestations: true
+
+  smoke:
+    name: install from TestPyPI
+    needs: [guard, testpypi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e  # v6
+        with:
+          python-version: "3.11"
+          enable-cache: false
+      - name: Install the published artifact and import it
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if uv pip install --system \
+                 --index-strategy unsafe-best-match \
+                 --extra-index-url https://test.pypi.org/simple/ \
+                 "pydiggs==${VERSION}"; then
+              break
+            fi
+            echo "index not ready yet (attempt $attempt); waiting"
+            sleep 20
+          done
+          python -c "import pydiggs as m; assert m.__version__ == '${VERSION}', m.__version__; print('smoke ok', m.__version__)"
+
+  pypi:
+    name: publish to PyPI
+    needs: [build, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pydiggs/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: distributions
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
         with:
           attestations: true
+
+  github-release:
+    name: GitHub release
+    needs: [guard, pypi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: distributions
+      - name: Sign the distributions with Sigstore
+        uses: sigstore/gh-action-sigstore-python@f514d46b907ebcd5bedc05145c03b69c1edd8b46  # v3.0.0
+        with:
+          inputs: ./dist/*.tar.gz ./dist/*.whl
+      - name: Create the release from the changelog section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" {p=1; next}
+            p && /^## \[/ {exit}
+            p {print}
+          ' CHANGELOG.md > notes.md
+          printf '\n---\nPyPI: https://pypi.org/project/pydiggs/%s/\n' "$VERSION" >> notes.md
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; uploading assets only"
+            gh release upload "$GITHUB_REF_NAME" dist/* dist-digests.txt --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "pydiggs $VERSION" \
+              --notes-file notes.md \
+              --verify-tag \
+              dist/* dist-digests.txt
+          fi
