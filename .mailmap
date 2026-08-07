@@ -1,0 +1,7 @@
+# Canonical author mapping for git shortlog / GitHub Contributors.
+# Maps Cursor Agent Co-authored-by trailers to the maintainer identity so
+# cursoragent does not appear as a separate contributor. See gitmailmap(5).
+#
+# Canonical form must use the GitHub noreply address linked to xinp-hub.
+Xin Peng <83672198+xinp-hub@users.noreply.github.com> <cursoragent@cursor.com>
+Xin Peng <83672198+xinp-hub@users.noreply.github.com> Cursor <cursoragent@cursor.com>
