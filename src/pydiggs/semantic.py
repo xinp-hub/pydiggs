@@ -26,7 +26,7 @@ class ContextValidationResult:
 
 
 def _local(el: etree._Element) -> str:
-    return etree.QName(el).localname
+    return str(etree.QName(el).localname)
 
 
 def _path(el: etree._Element) -> str:

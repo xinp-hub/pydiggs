@@ -6,10 +6,13 @@ from pathlib import Path
 
 import pytest
 from lxml import etree
-from pydiggs import validator
+
+import pydiggs
+from pydiggs import detect_diggs_version, validator
 from pydiggs.cli import main
 
 FIXTURES = Path("tests/fixtures/official")
+_PKG = Path(pydiggs.__file__).resolve().parent
 
 
 def test_cli_schema_check_success():
@@ -76,7 +79,8 @@ def test_cli_context_check():
     ids=lambda p: p.name,
 )
 def test_official_25a_schema_corpus(path: Path):
-    schema = etree.XMLSchema(etree.parse("pydiggs/schemas/diggs-schema-2.5.a/Complete.xsd"))
+    xsd = _PKG / "schemas" / "diggs-schema-2.5.a" / "Complete.xsd"
+    schema = etree.XMLSchema(etree.parse(str(xsd)))
     assert schema.validate(etree.parse(str(path))), str(schema.error_log)
 
 
@@ -116,8 +120,6 @@ def test_official_known_invalid_do_not_silently_pass(path: Path):
 
 
 def test_detect_diggs_version_profiles():
-    from pydiggs.detect import detect_diggs_version
-
     assert detect_diggs_version(FIXTURES / "2.6" / "Aeromag.xml") == "2.6"
     assert detect_diggs_version(FIXTURES / "3.0" / "PileDrivingExample.xml") == "3.0.0"
 

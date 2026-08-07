@@ -55,7 +55,7 @@ class DictionaryValidationResult:
 
 
 def _local(el: etree._Element) -> str:
-    return etree.QName(el).localname
+    return str(etree.QName(el).localname)
 
 
 def _element_path(el: etree._Element) -> str:
@@ -552,7 +552,7 @@ class DictionarySemanticValidator:
             run_name_check=name != "propertyClass",
         )
 
-    def _validate_definition_semantics(  # noqa: PLR0911,PLR0912,PLR0915
+    def _validate_definition_semantics(
         self,
         el: etree._Element,
         result: DictionaryValidationResult,

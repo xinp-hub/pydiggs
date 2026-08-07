@@ -33,7 +33,8 @@ def namespace_of_root(doc: etree._ElementTree | etree._Element) -> str | None:
     if isinstance(tag, str) and tag.startswith("{") and "}" in tag:
         return tag[1:].split("}", 1)[0]
     # fallback: default xmlns on root
-    return root.nsmap.get(None) or root.nsmap.get("diggs")
+    ns = root.nsmap.get(None) or root.nsmap.get("diggs")
+    return str(ns) if ns is not None else None
 
 
 def detect_diggs_version(
