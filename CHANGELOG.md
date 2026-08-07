@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release workflow skips republish when the tag version is already on PyPI (avoids
   red `pypi` Environment deployments after intentional tag retargets).
 
+### Changed
+- CI/docs/security/Release Actions refreshed to current majors with commit SHA pins
+  (`checkout` v7, `setup-uv` v9, artifact upload/download v7/v8, CodeQL v4,
+  dependency-review v5, `actions-gh-pages` v4, Sigstore action v3.5).
+
 ### Added
 - FORGE-aligned **Release** workflow (`publish.yml`): tag/CHANGELOG guard, artifact handoff,
   TestPyPI + smoke install, PyPI attestations, Sigstore signing, GitHub Release creation.
