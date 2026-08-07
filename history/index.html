@@ -597,10 +597,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased-100a1-track" class="md-nav__link">
+  <a href="#unreleased" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased (1.0.0a1 track)
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#100a1-2026-08-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.0.0a1 (2026-08-07)
       
     </span>
   </a>
@@ -718,10 +729,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased-100a1-track" class="md-nav__link">
+  <a href="#unreleased" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased (1.0.0a1 track)
+        Unreleased
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#100a1-2026-08-07" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.0.0a1 (2026-08-07)
       
     </span>
   </a>
@@ -815,12 +837,24 @@
 
 
 <h1 id="history">History<a class="headerlink" href="#history" title="Permanent link">&para;</a></h1>
-<h2 id="unreleased-100a1-track">Unreleased (1.0.0a1 track)<a class="headerlink" href="#unreleased-100a1-track" title="Permanent link">&para;</a></h2>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<p>No user-facing changes yet.</p>
+<h2 id="100a1-2026-08-07">1.0.0a1 (2026-08-07)<a class="headerlink" href="#100a1-2026-08-07" title="Permanent link">&para;</a></h2>
+<p>Alpha release toward 1.0.0.</p>
 <ul>
-<li>DIGGS <strong>3.0.0</strong> schemas + namespace auto-detect (unknown NS → 3.0.0).</li>
-<li>FORGE packaging: src/, uv, hatchling; Trusted Publishing.</li>
-<li>Full official diggs-examples corpus (2.5.a / 2.6 / 3.0 + known_invalid).</li>
-<li>Fix 2.5.a auto-detect to use <code>Complete.xsd</code>.</li>
+<li>Added DIGGS <strong>3.0.0</strong> bundled schemas (<code>schema-dev@3.0.0</code>) and namespace
+  auto-detection (<code>detect_diggs_version</code>); unknown namespaces default to <strong>3.0.0</strong>.</li>
+<li>Added full official <a href="https://github.com/DIGGSml/diggs-examples">diggs-examples</a> corpus
+  under <code>tests/fixtures/official/</code> (2.5.a / 2.6 / 3.0 goldens + known_invalid pins).</li>
+<li>Migrated packaging to FORGE standards: <code>src/</code> layout, <strong>uv</strong> + hatchling (not Poetry),
+  PEP 621/639/735; <code>requires-python</code> raised to <strong>&gt;=3.11</strong>.</li>
+<li>PyPI publish uses Trusted Publishing (OIDC) on <code>v*</code> tags.</li>
+<li>DIGGS <strong>2.5.a</strong> auto-detect resolves bundled <code>Complete.xsd</code> (no <code>Diggs.xsd</code> in 2.5.a).</li>
+<li>Dictionary validation prefers modern <code>def/codes/.../properties.xml</code> when instances cite
+  legacy URLs; accepts integer-family <code>typeData</code> aliases; maps common legacy fragments.</li>
+<li>Schematron <code>weightRetained</code> assert allows zero, matching official grading examples.</li>
+<li><strong>Note:</strong> dictionary check 12 (UOM not in quantity class) is a WARNING so official
+  diggs-examples with known unit/quantity mismatches still pass <code>dictionary_check()</code>.</li>
 </ul>
 <h2 id="020-2026-08-07">0.2.0 (2026-08-07)<a class="headerlink" href="#020-2026-08-07" title="Permanent link">&para;</a></h2>
 <ul>
@@ -831,7 +865,7 @@
 <li>New <code>context_check()</code> for Diggs structure, geometry SRS attributes, in-document xlink:href, and dataBlock arity.</li>
 <li>CLI: <code>context_check</code>, <code>--dictionary_path</code>, default Schematron, <code>--output_log</code> / <code>--no-output_log</code>, nonzero exit on failure.</li>
 <li>Official diggs-examples curated fixtures under <code>tests/fixtures/official/</code>.</li>
-<li>Docs updated for Python ≥3.10 and current validation behavior.</li>
+<li>Docs updated for current validation behavior (Python floor was 3.10 until 1.0.0a1).</li>
 <li>CI: mypy ignores missing <code>lxml</code> stubs so typecheck matches the validation codebase.</li>
 </ul>
 <h2 id="015-2025-02-02">0.1.5 (2025-02-02)<a class="headerlink" href="#015-2025-02-02" title="Permanent link">&para;</a></h2>

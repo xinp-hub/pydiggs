@@ -997,7 +997,7 @@
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">validation</span> <span class="o">=</span> <span class="n">validator</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">,</span> <span class="n">output_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">detect_diggs_version</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">))</span>  <span class="c1"># e.g. &quot;2.6&quot; or &quot;3.0.0&quot;</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">detect_diggs_version</span><span class="p">(</span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="p">))</span>  <span class="c1"># &quot;2.5.a&quot;, &quot;2.6&quot;, or &quot;3.0.0&quot;</span>
 </span></code></pre></div>
 <h3 id="1-schema-validation">1. Schema Validation<a class="headerlink" href="#1-schema-validation" title="Permanent link">&para;</a></h3>
 <h4 id="using-python">Using Python<a class="headerlink" href="#using-python" title="Permanent link">&para;</a></h4>
@@ -1025,6 +1025,9 @@
 </span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="nb">print</span><span class="p">(</span><span class="n">validation</span><span class="o">.</span><span class="n">schema_error_log</span><span class="p">)</span>  <span class="c1"># schema parse errors</span>
 </span></code></pre></div>
 <h4 id="using-command-line-interface">Using Command Line Interface<a class="headerlink" href="#using-command-line-interface" title="Permanent link">&para;</a></h4>
+<p>The CLI auto-detects the DIGGS profile from the instance namespace (unknown → 3.0.0).
+There is no <code>--diggs_version</code> flag; pin a profile in Python with <code>diggs_version=</code>, or pass
+<code>--schema_path</code> to a specific XSD.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--schema_path<span class="w"> </span><span class="s2">&quot;DIGGS_Schema_File_Path&quot;</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>pydiggs<span class="w"> </span>schema_check<span class="w"> </span><span class="s2">&quot;DIGGS_Instance_File_Path&quot;</span><span class="w"> </span>--no-output_log
@@ -1084,6 +1087,7 @@ bundled Diggs UOM dictionary (not the online Geosetta API).</p>
 </span></code></pre></div>
 <h3 id="known-limits">Known limits<a class="headerlink" href="#known-limits" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>1.0.0a1</strong> is an alpha toward 1.0.0; APIs and bundled assets may change before 1.0.0.</li>
 <li>Official <a href="https://github.com/DIGGSml/diggs-examples">diggs-examples</a> files under
   <code>tests/fixtures/official/known_invalid/</code> fail schema (or XML syntax) against the bundled
   XSDs; they are pinned so we never silently accept them.</li>
