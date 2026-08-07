@@ -25,9 +25,9 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 ## Features
 
 * Validate DIGGS instance files against:
-    * DIGGS XSD Schema (version 2.6 by default)
-    * Standard XML Dictionary (v0.1/properties.xml by default)
-    * Schematron rules for business logic validation
+    * DIGGS XSD Schema (**2.6** by default; **2.5.a** supported via `schema_path`)
+    * DIGGS Standard dictionaries / codeSpace semantics (offline bundle from diggsml.org/def)
+    * Schematron business rules (bundled DIGGS lxml-adapted rules by default)
 * Flexible validation output:
     * Write validation errors to log files
     * Print validation errors directly to console
@@ -56,10 +56,13 @@ validation = validator("path/to/your/diggs_file.xml")
 # Schema validation (using default DIGGS Schema v2.6)
 validation.schema_check()
 
-# Dictionary validation (using default DIGGS Dictionary)
+# Dictionary validation (DIGGSml semantic checks; offline dictionaries)
 validation.dictionary_check()
 
-# Schematron validation (requires schematron file)
+# Schematron validation (bundled DIGGS rules by default)
+validation.schematron_check()
+
+# Or supply a custom Schematron file
 validation = validator("path/to/your/diggs_file.xml", schematron_path="path/to/schematron.sch")
 validation.schematron_check()
 ```
@@ -72,7 +75,10 @@ pydiggs schema_check "path/to/your/diggs_file.xml"
 # Dictionary validation
 pydiggs dictionary_check "path/to/your/diggs_file.xml"
 
-# Schematron validation
+# Schematron validation (bundled rules)
+pydiggs schematron_check "path/to/your/diggs_file.xml"
+
+# Custom Schematron
 pydiggs schematron_check "path/to/your/diggs_file.xml" --schematron_path "path/to/schematron.sch"
 ```
 

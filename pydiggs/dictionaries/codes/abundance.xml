@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="abundanceCode">
+    <gml:description>Code values that describes the relative abundance of component lithologies, colors or lithologic constituents</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml</gml:identifier>
+    <gml:name>DIGGS Abundance Code Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="few">
+            <gml:description>Component described  comprises 5 to 10% by volume of the total feature described. It is used with &quot;with&quot; in a description such as &quot;sand with few clay&quot;</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#few</gml:identifier>
+            <gml:name>few</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2488</diggs:authority>
+            <diggs:reference>https://www.astm.org/d2488-17e01.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="little">
+            <gml:description>Component described  comprises 10 to 20% by volume of the total feature described. It is used with &quot;with&quot; in a description such as &quot;sand with little clay&quot;</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#little</gml:identifier>
+            <gml:name>little</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2488</diggs:authority>
+            <diggs:reference>https://www.astm.org/d2488-17e01.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="mostly">
+            <gml:description>Component described  comprises &gt;50% by volume of the total feature described. It defines the most dominant component (eg. Mostly sand with clay</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#mostly</gml:identifier>
+            <gml:name>mostly</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2488</diggs:authority>
+            <diggs:reference>https://www.astm.org/d2488-17e01.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="some">
+            <gml:description>Component described  comprises 20 to 35% by volume of the total feature described. It is used with &quot;with&quot; in a description such as &quot;sand with some clay&quot;</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#some</gml:identifier>
+            <gml:name>some</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2488</diggs:authority>
+            <diggs:reference>https://www.astm.org/d2488-17e01.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="trace">
+            <gml:description>Component described  is present but estimated to be less than 5% by volume of the total feature described. It is used with &quot;with&quot; in a description such as &quot;sand with trace clay&quot;</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#trace</gml:identifier>
+            <gml:name>trace</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2488</diggs:authority>
+            <diggs:reference>https://www.astm.org/d2488-17e01.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="occasional">
+            <gml:description>Component described  comprises 5 to 10% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#occasional</gml:identifier>
+            <gml:name>occasional</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 5391</diggs:authority>
+            <diggs:reference>https://knowledge.bsigroup.com/products/code-of-practice-for-ground-investigations?version=standard</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="frequent">
+            <gml:description>Component described  comprises 10 to 20% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#frequent</gml:identifier>
+            <gml:name>frequent</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 5392</diggs:authority>
+            <diggs:reference>https://knowledge.bsigroup.com/products/code-of-practice-for-ground-investigations?version=standard</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="common-BSCS">
+            <gml:description>Component described  comprises 20 to 35% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#common-BSCS</gml:identifier>
+            <gml:name>common-BSCS</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 5393</diggs:authority>
+            <diggs:reference>https://knowledge.bsigroup.com/products/code-of-practice-for-ground-investigations?version=standard</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="abundant-BSCS">
+            <gml:description>Component described  comprises 35 to 50% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#abundant-BSCS</gml:identifier>
+            <gml:name>abundant-BSCS</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 5394</diggs:authority>
+            <diggs:reference>https://knowledge.bsigroup.com/products/code-of-practice-for-ground-investigations?version=standard</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="rare">
+            <gml:description>Component described  comprises &lt;5% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#rare</gml:identifier>
+            <gml:name>rare</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Wentworth (modified by Folk, 1954, 1974)</diggs:authority>
+            <diggs:reference>https://knowledge.bsigroup.com/products/code-of-practice-for-ground-investigations?version=standard</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="dominant">
+            <gml:description>Component described  comprises &gt;50% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#dominant</gml:identifier>
+            <gml:name>dominant</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Wentworth (modified by Folk, 1954, 1974); also BS 5390</diggs:authority>
+            <diggs:reference>https://knowledge.bsigroup.com/products/code-of-practice-for-ground-investigations?version=standard</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="abundant">
+            <gml:description>Component described  comprises 30 to 50% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#abundant</gml:identifier>
+            <gml:name>abundant</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Wentworth Scale (modified by Folk, 1954, 1974)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="common">
+            <gml:description>Component described  comprises 15 to 30% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#common</gml:identifier>
+            <gml:name>common</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Wentworth Scale (modified by Folk, 1954, 1974)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="minor">
+            <gml:description>Component described  comprises 5 to 15% by volume of the total feature described.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#minor</gml:identifier>
+            <gml:name>minor</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Wentworth Scale (modified by Folk, 1954, 1974)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="primary">
+            <gml:description>Identifies the most common conponent observed. Used in cases where percentages or percent estimates are not known or reported.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#primary</gml:identifier>
+            <gml:name>primary</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="quaternary">
+            <gml:description>Describes the fourth most common component observed. Used in cases where percentages or percent estimates are not known or reported.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#quaternary</gml:identifier>
+            <gml:name>quaternary</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="secondary">
+            <gml:description>Describes the second most common component observed.  Used in cases where percentages or percent estimates are not known or reported.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#secondary</gml:identifier>
+            <gml:name>secondary</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="tertiary">
+            <gml:description>Describes the third most common component observed.  Used in cases where percentages or percent estimates are not known or reported.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundance.xml#tertiary</gml:identifier>
+            <gml:name>tertiary</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:abundanceCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

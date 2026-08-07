@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="classificationCode">
+    <gml:description>Classification codes for peat soils as defined by ASTM-D5715. These codes are used as values for the classificationCode property of the Lithology object.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml</gml:identifier>
+    <gml:name>DIGGS Soil Classification Definitions for Peat Soils (ASTM D5715)</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h1">
+            <gml:description>Completely undecomposed peat that, when
+squeezed, releases clear colorless water. Plant remains are
+intact and easily identifiable. No amorphous material is present.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h1</gml:identifier>
+            <gml:name>H1</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h2">
+            <gml:description>Almost completely undecomposed peat that,
+when squeezed, releases yellowish water. Plant remains are
+still relatively intact. No amorphous material is present.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h2</gml:identifier>
+            <gml:name>H2</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h3">
+            <gml:description>Very slightly decomposed peat that, when
+squeezed, releases turbid brown water, but in which no
+amorphous peat passes between the fingers.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h3</gml:identifier>
+            <gml:name>H3</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h4">
+            <gml:description>Slightly decomposed peat that, when squeezed,
+releases dark brown water. No peat passes between the fingers
+but the plant remains are somewhat visibly altered and less
+distinct. The residue left in hand appears slightly pasty.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h4</gml:identifier>
+            <gml:name>H4</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h5">
+            <gml:description>Moderately decomposed peat that, when
+squeezed, releases very turbid water containing a small amount
+of amorphous granular peat through the fingers. The residue
+remaining in hand is strongly pasty in consistency and the
+tissues of the original source plants are difficult to recognize.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h5</gml:identifier>
+            <gml:name>H5</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h6">
+            <gml:description>Moderately decomposed peat that, when
+squeezed, releases through the fingers about one-third of the
+peat. The residue remaining after squeezing is strongly pasty.
+Very little plant structure is visible before squeezing; but, some
+small amount of intact debris becomes more visible after
+squeezing.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h6</gml:identifier>
+            <gml:name>H6</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h7">
+            <gml:description>Strongly decomposed peat that, when squeezed,
+releases through the fingers about one-half of the peat. The
+water released, if any, is dark and. The residue remaining after
+squeezing is primarily composed of amorphous material with
+little recognizable plant tissue.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h7</gml:identifier>
+            <gml:name>H7</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h8">
+            <gml:description>Very strongly decomposed peat that, when
+squeezed, releases through the fingers about two-thirds of the
+peat. The residue remaining after squeezing is primarily
+composed of amorphous material with very little intact plant
+tissue.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h8</gml:identifier>
+            <gml:name>H8</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h9">
+            <gml:description>Almost completely decomposed peat that, when
+squeezed, almost entirely releases through the fingers as a
+fairly uniform dark paste. Almost no recognizable plant structures
+are evident in the residue.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h9</gml:identifier>
+            <gml:name>H9</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="h10">
+            <gml:description>Completely decomposed peat containing no
+discernible plant tissues. When squeezed, all of the peat
+releases through the fingers as a uniform dark paste.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/astmD5715.xml#h10</gml:identifier>
+            <gml:name>H10</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D5715</diggs:authority>
+            <diggs:reference>https://www.astm.org/d5715-00.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>
