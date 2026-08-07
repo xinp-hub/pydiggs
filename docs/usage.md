@@ -144,7 +144,6 @@ pydiggs context_check "DIGGS_Instance_File_Path" --no-output_log
 
 ### Known limits
 
-- **1.0.0a1** is an alpha toward 1.0.0; APIs and bundled assets may change before 1.0.0.
 - Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files under
   `tests/fixtures/official/known_invalid/` fail schema (or XML syntax) against the bundled
   XSDs; they are pinned so we never silently accept them.

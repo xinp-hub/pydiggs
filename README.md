@@ -96,8 +96,8 @@ pydiggs context_check "path/to/your/diggs_file.xml"
 pydiggs schematron_check "path/to/your/diggs_file.xml" --schematron_path "path/to/schematron.sch"
 ```
 
-**1.0.0a1** is an alpha toward 1.0.0. See [usage](https://xinp-hub.github.io/pydiggs/usage/) for
-`diggs_version` / `schema_path` overrides, log output options, and [known limits](https://xinp-hub.github.io/pydiggs/usage/#known-limits)
+See [usage](https://xinp-hub.github.io/pydiggs/usage/) for `diggs_version` / `schema_path`
+overrides, log output options, and [known limits](https://xinp-hub.github.io/pydiggs/usage/#known-limits)
 (dictionary check 12 as WARNING, bundled Schematron subset, and more).
 
 For more detailed information and advanced usage, please see the [documentation](https://xinp-hub.github.io/pydiggs).
