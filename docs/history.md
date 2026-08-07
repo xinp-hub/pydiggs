@@ -4,6 +4,13 @@
 
 No user-facing changes yet.
 
+## 1.0.0 (2026-08-07)
+
+Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1.
+
+* Everything from 1.0.0a1, now marked stable.
+* Documentation aligned with the public 1.0.0 API.
+
 ## 1.0.0a1 (2026-08-07)
 
 Alpha release toward 1.0.0.

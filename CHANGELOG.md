@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-07
+
+Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1.
+
+### Added
+- Everything from [1.0.0a1](#100a1---2026-08-07), now marked stable.
+- Documentation aligned with the public 1.0.0 API (`diggs_version` override, Python 3.11+,
+  four validation checks, known limits).
+
+### Notes
+- Dictionary check 12 (UOM not in quantity class) remains a **WARNING** so official
+  diggs-examples with known unit/quantity mismatches still pass `dictionary_check()`.
+- Unknown instance namespaces still default to DIGGS profile **3.0.0** (HG2).
+
 ## [1.0.0a1] - 2026-08-07
 
 ### Added
@@ -53,7 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0a1...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0a1...v1.0.0
 [1.0.0a1]: https://github.com/xinp-hub/pydiggs/compare/v0.2.0...v1.0.0a1
 [0.2.0]: https://github.com/xinp-hub/pydiggs/compare/v0.1.5...v0.2.0
 [0.1.5]: https://github.com/xinp-hub/pydiggs/releases/tag/v0.1.5

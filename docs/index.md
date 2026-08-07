@@ -66,7 +66,6 @@ pydiggs schematron_check "path/to/your/diggs_file.xml"
 pydiggs context_check "path/to/your/diggs_file.xml"
 ```
 
-**1.0.0a1** is an alpha toward 1.0.0. See [Usage](usage.md) for overrides, log options, and
-[known limits](usage.md#known-limits).
+See [Usage](usage.md) for overrides, log options, and [known limits](usage.md#known-limits).
 
 For more detailed information and advanced usage, please see the [Usage guide](usage.md).
