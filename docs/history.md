@@ -1,6 +1,6 @@
 # History
 
-## 0.2.0 (Unreleased)
+## 0.2.0 (2026-08-07)
 
 * DIGGS 2.x correctness release (pre–DIGGS 3.0).
 * Synced DIGGS **2.5.a** XSD tree with schema-dev@2.5.a; retained 2.6 Geophysics element-name fix.
@@ -10,10 +10,7 @@
 * CLI: `context_check`, `--dictionary_path`, default Schematron, `--output_log` / `--no-output_log`, nonzero exit on failure.
 * Official diggs-examples curated fixtures under `tests/fixtures/official/`.
 * Docs updated for Python ≥3.10 and current validation behavior.
-
-## Unreleased notes merged into 0.2.0
-
-See above.
+* CI: mypy ignores missing `lxml` stubs so typecheck matches the validation codebase.
 
 ## 0.1.5 (2025-02-02)
 
