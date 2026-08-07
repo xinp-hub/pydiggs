@@ -155,7 +155,7 @@ branch = true
 relative_files = true
 
 [tool.coverage.report]
-fail_under = 65
+fail_under = 75
 show_missing = true
 skip_covered = true
 exclude_also = [
@@ -163,3 +163,8 @@ exclude_also = [
   "raise NotImplementedError",
   "if __name__ == .__main__.:",
 ]
+
+# Official DIGGS schema trees intentionally share byte-identical support files
+# (xml.xsd, xlinks.xsd, …) across 2.5.a / 2.6 / 3.0.0 package paths.
+[tool.check-wheel-contents]
+ignore = ["W002"]

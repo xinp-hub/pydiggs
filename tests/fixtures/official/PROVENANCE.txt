@@ -1,0 +1,9 @@
+Official DIGGS instance fixtures synced from https://github.com/DIGGSml/diggs-examples
+Upstream commit: 89a6b8781ed217b2e71cedbc0680d9dd9170cded
+Layout:
+  2.5.a/  — schema-valid Diggs instances against Complete.xsd
+  2.6/    — schema-valid Diggs instances against Diggs.xsd (2.6 NS)
+  3.0/    — schema-valid Diggs instances against Diggs.xsd (schemas/3 NS → 3.0.0)
+  known_invalid/ — official examples that are not acceptable Diggs documents
+                   (schema fail, XML syntax error, or non-Diggs GML root accepted
+                   only via Diggs.xsd GML imports — rejected via context_check)

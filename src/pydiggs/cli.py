@@ -30,7 +30,10 @@ def main(argv: list[str] | None = None) -> int:
         "--schema_path",
         type=str,
         default=None,
-        help="Relative or full path of the DIGGS schema file (default: bundled 2.6)",
+        help=(
+            "Relative or full path of the DIGGS schema file "
+            "(default: auto-detect 2.5.a / 2.6 / 3.0.0 from instance NS)"
+        ),
     )
     parser.add_argument(
         "--dictionary_path",
