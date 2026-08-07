@@ -4,7 +4,7 @@
 
   Changes from upstream:
   - queryBinding xslt3 -> xslt1 (lxml.isoschematron)
-  - contexts use local-name() so DIGGS 2.5.a and 2.6 both match
+  - contexts use local-name() so DIGGS 2.5.a, 2.6, and 3.0 (schemas/3) all match
   - removed XSLT3 unit-conversion API function and the casing diameter
     cross-unit rule that depended on it (same-uom comparison retained)
   - element order adjusted for lxml's ISO Schematron RELAX NG
