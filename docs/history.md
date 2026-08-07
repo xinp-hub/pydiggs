@@ -1,12 +1,26 @@
 # History
 
-## Unreleased (1.0.0a1 track)
+## Unreleased
 
-* DIGGS **3.0.0** schemas + namespace auto-detect (unknown NS → 3.0.0).
-* FORGE packaging: src/, uv, hatchling; Trusted Publishing.
-* Full official diggs-examples corpus (2.5.a / 2.6 / 3.0 + known_invalid).
-* Fix 2.5.a auto-detect to use ``Complete.xsd``.
+No user-facing changes yet.
 
+## 1.0.0a1 (2026-08-07)
+
+Alpha release toward 1.0.0.
+
+* Added DIGGS **3.0.0** bundled schemas (`schema-dev@3.0.0`) and namespace
+  auto-detection (`detect_diggs_version`); unknown namespaces default to **3.0.0**.
+* Added full official [diggs-examples](https://github.com/DIGGSml/diggs-examples) corpus
+  under `tests/fixtures/official/` (2.5.a / 2.6 / 3.0 goldens + known_invalid pins).
+* Migrated packaging to FORGE standards: `src/` layout, **uv** + hatchling (not Poetry),
+  PEP 621/639/735; `requires-python` raised to **>=3.11**.
+* PyPI publish uses Trusted Publishing (OIDC) on `v*` tags.
+* DIGGS **2.5.a** auto-detect resolves bundled `Complete.xsd` (no `Diggs.xsd` in 2.5.a).
+* Dictionary validation prefers modern `def/codes/.../properties.xml` when instances cite
+  legacy URLs; accepts integer-family `typeData` aliases; maps common legacy fragments.
+* Schematron `weightRetained` assert allows zero, matching official grading examples.
+* **Note:** dictionary check 12 (UOM not in quantity class) is a WARNING so official
+  diggs-examples with known unit/quantity mismatches still pass `dictionary_check()`.
 
 ## 0.2.0 (2026-08-07)
 
@@ -17,7 +31,7 @@
 * New `context_check()` for Diggs structure, geometry SRS attributes, in-document xlink:href, and dataBlock arity.
 * CLI: `context_check`, `--dictionary_path`, default Schematron, `--output_log` / `--no-output_log`, nonzero exit on failure.
 * Official diggs-examples curated fixtures under `tests/fixtures/official/`.
-* Docs updated for Python ≥3.10 and current validation behavior.
+* Docs updated for current validation behavior (Python floor was 3.10 until 1.0.0a1).
 * CI: mypy ignores missing `lxml` stubs so typecheck matches the validation codebase.
 
 ## 0.1.5 (2025-02-02)

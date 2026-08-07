@@ -35,7 +35,7 @@ Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web a
 
 ## Quick Start
 
-Install pydiggs:
+Install pydiggs (requires Python 3.11+):
 ```bash
 uv pip install pydiggs
 # or: pip install pydiggs
@@ -45,8 +45,12 @@ Basic usage with Python:
 ```python
 from pydiggs import detect_diggs_version, validator
 
+# Profile auto-detected from namespace (unknown → 3.0.0)
 validation = validator("path/to/your/diggs_file.xml")
-print(detect_diggs_version("path/to/your/diggs_file.xml"))
+print(detect_diggs_version("path/to/your/diggs_file.xml"))  # "2.5.a", "2.6", or "3.0.0"
+
+# Pin a profile (Python API only)
+validation = validator("path/to/your/diggs_file.xml", diggs_version="2.6")
 
 validation.schema_check()
 validation.dictionary_check()
@@ -62,4 +66,7 @@ pydiggs schematron_check "path/to/your/diggs_file.xml"
 pydiggs context_check "path/to/your/diggs_file.xml"
 ```
 
-For more detailed information and advanced usage, please see the [documentation](https://xinp-hub.github.io/pydiggs).
+**1.0.0a1** is an alpha toward 1.0.0. See [Usage](usage.md) for overrides, log options, and
+[known limits](usage.md#known-limits).
+
+For more detailed information and advanced usage, please see the [Usage guide](usage.md).
