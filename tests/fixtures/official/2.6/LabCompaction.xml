@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:diggs="http://diggsml.org/schemas/2.6"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:g3.3="http://www.opengis.net/gml/3.3/ce"
+    xmlns:glr="http://www.opengis.net/gml/3.3/lr" xmlns:glrov="http://www.opengis.net/gml/3.3/lrov"
+    xmlns:diggs_geo="http://diggsml.org/schemas/2.6/geotechnical"
+    xmlns:witsml="http://www.witsml.org/schemas/131"
+    xsi:schemaLocation="http://diggsml.org/schemas/2.6 http://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="DocExample">
+    
+    <!-- Document Information object -->
+    <documentInformation>
+        <DocumentInformation gml:id="DGS1EB9-15B4-426B-A279-5C653">
+            <gml:description>Example Lab Compaction Test using AGS example data from N. Chadwick for OGC STI mapping</gml:description>
+            <creationDate>2023-09-06</creationDate>
+         </DocumentInformation>
+    </documentInformation>
+    <measurement>
+        <Test gml:id="lct1">
+            <investigationTarget>Natural Ground</investigationTarget>
+            <projectRef xlink:href="#ProjectID"/>
+            <samplingFeatureRef xlink:href="BH-327-16A"/>
+            <sampleRef xlink:href="#ABC121415010"/>
+            <outcome>
+                <TestResult gml:id="lcr1">
+                    <location>
+                        <LinearExtent gml:id="lcl1" srsName="#BH-327-16A-lsr" srsDimension="1">
+                            <gml:posList>24.55 24.65</gml:posList>
+                        </LinearExtent>
+                    </location>
+                    <results>
+                        <ResultSet>
+                            <parameters>
+                                <PropertyParameters gml:id="lcpp1">
+                                    <properties>
+                                        <Property index="1" gml:id="lcpp1-1">
+                                            <propertyName>Maximum dry density</propertyName>
+                                            <typeData>double</typeData>
+                                            <propertyClass codeSpace="http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xm">dry_dnsity_max</propertyClass>
+                                            <uom>Mg/m3</uom>
+                                        </Property>
+                                        <Property index="2" gml:id="lcpp1-2">
+                                            <propertyName>Optimum Water Content</propertyName>
+                                            <typeData>double</typeData>
+                                            <propertyClass codeSpace="http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml">water_content_optimum</propertyClass>
+                                            <uom>%</uom>
+                                        </Property>
+                                    </properties>
+                                </PropertyParameters>
+                            </parameters>
+                            <dataValues>2.29,6.4</dataValues>
+                        </ResultSet>
+                    </results>
+                </TestResult>
+            </outcome>
+            <procedure>
+                <diggs_geo:LabCompactionTest gml:id="p-lc1">
+                    <status>Checked</status>
+                    <role>
+                        <Role>
+                            <rolePerformed>Testing Laboratory</rolePerformed>
+                            <businessAssociate>
+                                <BusinessAssociate gml:id="ACMELABS">
+                                    <gml:name>ACME Laboratories plc</gml:name>
+                                </BusinessAssociate>
+                            </businessAssociate>
+                        </Role>
+                    </role>
+                    <remark>
+                        <Remark>
+                            <content>Single sample used</content>
+                        </Remark>
+                    </remark>
+                    <testProcedureMethod>
+                        <Specification gml:id="BS_1377-4">
+                            <gml:description>Any deviation from the specified procedure would go here or as an other specification property</gml:description>
+                            <gml:name>BS 1377-4:1990 Soils for civil engineering purposes. Compaction-related tests</gml:name>
+                            <associatedFile>
+                                <AssociatedFile gml:id="FSET23">
+                                    <gml:name>FSET23</gml:name>
+                                    <fileURL>file:/FSET23.cls</fileURL>
+                                    <fileType>application/vnd.ms-excel</fileType>
+                                </AssociatedFile>
+                            </associatedFile>
+                            <accredtingBody>UKAS 0000</accredtingBody>
+                            <standardClause>3.3</standardClause>
+                            <standardPart>4</standardPart>
+                            <standardVersion>1990</standardVersion>
+                            <otherSpecificationProperty> <!-- Other way of reporting deviation from procedure -->
+                                <Parameter>
+                                    <parameterName>Deviation from Procedure</parameterName>
+                                    <parameterValue>Description of deviation</parameterValue>
+                                </Parameter>
+                            </otherSpecificationProperty>
+                        </Specification>
+                    </testProcedureMethod>
+                    <specimen>
+                        <SoilSpecimen gml:id="ABC121415010-1a">
+                            <gml:description>Grey slightly gravelly clay</gml:description>
+                            <gml:name>1a</gml:name>
+                            <sampleRef xlink:href="#ABC121415010"/>
+                            <preparationProcedure>
+                                <Specification gml:id="BS1377-1">
+                                    <gml:description>Stored at constant water/moisture content for 7 days, then soaked for 7 days, maintained at 20 +/- 2 degrees Celsius throughout</gml:description>
+                                    <gml:name>BS 1377: 19 90. SOILS FOR CIVIL ENGINEERING PURPOSES. PART 1: GENERAL REQUIREMENTS AND SAMPLE PREPARATION</gml:name>
+                                    <standardClause>7.6</standardClause>
+                                    <standardPart>1</standardPart>
+                                    <standardVersion>1990</standardVersion>
+                                    <otherSpecificationProperty>
+                                        <Parameter>
+                                            <parameterName>Stabilizer type</parameterName>
+                                            <parameterValue>Cement</parameterValue>
+                                        </Parameter>
+                                    </otherSpecificationProperty>
+                                    <otherSpecificationProperty>
+                                        <Parameter>
+                                            <parameterName>Stabiizer added</parameterName>
+                                            <parameterValue>23</parameterValue>
+                                            <parameterUnits>%</parameterUnits>
+                                        </Parameter>
+                                    </otherSpecificationProperty>
+                                </Specification>
+                            </preparationProcedure>
+                            <otherSpecimenProperty>
+                                <Parameter>
+                                    <parameterName>Wt. % retained on 37.5 mm sieve</parameterName>
+                                    <parameterValue>7</parameterValue>
+                                    <parameterUnits>%</parameterUnits>
+                                </Parameter>
+                            </otherSpecimenProperty>
+                            <otherSpecimenProperty>
+                                <Parameter>
+                                    <parameterName>Wt. % retained on 20 mm sieve</parameterName>
+                                    <parameterValue>15</parameterValue>
+                                    <parameterUnits>%</parameterUnits>
+                                </Parameter>
+                            </otherSpecimenProperty>
+                            <specificGravityOfSolids howDetermined="assigned">2.65</specificGravityOfSolids>
+                        </SoilSpecimen>
+                    </specimen>
+                    <diggs_geo:mouldVolume uom="L">1</diggs_geo:mouldVolume>
+                    <diggs_geo:rammerMass uom="kg">2.5</diggs_geo:rammerMass>
+                    <diggs_geo:trial>
+                        <diggs_geo:LabCompactionTestTrial gml:id="t1-lc1">
+                            <diggs_geo:trialNo>1</diggs_geo:trialNo>
+                            <diggs_geo:waterContent uom="%">2.4</diggs_geo:waterContent>
+                            <diggs_geo:dryDensity uom="Mg/m3">2.05</diggs_geo:dryDensity>
+                        </diggs_geo:LabCompactionTestTrial>
+                    </diggs_geo:trial>
+                    <diggs_geo:trial>
+                        <diggs_geo:LabCompactionTestTrial gml:id="t2-lc1">
+                            <diggs_geo:trialNo>2</diggs_geo:trialNo>
+                            <diggs_geo:waterContent uom="%">3.9</diggs_geo:waterContent>
+                            <diggs_geo:dryDensity uom="Mg/m3">2.05</diggs_geo:dryDensity>
+                        </diggs_geo:LabCompactionTestTrial>
+                    </diggs_geo:trial>
+                    <diggs_geo:trial>
+                        <diggs_geo:LabCompactionTestTrial gml:id="t3-lc1">
+                            <diggs_geo:trialNo>3</diggs_geo:trialNo>
+                            <diggs_geo:waterContent uom="%">5.7</diggs_geo:waterContent>
+                            <diggs_geo:dryDensity uom="Mg/m3">2.11</diggs_geo:dryDensity>
+                        </diggs_geo:LabCompactionTestTrial>
+                    </diggs_geo:trial>
+                    <diggs_geo:trial>
+                        <diggs_geo:LabCompactionTestTrial gml:id="t4-lc1">
+                            <diggs_geo:trialNo>4</diggs_geo:trialNo>
+                            <diggs_geo:waterContent uom="%">6.3</diggs_geo:waterContent>
+                            <diggs_geo:dryDensity uom="Mg/m3">2.17</diggs_geo:dryDensity>
+                        </diggs_geo:LabCompactionTestTrial>
+                    </diggs_geo:trial>
+                    <diggs_geo:trial>
+                        <diggs_geo:LabCompactionTestTrial gml:id="t5-lc1">
+                            <diggs_geo:trialNo>5</diggs_geo:trialNo>
+                            <diggs_geo:waterContent uom="%">6.8</diggs_geo:waterContent>
+                            <diggs_geo:dryDensity uom="Mg/m3">2.14</diggs_geo:dryDensity>
+                        </diggs_geo:LabCompactionTestTrial>
+                    </diggs_geo:trial>
+                </diggs_geo:LabCompactionTest>
+            </procedure>
+        </Test>
+    </measurement>
+</Diggs>

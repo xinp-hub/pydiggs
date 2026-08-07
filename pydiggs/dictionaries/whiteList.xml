@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- This file holds URL patterns for whitelisted resources that the DIGGS Context Validation Scenario may access
+    This file may be modified to include resource locations that are not whitelisted by the DIGGS project, in order to allow local implementations
+    to run the DIGGS Context Validation Scenario on DIGGS instance files that reference non-DIGGS Standard resources. Only trusted locations should 
+    be listed in this file to avoid security issues..
+    -->
+
+<whitelist>
+    <!-- ******** Standard DIGGS, OGC, and EPSG Resource Patterns DO NOT REMOVE ******** -->
+    <resource>
+        <pattern>https://diggsml.org</pattern>
+        <description>DIGGS Standard resources - schema, code list, CRS, Unit and Authority
+            Dictionaries</description>
+    </resource>
+
+    <resource>
+        <pattern>http://diggsml.org</pattern>
+        <description>DIGGS Standard resources - schema, code list, CRS, Unit and Authority
+            Dictionaries</description>
+    </resource>
+
+    <resource>
+        <pattern>http://www.opengis.net/def</pattern>
+        <description>OGC API Resources</description>
+    </resource>
+
+    <resource>
+        <pattern>https://www.opengis.net/def</pattern>
+        <description>OGC API Resources</description>
+    </resource>
+
+    <resource>
+        <pattern>https://epsg.org/api</pattern>
+        <description>EPSG API Resources</description>
+    </resource>
+
+    <!-- ***************************************************************************** -->
+
+    <!-- *********  Patterns to access a local dictionary or other resource ********** -->
+
+    <resource>
+        <pattern>file:///</pattern>
+        <!-- Pattern to find local files by absolute path -->
+        <description>Local file resources by absolute path</description>
+    </resource>
+
+    <resource>
+        <pattern>./</pattern>
+        <!-- Pattern to find local files by relative path -->
+        <description>Local file resources by relative pathin same or subdirectories from main xslt
+            file</description>
+    </resource>
+
+    <resource>
+        <pattern>../</pattern>
+        <!-- Pattern to find local files by relative path -->
+        <description>Local file resources by relative path from parent directories to main xslt
+            file</description>
+    </resource>
+
+    <!-- ***************************************************************************** -->
+
+    <!-- Example pattern to add other resource
+        
+    <resource>
+        <pattern>https://example.com/dictionaries/</pattern>
+        <description>Company-specific DIGGS dictionary files</description>
+    </resource>
+    
+     -->
+
+</whitelist>

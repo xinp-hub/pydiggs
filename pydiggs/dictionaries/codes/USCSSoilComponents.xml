@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="classificationCode">
+    <gml:description>These are values defined in ASTM D2487 to define the basic components of a soil, eg. sand, silt, gravel, etc. These codes are to be used in the classificationCode property for ComponentLith objects when describing specific components wihin a soil in detail.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml</gml:identifier>
+    <gml:name>Unified Soil Classification System Soil Component Names</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="boulders">
+            <gml:description>Soil particles above 12 in in diameter</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml#boulders</gml:identifier>
+            <gml:name>Boulders</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2487</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cobbles">
+            <gml:description>Soil particles between 3 inches to 12 inches (75 mm to 300 mm)</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml#cobbles</gml:identifier>
+            <gml:name>Cobbles</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2487</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="gravel">
+            <gml:description>Soil particles less than 3 inches tbut retained on No. 4 sieve (75 mm to 4.75 mm)</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml#gravel</gml:identifier>
+            <gml:name>Gravel</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2487</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sand">
+            <gml:description>Soil partiles passing No. 4 sieve but retained on No. 200 sieve (4.75 mm to 0.075 mm)</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml#sand</gml:identifier>
+            <gml:name>Sand</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2487</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="fines">
+            <gml:description>Soil particles passing No. 200 sieve (&lt;0.075 mm)</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml#fines</gml:identifier>
+            <gml:name>Fines</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2487</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="silt">
+            <gml:description>Soil parrticles between 0.075 mm and 0.002 mm</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml#silt</gml:identifier>
+            <gml:name>Silt</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2487</diggs:authority>
+            <diggs:reference>Particle sizes only. Silt and clay are distinguished in ASTM by their plasticity characteristics.</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="clay">
+            <gml:description>Soil particles &lt; 0.002 mm</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/USCSSoilComponents.xml#clay</gml:identifier>
+            <gml:name>Clay</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2487</diggs:authority>
+            <diggs:reference>Particle sizes only. Silt and clay are distinguished in ASTM by their plasticity characteristics.</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:classificationCode</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://diggsml.org/schemas/2.6 http://diggsml.org/schemas/2.6/Diggs.xsd"
+    xmlns:diggs_geo="http://diggsml.org/schemas/2.6/geotechnical"
+    xmlns:witsml="http://www.witsml.org/schemas/131" xmlns:glr="http://www.opengis.net/gml/3.3/lr"
+    xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:g3.3="http://www.opengis.net/gml/3.3/ce"
+    xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:diggs="http://diggsml.org/schemas/2.6"
+    xmlns:glrov="http://www.opengis.net/gml/3.3/lrov" gml:id="DGS765F-DA6-2E5C-4987-1FA95">
+    <documentInformation>
+        <DocumentInformation gml:id="abc">
+            <creationDate>2017-09-30</creationDate>
+        </DocumentInformation>
+    </documentInformation>
+    <measurement>
+        <Test gml:id="t1">
+            <investigationTarget>Natural Ground</investigationTarget>
+            <projectRef xlink:href="proj1"/>
+            <samplingFeatureRef xlink:href="abc"/>
+            <outcome>
+                <TestResult gml:id="tr-1">
+                    <location>
+                        <PointLocation gml:id="pl-1">
+                            <gml:pos srsDimension="2">33 -118</gml:pos>
+                        </PointLocation>
+                    </location>
+                    <results>
+                        <ResultSet>
+                            <parameters>
+                                <PropertyParameters gml:id="pps-1">
+                                    <properties>
+                                        <Property gml:id="DGS9E8-3DF-1944-6EA0-2C64B" index="1">
+                                            <propertyName>undrained shear strength</propertyName>
+                                            <typeData>double</typeData>
+                                            <propertyClass codeSpace="http://diggsml.org/terms/testProperties.xml">shear_strength_undrained</propertyClass>
+                                            <uom>kPa</uom>
+                                        </Property>
+                                    </properties>
+                                </PropertyParameters>
+                            </parameters>
+                            <dataValues>145</dataValues>
+                        </ResultSet>
+                    </results>
+                </TestResult>
+            </outcome>
+            <procedure>
+                <TriaxialTest gml:id="triax1">
+                    <gml:description>Test description</gml:description>
+                    <testProcedureEquipment>
+                        <TriaxialTestEquipment gml:id="ID143">
+                            <gml:name codeSpace="http://www.oxygenxml.com/">Triaxitator 100</gml:name>
+                            <modelNumber xml:lang="en-US">100</modelNumber>
+                            <loadCellCapacity uom="kN">300</loadCellCapacity>
+                            <massOfTopPorousStone uom="g"
+                                >50</massOfTopPorousStone>
+                            <massOfTopCap uom="g">10</massOfTopCap>
+                            <pistonDiameter uom="cm">3</pistonDiameter>
+                            <poreWaterPressureDeviceMeetsUndrainedSpecs>true</poreWaterPressureDeviceMeetsUndrainedSpecs>
+                            <pressureTransducerType>pressureTransducerType1</pressureTransducerType>
+                        </TriaxialTestEquipment>
+                    </testProcedureEquipment>
+                    <specimen>
+                        <SoilSpecimen xml:lang="en-US" gml:id="ID223">
+                            <sampleRef xlink:href="samp1"/>
+                            <conditionPreTest>
+                                <SpecimenConditions xml:lang="en-US" gml:id="ID233">
+                                    <bulkUnitWeight uom="lbf/ft3">120</bulkUnitWeight>
+                                    <crossSectionalArea uom="cm2">25</crossSectionalArea>
+                                    <dimensionMeasurementTechnique>Calipers</dimensionMeasurementTechnique>
+                                    <dryUnitWeight uom="lbf/ft3">100</dryUnitWeight>
+                                    <dryWeight uom="gf">100</dryWeight>
+                                    <diameter uom="cm">5</diameter>
+                                    <height uom="cm">10</height>
+                                    <percentSaturation uom="%">70</percentSaturation>
+                                    <shape>cylinder</shape>
+                                    <voidRatio>0.8</voidRatio>
+                                </SpecimenConditions>
+                            </conditionPreTest>
+                            <conditionPostTest>
+                                <SpecimenConditions xml:lang="en-US" gml:id="ID235">
+                                    <crossSectionalArea uom="cm2">26</crossSectionalArea>
+                                    <dimensionMeasurementTechnique>Calipers</dimensionMeasurementTechnique>
+                                    <height uom="cm">9.4</height>
+                                    <percentSaturation uom="%">98</percentSaturation>
+                                    <waterContent uom="%">82</waterContent>
+                                </SpecimenConditions>
+                            </conditionPostTest>
+                            <intactSpecimenPreparationInfo>
+                                <IntactSpecimenPreparationInfo xml:lang="en-US" gml:id="ID237">
+                                    <IntactSpecimenType>trimmed</IntactSpecimenType>
+                                    <specimenTrimmedInWetRoom>true</specimenTrimmedInWetRoom>
+                                </IntactSpecimenPreparationInfo>
+                            </intactSpecimenPreparationInfo>
+                            <specificGravityOfSolids waterTemperature="4 degC" howDetermined="assigned">2.65</specificGravityOfSolids>
+                            <specimenType>intact</specimenType>
+                        </SoilSpecimen>
+                    </specimen>
+                    <specimen>
+                        <SoilSpecimen xml:lang="en-US" gml:id="ID243">
+                            <sampleRef xlink:href="samp1"/>
+                            <conditionPreTest>
+                                <SpecimenConditions xml:lang="en-US" gml:id="ID247">
+                                    <bulkUnitWeight uom="lbf/ft3">123</bulkUnitWeight>
+                                    <crossSectionalArea uom="cm2">23.7</crossSectionalArea>
+                                    <dimensionMeasurementTechnique>Calipers</dimensionMeasurementTechnique>
+                                    <dryUnitWeight uom="lbf/ft3">102</dryUnitWeight>
+                                    <dryWeight uom="gf">103</dryWeight>
+                                    <diameter uom="cm">5</diameter>
+                                    <height uom="cm">10</height>
+                                    <percentSaturation uom="%">68</percentSaturation>
+                                    <shape>cylinder</shape>
+                                    <voidRatio>0.76</voidRatio>
+                                </SpecimenConditions>
+                            </conditionPreTest>
+                            <conditionPostTest>
+                                <SpecimenConditions xml:lang="en-US" gml:id="ID145">
+                                    <crossSectionalArea uom="cm2">24.2</crossSectionalArea>
+                                    <dimensionMeasurementTechnique>Calipers</dimensionMeasurementTechnique>
+                                    <height uom="cm">9.5</height>
+                                    <percentSaturation uom="%">99</percentSaturation>
+                                </SpecimenConditions>
+                            </conditionPostTest>
+                            <intactSpecimenPreparationInfo>
+                                <IntactSpecimenPreparationInfo xml:lang="en-US" gml:id="ID147">
+                                    <IntactSpecimenType>trimmed</IntactSpecimenType>
+                                    <specimenTrimmedInWetRoom>true</specimenTrimmedInWetRoom>
+                                </IntactSpecimenPreparationInfo>
+                            </intactSpecimenPreparationInfo>
+                            <specificGravityOfSolids waterTemperature="4 degC"
+                                howDetermined="assigned">2.65</specificGravityOfSolids>
+                            <specimenType>intact</specimenType>
+                        </SoilSpecimen>
+                    </specimen>
+                    <specimen>
+                        <SoilSpecimen xml:lang="en-US" gml:id="ID246">
+                            <sampleRef xlink:href="samp1"/>
+                            <conditionPreTest>
+                                <SpecimenConditions xml:lang="en-US" gml:id="ID248">
+                                    <bulkUnitWeight uom="lbf/ft3">122</bulkUnitWeight>
+                                    <crossSectionalArea uom="cm2">24.7</crossSectionalArea>
+                                    <dimensionMeasurementTechnique>Calipers</dimensionMeasurementTechnique>
+                                    <dryUnitWeight uom="lbf/ft3">105</dryUnitWeight>
+                                    <dryWeight uom="gf">92</dryWeight>
+                                    <diameter uom="cm">5</diameter>
+                                    <height uom="cm">9</height>
+                                    <percentSaturation uom="%">72</percentSaturation>
+                                    <shape>cylinder</shape>
+                                    <voidRatio>0.75</voidRatio>
+                                </SpecimenConditions>
+                            </conditionPreTest>
+                            <conditionPostTest>
+                                <SpecimenConditions xml:lang="en-US" gml:id="ID146">
+                                    <crossSectionalArea uom="cm2">25.2</crossSectionalArea>
+                                    <dimensionMeasurementTechnique>Calipers</dimensionMeasurementTechnique>
+                                    <height uom="cm">8.7</height>
+                                    <percentSaturation uom="%">99</percentSaturation>
+                                </SpecimenConditions>
+                            </conditionPostTest>
+                            <intactSpecimenPreparationInfo>
+                                <IntactSpecimenPreparationInfo xml:lang="en-US" gml:id="ID148">
+                                    <IntactSpecimenType>trimmed</IntactSpecimenType>
+                                    <specimenTrimmedInWetRoom>true</specimenTrimmedInWetRoom>
+                                </IntactSpecimenPreparationInfo>
+                            </intactSpecimenPreparationInfo>
+                            <specificGravityOfSolids waterTemperature="4 degC"
+                                howDetermined="assigned">2.65</specificGravityOfSolids>
+                            <specimenType>intact</specimenType>
+                        </SoilSpecimen>
+                    </specimen>
+                    <triaxialTestType codeSpace="http://www.diggsml.org">CU</triaxialTestType>
+                    <trial>
+                        <TriaxialTestTrial xml:lang="en-US" gml:id="ID275">
+                            <specimenRef xlink:href="#ID223"/>
+                            <filterInfo>
+                                <FilterInfo xml:lang="en-US" gml:id="ID281">
+                                    <filterPaperConfiguration>strips</filterPaperConfiguration>
+                                    <filterPaperDisksUsed>true</filterPaperDisksUsed>
+                                    <filterPaperType>No.54</filterPaperType>
+                                    <loadCarriedbyFilterPaperStrips uom="kN/m"
+                                        >0.19</loadCarriedbyFilterPaperStrips>
+                                    <perimeterCarriedbyFilterPaperStrips uom="cm"
+                                        >5.3</perimeterCarriedbyFilterPaperStrips>
+                                </FilterInfo>
+                            </filterInfo>
+                            <membraneInfo>
+                                <MembraneInfo gml:id="ID283">
+                                    <membraneMaterial>latex</membraneMaterial>
+                                    <membraneThickness uom="mm"
+                                        >1.8</membraneThickness>
+                                    <membraneYoungsModulus uom="kPa"
+                                        >5</membraneYoungsModulus>
+                                    <membraneYoungsmodulusDetermination>assigned</membraneYoungsmodulusDetermination>
+                                    <numberOfMembranesUsed>2</numberOfMembranesUsed>
+                                    <unstretchedMembraneCircumference uom="cm"
+                                        >8.9</unstretchedMembraneCircumference>
+                                    <unstretchedMembraneLength uom="cm"
+                                        >10</unstretchedMembraneLength>
+                                </MembraneInfo>
+                            </membraneInfo>
+                            <saturationStage>
+                                <TriaxialTestSaturationStage gml:id="ID285">
+                                    <automatedSaturationEquipmentUsed>false</automatedSaturationEquipmentUsed>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID286">
+                                            <incrementNumber>1</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >20</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID287">
+                                            <incrementNumber>2</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >40</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID288">
+                                            <incrementNumber>3</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >60</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <bValueEndOfSaturation>0.3</bValueEndOfSaturation>
+                                    <initialSaturation uom="%"
+                                        >68</initialSaturation>
+                                    <maximumBackPressureApplied uom="psi"
+                                        >60</maximumBackPressureApplied>
+                                    <saturationMethod codeSpace="http://www.oxygenxml.com/">wet method</saturationMethod>
+                                </TriaxialTestSaturationStage>
+                            </saturationStage>
+                            <consolidationStage>
+                                <TriaxialTestConsolidationStage gml:id="ID29A">
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID291">
+                                            <elapsedTime uom="min"
+                                                >0</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.15</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID293">
+                                            <elapsedTime uom="min"
+                                                >1</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.25</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID295">
+                                            <elapsedTime uom="min"
+                                                >2</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.35</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <specimenCrossSectionalAreaCalculationMethod codeSpace="http://www.oxygenxml.com/">specimenCrossSectionalAreaCalculationMethod0</specimenCrossSectionalAreaCalculationMethod>
+                                    <effectiveStressEndofConsolidationStage uom="Pa"
+                                        >0</effectiveStressEndofConsolidationStage>
+                                    <t50 uom="s">0</t50>
+                                    <specimenHeightChangeAfterConsolidation uom="m"
+                                        >0</specimenHeightChangeAfterConsolidation>
+                                    <t50Method codeSpace="http://www.oxygenxml.com/">t50Method0</t50Method>
+                                </TriaxialTestConsolidationStage>
+                            </consolidationStage>
+                            <shearStage>
+                                <TriaxialTestShearStage gml:id="ID305">
+                                    <axialStrainAtFailure uom="%"
+                                        >10</axialStrainAtFailure>
+                                    <deviatorStressAtFailure uom="kPa"
+                                        >25</deviatorStressAtFailure>
+                                    <failureCriterion>maximum deviator stress</failureCriterion>
+                                    <modeOfFailure>bulging</modeOfFailure>
+                                    <totalPorewaterPressureAtFailure uom="psi"
+                                        >70</totalPorewaterPressureAtFailure>
+                                    <porewaterPressureStartOfShearing uom="Pa"
+                                        >0</porewaterPressureStartOfShearing>
+                                    <rateOfAxialStrainDuringShear uom="%/hr"
+                                        >1</rateOfAxialStrainDuringShear>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US" gml:id="ID311">
+                                            <axialLoad uom="kN">10</axialLoad>
+                                            <axialDeflection uom="mm">0</axialDeflection>
+                                            <elapsedTime uom="min"
+                                                >0</elapsedTime>
+                                            <inducedPoreWaterPressure uom="kPa"
+                                                >40</inducedPoreWaterPressure>
+                                            <totalCellPressure uom="kPa"
+                                                >100</totalCellPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US" gml:id="ID313">
+                                            <deviatorStress uom="kPa"
+                                                >32</deviatorStress>
+                                            <axialStrain uom="%">2</axialStrain>
+                                            <elapsedTime uom="min"
+                                                >10</elapsedTime>
+                                            <inducedPoreWaterPressure uom="psi"
+                                                >40</inducedPoreWaterPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US"
+                                            gml:id="ID313A">
+                                            <deviatorStress uom="kPa"
+                                                >60</deviatorStress>
+                                            <axialStrain uom="%">4</axialStrain>
+                                            <elapsedTime uom="min"
+                                                >20</elapsedTime>
+                                            <inducedPoreWaterPressure uom="psi"
+                                                >50</inducedPoreWaterPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <slopeOfAngleOfFailureSurface uom="dega"
+                                        >5</slopeOfAngleOfFailureSurface>
+                                    <totalCellPressureDuringShearStage uom="psi"
+                                        >250</totalCellPressureDuringShearStage>
+                                    <undrainedShearStrengthAtFailure uom="kPa"
+                                        >12</undrainedShearStrengthAtFailure>
+                                    <areaCorrectionApplied>true</areaCorrectionApplied>
+                                    <areaCorrectionType>Central cylindrical bulging</areaCorrectionType>
+                                    <filterCorrectionApplied>true</filterCorrectionApplied>
+                                    <membraneCorrectionApplied>true</membraneCorrectionApplied>
+                                    <pistonFrictionCorrectionApplied>false</pistonFrictionCorrectionApplied>
+                                    <upliftCorrectionApplied>false</upliftCorrectionApplied>
+                                </TriaxialTestShearStage>
+                            </shearStage>
+                        </TriaxialTestTrial>
+                    </trial>
+                    <trial>
+                        <TriaxialTestTrial xml:lang="en-US" gml:id="ID27">
+                            <specimenRef xlink:href="#ID243"/>
+                            <filterInfo>
+                                <FilterInfo xml:lang="en-US" gml:id="ID28">
+                                    <filterPaperConfiguration codeSpace="http://www.oxygenxml.com/">spiral</filterPaperConfiguration>
+                                    <filterPaperDisksUsed>true</filterPaperDisksUsed>
+                                    <filterPaperType codeSpace="http://www.oxygenxml.com/">No.54</filterPaperType>
+                                    <loadCarriedbyFilterPaperStrips uom="kN/m"
+                                        >0.19</loadCarriedbyFilterPaperStrips>
+                                    <perimeterCarriedbyFilterPaperStrips uom="cm"
+                                        >4.3</perimeterCarriedbyFilterPaperStrips>
+                                </FilterInfo>
+                            </filterInfo>
+                            <membraneInfo>
+                                <MembraneInfo gml:id="ID29">
+                                    <membraneMaterial>latex</membraneMaterial>
+                                    <membraneThickness uom="mm"
+                                        >1.8</membraneThickness>
+                                    <membraneYoungsModulus uom="kPa"
+                                        >5</membraneYoungsModulus>
+                                    <membraneYoungsmodulusDetermination>assigned</membraneYoungsmodulusDetermination>
+                                    <numberOfMembranesUsed>2</numberOfMembranesUsed>
+                                    <unstretchedMembraneCircumference uom="cm"
+                                        >8.9</unstretchedMembraneCircumference>
+                                    <unstretchedMembraneLength uom="cm"
+                                        >10</unstretchedMembraneLength>
+                                </MembraneInfo>
+                            </membraneInfo>
+                            <saturationStage>
+                                <TriaxialTestSaturationStage gml:id="ID285A">
+                                    <automatedSaturationEquipmentUsed>false</automatedSaturationEquipmentUsed>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID286A">
+                                            <incrementNumber>1</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >20</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID287A">
+                                            <incrementNumber>2</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >40</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID288A">
+                                            <incrementNumber>3</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >60</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <bValueEndOfSaturation>0.3</bValueEndOfSaturation>
+                                    <initialSaturation uom="%"
+                                        >68</initialSaturation>
+                                    <maximumBackPressureApplied uom="psi"
+                                        >60</maximumBackPressureApplied>
+                                    <saturationMethod>wet method</saturationMethod>
+                                </TriaxialTestSaturationStage>
+                            </saturationStage>
+                            <consolidationStage>
+                                <TriaxialTestConsolidationStage gml:id="ID295A">
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID291A">
+                                            <elapsedTime uom="min"
+                                                >0</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.15</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID293A">
+                                            <elapsedTime uom="min"
+                                                >1</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.25</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID295B">
+                                            <elapsedTime uom="min"
+                                                >2</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.35</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <specimenCrossSectionalAreaCalculationMethod>ASTM Method B</specimenCrossSectionalAreaCalculationMethod>
+                                    <effectiveStressEndofConsolidationStage uom="Pa"
+                                        >0</effectiveStressEndofConsolidationStage>
+                                    <t50 uom="s">0</t50>
+                                    <specimenHeightChangeAfterConsolidation uom="m"
+                                        >0</specimenHeightChangeAfterConsolidation>
+                                    <t50Method>t50Method0</t50Method>
+                                </TriaxialTestConsolidationStage>
+                            </consolidationStage>
+                            <shearStage>
+                                <TriaxialTestShearStage gml:id="ID305A">
+                                    <axialStrainAtFailure uom="%"
+                                        >10</axialStrainAtFailure>
+                                    <deviatorStressAtFailure uom="kPa"
+                                        >25</deviatorStressAtFailure>
+                                    <failureCriterion>maximum deviator stress</failureCriterion>
+                                    <modeOfFailure>bulging</modeOfFailure>
+                                    <totalPorewaterPressureAtFailure uom="psi"
+                                        >70</totalPorewaterPressureAtFailure>
+                                    <porewaterPressureStartOfShearing uom="Pa"
+                                        >0</porewaterPressureStartOfShearing>
+                                    <rateOfAxialStrainDuringShear uom="%/hr"
+                                        >1</rateOfAxialStrainDuringShear>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US"
+                                            gml:id="ID311A">
+                                            <axialLoad uom="kN">10</axialLoad>
+                                            <axialDeflection uom="mm">0</axialDeflection>
+                                            <elapsedTime uom="min"
+                                                >0</elapsedTime>
+                                            <inducedPoreWaterPressure uom="kPa"
+                                                >40</inducedPoreWaterPressure>
+                                            <totalCellPressure uom="kPa"
+                                                >100</totalCellPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US"
+                                            gml:id="ID313B">
+                                             <deviatorStress uom="kPa"
+                                                >32</deviatorStress>
+                                            <axialStrain uom="%">2</axialStrain>
+                                            <elapsedTime uom="min"
+                                                >10</elapsedTime>
+                                            <inducedPoreWaterPressure uom="psi"
+                                                >40</inducedPoreWaterPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US"
+                                            gml:id="ID313C">
+                                            <deviatorStress uom="kPa"
+                                                >60</deviatorStress>
+                                            <axialStrain uom="%">4</axialStrain>
+                                            <elapsedTime uom="min"
+                                                >20</elapsedTime>
+                                            <inducedPoreWaterPressure uom="psi"
+                                                >50</inducedPoreWaterPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <slopeOfAngleOfFailureSurface uom="dega"
+                                        >5</slopeOfAngleOfFailureSurface>
+                                    <totalCellPressureDuringShearStage uom="psi"
+                                        >250</totalCellPressureDuringShearStage>
+                                    <undrainedShearStrengthAtFailure uom="kPa"
+                                        >12</undrainedShearStrengthAtFailure>
+                                    <areaCorrectionApplied>true</areaCorrectionApplied>
+                                    <areaCorrectionType>Slip plane</areaCorrectionType>
+                                    <filterCorrectionApplied>true</filterCorrectionApplied>
+                                    <membraneCorrectionApplied>true</membraneCorrectionApplied>
+                                    <pistonFrictionCorrectionApplied>false</pistonFrictionCorrectionApplied>
+                                    <upliftCorrectionApplied>false</upliftCorrectionApplied>
+                                </TriaxialTestShearStage>
+                            </shearStage>
+                        </TriaxialTestTrial>
+                    </trial>
+                    <trial>
+                        <TriaxialTestTrial xml:lang="en-US" gml:id="ID27B">
+                            <specimenRef xlink:href="#ID243"/>
+                            <filterInfo>
+                                <FilterInfo xml:lang="en-US" gml:id="ID28B">
+                                    <filterPaperConfiguration codeSpace="http://www.oxygenxml.com/">spiral</filterPaperConfiguration>
+                                    <filterPaperDisksUsed>true</filterPaperDisksUsed>
+                                    <filterPaperType codeSpace="http://www.oxygenxml.com/">No.54</filterPaperType>
+                                    <loadCarriedbyFilterPaperStrips uom="kN/m"
+                                        >0.19</loadCarriedbyFilterPaperStrips>
+                                    <perimeterCarriedbyFilterPaperStrips uom="cm"
+                                        >4.3</perimeterCarriedbyFilterPaperStrips>
+                                </FilterInfo>
+                            </filterInfo>
+                            <membraneInfo>
+                                <MembraneInfo gml:id="ID29B">
+                                    <membraneMaterial>latex</membraneMaterial>
+                                    <membraneThickness uom="mm"
+                                        >1.8</membraneThickness>
+                                    <membraneYoungsModulus uom="kPa"
+                                        >5</membraneYoungsModulus>
+                                    <membraneYoungsmodulusDetermination>assigned</membraneYoungsmodulusDetermination>
+                                    <numberOfMembranesUsed>2</numberOfMembranesUsed>
+                                    <unstretchedMembraneCircumference uom="cm"
+                                        >8.9</unstretchedMembraneCircumference>
+                                    <unstretchedMembraneLength uom="cm"
+                                        >10</unstretchedMembraneLength>
+                                </MembraneInfo>
+                            </membraneInfo>
+                            <saturationStage>
+                                <TriaxialTestSaturationStage gml:id="ID285B">
+                                    <automatedSaturationEquipmentUsed>false</automatedSaturationEquipmentUsed>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID286B">
+                                            <incrementNumber>1</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >20</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID287B">
+                                            <incrementNumber>2</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >40</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <backPressureIncrement>
+                                        <BackPressureIncrement gml:id="ID288B">
+                                            <incrementNumber>3</incrementNumber>
+                                            <backPressureApplied uom="psi"
+                                                >60</backPressureApplied>
+                                        </BackPressureIncrement>
+                                    </backPressureIncrement>
+                                    <bValueEndOfSaturation>0.3</bValueEndOfSaturation>
+                                    <initialSaturation uom="%"
+                                        >68</initialSaturation>
+                                    <maximumBackPressureApplied uom="psi"
+                                        >60</maximumBackPressureApplied>
+                                    <saturationMethod>wet method</saturationMethod>
+                                </TriaxialTestSaturationStage>
+                            </saturationStage>
+                            <consolidationStage>
+                                <TriaxialTestConsolidationStage gml:id="ID295C">
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID291B">
+                                            <elapsedTime uom="min"
+                                                >0</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.15</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID293B">
+                                            <elapsedTime uom="min"
+                                                >1</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.25</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <consolidationIncrement>
+                                        <ConsolidationIncrement xml:lang="en-US"
+                                            gml:id="ID295D">
+                                            <elapsedTime uom="min"
+                                                >2</elapsedTime>
+                                            <volumeChange uom="cm3"
+                                                >0.35</volumeChange>
+                                        </ConsolidationIncrement>
+                                    </consolidationIncrement>
+                                    <specimenCrossSectionalAreaCalculationMethod>ASTM Method A</specimenCrossSectionalAreaCalculationMethod>
+                                    <effectiveStressEndofConsolidationStage uom="Pa"
+                                        >0</effectiveStressEndofConsolidationStage>
+                                    <t50 uom="s">0</t50>
+                                    <specimenHeightChangeAfterConsolidation uom="m"
+                                        >0</specimenHeightChangeAfterConsolidation>
+                                    <t50Method codeSpace="http:www.diggsml.org">Casagrande</t50Method>
+                                </TriaxialTestConsolidationStage>
+                            </consolidationStage>
+                            <shearStage>
+                                <TriaxialTestShearStage gml:id="ID305B">
+                                    <axialStrainAtFailure uom="%"
+                                        >10</axialStrainAtFailure>
+                                    <deviatorStressAtFailure uom="kPa"
+                                        >25</deviatorStressAtFailure>
+                                    <failureCriterion codeSpace="http://www.oxygenxml.com/">limiting strain</failureCriterion>
+                                    <modeOfFailure codeSpace="http://www.oxygenxml.com/">bulging</modeOfFailure>
+                                    <totalPorewaterPressureAtFailure uom="psi"
+                                        >70</totalPorewaterPressureAtFailure>
+                                    <porewaterPressureStartOfShearing uom="Pa"
+                                        >0</porewaterPressureStartOfShearing>
+                                    <rateOfAxialStrainDuringShear uom="%/hr"
+                                        >1</rateOfAxialStrainDuringShear>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US"
+                                            gml:id="ID311D">
+                                            <axialLoad uom="kN">10</axialLoad>
+                                            <axialDeflection uom="mm">0</axialDeflection>
+                                            <elapsedTime uom="min"
+                                                >0</elapsedTime>
+                                            <inducedPoreWaterPressure uom="kPa"
+                                                >40</inducedPoreWaterPressure>
+                                            <totalCellPressure uom="kPa"
+                                                >100</totalCellPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US"
+                                            gml:id="ID313D">
+                                            <deviatorStress uom="kPa"
+                                                >32</deviatorStress>
+                                            <axialStrain uom="%">2</axialStrain>
+                                            <elapsedTime uom="min"
+                                                >10</elapsedTime>
+                                            <inducedPoreWaterPressure uom="psi"
+                                                >40</inducedPoreWaterPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <shearingIncrement>
+                                        <ShearingIncrement xml:lang="en-US"
+                                            gml:id="ID313E">
+                                            <deviatorStress uom="kPa"
+                                                >60</deviatorStress>
+                                            <axialStrain uom="%">4</axialStrain>
+                                            <elapsedTime uom="min"
+                                                >20</elapsedTime>
+                                            <inducedPoreWaterPressure uom="psi"
+                                                >50</inducedPoreWaterPressure>
+                                        </ShearingIncrement>
+                                    </shearingIncrement>
+                                    <slopeOfAngleOfFailureSurface uom="dega"
+                                        >5</slopeOfAngleOfFailureSurface>
+                                    <totalCellPressureDuringShearStage uom="psi"
+                                        >250</totalCellPressureDuringShearStage>
+                                    <undrainedShearStrengthAtFailure uom="kPa"
+                                        >12</undrainedShearStrengthAtFailure>
+                                   <areaCorrectionApplied>true</areaCorrectionApplied>
+                                    <areaCorrectionType>Parabolic bulging</areaCorrectionType>
+                                    <filterCorrectionApplied>true</filterCorrectionApplied>
+                                    <membraneCorrectionApplied>true</membraneCorrectionApplied>
+                                    <pistonFrictionCorrectionApplied>false</pistonFrictionCorrectionApplied>
+                                    <upliftCorrectionApplied>false</upliftCorrectionApplied>
+                                </TriaxialTestShearStage>
+                            </shearStage>
+                        </TriaxialTestTrial>
+                    </trial>
+                </TriaxialTest>
+            </procedure>
+        </Test>
+    </measurement>
+</Diggs>

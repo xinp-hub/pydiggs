@@ -16,7 +16,7 @@ limitations under the License.
 
 __author__ = """Xin Peng"""
 __email__ = 'xin_peng@outlook.com'
-__version__ = '0.1.5'
+__version__ = '0.2.0'
 
 """A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 

@@ -1,6 +1,6 @@
 [project]
 name = "pydiggs"
-version = "0.1.5"
+version = "0.2.0"
 description = "A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)."
 authors = [
     {name = "xin.peng", email = "xin_peng@outlook.com"}

@@ -3912,7 +3912,7 @@ For metamorphic rocks, this property is used to describe a set of mineral assemb
             <restriction base="gml:DomainSetType">
                 <sequence minOccurs="0">
                     <choice>
-                        <element ref="diggs:LinearExtent"/>
+                        <element ref="diggs:AbstractGeometry"/>
                         <!--
 DSB: REMOVED FROM PROFILE
         <element ref="gml:AbstractTimeObject"/>

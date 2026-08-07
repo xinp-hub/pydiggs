@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-pydiggs requires Python 3.8 or later and depends on the following packages:
+pydiggs requires Python 3.10 or later and depends on the following packages:
 * lxml - for XML processing and validation
 * rich - for colored console output
 

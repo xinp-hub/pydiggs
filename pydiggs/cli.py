@@ -1,60 +1,76 @@
 """Console script for pydiggs."""
+
+from __future__ import annotations
+
 import argparse
 import sys
 
 from pydiggs import validator
 
 
-def main():
+def main(argv: list[str] | None = None) -> int:
     """Console script for pydiggs."""
-    command_list = ['schema_check', 'schematron_check', 'dictionary_check']
-
     parser = argparse.ArgumentParser(
         description=(
-            'A Python package for Data Interchange for Geotechnical '
-            'and Geoenvironmental Specialists (DIGGS).'
+            "A Python package for Data Interchange for Geotechnical "
+            "and Geoenvironmental Specialists (DIGGS)."
         )
     )
     parser.add_argument(
-        'command',
-        choices=command_list,
-        help='Available commands for execution'
+        "command",
+        choices=["schema_check", "schematron_check", "dictionary_check", "context_check"],
+        help="Available commands for execution",
     )
     parser.add_argument(
-        'diggs_file',
+        "diggs_file",
         type=str,
-        nargs=1,
-        help='Relative or full path of the DIGGS instance file'
+        help="Relative or full path of the DIGGS instance file",
     )
     parser.add_argument(
-        '--schema_path',
+        "--schema_path",
         type=str,
-        nargs=1,
-        help='Relative or full path of the DIGGS schema file'
+        default=None,
+        help="Relative or full path of the DIGGS schema file (default: bundled 2.6)",
     )
     parser.add_argument(
-        '--schematron_path',
+        "--dictionary_path",
         type=str,
-        nargs=1,
-        help='Relative or full path of DIGGS schematron schema file'
+        default=None,
+        help="Primary DIGGS dictionary file (default: bundled properties.xml)",
+    )
+    parser.add_argument(
+        "--schematron_path",
+        type=str,
+        default=None,
+        help="Schematron schema file (default: bundled DIGGS lxml-adapted rules)",
+    )
+    parser.add_argument(
+        "--output_log",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Write validation logs to the current working directory (default: True)",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    if args.command == 'schema_check':
-        validation = validator(args.diggs_file[0])
-        if args.schema_path is not None:
-            validation = validator(args.diggs_file[0], schema_path=args.schema_path[0])
-        validation.schema_check()
+    validation = validator(
+        args.diggs_file,
+        schema_path=args.schema_path,
+        dictionary_path=args.dictionary_path,
+        schematron_path=args.schematron_path,
+        output_log=args.output_log,
+    )
 
-    if args.command == 'schematron_check' and args.schematron_path is not None:
-        validation = validator(args.diggs_file[0], schematron_path=args.schematron_path[0])
-        validation.schematron_check()
-
-    if args.command == 'dictionary_check':
-        validation = validator(args.diggs_file[0])
-        validation.dictionary_check()
+    if args.command == "schema_check":
+        ok = validation.schema_check()
+    elif args.command == "schematron_check":
+        ok = validation.schematron_check()
+    elif args.command == "dictionary_check":
+        ok = validation.dictionary_check()
+    else:
+        ok = validation.context_check()
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    sys.exit(main())
