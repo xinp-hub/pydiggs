@@ -21,12 +21,12 @@ from pathlib import Path
 from lxml import etree, isoschematron  # type: ignore
 from rich import print as rprint
 
+from pydiggs.detect import DEFAULT_PROFILE, detect_diggs_version, schema_path_for
 from pydiggs.dictionary import DictionarySemanticValidator
 from pydiggs.semantic import validate_context
 from pydiggs.units import UnitConverter, casing_outside_gt_inside
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
-_DEFAULT_SCHEMA_26 = _PACKAGE_DIR / "schemas" / "diggs-schema-2.6" / "Diggs.xsd"
 _DEFAULT_DICTIONARY = _PACKAGE_DIR / "dictionaries" / "properties.xml"
 _DEFAULT_SCHEMATRON = _PACKAGE_DIR / "schematron" / "diggs_schematron_rules_2.6.sch"
 
@@ -34,23 +34,27 @@ _DEFAULT_SCHEMATRON = _PACKAGE_DIR / "schematron" / "diggs_schematron_rules_2.6.
 class validator:  # noqa: N801 — published public API name
     """A Python Class for validating DIGGS instance files."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0917 — published keyword surface
         self,
         instance_path=None,
         schema_path=None,
         dictionary_path=None,
         schematron_path=None,
         output_log=True,
+        diggs_version=None,
     ):
         """Initialize the arguments within the validator class.
 
         Args:
             instance_path (string, optional): Relative or full path of the DIGGS instance file.
             schema_path (string, optional): Relative or full path of the DIGGS schema file.
+                If omitted, the bundled XSD for ``diggs_version`` (or auto-detected NS) is used.
             dictionary_path (string, optional): Relative or full path of the DIGGS dictionary file.
             schematron_path (string, optional): Relative or full path of DIGGS schematron schema file.
                 If omitted, the bundled DIGGS lxml-adapted rules are used for schematron_check().
             output_log (boolean, optional): Whether to write log files to the CWD. Defaults to True.
+            diggs_version (string, optional): Profile ``2.5.a``, ``2.6``, or ``3.0.0``.
+                If omitted, detected from the instance namespace (defaults to ``3.0.0`` when unknown).
         """
 
         self.instance_path = instance_path
@@ -58,6 +62,7 @@ class validator:  # noqa: N801 — published public API name
         self.dictionary_path = dictionary_path
         self.schematron_path = schematron_path
         self.output_log = output_log
+        self.diggs_version = diggs_version
 
         self.syntax_error_log = None
         self.schema_validation_log = None
@@ -68,7 +73,16 @@ class validator:  # noqa: N801 — published public API name
         self.schematron_error_log = None
         self.schematron_validation_log = None
 
-    def schema_check(self) -> bool:
+    def _resolve_profile(self, instance_doc: etree._ElementTree | None = None) -> str:
+        if self.diggs_version:
+            return self.diggs_version
+        if instance_doc is not None:
+            return detect_diggs_version(instance_doc)
+        if self.instance_path:
+            return detect_diggs_version(self.instance_path)
+        return DEFAULT_PROFILE
+
+    def schema_check(self) -> bool:  # noqa: PLR0911, PLR0912
         """Validate the instance against an XSD schema. Returns True on success."""
         if self.instance_path is None:
             return False
@@ -77,15 +91,19 @@ class validator:  # noqa: N801 — published public API name
             instance_doc = etree.parse(self.instance_path)
             rprint("[green]No syntax error is detected.[/green]")
 
+            profile = self._resolve_profile(instance_doc)
+            self.diggs_version = profile
             if self.schema_path is None:
-                self.schema_path = str(_DEFAULT_SCHEMA_26)
+                self.schema_path = str(schema_path_for(profile))
 
             schema_doc = etree.parse(self.schema_path)
             diggs_schema = etree.XMLSchema(schema_doc)
 
             ok = diggs_schema.validate(instance_doc)
             if ok:
-                rprint("[green]No schema validation error is detected.[/green]")
+                rprint(
+                    f"[green]No schema validation error is detected (profile {profile}).[/green]"
+                )
                 return True
 
             self.schema_validation_log = diggs_schema.error_log
@@ -129,6 +147,10 @@ class validator:  # noqa: N801 — published public API name
                     error_log_file.write(str(self.schema_error_log))
             else:
                 print("Schema parse error:", self.schema_error_log)
+            return False
+
+        except ValueError as err:
+            rprint(f"[red]{err}[/red]")
             return False
 
     def dictionary_check(self) -> bool:
