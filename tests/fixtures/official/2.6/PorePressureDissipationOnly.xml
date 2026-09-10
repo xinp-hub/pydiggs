@@ -62,7 +62,7 @@
                                             <propertyName>t50 (s)</propertyName>
                                             <typeData>double</typeData>
                                             <propertyClass codeSpace="http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#t50">t50</propertyClass>
-                                            <uom>kPa</uom>
+                                            <uom>s</uom>
                                             <reportable>true</reportable>
                                         </Property>
                                         <Property index="4" gml:id="ppd1-p5">

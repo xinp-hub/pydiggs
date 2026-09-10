@@ -8,16 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Correct `t50` UOM on three vendored DIGGS 2.6 pore-pressure fixtures (`kPa` → `s`)
+  so they match the 3.0 example ([#220](https://github.com/xinp-hub/pydiggs/issues/220);
+  upstream [DIGGSml/diggs-examples#4](https://github.com/DIGGSml/diggs-examples/issues/4)).
+- Dictionary check 12 treats DIGGS 2.6 AllUnits spelling `cm2/m` as `cm2/min` (Kernel.xsd
+  documents it as square centimeter per minute).
 - Release workflow skips republish when the tag version is already on PyPI (avoids
   red `pypi` Environment deployments after intentional tag retargets).
 
 ### Added
+- `pydiggs.dictionaries.supplements` inventory of MWD/Pile codes required by 3.0 goldens
+  and tracked upstream ([#221](https://github.com/xinp-hub/pydiggs/issues/221);
+  [DIGGSml/def#13](https://github.com/DIGGSml/def/issues/13) /
+  [#14](https://github.com/DIGGSml/def/issues/14)).
 - FORGE-aligned **Release** workflow (`publish.yml`): tag/CHANGELOG guard, artifact handoff,
   TestPyPI + smoke install, PyPI attestations, Sigstore signing, GitHub Release creation.
 - `security.yml` (pip-audit, dependency-review, CodeQL, gitleaks) and Dependabot for `uv` +
   GitHub Actions (weekly, 7-day cooldown).
 
 ### Changed
+- Dictionary check 12 (UOM not in quantity class) is an **ERROR** again now that the
+  official corpus goldens no longer require the advisory workaround. Instances that used
+  invalid UOMs and previously only warned will now fail `dictionary_check()`.
 - CI/docs/security/Release Actions refreshed to current majors with commit SHA pins
   (`checkout` v7, `setup-uv` v9, artifact upload/download v7/v8, CodeQL v4,
   dependency-review v5, `actions-gh-pages` v4, Sigstore action v3.5).
