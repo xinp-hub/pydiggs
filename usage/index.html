@@ -1090,13 +1090,17 @@ bundled Diggs UOM dictionary (not the online Geosetta API).</p>
 <li>Official <a href="https://github.com/DIGGSml/diggs-examples">diggs-examples</a> files under
   <code>tests/fixtures/official/known_invalid/</code> fail schema (or XML syntax) against the bundled
   XSDs; they are pinned so we never silently accept them.</li>
-<li>Dictionary check 12 (UOM/quantity mismatch) is reported as <strong>WARNING</strong> so those examples
-  still pass <code>dictionary_check()</code> with a visible advisory. Tracking:
-  <a href="https://github.com/xinp-hub/pydiggs/issues/220">#220</a>.</li>
+<li>Dictionary check 12 (UOM/quantity mismatch) is an <strong>ERROR</strong>. Three 2.6 pore-pressure
+  fixtures correct <code>t50</code> to <code>s</code>; <code>coef_consolidation_horiz</code> keeps the 2.6 AllUnits
+  spelling <code>cm2/m</code>, which check 12 aliases to <code>cm2/min</code>. Upstream:
+  <a href="https://github.com/DIGGSml/diggs-examples/issues/4">DIGGSml/diggs-examples#4</a>;
+  see <code>tests/fixtures/official/PROVENANCE.txt</code>.</li>
 <li>Some DIGGS 3.x example property codes are satisfied by <strong>local dictionary supplements</strong>
-  until the official DIGGS property dictionary grows them. Tracking:
-  <a href="https://github.com/xinp-hub/pydiggs/issues/221">#221</a>. Prefer contributing definitions
-  upstream over growing the local supplement file when official vocabularies accept them.</li>
+  (<code>mwd_properties.xml</code>, <code>pil_properties.xml</code>) until
+  <a href="https://github.com/DIGGSml/def/issues/13">DIGGSml/def#13</a> /
+  <a href="https://github.com/DIGGSml/def/issues/14">#14</a> publish them. The golden code inventory is
+  <code>pydiggs.dictionaries.supplements</code>. Prefer contributing definitions upstream over growing
+  the local supplement files when official vocabularies accept them.</li>
 <li>Legacy <code>http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#…</code> codeSpaces are
   resolved against the modern <code>def/codes/DIGGS/0.1/properties.xml</code> definitions when present.</li>
 <li>Upstream Schematron <code>queryBinding="xslt3"</code> rules that call remote APIs are not executed by
