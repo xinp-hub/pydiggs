@@ -7,3 +7,12 @@ Layout:
   known_invalid/ — official examples that are not acceptable Diggs documents
                    (schema fail, XML syntax error, or non-Diggs GML root accepted
                    only via Diggs.xsd GML imports — rejected via context_check)
+
+Local corrections (tracked upstream; drop when diggs-examples merges them):
+  2.6/PorePressureDissipationOnly.xml
+  2.6/PorePressureDissipation.xml
+  2.6/CPT_and_PorePressureDissipation.xml
+    — t50 uom kPa → s (matches 3.0 example; DIGGSml/diggs-examples#4)
+    — coef_consolidation_horiz keeps schema AllUnits spelling cm2/m (2.6 Kernel.xsd
+      documents this as cm²/minute); dictionary check 12 aliases cm2/m → cm2/min
+

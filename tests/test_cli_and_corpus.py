@@ -180,3 +180,36 @@ def test_schematron_and_dictionary_on_diggs_30_cli():
     assert main(["dictionary_check", path, "--no-output_log"]) == 0
     assert main(["schematron_check", path, "--no-output_log"]) == 0
     assert main(["context_check", path, "--no-output_log"]) == 0
+
+
+def test_pore_pressure_26_fixtures_have_no_check12():
+    """Local UOM corrections for #220 — no check-12 findings on the three 2.6 files."""
+    from pydiggs.dictionary import DictionarySemanticValidator
+
+    names = (
+        "PorePressureDissipationOnly.xml",
+        "PorePressureDissipation.xml",
+        "CPT_and_PorePressureDissipation.xml",
+    )
+    validator_sem = DictionarySemanticValidator()
+    for name in names:
+        result = validator_sem.validate_instance(FIXTURES / "2.6" / name)
+        assert not any(m.check == 12 for m in result.messages), name
+
+
+def test_supplement_codes_cover_30_goldens():
+    """#221: MWD/Pile golden codes live only in specialized dicts, not properties.xml."""
+    import re
+
+    from pydiggs.dictionaries.supplements import MWD_GOLDEN_CODES, PIL_GOLDEN_CODES
+
+    def gml_ids(path: Path) -> set[str]:
+        return set(re.findall(r'gml:id="([^"]+)"', path.read_text(encoding="utf-8")))
+
+    main = gml_ids(_PKG / "dictionaries" / "properties.xml")
+    mwd = gml_ids(_PKG / "dictionaries" / "codes" / "mwd_properties.xml")
+    pil = gml_ids(_PKG / "dictionaries" / "codes" / "pil_properties.xml")
+    assert MWD_GOLDEN_CODES.isdisjoint(main)
+    assert mwd >= MWD_GOLDEN_CODES
+    assert PIL_GOLDEN_CODES.isdisjoint(main)
+    assert pil >= PIL_GOLDEN_CODES

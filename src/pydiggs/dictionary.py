@@ -45,6 +45,12 @@ _PROPERTY_FRAGMENT_ALIASES = {
     "pore_water_pressure": "pore_pressure_u2",
 }
 
+# DIGGS 2.6 AllUnits uses abbreviated spellings that DiggsUomDictionary expands
+# (Kernel.xsd documents cm2/m as "square centimeter per minute").
+_UOM_ALIASES = {
+    "cm2/m": "cm2/min",
+}
+
 # XSD integer-family tokens accepted interchangeably for DIGGS typeData / dataType.
 _INTEGER_DATA_TYPES = frozenset(
     {
@@ -788,15 +794,14 @@ class DictionarySemanticValidator:
             )
             return
 
-        if uom_value not in allowed:
+        canonical_uom = _UOM_ALIASES.get(uom_value, uom_value)
+        if canonical_uom not in allowed and uom_value not in allowed:
             preview = ", ".join(sorted(allowed)[:15])
             extra = len(allowed) - 15
             if extra > 0:
                 preview = f"{preview}, ... and {extra} more"
-            # Advisory: official diggs-examples include known UOM/quantity mismatches
-            # (e.g. t50 with kPa). Keep the finding visible without failing the check.
             result.add(
-                "WARNING",
+                "ERROR",
                 path,
                 (
                     f'Check 12:\nThe unit of measure "{uom_value}" is not valid for quantity '

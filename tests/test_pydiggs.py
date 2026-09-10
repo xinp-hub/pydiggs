@@ -214,8 +214,8 @@ def test_property_fragment_alias_pore_water_pressure(tmp_path):
     assert not any(m.severity == "ERROR" and m.check in {5, 10} for m in result.messages)
 
 
-def test_invalid_uom_is_warning_not_error(tmp_path):
-    """Check 12 UOM/quantity mismatches are advisory (WARNING), not ERROR."""
+def test_invalid_uom_is_error(tmp_path):
+    """Check 12 UOM/quantity mismatches fail dictionary_check (ERROR)."""
     inst = tmp_path / "t50.xml"
     inst.write_text(
         """<?xml version="1.0" encoding="UTF-8"?>
@@ -248,5 +248,43 @@ def test_invalid_uom_is_warning_not_error(tmp_path):
         encoding="utf-8",
     )
     result = DictionarySemanticValidator().validate_instance(inst)
-    assert any(m.severity == "WARNING" and m.check == 12 for m in result.messages)
-    assert not any(m.severity == "ERROR" and m.check == 12 for m in result.messages)
+    assert any(m.severity == "ERROR" and m.check == 12 for m in result.messages)
+    assert result.ok is False
+
+
+def test_diggs26_cm2_m_aliases_to_cm2_min(tmp_path):
+    """2.6 AllUnits spelling cm2/m is accepted for area-per-time (alias → cm2/min)."""
+    inst = tmp_path / "ch.xml"
+    inst.write_text(
+        """<?xml version="1.0" encoding="UTF-8"?>
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" gml:id="t">
+  <measurement>
+    <Test gml:id="t1">
+      <outcome>
+        <TestResult gml:id="tr1">
+          <results>
+            <ResultSet gml:id="rs1">
+              <parameters>
+                <PropertyParameters gml:id="pp1">
+                  <properties>
+                    <Property gml:id="p1">
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#coef_consolidation_horiz">ch</propertyClass>
+                      <typeData>double</typeData>
+                      <uom>cm2/m</uom>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+    </Test>
+  </measurement>
+</Diggs>
+""",
+        encoding="utf-8",
+    )
+    result = DictionarySemanticValidator().validate_instance(inst)
+    assert not any(m.check == 12 for m in result.messages)
+    assert result.ok is True

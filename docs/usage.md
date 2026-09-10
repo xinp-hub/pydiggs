@@ -147,13 +147,17 @@ pydiggs context_check "DIGGS_Instance_File_Path" --no-output_log
 - Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files under
   `tests/fixtures/official/known_invalid/` fail schema (or XML syntax) against the bundled
   XSDs; they are pinned so we never silently accept them.
-- Dictionary check 12 (UOM/quantity mismatch) is reported as **WARNING** so those examples
-  still pass `dictionary_check()` with a visible advisory. Tracking:
-  [#220](https://github.com/xinp-hub/pydiggs/issues/220).
+- Dictionary check 12 (UOM/quantity mismatch) is an **ERROR**. Three 2.6 pore-pressure
+  fixtures correct `t50` to `s`; `coef_consolidation_horiz` keeps the 2.6 AllUnits
+  spelling `cm2/m`, which check 12 aliases to `cm2/min`. Upstream:
+  [DIGGSml/diggs-examples#4](https://github.com/DIGGSml/diggs-examples/issues/4);
+  see `tests/fixtures/official/PROVENANCE.txt`.
 - Some DIGGS 3.x example property codes are satisfied by **local dictionary supplements**
-  until the official DIGGS property dictionary grows them. Tracking:
-  [#221](https://github.com/xinp-hub/pydiggs/issues/221). Prefer contributing definitions
-  upstream over growing the local supplement file when official vocabularies accept them.
+  (`mwd_properties.xml`, `pil_properties.xml`) until
+  [DIGGSml/def#13](https://github.com/DIGGSml/def/issues/13) /
+  [#14](https://github.com/DIGGSml/def/issues/14) publish them. The golden code inventory is
+  `pydiggs.dictionaries.supplements`. Prefer contributing definitions upstream over growing
+  the local supplement files when official vocabularies accept them.
 - Legacy `http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#…` codeSpaces are
   resolved against the modern `def/codes/DIGGS/0.1/properties.xml` definitions when present.
 - Upstream Schematron `queryBinding="xslt3"` rules that call remote APIs are not executed by
