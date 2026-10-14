@@ -16,11 +16,15 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterable
-from typing import IO
+from pathlib import Path
+from typing import IO, cast
 from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 from lxml import etree
 
+#: Upper bound on a local XML file; far above any real DIGGS file.
+MAX_LOCAL_BYTES = 1024 * 1024 * 1024
 #: Upper bound on a remote dictionary download (``allow_network=True`` only).
 MAX_REMOTE_BYTES = 20 * 1024 * 1024
 #: Seconds allowed for any single socket operation of a download.
@@ -29,6 +33,7 @@ REMOTE_TIMEOUT = 15.0
 REMOTE_DEADLINE = 60.0
 
 _CHUNK = 64 * 1024
+_GZIP_MAGIC = b"\x1f\x8b"
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
 XMLSource = str | bytes | os.PathLike[str] | IO[bytes]
@@ -53,10 +58,34 @@ def safe_parser() -> etree.XMLParser:
 
 
 def parse(source: XMLSource) -> etree._ElementTree:
-    """Parse a path, URI string or binary file object with :func:`safe_parser`."""
-    if isinstance(source, os.PathLike):
-        source = os.fspath(source)
-    return etree.parse(source, parser=safe_parser())
+    """Parse a path, ``file:`` URI or binary file object with :func:`safe_parser`.
+
+    Files are read here rather than by libxml2, which silently gunzips anything it
+    opens by path: an 11 kB compressed file can expand to hundreds of megabytes.
+
+    Raises:
+        OSError: if the file cannot be read, exceeds :data:`MAX_LOCAL_BYTES`, or is
+            gzip-compressed.
+        etree.XMLSyntaxError: if the content is not well-formed XML.
+    """
+    if hasattr(source, "read"):
+        reader = cast("IO[bytes]", source)
+        name = getattr(reader, "name", None)
+        data = reader.read(MAX_LOCAL_BYTES + 1)
+    else:
+        path = os.fsdecode(os.fspath(source))
+        if path.startswith("file:"):
+            path = url2pathname(urlsplit(path).path)
+        name = path
+        with Path(path).open("rb") as fh:
+            data = fh.read(MAX_LOCAL_BYTES + 1)
+    if len(data) > MAX_LOCAL_BYTES:
+        raise OSError(f"XML file exceeds {MAX_LOCAL_BYTES} bytes: {name}")
+    if data[:2] == _GZIP_MAGIC:
+        raise OSError(f"compressed XML is not accepted: {name}")
+    base_url = os.fsdecode(name) if isinstance(name, str | bytes) else None
+    root = etree.fromstring(data, parser=safe_parser(), base_url=base_url)
+    return etree.ElementTree(root)
 
 
 def url_allowed(url: str, patterns: Iterable[str]) -> bool:

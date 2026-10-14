@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   C library under lxml, was declared unmaintained in December 2025.
 - Require `lxml>=6.1.3`, which stops loading external parameter entities by default
   (LP#2165901).
+- Local XML files are read by pyDIGGS rather than by libxml2, which silently
+  decompressed gzip input: an 11 kB file could expand to hundreds of megabytes.
+  Compressed XML is now refused, and files over 1 GB are rejected.
+- A `codeSpace` that resolves to a UNC path (`file:////host/share/...`) is never
+  opened. On Windows, even checking one sends the user's NTLM credentials to that host.
+- `schema_check()` returns False instead of raising if libxml2 reports an internal
+  validation error.
+- The dictionary check runs in linear time. A file with 20,000 sibling `codeSpace`
+  elements took 73 s and now takes under 1 s.
 
 ### Changed
 - `DictionarySemanticValidator(allow_network=True)` now really downloads remote
@@ -26,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cap. A URL that fails is not retried within one validator. Network access stays off
   by default.
 - `validator` accepts binary file objects as `instance_path` again.
+- A `codeSpace` pointing at a local file that is not XML is reported as Check 3
+  (dictionary not accessible) instead of aborting the whole dictionary check.
 
 ### Fixed
 - Correct `t50` UOM on three vendored DIGGS 2.6 pore-pressure fixtures (`kPa` → `s`)

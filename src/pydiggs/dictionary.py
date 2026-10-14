@@ -112,17 +112,34 @@ def _local(el: etree._Element) -> str:
     return str(etree.QName(el).localname)
 
 
-def _element_path(el: etree._Element) -> str:
+def _sibling_positions(root: etree._Element) -> dict[etree._Element, int]:
+    """1-based position of every element among its same-named siblings, in one pass."""
+    positions: dict[etree._Element, int] = {root: 1}
+    for parent in root.iter():
+        counts: dict[str, int] = {}
+        for child in parent:
+            if isinstance(child.tag, str):
+                name = _local(child)
+                counts[name] = counts.get(name, 0) + 1
+                positions[child] = counts[name]
+    return positions
+
+
+def _element_path(el: etree._Element, positions: dict[etree._Element, int] | None = None) -> str:
     parts: list[str] = []
     node: etree._Element | None = el
     while node is not None and isinstance(node.tag, str):
         name = _local(node)
-        siblings = [
-            s
-            for s in node.itersiblings(preceding=True)
-            if isinstance(s.tag, str) and _local(s) == name
-        ]
-        parts.append(f"{name}[{len(siblings) + 1}]")
+        position = positions.get(node) if positions is not None else None
+        if position is None:
+            # Fallback scan; quadratic over a parent's children, so callers that
+            # path many elements pass ``positions`` from _sibling_positions().
+            position = 1 + sum(
+                1
+                for s in node.itersiblings(preceding=True)
+                if isinstance(s.tag, str) and _local(s) == name
+            )
+        parts.append(f"{name}[{position}]")
         parent = node.getparent()
         node = parent if parent is not None else None
     return "/" + "/".join(reversed(parts))
@@ -174,6 +191,8 @@ class DictionarySemanticValidator:
         )
         self._dict_cache: dict[str, etree._ElementTree] = {}
         self._unreachable: set[str] = set()
+        self._positions: dict[etree._Element, int] = {}
+        self._definition_index: dict[etree._ElementTree, dict[str, etree._Element]] = {}
         self._default_properties = Path(dictionary_path) if dictionary_path else _DEFAULT_PROPERTIES
         self._register_local_dictionary(
             "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
@@ -257,8 +276,13 @@ class DictionarySemanticValidator:
             if base_url.startswith("file:")
             else Path(base_url)
         )
-        if path_candidate.is_file():
-            tree = _xml.parse(str(path_candidate))
+        # A leading // or \\ is a UNC path: on Windows, merely testing it opens an SMB
+        # connection that sends the user's NTLM credentials to that host.
+        if not str(path_candidate).startswith(("//", "\\\\")) and path_candidate.is_file():
+            try:
+                tree = _xml.parse(str(path_candidate))
+            except (OSError, etree.XMLSyntaxError):
+                return None
             self._dict_cache[base_url] = tree
             return tree
         if (
@@ -282,11 +306,16 @@ class DictionarySemanticValidator:
         self, dictionary: etree._ElementTree, fragment: str
     ) -> etree._Element | None:
         fragment = _PROPERTY_FRAGMENT_ALIASES.get(fragment, fragment)
-        for el in dictionary.xpath("//*[local-name()='Definition']"):
-            gml_id = el.get(_GML_ID) or el.get("id")
-            if gml_id == fragment:
-                return el
-        return None
+        index = self._definition_index.get(dictionary)
+        if index is None:
+            # One pass per dictionary; first Definition with a given id wins, as before.
+            index = {}
+            for el in dictionary.xpath("//*[local-name()='Definition']"):
+                gml_id = el.get(_GML_ID) or el.get("id")
+                if gml_id is not None:
+                    index.setdefault(gml_id, el)
+            self._definition_index[dictionary] = index
+        return index.get(fragment)
 
     def _find_definition_by_value(
         self, dictionary: etree._ElementTree, value: str
@@ -482,6 +511,7 @@ class DictionarySemanticValidator:
         result = DictionaryValidationResult()
         doc = _xml.parse(str(instance_path))
         root = doc.getroot()
+        self._positions = _sibling_positions(root)
 
         for el in root.xpath("//*[@codeSpace]"):
             if _local(el) in _SKIP_LOCAL_NAMES:
@@ -502,7 +532,7 @@ class DictionarySemanticValidator:
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
         value = _text(el)
-        path = _element_path(el)
+        path = _element_path(el, self._positions)
         name = _local(el)
         result.add(
             "INFO",
@@ -519,7 +549,7 @@ class DictionarySemanticValidator:
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
         value = _text(el)
-        path = _element_path(el)
+        path = _element_path(el, self._positions)
         base_url = code_space
 
         if not self._is_whitelisted(base_url):
@@ -580,7 +610,7 @@ class DictionarySemanticValidator:
     def _validate_fragment_encoding(
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
-        path = _element_path(el)
+        path = _element_path(el, self._positions)
         name = _local(el)
         base_url, fragment = code_space.split("#", 1)
 
@@ -649,7 +679,7 @@ class DictionarySemanticValidator:
         definition: etree._Element,
         run_name_check: bool,
     ) -> None:
-        path = _element_path(el)
+        path = _element_path(el, self._positions)
         name = _local(el)
         value = _text(el)
 

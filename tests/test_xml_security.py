@@ -310,3 +310,51 @@ def test_bypass_guard_catches_known_forms() -> None:
         "isoschematron.Schematron(file='r.sch')\n"
     )
     assert len(_bypasses(ast.parse(sample))) == 5
+
+
+# --- findings from the security audit ---------------------------------------
+
+
+def test_gzip_compressed_file_is_refused(tmp_path: Path) -> None:
+    import gzip
+
+    bomb = tmp_path / "bomb.xml"
+    bomb.write_bytes(gzip.compress(b"<r>" + b"<a/>" * 100_000 + b"</r>"))
+    with pytest.raises(OSError, match="compressed"):
+        _xml.parse(bomb)
+    assert validator(str(bomb), output_log=False).schema_check() is False
+
+
+def test_file_uri_is_parsed(tmp_path: Path) -> None:
+    doc = _write(tmp_path, "u.xml", "<r/>")
+    assert _xml.parse(doc.as_uri()).getroot().tag == "r"
+
+
+def test_unc_dictionary_path_is_never_touched(monkeypatch: pytest.MonkeyPatch) -> None:
+    touched: list[str] = []
+    monkeypatch.setattr(Path, "is_file", lambda self: touched.append(str(self)) or False)
+    semantic = DictionarySemanticValidator()
+    assert semantic._resolve_dictionary("file:////attacker/share/d.xml") is None
+    assert semantic._resolve_dictionary("//attacker/share/d.xml") is None
+    assert not any(t.startswith(("//", "\\\\")) for t in touched)
+
+
+def test_non_xml_local_dictionary_is_check_3_not_a_crash(tmp_path: Path) -> None:
+    junk = _write(tmp_path, "junk.txt", "not xml at all")
+    doc = _write(
+        tmp_path,
+        "local.xml",
+        f'{_DIGGS_HEAD}<gml:name codeSpace="{junk.as_uri()}#X">v</gml:name></Diggs>',
+    )
+    result = DictionarySemanticValidator().validate_instance(doc)
+    assert any(m.check == 3 for m in result.messages)
+
+
+def test_element_paths_match_the_sibling_scan() -> None:
+    from pydiggs.dictionary import _element_path, _sibling_positions
+
+    root = _xml.parse(_VALID_2_6).getroot()
+    positions = _sibling_positions(root)
+    for el in root.iter():
+        if isinstance(el.tag, str):
+            assert _element_path(el, positions) == _element_path(el)

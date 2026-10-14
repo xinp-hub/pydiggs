@@ -149,6 +149,12 @@ class validator:
                 print("Schema parse error:", self.schema_error_log)
             return False
 
+        except etree.XMLSchemaValidateError as err:
+            # libxml2 reports internal validator failures this way; a hostile file
+            # must yield a failed check, never a traceback.
+            rprint(f"[red]DIGGS Schema validation could not complete: {err}[/red]")
+            return False
+
         except ValueError as err:
             rprint(f"[red]{err}[/red]")
             return False
