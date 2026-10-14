@@ -149,10 +149,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # setup-uv installs a uv-managed Python, not a system one: install into the
+      # activated virtual environment it creates, never with --system.
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
         with:
           python-version: "3.11"
           enable-cache: false
+          activate-environment: true
       - name: Install the published artifact and import it
         env:
           VERSION: ${{ needs.guard.outputs.version }}
@@ -162,18 +165,18 @@ jobs:
           # dependencies come from PyPI, so a squatted name cannot run here.
           installed=false
           for attempt in 1 2 3 4 5 6; do
-            if uv pip install --system --no-deps \
+            if uv pip install --no-deps \
                  --index-url https://test.pypi.org/simple/ \
                  "pydiggs==${VERSION}"; then
               installed=true
               break
             fi
-            echo "index not ready yet (attempt $attempt); waiting"
+            echo "install failed (attempt $attempt; TestPyPI may still be indexing); retrying"
             sleep 20
           done
           "$installed"
           python -c "from importlib.metadata import requires; print('\n'.join(r for r in requires('pydiggs') or [] if 'extra ==' not in r))" > deps.txt
-          uv pip install --system --index-url https://pypi.org/simple/ -r deps.txt
+          uv pip install --index-url https://pypi.org/simple/ -r deps.txt
           python -c "import pydiggs as m; assert m.__version__ == '${VERSION}', m.__version__; print('smoke ok', m.__version__)"
 
   pypi:
