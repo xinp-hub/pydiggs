@@ -7,79 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-14
+
+**Upgrade note:** dictionary Check 12 is an error again (see Changed). Files that use a
+unit of measure outside its quantity class, and only warned under 1.0.0, now fail
+`dictionary_check()`.
+
 ### Security
-- Added `SECURITY.md` with private vulnerability reporting and the trust model: DIGGS
-  files are untrusted, while custom schema and Schematron files are trusted code.
-- Every XML document (instances, schemas, Schematron, dictionaries) is now parsed with
-  an explicit hardened parser. External entities, DTD loading and network access are
-  refused, and libxml2's size limits are not lifted. Entities declared inside a file
-  still expand, so valid files validate exactly as before. pydiggs no longer depends on
-  lxml's defaults, which have changed several times (5.0, 6.1.0, 6.1.3). libxml2, the
-  C library under lxml, was declared unmaintained in December 2025.
+- Every XML input (instances, schemas, Schematron, dictionaries) is parsed with an
+  explicit hardened parser. External entities, external DTDs and network access are
+  refused, and entities declared inside a file still expand, so valid files validate
+  exactly as before. pyDIGGS no longer relies on lxml's defaults. libxml2, the C library
+  under lxml, was declared unmaintained in December 2025.
 - Require `lxml>=6.1.3`, which stops loading external parameter entities by default
   (LP#2165901).
-- Local XML files are read by pyDIGGS rather than by libxml2, which silently
-  decompressed gzip input: an 11 kB file could expand to hundreds of megabytes.
-  Compressed XML is now refused, and files over 1 GB are rejected.
-- A `codeSpace` that resolves to a UNC path (`file:////host/share/...`) is never
-  opened. On Windows, even checking one sends the user's NTLM credentials to that host.
-- `schema_check()` returns False instead of raising if libxml2 reports an internal
-  validation error.
-- The dictionary check runs in linear time. A file with 20,000 sibling `codeSpace`
-  elements took 73 s and now takes under 1 s.
+- Compressed (gzip) XML is refused. libxml2 silently decompressed files it opened by
+  path, so an 11 kB file could expand to hundreds of megabytes. Files over 1 GB are
+  rejected.
+- A `codeSpace` that points at a UNC path (`file:////host/share/...`) is never opened.
+  On Windows, even checking one sends your NTLM credentials to that host.
+- The dictionary check runs in linear time. A crafted file with 20,000 sibling
+  `codeSpace` elements took 73 s and now takes under 1 s.
+- Log files are created readable by their owner only and are never written through a
+  symlink in the working directory.
+- Added `SECURITY.md`: report vulnerabilities privately through GitHub. It also states
+  what pyDIGGS trusts: DIGGS files are untrusted, while custom schema and Schematron
+  files are treated as code.
 
 ### Changed
-- A relative `codeSpace` path (`./`, `../`) is resolved next to the instance file
-  first, then against the working directory as before.
-- Log files are created readable by their owner only (0600) and are never written
-  through a symlink in the working directory; the check
-  fails instead.
-- Docs are published with GitHub's Pages actions (OIDC), so the docs build no longer
-  holds a token that can write to the repository. The release smoke test installs only
-  pydiggs from TestPyPI and its dependencies from PyPI.
-- A failed weekly security scan now opens an issue.
+- Dictionary check 12 (UOM not in its quantity class) is an **ERROR** again, now that
+  the official example files no longer need the warning-only workaround.
 - `DictionarySemanticValidator(allow_network=True)` now really downloads remote
-  dictionaries. libxml2 2.14 removed the HTTP client this option relied on, so it
-  previously fetched nothing. Downloads are made in Python and are restricted to
-  whitelisted http/https URLs (scheme, host, port and path must match), including
-  every redirect. They have a 15 s socket timeout, a 60 s overall limit and a 20 MB
-  cap. A URL that fails is not retried within one validator. Network access stays off
-  by default.
-- `validator` accepts binary file objects as `instance_path` again.
-- A `codeSpace` pointing at a local file that is not XML is reported as Check 3
-  (dictionary not accessible) instead of aborting the whole dictionary check.
+  dictionaries; with libxml2 2.14 it silently fetched nothing. Downloads are limited to
+  whitelisted http/https URLs (scheme, host, port and path must match, including every
+  redirect), with a 15 s socket timeout, a 60 s overall limit and a 20 MB cap. A URL
+  that fails is not retried. Network access stays off by default.
+- A relative `codeSpace` path (`./`, `../`) is resolved next to the instance file first,
+  then against the working directory as before.
 
 ### Fixed
-- Correct `t50` UOM on three vendored DIGGS 2.6 pore-pressure fixtures (`kPa` → `s`)
-  so they match the 3.0 example ([#220](https://github.com/xinp-hub/pydiggs/issues/220);
-  upstream [DIGGSml/diggs-examples#4](https://github.com/DIGGSml/diggs-examples/issues/4)).
-- Dictionary check 12 treats DIGGS 2.6 AllUnits spelling `cm2/m` as `cm2/min` (Kernel.xsd
-  documents it as square centimeter per minute).
-- Release workflow skips republish when the tag version is already on PyPI (avoids
-  red `pypi` Environment deployments after intentional tag retargets).
+- `schema_check()` returned a traceback instead of False when libxml2 hit an internal
+  validation error; it now returns False.
+- A `codeSpace` pointing at a local file that is not XML aborted the whole dictionary
+  check; it is now reported as Check 3 (dictionary not accessible).
+- `validator` accepts binary file objects as `instance_path` again.
+- Dictionary check 12 treats the DIGGS 2.6 AllUnits spelling `cm2/m` as `cm2/min`
+  (Kernel.xsd documents it as square centimeter per minute).
 
 ### Added
-- `pydiggs.dictionaries.supplements` inventory of MWD/Pile codes required by 3.0 goldens
-  and tracked upstream ([#221](https://github.com/xinp-hub/pydiggs/issues/221);
+- `pydiggs.dictionaries.supplements`: an inventory of MWD and Pile codes required by the
+  DIGGS 3.0 examples and tracked upstream
+  ([#221](https://github.com/xinp-hub/pydiggs/issues/221);
   [DIGGSml/def#13](https://github.com/DIGGSml/def/issues/13) /
   [#14](https://github.com/DIGGSml/def/issues/14)).
-- FORGE-aligned **Release** workflow (`publish.yml`): tag/CHANGELOG guard, artifact handoff,
-  TestPyPI + smoke install, PyPI attestations, Sigstore signing, GitHub Release creation.
-- `security.yml` (pip-audit, dependency-review, CodeQL, gitleaks) and Dependabot for `uv` +
-  GitHub Actions (weekly, 7-day cooldown).
-
-### Changed
-- Dictionary check 12 (UOM not in quantity class) is an **ERROR** again now that the
-  official corpus goldens no longer require the advisory workaround. Instances that used
-  invalid UOMs and previously only warned will now fail `dictionary_check()`.
-- CI/docs/security/Release Actions refreshed to current majors with commit SHA pins
-  (`checkout` v7, `setup-uv` v9, artifact upload/download v7/v8, CodeQL v4,
-  dependency-review v5, `actions-gh-pages` v4, Sigstore action v3.5).
-- CI jobs gain `timeout-minutes`; the `all green` gate reads `needs` via `env` (safer than
-  interpolating into `run:`).
-- Docs known limits link dictionary follow-ups to issues
-  [#220](https://github.com/xinp-hub/pydiggs/issues/220) and
-  [#221](https://github.com/xinp-hub/pydiggs/issues/221).
+- Releases are published to PyPI with PEP 740 attestations and attached to GitHub
+  releases with Sigstore signatures and sha256 digests (see `SECURITY.md` to verify).
 
 ## [1.0.0] - 2026-08-07
 
@@ -141,7 +123,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0a1...v1.0.0
 [1.0.0a1]: https://github.com/xinp-hub/pydiggs/compare/v0.2.0...v1.0.0a1
 [0.2.0]: https://github.com/xinp-hub/pydiggs/compare/v0.1.5...v0.2.0
