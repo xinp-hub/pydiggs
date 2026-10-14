@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-14
+
+First published release of the 1.1 line. 1.1.0 was tagged but never reached PyPI,
+because the release workflow failed before upload. **1.1.1 contains everything listed
+under [1.1.0 in the changelog](https://github.com/xinp-hub/pydiggs/blob/master/CHANGELOG.md#110---2026-10-14)**,
+including the security hardening and the upgrade note: dictionary Check 12 (invalid unit
+of measure) is an error again, so files that only warned under 1.0.0 now fail
+`dictionary_check()`. There are no other changes to the package.
+
+### Fixed
+- Release workflow: the post-TestPyPI smoke install used a system Python that does not
+  exist on the runner, so it failed before the PyPI upload.
+
 ## [1.1.0] - 2026-10-14
+
+*Tagged but not published to PyPI; use 1.1.1.*
 
 **Upgrade note:** dictionary Check 12 is an error again (see Changed). Files that use a
 unit of measure outside its quantity class, and only warned under 1.0.0, now fail
@@ -123,7 +138,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/xinp-hub/pydiggs/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0a1...v1.0.0
 [1.0.0a1]: https://github.com/xinp-hub/pydiggs/compare/v0.2.0...v1.0.0a1

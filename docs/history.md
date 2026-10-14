@@ -4,7 +4,12 @@
 
 No user-facing changes yet.
 
-## 1.1.0 (2026-10-14)
+## 1.1.1 (2026-10-14)
+
+First published release of 1.1: it contains everything listed under 1.1.0, which
+was tagged but never reached PyPI.
+
+## 1.1.0 (2026-10-14, not published)
 
 Security release. Full details are in the
 [changelog](https://github.com/xinp-hub/pydiggs/blob/master/CHANGELOG.md).
