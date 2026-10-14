@@ -173,6 +173,7 @@ class DictionarySemanticValidator:
             Path(whitelist_path) if whitelist_path else _DEFAULT_WHITELIST
         )
         self._dict_cache: dict[str, etree._ElementTree] = {}
+        self._unreachable: set[str] = set()
         self._default_properties = Path(dictionary_path) if dictionary_path else _DEFAULT_PROPERTIES
         self._register_local_dictionary(
             "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
@@ -260,13 +261,19 @@ class DictionarySemanticValidator:
             tree = _xml.parse(str(path_candidate))
             self._dict_cache[base_url] = tree
             return tree
-        if self.allow_network and base_url.startswith(("http://", "https://")):
+        if (
+            self.allow_network
+            and base_url.startswith(("http://", "https://"))
+            and base_url not in self._unreachable
+        ):
             try:
-                tree = _xml.fetch_and_parse(base_url)
-                self._dict_cache[base_url] = tree
-                return tree
+                tree = _xml.fetch_and_parse(base_url, self._whitelist_patterns)
             except (OSError, etree.XMLSyntaxError):
+                # Remember the failure: one file can repeat a codeSpace thousands of times.
+                self._unreachable.add(base_url)
                 return None
+            self._dict_cache[base_url] = tree
+            return tree
         if base_url.rstrip("/").endswith("properties.xml"):
             return self._dict_cache.get("https://diggsml.org/def/codes/DIGGS/0.1/properties.xml")
         return None

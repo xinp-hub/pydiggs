@@ -36,13 +36,18 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 
 ## Security
 
-pyDIGGS treats every DIGGS file as untrusted input. All XML is parsed with entity
-expansion, DTD loading and network access turned off, so a file cannot make pyDIGGS
-read other local files or contact a server. The one exception is a `codeSpace` that
-points at a local dictionary (`file:///`, `./`, `../`). The DIGGS whitelist permits
-these, and pyDIGGS parses them with the same hardened settings. Install from the
-PyPI wheels, which bundle a patched libxml2, rather than building lxml against an
-older system libxml2.
+pyDIGGS treats every DIGGS file as untrusted input. All XML is parsed with external
+entities, DTD loading and network access refused, so a file cannot make pyDIGGS read
+other local files or contact a server. There are two exceptions:
+
+* A `codeSpace` that points at a local dictionary (`file:///`, `./`, `../`). The DIGGS
+  whitelist permits these, and pyDIGGS parses them with the same hardened settings.
+* With `DictionarySemanticValidator(allow_network=True)`, which is off by default,
+  pyDIGGS downloads dictionaries, but only from whitelisted http/https URLs,
+  re-checked on every redirect, with time and size limits.
+
+Install from the PyPI wheels, which bundle libxml2, rather than building lxml against
+an older system libxml2.
 
 ## Web Application
 

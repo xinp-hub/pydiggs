@@ -9,16 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 - Every XML document (instances, schemas, Schematron, dictionaries) is now parsed with
-  an explicit hardened parser: no entity expansion, no DTD loading, no network access,
-  libxml2 size limits kept. pydiggs no longer depends on lxml's defaults, which changed
-  in 5.0, 6.1.0 and 6.1.3. libxml2, the C library under lxml, has had no maintainer
-  since late 2025.
-- `DictionarySemanticValidator(allow_network=True)` now downloads remote dictionaries
-  in Python, accepting only http/https URLs, with a 15 s timeout and a 20 MB cap, then
-  parses them with the hardened parser. libxml2 2.14 removed its own HTTP client, so
-  that option previously could not fetch anything.
-- Require `lxml>=6.1.3` (external parameter entities were loaded by default before it,
-  LP#2165901).
+  an explicit hardened parser. External entities, DTD loading and network access are
+  refused, and libxml2's size limits are not lifted. Entities declared inside a file
+  still expand, so valid files validate exactly as before. pydiggs no longer depends on
+  lxml's defaults, which have changed several times (5.0, 6.1.0, 6.1.3). libxml2, the
+  C library under lxml, was declared unmaintained in December 2025.
+- Require `lxml>=6.1.3`, which stops loading external parameter entities by default
+  (LP#2165901).
+
+### Changed
+- `DictionarySemanticValidator(allow_network=True)` now really downloads remote
+  dictionaries. libxml2 2.14 removed the HTTP client this option relied on, so it
+  previously fetched nothing. Downloads are made in Python and are restricted to
+  whitelisted http/https URLs (scheme, host, port and path must match), including
+  every redirect. They have a 15 s socket timeout, a 60 s overall limit and a 20 MB
+  cap. A URL that fails is not retried within one validator. Network access stays off
+  by default.
+- `validator` accepts binary file objects as `instance_path` again.
 
 ### Fixed
 - Correct `t50` UOM on three vendored DIGGS 2.6 pore-pressure fixtures (`kPa` → `s`)
