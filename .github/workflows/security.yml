@@ -33,8 +33,12 @@ jobs:
       - run: uv sync --all-groups
         env:
           UV_FROZEN: "1"
+      # Audit the locked dependencies, not the project itself: a version bump that is
+      # not on PyPI yet would otherwise fail --strict ("could not be audited").
       - name: pip-audit
-        run: uv run --group audit pip-audit --strict --progress-spinner=off
+        run: |
+          uv export --frozen --all-groups --no-emit-project -o audit-requirements.txt
+          uv run --group audit pip-audit --strict --progress-spinner=off --disable-pip -r audit-requirements.txt
 
   dependency-review:
     name: dependency review

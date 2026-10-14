@@ -4,6 +4,20 @@
 
 No user-facing changes yet.
 
+## 1.1.0 (2026-10-14)
+
+Security release. Full details are in the
+[changelog](https://github.com/xinp-hub/pydiggs/blob/master/CHANGELOG.md).
+
+* **Upgrade note:** dictionary check 12 (invalid UOM) is an error again, so files that
+  only warned under 1.0.0 now fail `dictionary_check()`.
+* Every XML input is parsed with a hardened parser: external entities, external DTDs,
+  network access and compressed files are refused. Requires `lxml>=6.1.3`.
+* `allow_network=True` really downloads remote dictionaries, restricted to the
+  whitelist, including redirects, with time and size limits.
+* Relative `codeSpace` paths resolve next to the instance file first.
+* New `SECURITY.md` with private vulnerability reporting.
+
 ## 1.0.0 (2026-08-07)
 
 Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1.
