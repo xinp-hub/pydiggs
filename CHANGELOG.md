@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Every XML document (instances, schemas, Schematron, dictionaries) is now parsed with
+  an explicit hardened parser. External entities, DTD loading and network access are
+  refused, and libxml2's size limits are not lifted. Entities declared inside a file
+  still expand, so valid files validate exactly as before. pydiggs no longer depends on
+  lxml's defaults, which have changed several times (5.0, 6.1.0, 6.1.3). libxml2, the
+  C library under lxml, was declared unmaintained in December 2025.
+- Require `lxml>=6.1.3`, which stops loading external parameter entities by default
+  (LP#2165901).
+- Local XML files are read by pyDIGGS rather than by libxml2, which silently
+  decompressed gzip input: an 11 kB file could expand to hundreds of megabytes.
+  Compressed XML is now refused, and files over 1 GB are rejected.
+- A `codeSpace` that resolves to a UNC path (`file:////host/share/...`) is never
+  opened. On Windows, even checking one sends the user's NTLM credentials to that host.
+- `schema_check()` returns False instead of raising if libxml2 reports an internal
+  validation error.
+- The dictionary check runs in linear time. A file with 20,000 sibling `codeSpace`
+  elements took 73 s and now takes under 1 s.
+
+### Changed
+- `DictionarySemanticValidator(allow_network=True)` now really downloads remote
+  dictionaries. libxml2 2.14 removed the HTTP client this option relied on, so it
+  previously fetched nothing. Downloads are made in Python and are restricted to
+  whitelisted http/https URLs (scheme, host, port and path must match), including
+  every redirect. They have a 15 s socket timeout, a 60 s overall limit and a 20 MB
+  cap. A URL that fails is not retried within one validator. Network access stays off
+  by default.
+- `validator` accepts binary file objects as `instance_path` again.
+- A `codeSpace` pointing at a local file that is not XML is reported as Check 3
+  (dictionary not accessible) instead of aborting the whole dictionary check.
+
 ### Fixed
 - Correct `t50` UOM on three vendored DIGGS 2.6 pore-pressure fixtures (`kPa` → `s`)
   so they match the 3.0 example ([#220](https://github.com/xinp-hub/pydiggs/issues/220);

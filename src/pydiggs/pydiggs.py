@@ -21,6 +21,7 @@ from pathlib import Path
 from lxml import etree, isoschematron
 from rich import print as rprint
 
+from pydiggs import _xml
 from pydiggs.detect import DEFAULT_PROFILE, detect_diggs_version, schema_path_for
 from pydiggs.dictionary import DictionarySemanticValidator
 from pydiggs.semantic import validate_context
@@ -87,7 +88,7 @@ class validator:
             return False
 
         try:
-            instance_doc = etree.parse(self.instance_path)
+            instance_doc = _xml.parse(self.instance_path)
             rprint("[green]No syntax error is detected.[/green]")
 
             profile = self._resolve_profile(instance_doc)
@@ -95,7 +96,7 @@ class validator:
             if self.schema_path is None:
                 self.schema_path = str(schema_path_for(profile))
 
-            schema_doc = etree.parse(self.schema_path)
+            schema_doc = _xml.parse(self.schema_path)
             diggs_schema = etree.XMLSchema(schema_doc)
 
             ok = diggs_schema.validate(instance_doc)
@@ -146,6 +147,12 @@ class validator:
                     error_log_file.write(str(self.schema_error_log))
             else:
                 print("Schema parse error:", self.schema_error_log)
+            return False
+
+        except etree.XMLSchemaValidateError as err:
+            # libxml2 reports internal validator failures this way; a hostile file
+            # must yield a failed check, never a traceback.
+            rprint(f"[red]DIGGS Schema validation could not complete: {err}[/red]")
             return False
 
         except ValueError as err:
@@ -233,10 +240,10 @@ class validator:
 
         schemapath = self.schematron_path or str(_DEFAULT_SCHEMATRON)
         try:
-            instance_doc = etree.parse(self.instance_path)
+            instance_doc = _xml.parse(self.instance_path)
             rprint("[green]No syntax error is detected.[/green]")
 
-            schematron_doc = etree.parse(schemapath)
+            schematron_doc = _xml.parse(schemapath)
             diggs_schematron = isoschematron.Schematron(
                 schematron_doc,
                 store_report=True,
