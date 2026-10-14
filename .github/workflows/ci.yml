@@ -21,6 +21,31 @@ env:
   UV_FROZEN: "1"
 
 jobs:
+  attribution:
+    name: commit attribution
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Cursor Agent was removed from the contributors list by a history rewrite
+      # (#224, #227). Refuse new commits that would bring it back.
+      - name: reject Cursor author or co-author
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          hits=$(git log --format='%h %an <%ae> | %cn <%ce> | %(trailers:key=Co-authored-by,valueonly,separator=%x2C )' \
+            "$BASE_SHA..$HEAD_SHA" | grep -iE 'cursoragent|@cursor\.com' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::Commits credit Cursor Agent. Remove the Co-authored-by trailer (git commit --amend / rebase) and turn off Cursor's commit attribution setting."
+            echo "$hits"
+            exit 1
+          fi
+
   lint:
     name: lint & types
     runs-on: ubuntu-latest
