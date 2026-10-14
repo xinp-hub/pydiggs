@@ -31,7 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - A relative `codeSpace` path (`./`, `../`) is resolved next to the instance file
   first, then against the working directory as before.
-- Log files are never written through a symlink in the working directory; the check
+- Log files are created readable by their owner only (0600) and are never written
+  through a symlink in the working directory; the check
   fails instead.
 - Docs are published with GitHub's Pages actions (OIDC), so the docs build no longer
   holds a token that can write to the repository. The release smoke test installs only

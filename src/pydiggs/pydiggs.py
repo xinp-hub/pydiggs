@@ -43,7 +43,7 @@ def _open_log(name: str) -> TextIO:
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
     if Path(name).is_symlink():
         raise OSError(f"refusing to write log through a symlink: {name}")
-    return os.fdopen(os.open(name, flags, 0o644), "w", encoding="utf-8")
+    return os.fdopen(os.open(name, flags, 0o600), "w", encoding="utf-8")
 
 
 class validator:
