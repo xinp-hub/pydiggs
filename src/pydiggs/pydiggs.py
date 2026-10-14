@@ -16,7 +16,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from typing import TextIO
 
 from lxml import etree, isoschematron
 from rich import print as rprint
@@ -30,6 +32,18 @@ from pydiggs.units import UnitConverter, casing_outside_gt_inside
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _DEFAULT_DICTIONARY = _PACKAGE_DIR / "dictionaries" / "properties.xml"
 _DEFAULT_SCHEMATRON = _PACKAGE_DIR / "schematron" / "diggs_schematron_rules_2.6.sch"
+
+
+def _open_log(name: str) -> TextIO:
+    """Open a log file in the working directory for writing, refusing symlinks.
+
+    The working directory may be shared (an upload folder, /tmp); a planted
+    ``schema_validation.log`` symlink must not redirect the write elsewhere.
+    """
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
+    if Path(name).is_symlink():
+        raise OSError(f"refusing to write log through a symlink: {name}")
+    return os.fdopen(os.open(name, flags, 0o644), "w", encoding="utf-8")
 
 
 class validator:
@@ -49,9 +63,11 @@ class validator:
         Args:
             instance_path (string, optional): Relative or full path of the DIGGS instance file.
             schema_path (string, optional): Relative or full path of the DIGGS schema file.
+                Trusted input: schema files are not sandboxed.
                 If omitted, the bundled XSD for ``diggs_version`` (or auto-detected NS) is used.
             dictionary_path (string, optional): Relative or full path of the DIGGS dictionary file.
             schematron_path (string, optional): Relative or full path of DIGGS schematron schema file.
+                Trusted input: Schematron compiles to XSLT, which can read local files.
                 If omitted, the bundled DIGGS lxml-adapted rules are used for schematron_check().
             output_log (boolean, optional): Whether to write log files to the CWD. Defaults to True.
             diggs_version (string, optional): Profile ``2.5.a``, ``2.6``, or ``3.0.0``.
@@ -112,7 +128,7 @@ class validator:
                     "[red]DIGGS Schema validation error, see [bold]schema_validation.log[/bold] "
                     "file in detail. [/red]"
                 )
-                with Path("schema_validation.log").open("w", encoding="utf-8") as error_log_file:
+                with _open_log("schema_validation.log") as error_log_file:
                     error_log_file.write(str(self.schema_validation_log))
             else:
                 rprint("[red]DIGGS Schema validation error:[/red]")
@@ -129,7 +145,7 @@ class validator:
                 rprint(
                     "[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]"
                 )
-                with Path("syntax_error.log").open("w", encoding="utf-8") as error_log_file:
+                with _open_log("syntax_error.log") as error_log_file:
                     error_log_file.write(str(self.syntax_error_log))
             else:
                 rprint("[red]XML syntax error:[/red]")
@@ -143,7 +159,7 @@ class validator:
                     "[red]Schema parse error, see [bold]schema_parse_error.log[/bold] "
                     "file in detail. [/red]"
                 )
-                with Path("schema_parse_error.log").open("w", encoding="utf-8") as error_log_file:
+                with _open_log("schema_parse_error.log") as error_log_file:
                     error_log_file.write(str(self.schema_error_log))
             else:
                 print("Schema parse error:", self.schema_error_log)
@@ -195,7 +211,7 @@ class validator:
                 rprint(f"[green]Dictionary check passed{suffix}[/green]")
 
             if self.output_log and self.dictionary_validation_log:
-                with Path("dictionary_validation.log").open("w", encoding="utf-8") as fh:
+                with _open_log("dictionary_validation.log") as fh:
                     fh.write("\n\n".join(self.dictionary_validation_log))
             return result.ok
 
@@ -223,7 +239,7 @@ class validator:
             else:
                 rprint("[green]Context check passed![/green]")
             if self.output_log and self.context_validation_log:
-                with Path("context_validation.log").open("w", encoding="utf-8") as fh:
+                with _open_log("context_validation.log") as fh:
                     fh.write("\n\n".join(self.context_validation_log))
             return result.ok
         except OSError:
@@ -266,9 +282,7 @@ class validator:
                     "[red]DIGGS schematron validation Error, see "
                     "[bold]schematron_validation.log[/bold] file in detail. [/red]"
                 )
-                with Path("schematron_validation.log").open(
-                    "w", encoding="utf-8"
-                ) as error_log_file:
+                with _open_log("schematron_validation.log") as error_log_file:
                     error_log_file.write(str(self.schematron_validation_log))
             else:
                 rprint("[red]DIGGS schematron validation Error:[/red]")
@@ -285,7 +299,7 @@ class validator:
                 rprint(
                     "[red]XML syntax error, see [bold]syntax_error.log[/bold] file in detail. [/red]"
                 )
-                with Path("syntax_error.log").open("w", encoding="utf-8") as error_log_file:
+                with _open_log("syntax_error.log") as error_log_file:
                     error_log_file.write(str(self.syntax_error_log))
             else:
                 rprint("[red]XML syntax error:[/red]")
@@ -299,9 +313,7 @@ class validator:
                     "[red]Schematron parse error, see [bold]schematron_parse_error.log[/bold] "
                     "file in detail. [/red]"
                 )
-                with Path("schematron_parse_error.log").open(
-                    "w", encoding="utf-8"
-                ) as error_log_file:
+                with _open_log("schematron_parse_error.log") as error_log_file:
                     error_log_file.write(str(self.schematron_error_log))
             else:
                 rprint("[red]Schematron parse error:[/red]")

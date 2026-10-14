@@ -192,6 +192,7 @@ class DictionarySemanticValidator:
         self._dict_cache: dict[str, etree._ElementTree] = {}
         self._unreachable: set[str] = set()
         self._positions: dict[etree._Element, int] = {}
+        self._instance_dir: Path | None = None
         self._definition_index: dict[etree._ElementTree, dict[str, etree._Element]] = {}
         self._default_properties = Path(dictionary_path) if dictionary_path else _DEFAULT_PROPERTIES
         self._register_local_dictionary(
@@ -268,22 +269,33 @@ class DictionarySemanticValidator:
     def _is_legacy_dictionary_url(self, code_space: str) -> bool:
         return "#" not in code_space and code_space.startswith(("http://", "https://", "file:"))
 
-    def _resolve_dictionary(self, base_url: str) -> etree._ElementTree | None:
-        if base_url in self._dict_cache:
-            return self._dict_cache[base_url]
-        path_candidate = (
+    def _local_candidates(self, base_url: str) -> list[Path]:
+        """Local files a codeSpace may name: relative ones next to the instance first."""
+        path = (
             Path(unquote(urlparse(base_url).path))
             if base_url.startswith("file:")
             else Path(base_url)
         )
-        # A leading // or \\ is a UNC path: on Windows, merely testing it opens an SMB
-        # connection that sends the user's NTLM credentials to that host.
-        if not str(path_candidate).startswith(("//", "\\\\")) and path_candidate.is_file():
+        if path.is_absolute() or self._instance_dir is None:
+            return [path]
+        return [self._instance_dir / path, path]
+
+    def _resolve_dictionary(self, base_url: str) -> etree._ElementTree | None:
+        if base_url in self._dict_cache:
+            return self._dict_cache[base_url]
+        for path_candidate in self._local_candidates(base_url):
+            # A leading // or \\ is a UNC path: on Windows, merely testing it opens an
+            # SMB connection that sends the user's NTLM credentials to that host.
+            if str(path_candidate).startswith(("//", "\\\\")) or not path_candidate.is_file():
+                continue
+            key = base_url if path_candidate.is_absolute() else str(path_candidate.resolve())
+            if key in self._dict_cache:
+                return self._dict_cache[key]
             try:
                 tree = _xml.parse(str(path_candidate))
             except (OSError, etree.XMLSyntaxError):
                 return None
-            self._dict_cache[base_url] = tree
+            self._dict_cache[key] = tree
             return tree
         if (
             self.allow_network
@@ -509,6 +521,7 @@ class DictionarySemanticValidator:
         self, instance_path: str | os.PathLike[str]
     ) -> DictionaryValidationResult:
         result = DictionaryValidationResult()
+        self._instance_dir = Path(instance_path).resolve().parent
         doc = _xml.parse(str(instance_path))
         root = doc.getroot()
         self._positions = _sibling_positions(root)

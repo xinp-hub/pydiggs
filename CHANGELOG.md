@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- Added `SECURITY.md` with private vulnerability reporting and the trust model: DIGGS
+  files are untrusted, while custom schema and Schematron files are trusted code.
 - Every XML document (instances, schemas, Schematron, dictionaries) is now parsed with
   an explicit hardened parser. External entities, DTD loading and network access are
   refused, and libxml2's size limits are not lifted. Entities declared inside a file
@@ -27,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   elements took 73 s and now takes under 1 s.
 
 ### Changed
+- A relative `codeSpace` path (`./`, `../`) is resolved next to the instance file
+  first, then against the working directory as before.
+- Log files are never written through a symlink in the working directory; the check
+  fails instead.
+- Docs are published with GitHub's Pages actions (OIDC), so the docs build no longer
+  holds a token that can write to the repository. The release smoke test installs only
+  pydiggs from TestPyPI and its dependencies from PyPI.
+- A failed weekly security scan now opens an issue.
 - `DictionarySemanticValidator(allow_network=True)` now really downloads remote
   dictionaries. libxml2 2.14 removed the HTTP client this option relied on, so it
   previously fetched nothing. Downloads are made in Python and are restricted to

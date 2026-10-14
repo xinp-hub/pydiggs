@@ -1,0 +1,5 @@
+# PyPI upload token committed to .travis.yml on 2021-06-30. Revoked on PyPI by the
+# maintainer (confirmed 2026-10-14); GitHub secret-scanning alert #1 resolved as revoked.
+# Publishing now uses Trusted Publishing only. Ignore exactly these findings, nothing else.
+2b99a799a8bfb5a69d2c51f9c83b92498503ff28:.travis.yml:pypi-upload-token:12
+97ee6eb3adbfba5683dba93b31263052a859361a:.travis.yml:pypi-upload-token:12
