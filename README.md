@@ -46,6 +46,14 @@ other local files or contact a server. There are two exceptions:
   pyDIGGS downloads dictionaries, but only from whitelisted http/https URLs,
   re-checked on every redirect, with time and size limits.
 
+Schemas and Schematron rules are different: they are code, not data. A custom
+`schema_path` or `schematron_path` runs with your permissions (Schematron is compiled to
+XSLT, which can read local files), so only pass files you trust. The bundled DIGGS
+schemas and rules make no file or network access.
+
+Log files are written to the working directory and are never written through a
+symlink. Vulnerabilities: please report them privately (see [SECURITY.md](SECURITY.md)).
+
 Install from the PyPI wheels, which bundle libxml2, rather than building lxml against
 an older system libxml2.
 

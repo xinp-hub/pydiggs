@@ -158,16 +158,22 @@ jobs:
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
           set -euo pipefail
+          # Only pydiggs comes from TestPyPI (anyone can upload there); its
+          # dependencies come from PyPI, so a squatted name cannot run here.
+          installed=false
           for attempt in 1 2 3 4 5 6; do
-            if uv pip install --system \
-                 --index-strategy unsafe-best-match \
-                 --extra-index-url https://test.pypi.org/simple/ \
+            if uv pip install --system --no-deps \
+                 --index-url https://test.pypi.org/simple/ \
                  "pydiggs==${VERSION}"; then
+              installed=true
               break
             fi
             echo "index not ready yet (attempt $attempt); waiting"
             sleep 20
           done
+          "$installed"
+          python -c "from importlib.metadata import requires; print('\n'.join(r for r in requires('pydiggs') or [] if 'extra ==' not in r))" > deps.txt
+          uv pip install --system --index-url https://pypi.org/simple/ -r deps.txt
           python -c "import pydiggs as m; assert m.__version__ == '${VERSION}', m.__version__; print('smoke ok', m.__version__)"
 
   pypi:

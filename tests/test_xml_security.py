@@ -358,3 +358,43 @@ def test_element_paths_match_the_sibling_scan() -> None:
     for el in root.iter():
         if isinstance(el.tag, str):
             assert _element_path(el, positions) == _element_path(el)
+
+
+# --- follow-ups: log files and relative dictionary paths --------------------
+
+
+def test_log_is_not_written_through_a_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "victim.txt"
+    target.write_text("untouched", encoding="utf-8")
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "schema_validation.log").symlink_to(target)
+    bad = Path("tests/test_files/2.6/Schema_Error_1-2_6.xml").resolve()
+    monkeypatch.chdir(work)
+    assert validator(str(bad), output_log=True).schema_check() is False
+    assert target.read_text(encoding="utf-8") == "untouched"
+
+
+def test_relative_dictionary_resolves_next_to_the_instance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "project"
+    folder.mkdir()
+    _write(
+        folder,
+        "codes.xml",
+        '<Dictionary xmlns:gml="http://www.opengis.net/gml/3.2">'
+        '<Definition gml:id="X"/></Dictionary>',
+    )
+    doc = _write(
+        folder,
+        "inst.xml",
+        f'{_DIGGS_HEAD}<gml:name codeSpace="./codes.xml#X">v</gml:name></Diggs>',
+    )
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    result = DictionarySemanticValidator().validate_instance(doc)
+    assert not any(m.check == 3 for m in result.messages), [m.text for m in result.messages]
