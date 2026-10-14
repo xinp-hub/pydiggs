@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from lxml import etree
 
+from pydiggs import _xml
 from pydiggs.dictionary import ValidationMessage
 
 
@@ -47,7 +48,7 @@ def _path(el: etree._Element) -> str:
 def validate_context(instance_path: str) -> ContextValidationResult:
     """Run DIGGS structure, geometry SRS, xlink href, and dataBlock checks."""
     result = ContextValidationResult()
-    doc = etree.parse(instance_path)
+    doc = _xml.parse(instance_path)
     root = doc.getroot()
 
     _check_structure(root, result)

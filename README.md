@@ -34,6 +34,16 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
     * Print validation errors directly to console
 * Command-line interface (CLI) for easy integration
 
+## Security
+
+pyDIGGS treats every DIGGS file as untrusted input. All XML is parsed with entity
+expansion, DTD loading and network access turned off, so a file cannot make pyDIGGS
+read other local files or contact a server. The one exception is a `codeSpace` that
+points at a local dictionary (`file:///`, `./`, `../`). The DIGGS whitelist permits
+these, and pyDIGGS parses them with the same hardened settings. Install from the
+PyPI wheels, which bundle a patched libxml2, rather than building lxml against an
+older system libxml2.
+
 ## Web Application
 
 Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web application? Check out:

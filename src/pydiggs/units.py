@@ -7,6 +7,8 @@ from pathlib import Path
 
 from lxml import etree
 
+from pydiggs import _xml
+
 _DEFAULT_UOM = Path(__file__).resolve().parent / "dictionaries" / "DiggsUomDictionary.xml"
 
 _CONSTANTS = {
@@ -39,7 +41,7 @@ class UnitConverter:
             self._load(path)
 
     def _load(self, path: Path) -> None:
-        root = etree.parse(str(path)).getroot()
+        root = _xml.parse(str(path)).getroot()
         for unit in root.xpath("//*[local-name()='unit']"):
             symbol = None
             a = b = c = d = None

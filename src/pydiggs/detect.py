@@ -6,6 +6,8 @@ from pathlib import Path
 
 from lxml import etree
 
+from pydiggs import _xml
+
 # Instance root (or any element) namespace → profile key used by bundled assets.
 NAMESPACE_PROFILES: dict[str, str] = {
     "http://diggsml.org/schemas/2.5.a": "2.5.a",
@@ -48,7 +50,7 @@ def detect_diggs_version(
     Unknown or missing namespaces fall back to ``default`` (3.0.0 per HG1/HG2).
     """
     if isinstance(source, (str, Path)):
-        doc = etree.parse(str(source))
+        doc = _xml.parse(str(source))
         ns = namespace_of_root(doc)
     else:
         ns = namespace_of_root(source)

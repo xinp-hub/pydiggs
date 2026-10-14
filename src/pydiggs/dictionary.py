@@ -14,6 +14,8 @@ from urllib.parse import unquote, urlparse
 
 from lxml import etree
 
+from pydiggs import _xml
+
 _PACKAGE_DIR = Path(__file__).resolve().parent
 _DEFAULT_DICT_DIR = _PACKAGE_DIR / "dictionaries"
 _DEFAULT_PROPERTIES = _DEFAULT_DICT_DIR / "properties.xml"
@@ -208,20 +210,20 @@ class DictionarySemanticValidator:
     def _load_whitelist(self, path: Path) -> list[str]:
         if not path.is_file():
             return ["https://diggsml.org", "http://diggsml.org"]
-        root = etree.parse(str(path)).getroot()
+        root = _xml.parse(str(path)).getroot()
         return [
             (el.text or "").strip() for el in root.xpath("//pattern") if (el.text or "").strip()
         ]
 
     def _register_local_dictionary(self, key: str, path: Path) -> None:
         if path.is_file():
-            self._dict_cache[key] = etree.parse(str(path))
+            self._dict_cache[key] = _xml.parse(str(path))
 
     def _load_uom_map(self, path: Path) -> dict[str, set[str]]:
         mapping: dict[str, set[str]] = {}
         if not path.is_file():
             return mapping
-        root = etree.parse(str(path)).getroot()
+        root = _xml.parse(str(path)).getroot()
         for qc in root.xpath("//*[local-name()='quantityClass']"):
             name_el = next((c for c in qc if isinstance(c.tag, str) and _local(c) == "name"), None)
             if name_el is None:
@@ -255,12 +257,12 @@ class DictionarySemanticValidator:
             else Path(base_url)
         )
         if path_candidate.is_file():
-            tree = etree.parse(str(path_candidate))
+            tree = _xml.parse(str(path_candidate))
             self._dict_cache[base_url] = tree
             return tree
         if self.allow_network and base_url.startswith(("http://", "https://")):
             try:
-                tree = etree.parse(base_url)
+                tree = _xml.fetch_and_parse(base_url)
                 self._dict_cache[base_url] = tree
                 return tree
             except (OSError, etree.XMLSyntaxError):
@@ -471,7 +473,7 @@ class DictionarySemanticValidator:
         self, instance_path: str | os.PathLike[str]
     ) -> DictionaryValidationResult:
         result = DictionaryValidationResult()
-        doc = etree.parse(str(instance_path))
+        doc = _xml.parse(str(instance_path))
         root = doc.getroot()
 
         for el in root.xpath("//*[@codeSpace]"):
