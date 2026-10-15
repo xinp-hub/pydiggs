@@ -53,6 +53,7 @@ dev = [
   "hypothesis>=6.115",
   "mypy>=1.13",
   "ruff>=0.8",
+  "jsonschema>=4.26.0",
 ]
 docs = [
   "mkdocs-material>=9.5",
@@ -124,6 +125,12 @@ files = ["src", "scripts"]
 # Legacy validation modules are gradually typed; gate on clean package surface first.
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+
+# New modules are fully typed; keep them that way.
+[[tool.mypy.overrides]]
+module = ["pydiggs.errors", "pydiggs.findings", "pydiggs.findings.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 module = ["lxml", "lxml.*"]
