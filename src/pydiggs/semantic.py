@@ -20,9 +20,18 @@ class ContextValidationResult:
     def ok(self) -> bool:
         return not any(m.severity == "ERROR" for m in self.messages)
 
-    def add(self, severity: str, path: str, text: str, check: int) -> None:
+    def add(
+        self,
+        severity: str,
+        path: str,
+        text: str,
+        check: int,
+        node: etree._Element | None = None,
+    ) -> None:
         self.messages.append(
-            ValidationMessage(severity=severity, element_path=path, text=text, check=check)
+            ValidationMessage(
+                severity=severity, element_path=path, text=text, check=check, node=node
+            )
         )
 
 
@@ -47,10 +56,12 @@ def _path(el: etree._Element) -> str:
 
 def validate_context(instance_path: str) -> ContextValidationResult:
     """Run DIGGS structure, geometry SRS, xlink href, and dataBlock checks."""
-    result = ContextValidationResult()
-    doc = _xml.parse(instance_path)
-    root = doc.getroot()
+    return validate_context_tree(_xml.parse(instance_path).getroot())
 
+
+def validate_context_tree(root: etree._Element) -> ContextValidationResult:
+    """Run the context checks on an already-parsed document root."""
+    result = ContextValidationResult()
     _check_structure(root, result)
     _check_geometry_srs(root, result)
     _check_hrefs(root, result)
@@ -65,6 +76,7 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
             f"/{_local(root)}[1]",
             "Structure: root element must be Diggs.",
             100,
+            node=root,
         )
         return
     # documentInformation property expected as early child (DIGGSml diggs-check)
@@ -75,6 +87,7 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
             "/Diggs[1]",
             "Structure: Diggs root must contain a documentInformation element.",
             100,
+            node=root,
         )
         return
     objects = [
@@ -86,6 +99,7 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
             _path(doc_info[0]),
             "Structure: documentInformation must contain exactly one DocumentInformation object.",
             100,
+            node=doc_info[0],
         )
 
 
@@ -121,6 +135,7 @@ def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -
                 _path(el),
                 f"Geometry: <{_local(el)}> should declare srsName.",
                 101,
+                node=el,
             )
         if not el.get("srsDimension"):
             result.add(
@@ -128,6 +143,7 @@ def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -
                 _path(el),
                 f"Geometry: <{_local(el)}> should declare srsDimension.",
                 101,
+                node=el,
             )
 
 
@@ -154,6 +170,7 @@ def _check_hrefs(root: etree._Element, result: ContextValidationResult) -> None:
                 _path(el),
                 f'xlink:href "{href}" does not resolve to a gml:id in this instance.',
                 102,
+                node=el,
             )
 
 
@@ -184,5 +201,6 @@ def _check_datablocks(root: etree._Element, result: ContextValidationResult) -> 
                             f"{n_props} Property declaration(s) were found."
                         ),
                         103,
+                        node=block,
                     )
                     break

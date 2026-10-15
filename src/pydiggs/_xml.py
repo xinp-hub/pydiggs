@@ -57,16 +57,14 @@ def safe_parser() -> etree.XMLParser:
     )
 
 
-def parse(source: XMLSource) -> etree._ElementTree:
-    """Parse a path, ``file:`` URI or binary file object with :func:`safe_parser`.
+def read_limited(source: XMLSource) -> tuple[bytes, str | bytes | None]:
+    """Read a path, ``file:`` URI or binary file object, enforcing the local limits.
 
-    Files are read here rather than by libxml2, which silently gunzips anything it
-    opens by path: an 11 kB compressed file can expand to hundreds of megabytes.
+    Returns the bytes and the name to report them under.
 
     Raises:
         OSError: if the file cannot be read, exceeds :data:`MAX_LOCAL_BYTES`, or is
             gzip-compressed.
-        etree.XMLSyntaxError: if the content is not well-formed XML.
     """
     if hasattr(source, "read"):
         reader = cast("IO[bytes]", source)
@@ -83,9 +81,33 @@ def parse(source: XMLSource) -> etree._ElementTree:
         raise OSError(f"XML file exceeds {MAX_LOCAL_BYTES} bytes: {name}")
     if data[:2] == _GZIP_MAGIC:
         raise OSError(f"compressed XML is not accepted: {name}")
-    base_url = os.fsdecode(name) if isinstance(name, str | bytes) else None
+    return data, name
+
+
+def parse_bytes(data: bytes, base_url: str | None) -> etree._ElementTree:
+    """Parse bytes already read by :func:`read_limited` with :func:`safe_parser`.
+
+    Raises:
+        etree.XMLSyntaxError: if the content is not well-formed XML.
+    """
     root = etree.fromstring(data, parser=safe_parser(), base_url=base_url)
     return etree.ElementTree(root)
+
+
+def parse(source: XMLSource) -> etree._ElementTree:
+    """Parse a path, ``file:`` URI or binary file object with :func:`safe_parser`.
+
+    Files are read here rather than by libxml2, which silently gunzips anything it
+    opens by path: an 11 kB compressed file can expand to hundreds of megabytes.
+
+    Raises:
+        OSError: if the file cannot be read, exceeds :data:`MAX_LOCAL_BYTES`, or is
+            gzip-compressed.
+        etree.XMLSyntaxError: if the content is not well-formed XML.
+    """
+    data, name = read_limited(source)
+    base_url = os.fsdecode(name) if isinstance(name, str | bytes) else None
+    return parse_bytes(data, base_url)
 
 
 def url_allowed(url: str, patterns: Iterable[str]) -> bool:

@@ -323,41 +323,48 @@ class validator:
     @staticmethod
     def _check_casing_diameters(instance_doc: etree._ElementTree) -> tuple[bool, list[str]]:
         """Apply DiggsUomDictionary-backed outside > inside casing rule."""
-        converter = UnitConverter()
-        messages: list[str] = []
-        for casing in instance_doc.xpath("//*[local-name()='Casing']"):
-            outside_el = next(
-                (
-                    c
-                    for c in casing
-                    if isinstance(c.tag, str)
-                    and etree.QName(c).localname == "casingOutsideDiameter"
-                ),
-                None,
-            )
-            inside_el = next(
-                (
-                    c
-                    for c in casing
-                    if isinstance(c.tag, str) and etree.QName(c).localname == "casingInsideDiameter"
-                ),
-                None,
-            )
-            if outside_el is None or inside_el is None:
-                continue
-            try:
-                outside = float((outside_el.text or "").strip())
-                inside = float((inside_el.text or "").strip())
-            except ValueError:
-                messages.append("Casing diameter values must be numeric.")
-                continue
-            ok, msg = casing_outside_gt_inside(
-                outside,
-                outside_el.get("uom") or "",
-                inside,
-                inside_el.get("uom") or "",
-                converter,
-            )
-            if not ok:
-                messages.append(msg)
+        messages = [msg for _, msg in _casing_diameter_problems(instance_doc)]
         return (len(messages) == 0), messages
+
+
+def _casing_diameter_problems(
+    instance_doc: etree._ElementTree,
+) -> list[tuple[etree._Element, str]]:
+    """Return ``(Casing element, message)`` for every casing whose diameters fail."""
+    converter = UnitConverter()
+    problems: list[tuple[etree._Element, str]] = []
+    for casing in instance_doc.xpath("//*[local-name()='Casing']"):
+        outside_el = next(
+            (
+                c
+                for c in casing
+                if isinstance(c.tag, str) and etree.QName(c).localname == "casingOutsideDiameter"
+            ),
+            None,
+        )
+        inside_el = next(
+            (
+                c
+                for c in casing
+                if isinstance(c.tag, str) and etree.QName(c).localname == "casingInsideDiameter"
+            ),
+            None,
+        )
+        if outside_el is None or inside_el is None:
+            continue
+        try:
+            outside = float((outside_el.text or "").strip())
+            inside = float((inside_el.text or "").strip())
+        except ValueError:
+            problems.append((casing, "Casing diameter values must be numeric."))
+            continue
+        ok, msg = casing_outside_gt_inside(
+            outside,
+            outside_el.get("uom") or "",
+            inside,
+            inside_el.get("uom") or "",
+            converter,
+        )
+        if not ok:
+            problems.append((casing, msg))
+    return problems
