@@ -36,7 +36,10 @@ def findings(draw: st.DrawFn) -> Finding:
     )
 
 
-_PATHS = st.text(alphabet="abc /._-é", min_size=1, max_size=20).filter(lambda s: s.strip())
+# Reported paths are relative (or a bare file name) unless absolute paths are asked for.
+_PATHS = st.text(alphabet="abc /._-é", min_size=1, max_size=20).filter(
+    lambda s: s.strip() and not s.startswith("/")
+)
 
 
 @st.composite
