@@ -155,28 +155,34 @@ def offending_commits(log_args: list[str], cwd: str | None = None) -> list[str]:
     return problems
 
 
+def _say(message: str, *, error: bool = False) -> None:
+    # Plain stream writes rather than print(): this file is copied into generated packages,
+    # whose lint rules forbid print, and it must stay byte-identical to the canonical copy.
+    (sys.stderr if error else sys.stdout).write(message + "\n")
+
+
 def _cli(argv: list[str]) -> int:
     if len(argv) == _CLI_ARGS and argv[0] == "strip":
         path = Path(argv[1])
         new, removed = strip_message(path.read_text(encoding="utf-8"))
         if removed:
             path.write_text(new, encoding="utf-8")
-            print("removed AI attribution: " + "; ".join(r.strip() for r in removed))
+            _say("removed AI attribution: " + "; ".join(r.strip() for r in removed))
         return 0
     if len(argv) == _CLI_ARGS and argv[0] == "check":
         problems = offending_commits([argv[1]])
         if problems:
-            print(
+            _say(
                 "::error::These commits credit an AI agent, which would list it as a "
                 "GitHub contributor. Remove the trailer or reset the author "
                 "(git commit --amend --reset-author, or an interactive rebase):"
             )
-            print("\n".join(problems))
+            _say("\n".join(problems))
             return 1
-        print("no AI attribution in " + argv[1])
+        _say("no AI attribution in " + argv[1])
         return 0
-    print(__doc__.split("\n\n", 1)[0], file=sys.stderr)
-    print("usage: ai_attribution.py check BASE..HEAD | strip MSGFILE", file=sys.stderr)
+    _say(__doc__.split("\n\n", 1)[0], error=True)
+    _say("usage: ai_attribution.py check BASE..HEAD | strip MSGFILE", error=True)
     return 2
 
 
