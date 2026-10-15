@@ -21,8 +21,12 @@ env:
   UV_FROZEN: "1"
 
 jobs:
-  attribution:
-    name: commit attribution
+  # GitHub lists every commit author, committer and Co-authored-by identity as a
+  # contributor, and removing one later needs a history rewrite (Cursor Agent: #224, #227).
+  # Local FORGE git hooks strip AI-agent attribution; this is the server-side backstop for
+  # commits that skipped them. The rules are FORGE's adapters/ai_attribution.py, copied.
+  ai-attribution:
+    name: no AI contributors
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -31,20 +35,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      # Cursor Agent was removed from the contributors list by a history rewrite
-      # (#224, #227). Refuse new commits that would bring it back.
-      - name: reject Cursor author or co-author
+      - name: Reject commits that credit an AI agent
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          hits=$(git log --format='%h %an <%ae> | %cn <%ce> | %(trailers:key=Co-authored-by,valueonly,separator=%x2C )' \
-            "$BASE_SHA..$HEAD_SHA" | grep -iE 'cursoragent|@cursor\.com' || true)
-          if [ -n "$hits" ]; then
-            echo "::error::Commits credit Cursor Agent. Remove the Co-authored-by trailer (git commit --amend / rebase) and turn off Cursor's commit attribution setting."
-            echo "$hits"
-            exit 1
-          fi
+        run: python3 .github/scripts/ai_attribution.py check "$BASE_SHA..$HEAD_SHA"
 
   lint:
     name: lint & types
