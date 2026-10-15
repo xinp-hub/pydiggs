@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="corrosionProtection">
+    <gml:description>Codes naming a measure adopted to protect embedded steel reinforcement from corrosion, used for the value of the corrosionProtection property of diggs:Reinforcement. MEASURES ARE NORMALLY COMBINED, NOT CHOSEN SINGLY - the Jazera record specifies a cement type, a pozzolanic admixture, a water/binder limit, a binder minimum, a chloride limit and a waterproofing membrane together for one exposure class - which is why corrosionProtection is repeatable (widened at R10 from a single occurrence). Two provenances are distinguished in the entry descriptions: measures EVIDENCED by the Jazera project record (GBL-24136 Table 8B, per 70-TMSS-03 Rev. 02), and measures included as established practice but NOT evidenced there, which are flagged for SME review rather than presented as equally sourced. Note that increased_cover names the measure while the sibling diggs:Reinforcement/cover element carries its magnitude. BUILT AT R10; see docs/build/R10/NOTES.md.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml</gml:identifier>
+    <gml:name>DIGGS Reinforcement Corrosion Protection Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="increased_cover">
+            <gml:description>Additional depth of concrete over the steel beyond the structural minimum, as the primary barrier against chloride ingress and carbonation. The MAGNITUDE is carried by the sibling diggs:Reinforcement/cover element (a length); this code states that increased cover is the adopted protective measure, so the two are complementary rather than redundant. Established practice for protecting embedded steel; NOT evidenced in the Jazera record, included for completeness and flagged for SME review.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#increased_cover</gml:identifier>
+            <gml:name>Increased concrete cover</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sulfate_resisting_cement">
+            <gml:description>Use of a cement selected for resistance to sulfate attack - ASTM Type V, or a Type I/II with a controlled tricalcium aluminate (C3A) content. Evidenced by the Jazera project record (GBL-24136, Table 8B, per 70-TMSS-03 Rev. 02).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#sulfate_resisting_cement</gml:identifier>
+            <gml:name>Sulfate-resisting cement</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="pozzolanic_admixture">
+            <gml:description>Partial replacement of cement with a pozzolanic material - fly ash or silica fume - to reduce permeability and bind free lime, lowering both sulfate attack and chloride ingress. Evidenced by the Jazera project record (GBL-24136, Table 8B, per 70-TMSS-03 Rev. 02).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#pozzolanic_admixture</gml:identifier>
+            <gml:name>Pozzolanic admixture</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="reduced_water_binder_ratio">
+            <gml:description>A specified maximum water-to-binding-material ratio, lowering permeability so that aggressive ions penetrate more slowly. Evidenced by the Jazera project record (GBL-24136, Table 8B, per 70-TMSS-03 Rev. 02).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#reduced_water_binder_ratio</gml:identifier>
+            <gml:name>Reduced water/binder ratio</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="increased_binder_content">
+            <gml:description>A specified minimum binding material content (cement plus pozzolanic materials), raising the concrete's chemical buffering capacity and reducing permeability. Evidenced by the Jazera project record (GBL-24136, Table 8B, per 70-TMSS-03 Rev. 02).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#increased_binder_content</gml:identifier>
+            <gml:name>Increased binder content</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="chloride_content_limit">
+            <gml:description>A specified maximum chloride content of the concrete as placed, limiting the chloride available to depassivate the steel from the mix itself rather than from the ground. Evidenced by the Jazera project record (GBL-24136, Table 8B, per 70-TMSS-03 Rev. 02).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#chloride_content_limit</gml:identifier>
+            <gml:name>Concrete chloride content limit</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="protective_membrane_or_coating">
+            <gml:description>A waterproofing membrane or coating applied to the concrete surface, separating the element from aggressive ground water. Evidenced by the Jazera project record (GBL-24136, Table 8B, per 70-TMSS-03 Rev. 02).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#protective_membrane_or_coating</gml:identifier>
+            <gml:name>Protective membrane or coating</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="epoxy_coated_reinforcement">
+            <gml:description>Steel reinforcement supplied with a fusion-bonded epoxy coating as a barrier against chloride-induced corrosion. Established practice for protecting embedded steel; NOT evidenced in the Jazera record, included for completeness and flagged for SME review.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#epoxy_coated_reinforcement</gml:identifier>
+            <gml:name>Epoxy-coated reinforcement</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="galvanized_reinforcement">
+            <gml:description>Steel reinforcement hot-dip galvanized so that the zinc layer corrodes preferentially to the steel. Established practice for protecting embedded steel; NOT evidenced in the Jazera record, included for completeness and flagged for SME review.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#galvanized_reinforcement</gml:identifier>
+            <gml:name>Galvanized reinforcement</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="stainless_steel_reinforcement">
+            <gml:description>Reinforcement of a corrosion-resistant stainless grade, used where the exposure or the required service life makes coated carbon steel inadequate. Established practice for protecting embedded steel; NOT evidenced in the Jazera record, included for completeness and flagged for SME review.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#stainless_steel_reinforcement</gml:identifier>
+            <gml:name>Stainless steel reinforcement</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="corrosion_inhibiting_admixture">
+            <gml:description>A chemical admixture dosed into the concrete that raises the chloride threshold at which the steel depassivates, or slows the corrosion reaction once it begins. Established practice for protecting embedded steel; NOT evidenced in the Jazera record, included for completeness and flagged for SME review.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#corrosion_inhibiting_admixture</gml:identifier>
+            <gml:name>Corrosion-inhibiting admixture</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cathodic_protection">
+            <gml:description>An impressed-current or sacrificial-anode system holding the steel at a potential at which corrosion does not proceed. Established practice for protecting embedded steel; NOT evidenced in the Jazera record, included for completeness and flagged for SME review.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/corrosionProtection.xml#cathodic_protection</gml:identifier>
+            <gml:name>Cathodic protection</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:corrosionProtection</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

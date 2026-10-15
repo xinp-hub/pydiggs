@@ -745,6 +745,12 @@
       <canonicalUnit>deltaK.s3/(kg.m2)</canonicalUnit>
     </unitDimension>
     <unitDimension>
+      <name>thermal resistivity</name>
+      <dimension>DT3/LM</dimension>
+      <baseForConversion>deltaK.m/W</baseForConversion>
+      <canonicalUnit>deltaK.s3/(kg.m)</canonicalUnit>
+    </unitDimension>
+    <unitDimension>
       <name>thermodynamic temperature</name>
       <dimension>K</dimension>
       <baseForConversion>K</baseForConversion>
@@ -3041,6 +3047,16 @@
       <dimension>DT3/L2M</dimension>
       <baseForConversion>deltaK/W</baseForConversion>
       <memberUnit>deltaK/W</memberUnit>
+    </quantityClass>
+    <quantityClass>
+      <name>thermal resistivity</name>
+      <dimension>DT3/LM</dimension>
+      <baseForConversion>deltaK.m/W</baseForConversion>
+      <memberUnit>cm.deltaC.h/cal[th]</memberUnit>
+      <memberUnit>cm.deltaC.s/cal[th]</memberUnit>
+      <memberUnit>deltaC.h.m/kcal[th]</memberUnit>
+      <memberUnit>deltaF.ft.h/Btu[IT]</memberUnit>
+      <memberUnit>deltaK.m/W</memberUnit>
     </quantityClass>
     <quantityClass>
       <name>thermodynamic temperature</name>
@@ -7875,6 +7891,36 @@
       <D>0</D>
     </unit>
     <unit>
+      <symbol>cm.deltaC.h/cal[th]</symbol>
+      <name>centimetre delta Celsius hour per calorie</name>
+      <dimension>DT3/LM</dimension>
+      <isSI>false</isSI>
+      <category>derived</category>
+      <baseUnit>deltaK.m/W</baseUnit>
+      <conversionRef>DERIVED</conversionRef>
+      <isExact>true</isExact>
+      <A>0</A>
+      <B>36</B>
+      <C>4.184</C>
+      <D>0</D>
+      <description>DIGGS extension. Unit for thermal resistivity, the reciprocal of thermal conductivity.</description>
+    </unit>
+    <unit>
+      <symbol>cm.deltaC.s/cal[th]</symbol>
+      <name>centimetre delta Celsius second per calorie</name>
+      <dimension>DT3/LM</dimension>
+      <isSI>false</isSI>
+      <category>derived</category>
+      <baseUnit>deltaK.m/W</baseUnit>
+      <conversionRef>DERIVED</conversionRef>
+      <isExact>true</isExact>
+      <A>0</A>
+      <B>1</B>
+      <C>418.4</C>
+      <D>0</D>
+      <description>DIGGS extension. Unit for thermal resistivity, the reciprocal of thermal conductivity.</description>
+    </unit>
+    <unit>
       <symbol>cm/a</symbol>
       <name>centimetre per julian-year</name>
       <dimension>L/T</dimension>
@@ -8985,6 +9031,21 @@
 			</description>
     </unit>
     <unit>
+      <symbol>deltaC.h.m/kcal[th]</symbol>
+      <name>delta Celsius hour metre per thousand calorie</name>
+      <dimension>DT3/LM</dimension>
+      <isSI>false</isSI>
+      <category>derived</category>
+      <baseUnit>deltaK.m/W</baseUnit>
+      <conversionRef>DERIVED</conversionRef>
+      <isExact>true</isExact>
+      <A>0</A>
+      <B>3600</B>
+      <C>4.184E3</C>
+      <D>0</D>
+      <description>DIGGS extension. Unit for thermal resistivity, the reciprocal of thermal conductivity.</description>
+    </unit>
+    <unit>
       <symbol>deltaC.m2.h/kcal[th]</symbol>
       <name>delta Celsius square metre hour per thousand calory</name>
       <dimension>DT3/M</dimension>
@@ -9130,6 +9191,21 @@
 			</description>
     </unit>
     <unit>
+      <symbol>deltaF.ft.h/Btu[IT]</symbol>
+      <name>delta Fahrenheit foot hour per BTU</name>
+      <dimension>DT3/LM</dimension>
+      <isSI>false</isSI>
+      <category>derived</category>
+      <baseUnit>deltaK.m/W</baseUnit>
+      <conversionRef>DERIVED</conversionRef>
+      <isExact>true</isExact>
+      <A>0</A>
+      <B>5.4864E3</B>
+      <C>9.49550267358E3</C>
+      <D>0</D>
+      <description>DIGGS extension. Unit for thermal resistivity, the reciprocal of thermal conductivity.</description>
+    </unit>
+    <unit>
       <symbol>deltaF.ft2.h/Btu[IT]</symbol>
       <name>delta Fahrenheit square foot hour per BTU</name>
       <dimension>DT3/M</dimension>
@@ -9240,6 +9316,15 @@
 				The degree Celsius and the kelvin are equal in size, so that the numerical value of a temperature 
 				difference or temperature interval is the same when expressed in either degrees Celsius or in kelvins.
 			</description>
+    </unit>
+    <unit>
+      <symbol>deltaK.m/W</symbol>
+      <name>delta kelvin metre per watt</name>
+      <dimension>DT3/LM</dimension>
+      <isSI>true</isSI>
+      <category>derived</category>
+      <isBase/>
+      <description>DIGGS extension. Base unit for thermal resistivity, the reciprocal of thermal conductivity.</description>
     </unit>
     <unit>
       <symbol>deltaK.m2/kW</symbol>

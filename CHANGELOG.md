@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Upgrade note:** some files that passed under 1.1.1 now fail, and the reverse.
+
+- **Dictionary check 5.** The bundled DIGGS dictionaries are now exact copies of
+  diggsml.org/def. pyDIGGS 1.1.1 and earlier had added eight codes to its copies of
+  `properties.xml` and `roles.xml` (`areaRatio`, `cloudCover`, `coneDiameter`,
+  `depthToWater`, `geotechnicalEngineer`, `obstructionType`, `pushRate`, `siteName`) that
+  the official dictionaries do not define. Files using them now fail
+  `dictionary_check()`, as they do in the official DIGGS validator.
+- **DIGGS 2.6 schema.** Upstream corrected the required element `samplingFeatiureRef` to
+  `samplingFeatureRef` in `Geophysics.xsd`. 2.6 files that spell it the old way now fail
+  `schema_check()`, and files with the corrected spelling now pass.
+
+### Changed
+- Re-synced the bundled reference data to DIGGSml/schemas `15ce278` (9 October 2026) and
+  DIGGSml/def `2d76ba6` (8 October 2026):
+  - 2.6 `Geophysics.xsd`: upstream fixed the element name `samplingFeatiureRef` to
+    `samplingFeatureRef`.
+  - Dictionaries: 57 more code lists (83 in all) are available offline, including the
+    pile and rigid-inclusion lists; the existing lists now declare the DIGGS 3
+    namespace, and `properties.xml` and `DiggsUomDictionary.xml` follow upstream.
+  - `mwd_properties.xml` and `pil_properties.xml` are now the official copies rather
+    than local supplements.
+  - Upstream directory-listing pages (`index.html`) and `.gitignore` files no longer ship
+    in the wheel.
+
+### Added
+- `pydiggs/PROVENANCE.toml` records the upstream commit and a sha256 for every vendored
+  file. `scripts/sync_reference.py` re-syncs from local clones of the DIGGSml
+  repositories, reading files from the pinned commit's git objects rather than the
+  working tree, refuses unsafe or non-portable file names, and verifies the digests
+  (`check`, run by the test suite).
+- The DIGGS deprecation registry (`deprecation/DeprecationRegistry.xml`) is bundled for
+  a forthcoming deprecation check. Its entries apply from DIGGS 3.1.0.
+- The DIGGS schemas' MPL-2.0 license ships at `schemas/LICENSE`, and
+  `dictionaries/NOTICE` records the licence terms for the DIGGSml/def dictionaries. The
+  package licence expression is now `Apache-2.0 AND MPL-2.0 AND MIT`, matching what the
+  wheel contains.
+
+### Performance
+- Creating a `DictionarySemanticValidator` parses each bundled dictionary once instead
+  of once per URL form, which more than offsets the larger dictionary bundle.
+
+### Security
+- `dictionaries/whiteList.xml`, which decides where `allow_network=True` may fetch
+  dictionaries from, is maintained in pyDIGGS and digest-checked rather than synced
+  from upstream, so a data update cannot widen it.
+
+### Tests
+- The official example corpus is synced to DIGGSml/diggs-examples `79da841` (4 October
+  2026). Four examples that upstream fixed now pass every check and moved into the
+  valid corpus (2.6 `FieldSurveyExample`, 2.6 `ODOT_Example_2_20180702-from25`,
+  3.0 `Aeromag`, 3.0 `GeophysicalFieldSurveyExamples`). `PileDrivingExample` moved to
+  `known_invalid`: upstream rewrote it with DIGGSml/schema-dev types while it still
+  declares 3.0.0.
+
 ## [1.1.1] - 2026-10-14
 
 First published release of the 1.1 line. 1.1.0 was tagged but never reached PyPI,

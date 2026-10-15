@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
 
-<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="propertyClass">
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="propertyClass">
     <gml:description>This dictionary contains the values for the propertyClass property of the diggs:Property object and the measurand property of the diggs:Detector object when used within the Test feature, where thetesting procedure is a ProcessedGeophysicalsurvey or WirelineLog. These values serve to define the ultimate results of geophysical field measurements. The Xpaths to these occurrences are: 1) //diggs:Property/diggs:propertyClass.</gml:description>
     <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gp_properties.xml</gml:identifier>
     <gml:name>DIGGS Measurement Properties for Geophysics</gml:name>
@@ -103,10 +103,6 @@
             <gml:name>Poisson Ratio</gml:name>
             <diggs:dataType>double</diggs:dataType>
             <diggs:occurrences>
-                <diggs:Occurrence>
-                    <diggs:sourceElementXpath>//diggs:Property/diggs:propertyClass</diggs:sourceElementXpath>
-                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:GeophysicalProcessing/diggs:geophysicalMethod[text()=&quot;borehole seismic surface source&quot;]</diggs:conditionalElementXpath>
-                </diggs:Occurrence>
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:Property/diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs_geo:WirelineLog</diggs:conditionalElementXpath>
@@ -717,10 +713,6 @@
             <diggs:dataType>double</diggs:dataType>
             <diggs:quantityClass>length per time</diggs:quantityClass>
             <diggs:occurrences>
-                <diggs:Occurrence>
-                    <diggs:sourceElementXpath>//diggs:Property/diggs:propertyClass</diggs:sourceElementXpath>
-                    <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs:GeophysicalProcessing/diggs:geophysicalMethod[text()=&quot;borehole seismic surface source&quot;]</diggs:conditionalElementXpath>
-                </diggs:Occurrence>
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:Property/diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/diggs_geo:WirelineLog</diggs:conditionalElementXpath>

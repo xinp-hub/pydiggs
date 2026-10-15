@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="constraintRationale">
+    <gml:description>Codes naming why a diggs:ClearanceConstraint exists, for the value of constraintRationale. Documentation of intent, not load-bearing for evaluating the constraint itself.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml</gml:identifier>
+    <gml:name>DIGGS Clearance Constraint Rationale Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="vibration_sensitivity">
+            <gml:description>The constraint exists to protect a nearby feature, or the subject feature itself while curing or setting, from construction vibration.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#vibration_sensitivity</gml:identifier>
+            <gml:name>Vibration sensitivity</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="fresh_material_curing">
+            <gml:description>The constraint exists to allow a freshly placed material - concrete, grout, resin - to reach adequate strength or set before a nearby activity proceeds.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#fresh_material_curing</gml:identifier>
+            <gml:name>Fresh material curing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="hydraulic_fracture_risk">
+            <gml:description>The constraint exists to prevent pressurized injection at one location from fracturing or displacing material placed at a nearby location that has not yet set.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#hydraulic_fracture_risk</gml:identifier>
+            <gml:name>Hydraulic fracture risk</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ground_heave_or_settlement_risk">
+            <gml:description>The constraint exists because a nearby activity risks causing heave or settlement of ground already treated or already supporting a completed installation.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#ground_heave_or_settlement_risk</gml:identifier>
+            <gml:name>Ground heave or settlement risk</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="utility_strike_risk">
+            <gml:description>The constraint exists to maintain clearance from a buried utility or other existing service.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#utility_strike_risk</gml:identifier>
+            <gml:name>Utility strike risk</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="structural_load_interaction">
+            <gml:description>The constraint exists because the stress or deformation field of one activity could adversely interact with a nearby existing or planned structure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#structural_load_interaction</gml:identifier>
+            <gml:name>Structural load interaction</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="personnel_safety_exclusion">
+            <gml:description>The constraint exists to keep personnel or equipment clear of an active operation for safety.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#personnel_safety_exclusion</gml:identifier>
+            <gml:name>Personnel safety exclusion</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="noise_restriction">
+            <gml:description>The constraint exists to limit noise from concurrent or closely sequenced activity.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#noise_restriction</gml:identifier>
+            <gml:name>Noise restriction</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="environmental_buffer">
+            <gml:description>The constraint exists to maintain an environmental protection buffer, such as from a sensitive habitat, water body, or contamination source.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/constraintRationale.xml#environmental_buffer</gml:identifier>
+            <gml:name>Environmental buffer</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ClearanceConstraint/diggs:constraintRationale</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

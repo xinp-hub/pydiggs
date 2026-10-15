@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="disposition">
+    <gml:description>Codes for the decision taken about non-conforming work, used for the value of the mandatory disposition property of diggs:NonConformance. A disposition concerns THIS affected work - what happens to the element that failed - and is deliberately distinct from correctiveAction on the same object, which concerns the CAUSE and what changes so the failure does not recur. The set follows the dispositions long established in quality-management practice (ISO 9000 defines rework, repair, regrade, scrap and concession as distinct outcomes) rather than inventing a new taxonomy. Built at W3 - see docs/build/W3/NOTES.md. PROVISIONAL pending SME review.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/disposition.xml</gml:identifier>
+    <gml:name>DIGGS Non-conformance Disposition Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="accept_as_is">
+            <gml:description>The non-conforming work is left in place and used as built, the departure having been judged not to matter for the intended use. Known in quality-management practice as a concession or permit. The requirement itself is unchanged and still applies to other work - which is what separates this from redesign.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/disposition.xml#accept_as_is</gml:identifier>
+            <gml:name>Accept as is</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:disposition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="repair">
+            <gml:description>The work is made acceptable for its intended use without being brought back into full conformity with the original requirement - for example a column head recast to the required dimension over a shaft that remains slightly out of position. Distinguished from rework, where full conformity IS restored.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/disposition.xml#repair</gml:identifier>
+            <gml:name>Repair</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:disposition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="rework">
+            <gml:description>The work is brought into full conformity with the original requirement, so that the finished element is indistinguishable from one that never departed - for example re-drilling and re-grouting a column to its specified depth.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/disposition.xml#rework</gml:identifier>
+            <gml:name>Rework</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:disposition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="replace">
+            <gml:description>The affected element is abandoned or removed and a new one installed to fulfil its function, rather than the original being corrected. The replacement is a separate element with its own construction activity, which is why a later activity may need to cite this non-conformance by reference.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/disposition.xml#replace</gml:identifier>
+            <gml:name>Replace</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:disposition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="reject">
+            <gml:description>The work is rejected and does not count toward the design, with nothing installed in its place - for example a trial column abandoned on refusal where the design does not require an element at that position. Distinguished from replace, where a substitute IS provided.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/disposition.xml#reject</gml:identifier>
+            <gml:name>Reject</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:disposition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="redesign">
+            <gml:description>The requirement itself is revised in light of the departure, so that the as-built condition conforms to the amended design - for example accepting a shallower founding level after unexpected refusal, with the load capacity re-checked. The revised requirement should be carried by its own specification object, which this non-conformance can then cite.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/disposition.xml#redesign</gml:identifier>
+            <gml:name>Redesign</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:disposition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

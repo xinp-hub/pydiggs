@@ -144,20 +144,26 @@ pydiggs context_check "DIGGS_Instance_File_Path" --no-output_log
 
 ### Known limits
 
+- The bundled schemas, dictionaries and deprecation registry are copies of
+  [DIGGSml/schemas](https://github.com/DIGGSml/schemas) and
+  [DIGGSml/def](https://github.com/DIGGSml/def) at the commits recorded in
+  `PROVENANCE.toml` inside the installed `pydiggs` package, with a sha256 for every file. A file whose codes appear
+  in a newer upstream dictionary is validated against the bundled copy until pyDIGGS
+  re-syncs; pass `extra_dictionaries` (or `allow_network=True`) to use newer ones.
 - Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files under
-  `tests/fixtures/official/known_invalid/` fail schema (or XML syntax) against the bundled
-  XSDs; they are pinned so we never silently accept them.
+  `tests/fixtures/official/known_invalid/` fail schema validation against the bundled
+  XSDs; they are pinned so we never silently accept them. `PileDrivingExample.xml` is
+  among them: upstream rewrote it with DIGGSml/schema-dev types while it still declares
+  3.0.0. `3.0/PorePressureDissipation_Example.xml` uses eight codes the official
+  dictionaries do not define, and fails dictionary check 5.
 - Dictionary check 12 (UOM/quantity mismatch) is an **ERROR**. Three 2.6 pore-pressure
   fixtures correct `t50` to `s`; `coef_consolidation_horiz` keeps the 2.6 AllUnits
   spelling `cm2/m`, which check 12 aliases to `cm2/min`. Upstream:
   [DIGGSml/diggs-examples#4](https://github.com/DIGGSml/diggs-examples/issues/4);
   see `tests/fixtures/official/PROVENANCE.txt`.
-- Some DIGGS 3.x example property codes are satisfied by **local dictionary supplements**
-  (`mwd_properties.xml`, `pil_properties.xml`) until
-  [DIGGSml/def#13](https://github.com/DIGGSml/def/issues/13) /
-  [#14](https://github.com/DIGGSml/def/issues/14) publish them. The golden code inventory is
-  `pydiggs.dictionaries.supplements`. Prefer contributing definitions upstream over growing
-  the local supplement files when official vocabularies accept them.
+- DIGGS 3.x MWD and pile-driving property codes live in the specialised dictionaries
+  `mwd_properties.xml` and `pil_properties.xml`, now published on diggsml.org/def and
+  bundled from there. The golden code inventory is `pydiggs.dictionaries.supplements`.
 - Legacy `http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#…` codeSpaces are
   resolved against the modern `def/codes/DIGGS/0.1/properties.xml` definitions when present.
 - Upstream Schematron `queryBinding="xslt3"` rules that call remote APIs are not executed by

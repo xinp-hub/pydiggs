@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="staticLoadTestProcedure">
+    <gml:description>Codes classifying the loading procedure used for a static axial compressive load test, per ASTM D1143/D1143M's seven named procedures. Used for the value of diggs:StaticLoadTestType/loadingProcedure. Deliberately spans more than one governing standard: EN ISO 22477-1 (the current European static pile load test standard, and the one ASIRI-governed rigid-inclusion projects most often cite) covers only the maintained-load family and explicitly excludes constant-rate-of-penetration and cyclic testing, so maintained_load is the value both traditions share and the one an EN ISO 22477-1 test always states; the other six entries are ASTM-specific options with no EN ISO 22477-1 equivalent. Cite the governing standard itself through the test procedure's own testProcedureMethod property, not through this value.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml</gml:identifier>
+    <gml:name>DIGGS Static Load Test Procedure Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="quick_test">
+            <gml:description>Load applied in equal increments at a fixed short time interval, regardless of the rate of movement, to the maximum test load. ASTM D1143/D1143M Procedure A - the default procedure where none other is specified.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml#quick_test</gml:identifier>
+            <gml:name>Quick Test</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:StaticLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="maintained_load">
+            <gml:description>Load held at each increment until the rate of movement has stabilized to a specified criterion, or for a specified minimum time, before advancing to the next increment. ASTM D1143/D1143M Procedure B (Maintained Test); the sole method covered by EN ISO 22477-1, whose own stabilization criterion serves the same purpose. The method most RI projects governed by ASIRI or EN ISO 22477-1 will use.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml#maintained_load</gml:identifier>
+            <gml:name>Maintained Load Test</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:StaticLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="excess_loading">
+            <gml:description>The Maintained Load Test procedure carried beyond the standard maximum test load, to a load specified by the engineer. ASTM D1143/D1143M Procedure C.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml#excess_loading</gml:identifier>
+            <gml:name>Loading in Excess of Standard Test Load</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:StaticLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="constant_time_interval">
+            <gml:description>Load applied in increments each held for a fixed, engineer-specified time interval regardless of the rate of movement. ASTM D1143/D1143M Procedure D.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml#constant_time_interval</gml:identifier>
+            <gml:name>Constant Time Interval Test</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:StaticLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="constant_rate_of_penetration">
+            <gml:description>Load increased continuously so the test element moves at a constant, specified rate of penetration; the load is whatever the ground offers at that rate. ASTM D1143/D1143M Procedure E. Not covered by EN ISO 22477-1, which excludes constant-rate-of-penetration testing from its scope.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml#constant_rate_of_penetration</gml:identifier>
+            <gml:name>Constant Rate of Penetration Test</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:StaticLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="constant_movement_increment">
+            <gml:description>Load adjusted so the test element advances in equal, specified movement increments, the load at each increment being read once movement has stabilized. ASTM D1143/D1143M Procedure F.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml#constant_movement_increment</gml:identifier>
+            <gml:name>Constant Movement Increment Test</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:StaticLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cyclic_loading">
+            <gml:description>The test element loaded and unloaded through repeated cycles to a series of increasing maximum loads. ASTM D1143/D1143M Procedure G. Not covered by EN ISO 22477-1, which excludes cyclic load testing from its scope.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/staticLoadTestProcedure.xml#cyclic_loading</gml:identifier>
+            <gml:name>Cyclic Loading Test</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:StaticLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

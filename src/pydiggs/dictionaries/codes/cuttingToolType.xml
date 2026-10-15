@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="toolType">
+    <gml:description>Codes for the type of cutting tool a drilling or ground improvement method uses - an auger or a bit - stated on a diggs:CuttingTool. The rig that drives the tool is equipment; the tool is the part that cuts or displaces the ground.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml</gml:identifier>
+    <gml:name>DIGGS Cutting Tool Type Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="displacement_auger">
+            <gml:description>An auger that displaces the soil laterally as it advances instead of lifting it to the surface, forming a column with little or no spoil. Used for full-displacement rigid inclusions and controlled modulus columns; the tool is often closed at its base by a lost cap that the grout or concrete opens on withdrawal.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#displacement_auger</gml:identifier>
+            <gml:name>Displacement auger</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="continuous_flight_auger">
+            <gml:description>A solid-stem or hollow-stem auger with flights along its full length that lifts the cut soil to the surface as it advances (a replacement tool, in contrast to a displacement auger).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#continuous_flight_auger</gml:identifier>
+            <gml:name>Continuous flight auger</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="hollow_stem_auger">
+            <gml:description>An auger with a hollow central stem that allows sampling, instrumentation or grout to be placed through the stem while the flights remain in the ground.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#hollow_stem_auger</gml:identifier>
+            <gml:name>Hollow-stem auger</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="solid_stem_auger">
+            <gml:description>An auger with a solid central stem and continuous flights, used to advance a hole where nothing needs to pass through the stem.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#solid_stem_auger</gml:identifier>
+            <gml:name>Solid-stem auger</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="tricone_bit">
+            <gml:description>A rotary bit with three rolling cones carrying teeth or inserts that crush the ground, used in rock and hard soil.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#tricone_bit</gml:identifier>
+            <gml:name>Tri-cone (roller cone) bit</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="drag_bit">
+            <gml:description>A fixed-blade rotary bit that cuts by shearing the ground, used in soft to medium ground.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#drag_bit</gml:identifier>
+            <gml:name>Drag bit</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="pdc_bit">
+            <gml:description>A fixed-cutter bit carrying polycrystalline diamond compact cutters that shear the ground, used in medium to hard rock.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#pdc_bit</gml:identifier>
+            <gml:name>Polycrystalline diamond compact bit</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="traction_compacting_tool">
+            <gml:description>A displacement tool that advances by traction and compacts soil on both insertion and extraction, typically about half on each. Offered by Keller / Hayward Baker as an alternative to a single-pass displacement auger.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#traction_compacting_tool</gml:identifier>
+            <gml:name>Traction compacting tool</gml:name>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="vibratory_displacement_tool">
+            <gml:description>A displacement tool advanced by vibration rather than by rotary drilling or static push.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/cuttingToolType.xml#vibratory_displacement_tool</gml:identifier>
+            <gml:name>Vibratory displacement tool</gml:name>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:CuttingTool/diggs:toolType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>
