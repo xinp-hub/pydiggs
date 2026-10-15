@@ -6,15 +6,23 @@ import argparse
 import sys
 
 from pydiggs import validator
+from pydiggs.findings import _cli
 
 
 def main(argv: list[str] | None = None) -> int:
     """Console script for pydiggs."""
+    args_in = sys.argv[1:] if argv is None else argv
+    if args_in[:1] == ["validate"]:
+        return _cli.main(args_in[1:])
+
     parser = argparse.ArgumentParser(
         description=(
             "A Python package for Data Interchange for Geotechnical "
             "and Geoenvironmental Specialists (DIGGS)."
-        )
+        ),
+        epilog=(
+            "Machine-readable findings (JSON, SARIF) for one or many files: pydiggs validate --help"
+        ),
     )
     parser.add_argument(
         "command",
@@ -54,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Write validation logs to the current working directory (default: True)",
     )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(args_in)
 
     # validator is a published lowercase class name; callers rely on keyword args.
     validation = validator(  # type: ignore[no-untyped-call]
