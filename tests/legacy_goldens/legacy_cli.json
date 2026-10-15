@@ -1,0 +1,3491 @@
+{
+ "base": {
+  "commit": "182c201912f51f6b720eebcab39d7b5ae19ee2b5",
+  "ref": "PR #248"
+ },
+ "cases": {
+  "--no-output_log": {
+   "exit": "SystemExit(2)",
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "usage: pydiggs [-h] [--schema_path SCHEMA_PATH] [--dictionary_path DICTIONARY_PATH] [--schematron_path SCHEMATRON_PATH] [--output_log | --no-output_log]\n               {schema_check,schematron_check,dictionary_check,context_check} diggs_file\npydiggs: error: the following arguments are required: command, diggs_file\n",
+   "stdout": ""
+  },
+  "--output_log": {
+   "exit": "SystemExit(2)",
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "usage: pydiggs [-h] [--schema_path SCHEMA_PATH] [--dictionary_path DICTIONARY_PATH] [--schematron_path SCHEMATRON_PATH] [--output_log | --no-output_log]\n               {schema_check,schematron_check,dictionary_check,context_check} diggs_file\npydiggs: error: the following arguments are required: command, diggs_file\n",
+   "stdout": ""
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check failed with 1 error(s).\n  Structure: root element must be Diggs.\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --no-output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error during context check.\n"
+  },
+  "context_check --no-output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b400b9949c2c347aba5dec2fc85b39f12e37c5fa268af205884e38461f5f6188",
+     "size": 188
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "573c3a55a7933e957d17c83d337b544604b203cc0d7bb5e827b4ed40d96d2fb9",
+     "size": 4398
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b2fbb3647752558e47f08beaaa76912a06865c9e2951f98ab5e8f2313e7c0238",
+     "size": 15042
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "fa589f7af7fd42b6c9f93711c34bcb99a7e4244debaa4965096cc0f9ca93030f",
+     "size": 29654
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "d63b6dac24abc77965d976617282765cd0c7a69eafc1b8165f8eae1f28683a36",
+     "size": 55093
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "fcb94b16628dd640a5f62b7a8c517f989c95e324f69470c4ece4464e8ddb09ca",
+     "size": 192
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b802b69829db085e1099181b58549bfe3225443c8f5362a136db5cccda332739",
+     "size": 301
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "95124800eeb6ebc368e6cc0ed2c82c76627ad252a45bda9e8e0a73423b79d267",
+     "size": 1210
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "d75a019ad94b3250b0fd322b8ebb4404b61e68adc29f7d312f726f76e72c7086",
+     "size": 355
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b400b9949c2c347aba5dec2fc85b39f12e37c5fa268af205884e38461f5f6188",
+     "size": 188
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b9700f0008b9caa80f524b5624fda66fccc9bb7ca694ee622f5a1bb035097e4f",
+     "size": 624
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "7bd828d1d2a66c925f10c228bbf916f970dc8182aacdc2942bb68d717982582f",
+     "size": 5724
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4bb1704d0c588120198d09a5af8b5b9de6141ea19914d3fc2cc02dbca365d75b",
+     "size": 1741
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4d0d4c1955086cb12a7be5e4fdc5600151c5c9b90fe4e69f0eec882bf0895a86",
+     "size": 11984
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "768984e5dca9f1ad24c45948e9cee445f2f046fd4debe6dee1757cd291b72db4",
+     "size": 2894
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "011912572a0756c5ee446e0913288cc42c947d33009abe37d5888c48fba61f47",
+     "size": 867
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "e97e29b515ad4660617947aa52a680d77c2814f262a424719b4c7acd76a580d1",
+     "size": 454
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "573c3a55a7933e957d17c83d337b544604b203cc0d7bb5e827b4ed40d96d2fb9",
+     "size": 4398
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "2cce29a1dc9f35b7fa38be51b58794c653601fa28f8bed1eac05bba634119fda",
+     "size": 420
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b2fbb3647752558e47f08beaaa76912a06865c9e2951f98ab5e8f2313e7c0238",
+     "size": 15042
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "fa589f7af7fd42b6c9f93711c34bcb99a7e4244debaa4965096cc0f9ca93030f",
+     "size": 29654
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "d63b6dac24abc77965d976617282765cd0c7a69eafc1b8165f8eae1f28683a36",
+     "size": 55093
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "3942bd39c5b30fa08b6afaed3cb2c98a788db9d67d796fc9cef404fe98b8644e",
+     "size": 15445
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b9700f0008b9caa80f524b5624fda66fccc9bb7ca694ee622f5a1bb035097e4f",
+     "size": 624
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "49b42eb2ff9405720b487edfc447f6e377e4a2a3e3d5a39189a6ec23e5fc7a42",
+     "size": 577
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "780f1e4cdf72dc8ab4747185af4dc9a0b48486084b4f175b1f04ddfd43b3aeed",
+     "size": 2997
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b802b69829db085e1099181b58549bfe3225443c8f5362a136db5cccda332739",
+     "size": 301
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "95124800eeb6ebc368e6cc0ed2c82c76627ad252a45bda9e8e0a73423b79d267",
+     "size": 1210
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "7cef6a1225baa49905e94737cbb07949e76f35c0513d72e35d3cf4658de6d750",
+     "size": 3027
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "123058e6eb566f3198eb5b1b3ec0cb881eb3aa44c3c6677b36fc5ae639b3880e",
+     "size": 621
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "34859dcea127e3f60cefef7fe871c19ef5a5c3414cff6cd9e71ccc2850048b5d",
+     "size": 5442
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 1,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "e341e2bdad1dbc364952e734ad2deffdc4c948a2f2a37db4d25e37d26e7d0d40",
+     "size": 62
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check failed with 1 error(s).\n  Structure: root element must be Diggs.\n"
+  },
+  "context_check --output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "31b8ba6b46c3a41dd35c17d1408d20714ec0ac366b9d8f4dbae050e107221ad1",
+     "size": 537
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4f0444b47b8a6bc35f155a0ad65dd083ba9f687ea0310444bc8c5256887f4873",
+     "size": 4386
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4f0444b47b8a6bc35f155a0ad65dd083ba9f687ea0310444bc8c5256887f4873",
+     "size": 4386
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4f0444b47b8a6bc35f155a0ad65dd083ba9f687ea0310444bc8c5256887f4873",
+     "size": 4386
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4f0444b47b8a6bc35f155a0ad65dd083ba9f687ea0310444bc8c5256887f4873",
+     "size": 4386
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4f0444b47b8a6bc35f155a0ad65dd083ba9f687ea0310444bc8c5256887f4873",
+     "size": 4386
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4f0444b47b8a6bc35f155a0ad65dd083ba9f687ea0310444bc8c5256887f4873",
+     "size": 4386
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "b400b9949c2c347aba5dec2fc85b39f12e37c5fa268af205884e38461f5f6188",
+     "size": 188
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "84ce7028cca4808aeb5a8c8649cafd51183f3c5afd0c5a19e84ac7508c8c3807",
+     "size": 367
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {
+    "context_validation.log": {
+     "sha256": "4f0444b47b8a6bc35f155a0ad65dd083ba9f687ea0310444bc8c5256887f4873",
+     "size": 4386
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Context check passed!\n"
+  },
+  "context_check --output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error during context check.\n"
+  },
+  "context_check --output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 5 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (137 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (284 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (366 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (752 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (1 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 12 warning(s), 1 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 3 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (1 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (3 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 17 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 7 warning(s), 12 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 21 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (137 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (2 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (284 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (366 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed (752 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (12 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 6 warning(s), 2 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 12 warning(s), 1 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 3 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed (1 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 8 error(s), 13 warning(s), 1 info message(s).\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed (3 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 1 error(s), 0 warning(s), 0 info message(s).\n  [ERROR] check 5: Check 5:\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 1 error(s), 0 warning(s), 0 info message(s).\n  [ERROR] check 5: Check 5:\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error during dictionary check.\n"
+  },
+  "dictionary_check --no-output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "743f5c1bdb3ce5da3563bdc94002c3eebfce501f56a07309968943a4d5d5d2b7",
+     "size": 2198
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 5 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "ebd957ef6cba94de85badd4bdf342872f2ecce3b9af66ca035434d9149601911",
+     "size": 54971
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (137 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "3c21612b5af0ad1430ac1b95d40d65c45680641ea3768b6ce55ade75f92c6d7a",
+     "size": 113497
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (284 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "c326c33cce874c5bc5842ba2cef831bf12ab90bf3b538b7da8f582ce15c36002",
+     "size": 145964
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (366 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "3c2e5d91d4c3b9b6b50c31d2373884b03745f9588f71c8a7c3d4aa5b8ddb0941",
+     "size": 300420
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (752 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "58601bd9677a8241c6501fe08f857f6240b89b8df4a5365076de568ef1d7aea7",
+     "size": 366
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (1 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "e50b52d13b7d12b3728b7b51f9645a7bf03fa21ce3339baf99dbff48014f1a46",
+     "size": 4836
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 12 warning(s), 1 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "9f7d6688477ad82556a75ddf46c0be5c7437a3ed594677024118fc44dbddfc43",
+     "size": 1438
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 3 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "43f8efd998e14d9be1479493e1c863fa0054e86b7fc857907f607f7c191d85d0",
+     "size": 265
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "7572d879057e9e5333de5264bdcf5ec816291fd1d361708c1d479d56bb19468f",
+     "size": 388
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (1 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "db75432d5041e7708884fd33fb624a8bb93e32312bf0d4c95cb711adf4596acb",
+     "size": 1070
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (3 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "e3747e38e7022853c68bdf4595b988d8e8ecbaa5d633f8c5e7430e3ce3b81ed8",
+     "size": 10253
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 17 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "4edc7c63c6368a5b96e4673f87b9ca1b2eb964f53246d3a877e50a58a65eee4f",
+     "size": 6284
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 7 warning(s), 12 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "5bece9b14ef3a3ecf41f7a1b2658d91fd9ecbf8d92689ac732b4b48af908774c",
+     "size": 12853
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 21 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "70f22c04e10d12d59c855067f3d714bfdc0266cc6c4e679f15ae8fdf843b9bb7",
+     "size": 285
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "ebd957ef6cba94de85badd4bdf342872f2ecce3b9af66ca035434d9149601911",
+     "size": 54971
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (137 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "748c981fa26bde5c51892ea37dffa83dbe2b27bb08541dfa16819ac3c54951ed",
+     "size": 784
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (2 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "3c21612b5af0ad1430ac1b95d40d65c45680641ea3768b6ce55ade75f92c6d7a",
+     "size": 113497
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (284 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "c326c33cce874c5bc5842ba2cef831bf12ab90bf3b538b7da8f582ce15c36002",
+     "size": 145964
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (366 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "3c2e5d91d4c3b9b6b50c31d2373884b03745f9588f71c8a7c3d4aa5b8ddb0941",
+     "size": 300420
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed (752 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "099323ecfd62d4cd66e49a3de683d697158e0f7bb95b111fea506f1318889150",
+     "size": 4393
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (12 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "775f66435ba4a67b105847c74ed43dbfaa16369a2f1e6c30b19546f95d89ee34",
+     "size": 4152
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 6 warning(s), 2 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "e50b52d13b7d12b3728b7b51f9645a7bf03fa21ce3339baf99dbff48014f1a46",
+     "size": 4836
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 12 warning(s), 1 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "9f7d6688477ad82556a75ddf46c0be5c7437a3ed594677024118fc44dbddfc43",
+     "size": 1438
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 3 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "43f8efd998e14d9be1479493e1c863fa0054e86b7fc857907f607f7c191d85d0",
+     "size": 265
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed with 1 warning(s), 0 info message(s).\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "7572d879057e9e5333de5264bdcf5ec816291fd1d361708c1d479d56bb19468f",
+     "size": 388
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed (1 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 1,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "ada5e7e181d5b273b0b47f047d704836cbd831754d0c700fc9eabadab1363cef",
+     "size": 5110
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 8 error(s), 13 warning(s), 1 info message(s).\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n  [ERROR] check 5: Check 5:\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "ce3718e8fa8f160ba9c21cc105289d229acae4a76e8a9c36bc189957fe4d590e",
+     "size": 744
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "Dictionary check passed (3 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed!\n"
+  },
+  "dictionary_check --output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "0c3047c10108ad31c043351414a1dc0168ebcf89a2bcd05e57dcec98930935d5",
+     "size": 7089
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "0c3047c10108ad31c043351414a1dc0168ebcf89a2bcd05e57dcec98930935d5",
+     "size": 7089
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "0c3047c10108ad31c043351414a1dc0168ebcf89a2bcd05e57dcec98930935d5",
+     "size": 7089
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "0c3047c10108ad31c043351414a1dc0168ebcf89a2bcd05e57dcec98930935d5",
+     "size": 7089
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "0c3047c10108ad31c043351414a1dc0168ebcf89a2bcd05e57dcec98930935d5",
+     "size": 7089
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "0c3047c10108ad31c043351414a1dc0168ebcf89a2bcd05e57dcec98930935d5",
+     "size": 7089
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 1,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "26663ac947d8963c3b068509e4450a5d319379938b8b93efd786ce87b4a12dcd",
+     "size": 307
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 1 error(s), 0 warning(s), 0 info message(s).\n  [ERROR] check 5: Check 5:\n"
+  },
+  "dictionary_check --output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 1,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "a89f8e3214517b489152041dbbb7dfe37a0b84ff4c5a02db53fbb27498aff9ee",
+     "size": 324
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 1 error(s), 0 warning(s), 0 info message(s).\n  [ERROR] check 5: Check 5:\n"
+  },
+  "dictionary_check --output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "0c3047c10108ad31c043351414a1dc0168ebcf89a2bcd05e57dcec98930935d5",
+     "size": 7089
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check passed (20 info message(s))\n"
+  },
+  "dictionary_check --output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error during dictionary check.\n"
+  },
+  "dictionary_check --output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "dictionary_check tests/test_files/AtterbergExample.xml --dictionary_path nope.xml --no-output_log": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 1 error(s), 0 warning(s), 0 info message(s).\n  [ERROR] check 5: Check 5:\n"
+  },
+  "dictionary_check tests/test_files/AtterbergExample.xml --dictionary_path nope.xml --output_log": {
+   "exit": 1,
+   "logs": {
+    "dictionary_validation.log": {
+     "sha256": "26663ac947d8963c3b068509e4450a5d319379938b8b93efd786ce87b4a12dcd",
+     "size": 307
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Dictionary check failed with 1 error(s), 0 warning(s), 0 info message(s).\n  [ERROR] check 5: Check 5:\n"
+  },
+  "schema_check --no-output_log": {
+   "exit": "SystemExit(2)",
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "usage: pydiggs [-h] [--schema_path SCHEMA_PATH] [--dictionary_path DICTIONARY_PATH] [--schematron_path SCHEMATRON_PATH] [--output_log | --no-output_log]\n               {schema_check,schematron_check,dictionary_check,context_check} diggs_file\npydiggs: error: the following arguments are required: diggs_file\n",
+   "stdout": ""
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error:\ntests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml:83:0:ERROR:SCHEMASV:SCHEMAV_CVC_COMPLEX_TYPE_2_2: Element '{http://diggsml.org/schemas/3}groundSurfaceElevation': Element content is not allowed, because the content type is a simple type definition.\ntests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml:83:0:ERROR:SCHEMASV:SCHEMAV_CVC_DATATYPE_VALID_1_2_1: Element '{http://diggsml.org/schemas/3}groundSurfaceElevation': '\n                ' is not a valid value of the atomic type '{http://www.energistics.org/energyml/data/commonv2}AbstractMeasure'.\ntests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml:89:0:ERROR:SCHEMASV:SCHEMAV_CVC_COMPLEX_TYPE_2_2: Element '{http://diggsml.org/schemas/3}cutoffElevation': Element content is not allowed, because the content type is a simple type definition.\ntests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml:89:0:ERROR:SCHEMASV:SCHEMAV_CVC_DATATYPE_VALID_1_2_1: Element '{http://diggsml.org/schemas/3}cutoffElevation': '\n                ' is not a valid value of the atomic type '{http://www.energistics.org/energyml/data/commonv2}AbstractMeasure'.\ntests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml:98:0:ERROR:SCHEMASV:SCHEMAV_CVC_COMPLEX_TYPE_2_2: Element '{http://diggsml.org/schemas/3}finalTipElevation': Element content is not allowed, because the content type is a simple type definition.\ntests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml:98:0:ERROR:SCHEMASV:SCHEMAV_CVC_DATATYPE_VALID_1_2_1: Element '{http://diggsml.org/schemas/3}finalTipElevation': '\n                ' is not a valid value of the atomic type '{http://www.energistics.org/energyml/data/commonv2}AbstractMeasure'.\n"
+  },
+  "schema_check --no-output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error:\ntests/fixtures/official/known_invalid/PlanarReference_3ns.xml:25:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/3}SurfaceSpace': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/3}AbstractSamplingFeature, {http://diggsml.org/schemas/3}Borehole, {http://diggsml.org/schemas/3}Sounding, {http://diggsml.org/schemas/3}TrialPit, {http://diggsml.org/schemas/3}Well, {http://diggsml.org/schemas/3}Transect, {http://diggsml.org/schemas/3}Station, {http://diggsml.org/schemas/3}PlanarSamplingFeature, {http://diggsml.org/schemas/3}TrenchWall, {http://diggsml.org/schemas/3}VolumetricSamplingFeature ).\ntests/fixtures/official/known_invalid/PlanarReference_3ns.xml:80:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/3}SurfaceSpace': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/3}AbstractSamplingFeature, {http://diggsml.org/schemas/3}Borehole, {http://diggsml.org/schemas/3}Sounding, {http://diggsml.org/schemas/3}TrialPit, {http://diggsml.org/schemas/3}Well, {http://diggsml.org/schemas/3}Transect, {http://diggsml.org/schemas/3}Station, {http://diggsml.org/schemas/3}PlanarSamplingFeature, {http://diggsml.org/schemas/3}TrenchWall, {http://diggsml.org/schemas/3}VolumetricSamplingFeature ).\ntests/fixtures/official/known_invalid/PlanarReference_3ns.xml:139:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/3}VolumeSpace': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/3}AbstractSamplingFeature, {http://diggsml.org/schemas/3}Borehole, {http://diggsml.org/schemas/3}Sounding, {http://diggsml.org/schemas/3}TrialPit, {http://diggsml.org/schemas/3}Well, {http://diggsml.org/schemas/3}Transect, {http://diggsml.org/schemas/3}Station, {http://diggsml.org/schemas/3}PlanarSamplingFeature, {http://diggsml.org/schemas/3}TrenchWall, {http://diggsml.org/schemas/3}VolumetricSamplingFeature ).\ntests/fixtures/official/known_invalid/PlanarReference_3ns.xml:333:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/3}SurfaceSpace': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/3}AbstractSamplingFeature, {http://diggsml.org/schemas/3}Borehole, {http://diggsml.org/schemas/3}Sounding, {http://diggsml.org/schemas/3}TrialPit, {http://diggsml.org/schemas/3}Well, {http://diggsml.org/schemas/3}Transect, {http://diggsml.org/schemas/3}Station, {http://diggsml.org/schemas/3}PlanarSamplingFeature, {http://diggsml.org/schemas/3}TrenchWall, {http://diggsml.org/schemas/3}VolumetricSamplingFeature ).\n"
+  },
+  "schema_check --no-output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error:\ntests/test_files/2.5.a/Schema_Error_1-2_5_a.xml:6:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.5.a}businessAssociate': This element is not expected. Expected is ( {http://diggsml.org/schemas/2.5.a}BusinessAssociate ).\ntests/test_files/2.5.a/Schema_Error_1-2_5_a.xml:11:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.5.a}AuditTrail': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/2.5.a}sourceSoftware, {http://diggsml.org/schemas/2.5.a}destination, {http://diggsml.org/schemas/2.5.a}destinationSoftware, {http://diggsml.org/schemas/2.5.a}auditTrail ).\n"
+  },
+  "schema_check --no-output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error:\ntests/test_files/2.6/Schema_Error_1-2_6.xml:12:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.6}businessAssociate': This element is not expected. Expected is ( {http://diggsml.org/schemas/2.6}BusinessAssociate ).\ntests/test_files/2.6/Schema_Error_1-2_6.xml:17:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.6}AuditTrail': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/2.6}sourceSoftware, {http://diggsml.org/schemas/2.6}destination, {http://diggsml.org/schemas/2.6}destinationSoftware, {http://diggsml.org/schemas/2.6}auditTrail ).\n"
+  },
+  "schema_check --no-output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --no-output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error:\ntests/test_files/AtterbergExample.xml:202:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.5.a/geotechnical}CasagrandeTrial': Missing child element(s). Expected is ( {http://diggsml.org/schemas/2.5.a/geotechnical}blowCount ).\n"
+  },
+  "schema_check --no-output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error:\ntests/test_files/Dictionary_Check_MWD_1.xml:81:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.6}DrillRig': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/2.6}AbstractEquipment, {http://diggsml.org/schemas/2.6}CoringDevice, {http://diggsml.org/schemas/2.6}Equipment, {http://diggsml.org/schemas/2.6}Sensor, {http://diggsml.org/schemas/2.6/geotechnical}TriaxialTestEquipment, {http://diggsml.org/schemas/2.6}GroutInjectionEquipment, {http://diggsml.org/schemas/2.6}GroutPlant, {http://diggsml.org/schemas/2.6}GroutPump, {http://diggsml.org/schemas/2.6}JetGroutingMonitor, {http://diggsml.org/schemas/2.6}GroutMixer ).\ntests/test_files/Dictionary_Check_MWD_1.xml:85:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.6}cuttingToolInfo': This element is not expected. Expected is ( {http://diggsml.org/schemas/2.6}constructionEquipment ).\ntests/test_files/Dictionary_Check_MWD_1.xml:97:0:ERROR:SCHEMASV:SCHEMAV_ELEMENT_CONTENT: Element '{http://diggsml.org/schemas/2.6}MeasurementWhileDrilling': This element is not expected. Expected is one of ( {http://diggsml.org/schemas/2.6}AbstractMeasurement, {http://diggsml.org/schemas/2.6}Monitor, {http://diggsml.org/schemas/2.6}Test, {http://diggsml.org/schemas/2.6}MaterialTest, {http://diggsml.org/schemas/2.6}GeophysicalFieldSurvey ).\n"
+  },
+  "schema_check --no-output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --no-output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error:\nOpening and ending tag mismatch: creationDate line 4 and CreationDate, line 4, column 52 (Syntax_Error_1.xml, line 4)\n"
+  },
+  "schema_check --no-output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "schema_check --output_log": {
+   "exit": "SystemExit(2)",
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "usage: pydiggs [-h] [--schema_path SCHEMA_PATH] [--dictionary_path DICTIONARY_PATH] [--schematron_path SCHEMATRON_PATH] [--output_log | --no-output_log]\n               {schema_check,schematron_check,dictionary_check,context_check} diggs_file\npydiggs: error: the following arguments are required: diggs_file\n",
+   "stdout": ""
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 3.0.0).\n"
+  },
+  "schema_check --output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 1,
+   "logs": {
+    "schema_validation.log": {
+     "sha256": "a77a6db6862f87a95477261f57e475bb4dcc21ad065a7a80a4e28478013d9a1e",
+     "size": 1775
+    }
+   },
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error, see schema_validation.log file in detail. \n"
+  },
+  "schema_check --output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 1,
+   "logs": {
+    "schema_validation.log": {
+     "sha256": "6a075e6009db5c086db11b88bb5c5e17f55389a74a262f58716ca1ca8b62a48c",
+     "size": 2624
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error, see schema_validation.log file in detail. \n"
+  },
+  "schema_check --output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 1,
+   "logs": {
+    "schema_validation.log": {
+     "sha256": "0e35746592d88a9065e4c2711528c33475b0f0cf44fa9cf01ef596d09e4cf16a",
+     "size": 653
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error, see schema_validation.log file in detail. \n"
+  },
+  "schema_check --output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 1,
+   "logs": {
+    "schema_validation.log": {
+     "sha256": "32cf4e3a53fe94a9cde02f0e718a1811ea58f620816a9612d8dffc948d625e16",
+     "size": 632
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error, see schema_validation.log file in detail. \n"
+  },
+  "schema_check --output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.6).\n"
+  },
+  "schema_check --output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 1,
+   "logs": {
+    "schema_validation.log": {
+     "sha256": "90476bb25e57c7768fc305070c278a6d10211bf42993ad4c8cbab9fd16788a80",
+     "size": 257
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error, see schema_validation.log file in detail. \n"
+  },
+  "schema_check --output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 1,
+   "logs": {
+    "schema_validation.log": {
+     "sha256": "1248e415de08624c30e01d79a30f06ee99e35625baab7e6f76aefdc0628edb53",
+     "size": 1374
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS Schema validation error, see schema_validation.log file in detail. \n"
+  },
+  "schema_check --output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schema validation error is detected (profile 2.5.a).\n"
+  },
+  "schema_check --output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {
+    "syntax_error.log": {
+     "sha256": "6e177b928f8dd1adcd67eb98744a4656430286d86a5a0bf7e7261381b69e7c04",
+     "size": 117
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error, see syntax_error.log file in detail. \n"
+  },
+  "schema_check --output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "schema_check tests/test_files/2.6/No_Error_2_6.xml --schema_path nope.xsd --no-output_log": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nInvalid file path or file name. \n"
+  },
+  "schema_check tests/test_files/2.6/No_Error_2_6.xml --schema_path nope.xsd --output_log": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nInvalid file path or file name. \n"
+  },
+  "schema_check tests/test_files/2.6/No_Error_2_6.xml --schema_path tests/test_schematron_schema/test_schematron_1.sch --no-output_log": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nSchema parse error: The XML document 'tests/test_schematron_schema/test_schematron_1.sch' is not a schema document.\n"
+  },
+  "schema_check tests/test_files/2.6/No_Error_2_6.xml --schema_path tests/test_schematron_schema/test_schematron_1.sch --output_log": {
+   "exit": 1,
+   "logs": {
+    "schema_parse_error.log": {
+     "sha256": "844d182a8594683a1ec0fc631caedcb0dfa20e328fde82c76e38a105d0750a0a",
+     "size": 95
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nSchema parse error, see schema_parse_error.log file in detail. \n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --no-output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error:\nOpening and ending tag mismatch: creationDate line 4 and CreationDate, line 4, column 52 (Syntax_Error_1.xml, line 4)\n"
+  },
+  "schematron_check --no-output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/LithoGrading.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/ODOT_600304_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/ODOT_600339_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/ODOT_Example_2_20180702.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/StrengthExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/cptExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.5.a/water_content.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/AtterbergExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/CompactionGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/DeepSoilMixingExample-Shortened.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/DocumentationExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/FieldSurveyExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/JetGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/LabCompaction.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/LithoGrading-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/LugeonTestExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/ODOT_600304_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/ODOT_600339_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/PermeationGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/PorePressureDissipation.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/PorePressureDissipationOnly.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/RockGroutingExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/StrengthExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/cptExample-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/2.6/water_content-from25.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/3.0/Aeromag.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/3.0/Borehole-CPT_Example_Annotated.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/3.0/MWDExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/3.0/Piezometer_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/3.0/PorePressureDissipation_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/3.0/TrenchWallExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "pr-248",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/fixtures/official/known_invalid/PlanarReference_3ns.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/2.5.a/No_Error-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/2.5.a/Schema_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/2.5.a/Schematron_Error_1-2_5_a.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/2.6/No_Error_2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/2.6/Schema_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/2.6/Schematron_Error_1-2_6.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/AtterbergExample.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/Dictionary_Check_MWD_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/Schematron_Error_1.xml": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check --output_log tests/test_files/Syntax_Error_1.xml": {
+   "exit": 1,
+   "logs": {
+    "syntax_error.log": {
+     "sha256": "6e177b928f8dd1adcd67eb98744a4656430286d86a5a0bf7e7261381b69e7c04",
+     "size": 117
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "XML syntax error, see syntax_error.log file in detail. \n"
+  },
+  "schematron_check --output_log tests/test_files/does_not_exist.xml": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "Invalid file path or file name. \n"
+  },
+  "schematron_check tests/test_files/AtterbergExample.xml --schematron_path tests/test_files/AtterbergExample.xml --no-output_log": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nSchematron parse error:\nDocument is not a schematron schema or schematron-extractable\n"
+  },
+  "schematron_check tests/test_files/AtterbergExample.xml --schematron_path tests/test_files/AtterbergExample.xml --output_log": {
+   "exit": 1,
+   "logs": {
+    "schematron_parse_error.log": {
+     "sha256": "77a35936422fe5a9122d67d784a12e0aab54271830401a0dcb4f1998e6791bd6",
+     "size": 61
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nSchematron parse error, see schematron_parse_error.log file in detail. \n"
+  },
+  "schematron_check tests/test_files/AtterbergExample.xml --schematron_path tests/test_schematron_schema/test_schematron_1.sch --no-output_log": {
+   "exit": 1,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS schematron validation Error:\ntests/test_files/AtterbergExample.xml:0:0:ERROR:SCHEMATRONV:SCHEMATRONV_ASSERT: <svrl:failed-assert xmlns:svrl=\"http://purl.oclc.org/dsdl/svrl\" xmlns:xs=\"http://www.w3.org/2001/XMLSchema\" xmlns:schold=\"http://www.ascc.net/xml/schematron\" xmlns:sch=\"http://www.ascc.net/xml/schematron\" xmlns:iso=\"http://purl.oclc.org/dsdl/schematron\" xmlns:diggs=\"http://diggsml.org/schemas/2.5.a\" xmlns:gml=\"http://www.opengis.net/gml/3.2\" test=\"@gml:id='Project_1111-2222-33'\" location=\"/*[local-name()='Diggs' and namespace-uri()='http://diggsml.org/schemas/2.5.a']/*[local-name()='project' and namespace-uri()='http://diggsml.org/schemas/2.5.a']/*[local-name()='Project' and namespace-uri()='http://diggsml.org/schemas/2.5.a']\"><svrl:text>Project ID incorrect.</svrl:text></svrl:failed-assert>\n"
+  },
+  "schematron_check tests/test_files/AtterbergExample.xml --schematron_path tests/test_schematron_schema/test_schematron_1.sch --output_log": {
+   "exit": 1,
+   "logs": {
+    "schematron_validation.log": {
+     "sha256": "3bd1e653fd2d3ff83ffa18f494d2feb63f8bf3ed9099467578ab12ded3077387",
+     "size": 780
+    }
+   },
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nDIGGS schematron validation Error, see schematron_validation.log file in detail. \n"
+  },
+  "schematron_check tests/test_files/AtterbergExample.xml --schematron_path tests/test_schematron_schema/test_schematron_2.sch --no-output_log": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check tests/test_files/AtterbergExample.xml --schematron_path tests/test_schematron_schema/test_schematron_2.sch --output_log": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check tests/test_files/Schematron_Error_1.xml --schematron_path tests/test_schematron_schema/test_schematron_1.sch --no-output_log": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check tests/test_files/Schematron_Error_1.xml --schematron_path tests/test_schematron_schema/test_schematron_1.sch --output_log": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check tests/test_files/Schematron_Error_1.xml --schematron_path tests/test_schematron_schema/test_schematron_2.sch --no-output_log": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "schematron_check tests/test_files/Schematron_Error_1.xml --schematron_path tests/test_schematron_schema/test_schematron_2.sch --output_log": {
+   "exit": 0,
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "",
+   "stdout": "No syntax error is detected.\nNo schematron validation error is detected.\n"
+  },
+  "validate_everything x.xml --no-output_log": {
+   "exit": "SystemExit(2)",
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "usage: pydiggs [-h] [--schema_path SCHEMA_PATH] [--dictionary_path DICTIONARY_PATH] [--schematron_path SCHEMATRON_PATH] [--output_log | --no-output_log]\n               {schema_check,schematron_check,dictionary_check,context_check} diggs_file\npydiggs: error: argument command: invalid choice: 'validate_everything' (choose from 'schema_check', 'schematron_check', 'dictionary_check', 'context_check')\n",
+   "stdout": ""
+  },
+  "validate_everything x.xml --output_log": {
+   "exit": "SystemExit(2)",
+   "logs": {},
+   "source": "1.1.1",
+   "stderr": "usage: pydiggs [-h] [--schema_path SCHEMA_PATH] [--dictionary_path DICTIONARY_PATH] [--schematron_path SCHEMATRON_PATH] [--output_log | --no-output_log]\n               {schema_check,schematron_check,dictionary_check,context_check} diggs_file\npydiggs: error: argument command: invalid choice: 'validate_everything' (choose from 'schema_check', 'schematron_check', 'dictionary_check', 'context_check')\n",
+   "stdout": ""
+  }
+ },
+ "comment": "Generated by scripts/regen_legacy_goldens.py; do not edit by hand.",
+ "env": {
+  "COLUMNS": "200",
+  "NO_COLOR": "1",
+  "TERM": "dumb"
+ },
+ "legacy": {
+  "commit": "7804f23caa99e42fd1d1b6966ef3e71c58f4c8db",
+  "ref": "v1.1.1"
+ },
+ "reviewed_248_files": [
+  "tests/fixtures/official/2.6/FieldSurveyExample.xml",
+  "tests/fixtures/official/2.6/ODOT_Example_2_20180702-from25.xml",
+  "tests/fixtures/official/3.0/Aeromag.xml",
+  "tests/fixtures/official/3.0/GeophysicalFieldSurveyExamples.xml",
+  "tests/fixtures/official/3.0/PorePressureDissipation_Example.xml",
+  "tests/fixtures/official/known_invalid/3.0_PileDrivingExample_schema-dev.xml"
+ ]
+}
