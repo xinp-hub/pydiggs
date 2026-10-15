@@ -114,6 +114,9 @@ PACKAGE_LOCAL = {
         "Legacy pre-def/codes property dictionary; no current upstream equivalent."
     ),
     "dictionaries/NOTICE": "Licence notice for the DIGGSml/def dictionaries.",
+    "findings/diggs-findings-1.0.schema.json": (
+        "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
+    ),
     "dictionaries/whiteList.xml": (
         "Network and local-path allow-list for codeSpace URLs. Security policy, so it is "
         "reviewed here rather than synced (DIGGSml/def docs/validation/whiteList.xml is "
