@@ -11,10 +11,24 @@ For more information about DIGGS, visit: http://www.diggsml.org/
 from __future__ import annotations
 
 from .detect import detect_diggs_version
+from .errors import InstanceReadError, PydiggsError, ResourceError
+from .findings.model import Finding, Report, Severity, Step
+from .findings.run import validate
 from .pydiggs import validator
 
 __author__ = """Xin Peng"""
 __email__ = "xin_peng@outlook.com"
 __version__ = "1.1.1"
 
-__all__ = ["detect_diggs_version", "validator"]
+__all__ = [
+    "Finding",
+    "InstanceReadError",
+    "PydiggsError",
+    "Report",
+    "ResourceError",
+    "Severity",
+    "Step",
+    "detect_diggs_version",
+    "validate",
+    "validator",
+]

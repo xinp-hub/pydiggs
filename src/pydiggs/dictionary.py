@@ -84,12 +84,17 @@ def _data_types_compatible(expected: str, actual: str) -> bool:
 
 @dataclass
 class ValidationMessage:
-    """One semantic-validation finding."""
+    """One semantic-validation finding.
+
+    ``node`` is the element the message is about, when known; it locates the finding
+    (line, xpath, gml:id) for :func:`pydiggs.validate` and never affects the text.
+    """
 
     severity: str
     element_path: str
     text: str
     check: int
+    node: etree._Element | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass
@@ -102,9 +107,18 @@ class DictionaryValidationResult:
     def ok(self) -> bool:
         return not any(m.severity == "ERROR" for m in self.messages)
 
-    def add(self, severity: str, path: str, text: str, check: int) -> None:
+    def add(
+        self,
+        severity: str,
+        path: str,
+        text: str,
+        check: int,
+        node: etree._Element | None = None,
+    ) -> None:
         self.messages.append(
-            ValidationMessage(severity=severity, element_path=path, text=text, check=check)
+            ValidationMessage(
+                severity=severity, element_path=path, text=text, check=check, node=node
+            )
         )
 
 
@@ -521,16 +535,24 @@ class DictionarySemanticValidator:
     def validate_instance(
         self, instance_path: str | os.PathLike[str]
     ) -> DictionaryValidationResult:
+        return self.validate_tree(_xml.parse(str(instance_path)), instance_path)
+
+    def validate_tree(
+        self, doc: etree._ElementTree, instance_path: str | os.PathLike[str]
+    ) -> DictionaryValidationResult:
+        """Validate an already-parsed instance; ``instance_path`` anchors relative URLs."""
         result = DictionaryValidationResult()
         self._instance_dir = Path(instance_path).resolve().parent
-        doc = _xml.parse(str(instance_path))
         root = doc.getroot()
         self._positions = _sibling_positions(root)
 
         for el in root.xpath("//*[@codeSpace]"):
             if _local(el) in _SKIP_LOCAL_NAMES:
                 continue
+            start = len(result.messages)
             self._validate_element(el, result)
+            for message in result.messages[start:]:
+                message.node = el
         return result
 
     def _validate_element(self, el: etree._Element, result: DictionaryValidationResult) -> None:

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Two of three Boreholes break the bundled totalMeasuredDepth rule (pydiggs test fixture). -->
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2">
+  <samplingFeature>
+    <Borehole gml:id="BH-1">
+      <totalMeasuredDepth uom="ft">-1</totalMeasuredDepth>
+    </Borehole>
+  </samplingFeature>
+  <samplingFeature>
+    <Borehole gml:id="BH-2">
+      <totalMeasuredDepth uom="ft">5</totalMeasuredDepth>
+    </Borehole>
+  </samplingFeature>
+  <samplingFeature>
+    <Borehole gml:id="BH-3">
+      <totalMeasuredDepth uom="ft">-3</totalMeasuredDepth>
+    </Borehole>
+  </samplingFeature>
+  <samplingFeature>
+    <Casing gml:id="C-1">
+      <casingOutsideDiameter uom="in">2</casingOutsideDiameter>
+      <casingInsideDiameter uom="in">3</casingInsideDiameter>
+    </Casing>
+  </samplingFeature>
+</Diggs>

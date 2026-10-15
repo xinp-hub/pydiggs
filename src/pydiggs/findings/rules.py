@@ -243,7 +243,7 @@ def schematron_user_rule(assert_id: str | None, context: str, test: str) -> str:
         >>> schematron_user_rule("borehole-depth", "//Borehole", "@depth > 0")
         'schematron.borehole-depth'
         >>> schematron_user_rule(None, "/*", "name()='Diggs'")
-        'schematron.user-b4d8d9a3d24c'
+        'schematron.user-45b6d8b8510e'
     """
     if assert_id and _NAME_PATTERN.match(assert_id):
         return f"schematron.{assert_id}"
