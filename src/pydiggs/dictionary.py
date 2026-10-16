@@ -217,10 +217,16 @@ class DictionarySemanticValidator:
         extra_dictionaries: Iterable[str | os.PathLike[str]] | None = None,
         allow_network: bool = False,
         check_value_code_spaces: bool = False,
+        local_dictionaries: str = "legacy",
     ) -> None:
         # Check 13 (official dictionary-validation.xsl Step 14) runs only for
         # pydiggs.validate(); dictionary_check() keeps its 1.1 behaviour.
         self.check_value_code_spaces = check_value_code_spaces
+        # "legacy" (dictionary_check): relative paths next to the instance, then the
+        # working directory, and any file: URI. validate() uses "instance-dir" or "off".
+        if local_dictionaries not in ("legacy", "instance-dir", "off"):
+            raise ValueError(f"unknown local_dictionaries mode {local_dictionaries!r}")
+        self.local_dictionaries = local_dictionaries
         self._result: DictionaryValidationResult | None = None
         self._check13: _Check13Index | None = None
         self.allow_network = allow_network
@@ -313,6 +319,8 @@ class DictionarySemanticValidator:
 
     def _local_candidates(self, base_url: str) -> list[Path]:
         """Local files a codeSpace may name: relative ones next to the instance first."""
+        if self.local_dictionaries != "legacy":
+            return self._contained_candidate(base_url)
         path = (
             Path(unquote(urlparse(base_url).path))
             if base_url.startswith("file:")
@@ -321,6 +329,34 @@ class DictionarySemanticValidator:
         if path.is_absolute() or self._instance_dir is None:
             return [path]
         return [self._instance_dir / path, path]
+
+    def _contained_candidate(self, base_url: str) -> list[Path]:
+        """``instance-dir`` mode: the one file inside the instance's folder, or nothing.
+
+        Relative codeSpaces resolve against the instance's folder only (no working
+        directory fallback); ``file:`` URIs and paths that leave the folder, through
+        ``..`` or a symlink, are refused before the file is opened, so a refusal looks
+        the same whether or not the file exists. ``off`` refuses every local file.
+        """
+        if (
+            self.local_dictionaries == "off"
+            or self._instance_dir is None
+            or base_url.startswith(("http://", "https://"))
+        ):
+            return []
+        if base_url.startswith("file:"):
+            path = Path(unquote(urlparse(base_url).path))
+        else:
+            path = Path(base_url)
+        if str(path).startswith(("//", "\\\\")):
+            return []
+        folder = self._instance_dir
+        candidate = path if path.is_absolute() else folder / path
+        # Lexical check first, so nothing outside the folder is even looked at.
+        if not Path(os.path.normpath(candidate)).is_relative_to(folder):
+            return []
+        resolved = candidate.resolve()
+        return [resolved] if resolved.is_relative_to(folder) else []
 
     def _resolve_dictionary(self, base_url: str) -> etree._ElementTree | None:
         if base_url in self._dict_cache:

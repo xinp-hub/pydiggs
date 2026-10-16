@@ -16,7 +16,7 @@ from collections.abc import Iterable, Iterator
 from functools import cache
 from importlib import resources
 from pathlib import Path
-from typing import Final
+from typing import Final, Literal
 
 from lxml import etree, isoschematron
 
@@ -60,6 +60,8 @@ MAX_XPATH_CHARS: Final = 4096
 #: Budget for one report's findings, roughly as serialised to JSON.
 MAX_REPORT_BYTES: Final = 16 * 2**20
 _FINDING_OVERHEAD: Final = 200  # JSON keys, punctuation and the fixed fields
+#: Where validate() may read dictionaries named by relative codeSpaces.
+LocalDictionaries = Literal["instance-dir", "off"]
 #: Default ``max_findings`` of :func:`validate`.
 DEFAULT_MAX_FINDINGS: Final = 10_000
 #: Default ``max_bytes`` of :func:`validate`: 100 MB.
@@ -84,7 +86,9 @@ class _Cache(threading.local):
     def __init__(self) -> None:
         self.schemas: dict[str, etree.XMLSchema] = {}
         self.schematrons: dict[str, isoschematron.Schematron] = {}
-        self.dictionaries: dict[tuple[str, int, int, bool], DictionarySemanticValidator] = {}
+        self.dictionaries: dict[
+            tuple[str, bool, str], tuple[tuple[int, int], DictionarySemanticValidator]
+        ] = {}
 
 
 _CACHE: Final = _Cache()
@@ -432,29 +436,41 @@ def _run_schematron(
 
 
 def _dictionary_validator(
-    dictionary_path: str | os.PathLike[str] | None, *, allow_network: bool
+    dictionary_path: str | os.PathLike[str] | None,
+    *,
+    allow_network: bool,
+    local_dictionaries: LocalDictionaries = "instance-dir",
 ) -> DictionarySemanticValidator:
     """A validator for this dictionary, reused within the thread while the file is unchanged.
 
     Building one parses every bundled dictionary (most of the time per file), so it is
-    cached; per-instance state is reset by ``validate_tree``.
+    cached per (dictionary, allow_network, local_dictionaries), one entry each, replaced
+    when the dictionary file changes; per-instance state is reset by ``validate_tree``.
     """
     path = Path(dictionary_path) if dictionary_path is not None else _DEFAULT_DICTIONARY
     try:
-        stat = path.resolve().stat()
+        resolved = path.resolve()
+        stat = resolved.stat()
     except OSError as exc:
         raise ResourceError(f"dictionary {str(path)!r} is not a readable file") from exc
     if not path.is_file():
         raise ResourceError(f"dictionary {str(path)!r} is not a readable file")
-    key = (str(path.resolve()), stat.st_mtime_ns, stat.st_size, allow_network)
-    if key not in _CACHE.dictionaries:
+    key = (str(resolved), allow_network, local_dictionaries)
+    version = (stat.st_mtime_ns, stat.st_size)
+    cached = _CACHE.dictionaries.get(key)
+    if cached is None or cached[0] != version:
         try:
-            _CACHE.dictionaries[key] = DictionarySemanticValidator(
-                dictionary_path=path, allow_network=allow_network, check_value_code_spaces=True
+            validator = DictionarySemanticValidator(
+                dictionary_path=path,
+                allow_network=allow_network,
+                check_value_code_spaces=True,
+                local_dictionaries=local_dictionaries,
             )
         except (OSError, etree.XMLSyntaxError) as exc:
             raise ResourceError(f"cannot read dictionary data: {exc}") from exc
-    return _CACHE.dictionaries[key]
+        cached = (version, validator)
+        _CACHE.dictionaries[key] = cached
+    return cached[1]
 
 
 def _run_dictionary(
@@ -464,8 +480,11 @@ def _run_dictionary(
     dictionary_path: str | os.PathLike[str] | None,
     *,
     allow_network: bool,
+    local_dictionaries: LocalDictionaries,
 ) -> StepStatus:
-    semantic = _dictionary_validator(dictionary_path, allow_network=allow_network)
+    semantic = _dictionary_validator(
+        dictionary_path, allow_network=allow_network, local_dictionaries=local_dictionaries
+    )
     result = semantic.validate_tree(doc, instance, max_messages=builder.remaining)
     for count, severity in result.dropped.values():
         builder.drop(Step.DICTIONARY, _SEVERITY.get(severity, Severity.ERROR), count)
@@ -481,11 +500,39 @@ def _run_dictionary(
                 node=message.node,
             )
             continue
+        if _is_local_inaccessible(message):
+            builder.add(
+                Step.DICTIONARY,
+                rules.dictionary_rule(message.check),
+                Severity.WARNING,
+                _CHECK_PREFIX.sub("", message.text) + _LOCAL_NOTE[local_dictionaries],
+                node=message.node,
+            )
+            continue
         builder.add_legacy(Step.DICTIONARY, rules.dictionary_rule(message.check), message)
     return builder.status(Step.DICTIONARY)
 
 
 _REMOTE: Final = re.compile(r'"https?://[^"]+"')
+
+
+_LOCAL_NOTE: Final = {
+    "instance-dir": (
+        " Local dictionaries are read only from inside the instance's folder"
+        " (local_dictionaries='instance-dir'); this one is outside it, missing or unreadable."
+    ),
+    "off": " Local dictionaries are not read (local_dictionaries='off').",
+}
+
+
+def _is_local_inaccessible(message: ValidationMessage) -> bool:
+    """A Check 3 or Check 13 'could not be accessed' about a local (non-http) resource."""
+    return (
+        message.check in (3, 13)
+        and message.severity == "WARNING"
+        and "could not be accessed" in message.text
+        and _REMOTE.search(message.text) is None
+    )
 
 
 def _is_offline(message: ValidationMessage) -> bool:
@@ -541,6 +588,7 @@ def validate(
     max_findings: int | None = DEFAULT_MAX_FINDINGS,
     max_bytes: int | None = None,
     base_dir: str | os.PathLike[str] | None = None,
+    local_dictionaries: LocalDictionaries = "instance-dir",
 ) -> Report:
     """Validate one DIGGS instance with every native check and return the findings.
 
@@ -568,6 +616,12 @@ def validate(
             steps that lost findings are ``incomplete``.
         max_bytes: Largest instance accepted, in bytes (default
             :data:`DEFAULT_MAX_BYTES`, 100 MB). The legacy ``validator`` keeps 1 GiB.
+        local_dictionaries: ``"instance-dir"`` (default): a relative or ``file:``
+            codeSpace is read only if it names a file inside the instance's folder
+            (no working-directory fallback, no escape through ``..`` or symlinks);
+            anything else is reported as not accessible (``dictionary.3``). ``"off"``:
+            no local dictionary is read. The legacy ``dictionary_check()`` keeps its
+            1.1 behaviour.
         base_dir: Report the path relative to this folder (the bare file name when
             the file is outside it). Default: the working directory, unless that is
             ``/`` or an ancestor of the home directory, when the bare name is used.
@@ -598,6 +652,10 @@ def validate(
             f"unknown DIGGS version {diggs_version!r}; expected one of {sorted(SCHEMA_PATHS)}"
         )
     limit = _limits(max_findings, max_bytes)
+    if local_dictionaries not in ("instance-dir", "off"):
+        raise ValueError(
+            f"local_dictionaries must be 'instance-dir' or 'off', got {local_dictionaries!r}"
+        )
     wanted = _checks(checks)
     shown, absolute = display_paths(path, base_dir)
     instance = Path(path)
@@ -645,7 +703,12 @@ def validate(
         steps[Step.SCHEMA] = _run_schema(doc, builder, profile, schema_path)
     if Step.DICTIONARY in wanted:
         steps[Step.DICTIONARY] = _run_dictionary(
-            doc, builder, instance, dictionary_path, allow_network=allow_network
+            doc,
+            builder,
+            instance,
+            dictionary_path,
+            allow_network=allow_network,
+            local_dictionaries=local_dictionaries,
         )
     if Step.SCHEMATRON in wanted:
         steps[Step.SCHEMATRON] = _run_schematron(doc, builder, schematron_path)
