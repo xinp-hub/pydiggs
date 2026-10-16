@@ -65,9 +65,10 @@ def read_limited(
     """Read a path, ``file:`` URI or binary file object, enforcing the local limits.
 
     ``limit`` is the largest accepted size in bytes (default :data:`MAX_LOCAL_BYTES`).
-    ``regular_only`` (used by :func:`pydiggs.validate`) opens without blocking and
-    refuses anything but a regular file, so a FIFO cannot hang a batch; the legacy
-    callers leave it off and can still read ``/dev/stdin`` or a pipe, as in 1.1.
+    ``regular_only`` (used by :func:`pydiggs.validate`) opens without blocking,
+    refuses anything but a regular file (so a FIFO cannot hang a batch) and raises
+    errno-carrying errors without the file name. The legacy callers leave it off: they
+    can still read ``/dev/stdin`` or a pipe and get the 1.1 messages, name included.
     Returns the bytes and the name to report them under.
 
     Raises:
@@ -94,10 +95,13 @@ def read_limited(
             with Path(path).open("rb") as fh:
                 data = fh.read(limit + 1)
     if len(data) > limit:
-        # No file name in the message: callers report the path in their own form.
-        raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
+        if regular_only:  # validate(): no file name; it reports the path in its own form
+            raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
+        raise OSError(f"XML file exceeds {limit} bytes: {name}")  # 1.1 text, unchanged
     if data[:2] == _GZIP_MAGIC:
-        raise OSError(errno.EINVAL, "compressed XML is not accepted")
+        if regular_only:
+            raise OSError(errno.EINVAL, "compressed XML is not accepted")
+        raise OSError(f"compressed XML is not accepted: {name}")
     return data, name
 
 
