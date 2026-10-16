@@ -50,8 +50,9 @@ def test_no_limit_and_bad_limits():
     for bad in (0, -1, 1.5, True):
         with pytest.raises(ValueError, match="max_findings"):
             validate(NO_ERROR, max_findings=bad)  # type: ignore[arg-type]
-    with pytest.raises(ValueError, match="max_bytes"):
-        validate(NO_ERROR, max_bytes=0)
+    for bad_size in (0, None):
+        with pytest.raises(ValueError, match="max_bytes"):
+            validate(NO_ERROR, max_bytes=bad_size)  # type: ignore[arg-type]
 
 
 def test_size_limit_is_configurable_and_legacy_keeps_its_own(tmp_path, monkeypatch):
@@ -59,11 +60,9 @@ def test_size_limit_is_configurable_and_legacy_keeps_its_own(tmp_path, monkeypat
     with pytest.raises(InstanceReadError, match=f"exceeds {size - 1} bytes"):
         validate(NO_ERROR, max_bytes=size - 1)
     assert validate(NO_ERROR, max_bytes=size).ok
-    from pydiggs.findings import run
-
-    monkeypatch.setattr(run, "DEFAULT_MAX_BYTES", size - 1)
-    with pytest.raises(InstanceReadError):
-        validate(NO_ERROR)
+    assert main(["validate", "--max-bytes", str(size - 1), str(NO_ERROR)]) == 2
+    with pytest.raises(SystemExit):
+        main(["validate", "--max-bytes", "0", str(NO_ERROR)])
     assert validator(str(NO_ERROR), output_log=False).schema_check() is True
 
 

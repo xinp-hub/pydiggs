@@ -95,24 +95,27 @@ def test_broken_user_schematron_is_a_resource_error(name, match, capsys):
 def _leak_inputs(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     import gzip
 
-    from pydiggs.findings import run
-
     folder = tmp_path / "secret-folder"
     folder.mkdir()
     packed = folder / "packed.xml"
     packed.write_bytes(gzip.compress(NO_ERROR.read_bytes()))
     big = folder / "big.xml"
     big.write_bytes(NO_ERROR.read_bytes())
-    monkeypatch.setattr(run, "DEFAULT_MAX_BYTES", packed.stat().st_size + 1)
     assert big.stat().st_size > packed.stat().st_size + 1
     return packed, big
+
+
+def _limit(packed: Path) -> int:
+    return packed.stat().st_size + 1
 
 
 @pytest.mark.parametrize("fmt", ["json", "sarif", "text"])
 def test_unreadable_reasons_carry_no_absolute_path(tmp_path, monkeypatch, capsys, fmt):
     packed, big = _leak_inputs(tmp_path, monkeypatch)
     monkeypatch.chdir(ROOT)
-    code = main(["validate", "--format", fmt, str(packed), str(big)])
+    code = main(
+        ["validate", "--format", fmt, "--max-bytes", str(_limit(packed)), str(packed), str(big)]
+    )
     out, err = capsys.readouterr()
     assert code == 2
     assert "secret-folder" not in out + err
@@ -126,7 +129,7 @@ def test_instance_read_error_names_the_shown_path_only(tmp_path, monkeypatch):
     packed, _ = _leak_inputs(tmp_path, monkeypatch)
     monkeypatch.chdir(ROOT)
     with pytest.raises(InstanceReadError) as exc:
-        validate(packed)
+        validate(packed, max_bytes=_limit(packed))
     assert exc.value.strerror == "compressed XML is not accepted"
     assert exc.value.filename == "packed.xml"
     assert "secret-folder" not in str(exc.value)

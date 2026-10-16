@@ -23,6 +23,7 @@ from pydiggs.errors import InstanceReadError, ResourceError
 from pydiggs.findings import _json, _sarif
 from pydiggs.findings.model import Report, Severity, UnreadableFile
 from pydiggs.findings.run import (
+    DEFAULT_MAX_BYTES,
     DEFAULT_MAX_FINDINGS,
     NATIVE_STEPS,
     display_paths,
@@ -80,6 +81,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--absolute-paths",
         action="store_true",
         help="report absolute paths (default: relative to here, else the bare file name)",
+    )
+    parser.add_argument(
+        "--max-bytes",
+        type=int,
+        default=DEFAULT_MAX_BYTES,
+        metavar="N",
+        help="refuse instances larger than N bytes (default 100 MiB)",
     )
     parser.add_argument(
         "--local-dictionaries",
@@ -189,6 +197,8 @@ def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.N
             parser.error(f"--checks: expected some of {','.join(sorted(allowed))}")
     if args.max_findings < 0:
         parser.error("--max-findings must be 0 (no limit) or positive")
+    if args.max_bytes < 1:
+        parser.error("--max-bytes must be positive")
     return args
 
 
@@ -211,6 +221,7 @@ def _run(
                     allow_network=args.allow_network,
                     include_snippets=args.snippets,
                     max_findings=args.max_findings or None,
+                    max_bytes=args.max_bytes,
                     base_dir=args.base_dir,
                     local_dictionaries=args.local_dictionaries,
                 )
