@@ -93,7 +93,7 @@ def test_broken_user_schematron_is_a_resource_error(name, match, capsys):
 def _leak_inputs(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     import gzip
 
-    from pydiggs import _xml
+    from pydiggs.findings import run
 
     folder = tmp_path / "secret-folder"
     folder.mkdir()
@@ -101,7 +101,7 @@ def _leak_inputs(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
     packed.write_bytes(gzip.compress(NO_ERROR.read_bytes()))
     big = folder / "big.xml"
     big.write_bytes(NO_ERROR.read_bytes())
-    monkeypatch.setattr(_xml, "MAX_LOCAL_BYTES", packed.stat().st_size + 1)
+    monkeypatch.setattr(run, "DEFAULT_MAX_BYTES", packed.stat().st_size + 1)
     assert big.stat().st_size > packed.stat().st_size + 1
     return packed, big
 

@@ -58,29 +58,30 @@ def safe_parser() -> etree.XMLParser:
     )
 
 
-def read_limited(source: XMLSource) -> tuple[bytes, str | bytes | None]:
+def read_limited(source: XMLSource, limit: int | None = None) -> tuple[bytes, str | bytes | None]:
     """Read a path, ``file:`` URI or binary file object, enforcing the local limits.
 
+    ``limit`` is the largest accepted size in bytes (default :data:`MAX_LOCAL_BYTES`).
     Returns the bytes and the name to report them under.
 
     Raises:
-        OSError: if the file cannot be read, exceeds :data:`MAX_LOCAL_BYTES`, or is
-            gzip-compressed.
+        OSError: if the file cannot be read, exceeds the limit, or is gzip-compressed.
     """
+    limit = MAX_LOCAL_BYTES if limit is None else limit
     if hasattr(source, "read"):
         reader = cast("IO[bytes]", source)
         name = getattr(reader, "name", None)
-        data = reader.read(MAX_LOCAL_BYTES + 1)
+        data = reader.read(limit + 1)
     else:
         path = os.fsdecode(os.fspath(source))
         if path.startswith("file:"):
             path = url2pathname(urlsplit(path).path)
         name = path
         with Path(path).open("rb") as fh:
-            data = fh.read(MAX_LOCAL_BYTES + 1)
-    if len(data) > MAX_LOCAL_BYTES:
+            data = fh.read(limit + 1)
+    if len(data) > limit:
         # No file name in the message: callers report the path in their own form.
-        raise OSError(errno.EFBIG, f"XML file exceeds {MAX_LOCAL_BYTES} bytes")
+        raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
     if data[:2] == _GZIP_MAGIC:
         raise OSError(errno.EINVAL, "compressed XML is not accepted")
     return data, name

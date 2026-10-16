@@ -464,7 +464,7 @@ sha256 = "152c019c97353d45ffe2c344872e283eaf2853cdcd9f8e577af0382355066e50"
 [files."findings/diggs-findings-1.0.schema.json"]
 source = "local"
 note = "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
-sha256 = "441aad503db723e070118b5467340253e06d6a428b6469c85f1546b9d6a80d4d"
+sha256 = "2f6a9a5703f33da5e80c198ae846d2d4e80949362f6ca473dc1fbabd5adc792d"
 
 [files."schemas/LICENSE"]
 source = "schemas"

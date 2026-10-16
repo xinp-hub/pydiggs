@@ -98,7 +98,10 @@
             "additionalProperties": false,
             "properties": {
               "step": { "$ref": "#/$defs/step" },
-              "status": { "enum": ["passed", "failed", "skipped", "incomplete"] }
+              "status": {
+                "enum": ["passed", "failed", "skipped", "incomplete"],
+                "description": "incomplete: the step could not finish, or lost findings to max_findings (see the structure.findings-truncated finding)."
+              }
             }
           }
         },

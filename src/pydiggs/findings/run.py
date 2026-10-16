@@ -31,7 +31,14 @@ from pydiggs.findings.model import Finding, Report, Severity, Step, StepStatus
 from pydiggs.pydiggs import _DEFAULT_DICTIONARY, _DEFAULT_SCHEMATRON, _casing_diameter_problems
 from pydiggs.semantic import validate_context_tree
 
-__all__ = ["NATIVE_STEPS", "display_paths", "reference_data", "validate"]
+__all__ = [
+    "DEFAULT_MAX_BYTES",
+    "DEFAULT_MAX_FINDINGS",
+    "NATIVE_STEPS",
+    "display_paths",
+    "reference_data",
+    "validate",
+]
 
 #: Steps the native layer implements, in pipeline order. ``checks`` selects from these.
 NATIVE_STEPS: Final = (
@@ -43,6 +50,10 @@ NATIVE_STEPS: Final = (
     Step.DEPRECATION,
     Step.CONTEXT,
 )
+#: Default ``max_findings`` of :func:`validate`.
+DEFAULT_MAX_FINDINGS: Final = 10_000
+#: Default ``max_bytes`` of :func:`validate`: 100 MB.
+DEFAULT_MAX_BYTES: Final = 100 * 1024 * 1024
 _CONTEXT_STEPS: Final = frozenset({Step.STRUCTURE, Step.GEOMETRY, Step.CONTEXT})
 _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO": Severity.INFO}
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
@@ -103,6 +114,16 @@ def _redact(exc: OSError, path: str | os.PathLike[str], shown: str) -> str:
     return reason
 
 
+def _limits(max_findings: int | None, max_bytes: int | None) -> int:
+    """Check the two limits; return the size limit to apply."""
+    if max_findings is not None and (type(max_findings) is not int or max_findings < 1):
+        raise ValueError(f"max_findings must be a positive int or None, got {max_findings!r}")
+    limit = DEFAULT_MAX_BYTES if max_bytes is None else max_bytes
+    if type(limit) is not int or limit < 1:
+        raise ValueError(f"max_bytes must be a positive int, got {max_bytes!r}")
+    return limit
+
+
 def _checks(checks: Iterable[str | Step] | None) -> frozenset[Step]:
     if checks is None:
         return frozenset(NATIVE_STEPS)
@@ -122,11 +143,21 @@ def _checks(checks: Iterable[str | Step] | None) -> frozenset[Step]:
 class _Builder:
     """Collects findings for one file, locating each from its element."""
 
-    def __init__(self, locator: Locator | None, *, snippets: bool, scrub: tuple[str, str]) -> None:
+    def __init__(
+        self,
+        locator: Locator | None,
+        *,
+        snippets: bool,
+        scrub: tuple[str, str],
+        max_findings: int | None = None,
+    ) -> None:
         self.locator = locator
         self.snippets = snippets
         self.scrub = scrub
+        self.max_findings = max_findings
         self.findings: list[Finding] = []
+        #: Findings not kept because ``max_findings`` was reached: count and worst severity.
+        self.dropped: dict[Step, tuple[int, Severity]] = {}
 
     def add(
         self,
@@ -140,6 +171,10 @@ class _Builder:
         column: int | None = None,
         attribute: str | None = None,
     ) -> None:
+        if self.max_findings is not None and len(self.findings) >= self.max_findings:
+            count, worst = self.dropped.get(step, (0, severity))
+            self.dropped[step] = (count + 1, max(worst, severity, key=lambda s: s.rank))
+            return
         absolute, shown = self.scrub
         text = message.replace(absolute, shown) if absolute else message
         xpath = gml_id = snippet = None
@@ -172,8 +207,27 @@ class _Builder:
         )
 
     def status(self, step: Step) -> StepStatus:
+        if step in self.dropped:
+            return "incomplete"
         failed = any(f.step is step and f.severity is Severity.ERROR for f in self.findings)
         return "failed" if failed else "passed"
+
+    def truncation(self) -> Finding | None:
+        """One finding saying how many were left out, as severe as the worst of them."""
+        if not self.dropped:
+            return None
+        total = sum(count for count, _ in self.dropped.values())
+        worst = max((sev for _, sev in self.dropped.values()), key=lambda s: s.rank)
+        names = ", ".join(step.value for step in sorted(self.dropped, key=lambda s: s.order))
+        return Finding(
+            step=Step.STRUCTURE,
+            rule_id=rules.FINDINGS_TRUNCATED,
+            severity=worst,
+            message=(
+                f"Stopped after {self.max_findings} findings; {total} more were not reported "
+                f"(steps: {names}). Raise max_findings to see them."
+            ),
+        )
 
 
 def _load_trusted(path: str | os.PathLike[str], what: str) -> etree._ElementTree:
@@ -369,6 +423,8 @@ def validate(
     schematron_path: str | os.PathLike[str] | None = None,
     allow_network: bool = False,
     include_snippets: bool = False,
+    max_findings: int | None = DEFAULT_MAX_FINDINGS,
+    max_bytes: int | None = None,
 ) -> Report:
     """Validate one DIGGS instance with every native check and return the findings.
 
@@ -390,6 +446,12 @@ def validate(
         allow_network: Fetch whitelisted remote code lists that are not bundled.
         include_snippets: Attach each finding's element XML (up to 1 KiB). Off by
             default because snippets carry the file's data.
+        max_findings: Keep at most this many findings (default 10,000; None for no
+            limit). When it is reached, one ``structure.findings-truncated`` finding,
+            as severe as the worst one left out, says how many were dropped, and the
+            steps that lost findings are ``incomplete``.
+        max_bytes: Largest instance accepted, in bytes (default
+            :data:`DEFAULT_MAX_BYTES`, 100 MB). The legacy ``validator`` keeps 1 GiB.
 
     Returns:
         A :class:`~pydiggs.Report`; ``report.ok`` is True when no finding is an error.
@@ -398,7 +460,8 @@ def validate(
         InstanceReadError: The instance cannot be read (also an ``OSError``).
         ResourceError: A schema, dictionary or Schematron file, or bundled data, is
             missing or broken.
-        ValueError: ``diggs_version`` or ``checks`` names something unknown.
+        ValueError: ``diggs_version`` or ``checks`` names something unknown, or a
+            limit is not positive.
 
     Example:
         >>> from pydiggs import validate
@@ -415,11 +478,12 @@ def validate(
         raise ValueError(
             f"unknown DIGGS version {diggs_version!r}; expected one of {sorted(SCHEMA_PATHS)}"
         )
+    limit = _limits(max_findings, max_bytes)
     wanted = _checks(checks)
     shown, absolute = display_paths(path)
     instance = Path(path)
     try:
-        data, _ = _xml.read_limited(instance)
+        data, _ = _xml.read_limited(instance, limit)
     except OSError as exc:
         raise InstanceReadError(exc.errno or 0, _redact(exc, path, shown), shown) from exc
     sha256 = hashlib.sha256(data).hexdigest()
@@ -433,7 +497,7 @@ def validate(
             sha256=sha256,
             diggs_version=version,
             steps=steps,
-            findings=tuple(builder.findings),
+            findings=(*builder.findings, *filter(None, [builder.truncation()])),
             tool_version=pydiggs.__version__,
             reference_data=reference_data(),
         )
@@ -455,7 +519,9 @@ def validate(
         return report(builder, diggs_version)
 
     profile = diggs_version or detect_diggs_version(doc)
-    builder = _Builder(Locator(doc), snippets=include_snippets, scrub=scrub)
+    builder = _Builder(
+        Locator(doc), snippets=include_snippets, scrub=scrub, max_findings=max_findings
+    )
     if Step.SCHEMA in wanted:
         steps[Step.SCHEMA] = _run_schema(doc, builder, profile, schema_path)
     if Step.DICTIONARY in wanted:
@@ -472,4 +538,6 @@ def validate(
             steps[step] = builder.status(step)
     if Step.STRUCTURE not in wanted:
         steps[Step.STRUCTURE] = "passed"  # well-formed; the root checks were not asked for
+    for step in builder.dropped:
+        steps[step] = "incomplete"
     return report(builder, profile)
