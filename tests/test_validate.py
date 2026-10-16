@@ -93,11 +93,15 @@ def test_counts_match_the_legacy_dictionary_messages():
     path = FIXTURES / "official" / "3.0" / "PorePressureDissipation_Example.xml"
     legacy = DictionarySemanticValidator().validate_instance(path)
     report = validate(path, checks=["dictionary"])
-    native = [f for f in report.findings if f.rule_id.split(".")[1].isdigit()]
-    assert sorted(f.rule_id for f in native) == sorted(
+    native = [
+        "dictionary.3" if f.rule_id == rules.DICTIONARY_OFFLINE else f.rule_id
+        for f in report.findings
+        if f.rule_id.split(".")[1].isdigit() or f.rule_id == rules.DICTIONARY_OFFLINE
+    ]
+    assert sorted(native) == sorted(
         f"dictionary.{m.check}" for m in legacy.messages
     )
-    assert {f.message for f in native if f.rule_id == "dictionary.5"} == {
+    assert {f.message for f in report.findings if f.rule_id == "dictionary.5"} == {
         m.text.split("\n", 1)[1] for m in legacy.messages if m.check == 5
     }
 
@@ -265,15 +269,30 @@ def test_messages_never_carry_the_absolute_instance_path(tmp_path):
     assert str(tmp_path) not in report.to_json()
 
 
-def test_offline_info_lists_unfetched_code_lists():
-    report = validate(
-        FIXTURES / "official" / "3.0" / "PorePressureDissipation_Example.xml",
-        checks=["dictionary"],
-    )
-    (offline,) = [f for f in report.findings if f.rule_id == rules.DICTIONARY_OFFLINE]
-    assert offline.severity is Severity.INFO
-    assert "allow_network=False" in offline.message
-    assert offline.line is None
+def test_offline_remote_dictionaries_are_info_not_warnings(monkeypatch, capsys):
+    from pydiggs import _xml
+    from pydiggs.cli import main
+
+    path = FIXTURES / "official" / "3.0" / "PorePressureDissipation_Example.xml"
+    report = validate(path, checks=["dictionary"])
+    offline = [f for f in report.findings if f.rule_id == rules.DICTIONARY_OFFLINE]
+    assert len(offline) == 12
+    assert all(f.severity is Severity.INFO and f.line for f in offline)
+    assert "allow_network=False" in offline[0].message
+    assert not [f for f in report.findings if f.rule_id == "dictionary.3"]
+    water = FIXTURES / "official" / "2.6" / "water_content-from25.xml"
+    assert main(["validate", "--checks", "dictionary", "--fail-on", "warning", str(water)]) == 0
+    capsys.readouterr()
+
+    def unreachable(url, patterns):
+        raise OSError("network down")
+
+    monkeypatch.setattr(_xml, "fetch_and_parse", unreachable)
+    online = validate(path, checks=["dictionary"], allow_network=True)
+    assert not [f for f in online.findings if f.rule_id == rules.DICTIONARY_OFFLINE]
+    third = [f for f in online.findings if f.rule_id == "dictionary.3"]
+    assert len(third) == 12
+    assert all(f.severity is Severity.WARNING for f in third)
 
 
 _DETERMINISM = """
