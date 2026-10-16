@@ -1,6 +1,7 @@
 """Hardened XML parsing: entity, DTD and network attacks must not reach libxml2."""
 
 import ast
+import sys
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -398,3 +399,20 @@ def test_relative_dictionary_resolves_next_to_the_instance(
     monkeypatch.chdir(elsewhere)
     result = DictionarySemanticValidator().validate_instance(doc)
     assert not any(m.check == 3 for m in result.messages), [m.text for m in result.messages]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="no /dev/stdin on Windows")
+def test_legacy_validator_still_reads_dev_stdin_and_pipes() -> None:
+    """1.1.1 read /dev/stdin and FIFOs; only validate() refuses non-regular files."""
+    import subprocess
+
+    instance = Path("tests/test_files/2.6/No_Error_2_6.xml").read_bytes()
+    script = (
+        "from pydiggs import validator; import sys; "
+        "sys.exit(0 if validator('/dev/stdin', output_log=False).schema_check() else 1)"
+    )
+    result = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", script], input=instance, capture_output=True, check=False
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert b"No schema validation error is detected" in result.stdout

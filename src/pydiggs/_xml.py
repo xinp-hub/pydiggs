@@ -18,6 +18,7 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterable
+from pathlib import Path
 from typing import IO, cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
@@ -58,10 +59,15 @@ def safe_parser() -> etree.XMLParser:
     )
 
 
-def read_limited(source: XMLSource, limit: int | None = None) -> tuple[bytes, str | bytes | None]:
+def read_limited(
+    source: XMLSource, limit: int | None = None, *, regular_only: bool = False
+) -> tuple[bytes, str | bytes | None]:
     """Read a path, ``file:`` URI or binary file object, enforcing the local limits.
 
     ``limit`` is the largest accepted size in bytes (default :data:`MAX_LOCAL_BYTES`).
+    ``regular_only`` (used by :func:`pydiggs.validate`) opens without blocking and
+    refuses anything but a regular file, so a FIFO cannot hang a batch; the legacy
+    callers leave it off and can still read ``/dev/stdin`` or a pipe, as in 1.1.
     Returns the bytes and the name to report them under.
 
     Raises:
@@ -77,12 +83,16 @@ def read_limited(source: XMLSource, limit: int | None = None) -> tuple[bytes, st
         if path.startswith("file:"):
             path = url2pathname(urlsplit(path).path)
         name = path
-        # O_NONBLOCK: opening a FIFO must not hang; then refuse anything but a regular file.
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
-        with os.fdopen(fd, "rb") as fh:
-            if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
-                raise OSError(errno.EINVAL, "not a regular file")
-            data = fh.read(limit + 1)
+        if regular_only:
+            # O_NONBLOCK: opening a FIFO must not hang; then refuse anything irregular.
+            flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+            with os.fdopen(os.open(path, flags), "rb") as fh:
+                if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+                    raise OSError(errno.EINVAL, "not a regular file")
+                data = fh.read(limit + 1)
+        else:
+            with Path(path).open("rb") as fh:
+                data = fh.read(limit + 1)
     if len(data) > limit:
         # No file name in the message: callers report the path in their own form.
         raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
