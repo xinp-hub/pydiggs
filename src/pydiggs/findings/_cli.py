@@ -80,6 +80,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="report absolute paths (default: relative to here, else the bare file name)",
     )
     parser.add_argument(
+        "--base-dir",
+        metavar="DIR",
+        help="report paths relative to DIR (default: here, unless here is / or above home)",
+    )
+    parser.add_argument(
         "--allow-network",
         action="store_true",
         help="fetch whitelisted remote code lists that are not bundled",
@@ -172,10 +177,11 @@ def _run(
                     allow_network=args.allow_network,
                     include_snippets=args.snippets,
                     max_findings=args.max_findings or None,
+                    base_dir=args.base_dir,
                 )
             )
         except InstanceReadError as exc:
-            shown, absolute = display_paths(path)
+            shown, absolute = display_paths(path, args.base_dir)
             unreadable.append(
                 UnreadableFile(path=shown, error=exc.strerror or str(exc), absolute_path=absolute)
             )

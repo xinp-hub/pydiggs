@@ -87,18 +87,36 @@ def reference_data() -> dict[str, str]:
         raise ResourceError(f"bundled PROVENANCE.toml is missing or broken: {exc}") from exc
 
 
-def display_paths(path: str | os.PathLike[str]) -> tuple[str, str]:
+def display_paths(
+    path: str | os.PathLike[str], base_dir: str | os.PathLike[str] | None = None
+) -> tuple[str, str]:
     """Return (reported path, absolute path), both with forward slashes.
 
-    The reported path is relative to the working directory when the file is under it,
-    else the bare file name, so reports carry no home directory by default.
+    The reported path is relative to ``base_dir`` when given and the file is under it.
+    Without ``base_dir`` it is relative to the working directory, unless that is the
+    file-system root or an ancestor of the home directory (where a relative path would
+    still spell out the user's directory layout). Otherwise it is the bare file name.
     """
     absolute = Path(path).resolve()
-    try:
-        shown = absolute.relative_to(Path.cwd().resolve()).as_posix()
-    except ValueError:
+    if base_dir is not None:
+        base: Path | None = Path(base_dir).resolve()
+    else:
+        cwd = Path.cwd().resolve()
+        try:
+            home = Path.home().resolve()
+        except (KeyError, RuntimeError):  # no home directory (some service accounts)
+            home = None
+        too_broad = cwd == Path(cwd.anchor) or (home is not None and cwd in home.parents)
+        base = None if too_broad else cwd
+    shown = ""
+    if base is not None:
+        try:
+            shown = absolute.relative_to(base).as_posix()
+        except ValueError:
+            shown = ""
+    if shown in ("", "."):
         shown = absolute.name
-    return shown or absolute.name, absolute.as_posix()
+    return shown, absolute.as_posix()
 
 
 def _redact(exc: OSError, path: str | os.PathLike[str], shown: str) -> str:
@@ -425,6 +443,7 @@ def validate(
     include_snippets: bool = False,
     max_findings: int | None = DEFAULT_MAX_FINDINGS,
     max_bytes: int | None = None,
+    base_dir: str | os.PathLike[str] | None = None,
 ) -> Report:
     """Validate one DIGGS instance with every native check and return the findings.
 
@@ -452,6 +471,9 @@ def validate(
             steps that lost findings are ``incomplete``.
         max_bytes: Largest instance accepted, in bytes (default
             :data:`DEFAULT_MAX_BYTES`, 100 MB). The legacy ``validator`` keeps 1 GiB.
+        base_dir: Report the path relative to this folder (the bare file name when
+            the file is outside it). Default: the working directory, unless that is
+            ``/`` or an ancestor of the home directory, when the bare name is used.
 
     Returns:
         A :class:`~pydiggs.Report`; ``report.ok`` is True when no finding is an error.
@@ -480,7 +502,7 @@ def validate(
         )
     limit = _limits(max_findings, max_bytes)
     wanted = _checks(checks)
-    shown, absolute = display_paths(path)
+    shown, absolute = display_paths(path, base_dir)
     instance = Path(path)
     try:
         data, _ = _xml.read_limited(instance, limit)
