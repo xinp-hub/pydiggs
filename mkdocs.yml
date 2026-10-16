@@ -47,6 +47,9 @@ theme:
     - content.tooltips
     - announce.dismiss
 
+hooks:
+  - scripts/mkdocs_hooks.py
+
 plugins:
   - search
   - tags
@@ -126,6 +129,7 @@ nav:
   - Getting Started:
     - Installation: installation.md
     - Usage: usage.md
+    - Findings (JSON / SARIF): findings.md
   - Development:
     - Contributing: contributing.md
     - Authors: authors.md
