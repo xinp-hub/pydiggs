@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="dynamicLoadTestMethod">
+    <gml:description>Codes classifying the method used to evaluate pile/element compressive resistance from a high-strain dynamic (hammer impact) load test. Used for the value of diggs:DynamicLoadTestType/testMethod. Spans EN ISO 22477-4's four named methods and adds signal_matching for the CAPWAP-style companion analysis US practice under ASTM D4945 names as a distinct step from the base impact measurement.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/dynamicLoadTestMethod.xml</gml:identifier>
+    <gml:name>DIGGS Dynamic Load Test Method Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="dynamic_impact_testing">
+            <gml:description>Resistance evaluated from measurements of strain and acceleration (or displacement) at the element head during hammer impact. ASTM D4945; EN ISO 22477-4 method (a).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/dynamicLoadTestMethod.xml#dynamic_impact_testing</gml:identifier>
+            <gml:name>Dynamic Impact Testing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DynamicLoadTest/diggs:testMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="signal_matching">
+            <gml:description>Resistance evaluated by matching a computed wave-equation response to the measured force and velocity records from a dynamic impact test, adjusting the soil model until the match is acceptable - CAPWAP or an equivalent signal-matching analysis. The near-universal companion analysis to ASTM D4945 dynamic impact testing in US practice; a form of wave equation analysis under EN ISO 22477-4.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/dynamicLoadTestMethod.xml#signal_matching</gml:identifier>
+            <gml:name>Signal Matching</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DynamicLoadTest/diggs:testMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="driving_formula">
+            <gml:description>Resistance evaluated from blow count and hammer energy during driving using an empirical driving formula. EN ISO 22477-4 method (b).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/dynamicLoadTestMethod.xml#driving_formula</gml:identifier>
+            <gml:name>Driving Formula</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DynamicLoadTest/diggs:testMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="wave_equation_analysis">
+            <gml:description>Resistance evaluated from blow count by modelling the pile/element, ground and driving equipment as a wave-propagation system. EN ISO 22477-4 method (c). Distinct from signal_matching, which fits a wave-equation model to MEASURED force and velocity records rather than predicting resistance from blow count alone.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/dynamicLoadTestMethod.xml#wave_equation_analysis</gml:identifier>
+            <gml:name>Wave Equation Analysis</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DynamicLoadTest/diggs:testMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="multi_blow_testing">
+            <gml:description>Resistance evaluated from a series of blows producing different levels of element head displacement and velocity. EN ISO 22477-4 method (d).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/dynamicLoadTestMethod.xml#multi_blow_testing</gml:identifier>
+            <gml:name>Multi-Blow Dynamic Testing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DynamicLoadTest/diggs:testMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

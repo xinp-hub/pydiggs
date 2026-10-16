@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="evidenceCondition">
+    <gml:description>Codes naming the parameter an evidenceCondition on an acceptance criterion constrains - a property of the evidence, such as the age of the specimen tested, together with the value or range it must have for the evidence to count toward the criterion. Used for diggs:evidenceCondition/diggs:AuthorizedParameter/diggs:parameterName. Each term carries a value binding saying where its value lives on the evidence a check cites.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/evidenceCondition.xml</gml:identifier>
+    <gml:name>DIGGS Acceptance Criterion Evidence Condition Parameter Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="specimen_age">
+            <gml:description>The age of a specimen when it was tested, counted from the time water was added to the mix - for example 28 d, the usual age at which the strength of concrete and grout is judged. Restricts the evidence of a strength criterion to specimens of that age.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/evidenceCondition.xml#specimen_age</gml:identifier>
+            <gml:name>Specimen age</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>time</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_4</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:evidenceCondition</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>$evidence//diggs:GroutSpecimen/diggs:ageAtTest</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="curing_temperature">
+            <gml:description>The temperature at which a specimen was cured. Restricts the evidence of a strength criterion to specimens cured within a stated temperature range.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/evidenceCondition.xml#curing_temperature</gml:identifier>
+            <gml:name>Curing temperature</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>thermodynamic temperature</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_3</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:evidenceCondition</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>$evidence//diggs:GroutSpecimen/diggs:curingTemperature</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="applied_pressure">
+            <gml:description>The pressure applied to the test surface at which a measured response is read - for example the 150 kPa design pressure at which the settlement under a plate or zone load test is judged. Restricts the evidence of a criterion to readings taken at that applied pressure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/evidenceCondition.xml#applied_pressure</gml:identifier>
+            <gml:name>Applied pressure</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:evidenceCondition</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="fines_content">
+            <gml:description>The fines content of the material the evidence was taken from - the percentage of particles by dry mass finer than the 75 micron (No. 200) sieve - for example a fill containing 5 to 10 % fines. Restricts the evidence of a criterion to material whose fines content lies in the stated range.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/evidenceCondition.xml#fines_content</gml:identifier>
+            <gml:name>Fines content</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>mass per mass</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:evidenceCondition</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="interval_duration">
+            <gml:description>The length of the time interval over which the compared value was accumulated - for example the two minutes over which penetration is judged against a refusal limit. Restricts the evidence of a criterion to values accumulated over an interval of the stated length.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/evidenceCondition.xml#interval_duration</gml:identifier>
+            <gml:name>Interval duration</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>time</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:evidenceCondition</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="relative_toe_amplitude">
+            <gml:description>The height of the toe reflection of a low-strain integrity test record relative to the height of its impact peak. Restricts the evidence to records whose amplification balances the toe reflection against the impact - the condition under which the relative height of an earlier reflection approximates its reflection coefficient. Stated as a range, for example 0.5 to 2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/evidenceCondition.xml#relative_toe_amplitude</gml:identifier>
+            <gml:name>Relative toe amplitude</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:evidenceCondition</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

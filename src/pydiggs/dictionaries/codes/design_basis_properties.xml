@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="propertyClass">
+    <gml:description>This dictionary defines the named premises a design is prepared FROM, carried in a diggs:DesignBasisParameter on a program basis rather than as fixed schema elements. Three kinds of entry are present. The first are correlation coefficients adopted from a published method - bearing and mobilization factors whose values are read from a standard's own tables or charts and are contingent on soil behaviour, which is why they are stated one per condition through appliesToCondition rather than as a range. The second are calculation inputs assumed rather than measured, such as an embedment depth taken conservatively as zero, distinguished from the first kind by the derivation element and not by a separate dictionary. The third are adopted site datums - a design groundwater or ground level fixed as a single value for calculation, which is a different fact from any individual measurement of it and must not be confused with one. ENTRIES THAT ARE RELATIONSHIPS RATHER THAN VALUES CARRY NO QUANTITY CLASS, DELIBERATELY: a quantity class makes uom mandatory in the validation chain, so classing a premise that is published only as a chart or a formula - and therefore reported with no unit - would invalidate conforming data. Those entries state the relationship through functionExpression and cite the chart through sourceSpecification instead. NOT A HOME FOR SAFETY FACTORS: a partial or global factor, or a material reduction factor, belongs to diggs:DesignFactor and the factor property of a basis, because it is a margin applied to a result rather than a premise the calculation consumes.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml</gml:identifier>
+    <gml:name>DIGGS Design Basis Properties</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="frank_zhao_toe_factor">
+            <gml:description>The factor Kq of the Frank and Zhao (1982) load-transfer formulation, used to mobilize end bearing at the toe of an inclusion in conjunction with the limit end bearing pressure. Contingent on soil behaviour - the published formulation gives one value for fine-grained soils and a different one for coarse-grained - so one entry per condition is stated through appliesToCondition rather than a range across both.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#frank_zhao_toe_factor</gml:identifier>
+            <gml:name>Frank and Zhao toe mobilization factor</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>Frank and Zhao (1982); NF P94-262</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="frank_zhao_friction_factor">
+            <gml:description>The factor KT of the Frank and Zhao (1982) load-transfer formulation, used to mobilize shaft friction along an inclusion in conjunction with the limit skin friction. Contingent on soil behaviour in the same way as the toe factor, and stated one entry per condition for the same reason.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#frank_zhao_friction_factor</gml:identifier>
+            <gml:name>Frank and Zhao skin friction mobilization factor</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>Frank and Zhao (1982); NF P94-262</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="penetrometer_bearing_factor">
+            <gml:description>The bearing factor Kc relating a cone penetrometer tip resistance to a limit bearing pressure. Read from the source standard's own chart as a function of soil class and of either effective anchorage depth, for an inclusion toe, or foundation arrangement and embedment, for a net bearing pressure beneath a foundation. The two uses take different values and are distinguished by appliesToCondition.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#penetrometer_bearing_factor</gml:identifier>
+            <gml:name>Penetrometer bearing factor</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>NF P94-261; NF P94-262</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="rheological_factor">
+            <gml:description>The factor alpha relating a pressuremeter modulus to a Young's modulus, needed wherever a design based on pressuremeter theory is supplied with stiffnesses derived by another route. Published as a table indexed by soil type rather than as a single value, so an entry carries the relationship through functionExpression and cites the table through sourceSpecification, leaving the value elements absent. UNCLASSED DELIBERATELY - see this dictionary's own description.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#rheological_factor</gml:identifier>
+            <gml:name>Pressuremeter rheological factor</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>Menard pressuremeter practice; NF P94-261</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="limit_skin_friction">
+            <gml:description>The limiting unit shaft friction adopted for a soil layer, read from the source standard's published curve against cone tip resistance for the relevant soil and inclusion type. A curve rather than a closed form, so an entry cites the figure through sourceSpecification and leaves the value elements absent. UNCLASSED DELIBERATELY although the quantity is a pressure - see this dictionary's own description.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#limit_skin_friction</gml:identifier>
+            <gml:name>Limit skin friction from cone resistance</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>NF P94-262</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="embedment_depth">
+            <gml:description>The foundation or inclusion embedment depth adopted for a bearing capacity calculation. Frequently assumed rather than measured, and frequently assumed to be zero as a conservatism where the surrounding ground cannot be relied on to remain in place; the derivation element is what records which of the two applies.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#embedment_depth</gml:identifier>
+            <gml:name>Adopted embedment depth</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>NF P94-261</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="design_groundwater_level">
+            <gml:description>The single groundwater level adopted as a premise for design, as an elevation. DISTINCT FROM ANY MEASURED WATER LEVEL, and that distinction is the reason this entry exists: a measured level belongs to an observation at a place and a time, whereas this is one value chosen to represent the site for calculation, commonly an average or a conservative envelope of many such measurements. Conflating the two loses both the measurement's provenance and the design's premise.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#design_groundwater_level</gml:identifier>
+            <gml:name>Adopted design groundwater level</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="design_ground_level">
+            <gml:description>The single existing ground level adopted as a premise for design, as an elevation. Distinct from any surveyed point elevation for the same reason the adopted groundwater level is distinct from a measured one - it is a representative value chosen for calculation across a site whose real surface varies.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#design_ground_level</gml:identifier>
+            <gml:name>Adopted design ground level</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="anchorage_condition">
+            <gml:description>A stated premise about the stratum an inclusion toe is founded in - typically that the inclusions are embedded into a competent bearing or anchorage layer. Carried as text because the premise is a condition asserted of the ground rather than a quantity, and typeData records that; where the layer is identified in a ground model, the sourceRef element should cite it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/design_basis_properties.xml#anchorage_condition</gml:identifier>
+            <gml:name>Anchorage layer condition</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignBasisParameter</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

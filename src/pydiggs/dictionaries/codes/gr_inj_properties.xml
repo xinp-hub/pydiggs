@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
 
-<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="propertyClass">
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="propertyClass">
     <gml:description>Dictionary defining the values for recorded grout injection properties for both staged and continuous grouting activities. These values are used in the propertyClass property of the &quot;GroutinjectionProperty&quot; and &quot;ContinuousGroutInjectionProperty&quot; objects.</gml:description>
     <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml</gml:identifier>
     <gml:name>DIGGS Grout Injection Properties</gml:name>
@@ -16,6 +16,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -32,6 +36,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -46,6 +54,14 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -62,6 +78,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -76,6 +96,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -92,6 +116,14 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -106,6 +138,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -126,6 +162,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -140,6 +180,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -156,6 +200,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -170,6 +218,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -186,6 +238,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -200,6 +256,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -216,6 +276,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -230,6 +294,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -250,6 +318,14 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -268,6 +344,14 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -288,6 +372,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -307,6 +395,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -321,6 +413,14 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -337,6 +437,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -352,6 +456,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -361,11 +469,15 @@
             <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml#line_loss</gml:identifier>
             <gml:name>line loss</gml:name>
             <diggs:dataType>double</diggs:dataType>
-            <diggs:quantityClass>pressure per length</diggs:quantityClass>
+            <diggs:quantityClass>pressure</diggs:quantityClass>
             <diggs:occurrences>
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -382,6 +494,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -397,6 +513,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -410,6 +530,10 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -426,6 +550,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -434,12 +562,21 @@
             <gml:description>Lift rate of the monitor while grouting</gml:description>
             <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml#pull_speed</gml:identifier>
             <gml:name>pull speed</gml:name>
+            <gml:name>withdrawal rate</gml:name>
             <diggs:dataType>double</diggs:dataType>
             <diggs:quantityClass>length per time</diggs:quantityClass>
             <diggs:occurrences>
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -456,6 +593,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -471,6 +612,14 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -480,11 +629,15 @@
             <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml#specific_energy</gml:identifier>
             <gml:name>specific energy</gml:name>
             <diggs:dataType>double</diggs:dataType>
-            <diggs:quantityClass>energy per meter</diggs:quantityClass>
+            <diggs:quantityClass>energy per length</diggs:quantityClass>
             <diggs:occurrences>
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -503,7 +656,11 @@
                 </diggs:Occurrence>
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
-                    <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -524,6 +681,10 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -539,6 +700,14 @@
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
@@ -553,6 +722,14 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:ContinuousGrouting</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -572,6 +749,67 @@
                 <diggs:Occurrence>
                     <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
                     <diggs:conditionalElementXpath>ancestor::diggs:GroutStage</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="volume_overconsumption">
+            <gml:description>The ratio of actual to theoretical grout or concrete volume placed at a given depth during installation, expressed as a percentage - the depth-indexed counterpart to a Menard CMC installation record (GIW p.42). A GENUINE COVERAGE QUANTITY, NOT A REPEAT OF A COLUMN-LEVEL COMPUTATION: RIColumnType already carries theoreticalGroutVolume and placedGroutVolume, so the whole-column overconsumption ratio is derivable from those two without this entry - but that derived ratio cannot say WHERE along the column the overconsumption occurred, which is what a Menard-style rig log actually records and what a reviewer needs to see a void, a soft layer or a loss zone. Carry both: the column-level total on RIColumnType is the separate, out-of-scope-for-this-entry summary; this entry is the per-reading value that makes the profile against depth expressible at all.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml#volume_overconsumption</gml:identifier>
+            <gml:name>Volume overconsumption</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="grout_level">
+            <gml:description>The elevation or depth of the grout surface within the column bore or annulus at a given reading, used to detect an in-progress drop in grout level - a sign the column is losing grout into the surrounding ground and is at risk of an 'uncovered column' condition (V2 Installation row 31). Where a drop triggers a corrective action, that outcome is recorded separately as diggs:RIColumnConstructionType/groutLevelCorrectiveAction; this entry carries only the level reading itself.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml#grout_level</gml:identifier>
+            <gml:name>grout level</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="grout_return_volume">
+            <gml:description>The volume of grout or slurry returning to the surface during installation - a 'wet squeeze' - distinct from volume_overconsumption (excess grout pumped versus theoretical, in-bore and depth-indexed): this is fluid actually emerging at the surface, and is often observed at an already-installed neighbouring column rather than the one currently being drilled or grouted. Where that is the case, record this reading against whichever column's installationRecord the observer is logging against, and use remark to note which column the return was actually attributed to if it differs (V2 Installation row 32).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml#grout_return_volume</gml:identifier>
+            <gml:name>Grout return (wet-squeeze) volume</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>volume</diggs:quantityClass>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:propertyClass</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:constructionActivity//diggs:RIInstallationRecord</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:recordingParameter</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ConstructionActivitySpecification</diggs:conditionalElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>

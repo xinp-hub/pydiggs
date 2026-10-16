@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="archingModel">
+    <gml:description>Codes naming the load transfer (arching) model a rigid inclusion or piled embankment design was prepared under. These codes are used for the value of the archingModel property of the diggs:ArchingCoefficients object. The model must be stated because the coefficients a design reports exist only inside one model, and because quantities every model produces - critical height, the stress on the head and the stress on the soil between heads - evaluate differently under each, so the numbers are not interpretable without it. The list is open: further models such as the concentric arches formulation are expected and should be added here rather than expressed as new schema elements.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml</gml:identifier>
+    <gml:name>DIGGS Arching Model Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="marston">
+            <gml:description>The Marston arching formulation as adopted by BS 8006-1, in which an arching coefficient Cc,arch determines the proportion of embankment load delivered to the inclusion caps and the outcome is expressed as a cap stress ratio.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml#marston</gml:identifier>
+            <gml:name>Marston (BS 8006-1)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 8006-1:2010+A1:2016</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ArchingCoefficient/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="hewlett_randolph">
+            <gml:description>The Hewlett-Randolph limit-equilibrium dome model, in which arching efficiency is evaluated at the crown of the soil dome and at the inclusion cap and the lesser of the two governs.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml#hewlett_randolph</gml:identifier>
+            <gml:name>Hewlett-Randolph dome arching</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Hewlett, W.J. and Randolph, M.F. (1988), Ground Engineering 21(3)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ArchingCoefficient/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="zaeske">
+            <gml:description>The Zaeske multi-shell arching model adopted by EBGEO, in which a critical stress ratio governs the vertical stress distribution between the inclusion heads and the soil.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml#zaeske</gml:identifier>
+            <gml:name>Zaeske multi-shell (EBGEO)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EBGEO (DGGT), Chapter 6.9</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ArchingCoefficient/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="adapted_terzaghi">
+            <gml:description>The adapted-Terzaghi formulation used within the load-displacement-compatibility method, in which a lateral earth pressure coefficient with a recommended value governs the shear resisting settlement of the soil between inclusions.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml#adapted_terzaghi</gml:identifier>
+            <gml:name>Adapted Terzaghi (load-displacement compatibility)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>FHWA GEC-13 (Ground Modification Methods Reference Manual)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ArchingCoefficient/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="prandtl">
+            <gml:description>The Prandtl punching formulation used by ASIRI, in which a bearing capacity factor applied at the inclusion head governs the stress the platform can deliver to it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml#prandtl</gml:identifier>
+            <gml:name>Prandtl punching (ASIRI)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASIRI National Project Recommendations (IREX)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ArchingCoefficient/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="concentric_arches">
+            <gml:description>The Concentric Arches model of CUR 226, in which embankment load reaches the inclusion heads through a system of concentric hemispherical and two-dimensional arches. Ranked among the more accurate methods by Han et al. (2025). The governing document itself is registered separately as cur226 in the DIGGS rigid inclusions specification registry.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml#concentric_arches</gml:identifier>
+            <gml:name>Concentric Arches (CUR 226 / Van Eekelen)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>CUR 226 (CROW/CUR)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ArchingCoefficient/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="fhwa_parabolic">
+            <gml:description>The generalized parabolic arching formulation of FHWA GEC-13 (Eq 3-23 and Eq 3-25), which yields the stress reduction ratio applied to the soft soil between inclusion heads.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/archingModel.xml#fhwa_parabolic</gml:identifier>
+            <gml:name>FHWA generalized parabolic arching (GEC-13)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>FHWA GEC-13 (FHWA-NHI-16-028)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:ArchingCoefficient/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:archingModel</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

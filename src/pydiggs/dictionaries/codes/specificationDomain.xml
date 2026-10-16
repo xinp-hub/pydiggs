@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="domain">
+    <gml:description>Codes classifying the domain(s) of practice associated with a registered standard in a diggs:SpecificationRegistry. Used for the value of the domain property of the diggs:SpecificationRegistryEntry object. Values are drawn from two axes, and an entry normally carries at least one code from each: (1) the activity the standard governs - laboratory_testing, insitu_testing, observations, sampling, construction, design_codes or materials - which says what kind of measurement, observation, material or work the standard describes; and (2) the specialty area of practice that cites it - rigid_inclusions, deep_foundations, geophysics and similar - which is added whenever the standard is applicable to that specialty. A registry holds one canonical entry per real-world standard; a standard used by more than one domain (for example, ISO 22476-4, cited by both rigid inclusion design and in-situ testing) carries one domain code per domain rather than being registered a second time under a different identifier. This is what makes a single unified specification registry browsable and filterable by practice area without splitting it into several files.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml</gml:identifier>
+    <gml:name>DIGGS Specification Domain Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="rigid_inclusions">
+            <gml:description>Rigid inclusion ground improvement: design, installation and verification standards, recommendations and agency special provisions.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#rigid_inclusions</gml:identifier>
+            <gml:name>Rigid inclusions</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="laboratory_testing">
+            <gml:description>Laboratory test methods - ASTM, AASHTO, BS, ISO and other standards governing specimen preparation and testing procedures performed in a laboratory.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#laboratory_testing</gml:identifier>
+            <gml:name>Laboratory testing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="insitu_testing">
+            <gml:description>In-situ / field test methods - standard penetration test, cone penetration test, pressuremeter, dilatometer, vane shear, geophysical field methods and similar tests performed in the ground.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#insitu_testing</gml:identifier>
+            <gml:name>In-situ testing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sampling">
+            <gml:description>Sampling and specimen-collection standards governing how a sample is obtained and handled in the field.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#sampling</gml:identifier>
+            <gml:name>Sampling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="construction">
+            <gml:description>Execution standards governing how ground-improvement or foundation elements are actually installed or constructed.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#construction</gml:identifier>
+            <gml:name>Construction</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="observations">
+            <gml:description>Observation, description and classification practices whose result is a described or classified category rather than a measured quantity - soil and rock descriptions, borehole and stratigraphic logging, groundwater strike recording, corrosivity and aggressiveness classifications, and classification systems applied to measured test results.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#observations</gml:identifier>
+            <gml:name>Observations</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="design_codes">
+            <gml:description>Design codes, standards of practice, recommendations, agency special provisions and research reports that set design requirements, design methods or acceptance criteria, as distinct from the test methods used to obtain the input values they consume.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#design_codes</gml:identifier>
+            <gml:name>Design codes</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="materials">
+            <gml:description>Material property and supply specifications governing the constituents used in construction - concrete, grout, cement, reinforcement, geosynthetics, aggregates and engineered fill - including durability and exposure-class requirements.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#materials</gml:identifier>
+            <gml:name>Materials</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="geophysics">
+            <gml:description>Geophysical methods: electrical resistivity, seismic, electromagnetic, thermal and other indirect measurements of ground properties, whether performed at the surface, in a borehole, or on a recovered sample.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#geophysics</gml:identifier>
+            <gml:name>Geophysics</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="deep_foundations">
+            <gml:description>Deep foundation practice - driven, bored, augered, screw and micropile elements - and the design, execution, integrity and load-testing standards specific to them.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/specificationDomain.xml#deep_foundations</gml:identifier>
+            <gml:name>Deep foundations</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SpecificationRegistryEntry/diggs:domain</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

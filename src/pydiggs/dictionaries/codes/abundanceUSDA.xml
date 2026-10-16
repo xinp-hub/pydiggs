@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
 
-<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="abundanceCode">
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="abundanceCode">
     <gml:description>Code values that describes the relative abundance of component lithologies developed by the United States Department of Agriculture (USDA)  and the Food and Agriculture Organization (FAO)</gml:description>
     <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml</gml:identifier>
     <gml:name>DIGGS Abundance Code Definitions from USDA and FAO</gml:name>
@@ -51,9 +51,9 @@
         </diggs:Definition>
     </gml:dictionaryEntry>
     <gml:dictionaryEntry>
-        <diggs:Definition gml:id="extremely many">
+        <diggs:Definition gml:id="extremely_many">
             <gml:description>Component descrbed  comprises &gt;80% by volume of the total feature described.</gml:description>
-            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#extremely many</gml:identifier>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#extremely_many</gml:identifier>
             <gml:name>extremely many</gml:name>
             <diggs:dataType>string</diggs:dataType>
             <diggs:authority>USDA</diggs:authority>
@@ -96,9 +96,9 @@
         </diggs:Definition>
     </gml:dictionaryEntry>
     <gml:dictionaryEntry>
-        <diggs:Definition gml:id="very few">
+        <diggs:Definition gml:id="very_few">
             <gml:description>Component descrbed  comprises &lt;2% by volume of the total feature described.</gml:description>
-            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#very few</gml:identifier>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#very_few</gml:identifier>
             <gml:name>very few</gml:name>
             <diggs:dataType>string</diggs:dataType>
             <diggs:authority>USDA, FAO</diggs:authority>
@@ -111,9 +111,9 @@
         </diggs:Definition>
     </gml:dictionaryEntry>
     <gml:dictionaryEntry>
-        <diggs:Definition gml:id="very many">
+        <diggs:Definition gml:id="very_many">
             <gml:description>Component descrbed  comprises 40 to 80% by volume of the total feature described.</gml:description>
-            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#very many</gml:identifier>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/abundanceUSDA.xml#very_many</gml:identifier>
             <gml:name>very many</gml:name>
             <diggs:dataType>string</diggs:dataType>
             <diggs:authority>USDA</diggs:authority>

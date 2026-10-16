@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="consequenceClass">
+    <gml:description>Codes naming the consequence or reliability class governing a design. Used for the value of the consequenceClass property of diggs:AbstractProgramBasis, and so available on any concrete program basis rather than only diggs:RIProgramBasis, which is where the property was originally declared (S9) before it was moved to the abstract base at D10 as a premise generic to any designed program. RI_Design_Parameter_Analysis.md Group A row 10 flags that several national schemes (ASIRI's domain classification, EBGEO's load case) occupy this same conceptual slot but are not directly interchangeable with the Eurocode classes or with each other, and that the exact ASIRI domain definitions could not be verified from open sources. This list is deliberately EC7/EN 1990-sourced only, pending SME confirmation of the other schemes - see docs/build/S9/NOTES.md and docs/build/PR3/NOTES.md.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/consequenceClass.xml</gml:identifier>
+    <gml:name>DIGGS Consequence Class Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cc1">
+            <gml:description>EN 1990 Consequence Class 1: low consequence for loss of human life, and economic, social or environmental consequences small or negligible.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/consequenceClass.xml#cc1</gml:identifier>
+            <gml:name>Consequence Class 1 (CC1)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 1990</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:consequenceClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cc2">
+            <gml:description>EN 1990 Consequence Class 2: medium consequence for loss of human life, and economic, social or environmental consequences considerable.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/consequenceClass.xml#cc2</gml:identifier>
+            <gml:name>Consequence Class 2 (CC2)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 1990</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:consequenceClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cc3">
+            <gml:description>EN 1990 Consequence Class 3: high consequence for loss of human life, or economic, social or environmental consequences very great.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/consequenceClass.xml#cc3</gml:identifier>
+            <gml:name>Consequence Class 3 (CC3)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 1990</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:consequenceClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

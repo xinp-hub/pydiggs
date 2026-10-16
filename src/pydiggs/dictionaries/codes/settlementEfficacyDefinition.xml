@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="settlementEfficacyDefinition">
+    <gml:description>Codes for which definition a diggs:DesignRITreatedAreaType/diggs:settlementEfficacy value uses. UNLIKE loadEfficacyDefinition, this vocabulary is NOT drawn from an explicit list in the schema's own documentation - the two entries here are standard ground-improvement settlement-ratio definitions proposed as a reasonable starting set, not a verbatim citation. Flagged for SME confirmation before relying on this list as closed, the same caveat this project already attaches to diggs:archingModel and diggs:measurementKind. Used for the value of diggs:DesignRITreatedAreaType/diggs:settlementEfficacyDefinition.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/settlementEfficacyDefinition.xml</gml:identifier>
+    <gml:name>DIGGS Settlement Efficacy Definition Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="settlement_ratio">
+            <gml:description>Efficacy expressed as the ratio of treated to untreated surface settlement, the complement of settlement_reduction_ratio, so that a smaller value means a more effective treatment. Complement of the ASIRI Eq 2.23 definition; see the DIGGS rigid inclusions technical report, Section 3.4.2 (Eq 3-11).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/settlementEfficacyDefinition.xml#settlement_ratio</gml:identifier>
+            <gml:name>Settlement ratio</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRITreatedArea/diggs:settlementEfficacyDefinition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="settlement_reduction_ratio">
+            <gml:description>Efficacy expressed as the fractional reduction of surface settlement relative to the untreated soil, so that a larger value means a more effective treatment. ASIRI Eq 2.23, p. 79; confirmed against the DIGGS rigid inclusions technical report, Section 3.4.2 (Eq 3-11).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/settlementEfficacyDefinition.xml#settlement_reduction_ratio</gml:identifier>
+            <gml:name>Settlement reduction ratio</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRITreatedArea/diggs:settlementEfficacyDefinition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

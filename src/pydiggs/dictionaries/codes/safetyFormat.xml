@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="safetyFormat">
+    <gml:description>Codes naming the design approach and partial-factor framework a rigid inclusion design applies. Used for the value of the safetyFormat property of diggs:RIProgramBasis. RI_Design_Parameter_Analysis.md Group A row 8 names four frameworks in current practice; the list is open.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/safetyFormat.xml</gml:identifier>
+    <gml:name>DIGGS Rigid Inclusion Safety Format Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ec7_da2">
+            <gml:description>Eurocode 7 Design Approach 2: partial factors applied to actions (or action effects) and to resistances, not to material properties.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/safetyFormat.xml#ec7_da2</gml:identifier>
+            <gml:name>Eurocode 7, Design Approach 2</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 1997-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:safetyFormat</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ec7_da3">
+            <gml:description>Eurocode 7 Design Approach 3: partial factors applied to actions from structural sources and to material (soil) properties, not to resistances.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/safetyFormat.xml#ec7_da3</gml:identifier>
+            <gml:name>Eurocode 7, Design Approach 3</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 1997-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:safetyFormat</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bs_limit_state">
+            <gml:description>Limit state design per BS 8006-1, applying partial factors to loads and material properties within the British limit-state framework.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/safetyFormat.xml#bs_limit_state</gml:identifier>
+            <gml:name>BS limit state design</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 8006-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:safetyFormat</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="din_load_cases">
+            <gml:description>Design by load case per DIN 1054 / EBGEO, applying the German load-case (LC1/LC2/LC3) partial-factor framework.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/safetyFormat.xml#din_load_cases</gml:identifier>
+            <gml:name>DIN load cases</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIN 1054</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:safetyFormat</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="allowable_stress_fs">
+            <gml:description>Allowable-stress (working-stress) design, applying a single global factor of safety to an ultimate capacity rather than separate partial factors.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/safetyFormat.xml#allowable_stress_fs</gml:identifier>
+            <gml:name>Allowable stress, global factor of safety</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:safetyFormat</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

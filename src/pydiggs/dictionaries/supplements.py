@@ -1,12 +1,12 @@
-"""Inventory of local DIGGS dictionary supplements required by official 3.0 goldens.
+"""Inventory of the specialised-dictionary codes used by official 3.0 goldens.
 
-These codes live in ``codes/mwd_properties.xml`` / ``codes/pil_properties.xml`` and are
-not present in the primary ``properties.xml``. Track upstream so the local bundle can
-shrink when diggsml.org/def publishes replacements:
+These codes live in ``codes/mwd_properties.xml`` / ``codes/pil_properties.xml``, not in
+the primary ``properties.xml``. Both files were local supplements in pyDIGGS 1.1.1 and
+earlier; diggsml.org/def now publishes them, and pyDIGGS vendors the official copies
+(see ``PROVENANCE.toml``). Upstream requests:
 
 * MWD — https://github.com/DIGGSml/def/issues/13
 * Pile-driving — https://github.com/DIGGSml/def/issues/14
-* Downstream tracker — https://github.com/xinp-hub/pydiggs/issues/221
 """
 
 from __future__ import annotations

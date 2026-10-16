@@ -1,11 +1,12 @@
 """CLI and official DIGGSml/diggs-examples corpus tests.
 
 Fixtures under ``tests/fixtures/official/`` are synced from
-https://github.com/DIGGSml/diggs-examples (see ``PROVENANCE.txt``).
+https://github.com/DIGGSml/diggs-examples by ``scripts/sync_reference.py`` (pinned commit
+and per-file digests in ``PROVENANCE.toml``).
 
 Layout:
   * ``2.5.a/``, ``2.6/``, ``3.0/`` — schema-valid golden instances
-  * ``known_invalid/`` — official examples that fail schema (or XML syntax) today
+  * ``known_invalid/`` — official examples that are not acceptable Diggs documents today
 """
 
 from __future__ import annotations
@@ -93,7 +94,7 @@ def test_cli_schema_check_25a_auto_detect():
 
 
 def test_cli_schema_check_30():
-    path = FIXTURES / "3.0" / "PileDrivingExample.xml"
+    path = FIXTURES / "3.0" / "MWDExample.xml"
     assert main(["schema_check", str(path), "--no-output_log"]) == 0
 
 
@@ -119,13 +120,40 @@ def test_official_26_full_feature_corpus(path: Path):
     assert v.context_check() is True
 
 
+# Official examples that use codes the official dictionaries do not define. pyDIGGS
+# reports them, as the official validator does; pin the exact codes so that an upstream
+# fix, or a new undefined code, fails this test.
+_UNDEFINED_UPSTREAM_CODES = {
+    "PorePressureDissipation_Example.xml": frozenset(
+        {
+            "areaRatio",
+            "cloudCover",
+            "coneDiameter",
+            "depthToWater",
+            "geotechnicalEngineer",
+            "obstructionType",
+            "pushRate",
+            "siteName",
+        }
+    ),
+}
+
+
 @pytest.mark.parametrize("path", _xml_paths("3.0"), ids=lambda p: p.name)
 def test_official_30_full_feature_corpus(path: Path):
     assert detect_diggs_version(path) == "3.0.0"
     v = validator(str(path), output_log=False)
     assert v.schema_check() is True
     assert v.diggs_version == "3.0.0"
-    assert v.dictionary_check() is True
+    undefined = _UNDEFINED_UPSTREAM_CODES.get(path.name, frozenset())
+    assert v.dictionary_check() is (not undefined)
+    if undefined:
+        from pydiggs.dictionary import DictionarySemanticValidator
+
+        result = DictionarySemanticValidator().validate_instance(path)
+        errors = [m for m in result.messages if m.severity == "ERROR"]
+        assert {m.check for m in errors} == {5}
+        assert {m.text.split('"')[1] for m in errors} == undefined
     assert v.schematron_check() is True
     assert v.context_check() is True
 
@@ -153,7 +181,7 @@ def test_official_known_invalid_do_not_silently_pass(path: Path):
 def test_detect_diggs_version_profiles():
     assert detect_diggs_version(FIXTURES / "2.5.a" / "AtterbergExample.xml") == "2.5.a"
     assert detect_diggs_version(FIXTURES / "2.6" / "Aeromag.xml") == "2.6"
-    assert detect_diggs_version(FIXTURES / "3.0" / "PileDrivingExample.xml") == "3.0.0"
+    assert detect_diggs_version(FIXTURES / "3.0" / "MWDExample.xml") == "3.0.0"
     # HG2: unknown namespace → 3.0.0
     assert detect_diggs_version(etree.fromstring(b"<root xmlns='http://example.com'/>")) == "3.0.0"
 

@@ -9,8 +9,12 @@ dynamic = ["version"]
 description = "Offline validation for DIGGS geotechnical XML instances (XSD, dictionary, Schematron)."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "Apache-2.0"
-license-files = ["LICENSE"]
+license = "Apache-2.0 AND MPL-2.0 AND MIT"
+license-files = [
+  "LICENSE",
+  "src/pydiggs/schemas/LICENSE",
+  "src/pydiggs/dictionaries/NOTICE",
+]
 authors = [{ name = "xin.peng", email = "xin_peng@outlook.com" }]
 maintainers = [{ name = "xin.peng", email = "xin_peng@outlook.com" }]
 keywords = ["DIGGS", "geotechnical", "XML", "validation", "schema"]
@@ -68,6 +72,7 @@ packages = ["src/pydiggs"]
 include = [
   "src",
   "tests",
+  "scripts",
   "docs",
   "README.md",
   "CHANGELOG.md",
@@ -115,7 +120,7 @@ warn_unreachable = true
 warn_unused_ignores = true
 pretty = true
 show_error_codes = true
-files = ["src"]
+files = ["src", "scripts"]
 # Legacy validation modules are gradually typed; gate on clean package surface first.
 disallow_untyped_defs = false
 disallow_incomplete_defs = false

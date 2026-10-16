@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="propertyClass">
+    <gml:description>This dictionary defines quantities produced or consumed by a rigid inclusion design that are carried as parameters rather than as fixed schema elements. Two kinds of entry are present. The first are the method-specific arching coefficients, which exist only inside one named arching model and are carried in the coefficient property of a diggs:ArchingCoefficients object; each is conditioned on the arching model that defines it, so a file reporting a Hewlett-Randolph efficiency under a Zaeske design does not validate. The second are design quantities that are common to several practices or vary too freely to justify a fixed schema element - the geometry and stiffness ratios that gate whether an arching method's unit-cell idealisation applies to a given layout, open-ended since a future method may add its own - carried in diggs:DesignRITreatedAreaType/methodApplicabilityRatio. The active earth pressure coefficient, once considered for this dictionary, turned out not to need it: a single, always-the-same-formula quantity, now the typed element diggs:DesignRILTPType/activeEarthPressureCoefficient instead. Quantities that every arching practice ultimately produces - the stress delivered to the column head and the stress reaching the soil between heads - are deliberately NOT here: they are typed elements on diggs:DesignRILTPType, because they are the two values on which designs prepared under different standards can actually be compared.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml</gml:identifier>
+    <gml:name>DIGGS Rigid Inclusion Design Properties</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="arching_coefficient_marston">
+            <gml:description>The Marston arching coefficient Cc,arch used in the BS 8006-1 arching formulation to express the proportion of embankment load transferred onto the inclusion caps. Defined only within the Marston/BS arching model; it has no meaning under a dome-arching or load-displacement-compatibility formulation, which is why this entry is conditioned on the arching model rather than offered unconditionally.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#arching_coefficient_marston</gml:identifier>
+            <gml:name>Marston arching coefficient</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>BS 8006-1:2010+A1:2016</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='marston']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cap_stress_ratio">
+            <gml:description>The ratio p'c/sigma'v of the vertical stress carried on the inclusion cap to the average vertical stress at the base of the embankment, as computed by the BS 8006-1 arching formulation. A ratio of two pressures rather than a bare dimensionless number: stating the quantity class forces both quantities to be pressures and prevents the value being read as a load fraction, which is a different quantity (see arching_efficiency_cap).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#cap_stress_ratio</gml:identifier>
+            <gml:name>Cap stress ratio</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure per pressure</diggs:quantityClass>
+            <diggs:authority>BS 8006-1:2010+A1:2016</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='marston']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="arching_efficiency_crown">
+            <gml:description>The arching efficiency Ecrown evaluated at the crown of the soil dome in the Hewlett-Randolph model - the proportion of embankment weight carried by the inclusions when the crown of the arch governs. Hewlett-Randolph evaluates efficiency at two locations and adopts the lesser; this is one of the two. See arching_efficiency_minimum for the adopted value.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#arching_efficiency_crown</gml:identifier>
+            <gml:name>Crown arching efficiency</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>force per force</diggs:quantityClass>
+            <diggs:authority>Hewlett, W.J. and Randolph, M.F. (1988), Ground Engineering 21(3)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='hewlett_randolph']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="arching_efficiency_cap">
+            <gml:description>The arching efficiency Ecap evaluated at the inclusion cap in the Hewlett-Randolph model - the proportion of embankment weight carried by the inclusions when the cap governs. The second of the two locations at which Hewlett-Randolph evaluates efficiency.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#arching_efficiency_cap</gml:identifier>
+            <gml:name>Cap arching efficiency</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>force per force</diggs:quantityClass>
+            <diggs:authority>Hewlett, W.J. and Randolph, M.F. (1988), Ground Engineering 21(3)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='hewlett_randolph']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="arching_efficiency_minimum">
+            <gml:description>The governing arching efficiency Emin adopted by the Hewlett-Randolph model, being the lesser of the crown and cap efficiencies. This is the value the design carries forward; the two component efficiencies are reported alongside it so that a reviewer can see which location governed.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#arching_efficiency_minimum</gml:identifier>
+            <gml:name>Minimum arching efficiency</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>force per force</diggs:quantityClass>
+            <diggs:authority>Hewlett, W.J. and Randolph, M.F. (1988), Ground Engineering 21(3)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='hewlett_randolph']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="passive_earth_pressure_coefficient">
+            <gml:description>The passive earth pressure coefficient Kp = (1 + sin phi'p) / (1 - sin phi'p) of the platform or embankment fill, as used in the Hewlett-Randolph dome-arching solution. Note that this is a PEAK friction angle quantity in that formulation, whereas the friction angle adopted for arching is often a critical-state value; the two are not interchangeable and the design should state which was used.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#passive_earth_pressure_coefficient</gml:identifier>
+            <gml:name>Passive earth pressure coefficient</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure per pressure</diggs:quantityClass>
+            <diggs:authority>Hewlett, W.J. and Randolph, M.F. (1988), Ground Engineering 21(3)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='hewlett_randolph']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="critical_stress_ratio">
+            <gml:description>The critical stress ratio Kcrit = tan^2(45 deg + phi'/2) governing the vertical stress distribution in the Zaeske multi-shell arching model adopted by EBGEO. Numerically this is the Rankine passive coefficient, but it is a distinct entry from passive_earth_pressure_coefficient because it enters a different formulation and is conditioned on a different arching model; merging them would let a file report an EBGEO quantity under a Hewlett-Randolph design and validate.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#critical_stress_ratio</gml:identifier>
+            <gml:name>Critical stress ratio</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure per pressure</diggs:quantityClass>
+            <diggs:authority>EBGEO (DGGT), Chapter 6.9</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='zaeske']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="lateral_earth_pressure_coefficient_ldc">
+            <gml:description>The lateral earth pressure coefficient K used in the adapted-Terzaghi formulation of the load-displacement-compatibility method. A RECOMMENDED CONSTANT RATHER THAN A PROJECT-SPECIFIC QUANTITY: the method carries a recommended value of 0.75, which is one of the reasons it is a dictionary entry - the recommendation and its provenance can be recorded here in a way a schema element could not. State the value actually adopted; a design departing from 0.75 should say so.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#lateral_earth_pressure_coefficient_ldc</gml:identifier>
+            <gml:name>Adapted-Terzaghi lateral earth pressure coefficient</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure per pressure</diggs:quantityClass>
+            <diggs:authority>FHWA GEC-13 (Ground Modification Methods Reference Manual)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='adapted_terzaghi']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="punching_bearing_factor">
+            <gml:description>The Prandtl bearing capacity factor Nq applied at the inclusion head in the ASIRI punching check, evaluated at the critical-state friction angle of the platform fill. Governs the stress that can be delivered to the head before the fill punches around it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#punching_bearing_factor</gml:identifier>
+            <gml:name>Head punching bearing factor</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>ASIRI National Project Recommendations (IREX)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='prandtl']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="arching_height_ratio">
+            <gml:description>The geometric ratio h/(s-d) of platform or embankment height above the inclusion heads to the clear spacing between inclusions. One of the geometric limits that determine whether a given arching method is applicable to a given layout; a method used outside the ratio range it was validated over is not defensible, which is what makes this worth stating rather than leaving to be recomputed.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#arching_height_ratio</gml:identifier>
+            <gml:name>Arching height ratio</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length per length</diggs:quantityClass>
+            <diggs:authority>EBGEO (DGGT), Chapter 6.9</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:methodApplicabilityRatio</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="diameter_spacing_ratio">
+            <gml:description>The geometric ratio d/s of inclusion diameter to centre-to-centre spacing. A second method-applicability limit, and the quantity most directly related to the area replacement ratio; carry both rather than either alone, since practices state their limits against different ones of the two.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#diameter_spacing_ratio</gml:identifier>
+            <gml:name>Diameter to spacing ratio</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length per length</diggs:quantityClass>
+            <diggs:authority>EBGEO (DGGT), Chapter 6.9</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:methodApplicabilityRatio</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="spacing_aspect_ratio">
+            <gml:description>The ratio sx/sy of the two orthogonal centre-to-centre spacings of a rectangular grid. Unity for a square grid. Methods derived for square or triangular layouts carry limits on how far from unity this may go before the unit-cell idealisation stops holding.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#spacing_aspect_ratio</gml:identifier>
+            <gml:name>Spacing aspect ratio</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length per length</diggs:quantityClass>
+            <diggs:authority>EBGEO (DGGT), Chapter 6.9</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:methodApplicabilityRatio</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="stiffness_ratio">
+            <gml:description>The ratio ks,T/ks of the stiffness of the improved composite ground to that of the untreated ground, used by EBGEO as a gate on whether its method may be applied. THE GATE VALUE IS NOT STATED HERE. The threshold this ratio must exceed is a pass/fail requirement on method validity, not a design value, and belongs in a diggs:DesignConformanceCriterion that names this property. That keeps the requirement where a reviewer looks for requirements and lets it differ by project or edition. The commonly cited threshold has not been verified against a retrievable clause; the criterion carrying it should cite its own source.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#stiffness_ratio</gml:identifier>
+            <gml:name>Subgrade stiffness ratio</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>EBGEO (DGGT), Chapter 6.9</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:methodApplicabilityRatio</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="stress_reduction_ratio">
+            <gml:description>The ratio of the vertical stress carried by the soft soil between inclusion heads to the vertical stress that would act there without arching. FHWA GEC-13 Eq 3-23.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/ri_design_properties.xml#stress_reduction_ratio</gml:identifier>
+            <gml:name>Stress reduction ratio (SRR)</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>FHWA GEC-13 (FHWA-NHI-16-028)</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:ArchingCoefficient/diggs:archingModel[.='fhwa_parabolic']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

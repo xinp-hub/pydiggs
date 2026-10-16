@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="surveyGeometry">
+    <gml:description>Codes that define how an electrode array was stepped from one reading to the next during an in-situ electrical resistivity test. These codes are used for the value of the surveyGeometry property of the InsituResistivityTest object.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/surveyGeometry.xml</gml:identifier>
+    <gml:name>DIGGS Resistivity Survey Geometry Codes</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="vertical_electrical_sounding">
+            <gml:description>The electrode separation is expanded about a fixed array centre to characterise variation of resistivity with depth. Commonly abbreviated VES.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/surveyGeometry.xml#vertical_electrical_sounding</gml:identifier>
+            <gml:name>Vertical Electrical Sounding</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:InsituResistivityTest/diggs:surveyGeometry</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="constant_separation_traversing">
+            <gml:description>The electrode separation is held fixed and the array is moved along a traverse to characterise lateral variation in resistivity at a roughly constant depth of investigation. Commonly abbreviated CST; also called electrical profiling.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/surveyGeometry.xml#constant_separation_traversing</gml:identifier>
+            <gml:name>Constant Separation Traversing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:InsituResistivityTest/diggs:surveyGeometry</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="azimuthal_sounding">
+            <gml:description>The electrode array orientation is rotated about a fixed centre to characterise anisotropy in resistivity.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/surveyGeometry.xml#azimuthal_sounding</gml:identifier>
+            <gml:name>Azimuthal Sounding</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:InsituResistivityTest/diggs:surveyGeometry</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="single_separation_measurement">
+            <gml:description>One reading is taken at one array geometry, without stepping separation, position or orientation - as is usual for a Wenner probe applied to the surface of an in-place material such as concrete.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/surveyGeometry.xml#single_separation_measurement</gml:identifier>
+            <gml:name>Single-Separation Measurement</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:InsituResistivityTest/diggs:surveyGeometry</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

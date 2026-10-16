@@ -5,7 +5,7 @@
     xmlns:glr="http://www.opengis.net/gml/3.3/lr" xmlns:glrov="http://www.opengis.net/gml/3.3/lrov"
     xmlns:diggs_geo="http://diggsml.org/schemas/2.6/geotechnical"
     xmlns:witsml="http://www.witsml.org/schemas/131"
-    xsi:schemaLocation="http://diggsml.org/schemas/2.6 http://diggsml.org/schemas/2.6/Diggs.xsd"
+    xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd"
     gml:id="bcd">
 
     <documentInformation>

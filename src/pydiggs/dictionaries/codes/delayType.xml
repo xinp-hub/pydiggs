@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="delayType">
+    <gml:description>Codes for the cause of a delay, used for the value of the delayType property of diggs:DelayEvent. A DelayEvent records a non-productive or waiting interval together with its duration; delayType is what makes a set of them analysable, by separating avoidable downtime (breakdown, standby, materials) from ground-driven and procedurally required waiting. The three axes named in the delayType schema documentation - mechanical, operational and soil-response - are all represented. Applies wherever a DelayEvent appears: at activity level on any diggs:AbstractConstructionActivity, and on the pre-existing per-step hosts diggs:DriveSet and diggs:VaneTestMeasurementData. Built at W4 - see docs/build/W4/NOTES.md.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml</gml:identifier>
+    <gml:name>DIGGS Delay Type Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="equipment_breakdown">
+            <gml:description>An unplanned mechanical, hydraulic, or electrical failure of the rig, pump, or other plant that stopped production until repaired. The 'mechanical' axis named in the delayType schema documentation.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#equipment_breakdown</gml:identifier>
+            <gml:name>Equipment breakdown</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="scheduled_maintenance">
+            <gml:description>A planned servicing, calibration, or inspection of plant carried out during the activity. Distinguished from equipment_breakdown because it is anticipated and does not indicate equipment unreliability.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#scheduled_maintenance</gml:identifier>
+            <gml:name>Scheduled maintenance</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="rig_move">
+            <gml:description>Relocation of the rig between element positions, including tracking, setting up, and re-levelling. Non-productive but unavoidable, and its total is a direct function of the installation sequence, so it is the delay type most useful for comparing one sequence against another.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#rig_move</gml:identifier>
+            <gml:name>Rig move</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="standby">
+            <gml:description>Crew and plant present and available but not working - awaiting instruction, awaiting access released by another trade, or awaiting a decision. The 'operational' axis named in the delayType schema documentation.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#standby</gml:identifier>
+            <gml:name>Standby</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="materials_delay">
+            <gml:description>Awaiting delivery or availability of grout, concrete, reinforcement, or other consumables. Separated from standby because the cause is supply rather than site coordination.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#materials_delay</gml:identifier>
+            <gml:name>Materials delay</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="weather">
+            <gml:description>Suspension of work because of weather - wind limits on lifting, rainfall making the working platform untrafficable, temperature limits on grout or concrete placement.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#weather</gml:identifier>
+            <gml:name>Weather</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ground_conditions">
+            <gml:description>A delay caused by the ground's own response: an obstruction requiring removal, bore collapse or squeezing requiring re-drilling, unexpected refusal, or loss of grout to the formation. The 'soil-response' axis named in the delayType schema documentation. Where the outcome was that the element could not be completed as designed, terminationOutcome on the construction activity records that separately - this code records only the lost time.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#ground_conditions</gml:identifier>
+            <gml:name>Ground conditions</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="utility_conflict">
+            <gml:description>Buried or overhead services encountered, requiring proving, diversion, or a change of position before work could resume.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#utility_conflict</gml:identifier>
+            <gml:name>Utility conflict</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="quality_hold">
+            <gml:description>Work suspended at a hold or witness point pending inspection, test results, or sign-off. The status property of the affected object carries the review state itself; this code records the production time the hold consumed.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#quality_hold</gml:identifier>
+            <gml:name>Quality hold</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="safety_stand_down">
+            <gml:description>Work suspended for a safety reason - an incident, a near miss, an exclusion zone, or a site-wide stand-down.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#safety_stand_down</gml:identifier>
+            <gml:name>Safety stand-down</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="procedural_wait">
+            <gml:description>A waiting period required by the procedure itself rather than lost time - for example the interval between the end of penetration and the beginning of rotation in a vane test, or a required delay before a drive increment starts. Distinguished from every other code in this list because the time is specified, not lost, and excluding it is normally correct when computing non-productive time.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#procedural_wait</gml:identifier>
+            <gml:name>Procedural wait</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="site_access">
+            <gml:description>The working position could not be reached or occupied - haul road blocked, platform not yet constructed or handed over, or the area still occupied by preceding works.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/delayType.xml#site_access</gml:identifier>
+            <gml:name>Site access</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DelayEvent/diggs:delayType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

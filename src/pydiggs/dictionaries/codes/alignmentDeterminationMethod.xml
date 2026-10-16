@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="alignmentDeterminationMethod">
+    <gml:description>Codes for how the alignment of a linear sampling feature was established, used for the value of the alignmentDeterminationMethod property of diggs:AbstractLinearSamplingFeatureType. This is the provenance of the feature's trajectory, and DIGGS has nowhere else to state it: a centerLine is mandatory on every linear sampling feature, so a feature that was never surveyed must still assert one, and a nominal vertical centerline is otherwise indistinguishable from a surveyed one. The distinction that matters most across these codes is WHAT was measured - a downhole method measures the constructed element or its open hole, whereas a mast method measures the RIG and infers the element, which is a materially weaker claim. Built at VERT1 - see docs/build/VERT1/NOTES.md. PROVISIONAL pending SME review.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml</gml:identifier>
+    <gml:name>DIGGS Alignment Determination Method Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="downhole_inclinometer">
+            <gml:description>An inclinometer traversed down the open hole or down an access tube cast into the completed element, giving inclination as a profile with depth. Procedure A of ASTM D8232, which covers both open boreholes and constructed piles. The strongest of these methods, because it measures the element or its hole directly and resolves how the deviation accumulates rather than reporting a single average.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#downhole_inclinometer</gml:identifier>
+            <gml:name>Downhole inclinometer</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="downhole_pendulum">
+            <gml:description>A pendulum device lowered into the open hole. Procedure B of ASTM D8232, which unlike Procedure A is defined for open boreholes only and so cannot be applied to a completed element.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#downhole_pendulum</gml:identifier>
+            <gml:name>Downhole pendulum</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ultrasonic_caliper">
+            <gml:description>An ultrasonic caliper or borehole logging device run in the open excavation before concreting, commonly called a Koden test, which reports verticality alongside hole diameter, shape and base condition. Applicable only where an open hole exists, so not available for techniques that grout through the drill stem.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#ultrasonic_caliper</gml:identifier>
+            <gml:name>Ultrasonic caliper</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="mast_inclination_during_drilling">
+            <gml:description>The inclination of the rig mast or drill string read from rig instrumentation while the element is being formed, typically from a two- or three-axis accelerometer resolving the gravity vector. MEASURES THE RIG, NOT THE ELEMENT, and infers the element's alignment from it - the usual method where no open hole exists, as for rigid inclusions and jet grout columns. Normally yields inclination without azimuth, which is why the result is recorded as a deviation rather than encoded as a centerline geometry.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#mast_inclination_during_drilling</gml:identifier>
+            <gml:name>Mast inclination during drilling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="mast_alignment_check">
+            <gml:description>A check that the mast is plumb and the tool centred over the staked position before drilling begins, by rig indicators, spirit level or optical means. Confirms the starting alignment only and says nothing about what happened below the surface, so it is the weakest of the determinations and should not be reported as an as-built alignment where drilling deviation is credible.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#mast_alignment_check</gml:identifier>
+            <gml:name>Mast alignment check before drilling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="as_built_survey">
+            <gml:description>Conventional survey of the constructed element - most often of the head position only, which constrains plan position rather than alignment. Recorded here where the survey did establish alignment, for example by observing both the head and an exposed length of the element.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#as_built_survey</gml:identifier>
+            <gml:name>As-built survey</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="computed_from_geometry">
+            <gml:description>The deviation was calculated from the feature's own surveyed centerLine rather than measured separately. Use where the centerline is the real observation and the deviation property merely restates it in the form a specification is written in; the centerline remains the authority.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#computed_from_geometry</gml:identifier>
+            <gml:name>Computed from surveyed geometry</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="not_determined">
+            <gml:description>The alignment was not measured by any means, and any vertical centerline carried by the feature is nominal rather than observed. Recorded explicitly so that an untested element is distinguishable from one tested and found compliant - the same reason no_action is an explicit code in correctiveAction.xml. This is the common case for rigid inclusion columns, where verticality is routinely specified but not measured.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/alignmentDeterminationMethod.xml#not_determined</gml:identifier>
+            <gml:name>Not determined</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:alignmentDeterminationMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>
