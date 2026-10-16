@@ -91,3 +91,34 @@ def test_off_reads_no_local_dictionary(tmp_path, capsys):
     assert code == 0  # a warning only
     findings = json.loads(capsys.readouterr().out)["files"][0]["findings"]
     assert [f["rule_id"] for f in findings] == ["dictionary.3"]
+
+
+def test_an_edited_dictionary_next_to_the_instance_is_reread(tmp_path):
+    site = _instance(tmp_path / "survey", "./local.xml")
+    local = tmp_path / "survey" / "local.xml"
+    local.write_text(_DICT)
+    assert _dictionary_findings(site) == []
+    local.write_text(_DICT.replace("surveyor", "geologist"))
+    assert [r for r, _, _ in _dictionary_findings(site)] == ["dictionary.5"]
+
+
+def test_a_failed_fetch_is_retried_on_the_next_file(tmp_path, monkeypatch):
+    from lxml import etree
+
+    from pydiggs import _xml
+
+    url = "https://diggsml.org/def/codes/DIGGS/0.1/not-bundled.xml"
+    site = _instance(tmp_path / "survey", url)
+    calls = []
+
+    def flaky(requested, patterns):
+        calls.append(requested)
+        if len(calls) == 1:
+            raise OSError("temporary failure")
+        return etree.ElementTree(etree.fromstring(_DICT.encode()))
+
+    monkeypatch.setattr(_xml, "fetch_and_parse", flaky)
+    first = _dictionary_findings(site, allow_network=True)
+    assert [r for r, _, _ in first] == ["dictionary.3"]
+    assert _dictionary_findings(site, allow_network=True) == []
+    assert calls == [url, url]
