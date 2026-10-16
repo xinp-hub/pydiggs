@@ -14,7 +14,11 @@ from collections import Counter
 from collections.abc import Iterable
 from typing import Final
 
-__all__ = ["ConformanceKey", "compare", "location_key", "normalise_xpath"]
+__all__ = ["TRUNCATED_RULE", "ConformanceKey", "compare", "location_key", "normalise_xpath"]
+
+#: The truncation marker's rule id. It says something about the report, not the file,
+#: so conformance comparisons leave it out.
+TRUNCATED_RULE: Final = "structure.findings-truncated"
 
 #: ``(step, severity, location, rule_id)``, all plain strings.
 ConformanceKey = tuple[str, str, str, str]
@@ -78,6 +82,8 @@ def compare(
 ) -> tuple[Counter[ConformanceKey], Counter[ConformanceKey]]:
     """Compare two multisets of keys over ``steps``; return (only left, only right).
 
+    The ``structure.findings-truncated`` marker is never compared.
+
     Example:
         >>> a = [("schema", "error", "line:3", "schema.cvc-elt.1")] * 2
         >>> b = [("schema", "error", "line:3", "schema.cvc-elt.1")]
@@ -86,6 +92,6 @@ def compare(
         (1, 0)
     """
     wanted = set(steps)
-    lhs = Counter(k for k in left if k[0] in wanted)
-    rhs = Counter(k for k in right if k[0] in wanted)
+    lhs = Counter(k for k in left if k[0] in wanted and k[3] != TRUNCATED_RULE)
+    rhs = Counter(k for k in right if k[0] in wanted and k[3] != TRUNCATED_RULE)
     return lhs - rhs, rhs - lhs
