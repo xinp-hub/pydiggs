@@ -7,6 +7,7 @@ Ports the progressive checks documented in DIGGSml/validation
 from __future__ import annotations
 
 import os
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -198,7 +199,11 @@ class DictionarySemanticValidator:
         uom_dictionary_path: str | os.PathLike[str] | None = None,
         extra_dictionaries: Iterable[str | os.PathLike[str]] | None = None,
         allow_network: bool = False,
+        check_value_code_spaces: bool = False,
     ) -> None:
+        # Check 13 (official dictionary-validation.xsl Step 14) runs only for
+        # pydiggs.validate(); dictionary_check() keeps its 1.1 behaviour.
+        self.check_value_code_spaces = check_value_code_spaces
         self.allow_network = allow_network
         self._whitelist_patterns = self._load_whitelist(
             Path(whitelist_path) if whitelist_path else _DEFAULT_WHITELIST
@@ -831,6 +836,8 @@ class DictionarySemanticValidator:
                     ),
                     10,
                 )
+                return
+            self._check_value_code_space(el, result, definition=definition, path=path)
             return
 
         if sibling_uom is None:
@@ -867,6 +874,7 @@ class DictionarySemanticValidator:
                 ),
                 12,
             )
+            self._check_value_code_space(el, result, definition=definition, path=path)
             return
 
         canonical_uom = _UOM_ALIASES.get(uom_value, uom_value)
@@ -884,3 +892,142 @@ class DictionarySemanticValidator:
                 ),
                 12,
             )
+            return
+        self._check_value_code_space(el, result, definition=definition, path=path)
+
+    def _check_value_code_space(
+        self,
+        el: etree._Element,
+        result: DictionaryValidationResult,
+        *,
+        definition: etree._Element,
+        path: str,
+    ) -> None:
+        """Check 13: result values must be terms of the definition's valueCodeSpace.
+
+        A port of DIGGSml/validation ``dictionary-validation.xsl`` Step 14 (messages
+        labelled "Check 13"): the values in column ``Property/@index`` of the
+        ``dataValues`` of the ResultSet holding these parameters, and of every ResultSet
+        citing them by ``xlink:href``, must be ``gml:id``s of the code list's
+        Definitions. Empty and ``nullValue`` values are allowed.
+        """
+        if not self.check_value_code_spaces:
+            return
+        vcs_el = next(iter(definition.xpath(".//*[local-name()='valueCodeSpace']")), None)
+        value_code_space = _normalize_space(vcs_el.text if vcs_el is not None else "")
+        if not value_code_space:
+            return
+        name_el = next(
+            (c for c in definition if isinstance(c.tag, str) and _local(c) == "name"), None
+        )
+        definition_name = name_el.xpath("string()") if name_el is not None else ""
+        code_list_url = value_code_space.split("#", 1)[0]
+        if not self._is_whitelisted(code_list_url):
+            result.add(
+                "WARNING",
+                path,
+                (
+                    f'Check 13:\nThe values of "{definition_name}" come from the code list '
+                    f'"{code_list_url}", which is not on the white list of approved URL\'s, '
+                    "so the values were not checked."
+                ),
+                13,
+            )
+            return
+        code_list = self._resolve_dictionary(code_list_url)
+        if code_list is None:
+            result.add(
+                "WARNING",
+                path,
+                (
+                    f'Check 13:\nThe code list "{code_list_url}" for the values of '
+                    f'"{definition_name}" could not be accessed, so the values were not checked.'
+                ),
+                13,
+            )
+            return
+        allowed = [
+            str(v) for v in code_list.xpath("//*[local-name()='Definition']/@*[local-name()='id']")
+        ]
+        invalid = self._invalid_result_values(el, set(allowed))
+        if invalid:
+            shown = ", ".join(f'"{v}"' for v in invalid[:_CHECK13_SHOWN])
+            more = " ..." if len(invalid) > _CHECK13_SHOWN else ""
+            result.add(
+                "ERROR",
+                path,
+                (
+                    f'Check 13:\n{len(invalid)} value(s) of "{definition_name}" are not terms '
+                    f'of the code list "{code_list_url}": {shown}{more}. '
+                    f"Valid terms: {', '.join(allowed)}."
+                ),
+                13,
+            )
+
+    @staticmethod
+    def _invalid_result_values(el: etree._Element, allowed: set[str]) -> list[str]:
+        """Distinct values in this property's dataValues column that are not ``allowed``."""
+        prop = el.getparent()
+        if prop is None:
+            return []
+        try:
+            column = int((prop.get("index") or "").strip())
+        except ValueError:
+            return []
+        null_el = next(
+            (c for c in prop if isinstance(c.tag, str) and _local(c) == "nullValue"), None
+        )
+        null_text = _normalize_space(null_el.xpath("string()") if null_el is not None else "")
+        params = next((a for a in el.iterancestors() if _local(a) == "PropertyParameters"), None)
+        if params is None:
+            return []
+        params_id = next(
+            (str(v) for k, v in params.attrib.items() if etree.QName(k).localname == "id"), ""
+        )
+        result_sets = [a for a in params.iterancestors() if _local(a) == "ResultSet"][:1]
+        if params_id:
+            result_sets += params.getroottree().xpath(
+                "//*[local-name()='ResultSet'][*[local-name()='parameters']"
+                "/@*[local-name()='href'] = $ref]",
+                ref=f"#{params_id}",
+            )
+        root = params.getroottree()
+        # XPath "$resultSets/*" de-duplicates and returns document order.
+        unique = {id(rs): rs for rs in result_sets}.values()
+        ordered = sorted(unique, key=_document_order(root))
+        values: list[str] = []
+        for result_set in ordered:
+            for block in result_set:
+                if not isinstance(block.tag, str) or _local(block) != "dataValues":
+                    continue
+                cs = block.get("cs") or ","
+                ts = block.get("ts") or " "
+                ts_pattern = (
+                    _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
+                )
+                cs_pattern = re.compile(re.escape(cs))
+                for token in ts_pattern.split(_normalize_space(block.xpath("string()"))):
+                    if not token:
+                        continue
+                    fields = cs_pattern.split(token)
+                    if 1 <= column <= len(fields):
+                        values.append(_normalize_space(fields[column - 1]))
+        invalid: list[str] = []
+        for value in values:
+            if value and value != null_text and value not in allowed and value not in invalid:
+                invalid.append(value)
+        return invalid
+
+
+_XPATH_WS_RUN = re.compile(r"[ \t\n\r]+")
+_CHECK13_SHOWN = 5  # the official message lists the first five invalid values
+
+
+def _normalize_space(text: str | None) -> str:
+    """XPath normalize-space(): only space, tab, CR and LF count as whitespace."""
+    return _XPATH_WS_RUN.sub(" ", text or "").strip(" \t\n\r")
+
+
+def _document_order(root: etree._ElementTree):
+    order = {el: i for i, el in enumerate(root.iter())}
+    return lambda el: order.get(el, 0)

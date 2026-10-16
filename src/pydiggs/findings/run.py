@@ -21,7 +21,7 @@ from typing import Final
 from lxml import etree, isoschematron
 
 import pydiggs
-from pydiggs import _xml
+from pydiggs import _xml, deprecations
 from pydiggs.detect import SCHEMA_PATHS, detect_diggs_version, schema_path_for
 from pydiggs.dictionary import DictionarySemanticValidator, ValidationMessage
 from pydiggs.errors import InstanceReadError, ResourceError
@@ -40,6 +40,7 @@ NATIVE_STEPS: Final = (
     Step.DICTIONARY,
     Step.SCHEMATRON,
     Step.GEOMETRY,
+    Step.DEPRECATION,
     Step.CONTEXT,
 )
 _CONTEXT_STEPS: Final = frozenset({Step.STRUCTURE, Step.GEOMETRY, Step.CONTEXT})
@@ -124,13 +125,14 @@ class _Builder:
         node: etree._Element | None = None,
         line: int | None = None,
         column: int | None = None,
+        attribute: str | None = None,
     ) -> None:
         absolute, shown = self.scrub
         text = message.replace(absolute, shown) if absolute else message
         xpath = gml_id = snippet = None
         if node is not None and self.locator is not None:
             line = line if line is not None else self.locator.line(node)
-            xpath = self.locator.xpath(node)
+            xpath = self.locator.xpath(node) + (f"/@{attribute}" if attribute else "")
             gml_id = self.locator.gml_id(node)
             snippet = self.locator.snippet(node) if self.snippets else None
         self.findings.append(
@@ -288,7 +290,9 @@ def _dictionary_validator(
     if not path.is_file():
         raise ResourceError(f"dictionary {str(path)!r} is not a readable file")
     try:
-        return DictionarySemanticValidator(dictionary_path=path, allow_network=allow_network)
+        return DictionarySemanticValidator(
+            dictionary_path=path, allow_network=allow_network, check_value_code_spaces=True
+        )
     except (OSError, etree.XMLSyntaxError) as exc:
         raise ResourceError(f"cannot read dictionary data: {exc}") from exc
 
@@ -320,6 +324,20 @@ def _run_dictionary(
     return builder.status(Step.DICTIONARY)
 
 
+def _run_deprecation(doc: etree._ElementTree, builder: _Builder, profile: str) -> StepStatus:
+    for match in deprecations.matches(doc, profile):
+        removed = match.entry.status == "removed"
+        builder.add(
+            Step.DEPRECATION,
+            rules.REMOVED if removed else rules.DEPRECATED,
+            Severity.ERROR if removed else Severity.WARNING,
+            match.entry.text(),
+            node=match.element,
+            attribute=match.attribute,
+        )
+    return builder.status(Step.DEPRECATION)
+
+
 def _run_context(root: etree._Element, builder: _Builder, wanted: frozenset[Step]) -> None:
     for message in validate_context_tree(root).messages:
         step, rule_id = rules.CONTEXT_RULES[message.check]
@@ -349,8 +367,8 @@ def validate(
         diggs_version: ``"2.5.a"``, ``"2.6"`` or ``"3.0.0"``; detected from the root
             namespace when omitted (``3.0.0`` when unknown).
         checks: Step names to run, from ``structure``, ``schema``, ``dictionary``,
-            ``schematron``, ``geometry``, ``context``. Default: all of them. Every
-            selected step runs even when an earlier one fails.
+            ``schematron``, ``geometry``, ``deprecation``, ``context``. Default: all
+            of them. Every selected step runs even when an earlier one fails.
         schema_path: XSD to use instead of the bundled one (trusted input).
         dictionary_path: Primary property dictionary instead of the bundled one.
         schematron_path: Schematron rules instead of the bundled ones (trusted input:
@@ -434,6 +452,8 @@ def validate(
         )
     if Step.SCHEMATRON in wanted:
         steps[Step.SCHEMATRON] = _run_schematron(doc, builder, schematron_path)
+    if Step.DEPRECATION in wanted:
+        steps[Step.DEPRECATION] = _run_deprecation(doc, builder, profile)
     if wanted & _CONTEXT_STEPS:
         _run_context(doc.getroot(), builder, wanted)
         for step in _CONTEXT_STEPS & wanted:
