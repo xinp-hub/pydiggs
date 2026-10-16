@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `schema_check()`, and files with the corrected spelling now pass.
 
 ### Changed
+- Dictionary checks 8 to 12 name a property with several names by its first name in
+  the dictionary; they used Python set order, so the text could change between runs.
+  No example in the test corpus is affected.
 - `pydiggs --help` now points to `pydiggs validate --help`. The legacy subcommands, their
   console output, exit codes and log files are unchanged (checked byte for byte against
   1.1.1 by a golden test suite).
@@ -52,6 +55,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   published at https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json,
   and SARIF 2.1.0 output for code-scanning tools. Output is deterministic, has no
   timestamps, and by default carries no source snippets and no absolute paths.
+- Limits for `validate()`: at most 10,000 findings per file by default (`max_findings`,
+  `--max-findings`; the overflow is counted in one `structure.findings-truncated`
+  finding and the affected steps are `incomplete`), and instances up to 100 MB by
+  default (`max_bytes`; the legacy `validator` keeps 1 GiB).
+- `validate(base_dir=...)` and `--base-dir` report paths relative to a chosen folder.
+  Without it, paths are bare file names when the working directory is `/` or an
+  ancestor of the home directory.
+- In `validate()`, a whitelisted remote dictionary that is not bundled is reported as
+  `dictionary.offline` (info) when network access is off, instead of a Check 3
+  warning, so `--fail-on warning` does not fail a file just for being checked offline.
 - Two checks in `validate()` only (not in `dictionary_check()`): dictionary **Check 13**,
   which requires result values of a property whose definition names a `valueCodeSpace`
   to be terms of that code list, and a **deprecation** check against the bundled DIGGS
@@ -76,6 +89,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of once per URL form, which more than offsets the larger dictionary bundle.
 
 ### Security
+- `validate()` and `pydiggs validate` treat everything in an instance as data: Schematron
+  location paths (which carry the instance's namespace URIs) are matched against the
+  tree, never evaluated as XPath; only regular files are read (a FIFO cannot block);
+  messages about unreadable files carry no path; `--output` is written with mode 0600
+  and never through a symlink; text output escapes control and bidi characters. A
+  broken user Schematron file is a `ResourceError` (exit 2).
 - `dictionaries/whiteList.xml`, which decides where `allow_network=True` may fetch
   dictionaries from, is maintained in pyDIGGS and digest-checked rather than synced
   from upstream, so a data update cannot widen it.
