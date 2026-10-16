@@ -56,6 +56,8 @@ DEFAULT_MAX_FINDINGS: Final = 10_000
 DEFAULT_MAX_BYTES: Final = 100 * 1024 * 1024
 _CONTEXT_STEPS: Final = frozenset({Step.STRUCTURE, Step.GEOMETRY, Step.CONTEXT})
 _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO": Severity.INFO}
+#: libxml2 appends the position to syntax errors; it is in line/column already.
+_POSITION_SUFFIX: Final = re.compile(r", line \d+, column \d+$")
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
 _SVRL: Final = "{http://purl.oclc.org/dsdl/svrl}"
 _LOG_LEVELS: Final = {
@@ -152,7 +154,7 @@ def _checks(checks: Iterable[str | Step] | None) -> frozenset[Step]:
     if checks is None:
         return frozenset(NATIVE_STEPS)
     if isinstance(checks, str):
-        raise TypeError("checks must be an iterable of step names, not a single string")
+        raise ValueError(f"checks must be an iterable of step names, not the string {checks!r}")
     allowed = {s.value: s for s in NATIVE_STEPS}
     chosen: set[Step] = set()
     for name in checks:
@@ -567,7 +569,7 @@ def validate(
             Step.STRUCTURE,
             rules.WELL_FORMED,
             Severity.ERROR,
-            exc.msg or "The file is not well-formed XML.",
+            _POSITION_SUFFIX.sub("", exc.msg or "") or "The file is not well-formed XML.",
             line=line,
             column=column,
         )
@@ -592,8 +594,8 @@ def validate(
         _run_context(doc.getroot(), builder, wanted)
         for step in _CONTEXT_STEPS & wanted:
             steps[step] = builder.status(step)
-    if Step.STRUCTURE not in wanted:
-        steps[Step.STRUCTURE] = "passed"  # well-formed; the root checks were not asked for
+    # Well-formedness is always checked (nothing else can run without it), but an
+    # unrequested structure step stays "skipped" unless the file is not well-formed.
     for step in builder.dropped:
         steps[step] = "incomplete"
     return report(builder, profile)
