@@ -82,6 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="report absolute paths (default: relative to here, else the bare file name)",
     )
     parser.add_argument(
+        "--local-dictionaries",
+        choices=["instance-dir", "off"],
+        default="instance-dir",
+        help="read local dictionaries only from each instance's folder (default), or never",
+    )
+    parser.add_argument(
         "--base-dir",
         metavar="DIR",
         help="report paths relative to DIR (default: here, unless here is / or above home)",
@@ -206,6 +212,7 @@ def _run(
                     include_snippets=args.snippets,
                     max_findings=args.max_findings or None,
                     base_dir=args.base_dir,
+                    local_dictionaries=args.local_dictionaries,
                 )
             )
         except InstanceReadError as exc:
