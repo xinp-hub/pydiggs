@@ -204,6 +204,7 @@ class DictionarySemanticValidator:
         # Check 13 (official dictionary-validation.xsl Step 14) runs only for
         # pydiggs.validate(); dictionary_check() keeps its 1.1 behaviour.
         self.check_value_code_spaces = check_value_code_spaces
+        self._check13: _Check13Index | None = None
         self.allow_network = allow_network
         self._whitelist_patterns = self._load_whitelist(
             Path(whitelist_path) if whitelist_path else _DEFAULT_WHITELIST
@@ -550,6 +551,7 @@ class DictionarySemanticValidator:
         self._instance_dir = Path(instance_path).resolve().parent
         root = doc.getroot()
         self._positions = _sibling_positions(root)
+        self._check13 = None
 
         for el in root.xpath("//*[@codeSpace]"):
             if _local(el) in _SKIP_LOCAL_NAMES:
@@ -953,30 +955,37 @@ class DictionarySemanticValidator:
         allowed = [
             str(v) for v in code_list.xpath("//*[local-name()='Definition']/@*[local-name()='id']")
         ]
-        invalid = self._invalid_result_values(el, set(allowed))
+        invalid = self._invalid_result_values(el, frozenset(allowed))
         if invalid:
             shown = ", ".join(f'"{v}"' for v in invalid[:_CHECK13_SHOWN])
             more = " ..." if len(invalid) > _CHECK13_SHOWN else ""
+            terms = ", ".join(allowed[:_CHECK13_TERMS])
+            if len(allowed) > _CHECK13_TERMS:
+                terms += f", ... ({len(allowed)} total)"
             result.add(
                 "ERROR",
                 path,
                 (
                     f'Check 13:\n{len(invalid)} value(s) of "{definition_name}" are not terms '
                     f'of the code list "{code_list_url}": {shown}{more}. '
-                    f"Valid terms: {', '.join(allowed)}."
+                    f"Valid terms: {terms}."
                 ),
                 13,
             )
 
-    @staticmethod
-    def _invalid_result_values(el: etree._Element, allowed: set[str]) -> list[str]:
+    def _check13_index(self, root: etree._ElementTree) -> _Check13Index:
+        # getroottree() returns a new wrapper each call; the root element is stable.
+        if self._check13 is None or self._check13.root.getroot() is not root.getroot():
+            self._check13 = _Check13Index(root)
+        return self._check13
+
+    def _invalid_result_values(self, el: etree._Element, allowed: frozenset[str]) -> list[str]:
         """Distinct values in this property's dataValues column that are not ``allowed``."""
         prop = el.getparent()
         if prop is None:
             return []
-        try:
-            column = int((prop.get("index") or "").strip())
-        except ValueError:
+        column = _xs_integer(prop.get("index"))
+        if column is None or column < 1:
             return []
         null_el = next(
             (c for c in prop if isinstance(c.tag, str) and _local(c) == "nullValue"), None
@@ -985,22 +994,55 @@ class DictionarySemanticValidator:
         params = next((a for a in el.iterancestors() if _local(a) == "PropertyParameters"), None)
         if params is None:
             return []
+        index = self._check13_index(params.getroottree())
         params_id = next(
             (str(v) for k, v in params.attrib.items() if etree.QName(k).localname == "id"), ""
         )
         result_sets = [a for a in params.iterancestors() if _local(a) == "ResultSet"][:1]
         if params_id:
-            result_sets += params.getroottree().xpath(
-                "//*[local-name()='ResultSet'][*[local-name()='parameters']"
-                "/@*[local-name()='href'] = $ref]",
-                ref=f"#{params_id}",
-            )
-        root = params.getroottree()
+            result_sets += index.citing(f"#{params_id}")
         # XPath "$resultSets/*" de-duplicates and returns document order.
-        unique = {id(rs): rs for rs in result_sets}.values()
-        ordered = sorted(unique, key=_document_order(root))
         values: list[str] = []
-        for result_set in ordered:
+        for result_set in index.in_document_order(result_sets):
+            values += index.column(result_set, column)
+        candidates = dict.fromkeys(values)
+        return [v for v in candidates if v and v != null_text and v not in allowed]
+
+
+class _Check13Index:
+    """Per-document lookups for Check 13, built once instead of once per property."""
+
+    def __init__(self, root: etree._ElementTree) -> None:
+        self.root = root
+        self._order: dict[etree._Element, int] | None = None
+        self._citing: dict[str, list[etree._Element]] | None = None
+        self._columns: dict[tuple[etree._Element, int], list[str]] = {}
+
+    def citing(self, ref: str) -> list[etree._Element]:
+        """ResultSets whose ``parameters/@*:href`` equals ``ref``."""
+        if self._citing is None:
+            self._citing = {}
+            for rs in self.root.iter():
+                if not isinstance(rs.tag, str) or _local(rs) != "ResultSet":
+                    continue
+                for child in rs:
+                    if isinstance(child.tag, str) and _local(child) == "parameters":
+                        for key, value in child.attrib.items():
+                            if etree.QName(key).localname == "href":
+                                self._citing.setdefault(str(value), []).append(rs)
+        return self._citing.get(ref, [])
+
+    def in_document_order(self, elements: list[etree._Element]) -> list[etree._Element]:
+        if self._order is None:
+            self._order = {el: i for i, el in enumerate(self.root.iter())}
+        order = self._order
+        return sorted(dict.fromkeys(elements), key=lambda el: order.get(el, 0))
+
+    def column(self, result_set: etree._Element, column: int) -> list[str]:
+        """Values in ``column`` (1-based) of the ResultSet's dataValues, in order."""
+        key = (result_set, column)
+        if key not in self._columns:
+            values: list[str] = []
             for block in result_set:
                 if not isinstance(block.tag, str) or _local(block) != "dataValues":
                     continue
@@ -1014,24 +1056,26 @@ class DictionarySemanticValidator:
                     if not token:
                         continue
                     fields = cs_pattern.split(token)
-                    if 1 <= column <= len(fields):
+                    if column <= len(fields):
                         values.append(_normalize_space(fields[column - 1]))
-        invalid: list[str] = []
-        for value in values:
-            if value and value != null_text and value not in allowed and value not in invalid:
-                invalid.append(value)
-        return invalid
+            self._columns[key] = values
+        return self._columns[key]
+
+
+_XS_INTEGER = re.compile(r"[+-]?[0-9]+")
+
+
+def _xs_integer(text: str | None) -> int | None:
+    """Parse an xs:integer (optional sign, ASCII digits; no underscores or other digits)."""
+    value = _normalize_space(text)
+    return int(value) if _XS_INTEGER.fullmatch(value) else None
 
 
 _XPATH_WS_RUN = re.compile(r"[ \t\n\r]+")
 _CHECK13_SHOWN = 5  # the official message lists the first five invalid values
+_CHECK13_TERMS = 20  # pydiggs lists at most 20 valid terms (the official module lists all)
 
 
 def _normalize_space(text: str | None) -> str:
     """XPath normalize-space(): only space, tab, CR and LF count as whitespace."""
     return _XPATH_WS_RUN.sub(" ", text or "").strip(" \t\n\r")
-
-
-def _document_order(root: etree._ElementTree):
-    order = {el: i for i, el in enumerate(root.iter())}
-    return lambda el: order.get(el, 0)
