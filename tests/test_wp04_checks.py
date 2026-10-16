@@ -126,8 +126,13 @@ def test_check13_unwhitelisted_and_inaccessible_code_lists(tmp_path, monkeypatch
         "_resolve_dictionary",
         lambda self, url: None if "loadTest" in url else self._dict_cache.get(url),
     )
-    report = validate(CHECK13, checks=["dictionary"])
-    (finding,) = [f for f in report.findings if f.rule_id == rules.DICTIONARY_13]
+    offline = validate(CHECK13, checks=["dictionary"])
+    assert not [f for f in offline.findings if f.rule_id == rules.DICTIONARY_13]
+    (info,) = [f for f in offline.findings if f.rule_id == rules.DICTIONARY_OFFLINE]
+    assert info.severity is Severity.INFO
+    assert "could not be accessed" in info.message
+    online = validate(CHECK13, checks=["dictionary"], allow_network=True)
+    (finding,) = [f for f in online.findings if f.rule_id == rules.DICTIONARY_13]
     assert finding.severity is Severity.WARNING
     assert "could not be accessed" in finding.message
 
