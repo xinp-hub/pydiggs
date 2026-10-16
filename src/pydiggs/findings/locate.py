@@ -18,7 +18,13 @@ __all__ = ["SNIPPET_LIMIT", "Locator"]
 #: Largest source snippet, in UTF-8 bytes.
 SNIPPET_LIMIT: Final = 1024
 _GML_ID: Final = "{http://www.opengis.net/gml/3.2}id"
-_POSITION: Final = re.compile(r"\[\d+\]")
+#: Longest location path considered; real ones are far shorter.
+_MAX_PATH: Final = 64 * 1024
+_NAME: Final = r"[A-Za-z_][A-Za-z0-9_.\-]*"
+_LOG_PATH: Final = re.compile(rf"(?:/(?:\*|{_NAME}(?::{_NAME})?)(?:\[[1-9][0-9]{{0,8}}\])?)+")
+_ATTRIBUTE_STEP: Final = re.compile(
+    rf"(?:{_NAME}|\*\[local-name\(\)='{_NAME}' and namespace-uri\(\)='[^']*'\])"
+)
 
 
 def _qname(el: etree._Element) -> str:
@@ -37,6 +43,7 @@ class Locator:
         """Bind to ``doc``."""
         self._doc = doc
         self._positions: dict[etree._Element, int] = {}
+        self._svrl_steps: dict[etree._Element, str] = {}
 
     def _position(self, el: etree._Element) -> int:
         if el not in self._positions:
@@ -93,34 +100,87 @@ class Locator:
         return data.decode("utf-8", errors="ignore")
 
     def element_at(self, path: str | None) -> etree._Element | None:
-        """The single element an absolute XPath (libxml2's ``_LogEntry.path``) selects."""
-        if not path:
-            return None
-        nodes = self._select(path)
-        return nodes[0] if len(nodes) == 1 else None
+        """The element libxml2's ``_LogEntry.path`` names.
 
-    def svrl_element(self, location: str | None, occurrence: int) -> etree._Element | None:
-        """The element an SVRL ``@location`` names.
-
-        lxml's ISO Schematron skeleton adds a position only where same-named siblings
-        exist, and counts them by local name alone, so a location can select nothing
-        (or, in principle, several elements). Then the positions are dropped and the
-        ``occurrence``-th (0-based) match in document order is used: the n-th failed
-        assert with this location is taken to be about the n-th such element.
+        libxml2 writes these as ``/name[n]``, ``/prefix:name[n]`` or ``/*[n]`` steps. The
+        path is checked against that grammar before it is evaluated, so it can contain
+        no function call or predicate other than a position.
         """
-        if not location:
+        if not path or len(path) > _MAX_PATH or not _LOG_PATH.fullmatch(path):
             return None
-        nodes = self._select(location)
-        if len(nodes) == 1:
-            return nodes[0]
-        relaxed = self._select(_POSITION.sub("", location))
-        return relaxed[occurrence] if 0 <= occurrence < len(relaxed) else None
-
-    def _select(self, path: str) -> list[etree._Element]:
         try:
             result = self._doc.xpath(path)
         except (etree.XPathError, ValueError):
-            return []
-        if not isinstance(result, list):
-            return []
-        return [n for n in result if isinstance(n, etree._Element) and isinstance(n.tag, str)]
+            return None
+        if not isinstance(result, list) or len(result) != 1:
+            return None
+        node = result[0]
+        return node if isinstance(node, etree._Element) and isinstance(node.tag, str) else None
+
+    def svrl_element(self, location: str | None) -> etree._Element | None:
+        """The element an SVRL ``@location`` from lxml's ISO Schematron skeleton names.
+
+        The location is never evaluated: it is built from the instance's own namespace
+        URIs, which may contain quotes and XPath. Instead the tree is walked from the
+        root, regenerating for each child the step the skeleton would write
+        (``*[local-name()='X' and namespace-uri()='U']`` or ``name``, plus ``[n]`` when a
+        sibling shares the local name) and matching it literally. A trailing attribute
+        step names its element. Anything else gives None.
+        """
+        if not location or len(location) > _MAX_PATH:
+            return None
+        node: etree._Element | None = None
+        candidates: list[etree._Element] = [self._doc.getroot()]
+        pos = 0
+        while pos < len(location):
+            if location.startswith("/@", pos) and node is not None:
+                rest = location[pos + 2 :]
+                return node if _ATTRIBUTE_STEP.fullmatch(rest) else None
+            matched = [
+                (len(text), c)
+                for c in candidates
+                if location.startswith(text := "/" + self._svrl_step(c), pos)
+                and location[pos + len(text) : pos + len(text) + 1] in ("", "/")
+            ]
+            if not matched:
+                return None
+            length, node = max(matched, key=lambda m: m[0])
+            pos += length
+            candidates = [c for c in node if isinstance(c.tag, str)]
+        return node
+
+    def _svrl_step(self, el: etree._Element) -> str:
+        if el not in self._svrl_steps:
+            parent = el.getparent()
+            siblings = [el] if parent is None else [c for c in parent if isinstance(c.tag, str)]
+            self._svrl_steps.update(_skeleton_steps(siblings))
+        return self._svrl_steps[el]
+
+
+def _skeleton_steps(siblings: list[etree._Element]) -> dict[etree._Element, str]:
+    """The step lxml's ``schematron-get-full-path`` template writes for each sibling.
+
+    Elements in no namespace are written ``name()``, counted by ``name()``; the others
+    as a local-name/namespace test, counted by local name alone (as the skeleton does).
+    A position is added when more than one sibling shares the counted name.
+    """
+    keys = []
+    for el in siblings:
+        qname = etree.QName(el)
+        keys.append(("n", _qname(el)) if not qname.namespace else ("l", str(qname.localname)))
+    totals: dict[tuple[str, str], int] = {}
+    for key in keys:
+        totals[key] = totals.get(key, 0) + 1
+    seen: dict[tuple[str, str], int] = {}
+    steps: dict[etree._Element, str] = {}
+    for el, key in zip(siblings, keys, strict=True):
+        seen[key] = seen.get(key, 0) + 1
+        qname = etree.QName(el)
+        if key[0] == "n":
+            step = key[1]
+        else:
+            step = f"*[local-name()='{qname.localname}' and namespace-uri()='{qname.namespace}']"
+        if totals[key] > 1:
+            step += f"[{seen[key]}]"
+        steps[el] = step
+    return steps

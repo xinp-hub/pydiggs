@@ -257,7 +257,6 @@ def _run_schematron(
 ) -> StepStatus:
     schematron = _schematron(schematron_path)
     schematron.validate(doc)
-    occurrences: dict[str, int] = {}
     for context, item in _svrl_items(schematron.validation_report):
         test = item.get("test") or ""
         if schematron_path is None:
@@ -268,9 +267,7 @@ def _run_schematron(
         else:
             rule_id = rules.schematron_user_rule(item.get("id"), context, test)
         location = item.get("location")
-        seen = occurrences.get(location or "", 0)
-        occurrences[location or ""] = seen + 1
-        node = builder.locator.svrl_element(location, seen) if builder.locator else None
+        node = builder.locator.svrl_element(location) if builder.locator else None
         text = " ".join(item.findtext(f"{_SVRL}text", default="").split())
         builder.add(Step.SCHEMATRON, rule_id, Severity.ERROR, text, node=node)
     for casing, message in _casing_diameter_problems(doc):
