@@ -50,14 +50,14 @@ REVIEWED_248_FILES = (
 )
 
 
-def capture_env(pythonpath: str | None) -> dict[str, str]:
-    """Environment for a capture run: plain rich output, 200 columns."""
+def capture_env(pythonpath: str | None, seed: str = "0") -> dict[str, str]:
+    """Environment for a capture run: plain rich output, 200 columns, fixed hash seed."""
     env = {
         k: v
         for k, v in os.environ.items()
         if k not in {"FORCE_COLOR", "CLICOLOR_FORCE", "PYTHONPATH"} and not k.startswith("TTY_")
     }
-    env.update({"COLUMNS": "200", "NO_COLOR": "1", "TERM": "dumb", "PYTHONHASHSEED": "0"})
+    env.update({"COLUMNS": "200", "NO_COLOR": "1", "TERM": "dumb", "PYTHONHASHSEED": seed})
     if pythonpath is not None:
         env["PYTHONPATH"] = pythonpath
     return env

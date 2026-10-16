@@ -37,18 +37,41 @@ case_file = regen.case_file
 GOLDENS = json.loads((ROOT / "tests" / "legacy_goldens" / "legacy_cli.json").read_text("utf-8"))
 
 
-@pytest.fixture(scope="module")
-def captured() -> dict[str, dict[str, object]]:
+def _capture(seed: str = "0", only: str | None = None) -> dict[str, object]:
+    argv = [sys.executable, str(ROOT / "tests" / "legacy_goldens" / "capture.py"), str(ROOT)]
     out = subprocess.run(  # noqa: S603  # our own capture script, fixed argv
-        [sys.executable, str(ROOT / "tests" / "legacy_goldens" / "capture.py"), str(ROOT)],
-        env=capture_env(None),
+        [*argv, *([only] if only else [])],
+        env=capture_env(None, seed),
         check=True,
         capture_output=True,
         text=True,
         cwd=ROOT,
     ).stdout
-    cases: dict[str, dict[str, object]] = json.loads(out)["cases"]
+    result: dict[str, object] = json.loads(out)
+    return result
+
+
+@pytest.fixture(scope="module")
+def captured() -> dict[str, dict[str, object]]:
+    result = _capture()
+    # The working tree under test, not an installed copy of pydiggs.
+    assert Path(str(result["pydiggs_file"])).resolve().is_relative_to(ROOT / "src")
+    cases: dict[str, dict[str, object]] = result["cases"]  # type: ignore[assignment]
     return cases
+
+
+def _expected(case: dict[str, object]) -> dict[str, object]:
+    return {k: v for k, v in case.items() if k != "source"}
+
+
+@pytest.mark.slow
+def test_dictionary_cases_do_not_depend_on_the_hash_seed():
+    cases = _capture(seed="1", only="dictionary_check")["cases"]
+    assert isinstance(cases, dict)
+    expected = {k: v for k, v in GOLDENS["cases"].items() if k.startswith("dictionary_check ")}
+    assert cases.keys() == expected.keys()
+    different = [k for k, v in expected.items() if _expected(v) != cases[k]]
+    assert not different, different[:5]
 
 
 @pytest.mark.slow
@@ -56,9 +79,7 @@ def test_legacy_output_is_byte_identical(captured):
     expected = GOLDENS["cases"]
     assert captured.keys() == expected.keys()
     different = [
-        case_id
-        for case_id, case in expected.items()
-        if {k: v for k, v in case.items() if k != "source"} != captured[case_id]
+        case_id for case_id, case in expected.items() if _expected(case) != captured[case_id]
     ]
     assert not different, f"{len(different)} legacy cases changed, e.g. {different[:5]}"
 
