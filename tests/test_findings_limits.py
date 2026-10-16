@@ -78,3 +78,42 @@ def test_cli_max_findings(capsys):
     with pytest.raises(SystemExit) as exc:
         main(["validate", "--max-findings", "-1", str(NO_ERROR)])
     assert exc.value.code == 2
+
+
+def _copy(tmp_path: Path, rel: str) -> Path:
+    target = tmp_path / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(NO_ERROR.read_bytes())
+    return target
+
+
+def test_paths_are_bare_names_when_cwd_is_root_or_above_home(tmp_path, monkeypatch):
+    from pydiggs.findings.run import display_paths
+
+    home = tmp_path / "Users" / "me"
+    target = _copy(home, "projects/site/BH-1.xml")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir("/")
+    assert display_paths(target)[0] == "BH-1.xml"
+    monkeypatch.chdir(tmp_path / "Users")  # an ancestor of home
+    assert display_paths(target)[0] == "BH-1.xml"
+    monkeypatch.chdir(home)  # home itself is fine
+    assert display_paths(target)[0] == "projects/site/BH-1.xml"
+    monkeypatch.chdir(home / "projects")
+    assert validate(target, checks=["schema"]).path == "site/BH-1.xml"
+
+
+def test_base_dir_gives_paths_relative_to_a_chosen_folder(tmp_path, monkeypatch, capsys):
+    target = _copy(tmp_path, "survey/site/BH-1.xml")
+    other = _copy(tmp_path, "elsewhere/BH-2.xml")
+    monkeypatch.chdir("/")
+    base = tmp_path / "survey"
+    assert validate(target, checks=["schema"], base_dir=base).path == "site/BH-1.xml"
+    assert validate(other, checks=["schema"], base_dir=base).path == "BH-2.xml"
+    code = main(
+        ["validate", "--format", "json", "--checks", "schema", "--base-dir", str(base),
+         str(target), str(other)]
+    )  # fmt: skip
+    assert code == 0
+    paths = [f["path"] for f in json.loads(capsys.readouterr().out)["files"]]
+    assert paths == ["BH-2.xml", "site/BH-1.xml"]
