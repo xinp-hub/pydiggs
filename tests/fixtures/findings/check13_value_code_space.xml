@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Check 13 fixture (pydiggs): loading_phase values must be terms of
+     loadTestIncrementPhase.xml. "bogus" and "oops" are not; "NA" is the nullValue. -->
+<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2"
+       xmlns:xlink="http://www.w3.org/1999/xlink">
+  <measurement>
+    <Test gml:id="T1">
+      <outcome>
+        <TestResult gml:id="TR1">
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters gml:id="PP1">
+                  <properties>
+                    <Property index="1" gml:id="P1">
+                      <typeData>string</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#loading_phase">Loading Phase</propertyClass>
+                      <nullValue>NA</nullValue>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">loading unloading bogus NA
+                reload</dataValues>
+            </ResultSet>
+            <ResultSet>
+              <parameters xlink:href="#PP1"/>
+              <dataValues>seating oops bogus</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+    </Test>
+  </measurement>
+</Diggs>
