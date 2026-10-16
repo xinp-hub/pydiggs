@@ -541,7 +541,7 @@ def validate(
     shown, absolute = display_paths(path, base_dir)
     instance = Path(path)
     try:
-        data, _ = _xml.read_limited(instance, limit)
+        data, _ = _xml.read_limited(instance, limit, regular_only=True)
     except OSError as exc:
         raise InstanceReadError(exc.errno or 0, _redact(exc, path, shown), shown) from exc
     sha256 = hashlib.sha256(data).hexdigest()
