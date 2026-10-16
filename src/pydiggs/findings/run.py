@@ -142,17 +142,13 @@ def _printable(name: str) -> str:
     return os.fsencode(name).decode("utf-8", "backslashreplace")
 
 
-def _redact(exc: OSError, path: str | os.PathLike[str], shown: str) -> str:
-    """The reason an instance could not be read, without the path as given or resolved."""
-    reason = exc.strerror or str(exc)
-    for spelling in sorted(
-        {os.fspath(path), str(Path(path).absolute()), str(Path(path).resolve())},
-        key=len,
-        reverse=True,
-    ):
-        if spelling:
-            reason = reason.replace(spelling, shown)
-    return reason
+def _reason(exc: OSError) -> str:
+    """Why an instance could not be read: the OS error text only, never a path.
+
+    ``strerror`` carries no file name (unlike ``str(exc)``), so nothing has to be
+    redacted, and nothing in the reason can be garbled by a replacement.
+    """
+    return exc.strerror or "could not be read"
 
 
 def _limits(max_findings: int | None, max_bytes: int) -> int:
@@ -662,7 +658,7 @@ def validate(
     try:
         data, _ = _xml.read_limited(instance, limit, regular_only=True)
     except OSError as exc:
-        raise InstanceReadError(exc.errno or 0, _redact(exc, path, shown), shown) from exc
+        raise InstanceReadError(exc.errno or 0, _reason(exc), shown) from exc
     sha256 = hashlib.sha256(data).hexdigest()
     steps: dict[Step, StepStatus] = dict.fromkeys(NATIVE_STEPS, "skipped")
     scrub = (str(instance.resolve()), shown)

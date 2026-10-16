@@ -221,3 +221,31 @@ def test_snippet_cost_does_not_scale_with_the_subtree():
     assert "<b>...</b>" in snippet
     assert f"<!-- {20_000 - SNIPPET_CHILDREN} more -->" in snippet
     assert "urn:u" not in snippet
+
+
+def test_existing_output_file_is_made_private(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "out.json"
+    out.write_text("old")
+    out.chmod(0o644)
+    assert main(["validate", "--format", "json", "--output", "out.json", str(NO_ERROR)]) == 0
+    assert stat.S_IMODE(out.stat().st_mode) == 0o600
+
+
+def test_line_and_paragraph_separators_are_escaped():
+    from pydiggs.findings._cli import _safe
+
+    assert _safe("a\u2028b\u2029c") == "a\\u2028b\\u2029c"
+
+
+@pytest.mark.parametrize(
+    ("path", "uri"),
+    [
+        ("//?/C:/Users/me/a b.xml", "file:///C:/Users/me/a%20b.xml"),
+        ("//?/UNC/server/share/a.xml", "file://server/share/a.xml"),
+    ],
+)
+def test_sarif_file_uris_for_extended_length_windows_paths(path, uri):
+    from pydiggs.findings import _sarif
+
+    assert _sarif.file_uri(path) == uri

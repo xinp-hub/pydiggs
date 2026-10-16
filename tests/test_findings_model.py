@@ -136,7 +136,7 @@ def test_normalise_xpath(raw, expected):
     assert keys.normalise_xpath(raw) == expected
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(st.text())
 def test_normalise_xpath_is_idempotent(raw):
     once = keys.normalise_xpath(raw)
@@ -155,14 +155,14 @@ def test_compare_is_a_multiset_difference_over_shared_steps():
     assert only_b == Counter({("dictionary", "info", "file", "dictionary.1"): 1})
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(rule_ids())
 def test_generated_rule_ids_match_the_grammar(rule_id):
     assert RULE_ID_PATTERN.match(rule_id)
     assert is_valid_rule_id(rule_id, rule_id.split(".", 1)[0])
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(st.text())
 def test_rule_id_grammar_never_accepts_a_bad_step(text):
     if is_valid_rule_id(text):
@@ -284,13 +284,13 @@ def test_report_is_hashable_and_ok_when_only_warnings():
     assert isinstance(hash(report), int)
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(findings())
 def test_sort_key_is_total_and_deterministic(finding):
     assert finding.sort_key() == dataclasses.replace(finding).sort_key()
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(reports())
 def test_report_order_does_not_depend_on_input_order(report):
     shuffled = dataclasses.replace(report, findings=tuple(reversed(report.findings)))
