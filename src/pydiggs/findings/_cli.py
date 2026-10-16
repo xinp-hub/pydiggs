@@ -8,6 +8,7 @@ not be read (2 outranks 1). An XML syntax error is a finding, so it gives 1.
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import sys
 from collections.abc import Iterator, Sequence
@@ -19,7 +20,13 @@ from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.errors import InstanceReadError, ResourceError
 from pydiggs.findings import _json, _sarif
 from pydiggs.findings.model import Report, Severity, UnreadableFile
-from pydiggs.findings.run import NATIVE_STEPS, display_paths, reference_data, validate
+from pydiggs.findings.run import (
+    DEFAULT_MAX_FINDINGS,
+    NATIVE_STEPS,
+    display_paths,
+    reference_data,
+    validate,
+)
 
 __all__ = ["build_parser", "expand_inputs", "main"]
 
@@ -55,6 +62,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dictionary-path", metavar="P", help="primary property dictionary")
     parser.add_argument("--schematron-path", metavar="P", help="Schematron rules file")
     parser.add_argument("--fail-on", choices=["error", "warning"], default="error")
+    parser.add_argument(
+        "--max-findings",
+        type=int,
+        default=DEFAULT_MAX_FINDINGS,
+        metavar="N",
+        help=f"keep at most N findings per file (default {DEFAULT_MAX_FINDINGS}; 0: no limit)",
+    )
     parser.add_argument(
         "--snippets",
         action="store_true",
@@ -126,23 +140,23 @@ def _open_output(name: str) -> TextIO:
     return os.fdopen(os.open(name, flags, 0o644), "w", encoding="utf-8")
 
 
-def main(argv: Sequence[str]) -> int:
-    """Run ``pydiggs validate`` with ``argv`` (the arguments after ``validate``)."""
-    parser = build_parser()
+def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.Namespace:
     args = parser.parse_args(list(argv))
-    checks = None
+    args.check_list = None
     if args.checks is not None:
-        checks = [c.strip() for c in args.checks.split(",") if c.strip()]
+        args.check_list = [c.strip() for c in args.checks.split(",") if c.strip()]
         allowed = {s.value for s in NATIVE_STEPS}
-        unknown = [c for c in checks if c not in allowed]
-        if unknown or not checks:
+        if not args.check_list or any(c not in allowed for c in args.check_list):
             parser.error(f"--checks: expected some of {','.join(sorted(allowed))}")
+    if args.max_findings < 0:
+        parser.error("--max-findings must be 0 (no limit) or positive")
+    return args
 
-    inputs = expand_inputs(args.paths)
-    if not inputs:
-        print("pydiggs validate: no XML files found", file=sys.stderr)
-        return 2
 
+def _run(
+    args: argparse.Namespace, inputs: Sequence[Path]
+) -> tuple[list[Report], list[UnreadableFile]]:
+    """Validate every input; ResourceError propagates (it aborts the batch)."""
     reports: list[Report] = []
     unreadable: list[UnreadableFile] = []
     for path in inputs:
@@ -151,12 +165,13 @@ def main(argv: Sequence[str]) -> int:
                 validate(
                     path,
                     diggs_version=args.diggs_version,
-                    checks=checks,
+                    checks=args.check_list,
                     schema_path=args.schema_path,
                     dictionary_path=args.dictionary_path,
                     schematron_path=args.schematron_path,
                     allow_network=args.allow_network,
                     include_snippets=args.snippets,
+                    max_findings=args.max_findings or None,
                 )
             )
         except InstanceReadError as exc:
@@ -164,48 +179,56 @@ def main(argv: Sequence[str]) -> int:
             unreadable.append(
                 UnreadableFile(path=shown, error=exc.strerror or str(exc), absolute_path=absolute)
             )
-        except ResourceError as exc:
-            print(f"pydiggs validate: {exc}", file=sys.stderr)
-            return 2
     reports.sort(key=lambda r: (r.path, r.absolute_path or ""))
     unreadable.sort(key=lambda u: (u.path, u.absolute_path or ""))
+    return reports, unreadable
 
+
+def _render(
+    args: argparse.Namespace, reports: Sequence[Report], unreadable: Sequence[UnreadableFile]
+) -> str:
+    if args.format == "text":
+        buffer = io.StringIO()
+        _text(reports, unreadable, buffer)
+        return buffer.getvalue()
     if args.format == "json":
         entries = [r.to_dict(absolute_paths=args.absolute_paths) for r in reports]
         entries += [
             _json.unreadable_entry(u, absolute_paths=args.absolute_paths) for u in unreadable
         ]
         entries.sort(key=lambda e: str(e["path"]))
-        body = _json.dumps(
-            _json.document(
-                entries, tool_version=pydiggs.__version__, reference_data=reference_data()
-            )
+        doc = _json.document(
+            entries, tool_version=pydiggs.__version__, reference_data=reference_data()
         )
-    elif args.format == "sarif":
-        log = _sarif.sarif_log(
-            reports,
-            unreadable,
-            tool_version=pydiggs.__version__,
-            absolute_paths=args.absolute_paths,
-        )
-        body = _json.dumps(log)
+        return _json.dumps(doc) + "\n"
+    log = _sarif.sarif_log(
+        reports, unreadable, tool_version=pydiggs.__version__, absolute_paths=args.absolute_paths
+    )
+    return _json.dumps(log) + "\n"
 
-    def emit(out: TextIO) -> None:
-        if args.format == "text":
-            _text(reports, unreadable, out)
-        else:
-            out.write(body + "\n")
 
+def main(argv: Sequence[str]) -> int:
+    """Run ``pydiggs validate`` with ``argv`` (the arguments after ``validate``)."""
+    args = _options(build_parser(), argv)
+    inputs = expand_inputs(args.paths)
+    if not inputs:
+        print("pydiggs validate: no XML files found", file=sys.stderr)
+        return 2
+    try:
+        reports, unreadable = _run(args, inputs)
+    except ResourceError as exc:
+        print(f"pydiggs validate: {exc}", file=sys.stderr)
+        return 2
+    body = _render(args, reports, unreadable)
     if args.output:
         try:
             with _open_output(args.output) as fh:
-                emit(fh)
+                fh.write(body)
         except OSError as exc:
             print(f"pydiggs validate: cannot write {args.output}: {exc}", file=sys.stderr)
             return 2
     else:
-        emit(sys.stdout)
-
+        sys.stdout.write(body)
     if unreadable:
         return 2
     threshold = Severity(args.fail_on).rank

@@ -20,6 +20,7 @@ __all__ = [
     "DEPRECATED",
     "DICTIONARY_13",
     "DICTIONARY_OFFLINE",
+    "FINDINGS_TRUNCATED",
     "HELP_URI",
     "REMOVED",
     "RULE_ID_PATTERN",
@@ -43,6 +44,7 @@ _NAME_PATTERN: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 HELP_URI: Final = "https://xinp-hub.github.io/pydiggs/findings/#rule-ids"
 
 WELL_FORMED: Final = "structure.well-formed"
+FINDINGS_TRUNCATED: Final = "structure.findings-truncated"
 SCHEMA_INCOMPLETE: Final = "schema.incomplete"
 DICTIONARY_13: Final = "dictionary.13"
 DICTIONARY_OFFLINE: Final = "dictionary.offline"
@@ -183,6 +185,7 @@ _DICTIONARY_CHECKS: Final[dict[int, str]] = {
 
 _DESCRIPTIONS: Final[dict[str, str]] = {
     WELL_FORMED: "The file is not well-formed XML",
+    FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
     DICTIONARY_OFFLINE: "Remote code lists were not fetched because network access is off",
     DEPRECATED: "Uses something the DIGGS schema deprecates",
