@@ -230,7 +230,7 @@ def _schematron(schematron_path: str | os.PathLike[str] | None) -> isoschematron
                 store_report=True,
                 error_finder=isoschematron.Schematron.ASSERTS_AND_REPORTS,
             )
-        except etree.SchematronParseError as exc:
+        except (etree.SchematronParseError, etree.XSLTError) as exc:
             raise ResourceError(f"cannot use Schematron rules {str(path)!r}: {exc}") from exc
 
     if schematron_path is not None:
@@ -256,7 +256,11 @@ def _run_schematron(
     schematron_path: str | os.PathLike[str] | None,
 ) -> StepStatus:
     schematron = _schematron(schematron_path)
-    schematron.validate(doc)
+    try:
+        schematron.validate(doc)
+    except etree.XSLTError as exc:  # e.g. an unknown function in a user rule's test
+        where = str(schematron_path) if schematron_path is not None else "bundled"
+        raise ResourceError(f"cannot apply Schematron rules {where!r}: {exc}") from exc
     for context, item in _svrl_items(schematron.validation_report):
         test = item.get("test") or ""
         if schematron_path is None:
