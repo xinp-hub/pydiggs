@@ -34,6 +34,9 @@ from pydiggs.semantic import validate_context_tree
 __all__ = [
     "DEFAULT_MAX_BYTES",
     "DEFAULT_MAX_FINDINGS",
+    "MAX_MESSAGE_CHARS",
+    "MAX_REPORT_BYTES",
+    "MAX_XPATH_CHARS",
     "NATIVE_STEPS",
     "display_paths",
     "reference_data",
@@ -50,6 +53,13 @@ NATIVE_STEPS: Final = (
     Step.DEPRECATION,
     Step.CONTEXT,
 )
+#: Longest ``Finding.message`` kept, in characters; longer ones end in an ellipsis.
+MAX_MESSAGE_CHARS: Final = 4096
+#: Longest ``xpath`` (and ``gml_id``) kept; a longer one is reported as None.
+MAX_XPATH_CHARS: Final = 4096
+#: Budget for one report's findings, roughly as serialised to JSON.
+MAX_REPORT_BYTES: Final = 16 * 2**20
+_FINDING_OVERHEAD: Final = 200  # JSON keys, punctuation and the fixed fields
 #: Default ``max_findings`` of :func:`validate`.
 DEFAULT_MAX_FINDINGS: Final = 10_000
 #: Default ``max_bytes`` of :func:`validate`: 100 MB.
@@ -60,6 +70,7 @@ _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO"
 _POSITION_SUFFIX: Final = re.compile(r", line \d+, column \d+$")
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
 _SVRL: Final = "{http://purl.oclc.org/dsdl/svrl}"
+_NO_ERRORS: Final = etree.XPath("/..")
 _LOG_LEVELS: Final = {
     "WARNING": Severity.WARNING,
     "ERROR": Severity.ERROR,
@@ -167,7 +178,11 @@ def _checks(checks: Iterable[str | Step] | None) -> frozenset[Step]:
 
 
 class _Builder:
-    """Collects findings for one file, locating each from its element."""
+    """Collects findings for one file, locating each from its element.
+
+    Once full (``max_findings`` findings, or :data:`MAX_REPORT_BYTES` of them), further
+    findings are only counted per step, and callers skip locating them.
+    """
 
     def __init__(
         self,
@@ -182,8 +197,27 @@ class _Builder:
         self.scrub = scrub
         self.max_findings = max_findings
         self.findings: list[Finding] = []
-        #: Findings not kept because ``max_findings`` was reached: count and worst severity.
+        self.size = 0
+        #: Findings not kept: count and worst severity per step.
         self.dropped: dict[Step, tuple[int, Severity]] = {}
+
+    @property
+    def full(self) -> bool:
+        """No more findings are kept (the cap or the size budget was reached)."""
+        at_cap = self.max_findings is not None and len(self.findings) >= self.max_findings
+        return at_cap or self.size >= MAX_REPORT_BYTES
+
+    @property
+    def remaining(self) -> int | None:
+        """How many more findings may be kept (None: no cap)."""
+        if self.max_findings is None:
+            return None if self.size < MAX_REPORT_BYTES else 0
+        return 0 if self.full else self.max_findings - len(self.findings)
+
+    def drop(self, step: Step, severity: Severity, count: int = 1) -> None:
+        """Count findings that are not kept."""
+        seen, worst = self.dropped.get(step, (0, severity))
+        self.dropped[step] = (seen + count, max(worst, severity, key=lambda s: s.rank))
 
     def add(
         self,
@@ -197,31 +231,39 @@ class _Builder:
         column: int | None = None,
         attribute: str | None = None,
     ) -> None:
-        if self.max_findings is not None and len(self.findings) >= self.max_findings:
-            count, worst = self.dropped.get(step, (0, severity))
-            self.dropped[step] = (count + 1, max(worst, severity, key=lambda s: s.rank))
+        if self.full:
+            self.drop(step, severity)
             return
         absolute, shown = self.scrub
         text = message.replace(absolute, shown) if absolute else message
+        if len(text) > MAX_MESSAGE_CHARS:
+            text = text[: MAX_MESSAGE_CHARS - 1] + "\u2026"
         xpath = gml_id = snippet = None
         if node is not None and self.locator is not None:
             line = line if line is not None else self.locator.line(node)
             xpath = self.locator.xpath(node) + (f"/@{attribute}" if attribute else "")
+            if len(xpath) > MAX_XPATH_CHARS:
+                xpath = None  # a cut path could name another element; the line remains
             gml_id = self.locator.gml_id(node)
+            if gml_id is not None and len(gml_id) > MAX_XPATH_CHARS:
+                gml_id = None
             snippet = self.locator.snippet(node) if self.snippets else None
-        self.findings.append(
-            Finding(
-                step=step,
-                rule_id=rule_id,
-                severity=severity,
-                message=text,
-                line=line if line is not None and line >= 1 else None,
-                column=column if column is not None and column >= 1 else None,
-                xpath=xpath,
-                gml_id=gml_id,
-                source_snippet=snippet,
-            )
+        finding = Finding(
+            step=step,
+            rule_id=rule_id,
+            severity=severity,
+            message=text,
+            line=line if line is not None and line >= 1 else None,
+            column=column if column is not None and column >= 1 else None,
+            xpath=xpath,
+            gml_id=gml_id,
+            source_snippet=snippet,
         )
+        self.size += _FINDING_OVERHEAD + sum(
+            len(v.encode("utf-8", "surrogatepass"))
+            for v in (text, rule_id, xpath or "", gml_id or "", snippet or "")
+        )
+        self.findings.append(finding)
 
     def add_legacy(self, step: Step, rule_id: str, message: ValidationMessage) -> None:
         self.add(
@@ -245,14 +287,18 @@ class _Builder:
         total = sum(count for count, _ in self.dropped.values())
         worst = max((sev for _, sev in self.dropped.values()), key=lambda s: s.rank)
         names = ", ".join(step.value for step in sorted(self.dropped, key=lambda s: s.order))
+        kept = len(self.findings)
+        noun = "finding" if kept == 1 else "findings"
+        more = "1 more was" if total == 1 else f"{total} more were"
+        if self.max_findings is not None and kept >= self.max_findings:
+            why = "Raise max_findings to see them."
+        else:
+            why = f"The report reached its {MAX_REPORT_BYTES // 2**20} MiB size budget."
         return Finding(
             step=Step.STRUCTURE,
             rule_id=rules.FINDINGS_TRUNCATED,
             severity=worst,
-            message=(
-                f"Stopped after {self.max_findings} findings; {total} more were not reported "
-                f"(steps: {names}). Raise max_findings to see them."
-            ),
+            message=(f"Stopped after {kept} {noun}; {more} not reported (steps: {names}). {why}"),
         )
 
 
@@ -301,6 +347,9 @@ def _run_schema(
         severity = _LOG_LEVELS.get(entry.level_name)
         if severity is None:
             continue
+        if builder.full:  # count only; do not locate
+            builder.drop(Step.SCHEMA, severity)
+            continue
         node = locator.element_at(entry.path) if locator is not None else None
         builder.add(
             Step.SCHEMA,
@@ -321,7 +370,9 @@ def _schematron(schematron_path: str | os.PathLike[str] | None) -> isoschematron
             return isoschematron.Schematron(
                 _load_trusted(path, "Schematron rules"),
                 store_report=True,
-                error_finder=isoschematron.Schematron.ASSERTS_AND_REPORTS,
+                # validate() reads the SVRL report itself; an error finder that selects
+                # nothing stops lxml serialising every failed assert into its error log.
+                error_finder=_NO_ERRORS,
             )
         except (etree.SchematronParseError, etree.XSLTError) as exc:
             raise ResourceError(f"cannot use Schematron rules {str(path)!r}: {exc}") from exc
@@ -363,6 +414,9 @@ def _run_schematron(
             )
         else:
             rule_id = rules.schematron_user_rule(item.get("id"), context, test)
+        if builder.full:  # count only; do not locate
+            builder.drop(Step.SCHEMATRON, Severity.ERROR)
+            continue
         location = item.get("location")
         node = builder.locator.svrl_element(location) if builder.locator else None
         text = " ".join(item.findtext(f"{_SVRL}text", default="").split())
@@ -412,7 +466,9 @@ def _run_dictionary(
     allow_network: bool,
 ) -> StepStatus:
     semantic = _dictionary_validator(dictionary_path, allow_network=allow_network)
-    result = semantic.validate_tree(doc, instance)
+    result = semantic.validate_tree(doc, instance, max_messages=builder.remaining)
+    for count, severity in result.dropped.values():
+        builder.drop(Step.DICTIONARY, _SEVERITY.get(severity, Severity.ERROR), count)
     for message in result.messages:
         if not allow_network and _is_offline(message):
             builder.add(
@@ -461,7 +517,12 @@ def _run_deprecation(doc: etree._ElementTree, builder: _Builder, profile: str) -
 
 
 def _run_context(root: etree._Element, builder: _Builder, wanted: frozenset[Step]) -> None:
-    for message in validate_context_tree(root).messages:
+    result = validate_context_tree(root, max_messages=builder.remaining)
+    for check, (count, severity) in result.dropped.items():
+        step, _ = rules.CONTEXT_RULES[check]
+        if step in wanted:
+            builder.drop(step, _SEVERITY.get(severity, Severity.ERROR), count)
+    for message in result.messages:
         step, rule_id = rules.CONTEXT_RULES[message.check]
         if step in wanted:
             builder.add_legacy(step, rule_id, message)

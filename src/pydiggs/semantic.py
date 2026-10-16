@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from lxml import etree
 
 from pydiggs import _xml
-from pydiggs.dictionary import ValidationMessage
+from pydiggs.dictionary import ValidationMessage, _worse
 
 
 @dataclass
@@ -15,10 +15,16 @@ class ContextValidationResult:
     """Outcome of non-dictionary semantic checks."""
 
     messages: list[ValidationMessage] = field(default_factory=list)
+    #: Keep at most this many messages (None: all). The rest are only counted in
+    #: ``dropped`` as {check: (count, worst severity)}; validate() sets it.
+    limit: int | None = None
+    dropped: dict[int, tuple[int, str]] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
-        return not any(m.severity == "ERROR" for m in self.messages)
+        return not any(m.severity == "ERROR" for m in self.messages) and not any(
+            severity == "ERROR" for _, severity in self.dropped.values()
+        )
 
     def add(
         self,
@@ -28,6 +34,10 @@ class ContextValidationResult:
         check: int,
         node: etree._Element | None = None,
     ) -> None:
+        if self.limit is not None and len(self.messages) >= self.limit:
+            count, worst = self.dropped.get(check, (0, severity))
+            self.dropped[check] = (count + 1, _worse(worst, severity))
+            return
         self.messages.append(
             ValidationMessage(
                 severity=severity, element_path=path, text=text, check=check, node=node
@@ -59,9 +69,14 @@ def validate_context(instance_path: str) -> ContextValidationResult:
     return validate_context_tree(_xml.parse(instance_path).getroot())
 
 
-def validate_context_tree(root: etree._Element) -> ContextValidationResult:
-    """Run the context checks on an already-parsed document root."""
-    result = ContextValidationResult()
+def validate_context_tree(
+    root: etree._Element, *, max_messages: int | None = None
+) -> ContextValidationResult:
+    """Run the context checks on an already-parsed document root.
+
+    With ``max_messages``, messages past that number are only counted.
+    """
+    result = ContextValidationResult(limit=max_messages)
     _check_structure(root, result)
     _check_geometry_srs(root, result)
     _check_hrefs(root, result)
