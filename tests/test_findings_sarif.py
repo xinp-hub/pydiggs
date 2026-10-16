@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import jsonschema
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from pydiggs.findings import _sarif
@@ -32,6 +32,7 @@ def _validate(log):
     VALIDATOR.validate(json.loads(json.dumps(log)))
 
 
+@settings(deadline=None)  # builds whole Reports; timing varies under CI load
 @given(st.lists(reports(), max_size=3), st.lists(unreadable_files(), max_size=2), st.booleans())
 def test_every_log_validates_against_sarif_2_1_0(checked, unreadable, absolute):
     log = _sarif.sarif_log(checked, unreadable, tool_version="1.2.0", absolute_paths=absolute)
