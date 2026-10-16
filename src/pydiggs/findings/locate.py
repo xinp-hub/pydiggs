@@ -13,10 +13,12 @@ from typing import Final
 
 from lxml import etree
 
-__all__ = ["SNIPPET_LIMIT", "Locator"]
+__all__ = ["SNIPPET_CHILDREN", "SNIPPET_LIMIT", "Locator"]
 
 #: Largest source snippet, in UTF-8 bytes.
 SNIPPET_LIMIT: Final = 1024
+#: Child elements kept in a snippet.
+SNIPPET_CHILDREN: Final = 8
 _GML_ID: Final = "{http://www.opengis.net/gml/3.2}id"
 #: Longest location path considered; real ones are far shorter.
 _MAX_PATH: Final = 64 * 1024
@@ -93,8 +95,13 @@ class Locator:
 
     @staticmethod
     def snippet(el: etree._Element) -> str:
-        """The element's XML without its tail, cut to :data:`SNIPPET_LIMIT` bytes."""
-        data: bytes = etree.tostring(el, encoding="utf-8", with_tail=False)
+        """The element's XML, cut to :data:`SNIPPET_LIMIT` UTF-8 bytes.
+
+        A shallow copy is serialised: the element's attributes and text plus at most
+        :data:`SNIPPET_CHILDREN` child elements (their attributes and text only), so the
+        cost does not grow with the size of the subtree.
+        """
+        data: bytes = etree.tostring(_shallow(el), encoding="utf-8", with_tail=False)
         if len(data) > SNIPPET_LIMIT:
             data = data[: SNIPPET_LIMIT - 3] + b"..."
         return data.decode("utf-8", errors="ignore")
@@ -184,3 +191,21 @@ def _skeleton_steps(siblings: list[etree._Element]) -> dict[etree._Element, str]
             step += f"[{seen[key]}]"
         steps[el] = step
     return steps
+
+
+def _shallow(el: etree._Element) -> etree._Element:
+    """A bounded copy of ``el`` for a snippet (see :meth:`Locator.snippet`)."""
+    children = [c for c in el if isinstance(c.tag, str)]
+    kept = children[:SNIPPET_CHILDREN]
+    used = {etree.QName(n).namespace for n in (el, *kept)}
+    used |= {etree.QName(a).namespace for n in (el, *kept) for a in n.attrib}
+    nsmap = {prefix: uri for prefix, uri in el.nsmap.items() if uri in used}
+    copy = etree.Element(el.tag, attrib=dict(el.attrib), nsmap=nsmap)
+    copy.text = (el.text or "")[:SNIPPET_LIMIT] or None
+    for child in kept:
+        sub = etree.SubElement(copy, child.tag, attrib=dict(child.attrib))
+        sub.text = "..." if len(child) else ((child.text or "")[:SNIPPET_LIMIT] or None)
+        sub.tail = (child.tail or "")[:SNIPPET_LIMIT] or None
+    if len(children) > SNIPPET_CHILDREN:
+        copy.append(etree.Comment(f" {len(children) - SNIPPET_CHILDREN} more "))
+    return copy

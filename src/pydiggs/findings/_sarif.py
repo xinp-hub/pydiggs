@@ -8,15 +8,16 @@ carries no home directory by default.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Sequence
-from pathlib import PurePosixPath
+from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Final
 from urllib.parse import quote
 
 from pydiggs.findings import rules
 from pydiggs.findings.model import Finding, Report, Severity, UnreadableFile
 
-__all__ = ["FINGERPRINT", "SARIF_SCHEMA", "SARIF_VERSION", "sarif_log"]
+__all__ = ["FINGERPRINT", "SARIF_SCHEMA", "SARIF_VERSION", "file_uri", "sarif_log"]
 
 SARIF_VERSION: Final = "2.1.0"
 SARIF_SCHEMA: Final = (
@@ -32,8 +33,27 @@ def _artifact_location(
     path: str, absolute_path: str | None, *, absolute_paths: bool
 ) -> dict[str, Any]:
     if absolute_paths and absolute_path:
-        return {"uri": PurePosixPath(absolute_path).as_uri()}
+        return {"uri": file_uri(absolute_path)}
     return {"uri": quote(path, safe="/"), "uriBaseId": _BASE_ID}
+
+
+_WINDOWS_ABSOLUTE: Final = re.compile(r"^(?:[A-Za-z]:/|//[^/]+/[^/]+)")
+
+
+def file_uri(absolute_path: str) -> str:
+    """A ``file:`` URI for a forward-slash absolute path, POSIX or Windows.
+
+    Example:
+        >>> file_uri("/home/me/a b.xml")
+        'file:///home/me/a%20b.xml'
+        >>> file_uri("C:/Users/me/a b.xml")
+        'file:///C:/Users/me/a%20b.xml'
+        >>> file_uri("//server/share/a.xml")
+        'file://server/share/a.xml'
+    """
+    if _WINDOWS_ABSOLUTE.match(absolute_path):
+        return PureWindowsPath(absolute_path).as_uri()
+    return PurePosixPath(absolute_path).as_uri()
 
 
 def _logical_location(xpath: str) -> dict[str, str]:
