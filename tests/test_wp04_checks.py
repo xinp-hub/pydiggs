@@ -226,3 +226,30 @@ def test_bad_registry_xpath_is_skipped(monkeypatch):
     )
     monkeypatch.setattr(deprecations, "load_registry", lambda: (namespaces, (broken,)))
     assert deprecations.matches(etree.parse(str(DEPRECATION)), "3.0.0") == []
+
+
+def test_check13_wide_result_sets_split_rows_once(tmp_path):
+    import time
+
+    k = 8000
+    props = "".join(
+        f'<Property index="{i}" gml:id="P{i}"><typeData>string</typeData>'
+        '<propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml'
+        '#loading_phase">Loading Phase</propertyClass></Property>'
+        for i in range(1, k + 1)
+    )
+    row = ",".join("loading" if i % 2 else "bad" for i in range(1, k + 1))
+    path = tmp_path / "wide.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2">'
+        "<measurement><Test gml:id='T'><outcome><TestResult gml:id='R'><results><ResultSet>"
+        f"<parameters><PropertyParameters gml:id='PP'><properties>{props}</properties>"
+        f"</PropertyParameters></parameters><dataValues>{row} {row}</dataValues>"
+        "</ResultSet></results></TestResult></outcome></Test></measurement></Diggs>",
+        encoding="utf-8",
+    )
+    start = time.perf_counter()
+    report = validate(path, checks=["dictionary"], max_findings=None)
+    elapsed = time.perf_counter() - start
+    assert sum(f.rule_id == "dictionary.13" for f in report.findings) == k // 2
+    assert elapsed < 10, elapsed
