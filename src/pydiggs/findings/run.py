@@ -117,7 +117,12 @@ def display_paths(
             shown = ""
     if shown in ("", "."):
         shown = absolute.name
-    return shown, absolute.as_posix()
+    return _printable(shown), _printable(absolute.as_posix())
+
+
+def _printable(name: str) -> str:
+    """Make a name printable: bytes that are not valid UTF-8 become backslash escapes."""
+    return os.fsencode(name).decode("utf-8", "backslashreplace")
 
 
 def _redact(exc: OSError, path: str | os.PathLike[str], shown: str) -> str:

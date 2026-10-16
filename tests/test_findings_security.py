@@ -150,3 +150,33 @@ def test_output_file_is_private(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert main(["validate", "--format", "json", "--output", "out.json", str(NO_ERROR)]) == 0
     assert stat.S_IMODE((tmp_path / "out.json").stat().st_mode) == 0o600
+
+
+def test_text_output_escapes_control_and_bidi_characters(tmp_path, monkeypatch, capsys):
+    from pydiggs.findings._cli import _safe
+
+    assert _safe("a\x1b[31mb\u202ec\td\x85") == "a\\x1b[31mb\\u202ec\td\\x85"
+    nasty = tmp_path / "evil\u202etxt.xml"
+    nasty.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/2.6"><x codeSpace="https://example.org/\x1b[2J">'
+        "v</x></Diggs>",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    main(["validate", "--checks", "dictionary", nasty.name])
+    out = capsys.readouterr().out
+    assert "\x1b" not in out
+    assert "\u202e" not in out
+    assert "evil\\u202etxt.xml" in out
+
+
+def test_non_utf8_file_names_are_reported_without_traceback(tmp_path, monkeypatch, capsys):
+    from pydiggs.findings.run import display_paths
+
+    raw = os.fsdecode(b"bad\xff.xml")
+    monkeypatch.chdir(tmp_path)
+    assert display_paths(raw)[0] == "bad\\xff.xml"
+    for fmt in ("json", "sarif", "text"):
+        assert main(["validate", "--format", fmt, raw]) == 2
+        out = capsys.readouterr().out
+        assert "bad\\\\xff.xml" in out or "bad\\xff.xml" in out or "bad%5Cxff.xml" in out

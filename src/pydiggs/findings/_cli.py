@@ -12,6 +12,7 @@ import io
 import os
 import stat
 import sys
+import unicodedata
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import TextIO
@@ -128,22 +129,40 @@ def expand_inputs(paths: Sequence[str]) -> list[Path]:
     return out
 
 
+_ONE_BYTE = 0x100
+
+
+def _safe(text: str) -> str:
+    """Escape control and format characters (Cc, Cf; not tab) for a terminal.
+
+    Paths and messages come from the instance; raw escape sequences or bidi overrides
+    could rewrite what the reader sees.
+    """
+    out = []
+    for ch in text:
+        if ch != "\t" and unicodedata.category(ch) in ("Cc", "Cf"):
+            code = ord(ch)
+            out.append(f"\\x{code:02x}" if code < _ONE_BYTE else f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
 def _text(reports: Sequence[Report], unreadable: Sequence[UnreadableFile], out: TextIO) -> None:
     for report in reports:
         c = report.counts
-        out.write(
-            f"{report.path}: {c['error']} error(s), {c['warning']} warning(s), {c['info']} info\n"
-        )
+        path = _safe(report.path)
+        out.write(f"{path}: {c['error']} error(s), {c['warning']} warning(s), {c['info']} info\n")
         for f in report.findings:
             if f.severity is Severity.INFO:
                 continue
-            where = f"{report.path}:{f.line}" if f.line else report.path
+            where = f"{path}:{f.line}" if f.line else path
             if f.line and f.column:
                 where += f":{f.column}"
-            first = f.message.splitlines()[0] if f.message else ""
-            out.write(f"  {where}: {f.severity.value} {f.rule_id}: {first}\n")
+            first = f.message.split("\n", 1)[0] if f.message else ""
+            out.write(f"  {where}: {f.severity.value} {f.rule_id}: {_safe(first)}\n")
     for item in unreadable:
-        out.write(f"{item.path}: unreadable: {item.error}\n")
+        out.write(f"{_safe(item.path)}: unreadable: {_safe(item.error)}\n")
 
 
 def _open_output(name: str) -> TextIO:
