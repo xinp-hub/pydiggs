@@ -148,3 +148,26 @@ def test_cached_dictionary_validator_does_not_leak_between_files(tmp_path):
     assert not [f for f in a.findings if f.severity is Severity.ERROR]
     assert [f.rule_id for f in b.findings if f.severity is Severity.ERROR] == ["dictionary.5"]
     assert a_again.findings == a.findings
+
+
+def test_truncation_marker_is_not_compared_and_always_shown(tmp_path, capsys):
+    from pydiggs.findings import keys
+
+    marker = ("structure", "warning", "file", rules.FINDINGS_TRUNCATED)
+    finding = ("schema", "error", "line:1", "schema.x")
+    assert keys.compare([marker, finding], [finding], ["structure", "schema"]) == ({}, {})
+    # Only info findings past the cap: the marker is info, and text output still shows it.
+    infos = tmp_path / "infos.xml"
+    infos.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/2.6">'
+        + '<q codeSpace="urn:x">v</q>' * 3
+        + "</Diggs>"
+    )
+    report = validate(infos, checks=["dictionary"], max_findings=1)
+    (shown,) = [f for f in report.findings if f.rule_id == rules.FINDINGS_TRUNCATED]
+    assert shown.severity is Severity.INFO
+    assert shown.message.startswith("Stopped after 1 finding; 2 more were not reported")
+    assert report.counts["info"] == 2  # counts include the marker
+    main(["validate", "--checks", "dictionary", "--max-findings", "1", str(infos)])
+    out = capsys.readouterr().out
+    assert "info structure.findings-truncated: Stopped after 1 finding" in out

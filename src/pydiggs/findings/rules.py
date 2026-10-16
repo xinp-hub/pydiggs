@@ -13,6 +13,7 @@ import hashlib
 import re
 from typing import Final
 
+from pydiggs.findings.keys import TRUNCATED_RULE
 from pydiggs.findings.model import RULE_ID_PATTERN, Severity, Step, is_valid_rule_id
 
 __all__ = [
@@ -44,7 +45,7 @@ _NAME_PATTERN: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 HELP_URI: Final = "https://xinp-hub.github.io/pydiggs/findings/#rule-ids"
 
 WELL_FORMED: Final = "structure.well-formed"
-FINDINGS_TRUNCATED: Final = "structure.findings-truncated"
+FINDINGS_TRUNCATED: Final = TRUNCATED_RULE
 SCHEMA_INCOMPLETE: Final = "schema.incomplete"
 DICTIONARY_13: Final = "dictionary.13"
 DICTIONARY_OFFLINE: Final = "dictionary.offline"

@@ -20,7 +20,7 @@ from typing import TextIO
 import pydiggs
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.errors import InstanceReadError, ResourceError
-from pydiggs.findings import _json, _sarif
+from pydiggs.findings import _json, _sarif, rules
 from pydiggs.findings.model import Report, Severity, UnreadableFile
 from pydiggs.findings.run import (
     DEFAULT_MAX_BYTES,
@@ -168,7 +168,7 @@ def _text(reports: Sequence[Report], unreadable: Sequence[UnreadableFile], out: 
         path = _safe(report.path)
         out.write(f"{path}: {c['error']} error(s), {c['warning']} warning(s), {c['info']} info\n")
         for f in report.findings:
-            if f.severity is Severity.INFO:
+            if f.severity is Severity.INFO and f.rule_id != rules.FINDINGS_TRUNCATED:
                 continue
             where = f"{path}:{f.line}" if f.line else path
             if f.line and f.column:
