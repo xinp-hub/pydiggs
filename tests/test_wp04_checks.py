@@ -55,9 +55,57 @@ def test_check13_custom_separators(tmp_path):
         'cs="," ts=" ">loading unloading bogus NA\n                reload',
         'cs=";" ts="|">x;loading|y;bad',
     )
-    assert len(findings) == 1
-    assert '"loading", "bad"' not in findings[0].message
-    assert '"bogus", "oops"' not in findings[0].message
+    (finding,) = findings
+    assert finding.message == (
+        '4 value(s) of "Loading Phase" are not terms of the code list '
+        '"https://diggsml.org/def/codes/DIGGS/0.1/loadTestIncrementPhase.xml": '
+        '"x", "y", "oops", "bogus". Valid terms: loading, unloading, reload, seating.'
+    )
+
+
+@pytest.mark.parametrize(
+    ("index", "found"),
+    [("1", True), (" +1 ", True), ("01", True), ("1_0", False), ("\u0661", False), ("-1", False)],
+    ids=["plain", "signed", "leading-zero", "underscore", "arabic-digit", "negative"],
+)
+def test_check13_index_is_an_xs_integer(tmp_path, index, found):
+    findings = _check13_variant(tmp_path, 'index="1"', f'index="{index}"')
+    assert bool(findings) is found
+
+
+def test_check13_valid_terms_list_is_capped(monkeypatch):
+    from pydiggs import dictionary
+
+    monkeypatch.setattr(dictionary, "_CHECK13_TERMS", 2)
+    (finding,) = [
+        f for f in validate(CHECK13, checks=["dictionary"]).findings if f.rule_id == "dictionary.13"
+    ]
+    assert finding.message.endswith("Valid terms: loading, unloading, ... (4 total).")
+
+
+def test_check13_scales_linearly_with_result_sets(tmp_path):
+    import time
+
+    sets = "".join(
+        f"""<ResultSet><parameters><PropertyParameters gml:id="PP{i}"><properties>
+<Property index="1" gml:id="P{i}"><typeData>string</typeData>
+<propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#loading_phase">Loading Phase</propertyClass>
+</Property></properties></PropertyParameters></parameters>
+<dataValues>loading bad{i % 7}</dataValues></ResultSet>"""
+        for i in range(2000)
+    )
+    path = tmp_path / "many.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2">'
+        f"<measurement><Test gml:id='T'><outcome><TestResult gml:id='R'><results>{sets}"
+        "</results></TestResult></outcome></Test></measurement></Diggs>",
+        encoding="utf-8",
+    )
+    start = time.perf_counter()
+    report = validate(path, checks=["dictionary"], max_findings=None)
+    elapsed = time.perf_counter() - start
+    assert sum(f.rule_id == "dictionary.13" for f in report.findings) == 2000
+    assert elapsed < 5, elapsed
 
 
 def test_check13_unwhitelisted_and_inaccessible_code_lists(tmp_path, monkeypatch):
