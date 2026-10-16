@@ -103,10 +103,16 @@ class DictionaryValidationResult:
     """Aggregated dictionary validation outcome."""
 
     messages: list[ValidationMessage] = field(default_factory=list)
+    #: Keep at most this many messages (None: all). The rest are only counted in
+    #: ``dropped`` as {check: (count, worst severity)}; validate() sets it.
+    limit: int | None = None
+    dropped: dict[int, tuple[int, str]] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
-        return not any(m.severity == "ERROR" for m in self.messages)
+        return not any(m.severity == "ERROR" for m in self.messages) and not any(
+            severity == "ERROR" for _, severity in self.dropped.values()
+        )
 
     def add(
         self,
@@ -116,11 +122,22 @@ class DictionaryValidationResult:
         check: int,
         node: etree._Element | None = None,
     ) -> None:
+        if self.limit is not None and len(self.messages) >= self.limit:
+            count, worst = self.dropped.get(check, (0, severity))
+            self.dropped[check] = (count + 1, _worse(worst, severity))
+            return
         self.messages.append(
             ValidationMessage(
                 severity=severity, element_path=path, text=text, check=check, node=node
             )
         )
+
+
+_SEVERITY_RANK = {"INFO": 0, "WARNING": 1, "ERROR": 2}
+
+
+def _worse(a: str, b: str) -> str:
+    return a if _SEVERITY_RANK.get(a, 2) >= _SEVERITY_RANK.get(b, 2) else b
 
 
 def _local(el: etree._Element) -> str:
@@ -204,6 +221,7 @@ class DictionarySemanticValidator:
         # Check 13 (official dictionary-validation.xsl Step 14) runs only for
         # pydiggs.validate(); dictionary_check() keeps its 1.1 behaviour.
         self.check_value_code_spaces = check_value_code_spaces
+        self._result: DictionaryValidationResult | None = None
         self._check13: _Check13Index | None = None
         self.allow_network = allow_network
         self._whitelist_patterns = self._load_whitelist(
@@ -546,11 +564,26 @@ class DictionarySemanticValidator:
     ) -> DictionaryValidationResult:
         return self.validate_tree(_xml.parse(str(instance_path)), instance_path)
 
+    def _path_of(self, el: etree._Element) -> str:
+        """The legacy element path, or "" once the result keeps no more messages."""
+        result = self._result
+        if result is not None and result.limit is not None and len(result.messages) >= result.limit:
+            return ""
+        return _element_path(el, self._positions)
+
     def validate_tree(
-        self, doc: etree._ElementTree, instance_path: str | os.PathLike[str]
+        self,
+        doc: etree._ElementTree,
+        instance_path: str | os.PathLike[str],
+        *,
+        max_messages: int | None = None,
     ) -> DictionaryValidationResult:
-        """Validate an already-parsed instance; ``instance_path`` anchors relative URLs."""
-        result = DictionaryValidationResult()
+        """Validate an already-parsed instance; ``instance_path`` anchors relative URLs.
+
+        With ``max_messages``, messages past that number are only counted.
+        """
+        result = DictionaryValidationResult(limit=max_messages)
+        self._result = result
         self._instance_dir = Path(instance_path).resolve().parent
         root = doc.getroot()
         self._positions = _sibling_positions(root)
@@ -584,7 +617,7 @@ class DictionarySemanticValidator:
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
         value = _text(el)
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         name = _local(el)
         result.add(
             "INFO",
@@ -601,7 +634,7 @@ class DictionarySemanticValidator:
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
         value = _text(el)
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         base_url = code_space
 
         if not self._is_whitelisted(base_url):
@@ -662,7 +695,7 @@ class DictionarySemanticValidator:
     def _validate_fragment_encoding(
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         name = _local(el)
         base_url, fragment = code_space.split("#", 1)
 
@@ -731,7 +764,7 @@ class DictionarySemanticValidator:
         definition: etree._Element,
         run_name_check: bool,
     ) -> None:
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         name = _local(el)
         value = _text(el)
 

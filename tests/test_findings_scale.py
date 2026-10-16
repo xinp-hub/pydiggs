@@ -92,3 +92,74 @@ def test_log_entry_paths_resolve_in_linear_time():
     assert time.perf_counter() - start < 5.0
     assert loc.element_at("/r/*/a[1]") is None  # a is in the default namespace: only "*"
     assert loc.element_at("/r/*/p:b") is None  # not unique, so libxml2 writes [n]
+
+
+def _deep_chain(tmp_path, findings: int, depth: int = 50, name_len: int = 1000):
+    name = "n" * name_len
+    chain_open = "".join(f"<p{i}{name}>" for i in range(depth - 1))
+    chain_close = "".join(f"</p{i}{name}>" for i in reversed(range(depth - 1)))
+    leaves = "<Borehole><totalMeasuredDepth>-1</totalMeasuredDepth></Borehole>" * findings
+    path = tmp_path / "deep.xml"
+    path.write_text(f'<Diggs xmlns="{NS}">{chain_open}{leaves}{chain_close}</Diggs>')
+    return path
+
+
+def test_long_xpaths_are_dropped_but_lines_kept(tmp_path):
+    from pydiggs import validate
+    from pydiggs.findings.run import MAX_XPATH_CHARS
+
+    report = validate(_deep_chain(tmp_path, 300), checks=["schematron"])
+    assert len(report.findings) == 300
+    assert all(f.xpath is None and f.line for f in report.findings)
+    assert len(report.to_json()) < 300 * 1000  # no 50 KB paths in the output
+    short = validate(_deep_chain(tmp_path, 1, depth=3, name_len=10), checks=["schematron"])
+    assert short.findings[0].xpath is not None
+    assert len(short.findings[0].xpath) <= MAX_XPATH_CHARS
+
+
+def test_message_cap_and_report_size_budget(monkeypatch):
+    from pydiggs.findings import run
+    from pydiggs.findings.model import Severity, Step
+
+    builder = run._Builder(None, snippets=False, scrub=("", ""), max_findings=None)
+    builder.add(Step.SCHEMA, "schema.x", Severity.ERROR, "x" * 10_000)
+    assert len(builder.findings[0].message) == run.MAX_MESSAGE_CHARS
+    assert builder.findings[0].message.endswith("…")
+    monkeypatch.setattr(run, "MAX_REPORT_BYTES", 3 * (run._FINDING_OVERHEAD + 20))
+    for _ in range(10):
+        builder.add(Step.SCHEMATRON, "schematron.x", Severity.WARNING, "short")
+    assert builder.full
+    assert len(builder.findings) == 1  # the 4 KiB message used the budget at once
+    marker = builder.truncation()
+    assert marker is not None
+    assert marker.severity is Severity.WARNING
+    assert marker.message == (
+        "Stopped after 1 finding; 10 more were not reported (steps: schematron). "
+        "The report reached its 0 MiB size budget."
+    )
+
+
+_MEMORY = """
+import resource, sys, tempfile
+from pathlib import Path
+from pydiggs import validate
+NS = "http://diggsml.org/schemas/2.6"
+path = Path(tempfile.mkdtemp()) / "mem.xml"
+path.write_text(f'<Diggs xmlns="{NS}">' + "<a>" * 200 + '<q codeSpace="urn:x">v</q>' * 300_000
+                + "</a>" * 200 + "</Diggs>")
+report = validate(path, checks=["dictionary"])
+r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(len(report.findings), r / 2**20 if sys.platform == "darwin" else r / 1024,
+      report.steps["dictionary"])
+"""
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
+def test_eight_megabytes_of_findings_stay_bounded():
+    out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", _MEMORY], capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert out[0] == "10001"  # 10,000 kept plus the truncation marker
+    assert float(out[1]) < 700, out[1]  # peak RSS in MB, 7.8 MB input
+    assert out[2] == "incomplete"
