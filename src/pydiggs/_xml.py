@@ -13,11 +13,11 @@ from __future__ import annotations
 import errno
 import http.client
 import os
+import stat
 import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterable
-from pathlib import Path
 from typing import IO, cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
@@ -77,7 +77,11 @@ def read_limited(source: XMLSource, limit: int | None = None) -> tuple[bytes, st
         if path.startswith("file:"):
             path = url2pathname(urlsplit(path).path)
         name = path
-        with Path(path).open("rb") as fh:
+        # O_NONBLOCK: opening a FIFO must not hang; then refuse anything but a regular file.
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0))
+        with os.fdopen(fd, "rb") as fh:
+            if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+                raise OSError(errno.EINVAL, "not a regular file")
             data = fh.read(limit + 1)
     if len(data) > limit:
         # No file name in the message: callers report the path in their own form.

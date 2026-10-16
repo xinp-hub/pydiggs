@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import stat
 import time
 from pathlib import Path
 
@@ -128,3 +130,23 @@ def test_instance_read_error_names_the_shown_path_only(tmp_path, monkeypatch):
     assert exc.value.strerror == "compressed XML is not accepted"
     assert exc.value.filename == "packed.xml"
     assert "secret-folder" not in str(exc.value)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on this platform")
+def test_fifos_are_skipped_and_refused_without_blocking(tmp_path, capsys):
+    from pydiggs.findings._cli import expand_inputs
+
+    fifo = tmp_path / "pipe.xml"
+    os.mkfifo(fifo)
+    (tmp_path / "real.xml").write_bytes(NO_ERROR.read_bytes())
+    assert [p.name for p in expand_inputs([str(tmp_path)])] == ["real.xml"]
+    with pytest.raises(InstanceReadError, match="not a regular file"):
+        validate(fifo)
+    assert main(["validate", "--format", "json", str(fifo)]) == 2
+    assert '"not a regular file"' in capsys.readouterr().out
+
+
+def test_output_file_is_private(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    assert main(["validate", "--format", "json", "--output", "out.json", str(NO_ERROR)]) == 0
+    assert stat.S_IMODE((tmp_path / "out.json").stat().st_mode) == 0o600
