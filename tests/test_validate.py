@@ -126,7 +126,9 @@ def test_not_well_formed_is_a_finding_and_other_steps_skip():
     (finding,) = report.findings
     assert finding.rule_id == "structure.well-formed"
     assert (finding.line, finding.column) == (4, 52)
-    assert "Syntax_Error_1.xml" not in finding.message
+    assert finding.message == (
+        "Opening and ending tag mismatch: creationDate line 4 and CreationDate"
+    )
     assert report.diggs_version is None
     assert report.steps == {
         Step.STRUCTURE: "failed",
@@ -149,8 +151,10 @@ def test_checks_select_steps():
     report = validate(SCHEMA_ERROR, checks=["dictionary", Step.GEOMETRY])
     assert report.steps[Step.SCHEMA] == "skipped"
     assert report.steps[Step.DICTIONARY] == "passed"
-    assert report.steps[Step.STRUCTURE] == "passed"
+    assert report.steps[Step.STRUCTURE] == "skipped"
     assert {f.step for f in report.findings} <= {Step.DICTIONARY, Step.GEOMETRY}
+    broken = validate("tests/test_files/Syntax_Error_1.xml", checks=["schema"])
+    assert broken.steps[Step.STRUCTURE] == "failed"  # well-formedness always runs
 
 
 def test_schematron_locations_two_failing_boreholes_and_namespace_fallback():
@@ -207,7 +211,7 @@ def test_snippet_cap_cuts_long_elements(tmp_path):
         ({"diggs_version": "9.9"}, ValueError, "unknown DIGGS version '9.9'"),
         ({"checks": ["nope"]}, ValueError, "unknown check 'nope'"),
         ({"checks": []}, ValueError, "at least one step"),
-        ({"checks": "schema"}, TypeError, "not a single string"),
+        ({"checks": "schema"}, ValueError, "not the string 'schema'"),
         ({"checks": ["crs"]}, ValueError, "unknown check 'crs'"),
         ({"schema_path": "missing.xsd"}, ResourceError, "cannot read schema 'missing.xsd'"),
         (
@@ -381,7 +385,7 @@ def test_mutated_files_give_findings_never_other_exceptions(tmp_path_factory, ed
     path.write_bytes(bytes(data))
     try:
         report = validate(path)
-    except (InstanceReadError, ResourceError, ValueError):
+    except InstanceReadError:
         return
     SCHEMA.validate(json.loads(report.to_json()))
 
