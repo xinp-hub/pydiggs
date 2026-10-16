@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import io
 import os
+import stat
 import sys
 from collections.abc import Iterator, Sequence
 from pathlib import Path
@@ -92,12 +93,20 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _is_regular(path: Path) -> bool:
+    """A regular file, not a symlink, FIFO, socket or device (``lstat``)."""
+    try:
+        return stat.S_ISREG(os.lstat(path).st_mode)
+    except OSError:
+        return False
+
+
 def _walk(directory: Path) -> Iterator[Path]:
     for root, dirs, files in os.walk(directory, followlinks=False):
         dirs.sort()
         for name in sorted(files):
             candidate = Path(root) / name
-            if name.lower().endswith(".xml") and not candidate.is_symlink():
+            if name.lower().endswith(".xml") and _is_regular(candidate):
                 yield candidate
 
 
@@ -142,7 +151,7 @@ def _open_output(name: str) -> TextIO:
     if Path(name).is_symlink():
         raise OSError(f"refusing to write through a symlink: {name}")
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-    return os.fdopen(os.open(name, flags, 0o644), "w", encoding="utf-8")
+    return os.fdopen(os.open(name, flags, 0o600), "w", encoding="utf-8")
 
 
 def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.Namespace:

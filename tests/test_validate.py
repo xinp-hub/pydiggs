@@ -98,9 +98,7 @@ def test_counts_match_the_legacy_dictionary_messages():
         for f in report.findings
         if f.rule_id.split(".")[1].isdigit() or f.rule_id == rules.DICTIONARY_OFFLINE
     ]
-    assert sorted(native) == sorted(
-        f"dictionary.{m.check}" for m in legacy.messages
-    )
+    assert sorted(native) == sorted(f"dictionary.{m.check}" for m in legacy.messages)
     assert {f.message for f in report.findings if f.rule_id == "dictionary.5"} == {
         m.text.split("\n", 1)[1] for m in legacy.messages if m.check == 5
     }
