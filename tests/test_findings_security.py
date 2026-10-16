@@ -180,3 +180,41 @@ def test_non_utf8_file_names_are_reported_without_traceback(tmp_path, monkeypatc
         assert main(["validate", "--format", fmt, raw]) == 2
         out = capsys.readouterr().out
         assert "bad\\\\xff.xml" in out or "bad\\xff.xml" in out or "bad%5Cxff.xml" in out
+
+
+@pytest.mark.parametrize(
+    ("path", "uri"),
+    [
+        ("C:/Users/me/site/BH 01.xml", "file:///C:/Users/me/site/BH%2001.xml"),
+        ("d:/x.xml", "file:///d:/x.xml"),
+        ("//server/share/a.xml", "file://server/share/a.xml"),
+        ("/home/me/a.xml", "file:///home/me/a.xml"),
+    ],
+)
+def test_sarif_file_uris_for_posix_and_windows_paths(path, uri):
+    from pydiggs.findings import _sarif
+    from pydiggs.findings.model import Report
+
+    assert _sarif.file_uri(path) == uri
+    report = Report(
+        path="a.xml", absolute_path=path, sha256="a" * 64, diggs_version=None, steps={},
+        tool_version="1",
+    )  # fmt: skip
+    log = report.to_sarif(absolute_paths=True)
+    assert log["runs"][0]["artifacts"][0]["location"] == {"uri": uri}
+
+
+def test_snippet_cost_does_not_scale_with_the_subtree():
+    from pydiggs.findings.locate import SNIPPET_CHILDREN, SNIPPET_LIMIT
+
+    root = etree.fromstring(
+        b"<a xmlns:unused='urn:u' k='v'>" + b"<b><c>deep</c></b>" * 20_000 + b"</a>"
+    )
+    start = time.perf_counter()
+    snippet = Locator(etree.ElementTree(root)).snippet(root)
+    assert time.perf_counter() - start < 0.05
+    assert len(snippet.encode()) <= SNIPPET_LIMIT
+    assert snippet.count("<b>") == SNIPPET_CHILDREN
+    assert "<b>...</b>" in snippet
+    assert f"<!-- {20_000 - SNIPPET_CHILDREN} more -->" in snippet
+    assert "urn:u" not in snippet
