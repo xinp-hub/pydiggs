@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `schema_check()`, and files with the corrected spelling now pass.
 
 ### Changed
+- `pydiggs --help` now points to `pydiggs validate --help`. The legacy subcommands, their
+  console output, exit codes and log files are unchanged (checked byte for byte against
+  1.1.1 by a golden test suite).
 - Re-synced the bundled reference data to DIGGSml/schemas `15ce278` (9 October 2026) and
   DIGGSml/def `2d76ba6` (8 October 2026):
   - 2.6 `Geophysics.xsd`: upstream fixed the element name `samplingFeatiureRef` to
@@ -33,6 +36,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     in the wheel.
 
 ### Added
+- **Machine-readable findings.** `pydiggs.validate(path)` runs every native check on one
+  file and returns a `Report` of `Finding`s, each with a stable rule id
+  (`schema.cvc-complex-type.2.4`, `dictionary.5`, `schematron.Borehole.totalMeasuredDepth`,
+  ...), a `Severity`, a `Step`, the line, the official DIGGS XPath and the nearest
+  `gml:id`. It prints nothing and writes no files, and raises only `InstanceReadError`,
+  `ResourceError` (both `PydiggsError`s) and `ValueError`; XML that is not well-formed is a
+  finding. New public names: `Finding`, `Report`, `Severity`, `Step`, `validate`,
+  `PydiggsError`, `InstanceReadError`, `ResourceError`.
+- `pydiggs validate PATH...` with `--format text|json|sarif`, `--output`, `--checks`,
+  `--fail-on error|warning`, `--snippets`, `--absolute-paths` and `--allow-network`.
+  Directories are searched for `*.xml`; exit codes 0 (clean), 1 (findings), 2 (usage
+  error or unreadable input).
+- The diggs-findings 1.0 JSON format, with its JSON Schema shipped in the package and
+  published at https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json,
+  and SARIF 2.1.0 output for code-scanning tools. Output is deterministic, has no
+  timestamps, and by default carries no source snippets and no absolute paths.
+- Two checks in `validate()` only (not in `dictionary_check()`): dictionary **Check 13**,
+  which requires result values of a property whose definition names a `valueCodeSpace`
+  to be terms of that code list, and a **deprecation** check against the bundled DIGGS
+  deprecation registry (deprecated items warn, removed items fail). Registry entries
+  apply only from the release they name, so its 3.1.0 entries never fire on 3.0.0, 2.6
+  or 2.5.a files.
 - `pydiggs/PROVENANCE.toml` records the upstream commit and a sha256 for every vendored
   file. `scripts/sync_reference.py` re-syncs from local clones of the DIGGSml
   repositories, reading files from the pinned commit's git objects rather than the
