@@ -64,7 +64,7 @@ _FINDING_OVERHEAD: Final = 200  # JSON keys, punctuation and the fixed fields
 LocalDictionaries = Literal["instance-dir", "off"]
 #: Default ``max_findings`` of :func:`validate`.
 DEFAULT_MAX_FINDINGS: Final = 10_000
-#: Default ``max_bytes`` of :func:`validate`: 100 MB.
+#: Default ``max_bytes`` of :func:`validate`: 100 MiB.
 DEFAULT_MAX_BYTES: Final = 100 * 1024 * 1024
 _CONTEXT_STEPS: Final = frozenset({Step.STRUCTURE, Step.GEOMETRY, Step.CONTEXT})
 _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO": Severity.INFO}
@@ -155,11 +155,11 @@ def _redact(exc: OSError, path: str | os.PathLike[str], shown: str) -> str:
     return reason
 
 
-def _limits(max_findings: int | None, max_bytes: int | None) -> int:
+def _limits(max_findings: int | None, max_bytes: int) -> int:
     """Check the two limits; return the size limit to apply."""
     if max_findings is not None and (type(max_findings) is not int or max_findings < 1):
         raise ValueError(f"max_findings must be a positive int or None, got {max_findings!r}")
-    limit = DEFAULT_MAX_BYTES if max_bytes is None else max_bytes
+    limit = max_bytes
     if type(limit) is not int or limit < 1:
         raise ValueError(f"max_bytes must be a positive int, got {max_bytes!r}")
     return limit
@@ -586,7 +586,7 @@ def validate(
     allow_network: bool = False,
     include_snippets: bool = False,
     max_findings: int | None = DEFAULT_MAX_FINDINGS,
-    max_bytes: int | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
     base_dir: str | os.PathLike[str] | None = None,
     local_dictionaries: LocalDictionaries = "instance-dir",
 ) -> Report:
@@ -615,7 +615,7 @@ def validate(
             as severe as the worst one left out, says how many were dropped, and the
             steps that lost findings are ``incomplete``.
         max_bytes: Largest instance accepted, in bytes (default
-            :data:`DEFAULT_MAX_BYTES`, 100 MB). The legacy ``validator`` keeps 1 GiB.
+            :data:`DEFAULT_MAX_BYTES`, 100 MiB). The legacy ``validator`` keeps 1 GiB.
         local_dictionaries: ``"instance-dir"`` (default): a relative or ``file:``
             codeSpace is read only if it names a file inside the instance's folder
             (no working-directory fallback, no escape through ``..`` or symlinks);
