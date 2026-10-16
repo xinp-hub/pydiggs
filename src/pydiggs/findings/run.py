@@ -406,21 +406,37 @@ def _run_dictionary(
 ) -> StepStatus:
     semantic = _dictionary_validator(dictionary_path, allow_network=allow_network)
     result = semantic.validate_tree(doc, instance)
-    unfetched: set[str] = set()
     for message in result.messages:
+        if not allow_network and _is_offline(message):
+            builder.add(
+                Step.DICTIONARY,
+                rules.DICTIONARY_OFFLINE,
+                Severity.INFO,
+                _CHECK_PREFIX.sub("", message.text)
+                + " It is not bundled with pydiggs and network access is off"
+                " (allow_network=False), so it was not fetched.",
+                node=message.node,
+            )
+            continue
         builder.add_legacy(Step.DICTIONARY, rules.dictionary_rule(message.check), message)
-        if message.check == 3:  # noqa: PLR2004  # Check 3: resource could not be accessed
-            unfetched.update(re.findall(r'"(https?://[^"]+)"', message.text))
-    if unfetched and not allow_network:
-        builder.add(
-            Step.DICTIONARY,
-            rules.DICTIONARY_OFFLINE,
-            Severity.INFO,
-            f"{len(unfetched)} code list dictionar{'y was' if len(unfetched) == 1 else 'ies were'}"
-            " not fetched because network access is off (allow_network=False): "
-            + ", ".join(sorted(unfetched)),
-        )
     return builder.status(Step.DICTIONARY)
+
+
+_REMOTE: Final = re.compile(r'"https?://[^"]+"')
+
+
+def _is_offline(message: ValidationMessage) -> bool:
+    """A Check 3 or Check 13 'could not be accessed' about a remote (http/https) resource.
+
+    The URL was already whitelisted (Check 2 / 13 runs first), so with network access
+    off the only reason is that pydiggs does not bundle it.
+    """
+    return (
+        message.check in (3, 13)
+        and message.severity == "WARNING"
+        and "could not be accessed" in message.text
+        and _REMOTE.search(message.text) is not None
+    )
 
 
 def _run_deprecation(doc: etree._ElementTree, builder: _Builder, profile: str) -> StepStatus:

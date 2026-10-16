@@ -187,7 +187,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     WELL_FORMED: "The file is not well-formed XML",
     FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
-    DICTIONARY_OFFLINE: "Remote code lists were not fetched because network access is off",
+    DICTIONARY_OFFLINE: "A whitelisted remote code list is not bundled and network access is off",
     DEPRECATED: "Uses something the DIGGS schema deprecates",
     REMOVED: "Uses something the DIGGS schema has removed",
     "structure.diggs-root": "Document root and documentInformation structure",
