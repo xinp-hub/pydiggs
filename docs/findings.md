@@ -28,7 +28,20 @@ report.to_sarif()  # a SARIF 2.1.0 log, as a dict
 `validate()` runs every native step by default, even after an earlier one fails, and
 records what happened to each in `report.steps`: `passed`, `failed` (at least one error),
 `skipped` (not asked for, or the file is not well-formed XML) or `incomplete` (the step
-could not finish; its findings are partial).
+could not finish, or lost findings to `max_findings`; its findings are partial).
+Well-formedness is always checked, because nothing else can run without it: a file
+that is not well-formed reports `structure` as `failed` even when `structure` was not
+asked for.
+
+### Limits
+
+| Parameter | CLI | Default | What happens |
+|---|---|---|---|
+| `max_findings` | `--max-findings N` | 10,000 (`None` / `0`: no limit) | Findings past the limit are only counted. One extra `structure.findings-truncated` finding, as severe as the worst one left out (so `report.ok` and `--fail-on` stay right), says how many and from which steps; those steps are `incomplete`. |
+| `max_bytes` | | 100 MB | A larger file raises `InstanceReadError` (an `unreadable` entry in the CLI). The legacy `validator` keeps its 1 GiB limit. |
+
+Only regular files are read: a FIFO, socket or device fails at once with "not a
+regular file" instead of blocking.
 
 It raises only `InstanceReadError` (the file cannot be read; also an `OSError`),
 `ResourceError` (a schema, dictionary or Schematron file you passed, or pydiggs's bundled
@@ -41,17 +54,20 @@ XML that is not well-formed is a finding, `structure.well-formed`, not an except
 pydiggs validate PATH... [--format text|json|sarif] [--output FILE]
                  [--checks STEP[,STEP...]] [--diggs-version 2.5.a|2.6|3.0.0]
                  [--schema-path P] [--dictionary-path P] [--schematron-path P]
-                 [--fail-on error|warning] [--snippets] [--absolute-paths]
-                 [--allow-network]
+                 [--fail-on error|warning] [--max-findings N] [--snippets]
+                 [--absolute-paths] [--base-dir DIR] [--allow-network]
 ```
 
-* A directory expands to every `*.xml` under it, recursively, in sorted order; symbolic
-  links are not followed.
+* A directory expands to every regular `*.xml` file under it, recursively, in sorted
+  order; symbolic links and special files are skipped.
 * A file that cannot be read becomes an entry with `"status": "unreadable"` and the rest
   of the batch still runs.
 * `--checks` picks steps from `structure`, `schema`, `dictionary`, `schematron`,
   `geometry`, `deprecation`, `context` (default: all).
-* `--output` never writes through a symbolic link.
+* `--output` is created with mode `0600` and never written through a symbolic link.
+* Text output escapes control and format characters (Unicode Cc and Cf, except tab) in
+  paths and messages, so a file cannot send terminal escape sequences or bidi
+  overrides to your terminal.
 
 ### Exit codes
 
@@ -109,7 +125,7 @@ published with this site at
 | Field | Meaning |
 |---|---|
 | `tool.reference_data` | Upstream commit of each vendored DIGGS source (`schemas`, `def`), from the bundled `PROVENANCE.toml` |
-| `files[].path` | Relative to the working directory when the file is under it, else the bare file name; absolute only with `--absolute-paths` / `absolute_paths=True` |
+| `files[].path` | See [Paths](#paths); absolute only with `--absolute-paths` / `absolute_paths=True` |
 | `files[].sha256` | Digest of the file's bytes (`null` when unreadable) |
 | `files[].status` | `checked` or `unreadable`; an unreadable entry also has `error` |
 | `findings[].layer` | `native` (pydiggs's own checks); `official` is reserved for the DIGGSml/validation layer |
@@ -126,6 +142,23 @@ Compatibility: a new optional field is version 1.1; renaming or removing a field
 the message text. Unlike the legacy logs, a message has no `Check N:` prefix; the rule id
 carries the number.
 
+Strings in the JSON document are the file's data as found: JSON escapes C0 control
+characters, but C1 controls (U+0080 to U+009F) and Unicode bidi or other format
+characters (for example U+202E) are left as they are. A consumer that shows paths or
+messages to people should escape those itself, as `--format text` does.
+
+### Paths
+
+| Situation | Reported path |
+|---|---|
+| `base_dir` / `--base-dir DIR` given, file under it | relative to `DIR` |
+| `base_dir` given, file outside it | the bare file name |
+| no `base_dir`, working directory is `/` or an ancestor of your home directory | the bare file name |
+| no `base_dir`, file under the working directory | relative to the working directory |
+| otherwise | the bare file name |
+
+A file name that is not valid UTF-8 is shown with its stray bytes as `\xNN` escapes.
+
 ## Rule ids
 
 Every rule id is `<step>.<name>` and matches `^<step>\.[A-Za-z0-9][A-Za-z0-9._-]*$`.
@@ -140,7 +173,8 @@ Rule ids are part of the stable contract.
 | `schema.incomplete` | error | libxml2 could not finish validating the file |
 | `dictionary.1` ... `dictionary.12` | as the legacy check | The legacy dictionary checks, numbered as in their messages (1 uncontrolled codeSpace, 2 not whitelisted, 3 not accessible, 4 not a dictionary, 5 code not found, 6 wrong context, 7 name mismatch, 8 wrong measurement, 9 data type, 10 unitless with uom, 11 missing uom, 12 invalid uom) |
 | `dictionary.13` | error / warning | Result values (in the property's `dataValues` column) are not terms of the code list its definition names in `valueCodeSpace` |
-| `dictionary.offline` | info | Remote code lists were not fetched because network access is off |
+| `dictionary.offline` | info | A whitelisted remote (http/https) code list that pydiggs does not bundle was not fetched because network access is off. This replaces the `dictionary.3` (or `dictionary.13`) "could not be accessed" warning in `validate()` when `allow_network=False`; with network access on, a failed fetch is still `dictionary.3` at warning. |
+| `structure.findings-truncated` | as the worst dropped finding | `max_findings` was reached; the rest were counted, not reported |
 | `schematron.<Context>.<property>` | error | A bundled Schematron rule, e.g. `schematron.Borehole.totalMeasuredDepth`, `schematron.Casing.outside-gt-inside` |
 | `schematron.Casing.outside-gt-inside-converted`, `schematron.Casing.diameters-numeric-converted` | error | pydiggs's unit-converting casing diameter rule |
 | `schematron.<id>` / `schematron.user-<hash>` | error | A rule from your own Schematron file: its `@id`, else a hash of its context and test |
@@ -160,7 +194,12 @@ Rule ids are part of the stable contract.
   `valueCodeSpace`, every value in that property's column of the result set's
   `dataValues` (and of every result set citing the same parameters by `xlink:href`)
   must be a term (`gml:id`) of that code list. Empty values and the property's
-  `nullValue` are allowed. `dictionary_check()` does not run it.
+  `nullValue` are allowed; `Property/@index` is read as an `xs:integer`. The message
+  lists the first five invalid values and at most 20 valid terms (the official module
+  lists all of them). `dictionary_check()` does not run it.
+* **Offline dictionaries.** `validate()` reports an unbundled remote dictionary as
+  `dictionary.offline` (info) when network access is off; `dictionary_check()` still
+  reports Check 3 as a warning.
 * **Deprecation** (`deprecation.*`), from the bundled DIGGS deprecation registry
   (`deprecation/DeprecationRegistry.xml`): deprecated items are warnings and removed
   items errors, with the official message text. An entry applies only from the release
@@ -191,6 +230,17 @@ is `"xpath:"` plus the xpath with namespace prefixes dropped and every position 
 explicit, else `"line:<n>"`, else `"file"`. Two layers agree when their keys match as
 multisets over the steps both ran. The message is never compared.
 
+## Security notes
+
+* Schematron `svrl:failed-assert/@location` paths are never evaluated as XPath: lxml's
+  Schematron skeleton copies namespace URIs from the instance into them, so they are
+  matched against the tree step by step instead. libxml2 error-log paths are checked
+  against their `/name[n]` grammar before they are evaluated.
+* A broken user Schematron file (a test that does not compile, or an unknown function)
+  is a `ResourceError` (CLI exit 2), not a finding.
+* Messages about an unreadable file do not contain its path; the report shows the path
+  as described in [Paths](#paths).
+
 ## Privacy
 
 Findings can travel further than the file: into CI logs, issue trackers and code-scanning
@@ -199,9 +249,10 @@ system layout:
 
 * **No snippets by default.** `source_snippet` copies the element's XML, which is client
   data; it appears only with `--snippets` / `include_snippets=True`, capped at 1 KiB.
-* **No absolute paths by default.** Paths are relative to the working directory, or the
-  bare file name for files outside it, in JSON and SARIF alike; messages never contain
-  the absolute path of the instance. `--absolute-paths` opts in.
+* **No absolute paths by default.** Paths follow [Paths](#paths) in JSON, SARIF and
+  text alike, so running from `/` or above your home directory never spells out your
+  directory layout; messages never contain the absolute path of the instance.
+  `--absolute-paths` opts in.
 * **No timestamps, host names or user names** in either format.
 * **No network** unless `--allow-network` / `allow_network=True`, and then only to
   whitelisted dictionary URLs.
