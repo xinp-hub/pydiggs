@@ -416,3 +416,24 @@ def test_legacy_validator_still_reads_dev_stdin_and_pipes() -> None:
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert b"No schema validation error is detected" in result.stdout
+
+
+def test_detect_diggs_version_keeps_the_1_1_1_error_text(tmp_path: Path, monkeypatch) -> None:
+    """Legacy callers get 1.1.1's messages, file name included (7804f23 _xml.py)."""
+    import gzip
+
+    from pydiggs import _xml, detect_diggs_version
+
+    packed = tmp_path / "packed.xml"
+    packed.write_bytes(gzip.compress(b"<Diggs/>"))
+    with pytest.raises(OSError, match=r"^compressed XML is not accepted: ") as exc:
+        detect_diggs_version(packed)
+    assert str(exc.value) == f"compressed XML is not accepted: {packed}"
+    assert exc.value.args == (f"compressed XML is not accepted: {packed}",)
+
+    big = tmp_path / "big.xml"
+    big.write_bytes(b"<Diggs>" + b" " * 64 + b"</Diggs>")
+    monkeypatch.setattr(_xml, "MAX_LOCAL_BYTES", 32)
+    with pytest.raises(OSError) as exc:
+        detect_diggs_version(str(big))
+    assert exc.value.args == (f"XML file exceeds 32 bytes: {big}",)
