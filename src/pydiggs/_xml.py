@@ -10,6 +10,7 @@ limits. Remote dictionaries (``allow_network=True`` only) are fetched by
 
 from __future__ import annotations
 
+import errno
 import http.client
 import os
 import time
@@ -78,9 +79,10 @@ def read_limited(source: XMLSource) -> tuple[bytes, str | bytes | None]:
         with Path(path).open("rb") as fh:
             data = fh.read(MAX_LOCAL_BYTES + 1)
     if len(data) > MAX_LOCAL_BYTES:
-        raise OSError(f"XML file exceeds {MAX_LOCAL_BYTES} bytes: {name}")
+        # No file name in the message: callers report the path in their own form.
+        raise OSError(errno.EFBIG, f"XML file exceeds {MAX_LOCAL_BYTES} bytes")
     if data[:2] == _GZIP_MAGIC:
-        raise OSError(f"compressed XML is not accepted: {name}")
+        raise OSError(errno.EINVAL, "compressed XML is not accepted")
     return data, name
 
 

@@ -230,7 +230,7 @@ def test_bad_arguments_and_trusted_inputs_raise(kwargs, exc, match):
 
 
 def test_unreadable_instances_raise_instance_read_error(tmp_path):
-    with pytest.raises(InstanceReadError, match="cannot read") as missing:
+    with pytest.raises(InstanceReadError, match="No such file") as missing:
         validate(tmp_path / "missing.xml")
     assert isinstance(missing.value, OSError)
     assert isinstance(missing.value, PydiggsError)

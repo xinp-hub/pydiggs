@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from pydiggs import ResourceError, validate
+from pydiggs import InstanceReadError, ResourceError, validate
 from pydiggs.cli import main
 from pydiggs.findings.locate import Locator
 
@@ -88,3 +88,43 @@ def test_broken_user_schematron_is_a_resource_error(name, match, capsys):
     code = main(["validate", str(NO_ERROR), "--schematron-path", str(BAD_SCH / name)])
     assert code == 2
     assert "Schematron rules" in capsys.readouterr().err
+
+
+def _leak_inputs(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:
+    import gzip
+
+    from pydiggs import _xml
+
+    folder = tmp_path / "secret-folder"
+    folder.mkdir()
+    packed = folder / "packed.xml"
+    packed.write_bytes(gzip.compress(NO_ERROR.read_bytes()))
+    big = folder / "big.xml"
+    big.write_bytes(NO_ERROR.read_bytes())
+    monkeypatch.setattr(_xml, "MAX_LOCAL_BYTES", packed.stat().st_size + 1)
+    assert big.stat().st_size > packed.stat().st_size + 1
+    return packed, big
+
+
+@pytest.mark.parametrize("fmt", ["json", "sarif", "text"])
+def test_unreadable_reasons_carry_no_absolute_path(tmp_path, monkeypatch, capsys, fmt):
+    packed, big = _leak_inputs(tmp_path, monkeypatch)
+    monkeypatch.chdir(ROOT)
+    code = main(["validate", "--format", fmt, str(packed), str(big)])
+    out, err = capsys.readouterr()
+    assert code == 2
+    assert "secret-folder" not in out + err
+    assert str(tmp_path) not in out + err
+    assert "compressed XML is not accepted" in out
+    assert "XML file exceeds" in out
+    assert "could not read packed.xml: cannot read" not in out
+
+
+def test_instance_read_error_names_the_shown_path_only(tmp_path, monkeypatch):
+    packed, _ = _leak_inputs(tmp_path, monkeypatch)
+    monkeypatch.chdir(ROOT)
+    with pytest.raises(InstanceReadError) as exc:
+        validate(packed)
+    assert exc.value.strerror == "compressed XML is not accepted"
+    assert exc.value.filename == "packed.xml"
+    assert "secret-folder" not in str(exc.value)

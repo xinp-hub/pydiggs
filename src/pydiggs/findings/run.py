@@ -90,6 +90,19 @@ def display_paths(path: str | os.PathLike[str]) -> tuple[str, str]:
     return shown or absolute.name, absolute.as_posix()
 
 
+def _redact(exc: OSError, path: str | os.PathLike[str], shown: str) -> str:
+    """The reason an instance could not be read, without the path as given or resolved."""
+    reason = exc.strerror or str(exc)
+    for spelling in sorted(
+        {os.fspath(path), str(Path(path).absolute()), str(Path(path).resolve())},
+        key=len,
+        reverse=True,
+    ):
+        if spelling:
+            reason = reason.replace(spelling, shown)
+    return reason
+
+
 def _checks(checks: Iterable[str | Step] | None) -> frozenset[Step]:
     if checks is None:
         return frozenset(NATIVE_STEPS)
@@ -408,9 +421,7 @@ def validate(
     try:
         data, _ = _xml.read_limited(instance)
     except OSError as exc:
-        raise InstanceReadError(
-            exc.errno or 0, f"cannot read {shown}: {exc.strerror or exc}"
-        ) from exc
+        raise InstanceReadError(exc.errno or 0, _redact(exc, path, shown), shown) from exc
     sha256 = hashlib.sha256(data).hexdigest()
     steps: dict[Step, StepStatus] = dict.fromkeys(NATIVE_STEPS, "skipped")
     scrub = (str(instance.resolve()), shown)
