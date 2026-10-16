@@ -38,7 +38,14 @@ asked for.
 | Parameter | CLI | Default | What happens |
 |---|---|---|---|
 | `max_findings` | `--max-findings N` | 10,000 (`None` / `0`: no limit) | Findings past the limit are only counted. One extra `structure.findings-truncated` finding, as severe as the worst one left out (so `report.ok` and `--fail-on` stay right), says how many and from which steps; those steps are `incomplete`. |
-| `max_bytes` | | 100 MB | A larger file raises `InstanceReadError` (an `unreadable` entry in the CLI). The legacy `validator` keeps its 1 GiB limit. |
+| `max_bytes` | `--max-bytes N` | 100 MiB | A larger file raises `InstanceReadError` (an `unreadable` entry in the CLI). The legacy `validator` keeps its 1 GiB limit. |
+| (fixed) | | 16 MiB per report | Findings count towards a budget of roughly their JSON size; reaching it truncates exactly like `max_findings`. |
+| (fixed) | | 4,096 characters | A longer `message` is cut and ends in "…". A longer `xpath` or `gml_id` is reported as `null` (a cut path could name another element); the line is kept. |
+
+The `structure.findings-truncated` marker describes the report, not the file: it is not
+part of any step's status (the steps that lost findings are `incomplete`), it is left
+out of conformance comparisons, it is shown by `--format text` even when it is info,
+and `counts` include it.
 
 Only regular files are read: a FIFO, socket or device fails at once with "not a
 regular file" instead of blocking.
@@ -54,8 +61,9 @@ XML that is not well-formed is a finding, `structure.well-formed`, not an except
 pydiggs validate PATH... [--format text|json|sarif] [--output FILE]
                  [--checks STEP[,STEP...]] [--diggs-version 2.5.a|2.6|3.0.0]
                  [--schema-path P] [--dictionary-path P] [--schematron-path P]
-                 [--fail-on error|warning] [--max-findings N] [--snippets]
-                 [--absolute-paths] [--base-dir DIR] [--allow-network]
+                 [--fail-on error|warning] [--max-findings N] [--max-bytes N]
+                 [--snippets] [--absolute-paths] [--base-dir DIR]
+                 [--local-dictionaries instance-dir|off] [--allow-network]
 ```
 
 * A directory expands to every regular `*.xml` file under it, recursively, in sorted
@@ -133,7 +141,7 @@ published with this site at
 | `location.line`, `location.column` | 1-based; the column is known only for XML syntax errors |
 | `location.xpath` | The official `diggs:get-path` form: every element as `name()[n]` |
 | `location.gml_id` | `gml:id` of the nearest element at or above the problem |
-| `source_snippet` | The element's XML, at most 1 KiB; only with `--snippets` / `include_snippets=True` |
+| `source_snippet` | A shallow copy of the element: its attributes and text plus at most eight child elements (their attributes and text only; deeper content is "..."), a comment counting any further children, and only the namespace declarations those use; at most 1 KiB of UTF-8. Only with `--snippets` / `include_snippets=True` |
 
 There is no timestamp, keys come in a fixed order and findings are sorted (by step, line,
 column, severity, rule id, xpath, message), so the same input gives the same bytes.
@@ -174,7 +182,7 @@ Rule ids are part of the stable contract.
 | `dictionary.1` ... `dictionary.12` | as the legacy check | The legacy dictionary checks, numbered as in their messages (1 uncontrolled codeSpace, 2 not whitelisted, 3 not accessible, 4 not a dictionary, 5 code not found, 6 wrong context, 7 name mismatch, 8 wrong measurement, 9 data type, 10 unitless with uom, 11 missing uom, 12 invalid uom) |
 | `dictionary.13` | error / warning | Result values (in the property's `dataValues` column) are not terms of the code list its definition names in `valueCodeSpace` |
 | `dictionary.offline` | info | A whitelisted remote (http/https) code list that pydiggs does not bundle was not fetched because network access is off. This replaces the `dictionary.3` (or `dictionary.13`) "could not be accessed" warning in `validate()` when `allow_network=False`; with network access on, a failed fetch is still `dictionary.3` at warning. |
-| `structure.findings-truncated` | as the worst dropped finding | `max_findings` was reached; the rest were counted, not reported |
+| `structure.findings-truncated` | as the worst dropped finding | `max_findings` or the 16 MiB report budget was reached; the rest were counted, not reported |
 | `schematron.<Context>.<property>` | error | A bundled Schematron rule, e.g. `schematron.Borehole.totalMeasuredDepth`, `schematron.Casing.outside-gt-inside` |
 | `schematron.Casing.outside-gt-inside-converted`, `schematron.Casing.diameters-numeric-converted` | error | pydiggs's unit-converting casing diameter rule |
 | `schematron.<id>` / `schematron.user-<hash>` | error | A rule from your own Schematron file: its `@id`, else a hash of its context and test |
@@ -197,6 +205,15 @@ Rule ids are part of the stable contract.
   `nullValue` are allowed; `Property/@index` is read as an `xs:integer`. The message
   lists the first five invalid values and at most 20 valid terms (the official module
   lists all of them). `dictionary_check()` does not run it.
+* **Local dictionaries.** `validate(local_dictionaries="instance-dir")` (the default;
+  CLI `--local-dictionaries`) reads a dictionary named by a relative or `file:`
+  codeSpace only if it is a file inside the instance's folder: there is no fallback to
+  the working directory, and `..` or a symlink cannot leave the folder. Anything else is
+  reported as `dictionary.3` (warning, "could not be accessed") with a note that says
+  why; the check is made before the file is opened, so the finding is the same whether
+  or not the file exists. `"off"` reads no local dictionary. `dictionary_check()`
+  keeps the 1.1 behaviour: next to the instance, then the working directory, and any
+  `file:` URI.
 * **Offline dictionaries.** `validate()` reports an unbundled remote dictionary as
   `dictionary.offline` (info) when network access is off; `dictionary_check()` still
   reports Check 3 as a warning.
@@ -240,6 +257,15 @@ multisets over the steps both ran. The message is never compared.
   is a `ResourceError` (CLI exit 2), not a finding.
 * Messages about an unreadable file do not contain its path; the report shows the path
   as described in [Paths](#paths).
+
+### Residual risk
+
+lxml's ISO Schematron skeleton (an XSLT 1.0 stylesheet run by libxslt) computes each
+failed assert's location by counting preceding siblings, so its own time grows with the
+square of the number of siblings, and it keeps a location string per failed assert in
+memory. pydiggs bounds everything it does itself, but cannot bound that. A service that
+validates untrusted files should keep `max_bytes` low and run each validation in a
+process with a time and memory limit.
 
 ## Privacy
 

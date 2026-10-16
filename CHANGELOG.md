@@ -57,8 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   timestamps, and by default carries no source snippets and no absolute paths.
 - Limits for `validate()`: at most 10,000 findings per file by default (`max_findings`,
   `--max-findings`; the overflow is counted in one `structure.findings-truncated`
-  finding and the affected steps are `incomplete`), and instances up to 100 MB by
+  finding and the affected steps are `incomplete`), and instances up to 100 MiB by
   default (`max_bytes`; the legacy `validator` keeps 1 GiB).
+  `--max-bytes` sets the size limit from the command line. Each finding's message and
+  xpath are capped at 4,096 characters, and a report's findings at about 16 MiB.
+- `validate(local_dictionaries="instance-dir" | "off")` and `--local-dictionaries`: by
+  default a dictionary named by a relative or `file:` codeSpace is read only from
+  inside the instance's folder (no working-directory fallback, no escape through `..`
+  or symlinks). `dictionary_check()` is unchanged.
 - `validate(base_dir=...)` and `--base-dir` report paths relative to a chosen folder.
   Without it, paths are bare file names when the working directory is `/` or an
   ancestor of the home directory.
