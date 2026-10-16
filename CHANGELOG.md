@@ -39,7 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   working tree, refuses unsafe or non-portable file names, and verifies the digests
   (`check`, run by the test suite).
 - The DIGGS deprecation registry (`deprecation/DeprecationRegistry.xml`) is bundled for
-  a forthcoming deprecation check. Its entries apply from DIGGS 3.1.0.
+  a forthcoming deprecation check. It lists 94 deprecated items (25 from DIGGS 3.0.0, 69
+  from 3.1.0) and 56 items removed in 3.1.0.
 - The DIGGS schemas' MPL-2.0 license ships at `schemas/LICENSE`, and
   `dictionaries/NOTICE` records the licence terms for the DIGGSml/def dictionaries. The
   package licence expression is now `Apache-2.0 AND MPL-2.0 AND MIT`, matching what the
