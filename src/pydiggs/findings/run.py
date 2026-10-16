@@ -71,6 +71,7 @@ class _Cache(threading.local):
     def __init__(self) -> None:
         self.schemas: dict[str, etree.XMLSchema] = {}
         self.schematrons: dict[str, isoschematron.Schematron] = {}
+        self.dictionaries: dict[tuple[str, int, int, bool], DictionarySemanticValidator] = {}
 
 
 _CACHE: Final = _Cache()
@@ -372,15 +373,27 @@ def _run_schematron(
 def _dictionary_validator(
     dictionary_path: str | os.PathLike[str] | None, *, allow_network: bool
 ) -> DictionarySemanticValidator:
+    """A validator for this dictionary, reused within the thread while the file is unchanged.
+
+    Building one parses every bundled dictionary (most of the time per file), so it is
+    cached; per-instance state is reset by ``validate_tree``.
+    """
     path = Path(dictionary_path) if dictionary_path is not None else _DEFAULT_DICTIONARY
+    try:
+        stat = path.resolve().stat()
+    except OSError as exc:
+        raise ResourceError(f"dictionary {str(path)!r} is not a readable file") from exc
     if not path.is_file():
         raise ResourceError(f"dictionary {str(path)!r} is not a readable file")
-    try:
-        return DictionarySemanticValidator(
-            dictionary_path=path, allow_network=allow_network, check_value_code_spaces=True
-        )
-    except (OSError, etree.XMLSyntaxError) as exc:
-        raise ResourceError(f"cannot read dictionary data: {exc}") from exc
+    key = (str(path.resolve()), stat.st_mtime_ns, stat.st_size, allow_network)
+    if key not in _CACHE.dictionaries:
+        try:
+            _CACHE.dictionaries[key] = DictionarySemanticValidator(
+                dictionary_path=path, allow_network=allow_network, check_value_code_spaces=True
+            )
+        except (OSError, etree.XMLSyntaxError) as exc:
+            raise ResourceError(f"cannot read dictionary data: {exc}") from exc
+    return _CACHE.dictionaries[key]
 
 
 def _run_dictionary(
