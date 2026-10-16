@@ -10,7 +10,7 @@ JSON document on stdout.
 The caller sets ``COLUMNS=200 NO_COLOR=1 TERM=dumb`` (and clears ``FORCE_COLOR``) so
 rich renders the same plain text everywhere.
 
-Usage: ``python capture.py REPO_ROOT``
+Usage: ``python capture.py REPO_ROOT [SUBCOMMAND]``
 """
 
 from __future__ import annotations
@@ -105,8 +105,8 @@ def run_case(main: Callable[[list[str]], int], argv: list[str], workdir: Path) -
     }
 
 
-def main(repo_root: str) -> int:
-    """Copy the corpus, run every case and print the results as JSON."""
+def main(repo_root: str, only: str | None = None) -> int:
+    """Copy the corpus, run every case (or those of one subcommand) and print JSON."""
     import pydiggs
     from pydiggs.cli import main as cli_main
 
@@ -120,12 +120,14 @@ def main(repo_root: str) -> int:
         os.chdir(workdir)
         try:
             results = {
-                case_id: run_case(cli_main, argv, workdir) for case_id, argv in cases(workdir)
+                case_id: run_case(cli_main, argv, workdir)
+                for case_id, argv in cases(workdir)
+                if only is None or argv[:1] == [only]
             }
         finally:
             os.chdir(previous)
     json.dump(
-        {"pydiggs": pydiggs.__version__, "cases": results},
+        {"pydiggs": pydiggs.__version__, "pydiggs_file": pydiggs.__file__, "cases": results},
         sys.stdout,
         indent=1,
         sort_keys=True,
@@ -135,4 +137,4 @@ def main(repo_root: str) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    sys.exit(main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None))
