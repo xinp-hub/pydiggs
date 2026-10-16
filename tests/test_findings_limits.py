@@ -117,3 +117,35 @@ def test_base_dir_gives_paths_relative_to_a_chosen_folder(tmp_path, monkeypatch,
     assert code == 0
     paths = [f["path"] for f in json.loads(capsys.readouterr().out)["files"]]
     assert paths == ["BH-2.xml", "site/BH-1.xml"]
+
+
+_LOCAL_DICT = """<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"
+  xmlns:diggs="http://diggsml.org/schemas/3" gml:id="local">
+  {entries}
+</gml:Dictionary>"""
+_LOCAL_INSTANCE = """<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2">
+  <role codeSpace="./local.xml#surveyor">surveyor</role>
+</Diggs>"""
+
+
+def test_cached_dictionary_validator_does_not_leak_between_files(tmp_path):
+    from pydiggs.findings import run
+
+    for name, entries in (
+        ("a", '<gml:dictionaryEntry><diggs:Definition gml:id="surveyor"><gml:name>surveyor'
+              "</gml:name></diggs:Definition></gml:dictionaryEntry>"),
+        ("b", ""),
+    ):  # fmt: skip
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "local.xml").write_text(_LOCAL_DICT.format(entries=entries))
+        (tmp_path / name / "site.xml").write_text(_LOCAL_INSTANCE)
+
+    first = run._dictionary_validator(None, allow_network=False)
+    a = validate(tmp_path / "a" / "site.xml", checks=["dictionary"])
+    b = validate(tmp_path / "b" / "site.xml", checks=["dictionary"])
+    a_again = validate(tmp_path / "a" / "site.xml", checks=["dictionary"])
+    assert run._dictionary_validator(None, allow_network=False) is first
+    assert run._dictionary_validator(None, allow_network=True) is not first
+    assert not [f for f in a.findings if f.severity is Severity.ERROR]
+    assert [f.rule_id for f in b.findings if f.severity is Severity.ERROR] == ["dictionary.5"]
+    assert a_again.findings == a.findings

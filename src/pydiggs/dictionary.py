@@ -245,6 +245,9 @@ class DictionarySemanticValidator:
         self._uom_units_by_class = self._load_uom_map(
             Path(uom_dictionary_path) if uom_dictionary_path else _DEFAULT_UOM
         )
+        # What every instance starts from; validate_tree() resets to it, so dictionaries
+        # found next to one instance (or fetched for it) never serve the next one.
+        self._baseline_cache = dict(self._dict_cache)
 
     def _load_whitelist(self, path: Path) -> list[str]:
         if not path.is_file():
@@ -552,6 +555,12 @@ class DictionarySemanticValidator:
         root = doc.getroot()
         self._positions = _sibling_positions(root)
         self._check13 = None
+        self._dict_cache = dict(self._baseline_cache)
+        self._unreachable = set()
+        baseline = set(map(id, self._baseline_cache.values()))
+        self._definition_index = {
+            tree: index for tree, index in self._definition_index.items() if id(tree) in baseline
+        }
 
         for el in root.xpath("//*[@codeSpace]"):
             if _local(el) in _SKIP_LOCAL_NAMES:
