@@ -40,7 +40,7 @@ def test_schema_enums_match_the_model():
     assert statuses["enum"] == ["passed", "failed", "skipped", "incomplete"]
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(reports(), st.booleans())
 def test_every_report_validates_against_the_schema(report, absolute):
     doc = json.loads(report.to_json(absolute_paths=absolute))
@@ -48,14 +48,14 @@ def test_every_report_validates_against_the_schema(report, absolute):
     assert doc["files"][0] == report.to_dict(absolute_paths=absolute)
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(st.lists(reports(), max_size=3), st.lists(unreadable_files(), max_size=2))
 def test_batch_documents_validate(checked, unreadable):
     files = [r.to_dict() for r in checked] + [_json.unreadable_entry(u) for u in unreadable]
     VALIDATOR.validate(json.loads(_json.dumps(_doc(files))))
 
 
-@settings(deadline=None)  # builds whole Reports; timing varies under CI load
+@settings(deadline=None)  # no per-example deadline: timing varies under CI load
 @given(findings())
 def test_every_finding_entry_validates(finding):
     VALIDATOR.validate(_doc([_file_with(finding).to_dict()]))

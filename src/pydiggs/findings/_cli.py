@@ -147,14 +147,14 @@ _ONE_BYTE = 0x100
 
 
 def _safe(text: str) -> str:
-    """Escape control and format characters (Cc, Cf; not tab) for a terminal.
+    """Escape control, format and line/paragraph separators (Cc, Cf, Zl, Zp; not tab).
 
     Paths and messages come from the instance; raw escape sequences or bidi overrides
     could rewrite what the reader sees.
     """
     out = []
     for ch in text:
-        if ch != "\t" and unicodedata.category(ch) in ("Cc", "Cf"):
+        if ch != "\t" and unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp"):
             code = ord(ch)
             out.append(f"\\x{code:02x}" if code < _ONE_BYTE else f"\\u{code:04x}")
         else:
@@ -184,7 +184,10 @@ def _open_output(name: str) -> TextIO:
     if Path(name).is_symlink():
         raise OSError(f"refusing to write through a symlink: {name}")
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-    return os.fdopen(os.open(name, flags, 0o600), "w", encoding="utf-8")
+    fd = os.open(name, flags, 0o600)
+    if hasattr(os, "fchmod"):
+        os.fchmod(fd, 0o600)  # an existing file keeps its mode through O_CREAT
+    return os.fdopen(fd, "w", encoding="utf-8")
 
 
 def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.Namespace:

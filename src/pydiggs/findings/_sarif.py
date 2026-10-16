@@ -50,7 +50,13 @@ def file_uri(absolute_path: str) -> str:
         'file:///C:/Users/me/a%20b.xml'
         >>> file_uri("//server/share/a.xml")
         'file://server/share/a.xml'
+        >>> file_uri("//?/C:/Users/me/a.xml")
+        'file:///C:/Users/me/a.xml'
     """
+    if absolute_path.startswith("//?/UNC/"):  # Windows extended-length UNC path
+        absolute_path = "//" + absolute_path[len("//?/UNC/") :]
+    elif absolute_path.startswith("//?/"):  # Windows extended-length path
+        absolute_path = absolute_path[len("//?/") :]
     if _WINDOWS_ABSOLUTE.match(absolute_path):
         return PureWindowsPath(absolute_path).as_uri()
     return PurePosixPath(absolute_path).as_uri()
