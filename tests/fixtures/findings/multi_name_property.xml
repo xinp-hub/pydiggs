@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- pull_speed has two names (pull speed, withdrawal rate); Check 8 names it. -->
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2">
+  <measurement>
+    <Test gml:id="T1">
+      <Property gml:id="p1" index="1">
+        <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/gr_inj_properties.xml#pull_speed">pull speed</propertyClass>
+      </Property>
+    </Test>
+  </measurement>
+</Diggs>

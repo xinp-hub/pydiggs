@@ -284,23 +284,65 @@ print(json.dumps([validate(p, include_snippets=True).to_json() for p in paths]))
 """
 
 
+def _run_seeded(seed: str, paths: list[str]) -> list[str]:
+    out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", _DETERMINISM, *paths],
+        env={**os.environ, "PYTHONHASHSEED": seed},
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    docs: list[str] = json.loads(out)
+    return docs
+
+
 def test_json_is_deterministic_across_hash_seeds_and_path_spellings():
     spellings = [SCHEMA_ERROR, "./" + SCHEMA_ERROR, str(ROOT / SCHEMA_ERROR)]
     outputs = set()
     for seed in ("0", "1", "12345"):
-        env = {**os.environ, "PYTHONHASHSEED": seed}
-        out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-            [sys.executable, "-c", _DETERMINISM, *spellings],
-            env=env,
+        docs = _run_seeded(seed, spellings)
+        assert len(set(docs)) == 1
+        outputs.add(docs[0])
+    assert len(outputs) == 1
+
+
+@pytest.mark.slow
+def test_json_is_deterministic_across_hash_seeds_on_several_files():
+    paths = [
+        "tests/fixtures/findings/multi_name_property.xml",
+        "tests/fixtures/official/3.0/PorePressureDissipation_Example.xml",
+        "tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml",
+        "tests/fixtures/official/2.5.a/StrengthExample.xml",
+        "tests/test_files/Dictionary_Check_MWD_1.xml",
+    ]
+    runs = [_run_seeded(seed, paths) for seed in ("0", "1", "2", "3", "4242")]
+    assert all(run == runs[0] for run in runs)
+
+
+_LEGACY_NAME = """
+from pydiggs.dictionary import DictionarySemanticValidator
+result = DictionarySemanticValidator().validate_instance(
+    "tests/fixtures/findings/multi_name_property.xml"
+)
+print("|".join(m.text for m in result.messages))
+"""
+
+
+def test_multi_name_definition_text_does_not_depend_on_hash_seed():
+    texts = {
+        subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+            [sys.executable, "-c", _LEGACY_NAME],
+            env={**os.environ, "PYTHONHASHSEED": seed},
             cwd=ROOT,
             check=True,
             capture_output=True,
             text=True,
         ).stdout
-        docs = json.loads(out)
-        assert len(set(docs)) == 1
-        outputs.add(docs[0])
-    assert len(outputs) == 1
+        for seed in ("0", "1", "2", "3", "4", "5")
+    }
+    assert len(texts) == 1
+    assert '"pull speed"' in texts.pop()
 
 
 _BASE = (ROOT / NO_ERROR).read_bytes()

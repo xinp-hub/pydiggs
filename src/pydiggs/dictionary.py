@@ -762,7 +762,11 @@ class DictionarySemanticValidator:
         if name != "propertyClass":
             return
 
-        definition_name = next(iter(self._definition_names(definition)), fragment)
+        # First name in document order (a set's order depends on PYTHONHASHSEED).
+        definition_name = next(
+            (_text(c).lower() for c in definition.xpath(".//*[local-name()='name']") if _text(c)),
+            fragment,
+        )
 
         if not self._has_measurement_without_procedure(el):
             conditionals = self._conditional_xpaths(definition)
