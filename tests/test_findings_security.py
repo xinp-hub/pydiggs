@@ -5,9 +5,11 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+import pytest
 from lxml import etree
 
-from pydiggs import validate
+from pydiggs import ResourceError, validate
+from pydiggs.cli import main
 from pydiggs.findings.locate import Locator
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -67,3 +69,22 @@ def test_log_entry_paths_are_grammar_checked_before_evaluation():
     assert loc.element_at("/a/b") is doc.getroot()[0]
     for bad in ("/a/b[count(//*)>0]", "//b", "/a/b | /a", "/a/b[0]", "", None):
         assert loc.element_at(bad) is None, bad
+
+
+BAD_SCH = ROOT / "tests" / "fixtures" / "findings" / "bad_schematron"
+NO_ERROR = ROOT / "tests" / "test_files" / "2.6" / "No_Error_2_6.xml"
+
+
+@pytest.mark.parametrize(
+    ("name", "match"),
+    [
+        ("unparseable_test.sch", "cannot use Schematron rules"),
+        ("unknown_function.sch", "cannot apply Schematron rules"),
+    ],
+)
+def test_broken_user_schematron_is_a_resource_error(name, match, capsys):
+    with pytest.raises(ResourceError, match=match):
+        validate(NO_ERROR, checks=["schematron"], schematron_path=BAD_SCH / name)
+    code = main(["validate", str(NO_ERROR), "--schematron-path", str(BAD_SCH / name)])
+    assert code == 2
+    assert "Schematron rules" in capsys.readouterr().err
