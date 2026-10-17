@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="qualityClass">
+    <gml:description>Controlled vocabulary for diggs:SampleType/qualityClass - ISO 22475-1:2021's five-class scale (reiterating EC7-2) for which soil properties can be relied on from a recovered sample, ranging from full retention of strength and compressibility parameters (class 1) to bare stratigraphic sequence only (class 5). A SOIL concept only - the standard does not apply quality classes to rock samples the same way (rock uses diggs:AbstractSamplingActivityType/samplingCategory directly, with no separate class layer); nothing in the schema enforces this restriction, so consult this description before assigning a qualityClass to a rock sample. PROVISIONAL: reconstructed from a named, dated trade-journal article that directly quotes EC7-2's Table 1 and ISO 22475-1 clause numbers throughout (not a search summary), cross-checked against the same article's own worked technique/category/class examples for internal consistency, but not verified cell-by-cell against the table's own grid, nor against the paywalled ISO text itself - see docs/build/R16/NOTES.md section 10 in the rigid-inclusions repo.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/qualityClass.xml</gml:identifier>
+    <gml:name>DIGGS Sample Quality Class</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="class_1">
+            <gml:description>All properties considered unchanged - particle size, water content, density and permeability, and compressibility/shear strength are all reliably representative of in-situ conditions. Required wherever strength or compressibility/stiffness testing is scheduled. Achievable only with a thin-walled (open or piston) tube sampler or a triple-tube core barrel, meeting Category A.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/qualityClass.xml#class_1</gml:identifier>
+            <gml:name>Quality class 1</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1 (EC7-2 Table 1)</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:qualityClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="class_2">
+            <gml:description>Particle size, water content, density and permeability remain reliably representative, but the sample is too disturbed for compressibility or shear-strength testing.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/qualityClass.xml#class_2</gml:identifier>
+            <gml:name>Quality class 2</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1 (EC7-2 Table 1)</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:qualityClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="class_3">
+            <gml:description>Particle size and water content remain reliably representative; density- and permeability-related properties are no longer reliable.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/qualityClass.xml#class_3</gml:identifier>
+            <gml:name>Quality class 3</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1 (EC7-2 Table 1)</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:qualityClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="class_4">
+            <gml:description>Only particle size (broad soil type) and the sequence and broad boundaries of strata remain reliably determinable; water content is no longer reliable.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/qualityClass.xml#class_4</gml:identifier>
+            <gml:name>Quality class 4</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1 (EC7-2 Table 1)</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:qualityClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="class_5">
+            <gml:description>Only the sequence of layers and broad stratigraphic boundaries are determinable; no soil property is reliably representative of in-situ conditions.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/qualityClass.xml#class_5</gml:identifier>
+            <gml:name>Quality class 5</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1 (EC7-2 Table 1)</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:qualityClass</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

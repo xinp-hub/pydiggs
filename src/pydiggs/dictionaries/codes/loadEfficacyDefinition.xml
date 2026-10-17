@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="loadEfficacyDefinition">
+    <gml:description>Codes for which competing definition a diggs:DesignRILTPType/diggs:loadEfficacy value uses - load efficacy is defined at least three different ways in the literature, so a value reported without this code is not comparable across designs. Used for the value of diggs:DesignRILTPType/diggs:loadEfficacyDefinition.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadEfficacyDefinition.xml</gml:identifier>
+    <gml:name>DIGGS Load Efficacy Definition Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="load_on_column_over_total_load">
+            <gml:description>Load efficacy as the fraction of total applied load carried directly by the column heads.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadEfficacyDefinition.xml#load_on_column_over_total_load</gml:identifier>
+            <gml:name>Load on column / total load</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:loadEfficacyDefinition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="stress_on_column_over_average">
+            <gml:description>Load efficacy as the ratio of stress on the column head to the average stress over the full tributary area.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadEfficacyDefinition.xml#stress_on_column_over_average</gml:identifier>
+            <gml:name>Stress on column / average stress</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:loadEfficacyDefinition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="complement_of_soil_borne_fraction">
+            <gml:description>Load efficacy as one minus the fraction of load carried by the soil between column heads.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadEfficacyDefinition.xml#complement_of_soil_borne_fraction</gml:identifier>
+            <gml:name>Complement of soil-borne fraction</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:loadEfficacyDefinition</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

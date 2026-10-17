@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="conditionOnReceipt">
+    <gml:description>Codes classifying defects or damage noted in a specimen, or in its caps, before testing. Used for the value of diggs:GroutSpecimenConditions/diggs:conditionOnReceipt, which repeats.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/conditionOnReceipt.xml</gml:identifier>
+    <gml:name>DIGGS Specimen Condition On Receipt Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="honeycombed">
+            <gml:description>The specimen is honeycombed; the condition is to be reported when such a specimen is tested. Source: ISO 1920-4:2020 4.1; EN 12390-3:2019 6.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/conditionOnReceipt.xml#honeycombed</gml:identifier>
+            <gml:name>Honeycombed</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_4</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimenConditions/diggs:conditionOnReceipt</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cracked">
+            <gml:description>The specimen is cracked; badly honeycombed and cracked specimens are not representative of the quality of the material. Source: ISO 1920-4:2020 4.1.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/conditionOnReceipt.xml#cracked</gml:identifier>
+            <gml:name>Cracked</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_4</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimenConditions/diggs:conditionOnReceipt</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="damaged">
+            <gml:description>The specimen is damaged. Source: EN 12390-3:2019 6.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/conditionOnReceipt.xml#damaged</gml:identifier>
+            <gml:name>Damaged</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#en_12390_3</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimenConditions/diggs:conditionOnReceipt</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="defective_cap">
+            <gml:description>A defect in a cap of the specimen. Source: ASTM C39/C39M-09a 9.1.7.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/conditionOnReceipt.xml#defective_cap</gml:identifier>
+            <gml:name>Defective cap</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimenConditions/diggs:conditionOnReceipt</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="out_of_tolerance">
+            <gml:description>Dimensions or shape outside the tolerances of the governing specimen standard, such as individual diameters of one cylinder differing by more than 2 %. Source: ASTM C39/C39M-09a 6.1; EN 12390-3:2019 6.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/conditionOnReceipt.xml#out_of_tolerance</gml:identifier>
+            <gml:name>Out of tolerance</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimenConditions/diggs:conditionOnReceipt</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

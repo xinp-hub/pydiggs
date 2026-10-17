@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="downdragTreatment">
+    <gml:description>Codes naming how downdrag (negative skin friction above a rigid inclusion's neutral plane) was accounted for in a column's axial design analysis. These codes are used for the value of the downdragTreatment property of the diggs:GeoUnitDesignQuantity object. The value is required for negativeSkinFrictionLimit/neutralPlaneDepth/maxAxialForceAtNeutralPlane to be interpretable, since two designs reporting the same neutral-plane depth arrived at by different treatments are not comparable. Options drawn from the state-of-the-practice survey Han et al. (2025) reproduces (RI-DIGGS Technical Report Table 3-1).</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/downdragTreatment.xml</gml:identifier>
+    <gml:name>DIGGS Downdrag Treatment Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="neutral_plane_method">
+            <gml:description>Downdrag is accounted for by the neutral-plane method: negative skin friction above the neutral plane is added to the column's axial load and positive shaft resistance below it is subtracted, with the neutral plane located where inclusion and soil settlement are equal and the peak axial force occurs there. The most common treatment in United States practice per the state-of-the-practice survey (Han et al. 2025).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/downdragTreatment.xml#neutral_plane_method</gml:identifier>
+            <gml:name>Neutral-plane method</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GeoUnitDesignQuantity/diggs:downdragTreatment</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="limit_strength_design">
+            <gml:description>Downdrag is accounted for within a limit-strength (ultimate limit state) check rather than by an explicit neutral-plane analysis - negative skin friction is treated as part of the ultimate axial load without separately locating a neutral plane.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/downdragTreatment.xml#limit_strength_design</gml:identifier>
+            <gml:name>Downdrag in limit-strength design</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GeoUnitDesignQuantity/diggs:downdragTreatment</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="by_experience">
+            <gml:description>Downdrag is accounted for by engineering judgment or precedent rather than an explicit neutral-plane or limit-strength calculation.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/downdragTreatment.xml#by_experience</gml:identifier>
+            <gml:name>By experience</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GeoUnitDesignQuantity/diggs:downdragTreatment</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="not_considered">
+            <gml:description>Downdrag was not accounted for in the design.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/downdragTreatment.xml#not_considered</gml:identifier>
+            <gml:name>Not considered</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GeoUnitDesignQuantity/diggs:downdragTreatment</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

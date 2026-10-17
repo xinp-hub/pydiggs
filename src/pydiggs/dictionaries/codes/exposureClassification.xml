@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="exposureClassification">
+    <gml:description>Codes classifying the aggressivity of the ground to buried concrete, grout and embedded steel, used for the value of the exposureClassification property of diggs:RIProgramBasis. CODES ARE SCOPED TO THEIR AUTHORITY AND ARE NOT INTERCHANGEABLE. Four independent schemes are carried here, and several of them use the same severity words - 'severe', 'very severe' - on completely different criteria: EN 206 grades chemical attack on sulfate, acidity, CO2, ammonium and magnesium; ACI 318 grades sulfate (S) and chloride-driven reinforcement corrosion (C) separately; BS 8500 derives an ACEC class from sulfate and magnesium via BRE Special Digest 1; Palmer (1974) grades corrosion risk to buried metal from electrical resistivity alone. A bare 'severe' therefore states nothing, which is why every code names its scheme. TWO AXES, ONE PROPERTY. Chemical attack on concrete and electrical corrosivity to embedded steel are different measurements, but both are ground aggressivity adopted as a design premise, and exposureClassification is repeatable so a site may state one of each - as the Jazera site does, being Very Severe on the client's chemical scheme and Very Severe on Palmer's resistivity scheme for unrelated reasons. BUILT AT R10 from the Jazera project record (GBL-24136 geotechnical report) plus the three international schemes; see docs/build/R10/NOTES.md. SME REVIEW EXPECTED - additions, deletions and threshold corrections are anticipated, particularly the BS 8500 suffixed variants which are deliberately omitted.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml</gml:identifier>
+    <gml:name>DIGGS Ground Exposure and Aggressivity Classification Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="en206_xa1">
+            <gml:description>EN 206 exposure class XA1: a slightly aggressive chemical environment in natural soil or ground water. EN 206 grades chemical attack on the basis of sulfate, acidity (H+), and - for ground water - aggressive CO2, ammonium and MAGNESIUM ion content. DISTINCT CODE PER AUTHORITY: the EN 206, ACI 318, BS 8500 and project-specific ladders in this dictionary use overlapping severity WORDS on entirely different criteria, so a code names one class of one standard and is never interchangeable with a similarly-worded class of another.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#en206_xa1</gml:identifier>
+            <gml:name>XA1 - slightly aggressive chemical environment</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 206</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="en206_xa2">
+            <gml:description>EN 206 exposure class XA2: a moderately aggressive chemical environment in natural soil or ground water. See en206_xa1 for the parameters EN 206 grades on and for why codes are authority-scoped.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#en206_xa2</gml:identifier>
+            <gml:name>XA2 - moderately aggressive chemical environment</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 206</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="en206_xa3">
+            <gml:description>EN 206 exposure class XA3: a highly aggressive chemical environment in natural soil or ground water, the most severe of the three EN 206 chemical-attack classes. See en206_xa1.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#en206_xa3</gml:identifier>
+            <gml:name>XA3 - highly aggressive chemical environment</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>EN 206</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="aci318_s0">
+            <gml:description>ACI 318 sulfate exposure class S0: water-soluble sulfate in soil or in water low enough that no sulfate-related requirement applies. NOT equivalent to any EN 206, BS 8500 or project class of similar wording - ACI's thresholds and its cement-type and w/cm responses are its own.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#aci318_s0</gml:identifier>
+            <gml:name>ACI 318 Exposure Class S0 - sulfate exposure not applicable</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ACI 318</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="aci318_s1">
+            <gml:description>ACI 318 sulfate exposure class S1: moderate water-soluble sulfate exposure. See aci318_s0 on non-equivalence across authorities.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#aci318_s1</gml:identifier>
+            <gml:name>ACI 318 Exposure Class S1 - moderate sulfate exposure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ACI 318</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="aci318_s2">
+            <gml:description>ACI 318 sulfate exposure class S2: severe water-soluble sulfate exposure. See aci318_s0.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#aci318_s2</gml:identifier>
+            <gml:name>ACI 318 Exposure Class S2 - severe sulfate exposure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ACI 318</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="aci318_s3">
+            <gml:description>ACI 318 sulfate exposure class S3: very severe water-soluble sulfate exposure, the most severe of the ACI sulfate classes. NOTE THE TRAP THIS DICTIONARY EXISTS TO AVOID: ACI's S3 is also worded 'very severe', as are a BS 8500 AC-5, a Palmer very severe corrosivity rating and a 70-TMSS-03 very severe exposure - four different statements on four different criteria. They are four codes.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#aci318_s3</gml:identifier>
+            <gml:name>ACI 318 Exposure Class S3 - very severe sulfate exposure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ACI 318</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="aci318_c0">
+            <gml:description>ACI 318 corrosion-protection exposure class C0: concrete dry or protected from moisture, so no chloride-related requirement for protection of reinforcement applies. The ACI C series grades the risk to EMBEDDED STEEL rather than chemical attack on the concrete itself, which is the same half of ground aggressivity the Palmer corrosivity codes in this dictionary address by a different measurement.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#aci318_c0</gml:identifier>
+            <gml:name>ACI 318 Exposure Class C0 - dry or protected from moisture</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ACI 318</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="aci318_c1">
+            <gml:description>ACI 318 corrosion-protection exposure class C1: concrete exposed to moisture but not to an external source of chlorides. See aci318_c0.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#aci318_c1</gml:identifier>
+            <gml:name>ACI 318 Exposure Class C1 - moisture but no external chlorides</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ACI 318</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="aci318_c2">
+            <gml:description>ACI 318 corrosion-protection exposure class C2: concrete exposed to moisture and to an external source of chlorides - deicing chemicals, salt, brackish water, seawater or spray from these. See aci318_c0.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#aci318_c2</gml:identifier>
+            <gml:name>ACI 318 Exposure Class C2 - moisture plus external chlorides</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ACI 318</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bs8500_ac1">
+            <gml:description>BS 8500-1 Aggressive Chemical Environment for Concrete (ACEC) class AC-1, the mildest of the ACEC ladder. BS 8500 derives the ACEC class from the ground's sulfate AND MAGNESIUM content together with acidity, following the assessment procedure of BRE Special Digest 1. BS 8500 also defines suffixed variants (for example AC-1s, AC-2z) distinguishing static from mobile ground water and brownfield conditions; those are DELIBERATELY NOT ENUMERATED HERE pending SME confirmation of which are needed, rather than guessed at.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#bs8500_ac1</gml:identifier>
+            <gml:name>BS 8500 ACEC Class AC-1</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 8500-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bs8500_ac2">
+            <gml:description>BS 8500-1 ACEC class AC-2. See bs8500_ac1 for how the class is derived and for the omitted suffixed variants.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#bs8500_ac2</gml:identifier>
+            <gml:name>BS 8500 ACEC Class AC-2</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 8500-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bs8500_ac3">
+            <gml:description>BS 8500-1 ACEC class AC-3. See bs8500_ac1.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#bs8500_ac3</gml:identifier>
+            <gml:name>BS 8500 ACEC Class AC-3</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 8500-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bs8500_ac4">
+            <gml:description>BS 8500-1 ACEC class AC-4. See bs8500_ac1.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#bs8500_ac4</gml:identifier>
+            <gml:name>BS 8500 ACEC Class AC-4</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 8500-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bs8500_ac5">
+            <gml:description>BS 8500-1 ACEC class AC-5, the most aggressive of the ACEC ladder. See bs8500_ac1.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#bs8500_ac5</gml:identifier>
+            <gml:name>BS 8500 ACEC Class AC-5</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>BS 8500-1</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sec_tmss_moderate">
+            <gml:description>Moderate exposure class of Saudi Electricity Company standard 70-TMSS-03 (Normal Weight Ready Mixed Cement Concrete), Rev. 02. A CLIENT/UTILITY STANDARD, NOT AN INTERNATIONAL ONE - included because it is the scheme a real project record cites (the Jazera ground investigation, GBL-24136), and a data standard must be able to record the classification a project actually used. Its concrete response at this level is Type II or Type I cement with C3A 5-8%, or Type V, with a maximum w/BM of 0.40 and minimum binding material of 350 kg/m3.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#sec_tmss_moderate</gml:identifier>
+            <gml:name>70-TMSS-03 Moderate exposure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>SEC 70-TMSS-03 Rev. 02</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sec_tmss_severe">
+            <gml:description>Severe exposure class of Saudi Electricity Company standard 70-TMSS-03 Rev. 02. See sec_tmss_moderate on why a client standard is carried here. Its response calls for Type I cement with C3A 8-14% with a pozzolanic admixture, or Type V with fly ash, maximum w/BM 0.36-0.40 and minimum binding material 390 kg/m3.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#sec_tmss_severe</gml:identifier>
+            <gml:name>70-TMSS-03 Severe exposure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>SEC 70-TMSS-03 Rev. 02</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sec_tmss_very_severe">
+            <gml:description>Very Severe exposure class of Saudi Electricity Company standard 70-TMSS-03 Rev. 02 - the class assigned to the Jazera site, whose ground carried 5810-8515 ppm sulfate, 0.51-0.705 percent chloride, 571-954 ppm magnesium at pH 7.9-8.2. Calls for Type I cement with C3A 8-14% plus fly ash or silica fume, maximum w/BM 0.36-0.40, minimum binding material 390 kg/m3, maximum 0.1 percent chloride in the concrete, minimum f'c of 38 MPa, and waterproofing of foundations and external surfaces. THE SOURCE TABLE'S MAGNESIUM THRESHOLDS ARE INTERNALLY INCONSISTENT as extracted (it qualifies both a Very Severe and a Severe row with Mg&gt;1000), so no magnesium threshold is asserted here; the class names are recorded, the numeric trigger is not.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#sec_tmss_very_severe</gml:identifier>
+            <gml:name>70-TMSS-03 Very Severe exposure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>SEC 70-TMSS-03 Rev. 02</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="palmer_very_mild">
+            <gml:description>Soil corrosivity rated VERY MILD on electrical resistivity, after J. D. Palmer (Materials Performance 13(1), 1974), corresponding to a resistivity above about 100 ohm-metres. A DIFFERENT AXIS FROM THE CHEMICAL CLASSES ABOVE: these codes grade the risk of corrosion to buried metal from the ground's electrical resistivity, not chemical attack on concrete from its sulfate and magnesium content. Both are ground aggressivity and both are recorded through exposureClassification, which is repeatable so a site may state one of each; the codes are kept distinct so a consumer always knows which axis a rating is on.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#palmer_very_mild</gml:identifier>
+            <gml:name>Palmer very mild soil corrosivity</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Palmer 1974</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="palmer_mild">
+            <gml:description>Soil corrosivity rated MILD after Palmer (1974), corresponding to a resistivity of about 51-100 ohm-metres. See palmer_very_mild.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#palmer_mild</gml:identifier>
+            <gml:name>Palmer mild soil corrosivity</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Palmer 1974</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="palmer_moderate">
+            <gml:description>Soil corrosivity rated MODERATE after Palmer (1974), corresponding to a resistivity of about 21-50 ohm-metres. See palmer_very_mild.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#palmer_moderate</gml:identifier>
+            <gml:name>Palmer moderate soil corrosivity</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Palmer 1974</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="palmer_severe">
+            <gml:description>Soil corrosivity rated SEVERE after Palmer (1974), corresponding to a resistivity of about 11-20 ohm-metres. See palmer_very_mild.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#palmer_severe</gml:identifier>
+            <gml:name>Palmer severe soil corrosivity</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Palmer 1974</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="palmer_very_severe">
+            <gml:description>Soil corrosivity rated VERY SEVERE after Palmer (1974), corresponding to a resistivity below about 10 ohm-metres - the rating returned by all six ERT arrays at the Jazera site, whose apparent resistivities were below 0.25 ohm-metres. See palmer_very_mild.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/exposureClassification.xml#palmer_very_severe</gml:identifier>
+            <gml:name>Palmer very severe soil corrosivity</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>Palmer 1974</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIProgramBasis/diggs:exposureClassification</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

@@ -10,8 +10,10 @@ limits. Remote dictionaries (``allow_network=True`` only) are fetched by
 
 from __future__ import annotations
 
+import errno
 import http.client
 import os
+import stat
 import time
 import urllib.error
 import urllib.request
@@ -57,6 +59,62 @@ def safe_parser() -> etree.XMLParser:
     )
 
 
+def read_limited(
+    source: XMLSource, limit: int | None = None, *, regular_only: bool = False
+) -> tuple[bytes, str | bytes | None]:
+    """Read a path, ``file:`` URI or binary file object, enforcing the local limits.
+
+    ``limit`` is the largest accepted size in bytes (default :data:`MAX_LOCAL_BYTES`).
+    ``regular_only`` (used by :func:`pydiggs.validate`) opens without blocking,
+    refuses anything but a regular file (so a FIFO cannot hang a batch) and raises
+    errno-carrying errors without the file name. The legacy callers leave it off: they
+    can still read ``/dev/stdin`` or a pipe and get the 1.1 messages, name included.
+    Returns the bytes and the name to report them under.
+
+    Raises:
+        OSError: if the file cannot be read, exceeds the limit, or is gzip-compressed.
+    """
+    limit = MAX_LOCAL_BYTES if limit is None else limit
+    if hasattr(source, "read"):
+        reader = cast("IO[bytes]", source)
+        name = getattr(reader, "name", None)
+        data = reader.read(limit + 1)
+    else:
+        path = os.fsdecode(os.fspath(source))
+        if path.startswith("file:"):
+            path = url2pathname(urlsplit(path).path)
+        name = path
+        if regular_only:
+            # O_NONBLOCK: opening a FIFO must not hang; then refuse anything irregular.
+            flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+            with os.fdopen(os.open(path, flags), "rb") as fh:
+                if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+                    raise OSError(errno.EINVAL, "not a regular file")
+                data = fh.read(limit + 1)
+        else:
+            with Path(path).open("rb") as fh:
+                data = fh.read(limit + 1)
+    if len(data) > limit:
+        if regular_only:  # validate(): no file name; it reports the path in its own form
+            raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
+        raise OSError(f"XML file exceeds {limit} bytes: {name}")  # 1.1 text, unchanged
+    if data[:2] == _GZIP_MAGIC:
+        if regular_only:
+            raise OSError(errno.EINVAL, "compressed XML is not accepted")
+        raise OSError(f"compressed XML is not accepted: {name}")
+    return data, name
+
+
+def parse_bytes(data: bytes, base_url: str | None) -> etree._ElementTree:
+    """Parse bytes already read by :func:`read_limited` with :func:`safe_parser`.
+
+    Raises:
+        etree.XMLSyntaxError: if the content is not well-formed XML.
+    """
+    root = etree.fromstring(data, parser=safe_parser(), base_url=base_url)
+    return etree.ElementTree(root)
+
+
 def parse(source: XMLSource) -> etree._ElementTree:
     """Parse a path, ``file:`` URI or binary file object with :func:`safe_parser`.
 
@@ -68,24 +126,9 @@ def parse(source: XMLSource) -> etree._ElementTree:
             gzip-compressed.
         etree.XMLSyntaxError: if the content is not well-formed XML.
     """
-    if hasattr(source, "read"):
-        reader = cast("IO[bytes]", source)
-        name = getattr(reader, "name", None)
-        data = reader.read(MAX_LOCAL_BYTES + 1)
-    else:
-        path = os.fsdecode(os.fspath(source))
-        if path.startswith("file:"):
-            path = url2pathname(urlsplit(path).path)
-        name = path
-        with Path(path).open("rb") as fh:
-            data = fh.read(MAX_LOCAL_BYTES + 1)
-    if len(data) > MAX_LOCAL_BYTES:
-        raise OSError(f"XML file exceeds {MAX_LOCAL_BYTES} bytes: {name}")
-    if data[:2] == _GZIP_MAGIC:
-        raise OSError(f"compressed XML is not accepted: {name}")
+    data, name = read_limited(source)
     base_url = os.fsdecode(name) if isinstance(name, str | bytes) else None
-    root = etree.fromstring(data, parser=safe_parser(), base_url=base_url)
-    return etree.ElementTree(root)
+    return parse_bytes(data, base_url)
 
 
 def url_allowed(url: str, patterns: Iterable[str]) -> bool:

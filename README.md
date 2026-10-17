@@ -30,6 +30,8 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
     * Schematron business rules (bundled DIGGS lxml-adapted rules by default)
     * Lightweight context checks (structure / SRS / xlink / dataBlock arity)
 * Flexible validation output:
+    * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
+      JSON (diggs-findings 1.0) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)
     * Write validation errors to log files
     * Print validation errors directly to console
 * Command-line interface (CLI) for easy integration
@@ -99,6 +101,25 @@ validation.context_check()
 validation = validator("path/to/your/diggs_file.xml", schematron_path="path/to/schematron.sch")
 validation.schematron_check()
 ```
+
+Every check at once, as machine-readable findings:
+```bash
+# JSON (diggs-findings 1.0); exit 0 = no errors, 1 = errors, 2 = usage/unreadable input
+pydiggs validate --format json "path/to/your/diggs_file.xml"
+
+# A whole folder as SARIF 2.1.0 for code-scanning tools
+pydiggs validate --format sarif --output pydiggs.sarif "path/to/folder"
+```
+```python
+from pydiggs import validate
+
+report = validate("path/to/your/diggs_file.xml")  # prints nothing, writes no files
+print(report.ok, report.counts)
+for finding in report.findings:
+    print(finding.rule_id, finding.severity, finding.line, finding.xpath)
+```
+See [findings](https://xinp-hub.github.io/pydiggs/findings/) for the format, rule ids,
+exit codes and privacy defaults (no snippets, no absolute paths).
 
 Basic usage with CLI:
 ```bash

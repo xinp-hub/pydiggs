@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="modeOfFailure">
+    <gml:description>Codes classifying how a specimen failed under load. Used for the value of diggs:modeOfFailure on diggs:UnconfinedCompressiveStrengthTest and diggs:TriaxialTestShearStage. The ASTM C39 fracture types, the satisfactory and unsatisfactory failure patterns of ISO 1920-4 and EN 12390-3, and cap failure apply to compression tests of concrete and other cementitious specimens; shear plane and bulging apply to soil and rock specimens. Where a pattern is not one of the listed types, use atypical_fracture_pattern and describe it in the remarks. The C39 wording is that of the 2009 edition.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml</gml:identifier>
+    <gml:name>DIGGS Mode of Failure Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="astm_c39_fracture_type_1">
+            <gml:description>Reasonably well-formed cones on both ends, less than 25 mm (1 in.) of cracking through caps. Source: ASTM C39/C39M-09a Fig. 2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#astm_c39_fracture_type_1</gml:identifier>
+            <gml:name>ASTM C39 fracture type 1</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="astm_c39_fracture_type_2">
+            <gml:description>Well-formed cone on one end, vertical cracks running through caps, no well-defined cone on the other end. Source: ASTM C39/C39M-09a Fig. 2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#astm_c39_fracture_type_2</gml:identifier>
+            <gml:name>ASTM C39 fracture type 2</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="astm_c39_fracture_type_3">
+            <gml:description>Columnar vertical cracking through both ends, no well-formed cones. Source: ASTM C39/C39M-09a Fig. 2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#astm_c39_fracture_type_3</gml:identifier>
+            <gml:name>ASTM C39 fracture type 3</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="astm_c39_fracture_type_4">
+            <gml:description>Diagonal fracture with no cracking through ends; tap with a hammer to distinguish from type 1. Source: ASTM C39/C39M-09a Fig. 2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#astm_c39_fracture_type_4</gml:identifier>
+            <gml:name>ASTM C39 fracture type 4</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="astm_c39_fracture_type_5">
+            <gml:description>Side fractures at top or bottom; occur commonly with unbonded caps. Source: ASTM C39/C39M-09a Fig. 2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#astm_c39_fracture_type_5</gml:identifier>
+            <gml:name>ASTM C39 fracture type 5</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="astm_c39_fracture_type_6">
+            <gml:description>Similar to type 5 but the end of the cylinder is pointed. Source: ASTM C39/C39M-09a Fig. 2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#astm_c39_fracture_type_6</gml:identifier>
+            <gml:name>ASTM C39 fracture type 6</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="atypical_fracture_pattern">
+            <gml:description>The fracture pattern is not one of the typical patterns of the governing standard; describe it in the remarks, or sketch it. Source: ASTM C39/C39M-09a 7.6.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#atypical_fracture_pattern</gml:identifier>
+            <gml:name>Atypical fracture pattern</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="satisfactory_failure">
+            <gml:description>Failure judged satisfactory under the governing standard: explosive failure of a cube with all four exposed faces cracked about equally, or the satisfactory cone-and-split failure of a cylinder. Source: ISO 1920-4:2020 4.5.3 and Figs. 1 and 3; EN 12390-3:2019 7.3.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#satisfactory_failure</gml:identifier>
+            <gml:name>Satisfactory failure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_4</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="unsatisfactory_failure">
+            <gml:description>Failure judged unsatisfactory under the governing standard; record the closest pattern of the standard (cube pattern number or cylinder pattern letter) in the remarks. Source: ISO 1920-4:2020 4.5.3 and Figs. 2 and 4; EN 12390-3:2019 7.3.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#unsatisfactory_failure</gml:identifier>
+            <gml:name>Unsatisfactory failure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_4</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cap_failure">
+            <gml:description>The cap of a cylinder failed before the concrete; an unsatisfactory failure. Source: EN 12390-3:2019 7.3.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#cap_failure</gml:identifier>
+            <gml:name>Cap failure</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#en_12390_3</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="shear_plane">
+            <gml:description>Failure along a single inclined shear (slip) plane through the specimen.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#shear_plane</gml:identifier>
+            <gml:name>Shear plane</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:TriaxialTestShearStage/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bulging">
+            <gml:description>The specimen bulges laterally without a dominant failure plane.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/modeOfFailure.xml#bulging</gml:identifier>
+            <gml:name>Bulging</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:UnconfinedCompressiveStrengthTest/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:TriaxialTestShearStage/diggs:modeOfFailure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

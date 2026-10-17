@@ -1,14 +1,17 @@
 Official DIGGS instance fixtures synced from https://github.com/DIGGSml/diggs-examples
-Upstream commit: 89a6b8781ed217b2e71cedbc0680d9dd9170cded
+by scripts/sync_reference.py. The pinned upstream commit, the upstream path of every
+file and its sha256 are in PROVENANCE.toml; `python scripts/sync_reference.py check`
+verifies them.
+
 Layout:
   2.5.a/  — schema-valid Diggs instances against Complete.xsd
   2.6/    — schema-valid Diggs instances against Diggs.xsd (2.6 NS)
   3.0/    — schema-valid Diggs instances against Diggs.xsd (schemas/3 NS → 3.0.0)
   known_invalid/ — official examples that are not acceptable Diggs documents
-                   (schema fail, XML syntax error, or non-Diggs GML root accepted
-                   only via Diggs.xsd GML imports — rejected via context_check)
+                   (schema fail, or a non-Diggs GML root accepted only via
+                   Diggs.xsd GML imports — rejected via context_check)
 
-Local corrections (tracked upstream; drop when diggs-examples merges them):
+Local corrections (applied by the sync script; drop when diggs-examples merges them):
   2.6/PorePressureDissipationOnly.xml
   2.6/PorePressureDissipation.xml
   2.6/CPT_and_PorePressureDissipation.xml
@@ -16,3 +19,12 @@ Local corrections (tracked upstream; drop when diggs-examples merges them):
     — coef_consolidation_horiz keeps schema AllUnits spelling cm2/m (2.6 Kernel.xsd
       documents this as cm²/minute); dictionary check 12 aliases cm2/m → cm2/min
 
+Known upstream defects (pinned in tests, not corrected):
+  known_invalid/3.0_PileDrivingExample_schema-dev.xml
+    — rewritten upstream (2026-08-23) with DIGGSml/schema-dev types (elevations as
+      PointLocation) while still declaring the released 3.0.0 schema, so it fails
+      3.0.0 schema validation.
+  3.0/PorePressureDissipation_Example.xml
+    — uses eight codes the official dictionaries do not define (dictionary check 5).
+      pyDIGGS 1.1.1 and earlier hid this with local additions to properties.xml and
+      roles.xml; those were removed when the dictionaries were re-synced.

@@ -52,3 +52,9 @@ def test_ships_bundled_schema_profiles():
     assert root.joinpath("schemas/diggs-schema-3.0.0/Diggs.xsd").is_file()
     assert root.joinpath("schematron/diggs_schematron_rules_2.6.sch").is_file()
     assert root.joinpath("dictionaries/properties.xml").is_file()
+
+
+def test_ships_findings_schema():
+    schema = resources.files(pkg).joinpath("findings/diggs-findings-1.0.schema.json")
+    assert schema.is_file()
+    assert '"$id"' in schema.read_text(encoding="utf-8")

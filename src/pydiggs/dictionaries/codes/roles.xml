@@ -1,6 +1,7 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
-<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="rolePerformed">
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="rolePerformed">
     <gml:description>DIGGS standard code list for the rolePerformed property of the Role object, which can occur in various locations in a DIGGS instance. The context for allowable codes is given by the Source Element Xpath identifying which specific rolePerformed instances may use a specific code value.</gml:description>
     <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/roles.xml</gml:identifier>
     <gml:name>DIGGS Roles Definitions</gml:name>
@@ -179,7 +180,7 @@
             <diggs:authority>DIGGS</diggs:authority>
             <diggs:occurrences>
                 <diggs:Occurrence>
-                    <diggs:sourceElementXpath>//diggs:project//diggs:rolePerformed</diggs:sourceElementXpath>
+                    <diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath>
                 </diggs:Occurrence>
             </diggs:occurrences>
         </diggs:Definition>
@@ -193,9 +194,9 @@
             <diggs:authority>DIGGS</diggs:authority>
             <diggs:occurrences>
                 <diggs:Occurrence>
-                    <diggs:sourceElementXpath>//diggs:project//diggs:rolePerformed</diggs:sourceElementXpath>
+                    <diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath>
                 </diggs:Occurrence>
-            <diggs:Occurrence><diggs:sourceElementXpath>//diggs:samplingFeature//diggs:rolePerformed</diggs:sourceElementXpath></diggs:Occurrence></diggs:occurrences>
+            </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
     <gml:dictionaryEntry>
@@ -260,4 +261,74 @@
             </diggs:occurrences>
         </diggs:Definition>
     </gml:dictionaryEntry>
-<gml:dictionaryEntry><diggs:Definition gml:id="geotechnicalEngineer"><gml:description>Geotechnical engineer of record associated with this feature or activity</gml:description><gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/roles.xml#geotechnicalEngineer</gml:identifier><gml:name>Geotechnical Engineer</gml:name><diggs:dataType>string</diggs:dataType><diggs:authority>DIGGS</diggs:authority><diggs:occurrences><diggs:Occurrence><diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath></diggs:Occurrence><diggs:Occurrence><diggs:sourceElementXpath>//diggs:samplingFeature//diggs:rolePerformed</diggs:sourceElementXpath></diggs:Occurrence></diggs:occurrences></diggs:Definition></gml:dictionaryEntry></gml:Dictionary>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="designer">
+            <gml:description>Party responsible for the design of the works. Distinguished from the contractor roles because the specialty contractor frequently designs the load transfer platform without constructing it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/roles.xml#designer</gml:identifier>
+            <gml:name>Designer</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="specialty_contractor">
+            <gml:description>Company performing the specialist ground improvement works - installing the inclusions and, commonly, designing the load transfer platform.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/roles.xml#specialty_contractor</gml:identifier>
+            <gml:name>Specialty Contractor</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="main_contractor">
+            <gml:description>Company holding the principal construction contract, commonly responsible for earthworks and for constructing the load transfer platform to the specialty contractor's specification.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/roles.xml#main_contractor</gml:identifier>
+            <gml:name>Main Contractor</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="approver">
+            <gml:description>Person or organization that approved the associated data, document or work - for example a calibration certificate, a test report or an inspection.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/roles.xml#approver</gml:identifier>
+            <gml:name>Approver</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="data_interpreter">
+            <gml:description>Person or organization that evaluated a recorded signal or measurement record to state a result - for example the interpretation of a low strain integrity test record.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/roles.xml#data_interpreter</gml:identifier>
+            <gml:name>Data Interpreter</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:rolePerformed</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

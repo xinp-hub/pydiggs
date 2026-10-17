@@ -27,9 +27,12 @@ def test_schema_check_2(instance_path="tests/test_files/Syntax_Error_1.xml"):
     assert test.schema_check() is False
     error_log = test.syntax_error_log
     assert error_log is not None
-    assert str(error_log) == (
+    # lxml names the file by its base name on POSIX and as given on Windows.
+    assert str(error_log) in (
         "Opening and ending tag mismatch: creationDate line 4 and CreationDate, "
-        "line 4, column 52 (Syntax_Error_1.xml, line 4)"
+        "line 4, column 52 (Syntax_Error_1.xml, line 4)",
+        "Opening and ending tag mismatch: creationDate line 4 and CreationDate, "
+        "line 4, column 52 (tests/test_files/Syntax_Error_1.xml, line 4)",
     )
 
 

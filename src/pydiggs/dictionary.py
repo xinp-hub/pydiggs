@@ -7,10 +7,12 @@ Ports the progressive checks documented in DIGGSml/validation
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable
+import re
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, urlsplit
+from urllib.request import url2pathname
 
 from lxml import etree
 
@@ -84,12 +86,17 @@ def _data_types_compatible(expected: str, actual: str) -> bool:
 
 @dataclass
 class ValidationMessage:
-    """One semantic-validation finding."""
+    """One semantic-validation finding.
+
+    ``node`` is the element the message is about, when known; it locates the finding
+    (line, xpath, gml:id) for :func:`pydiggs.validate` and never affects the text.
+    """
 
     severity: str
     element_path: str
     text: str
     check: int
+    node: etree._Element | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass
@@ -97,15 +104,46 @@ class DictionaryValidationResult:
     """Aggregated dictionary validation outcome."""
 
     messages: list[ValidationMessage] = field(default_factory=list)
+    #: Keep at most this many messages (None: all). The rest are only counted in
+    #: ``dropped`` as {check: (count, worst severity)}; validate() sets it.
+    limit: int | None = None
+    dropped: dict[int, tuple[int, str]] = field(default_factory=dict)
+    #: validate()'s severity for a message it would report (e.g. offline -> INFO), so
+    #: dropped messages are counted at the severity they would have had.
+    classify: Callable[[str, str, int], str] | None = field(default=None, repr=False)
 
     @property
     def ok(self) -> bool:
-        return not any(m.severity == "ERROR" for m in self.messages)
-
-    def add(self, severity: str, path: str, text: str, check: int) -> None:
-        self.messages.append(
-            ValidationMessage(severity=severity, element_path=path, text=text, check=check)
+        return not any(m.severity == "ERROR" for m in self.messages) and not any(
+            severity == "ERROR" for _, severity in self.dropped.values()
         )
+
+    def add(
+        self,
+        severity: str,
+        path: str,
+        text: str,
+        check: int,
+        node: etree._Element | None = None,
+    ) -> None:
+        if self.limit is not None and len(self.messages) >= self.limit:
+            if self.classify is not None:
+                severity = self.classify(severity, text, check)
+            count, worst = self.dropped.get(check, (0, severity))
+            self.dropped[check] = (count + 1, _worse(worst, severity))
+            return
+        self.messages.append(
+            ValidationMessage(
+                severity=severity, element_path=path, text=text, check=check, node=node
+            )
+        )
+
+
+_SEVERITY_RANK = {"INFO": 0, "WARNING": 1, "ERROR": 2}
+
+
+def _worse(a: str, b: str) -> str:
+    return a if _SEVERITY_RANK.get(a, 2) >= _SEVERITY_RANK.get(b, 2) else b
 
 
 def _local(el: etree._Element) -> str:
@@ -184,7 +222,26 @@ class DictionarySemanticValidator:
         uom_dictionary_path: str | os.PathLike[str] | None = None,
         extra_dictionaries: Iterable[str | os.PathLike[str]] | None = None,
         allow_network: bool = False,
+        check_value_code_spaces: bool = False,
+        local_dictionaries: str = "legacy",
+        legacy_paths: bool = True,
     ) -> None:
+        # Check 13 (official dictionary-validation.xsl Step 14) runs only for
+        # pydiggs.validate(); dictionary_check() keeps its 1.1 behaviour.
+        self.check_value_code_spaces = check_value_code_spaces
+        # "legacy" (dictionary_check): relative paths next to the instance, then the
+        # working directory, and any file: URI. validate() uses "instance-dir" or "off".
+        if local_dictionaries not in ("legacy", "instance-dir", "off"):
+            raise ValueError(f"unknown local_dictionaries mode {local_dictionaries!r}")
+        self.local_dictionaries = local_dictionaries
+        # validate() passes False: the Locator gives locations, so no legacy path is built.
+        self.legacy_paths = legacy_paths
+        self._local_trees: dict[object, etree._ElementTree | None] = {}
+        self._local_by_url: dict[str, etree._ElementTree | None] = {}
+        self.local_capped: set[str] = set()
+        self._max_bytes: int | None = None
+        self._result: DictionaryValidationResult | None = None
+        self._check13: _Check13Index | None = None
         self.allow_network = allow_network
         self._whitelist_patterns = self._load_whitelist(
             Path(whitelist_path) if whitelist_path else _DEFAULT_WHITELIST
@@ -196,37 +253,38 @@ class DictionarySemanticValidator:
         self._definition_index: dict[etree._ElementTree, dict[str, etree._Element]] = {}
         self._default_properties = Path(dictionary_path) if dictionary_path else _DEFAULT_PROPERTIES
         self._register_local_dictionary(
+            self._default_properties,
             "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
-            self._default_properties,
-        )
-        self._register_local_dictionary(
             "http://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
-            self._default_properties,
         )
         if _DEFAULT_CODES_DIR.is_dir():
             for xml_path in sorted(_DEFAULT_CODES_DIR.glob("*.xml")):
-                filename = xml_path.name
-                for scheme in ("https", "http"):
-                    url = f"{scheme}://diggsml.org/def/codes/DIGGS/0.1/{filename}"
-                    self._register_local_dictionary(url, xml_path)
+                self._register_local_dictionary(
+                    xml_path,
+                    *(
+                        f"{scheme}://diggsml.org/def/codes/DIGGS/0.1/{xml_path.name}"
+                        for scheme in ("https", "http")
+                    ),
+                )
         legacy = _DEFAULT_DICT_DIR / "DIGGSTestPropertyDefinitions.xml"
-        if legacy.is_file():
-            for url in (
-                "http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
-                "https://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
-                "http://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
-                "https://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
-            ):
-                self._register_local_dictionary(url, legacy)
+        self._register_local_dictionary(
+            legacy,
+            "http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
+            "https://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
+            "http://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
+            "https://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
+        )
         if extra_dictionaries:
             for path in extra_dictionaries:
                 p = Path(path)
-                self._register_local_dictionary(p.resolve().as_uri(), p)
-                self._register_local_dictionary(str(p.resolve()), p)
+                self._register_local_dictionary(p, p.resolve().as_uri(), str(p.resolve()))
 
         self._uom_units_by_class = self._load_uom_map(
             Path(uom_dictionary_path) if uom_dictionary_path else _DEFAULT_UOM
         )
+        # What every instance starts from; validate_tree() resets to it, so dictionaries
+        # found next to one instance (or fetched for it) never serve the next one.
+        self._baseline_cache = dict(self._dict_cache)
 
     def _load_whitelist(self, path: Path) -> list[str]:
         if not path.is_file():
@@ -236,9 +294,12 @@ class DictionarySemanticValidator:
             (el.text or "").strip() for el in root.xpath("//pattern") if (el.text or "").strip()
         ]
 
-    def _register_local_dictionary(self, key: str, path: Path) -> None:
+    def _register_local_dictionary(self, path: Path, *keys: str) -> None:
+        """Parse ``path`` once and serve it for every URL in ``keys``."""
         if path.is_file():
-            self._dict_cache[key] = _xml.parse(str(path))
+            tree = _xml.parse(str(path))
+            for key in keys:
+                self._dict_cache[key] = tree
 
     def _load_uom_map(self, path: Path) -> dict[str, set[str]]:
         mapping: dict[str, set[str]] = {}
@@ -271,6 +332,8 @@ class DictionarySemanticValidator:
 
     def _local_candidates(self, base_url: str) -> list[Path]:
         """Local files a codeSpace may name: relative ones next to the instance first."""
+        if self.local_dictionaries != "legacy":
+            return self._contained_candidate(base_url)
         path = (
             Path(unquote(urlparse(base_url).path))
             if base_url.startswith("file:")
@@ -280,9 +343,81 @@ class DictionarySemanticValidator:
             return [path]
         return [self._instance_dir / path, path]
 
+    def _contained_candidate(self, base_url: str) -> list[Path]:
+        """``instance-dir`` mode: the one file inside the instance's folder, or nothing.
+
+        Relative codeSpaces resolve against the instance's folder only (no working
+        directory fallback); ``file:`` URIs and paths that leave the folder, through
+        ``..`` or a symlink, are refused before the file is opened, so a refusal looks
+        the same whether or not the file exists. ``off`` refuses every local file. A
+        path the OS cannot handle (an embedded NUL, a symlink loop, a name that is too
+        long) is refused the same way.
+        """
+        if (
+            self.local_dictionaries == "off"
+            or self._instance_dir is None
+            or base_url.startswith(("http://", "https://"))
+        ):
+            return []
+        try:
+            if base_url.startswith("file:"):
+                path = Path(url2pathname(urlsplit(base_url).path))
+            else:
+                path = Path(base_url)
+            if str(path).startswith(("//", "\\\\")):
+                return []
+            folder = self._instance_dir
+            candidate = path if path.is_absolute() else folder / path
+            # Lexical check first, so nothing outside the folder is even looked at.
+            if not Path(os.path.normpath(candidate)).is_relative_to(folder):
+                return []
+            resolved = candidate.resolve()
+        except (OSError, ValueError, RuntimeError):
+            return []
+        return [resolved] if resolved.is_relative_to(folder) else []
+
+    def _resolve_local(self, base_url: str) -> etree._ElementTree | None:
+        """``instance-dir`` / ``off`` mode: read a contained local dictionary, once.
+
+        Each file is read once per instance however it is spelled (keyed by device and
+        inode), with validate()'s size limit and only if it is a regular file. At most
+        :data:`MAX_LOCAL_DICTIONARIES` different files are read per instance; the URLs
+        refused for that reason are kept in ``local_capped``.
+        """
+        if base_url in self._local_by_url:
+            return self._local_by_url[base_url]
+        tree: etree._ElementTree | None = None
+        for path in self._contained_candidate(base_url):
+            try:
+                info = path.stat()
+            except (OSError, ValueError):
+                break
+            identity: object = (info.st_dev, info.st_ino) if info.st_ino else str(path)
+            if identity in self._local_trees:
+                tree = self._local_trees[identity]
+                break
+            if len(self._local_trees) >= MAX_LOCAL_DICTIONARIES:
+                self.local_capped.add(base_url)
+                break
+            try:
+                data, _ = _xml.read_limited(path, self._max_bytes, regular_only=True)
+                tree = _xml.parse_bytes(data, str(path))
+            except (OSError, ValueError, etree.XMLSyntaxError):
+                tree = None
+            self._local_trees[identity] = tree
+        self._local_by_url[base_url] = tree
+        return tree
+
     def _resolve_dictionary(self, base_url: str) -> etree._ElementTree | None:
         if base_url in self._dict_cache:
             return self._dict_cache[base_url]
+        if self.local_dictionaries != "legacy" and not base_url.startswith(("http://", "https://")):
+            tree = self._resolve_local(base_url)
+            if tree is not None:
+                return tree
+            if base_url.rstrip("/").endswith("properties.xml"):
+                return self._dict_cache.get(_MODERN_PROPERTIES_URL)
+            return None
         for path_candidate in self._local_candidates(base_url):
             # A leading // or \\ is a UNC path: on Windows, merely testing it opens an
             # SMB connection that sends the user's NTLM credentials to that host.
@@ -520,16 +655,55 @@ class DictionarySemanticValidator:
     def validate_instance(
         self, instance_path: str | os.PathLike[str]
     ) -> DictionaryValidationResult:
-        result = DictionaryValidationResult()
+        return self.validate_tree(_xml.parse(str(instance_path)), instance_path)
+
+    def _path_of(self, el: etree._Element) -> str:
+        """The legacy element path ("" in validate() mode or once the result is full)."""
+        result = self._result
+        if not self.legacy_paths or (
+            result is not None and result.limit is not None and len(result.messages) >= result.limit
+        ):
+            return ""
+        return _element_path(el, self._positions)
+
+    def validate_tree(
+        self,
+        doc: etree._ElementTree,
+        instance_path: str | os.PathLike[str],
+        *,
+        max_messages: int | None = None,
+        max_bytes: int | None = None,
+        classify: Callable[[str, str, int], str] | None = None,
+    ) -> DictionaryValidationResult:
+        """Validate an already-parsed instance; ``instance_path`` anchors relative URLs.
+
+        With ``max_messages``, messages past that number are only counted.
+        ``max_bytes`` limits each local dictionary read in ``instance-dir`` mode.
+        """
+        result = DictionaryValidationResult(limit=max_messages, classify=classify)
+        self._result = result
         self._instance_dir = Path(instance_path).resolve().parent
-        doc = _xml.parse(str(instance_path))
         root = doc.getroot()
-        self._positions = _sibling_positions(root)
+        self._positions = _sibling_positions(root) if self.legacy_paths else {}
+        self._check13 = None
+        self._dict_cache = dict(self._baseline_cache)
+        self._unreachable = set()
+        self._local_trees = {}
+        self._local_by_url = {}
+        self.local_capped = set()
+        self._max_bytes = max_bytes
+        baseline = set(map(id, self._baseline_cache.values()))
+        self._definition_index = {
+            tree: index for tree, index in self._definition_index.items() if id(tree) in baseline
+        }
 
         for el in root.xpath("//*[@codeSpace]"):
             if _local(el) in _SKIP_LOCAL_NAMES:
                 continue
+            start = len(result.messages)
             self._validate_element(el, result)
+            for message in result.messages[start:]:
+                message.node = el
         return result
 
     def _validate_element(self, el: etree._Element, result: DictionaryValidationResult) -> None:
@@ -545,7 +719,7 @@ class DictionarySemanticValidator:
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
         value = _text(el)
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         name = _local(el)
         result.add(
             "INFO",
@@ -562,7 +736,7 @@ class DictionarySemanticValidator:
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
         value = _text(el)
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         base_url = code_space
 
         if not self._is_whitelisted(base_url):
@@ -623,7 +797,7 @@ class DictionarySemanticValidator:
     def _validate_fragment_encoding(
         self, el: etree._Element, result: DictionaryValidationResult, code_space: str
     ) -> None:
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         name = _local(el)
         base_url, fragment = code_space.split("#", 1)
 
@@ -692,7 +866,7 @@ class DictionarySemanticValidator:
         definition: etree._Element,
         run_name_check: bool,
     ) -> None:
-        path = _element_path(el, self._positions)
+        path = self._path_of(el)
         name = _local(el)
         value = _text(el)
 
@@ -734,7 +908,11 @@ class DictionarySemanticValidator:
         if name != "propertyClass":
             return
 
-        definition_name = next(iter(self._definition_names(definition)), fragment)
+        # First name in document order (a set's order depends on PYTHONHASHSEED).
+        definition_name = next(
+            (_text(c).lower() for c in definition.xpath(".//*[local-name()='name']") if _text(c)),
+            fragment,
+        )
 
         if not self._has_measurement_without_procedure(el):
             conditionals = self._conditional_xpaths(definition)
@@ -808,6 +986,8 @@ class DictionarySemanticValidator:
                     ),
                     10,
                 )
+                return
+            self._check_value_code_space(el, result, definition=definition, path=path)
             return
 
         if sibling_uom is None:
@@ -844,6 +1024,7 @@ class DictionarySemanticValidator:
                 ),
                 12,
             )
+            self._check_value_code_space(el, result, definition=definition, path=path)
             return
 
         canonical_uom = _UOM_ALIASES.get(uom_value, uom_value)
@@ -861,3 +1042,196 @@ class DictionarySemanticValidator:
                 ),
                 12,
             )
+            return
+        self._check_value_code_space(el, result, definition=definition, path=path)
+
+    def _check_value_code_space(
+        self,
+        el: etree._Element,
+        result: DictionaryValidationResult,
+        *,
+        definition: etree._Element,
+        path: str,
+    ) -> None:
+        """Check 13: result values must be terms of the definition's valueCodeSpace.
+
+        A port of DIGGSml/validation ``dictionary-validation.xsl`` Step 14 (messages
+        labelled "Check 13"): the values in column ``Property/@index`` of the
+        ``dataValues`` of the ResultSet holding these parameters, and of every ResultSet
+        citing them by ``xlink:href``, must be ``gml:id``s of the code list's
+        Definitions. Empty and ``nullValue`` values are allowed.
+        """
+        if not self.check_value_code_spaces:
+            return
+        vcs_el = next(iter(definition.xpath(".//*[local-name()='valueCodeSpace']")), None)
+        value_code_space = _normalize_space(vcs_el.text if vcs_el is not None else "")
+        if not value_code_space:
+            return
+        name_el = next(
+            (c for c in definition if isinstance(c.tag, str) and _local(c) == "name"), None
+        )
+        definition_name = name_el.xpath("string()") if name_el is not None else ""
+        code_list_url = value_code_space.split("#", 1)[0]
+        if not self._is_whitelisted(code_list_url):
+            result.add(
+                "WARNING",
+                path,
+                (
+                    f'Check 13:\nThe values of "{definition_name}" come from the code list '
+                    f'"{code_list_url}", which is not on the white list of approved URL\'s, '
+                    "so the values were not checked."
+                ),
+                13,
+            )
+            return
+        code_list = self._resolve_dictionary(code_list_url)
+        if code_list is None:
+            result.add(
+                "WARNING",
+                path,
+                (
+                    f'Check 13:\nThe code list "{code_list_url}" for the values of '
+                    f'"{definition_name}" could not be accessed, so the values were not checked.'
+                ),
+                13,
+            )
+            return
+        allowed = [
+            str(v) for v in code_list.xpath("//*[local-name()='Definition']/@*[local-name()='id']")
+        ]
+        invalid = self._invalid_result_values(el, frozenset(allowed))
+        if invalid:
+            shown = ", ".join(f'"{v}"' for v in invalid[:_CHECK13_SHOWN])
+            more = " ..." if len(invalid) > _CHECK13_SHOWN else ""
+            terms = ", ".join(allowed[:_CHECK13_TERMS])
+            if len(allowed) > _CHECK13_TERMS:
+                terms += f", ... ({len(allowed)} total)"
+            result.add(
+                "ERROR",
+                path,
+                (
+                    f'Check 13:\n{len(invalid)} value(s) of "{definition_name}" are not terms '
+                    f'of the code list "{code_list_url}": {shown}{more}. '
+                    f"Valid terms: {terms}."
+                ),
+                13,
+            )
+
+    def _check13_index(self, root: etree._ElementTree) -> _Check13Index:
+        # getroottree() returns a new wrapper each call; the root element is stable.
+        if self._check13 is None or self._check13.root.getroot() is not root.getroot():
+            self._check13 = _Check13Index(root)
+        return self._check13
+
+    def _invalid_result_values(self, el: etree._Element, allowed: frozenset[str]) -> list[str]:
+        """Distinct values in this property's dataValues column that are not ``allowed``."""
+        prop = el.getparent()
+        if prop is None:
+            return []
+        column = _xs_integer(prop.get("index"))
+        if column is None or column < 1:
+            return []
+        null_el = next(
+            (c for c in prop if isinstance(c.tag, str) and _local(c) == "nullValue"), None
+        )
+        null_text = _normalize_space(null_el.xpath("string()") if null_el is not None else "")
+        params = next((a for a in el.iterancestors() if _local(a) == "PropertyParameters"), None)
+        if params is None:
+            return []
+        index = self._check13_index(params.getroottree())
+        params_id = next(
+            (str(v) for k, v in params.attrib.items() if etree.QName(k).localname == "id"), ""
+        )
+        result_sets = [a for a in params.iterancestors() if _local(a) == "ResultSet"][:1]
+        if params_id:
+            result_sets += index.citing(f"#{params_id}")
+        # XPath "$resultSets/*" de-duplicates and returns document order.
+        values: list[str] = []
+        for result_set in index.in_document_order(result_sets):
+            values += index.column(result_set, column)
+        candidates = dict.fromkeys(values)
+        return [v for v in candidates if v and v != null_text and v not in allowed]
+
+
+class _Check13Index:
+    """Per-document lookups for Check 13, built once instead of once per property."""
+
+    def __init__(self, root: etree._ElementTree) -> None:
+        self.root = root
+        self._order: dict[etree._Element, int] | None = None
+        self._citing: dict[str, list[etree._Element]] | None = None
+        self._columns: dict[etree._Element, list[dict[str, None]]] = {}
+
+    def citing(self, ref: str) -> list[etree._Element]:
+        """ResultSets whose ``parameters/@*:href`` equals ``ref``."""
+        if self._citing is None:
+            self._citing = {}
+            for rs in self.root.iter():
+                if not isinstance(rs.tag, str) or _local(rs) != "ResultSet":
+                    continue
+                for child in rs:
+                    if isinstance(child.tag, str) and _local(child) == "parameters":
+                        for key, value in child.attrib.items():
+                            if etree.QName(key).localname == "href":
+                                self._citing.setdefault(str(value), []).append(rs)
+        return self._citing.get(ref, [])
+
+    def in_document_order(self, elements: list[etree._Element]) -> list[etree._Element]:
+        if self._order is None:
+            self._order = {el: i for i, el in enumerate(self.root.iter())}
+        order = self._order
+        return sorted(dict.fromkeys(elements), key=lambda el: order.get(el, 0))
+
+    def columns(self, result_set: etree._Element) -> list[dict[str, None]]:
+        """The ResultSet's dataValues as columns of distinct normalised values, once.
+
+        ``columns[c - 1]`` holds column ``c``'s distinct values in first-seen order, so
+        a property reads its column directly whatever the number of properties or rows.
+        """
+        if result_set not in self._columns:
+            columns: list[dict[str, None]] = []
+            for block in result_set:
+                if not isinstance(block.tag, str) or _local(block) != "dataValues":
+                    continue
+                cs = block.get("cs") or ","
+                ts = block.get("ts") or " "
+                ts_pattern = (
+                    _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
+                )
+                cs_pattern = re.compile(re.escape(cs))
+                for token in ts_pattern.split(_normalize_space(block.xpath("string()"))):
+                    if not token:
+                        continue
+                    for i, field_ in enumerate(cs_pattern.split(token)):
+                        if i == len(columns):
+                            columns.append({})
+                        columns[i][_normalize_space(field_)] = None
+            self._columns[result_set] = columns
+        return self._columns[result_set]
+
+    def column(self, result_set: etree._Element, column: int) -> list[str]:
+        """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order."""
+        columns = self.columns(result_set)
+        return list(columns[column - 1]) if column <= len(columns) else []
+
+
+_XS_INTEGER = re.compile(r"[+-]?[0-9]+")
+
+
+def _xs_integer(text: str | None) -> int | None:
+    """Parse an xs:integer (optional sign, ASCII digits; no underscores or other digits)."""
+    value = _normalize_space(text)
+    return int(value) if _XS_INTEGER.fullmatch(value) else None
+
+
+#: Most local dictionaries read for one instance in ``instance-dir`` mode.
+MAX_LOCAL_DICTIONARIES = 16
+
+_XPATH_WS_RUN = re.compile(r"[ \t\n\r]+")
+_CHECK13_SHOWN = 5  # the official message lists the first five invalid values
+_CHECK13_TERMS = 20  # pydiggs lists at most 20 valid terms (the official module lists all)
+
+
+def _normalize_space(text: str | None) -> str:
+    """XPath normalize-space(): only space, tab, CR and LF count as whitespace."""
+    return _XPATH_WS_RUN.sub(" ", text or "").strip(" \t\n\r")

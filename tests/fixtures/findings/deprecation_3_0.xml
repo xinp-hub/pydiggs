@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Deprecation fixture (pydiggs). In DIGGS 3.0.0: diggs:easting and
+     lithDescription/@legendCode are deprecated since 3.0.0 (warnings);
+     diggs:originalProjectRef (since 3.1.0) and diggs:MonitorResult (removed in 3.1.0)
+     must not fire. -->
+<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2"
+       xmlns:xlink="http://www.w3.org/1999/xlink">
+  <samplingFeature>
+    <Borehole gml:id="BH-1">
+      <easting>1000</easting>
+      <originalProjectRef xlink:href="#p1"/>
+      <lithDescription legendCode="CL">clay</lithDescription>
+    </Borehole>
+  </samplingFeature>
+  <measurement>
+    <MonitorResult gml:id="MR-1"/>
+  </measurement>
+</Diggs>

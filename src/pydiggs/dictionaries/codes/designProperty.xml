@@ -1,0 +1,786 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="designProperty">
+    <gml:description>Codes naming the design property a diggs:DesignConformanceCriterion governs - a geometric, constructional, compositional or procedural property checked against what the design or specification requires, as opposed to a diggs:PerformanceCriterion's measured physical property. Used for the value of the designProperty property of diggs:DesignConformanceCriterionType. The intended value set is stated directly in the schema's own documentation for this element.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml</gml:identifier>
+    <gml:name>DIGGS Design Conformance Criterion Design Property Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="position">
+            <gml:description>The plan (horizontal) distance between the as-built position of the element (its reference point) and its designed position - the radial form of a position tolerance. Use easting_position_deviation and northing_position_deviation where a tolerance is stated per axis.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#position</gml:identifier>
+            <gml:name>Position</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>horizontal_offset</diggs:method>
+                    <diggs:realizedValueXpath>diggs:referencePoint</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>diggs:scope/diggs:SFDesignScope/diggs:targetPosition</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>if (exists(diggs:realizesGridIndex)) then (let $d := ($design, diggs:deref($design/diggs:basedOnRef), diggs:deref(diggs:deref($design/diggs:basedOnRef)/diggs:basedOnRef)), $g := ($d/diggs:scope/diggs:SFDesignScope/diggs:plannedPositions//diggs:RectifiedGrid)[1] return if (exists($g)) then (let $i := number(tokenize(normalize-space(diggs:realizesGridIndex),'\s+')[1]), $j := number(tokenize(normalize-space(diggs:realizesGridIndex),'\s+')[2]), $o := tokenize(normalize-space($g/diggs:origin//gml:pos),'\s+'), $a := tokenize(normalize-space($g/diggs:offsetVector[1]),'\s+'), $b := tokenize(normalize-space($g/diggs:offsetVector[2]),'\s+'), $p := tokenize(normalize-space(diggs:referencePoint//gml:pos),'\s+'), $dx := number($p[1]) - (number($o[1]) + $i*number($a[1]) + $j*number($b[1])), $dy := number($p[2]) - (number($o[2]) + $i*number($a[2]) + $j*number($b[2])) return math:sqrt($dx*$dx + $dy*$dy)) else ()) else ()</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:Test</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>if (exists(diggs:realizesGridIndex) and exists($design//diggs:ReferenceableGridByArray)) then (let $n := tokenize(normalize-space(($design//diggs:ReferenceableGridByArray)[1]/gml:posList), '\s+'), $i := number(normalize-space(diggs:realizesGridIndex)), $p := tokenize(normalize-space(diggs:deref(diggs:samplingFeatureRef)/diggs:referencePoint//gml:pos), '\s+') return math:sqrt(math:pow(number($p[1]) - number($n[2*$i + 1]), 2) + math:pow(number($p[2]) - number($n[2*$i + 2]), 2))) else ()</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="verticality">
+            <gml:description>The as-built inclination of the element from vertical (or from its designed batter), measured against its design tolerance. THE SPECIAL CASE OF alignment_deviation IN WHICH THE INTENDED ALIGNMENT IS VERTICAL, which is always so for rigid inclusion columns. Use alignment_deviation instead for an element intended to be raked, where a tolerance measured from vertical would be dominated by the design rake rather than by construction error. Judged against the alignmentDeviation property of diggs:AbstractLinearSamplingFeatureType (VERT1).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#verticality</gml:identifier>
+            <gml:name>Verticality</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:alignmentDeviation</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="diameter">
+            <gml:description>The as-built diameter of the element. Use diameter_deviation where a requirement is stated against the designed diameter.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#diameter</gml:identifier>
+            <gml:name>Diameter</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:columnDiameter</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="length">
+            <gml:description>The as-built length of the element. Use length_deviation where a requirement is stated against the designed length.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#length</gml:identifier>
+            <gml:name>Length</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:columnLength</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cutoff_elevation">
+            <gml:description>The as-built cut-off (top) elevation of the element, measured against its designed cut-off elevation.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#cutoff_elevation</gml:identifier>
+            <gml:name>Cut-off elevation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bearing_stratum_embedment">
+            <gml:description>The as-built depth to which the element penetrates its designated bearing stratum, measured against the minimum embedment the design requires. Commonly expressed as a multiple of the element diameter, in which case the criterion's basis is per_diameter and baseLength carries the diameter.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#bearing_stratum_embedment</gml:identifier>
+            <gml:name>Bearing-stratum embedment</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>reverse_difference</diggs:method>
+                    <diggs:realizedValueXpath>number(tokenize(normalize-space(diggs:centerLine//gml:posList),'\s+')[last()])</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>diggs:location</diggs:referenceValueXpath>
+                    <diggs:referenceSource>evidence</diggs:referenceSource>
+                    <diggs:referenceEvaluation>volume_top</diggs:referenceEvaluation>
+                    <diggs:normalizeByXpath>diggs:columnDiameter</diggs:normalizeByXpath>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:method>reverse_difference</diggs:method>
+                    <diggs:realizedValueXpath>number(tokenize(normalize-space(diggs:centerLine//gml:posList),'\s+')[last()])</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>diggs:deref(diggs:bearingUnitRef)/diggs:location</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                    <diggs:referenceEvaluation>volume_top</diggs:referenceEvaluation>
+                    <diggs:normalizeByXpath>diggs:columnDiameter</diggs:normalizeByXpath>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:method>reverse_difference</diggs:method>
+                    <diggs:realizedValueXpath>number(tokenize(normalize-space(diggs:centerLine//gml:posList),'\s+')[last()])</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>(diggs:geoUnitDesignQuantity//diggs:bearingStratumLevel//gml:pos)[1]</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                    <diggs:referenceEvaluation>value</diggs:referenceEvaluation>
+                    <diggs:normalizeByXpath>diggs:columnDiameter</diggs:normalizeByXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="method_applicability">
+            <gml:description>Whether the geometry and stiffness ratios of the as-designed layout fall within the range over which the chosen arching or load-transfer method's unit-cell idealisation is valid. The ratios themselves are carried by diggs:DesignRITreatedAreaType/methodApplicabilityRatio; this code names the pass/fail gate evaluated against them, so the verdict is a conformance criterion rather than a further ratio.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#method_applicability</gml:identifier>
+            <gml:name>Design-method applicability</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="minimum_spacing_to_fresh_element">
+            <gml:description>The minimum plan distance permitted between an element being installed and a previously installed element that has not yet reached the age or strength at which it is unaffected by the installation. Controls installation effects - ground displacement, vibration and fresh concrete disturbance - on neighbours placed shortly before. Stated as a length; where a specification expresses it as a multiple of element diameter, the limit is the product of that multiple and the design diameter.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#minimum_spacing_to_fresh_element</gml:identifier>
+            <gml:name>Minimum spacing to a fresh element</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="minimum_age_before_adjacent_installation">
+            <gml:description>The minimum elapsed time between completing one element and beginning installation of an adjacent element, so that the earlier element has gained enough strength to be undisturbed. The time-based companion to minimum_spacing_to_fresh_element: a specification typically states one, the other, or both, and together they are what an installation sequence is designed to satisfy.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#minimum_age_before_adjacent_installation</gml:identifier>
+            <gml:name>Minimum age before adjacent installation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="penetration_rate">
+            <gml:description>The rate at which the installation tool advances into the ground, as a design property a conformance criterion may govern. The design-side counterpart of mwd_properties.xml#penetration_rate, which names the same quantity as MEASURED during drilling; this entry names it as the subject of a requirement. Together with torque it is the pair a drilling refusal rule is normally written on, and such a rule is conjunctive - see diggs:CompositeAcceptanceCriterion.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#penetration_rate</gml:identifier>
+            <gml:name>Penetration rate</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="torque">
+            <gml:description>The rotational force applied to the installation tool, as a design property a conformance criterion may govern. The design-side counterpart of mwd_properties.xml#torque, which names the same quantity as MEASURED during drilling. Paired with penetration_rate in a refusal criterion: neither alone defines refusal, which is why the combination is stated as a diggs:CompositeAcceptanceCriterion rather than left implicit in two co-scoped criteria.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#torque</gml:identifier>
+            <gml:name>Torque</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="alignment_deviation">
+            <gml:description>A tolerance on how far the constructed element may depart from its INTENDED alignment, judged against the alignmentDeviation property of diggs:AbstractLinearSamplingFeatureType. Dimensionless - a ratio in Euc or a percentage in %, the same quantity in two uoms, so a 1:100 tolerance is 0.01 Euc or 1 %. USE THIS RATHER THAN verticality WHERE THE ELEMENT IS NOT INTENDED TO BE VERTICAL - a raked grout hole or a battered pile, whose tolerance governs construction error about the design rake and not departure from vertical. The two terms are the same measurement against different datums: verticality is the special case of this one where the intended alignment is vertical, which is always true of rigid inclusion columns. Both are retained because a specification that says 'verticality tolerance 1:100' should be transcribable in the words it uses. Built at VERT1.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#alignment_deviation</gml:identifier>
+            <gml:name>Alignment deviation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:alignmentDeviation</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:method>angular_difference</diggs:method>
+                    <diggs:realizedValueXpath>diggs:plunge</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>diggs:designPlunge</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="binding_material_content">
+            <gml:description>Mass of binding material (cement plus pozzolanic materials such as fly ash or silica fume) per unit volume of grout/concrete - for example specified with a minimum of 390 kg/m3 under SEC 70-TMSS-03 Table 8B for Very Severe/Severe exposure. A recipe requirement checked against the batch as mixed, not a tested physical property of the cured material - contrast compressive_strength_unconfined (properties.xml), which is.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#binding_material_content</gml:identifier>
+            <gml:name>Binding material content</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:GroutBatch</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:bindingMaterialContent</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="water_binding_material_ratio">
+            <gml:description>Ratio of water mass to binding-material mass (cement plus pozzolanic materials) in a grout/concrete mix - for example specified with a maximum of 0.40 under SEC 70-TMSS-03 Table 8B for a silica-fume mix in Very Severe/Severe exposure. Distinct from the plain water/cement ratio (diggs:DesignGroutMixType/waterCementRatio), which excludes any SCM replacement from the denominator. A recipe requirement checked against the batch as mixed, not a tested physical property of the cured material.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#water_binding_material_ratio</gml:identifier>
+            <gml:name>Water/binding-material ratio</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:GroutBatch</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:waterCementRatioOfMix</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="water_soluble_chloride_content_in_concrete">
+            <gml:description>Water-soluble chloride ion (Cl-) content of hardened grout or concrete, expressed as a mass fraction of the cement (for example %) - for example limited to a maximum of 0.10% by mass of cement under SEC 70-TMSS-03. The chloride that dissolves in water under the conditions of the test method (ASTM C1218/C1218M); a different quantity from acid-soluble chloride (acid_soluble_chloride_content_in_concrete), which a specification may limit separately. DISTINCT FROM properties.xml#chloride_content, which is the chloride content of SOIL OR GROUNDWATER (the exposure condition that selects the requirements) - this entry is the durability-relevant quantity in the concrete itself, a different subject. Compliance is shown by testing; a mix design does not by itself establish it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#water_soluble_chloride_content_in_concrete</gml:identifier>
+            <gml:name>Water-soluble chloride content in concrete</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:GroutBatch</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:waterSolubleChlorideContent</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="differential_settlement">
+            <gml:description>Differential settlement between adjacent elements or points, checked against an allowable gradient - the design-side counterpart of properties.xml#differential_settlement, which names the same quantity as MEASURED post-construction. Typically stated per unit length (basis=per unit length, baseLength carrying the reference length) - see diggs:AbstractAcceptanceCriterionType/basis and baseLength.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#differential_settlement</gml:identifier>
+            <gml:name>Differential settlement</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="relative_compaction">
+            <gml:description>The ratio of the field (as-compacted) dry density of a fill material to a reference maximum dry density (typically from a Proctor compaction test, e.g. ASTM D698/D1557), expressed as a percentage, checked against a specified minimum or range - for example 95% for a load transfer platform fill. A conformance check on the fill as placed, not a tested physical property of the material itself - distinct from properties.xml#dry_density_max, which is the reference value this ratio is computed against, and from properties.xml#relative_density, an unrelated granular-soil state parameter (Dr).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#relative_compaction</gml:identifier>
+            <gml:name>Relative compaction</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="installation_sequence">
+            <gml:description>Whether an element was installed in its designed order relative to its design neighbours - after its nearest built design predecessor and before its nearest built design successor in the governing design's installation sequence. Evaluated as true or false (operator eq, limit true). Comparing an as-built installation number with a design sequence number directly is not meaningful: one element installed out of order shifts the number of every element after it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#installation_sequence</gml:identifier>
+            <gml:name>Installation sequence</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:RIColumn</diggs:subjectElement>
+                    <diggs:method>sequence_between</diggs:method>
+                    <diggs:realizedValueXpath>diggs:installationSequenceNumber</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:RIColumn</diggs:subjectElement>
+                    <diggs:method>sequence_between</diggs:method>
+                    <diggs:realizedValueXpath>diggs:whenConstructed//diggs:start</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="acid_soluble_chloride_content_in_concrete">
+            <gml:description>Acid-soluble chloride ion (Cl-) content of hardened grout or concrete, expressed as a mass fraction of the cement (for example %). The chloride that dissolves in acid under the conditions of the test method (ASTM C1152/C1152M), which in most concretes approximates the total chloride; a different quantity from water-soluble chloride (water_soluble_chloride_content_in_concrete), which a specification may limit separately and at a different value. DISTINCT FROM properties.xml#chloride_content, which is the chloride content of SOIL OR GROUNDWATER. Compliance is shown by testing; a mix design does not by itself establish it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#acid_soluble_chloride_content_in_concrete</gml:identifier>
+            <gml:name>Acid-soluble chloride content in concrete</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:GroutBatch</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:acidSolubleChlorideContent</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sampling_frequency">
+            <gml:description>Number of acceptance samplings taken per unit volume of material placed - for example a minimum of 1 sampling per 100 m3 of concrete for compressive strength testing. A requirement on how much testing is done, not on a measured property of the material: it is met by counting the distinct samplings behind the test results, so results reported only as an average cannot show it was met. A sampling is identified by the creation time of its specimens (extractionTime) or, where that is not recorded, by the casting date derived from the test date and the specimen age at test in days; specimens cast from one sampling share that time, so distinct creation times count samplings. Evaluated per batch against its total batch volume.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#sampling_frequency</gml:identifier>
+            <gml:name>Acceptance sampling frequency</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:GroutBatch</diggs:subjectElement>
+                    <diggs:method>frequency</diggs:method>
+                    <diggs:realizedValueXpath>distinct-values($evidence//diggs:GroutSpecimen/diggs:extractionTime/normalize-space(.))</diggs:realizedValueXpath>
+                    <diggs:normalizeByXpath>diggs:totalBatchVolume</diggs:normalizeByXpath>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:GroutBatch</diggs:subjectElement>
+                    <diggs:method>frequency</diggs:method>
+                    <diggs:realizedValueXpath>distinct-values(for $s in $evidence//diggs:GroutSpecimen[diggs:ageAtTest[@uom='d']] return string(xs:date(substring(string($s/ancestor::diggs:MaterialTest/diggs:samplingTime//gml:timePosition), 1, 10)) - xs:dayTimeDuration(concat('P', $s/diggs:ageAtTest, 'D'))))</diggs:realizedValueXpath>
+                    <diggs:normalizeByXpath>diggs:totalBatchVolume</diggs:normalizeByXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="easting_position_deviation">
+            <gml:description>The signed offset, along the easting axis of the project horizontal CRS, of the as-built position of the element from its designed position (positive towards increasing easting). The per-axis form of a position tolerance; the as-built and designed positions must be stated in the same CRS, and the axes are taken from its definition; see position for the radial form.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#easting_position_deviation</gml:identifier>
+            <gml:name>Easting position deviation</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>number(tokenize(normalize-space(diggs:referencePoint//gml:pos),'\s+')[1])</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>number(tokenize(normalize-space(diggs:scope/diggs:SFDesignScope/diggs:targetPosition//gml:pos),'\s+')[1])</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>if (exists(diggs:realizesGridIndex)) then (let $d := ($design, diggs:deref($design/diggs:basedOnRef), diggs:deref(diggs:deref($design/diggs:basedOnRef)/diggs:basedOnRef)), $g := ($d/diggs:scope/diggs:SFDesignScope/diggs:plannedPositions//diggs:RectifiedGrid)[1] return if (exists($g)) then (let $i := number(tokenize(normalize-space(diggs:realizesGridIndex),'\s+')[1]), $j := number(tokenize(normalize-space(diggs:realizesGridIndex),'\s+')[2]), $o := tokenize(normalize-space($g/diggs:origin//gml:pos),'\s+'), $a := tokenize(normalize-space($g/diggs:offsetVector[1]),'\s+'), $b := tokenize(normalize-space($g/diggs:offsetVector[2]),'\s+') return number(tokenize(normalize-space(diggs:referencePoint//gml:pos),'\s+')[1]) - (number($o[1]) + $i*number($a[1]) + $j*number($b[1]))) else ()) else ()</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="northing_position_deviation">
+            <gml:description>The signed offset, along the northing axis of the project horizontal CRS, of the as-built position of the element from its designed position (positive towards increasing northing). The per-axis form of a position tolerance; the as-built and designed positions must be stated in the same CRS, and the axes are taken from its definition; see position for the radial form.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#northing_position_deviation</gml:identifier>
+            <gml:name>Northing position deviation</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>number(tokenize(normalize-space(diggs:referencePoint//gml:pos),'\s+')[2])</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>number(tokenize(normalize-space(diggs:scope/diggs:SFDesignScope/diggs:targetPosition//gml:pos),'\s+')[2])</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>if (exists(diggs:realizesGridIndex)) then (let $d := ($design, diggs:deref($design/diggs:basedOnRef), diggs:deref(diggs:deref($design/diggs:basedOnRef)/diggs:basedOnRef)), $g := ($d/diggs:scope/diggs:SFDesignScope/diggs:plannedPositions//diggs:RectifiedGrid)[1] return if (exists($g)) then (let $i := number(tokenize(normalize-space(diggs:realizesGridIndex),'\s+')[1]), $j := number(tokenize(normalize-space(diggs:realizesGridIndex),'\s+')[2]), $o := tokenize(normalize-space($g/diggs:origin//gml:pos),'\s+'), $a := tokenize(normalize-space($g/diggs:offsetVector[1]),'\s+'), $b := tokenize(normalize-space($g/diggs:offsetVector[2]),'\s+') return number(tokenize(normalize-space(diggs:referencePoint//gml:pos),'\s+')[2]) - (number($o[2]) + $i*number($a[2]) + $j*number($b[2]))) else ()) else ()</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="length_deviation">
+            <gml:description>The as-built length of the element minus its designed length, signed: negative where the element is shorter than designed. Use it where a requirement limits the shortfall or excess against design; length states the absolute as-built length.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#length_deviation</gml:identifier>
+            <gml:name>Length deviation</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>diggs:columnLength</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>diggs:columnLength</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="penetration_over_interval">
+            <gml:description>The distance the installation tool advances into the ground over a stated interval of time - for example less than 50 mm over two consecutive minutes as a drilling refusal rule. The interval is stated by an evidenceCondition (interval_duration) on the criterion. Distinct from penetration_rate, which is the same advance expressed per unit time. Evaluated on the construction activity that formed the element, from its installation record: the depth gained over the window of that duration that ends when the tool first reaches its maximum depth, so a refusal rule judges the last push before termination and not the pause at total depth. Depth is positive downward.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#penetration_over_interval</gml:identifier>
+            <gml:name>Penetration over an interval</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:RIColumnConstruction</diggs:subjectElement>
+                    <diggs:method>change_over_window</diggs:method>
+                    <diggs:realizedValueXpath>diggs:series((descendant-or-self::diggs:RIInstallationRecord[.//diggs:propertyClass/@codeSpace[ends-with(., '#depth')]])[1], 'depth')</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>let $s := diggs:series((descendant-or-self::diggs:RIInstallationRecord[.//diggs:propertyClass/@codeSpace[ends-with(., '#depth')]])[1], 'depth'), $m := max($s ! ?2) return ($s[?2 = $m])[1]?1</diggs:referenceValueXpath>
+                    <diggs:referenceSource>subject</diggs:referenceSource>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="discharge_time">
+            <gml:description>The time elapsed from the introduction of mixing water to the end of discharge of the mix at the point of placement - a limit on how long a grout or concrete batch may take to be placed. Evaluated on the element that received the batch: the end of its installation record where one exists (the activity start plus the last elapsed time of a time-interval-list domain, the last time of a time-position-list domain, or the last time of an instant domain), otherwise the end of its whenConstructed interval, less the start of the batch's sampling (mixing) activity. The two times must be recorded to a resolution at least as fine as the unit of the limit (hours need a time of day; days need only a date); otherwise the value is not evaluable.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#discharge_time</gml:identifier>
+            <gml:name>Discharge time</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>time</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:RIColumn</diggs:subjectElement>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>let $id := concat('#', @gml:id), $a := (root(.)//diggs:RIColumnConstruction[diggs:samplingFeatureRef/@xlink:href = $id][.//diggs:TimeIntervalList[@unit = 'second']])[1] return if (exists($a)) then xs:dateTime($a/diggs:activityDateTime//diggs:start) + xs:dayTimeDuration(concat('PT', tokenize(normalize-space($a//diggs:TimeIntervalList/diggs:timeIntervalList), '\s+')[last()], 'S')) else ()</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>(diggs:samplingDate | diggs:deref(diggs:samplingActivityRef)/diggs:samplingDate)/diggs:TimeInterval/diggs:start</diggs:referenceValueXpath>
+                    <diggs:referenceSource>evidence</diggs:referenceSource>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:RIColumn</diggs:subjectElement>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>let $id := concat('#', @gml:id), $a := (root(.)//diggs:RIColumnConstruction[diggs:samplingFeatureRef/@xlink:href = $id][.//diggs:TimePositionList])[1] return if (exists($a)) then tokenize(normalize-space($a//diggs:TimePositionList/diggs:timePositionList), '\s+')[last()] else ()</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>(diggs:samplingDate | diggs:deref(diggs:samplingActivityRef)/diggs:samplingDate)/diggs:TimeInterval/diggs:start</diggs:referenceValueXpath>
+                    <diggs:referenceSource>evidence</diggs:referenceSource>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:RIColumn</diggs:subjectElement>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>let $id := concat('#', @gml:id) return sort(root(.)//diggs:RIColumnConstruction[diggs:samplingFeatureRef/@xlink:href = $id]/diggs:installationRecord//diggs:timeDomain//(gml:timePosition | gml:endPosition | diggs:end))[last()]</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>(diggs:samplingDate | diggs:deref(diggs:samplingActivityRef)/diggs:samplingDate)/diggs:TimeInterval/diggs:start</diggs:referenceValueXpath>
+                    <diggs:referenceSource>evidence</diggs:referenceSource>
+                </diggs:ValueBinding>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:RIColumn</diggs:subjectElement>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>diggs:whenConstructed//diggs:end</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>(diggs:samplingDate | diggs:deref(diggs:samplingActivityRef)/diggs:samplingDate)/diggs:TimeInterval/diggs:start</diggs:referenceValueXpath>
+                    <diggs:referenceSource>evidence</diggs:referenceSource>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="diameter_deviation">
+            <gml:description>The as-built diameter of the element minus its designed diameter, signed: negative where the element is narrower than designed. Use it where a requirement limits the deviation from the designed diameter; diameter states the absolute as-built diameter.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#diameter_deviation</gml:identifier>
+            <gml:name>Diameter deviation</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>difference</diggs:method>
+                    <diggs:realizedValueXpath>diggs:columnDiameter</diggs:realizedValueXpath>
+                    <diggs:referenceValueXpath>diggs:columnDiameter</diggs:referenceValueXpath>
+                    <diggs:referenceSource>design</diggs:referenceSource>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="maximum_test_stress">
+            <gml:description>The highest stress a load test is taken to - the largest stress applied through the bearing plate or loaded footprint during the test. A requirement on how the test is run, stated as a minimum the test must reach (for example 150 % of the design bearing pressure). Compared with the maxTestStress of the test's procedure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#maximum_test_stress</gml:identifier>
+            <gml:name>Maximum test stress</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>pressure</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:procedure/*/diggs:maxTestStress</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="load_increment_count">
+            <gml:description>The number of loading increments applied in a load test - the stages in which load was raised, not the unloading stages. A requirement on how the test is run, stated as a minimum (for example at least three increments). Counted from the increments of the test's procedure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#load_increment_count</gml:identifier>
+            <gml:name>Load increment count</gml:name>
+            <diggs:dataType>integer</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>count(diggs:procedure/*/diggs:increment/diggs:LoadTestIncrement[diggs:loadingPhase = 'loading'])</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="increment_hold_duration">
+            <gml:description>The time a load increment is held before the next is applied, taken from the first to the last reading of the increment, in seconds. One value for each loading increment of the test; the criterion's statistic states which governs (the shortest, for a minimum hold). A requirement on how the test is run.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#increment_hold_duration</gml:identifier>
+            <gml:name>Load increment hold duration</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>time</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>for $i in diggs:procedure/*/diggs:increment/diggs:LoadTestIncrement[diggs:loadingPhase = 'loading'] return (diggs:series($i//diggs:TemporalResult, 'settlement'))[last()]?1</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="settlement_change_last_five_minutes">
+            <gml:description>The settlement gained over the last five minutes of a load increment's hold - the settlement at the last reading minus the settlement five minutes earlier, interpolated. One value for each loading increment of the test; the criterion's statistic states which governs (the largest, for a stabilization requirement). A requirement on how the test is run, for example that an increment is held until the settlement in five minutes is less than 0.02 mm.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#settlement_change_last_five_minutes</gml:identifier>
+            <gml:name>Settlement change over the last five minutes of an increment</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>length</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>for $i in diggs:procedure/*/diggs:increment/diggs:LoadTestIncrement[diggs:loadingPhase = 'loading'] return let $s := diggs:series($i//diggs:TemporalResult, 'settlement'), $e := ($s[last()])?1 return diggs:valueAt($s, $e) - diggs:valueAt($s, $e - 300)</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="test_count">
+            <gml:description>The number of tests made under a planned measurement - for example the number of integrity tests made of a planned set of locations. A requirement on how much testing is done, stated as a minimum. Counted from the realized measurements that cite the planned measurement.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#test_count</gml:identifier>
+            <gml:name>Test count</gml:name>
+            <diggs:dataType>integer</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:Test</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>count(root(.)//diggs:Test[diggs:programDesignRef/@xlink:href = concat('#', $design/@gml:id)])</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="averaged_impact_count">
+            <gml:description>The number of hammer impacts averaged into one record of a low-strain integrity test, as reported by the test equipment. A requirement on how the test is run, stated as a minimum (for example at least three). One value for each test.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#averaged_impact_count</gml:identifier>
+            <gml:name>Averaged impact count</gml:name>
+            <diggs:dataType>integer</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:Test</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>diggs:procedure/*/diggs:averagedImpactCount</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="age_at_test">
+            <gml:description>The age of an element when a test is made on it: the time from the end of its construction to the start of the test. A requirement on when a test may be made, stated as a minimum - for example seven days for a low strain integrity test of a cast-in-place pile.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#age_at_test</gml:identifier>
+            <gml:name>Age at test</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>time</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:Test</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>days-from-duration(xs:date(substring(string(diggs:samplingTime//gml:timePosition), 1, 10)) - xs:date(substring(string(diggs:deref(diggs:samplingFeatureRef)/diggs:whenConstructed//diggs:end), 1, 10)))</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="strength_at_test">
+            <gml:description>The compressive strength of the concrete of an element at the age of a test made on it, as a percentage of its design strength. A requirement on when a test may be made, stated as a minimum - for example 75 percent for a low strain integrity test of a cast-in-place pile. Evaluated from compressive strength tests of the concrete made no later than the test: where none was made by then the strength at test is not known and the requirement is not shown to be met.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/designProperty.xml#strength_at_test</gml:identifier>
+            <gml:name>Strength at test</gml:name>
+            <diggs:dataType>double</diggs:dataType>
+            <diggs:quantityClass>dimensionless</diggs:quantityClass>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:parameterName</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:DesignConformanceCriterion</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+            <diggs:valueBindings>
+                <diggs:ValueBinding>
+                    <diggs:subjectElement>diggs:Test</diggs:subjectElement>
+                    <diggs:method>direct</diggs:method>
+                    <diggs:realizedValueXpath>let $col := diggs:deref(diggs:samplingFeatureRef), $batch := $col/diggs:groutRef/@xlink:href, $d := xs:date(substring(string(diggs:samplingTime//gml:timePosition), 1, 10)), $mix := diggs:deref(diggs:deref(diggs:deref($col/diggs:groutRef)/diggs:samplingActivityRef)/diggs:currentDesign//diggs:programDesignRef), $r := (for $m in root(.)//diggs:MaterialTest[diggs:sampleRef/@xlink:href = $batch][xs:date(substring(string(diggs:samplingTime//gml:timePosition), 1, 10)) le $d] return diggs:series($m/diggs:outcome/*, 'compressive_strength_unconfined') ! ?2) return if (exists($r) and exists($mix/diggs:strengthDesign)) then max($r) * 1000000 div number($mix/diggs:strengthDesign) * 100 else ()</diggs:realizedValueXpath>
+                </diggs:ValueBinding>
+            </diggs:valueBindings>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

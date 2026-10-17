@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="reinforcementPurpose">
+    <gml:description>Codes for why reinforcement is present over a given interval of a rigid inclusion column - tension zone, bending, seismic, or an ASIRI-defined domain. ASIRI (Amelioration des Sols par Inclusions Rigides), the French national research project whose recommendations underpin much RI design practice, defines a domain classification for column behaviour; asiri_domain_1 names the domain this project's source material cites, not a full restatement of ASIRI's own domain criteria - confirm the exact domain definitions against the ASIRI recommendations before relying on this entry for design review, same caveat this project already attaches to diggs:archingModel. Used for the value of diggs:ReinforcementType/diggs:reinforcementPurpose.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/reinforcementPurpose.xml</gml:identifier>
+    <gml:name>DIGGS Rigid Inclusion Reinforcement Purpose Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="tension_zone">
+            <gml:description>Reinforcement resisting net tensile stress over this interval, most commonly near the column head.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/reinforcementPurpose.xml#tension_zone</gml:identifier>
+            <gml:name>Tension zone</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:reinforcementPurpose</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bending">
+            <gml:description>Reinforcement resisting flexural (bending) demand over this interval.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/reinforcementPurpose.xml#bending</gml:identifier>
+            <gml:name>Bending</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:reinforcementPurpose</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="seismic">
+            <gml:description>Reinforcement provided for seismic ductility or capacity demand rather than static design alone.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/reinforcementPurpose.xml#seismic</gml:identifier>
+            <gml:name>Seismic</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:reinforcementPurpose</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="asiri_domain_1">
+            <gml:description>Reinforcement provided because the inclusions are needed for bearing capacity or overall stability, so that they are verified as deep foundations under Eurocode 7 and must be reinforced over any length that is not in compression. ASIRI Domain 1, as distinct from Domain 2, where the inclusions reduce settlement only and may be left unreinforced. Confirmed against the DIGGS rigid inclusions technical report, Section 3.4.2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/reinforcementPurpose.xml#asiri_domain_1</gml:identifier>
+            <gml:name>ASIRI Domain 1</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Reinforcement/diggs:reinforcementPurpose</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

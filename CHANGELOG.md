@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Upgrade note:** some files that passed under 1.1.1 now fail, and the reverse.
+
+- **Dictionary check 5.** The bundled DIGGS dictionaries are now exact copies of
+  diggsml.org/def. pyDIGGS 1.1.1 and earlier had added eight codes to its copies of
+  `properties.xml` and `roles.xml` (`areaRatio`, `cloudCover`, `coneDiameter`,
+  `depthToWater`, `geotechnicalEngineer`, `obstructionType`, `pushRate`, `siteName`) that
+  the official dictionaries do not define. Files using them now fail
+  `dictionary_check()`, as they do in the official DIGGS validator.
+- **DIGGS 2.6 schema.** Upstream corrected the required element `samplingFeatiureRef` to
+  `samplingFeatureRef` in `Geophysics.xsd`. 2.6 files that spell it the old way now fail
+  `schema_check()`, and files with the corrected spelling now pass.
+
+### Changed
+- Dictionary checks 8 to 12 name a property with several names by its first name in
+  the dictionary; they used Python set order, so the text could change between runs.
+  No example in the test corpus is affected.
+- `pydiggs --help` now points to `pydiggs validate --help`. The legacy subcommands, their
+  console output, exit codes and log files are unchanged (checked byte for byte against
+  1.1.1 by a golden test suite).
+- Re-synced the bundled reference data to DIGGSml/schemas `15ce278` (9 October 2026) and
+  DIGGSml/def `2d76ba6` (8 October 2026):
+  - 2.6 `Geophysics.xsd`: upstream fixed the element name `samplingFeatiureRef` to
+    `samplingFeatureRef`.
+  - Dictionaries: 57 more code lists (83 in all) are available offline, including the
+    pile and rigid-inclusion lists; the existing lists now declare the DIGGS 3
+    namespace, and `properties.xml` and `DiggsUomDictionary.xml` follow upstream.
+  - `mwd_properties.xml` and `pil_properties.xml` are now the official copies rather
+    than local supplements.
+  - Upstream directory-listing pages (`index.html`) and `.gitignore` files no longer ship
+    in the wheel.
+
+### Added
+- **Machine-readable findings.** `pydiggs.validate(path)` runs every native check on one
+  file and returns a `Report` of `Finding`s, each with a stable rule id
+  (`schema.cvc-complex-type.2.4`, `dictionary.5`, `schematron.Borehole.totalMeasuredDepth`,
+  ...), a `Severity`, a `Step`, the line, the official DIGGS XPath and the nearest
+  `gml:id`. It prints nothing and writes no files, and raises only `InstanceReadError`,
+  `ResourceError` (both `PydiggsError`s) and `ValueError`; XML that is not well-formed is a
+  finding. New public names: `Finding`, `Report`, `Severity`, `Step`, `validate`,
+  `PydiggsError`, `InstanceReadError`, `ResourceError`.
+- `pydiggs validate PATH...` with `--format text|json|sarif`, `--output`, `--checks`,
+  `--fail-on error|warning`, `--snippets`, `--absolute-paths` and `--allow-network`.
+  Directories are searched for `*.xml`; exit codes 0 (clean), 1 (findings), 2 (usage
+  error or unreadable input).
+- The diggs-findings 1.0 JSON format, with its JSON Schema shipped in the package and
+  published at https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json,
+  and SARIF 2.1.0 output for code-scanning tools. Output is deterministic, has no
+  timestamps, and by default carries no source snippets and no absolute paths.
+- Limits for `validate()`: at most 10,000 findings per file by default (`max_findings`,
+  `--max-findings`; the overflow is counted in one `structure.findings-truncated`
+  finding and the affected steps are `incomplete`), and instances up to 100 MiB by
+  default (`max_bytes`; the legacy `validator` keeps 1 GiB).
+  `--max-bytes` sets the size limit from the command line. Each finding's message and
+  xpath are capped at 4,096 characters, and a report's findings at about 16 MiB.
+- `validate(local_dictionaries="instance-dir" | "off")` and `--local-dictionaries`: by
+  default a dictionary named by a relative or `file:` codeSpace is read only from
+  inside the instance's folder (no working-directory fallback, no escape through `..`
+  or symlinks). `dictionary_check()` is unchanged.
+- In `validate()`, local dictionaries are read once per file however their path is
+  spelled, under `max_bytes`, only if they are regular files, and at most 16 per
+  instance; Schematron rules are skipped (`schematron.skipped-location-budget`) when
+  lxml's locations would exceed 16 KiB or a namespace URI 1,024 characters.
+- `validate(base_dir=...)` and `--base-dir` report paths relative to a chosen folder.
+  Without it, paths are bare file names when the working directory is `/` or an
+  ancestor of the home directory.
+- In `validate()`, a whitelisted remote dictionary that is not bundled is reported as
+  `dictionary.offline` (info) when network access is off, instead of a Check 3
+  warning, so `--fail-on warning` does not fail a file just for being checked offline.
+- Two checks in `validate()` only (not in `dictionary_check()`): dictionary **Check 13**,
+  which requires result values of a property whose definition names a `valueCodeSpace`
+  to be terms of that code list, and a **deprecation** check against the bundled DIGGS
+  deprecation registry (deprecated items warn, removed items fail). Registry entries
+  apply only from the release they name, so its 3.1.0 entries never fire on 3.0.0, 2.6
+  or 2.5.a files.
+- `pydiggs/PROVENANCE.toml` records the upstream commit and a sha256 for every vendored
+  file. `scripts/sync_reference.py` re-syncs from local clones of the DIGGSml
+  repositories, reading files from the pinned commit's git objects rather than the
+  working tree, refuses unsafe or non-portable file names, and verifies the digests
+  (`check`, run by the test suite).
+- The DIGGS deprecation registry (`deprecation/DeprecationRegistry.xml`) is bundled for
+  a forthcoming deprecation check. It lists 94 deprecated items (25 from DIGGS 3.0.0, 69
+  from 3.1.0) and 56 items removed in 3.1.0.
+- The DIGGS schemas' MPL-2.0 license ships at `schemas/LICENSE`, and
+  `dictionaries/NOTICE` records the licence terms for the DIGGSml/def dictionaries. The
+  package licence expression is now `Apache-2.0 AND MPL-2.0 AND MIT`, matching what the
+  wheel contains.
+
+### Performance
+- Creating a `DictionarySemanticValidator` parses each bundled dictionary once instead
+  of once per URL form, which more than offsets the larger dictionary bundle.
+
+### Security
+- `validate()` and `pydiggs validate` treat everything in an instance as data: Schematron
+  location paths (which carry the instance's namespace URIs) are matched against the
+  tree, never evaluated as XPath; only regular files are read (a FIFO cannot block);
+  messages about unreadable files carry no path; `--output` creates new files with mode
+  0600, keeps an existing file's mode, and never writes through a symlink; text output escapes control and bidi characters. A
+  broken user Schematron file is a `ResourceError` (exit 2).
+- `dictionaries/whiteList.xml`, which decides where `allow_network=True` may fetch
+  dictionaries from, is maintained in pyDIGGS and digest-checked rather than synced
+  from upstream, so a data update cannot widen it.
+
+### Tests
+- The official example corpus is synced to DIGGSml/diggs-examples `79da841` (4 October
+  2026). Four examples that upstream fixed now pass every check and moved into the
+  valid corpus (2.6 `FieldSurveyExample`, 2.6 `ODOT_Example_2_20180702-from25`,
+  3.0 `Aeromag`, 3.0 `GeophysicalFieldSurveyExamples`). `PileDrivingExample` moved to
+  `known_invalid`: upstream rewrote it with DIGGSml/schema-dev types while it still
+  declares 3.0.0.
+
 ## [1.1.1] - 2026-10-14
 
 First published release of the 1.1 line. 1.1.0 was tagged but never reached PyPI,

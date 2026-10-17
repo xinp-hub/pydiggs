@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="contractType">
+    <gml:description>Codes naming the contract delivery method under which a project's work is executed. These codes are used for the value of the type property of the diggs:Contract object. Options drawn from the state-of-the-practice survey Han et al. (2025) reproduces (RI-DIGGS Technical Report Table 3-1, Figure 3-34).</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/contractType.xml</gml:identifier>
+    <gml:name>DIGGS Contract Type Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="design_build">
+            <gml:description>The same entity (or a single joint venture) holds the contract for both design and construction. DB in the state-of-the-practice survey (Han et al. 2025) - the most common delivery method reported for rigid inclusion projects.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/contractType.xml#design_build</gml:identifier>
+            <gml:name>Design-build</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Contract/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="design_bid_build">
+            <gml:description>Design and construction are contracted separately and sequentially - the owner's design is completed and bid before a construction contractor is selected. DBB in the state-of-the-practice survey (Han et al. 2025).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/contractType.xml#design_bid_build</gml:identifier>
+            <gml:name>Design-bid-build</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Contract/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

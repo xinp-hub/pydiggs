@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="curingMethod">
+    <gml:description>Codes classifying how a specimen of manufactured cementitious material was cured before testing. Used for the value of diggs:GroutSpecimen/diggs:curingMethod, which repeats where the curing changed during the curing period.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/curingMethod.xml</gml:identifier>
+    <gml:name>DIGGS Specimen Curing Method Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="in_mold">
+            <gml:description>Initial curing with the specimen left in its mold, protected against shock, vibration and water evaporation: at least 16 h and not longer than three days from the addition of water, stored at 20 +/- 5 degC (27 +/- 3 degC in a tropical environment). Source: ISO 1920-3:2019 7.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/curingMethod.xml#in_mold</gml:identifier>
+            <gml:name>In mold</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_3</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:curingMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="water_immersion">
+            <gml:description>Stored in water at 20 +/- 2 degC until just before testing. Source: ISO 1920-3:2019 7.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/curingMethod.xml#water_immersion</gml:identifier>
+            <gml:name>Water immersion</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_3</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:curingMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="humidity_chamber">
+            <gml:description>Stored in a chamber at 20 +/- 2 degC (27 +/- 3 degC in a tropical environment) and a relative humidity of at least 95 % until just before testing; also called moist storage or a moist room. Source: ISO 1920-3:2019 7.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/curingMethod.xml#humidity_chamber</gml:identifier>
+            <gml:name>Humidity chamber</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_3</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:curingMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="standard_curing">
+            <gml:description>Curing under the standard regime of the governing specimen-making practice, for specimens used in acceptance testing of specified strength and in quality control. Source: ASTM C31/C31M.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/curingMethod.xml#standard_curing</gml:identifier>
+            <gml:name>Standard curing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c31</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:curingMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="field_curing">
+            <gml:description>Curing under field conditions, for specimens used to estimate in-place strength and to check the adequacy of curing and protection of the concrete in the structure. Source: ASTM C31/C31M.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/curingMethod.xml#field_curing</gml:identifier>
+            <gml:name>Field curing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c31</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:curingMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sealed">
+            <gml:description>Sealed against moisture loss during curing.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/curingMethod.xml#sealed</gml:identifier>
+            <gml:name>Sealed</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:curingMethod</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

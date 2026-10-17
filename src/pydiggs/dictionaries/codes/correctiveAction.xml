@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="correctiveAction">
+    <gml:description>Codes for action taken to address the CAUSE of a non-conformance so that it does not recur, used for the value of the correctiveAction property of diggs:NonConformance. Deliberately distinct from disposition on the same object, which concerns what happens to the affected work itself; recording only one of the two is common, but conflating them loses a distinction a reviewer needs. Repeatable, since one finding commonly triggers more than one change. Not to be confused with diggs:RIColumnConstruction/groutLevelCorrectiveAction, which is a narrow, in-progress, rigid-inclusion-specific response to one failure mode rather than a systemic change. Built at W3 - see docs/build/W3/NOTES.md. PROVISIONAL pending SME review.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml</gml:identifier>
+    <gml:name>DIGGS Non-conformance Corrective Action Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="method_change">
+            <gml:description>The construction method or written procedure was revised - a different drilling or grouting technique, a changed tooling configuration, or an amended method statement.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#method_change</gml:identifier>
+            <gml:name>Installation method change</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="parameter_adjustment">
+            <gml:description>The controlling process parameters were adjusted - grout pressure or volume, penetration rate, rotation speed, withdrawal rate - without changing the method itself. The revised targets belong in the governing specification; this code records only that they changed in response to the finding.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#parameter_adjustment</gml:identifier>
+            <gml:name>Control parameter adjustment</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="equipment_change">
+            <gml:description>Plant was repaired, recalibrated, or exchanged for a different rig, pump, or tool because the equipment was found to have caused or contributed to the departure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#equipment_change</gml:identifier>
+            <gml:name>Equipment change</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sequence_change">
+            <gml:description>The order or spacing of installation was revised - for example increasing the offset to freshly installed elements, or the minimum age before an adjacent element is installed.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#sequence_change</gml:identifier>
+            <gml:name>Installation sequence change</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="increased_testing">
+            <gml:description>Verification was intensified - a higher testing density, additional hold or witness points, or a test type added that was not previously required.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#increased_testing</gml:identifier>
+            <gml:name>Increased testing or inspection</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="increased_supervision">
+            <gml:description>Additional or more senior site supervision was put in place, without a change to the method or the testing regime.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#increased_supervision</gml:identifier>
+            <gml:name>Increased supervision</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="personnel_training">
+            <gml:description>Operators or supervisors were retrained or reinstructed where the cause was found to be execution rather than method or plant.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#personnel_training</gml:identifier>
+            <gml:name>Personnel training</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="material_change">
+            <gml:description>The material, mix, or supplier was changed - a revised grout mix, a different aggregate source, or a changed reinforcement supplier.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#material_change</gml:identifier>
+            <gml:name>Material or supply change</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="design_review">
+            <gml:description>The design or its ground-model assumptions were re-examined because the departure suggested the premise, rather than the execution, was at fault. Where the review changed the requirement, the disposition is redesign.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#design_review</gml:identifier>
+            <gml:name>Design review</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="no_action">
+            <gml:description>The cause was investigated and found isolated, so no systemic change was made. Recorded explicitly rather than by omitting the element, so that an investigated-and-closed finding is distinguishable from one where the cause was never examined.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/correctiveAction.xml#no_action</gml:identifier>
+            <gml:name>No corrective action</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:NonConformance/diggs:correctiveAction</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

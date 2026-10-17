@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="frameConvention">
+    <gml:description>Codes naming what the axes of a diggs:RelativeLocation's relativePosition2D/3D mean, for the value of frameConvention. PROVISIONAL - built from documented practice (project-baseline station/offset/elevation referencing; trench and test-pit face logging grids) rather than a single citable naming standard, and platform_relative is an inference with no located precedent found; flagged for SME review the same way R10's and VERT1's provisional dictionaries are.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/frameConvention.xml</gml:identifier>
+    <gml:name>DIGGS Relative-Location Frame Convention Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="station_offset_elevation">
+            <gml:description>Position along a project baseline (station/chainage), perpendicular offset from it (conventionally signed left/right facing increasing station), and elevation. Standard practice for locating borings, embankments and other features against a roadway or corridor alignment.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/frameConvention.xml#station_offset_elevation</gml:identifier>
+            <gml:name>Station, offset, elevation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RelativeLocation/diggs:frameConvention</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="trench_face_grid">
+            <gml:description>Horizontal distance along an exposed trench or test-pit face from a designated origin, and vertical distance from a datum line strung on the face - standard practice for logging trench walls and test-pit faces.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/frameConvention.xml#trench_face_grid</gml:identifier>
+            <gml:name>Trench or test-pit face grid</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RelativeLocation/diggs:frameConvention</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="local_site_grid">
+            <gml:description>Two horizontal ordinates from a site-local origin, with elevation for the 3-dimensional form - a generic local grid with no project-baseline or face-logging structure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/frameConvention.xml#local_site_grid</gml:identifier>
+            <gml:name>Local site grid</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RelativeLocation/diggs:frameConvention</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="platform_relative">
+            <gml:description>Plan position plus height above a platform or embankment base, such as a load transfer platform. Inferred to fit this schema's own LTP/lift structure; no independent practice citation was found - treat as the most provisional of these four entries.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/frameConvention.xml#platform_relative</gml:identifier>
+            <gml:name>Platform-relative</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RelativeLocation/diggs:frameConvention</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>
