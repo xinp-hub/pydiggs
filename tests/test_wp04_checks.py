@@ -253,3 +253,30 @@ def test_check13_wide_result_sets_split_rows_once(tmp_path):
     elapsed = time.perf_counter() - start
     assert sum(f.rule_id == "dictionary.13" for f in report.findings) == k // 2
     assert elapsed < 10, elapsed
+
+
+@pytest.mark.slow
+def test_check13_many_properties_times_many_rows(tmp_path):
+    import time
+
+    k, rows = 4000, 400_000
+    props = "".join(
+        f'<Property index="{i}" gml:id="P{i}"><typeData>string</typeData>'
+        '<propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml'
+        '#loading_phase">Loading Phase</propertyClass></Property>'
+        for i in range(1, k + 1)
+    )
+    path = tmp_path / "tall.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2">'
+        "<measurement><Test gml:id='T'><outcome><TestResult gml:id='R'><results><ResultSet>"
+        f"<parameters><PropertyParameters gml:id='PP'><properties>{props}</properties>"
+        f"</PropertyParameters></parameters><dataValues>{' '.join(['z'] * rows)}</dataValues>"
+        "</ResultSet></results></TestResult></outcome></Test></measurement></Diggs>",
+        encoding="utf-8",
+    )
+    start = time.perf_counter()
+    report = validate(path, checks=["dictionary"])
+    assert time.perf_counter() - start < 20  # was 32 s; about 5 s here
+    (finding,) = [f for f in report.findings if f.rule_id == "dictionary.13"]
+    assert finding.message.startswith('1 value(s) of "Loading Phase"')

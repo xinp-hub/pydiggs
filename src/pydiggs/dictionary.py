@@ -1160,7 +1160,7 @@ class _Check13Index:
         self.root = root
         self._order: dict[etree._Element, int] | None = None
         self._citing: dict[str, list[etree._Element]] | None = None
-        self._rows: dict[etree._Element, list[list[str]]] = {}
+        self._columns: dict[etree._Element, list[dict[str, None]]] = {}
 
     def citing(self, ref: str) -> list[etree._Element]:
         """ResultSets whose ``parameters/@*:href`` equals ``ref``."""
@@ -1182,10 +1182,14 @@ class _Check13Index:
         order = self._order
         return sorted(dict.fromkeys(elements), key=lambda el: order.get(el, 0))
 
-    def rows(self, result_set: etree._Element) -> list[list[str]]:
-        """The ResultSet's dataValues split into rows of normalised fields, once."""
-        if result_set not in self._rows:
-            rows: list[list[str]] = []
+    def columns(self, result_set: etree._Element) -> list[dict[str, None]]:
+        """The ResultSet's dataValues as columns of distinct normalised values, once.
+
+        ``columns[c - 1]`` holds column ``c``'s distinct values in first-seen order, so
+        a property reads its column directly whatever the number of properties or rows.
+        """
+        if result_set not in self._columns:
+            columns: list[dict[str, None]] = []
             for block in result_set:
                 if not isinstance(block.tag, str) or _local(block) != "dataValues":
                     continue
@@ -1195,18 +1199,20 @@ class _Check13Index:
                     _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
                 )
                 cs_pattern = re.compile(re.escape(cs))
-                tokens = ts_pattern.split(_normalize_space(block.xpath("string()")))
-                rows.extend(
-                    [_normalize_space(f) for f in cs_pattern.split(token)]
-                    for token in tokens
-                    if token
-                )
-            self._rows[result_set] = rows
-        return self._rows[result_set]
+                for token in ts_pattern.split(_normalize_space(block.xpath("string()"))):
+                    if not token:
+                        continue
+                    for i, field_ in enumerate(cs_pattern.split(token)):
+                        if i == len(columns):
+                            columns.append({})
+                        columns[i][_normalize_space(field_)] = None
+            self._columns[result_set] = columns
+        return self._columns[result_set]
 
     def column(self, result_set: etree._Element, column: int) -> list[str]:
-        """Values in ``column`` (1-based) of the ResultSet's dataValues, in order."""
-        return [row[column - 1] for row in self.rows(result_set) if column <= len(row)]
+        """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order."""
+        columns = self.columns(result_set)
+        return list(columns[column - 1]) if column <= len(columns) else []
 
 
 _XS_INTEGER = re.compile(r"[+-]?[0-9]+")
