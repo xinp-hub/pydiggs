@@ -13,6 +13,22 @@ from pydiggs.findings.locate import Locator
 
 NS = "http://diggsml.org/schemas/2.6"
 
+# Prepended to every measuring child process. Linux keeps ru_maxrss across exec (the
+# child would report pytest's own peak), so read VmHWM, which exec resets.
+_PEAK = """
+import resource, sys
+def peak():
+    try:
+        with open("/proc/self/status") as fh:
+            for line in fh:
+                if line.startswith("VmHWM:"):
+                    return int(line.split()[1]) / 1024
+    except OSError:
+        pass
+    r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return r / 2**20 if sys.platform == "darwin" else r / 1024
+"""
+
 
 def _ns_step(local: str, ns: str, index: int | None) -> str:
     step = f"/*[local-name()='{local}' and namespace-uri()='{ns}']"
@@ -48,8 +64,7 @@ ns = "urn:" + "a" * (1024 * 1024)
 xml = ('<r xmlns:x="' + ns + '"><x:p>' + "<x:c/>" * 3000 + "</x:p></r>").encode()
 doc = etree.ElementTree(etree.fromstring(xml))
 def rss():
-    r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return r if sys.platform == "darwin" else r * 1024
+    return peak() * 2**20
 base = rss()
 loc = Locator(doc)
 step = lambda local, i=None: (
@@ -68,7 +83,7 @@ print(time.perf_counter() - start, (rss() - base) / 2**20)
 @pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
 def test_huge_namespace_uri_on_many_siblings_stays_bounded():
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-        [sys.executable, "-c", _BIG_NS], capture_output=True, text=True, check=True
+        [sys.executable, "-c", _PEAK + _BIG_NS], capture_output=True, text=True, check=True
     ).stdout.split()
     elapsed, extra_mb = float(out[0]), float(out[1])
     assert elapsed < 5.0, elapsed
@@ -157,9 +172,7 @@ path = Path(tempfile.mkdtemp()) / "mem.xml"
 path.write_text(f'<Diggs xmlns="{NS}">' + "<a>" * 200 + '<q codeSpace="urn:x">v</q>' * 300_000
                 + "</a>" * 200 + "</Diggs>")
 report = validate(path, checks=["dictionary"])
-r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-print(len(report.findings), r / 2**20 if sys.platform == "darwin" else r / 1024,
-      report.steps["dictionary"])
+print(len(report.findings), peak(), report.steps["dictionary"])
 """
 
 
@@ -167,7 +180,7 @@ print(len(report.findings), r / 2**20 if sys.platform == "darwin" else r / 1024,
 @pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
 def test_eight_megabytes_of_findings_stay_bounded():
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-        [sys.executable, "-c", _MEMORY], capture_output=True, text=True, check=True
+        [sys.executable, "-c", _PEAK + _MEMORY], capture_output=True, text=True, check=True
     ).stdout.split()
     assert out[0] == "10001"  # 10,000 kept plus the truncation marker
     assert float(out[1]) < 700, out[1]  # peak RSS in MB, 7.8 MB input
@@ -194,8 +207,7 @@ path.write_text(xml)
 start = time.perf_counter()
 report = validate(path, checks=checks)
 elapsed = time.perf_counter() - start
-r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-print(elapsed, r / 2**20 if sys.platform == "darwin" else r / 1024, len(report.findings))
+print(elapsed, peak(), len(report.findings))
 """
 
 
@@ -209,7 +221,7 @@ def test_legacy_path_builders_do_not_run_in_validate(case, seconds, megabytes, f
     # deep: 8,000 findings under 200 elements with 2,500-character names (was 4 GB);
     # href: 820 KiB of unresolved xlink:href siblings (was quadratic, over 400 s).
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-        [sys.executable, "-c", _RUN, case], capture_output=True, text=True, check=True
+        [sys.executable, "-c", _PEAK + _RUN, case], capture_output=True, text=True, check=True
     ).stdout.split()
     assert float(out[0]) < seconds, out
     assert float(out[1]) < megabytes, out
@@ -284,15 +296,14 @@ path.write_text('<Diggs xmlns="http://diggsml.org/schemas/2.6" '
                 + "<x:j>" * 3 + "".join(bh.format(i=i) for i in range(2000)) + "</x:j>" * 3
                 + "</Diggs>")
 report = validate(path, checks=["schematron"])
-r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-print(r / 2**20 if sys.platform == "darwin" else r / 1024, report.findings[0].rule_id)
+print(peak(), report.findings[0].rule_id)
 """
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
 def test_skipping_schematron_keeps_memory_bounded():
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-        [sys.executable, "-c", _SKIP_RSS], capture_output=True, text=True, check=True
+        [sys.executable, "-c", _PEAK + _SKIP_RSS], capture_output=True, text=True, check=True
     ).stdout.split()
     assert float(out[0]) < 200, out  # was 1,252 MB with the skeleton run
     assert out[1] == "schematron.skipped-location-budget"
@@ -334,8 +345,7 @@ path = Path(tempfile.mkdtemp()) / "u.xml"
 path.write_text('<Diggs xmlns="http://diggsml.org/schemas/2.6">' + "<a>" * 200
                 + '<q codeSpace="urn:x">v</q>' * 600_000 + "</a>" * 200 + "</Diggs>")
 report = validate(path, checks=["dictionary"], max_findings=None)
-r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-print(r / 2**20 if sys.platform == "darwin" else r / 1024, len(report.findings),
+print(peak(), len(report.findings),
       report.steps["dictionary"])
 """
 
@@ -344,7 +354,7 @@ print(r / 2**20 if sys.platform == "darwin" else r / 1024, len(report.findings),
 @pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
 def test_no_findings_cap_still_bounds_the_legacy_layers():
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-        [sys.executable, "-c", _UNBOUNDED], capture_output=True, text=True, check=True
+        [sys.executable, "-c", _PEAK + _UNBOUNDED], capture_output=True, text=True, check=True
     ).stdout.split()
     # 15 MB input with 600,000 findings; the lxml tree alone is about 385 MB here.
     assert float(out[0]) < 800, out  # was 859 MB and grew with the input
