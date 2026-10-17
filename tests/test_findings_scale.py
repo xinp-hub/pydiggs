@@ -108,7 +108,16 @@ def test_long_xpaths_are_dropped_but_lines_kept(tmp_path):
     from pydiggs import validate
     from pydiggs.findings.run import MAX_XPATH_CHARS
 
-    report = validate(_deep_chain(tmp_path, 300), checks=["schematron"])
+    name = "n" * 1000
+    path = tmp_path / "deep.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}">'
+        + "".join(f"<p{i}{name}>" for i in range(49))
+        + '<q codeSpace="urn:x">v</q>\n' * 300
+        + "".join(f"</p{i}{name}>" for i in reversed(range(49)))
+        + "</Diggs>"
+    )
+    report = validate(path, checks=["dictionary"])
     assert len(report.findings) == 300
     assert all(f.xpath is None and f.line for f in report.findings)
     assert len(report.to_json()) < 300 * 1000  # no 50 KB paths in the output
