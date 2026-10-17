@@ -185,3 +185,26 @@ def test_context_budget_counts_only_requested_steps(tmp_path):
     report = validate(path, checks=["geometry"], max_findings=2)
     assert [f.rule_id for f in report.findings] == ["geometry.srs-attributes"] * 2
     assert report.steps[Step.GEOMETRY] == "passed"
+
+
+@pytest.mark.parametrize("cap", ["0", "1"])
+def test_offline_findings_past_the_cap_stay_info(tmp_path, capsys, cap):
+    path = tmp_path / "offline.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3">'
+        + "".join(
+            f'<role codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/missing{i}.xml#x">x</role>'
+            for i in range(3)
+        )
+        + "</Diggs>"
+    )
+    code = main(
+        ["validate", "--checks", "dictionary", "--fail-on", "warning", "--max-findings", cap,
+         str(path)]
+    )  # fmt: skip
+    capsys.readouterr()
+    assert code == 0
+    if cap == "1":
+        report = validate(path, checks=["dictionary"], max_findings=1)
+        marker = [f for f in report.findings if f.rule_id == rules.FINDINGS_TRUNCATED]
+        assert [f.severity for f in marker] == [Severity.INFO]
