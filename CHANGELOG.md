@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   default a dictionary named by a relative or `file:` codeSpace is read only from
   inside the instance's folder (no working-directory fallback, no escape through `..`
   or symlinks). `dictionary_check()` is unchanged.
+- In `validate()`, local dictionaries are read once per file however their path is
+  spelled, under `max_bytes`, only if they are regular files, and at most 16 per
+  instance; Schematron rules are skipped (`schematron.skipped-location-budget`) when
+  lxml's locations would exceed 16 KiB or a namespace URI 1,024 characters.
 - `validate(base_dir=...)` and `--base-dir` report paths relative to a chosen folder.
   Without it, paths are bare file names when the working directory is `/` or an
   ancestor of the home directory.
@@ -98,8 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `validate()` and `pydiggs validate` treat everything in an instance as data: Schematron
   location paths (which carry the instance's namespace URIs) are matched against the
   tree, never evaluated as XPath; only regular files are read (a FIFO cannot block);
-  messages about unreadable files carry no path; `--output` is written with mode 0600
-  and never through a symlink; text output escapes control and bidi characters. A
+  messages about unreadable files carry no path; `--output` creates new files with mode
+  0600, keeps an existing file's mode, and never writes through a symlink; text output escapes control and bidi characters. A
   broken user Schematron file is a `ResourceError` (exit 2).
 - `dictionaries/whiteList.xml`, which decides where `allow_network=True` may fetch
   dictionaries from, is maintained in pyDIGGS and digest-checked rather than synced
