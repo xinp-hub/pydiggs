@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from lxml import etree
 
 from pydiggs import _xml
-from pydiggs.dictionary import ValidationMessage, _worse
+from pydiggs.dictionary import ValidationMessage, _element_path, _sibling_positions, _worse
 
 
 @dataclass
@@ -19,6 +19,23 @@ class ContextValidationResult:
     #: ``dropped`` as {check: (count, worst severity)}; validate() sets it.
     limit: int | None = None
     dropped: dict[int, tuple[int, str]] = field(default_factory=dict)
+    #: False in validate(): the Locator gives locations, so no legacy path is built.
+    legacy_paths: bool = True
+    #: Context check numbers to record (None: all); validate() leaves out unrequested steps.
+    checks: frozenset[int] | None = None
+    _positions: dict[etree._Element, int] | None = field(default=None, repr=False)
+
+    def path(self, el: etree._Element) -> str:
+        """The legacy ``/name[n]/...`` path of ``el`` ("" when not needed).
+
+        Sibling positions are computed once per document (they were recounted for
+        every message, which was quadratic in the number of siblings).
+        """
+        if not self.legacy_paths or (self.limit is not None and len(self.messages) >= self.limit):
+            return ""
+        if self._positions is None:
+            self._positions = _sibling_positions(el.getroottree().getroot())
+        return _element_path(el, self._positions)
 
     @property
     def ok(self) -> bool:
@@ -34,6 +51,8 @@ class ContextValidationResult:
         check: int,
         node: etree._Element | None = None,
     ) -> None:
+        if self.checks is not None and check not in self.checks:
+            return
         if self.limit is not None and len(self.messages) >= self.limit:
             count, worst = self.dropped.get(check, (0, severity))
             self.dropped[check] = (count + 1, _worse(worst, severity))
@@ -49,34 +68,25 @@ def _local(el: etree._Element) -> str:
     return str(etree.QName(el).localname)
 
 
-def _path(el: etree._Element) -> str:
-    parts: list[str] = []
-    node: etree._Element | None = el
-    while node is not None and isinstance(node.tag, str):
-        name = _local(node)
-        prev = [
-            s
-            for s in node.itersiblings(preceding=True)
-            if isinstance(s.tag, str) and _local(s) == name
-        ]
-        parts.append(f"{name}[{len(prev) + 1}]")
-        node = node.getparent()
-    return "/" + "/".join(reversed(parts))
-
-
 def validate_context(instance_path: str) -> ContextValidationResult:
     """Run DIGGS structure, geometry SRS, xlink href, and dataBlock checks."""
     return validate_context_tree(_xml.parse(instance_path).getroot())
 
 
 def validate_context_tree(
-    root: etree._Element, *, max_messages: int | None = None
+    root: etree._Element,
+    *,
+    max_messages: int | None = None,
+    legacy_paths: bool = True,
+    checks: frozenset[int] | None = None,
 ) -> ContextValidationResult:
     """Run the context checks on an already-parsed document root.
 
-    With ``max_messages``, messages past that number are only counted.
+    With ``max_messages``, messages past that number are only counted. With
+    ``legacy_paths=False`` (validate()), no legacy element path is built. ``checks``
+    limits the messages recorded (and counted) to those check numbers.
     """
-    result = ContextValidationResult(limit=max_messages)
+    result = ContextValidationResult(limit=max_messages, legacy_paths=legacy_paths, checks=checks)
     _check_structure(root, result)
     _check_geometry_srs(root, result)
     _check_hrefs(root, result)
@@ -111,7 +121,7 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
     if len(objects) != 1:
         result.add(
             "ERROR",
-            _path(doc_info[0]),
+            result.path(doc_info[0]),
             "Structure: documentInformation must contain exactly one DocumentInformation object.",
             100,
             node=doc_info[0],
@@ -147,7 +157,7 @@ def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -
         if not el.get("srsName"):
             result.add(
                 "WARNING",
-                _path(el),
+                result.path(el),
                 f"Geometry: <{_local(el)}> should declare srsName.",
                 101,
                 node=el,
@@ -155,7 +165,7 @@ def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -
         if not el.get("srsDimension"):
             result.add(
                 "WARNING",
-                _path(el),
+                result.path(el),
                 f"Geometry: <{_local(el)}> should declare srsDimension.",
                 101,
                 node=el,
@@ -182,7 +192,7 @@ def _check_hrefs(root: etree._Element, result: ContextValidationResult) -> None:
         if target not in gml_ids:
             result.add(
                 "WARNING",
-                _path(el),
+                result.path(el),
                 f'xlink:href "{href}" does not resolve to a gml:id in this instance.',
                 102,
                 node=el,
@@ -210,7 +220,7 @@ def _check_datablocks(root: etree._Element, result: ContextValidationResult) -> 
                 if len(values) != n_props:
                     result.add(
                         "ERROR",
-                        _path(block),
+                        result.path(block),
                         (
                             f"dataBlock tuple {i} has {len(values)} value(s) but "
                             f"{n_props} Property declaration(s) were found."

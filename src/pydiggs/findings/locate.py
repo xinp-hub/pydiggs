@@ -9,7 +9,7 @@ attribute adds ``/@local-name``, as the official deprecation module does.
 from __future__ import annotations
 
 import re
-from typing import Final
+from typing import Final, overload
 
 from lxml import etree
 
@@ -72,8 +72,16 @@ class Locator:
                     self._steps[sibling] = f"{name}[{i}]"
         return self._steps[el]
 
-    def xpath(self, el: etree._Element) -> str:
-        """The official get-path of an element.
+    @overload
+    def xpath(self, el: etree._Element) -> str: ...
+    @overload
+    def xpath(self, el: etree._Element, max_chars: int) -> str | None: ...
+
+    def xpath(self, el: etree._Element, max_chars: int | None = None) -> str | None:
+        """The official get-path of an element; None if longer than ``max_chars``.
+
+        The walk stops as soon as the path would exceed ``max_chars``, so a deep tree
+        with long names costs at most that much per finding.
 
         Example:
             >>> doc = etree.ElementTree(
@@ -81,11 +89,18 @@ class Locator:
             ... )
             >>> Locator(doc).xpath(doc.getroot()[2])
             '/d:Diggs[1]/d:a[2]'
+            >>> Locator(doc).xpath(doc.getroot()[2], max_chars=10) is None
+            True
         """
         steps: list[str] = []
+        total = 0
         node: etree._Element | None = el
         while node is not None:
-            steps.append(self._step(node))
+            step = self._step(node)
+            total += len(step) + 1
+            if max_chars is not None and total > max_chars:
+                return None
+            steps.append(step)
             node = node.getparent()
         return "/" + "/".join(reversed(steps))
 
