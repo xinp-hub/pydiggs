@@ -543,8 +543,14 @@ def _run_dictionary(
     semantic = _dictionary_validator(
         dictionary_path, allow_network=allow_network, local_dictionaries=local_dictionaries
     )
+
+    def classify(severity: str, text: str, check: int) -> str:
+        # Count a dropped message at the severity validate() would have reported it.
+        probe = ValidationMessage(severity=severity, element_path="", text=text, check=check)
+        return "INFO" if not allow_network and _is_offline(probe) else severity
+
     result = semantic.validate_tree(
-        doc, instance, max_messages=builder.remaining, max_bytes=max_bytes
+        doc, instance, max_messages=builder.remaining, max_bytes=max_bytes, classify=classify
     )
     for count, severity in result.dropped.values():
         builder.drop(Step.DICTIONARY, _SEVERITY.get(severity, Severity.ERROR), count)

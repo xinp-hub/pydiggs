@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import unquote, urlparse, urlsplit
@@ -108,6 +108,9 @@ class DictionaryValidationResult:
     #: ``dropped`` as {check: (count, worst severity)}; validate() sets it.
     limit: int | None = None
     dropped: dict[int, tuple[int, str]] = field(default_factory=dict)
+    #: validate()'s severity for a message it would report (e.g. offline -> INFO), so
+    #: dropped messages are counted at the severity they would have had.
+    classify: Callable[[str, str, int], str] | None = field(default=None, repr=False)
 
     @property
     def ok(self) -> bool:
@@ -124,6 +127,8 @@ class DictionaryValidationResult:
         node: etree._Element | None = None,
     ) -> None:
         if self.limit is not None and len(self.messages) >= self.limit:
+            if self.classify is not None:
+                severity = self.classify(severity, text, check)
             count, worst = self.dropped.get(check, (0, severity))
             self.dropped[check] = (count + 1, _worse(worst, severity))
             return
@@ -668,13 +673,14 @@ class DictionarySemanticValidator:
         *,
         max_messages: int | None = None,
         max_bytes: int | None = None,
+        classify: Callable[[str, str, int], str] | None = None,
     ) -> DictionaryValidationResult:
         """Validate an already-parsed instance; ``instance_path`` anchors relative URLs.
 
         With ``max_messages``, messages past that number are only counted.
         ``max_bytes`` limits each local dictionary read in ``instance-dir`` mode.
         """
-        result = DictionaryValidationResult(limit=max_messages)
+        result = DictionaryValidationResult(limit=max_messages, classify=classify)
         self._result = result
         self._instance_dir = Path(instance_path).resolve().parent
         root = doc.getroot()
