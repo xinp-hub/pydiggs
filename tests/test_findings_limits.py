@@ -92,6 +92,7 @@ def test_paths_are_bare_names_when_cwd_is_root_or_above_home(tmp_path, monkeypat
     home = tmp_path / "Users" / "me"
     target = _copy(home, "projects/site/BH-1.xml")
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))  # Path.home() on Windows
     monkeypatch.chdir("/")
     assert display_paths(target)[0] == "BH-1.xml"
     monkeypatch.chdir(tmp_path / "Users")  # an ancestor of home

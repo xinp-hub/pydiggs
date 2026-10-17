@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
 import time
 from pathlib import Path
 
@@ -149,6 +150,7 @@ def test_fifos_are_skipped_and_refused_without_blocking(tmp_path, capsys):
     assert '"not a regular file"' in capsys.readouterr().out
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
 def test_output_file_is_private(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert main(["validate", "--format", "json", "--output", "out.json", str(NO_ERROR)]) == 0
@@ -173,6 +175,7 @@ def test_text_output_escapes_control_and_bidi_characters(tmp_path, monkeypatch, 
     assert "evil\\u202etxt.xml" in out
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows file names are UTF-16")
 def test_non_utf8_file_names_are_reported_without_traceback(tmp_path, monkeypatch, capsys):
     from pydiggs.findings.run import display_paths
 
@@ -215,7 +218,7 @@ def test_snippet_cost_does_not_scale_with_the_subtree():
     )
     start = time.perf_counter()
     snippet = Locator(etree.ElementTree(root)).snippet(root)
-    assert time.perf_counter() - start < 0.05
+    assert time.perf_counter() - start < 0.5  # serialising the whole subtree is far slower
     assert len(snippet.encode()) <= SNIPPET_LIMIT
     assert snippet.count("<b>") == SNIPPET_CHILDREN
     assert "<b>...</b>" in snippet
@@ -223,6 +226,7 @@ def test_snippet_cost_does_not_scale_with_the_subtree():
     assert "urn:u" not in snippet
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes")
 def test_existing_output_file_keeps_its_mode(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "out.json"

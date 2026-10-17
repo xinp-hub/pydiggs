@@ -1,0 +1,3 @@
+# Vendored reference data, fixtures and goldens are digest- or byte-checked, so git
+# must never convert line endings (Windows checkouts otherwise get CRLF).
+* -text
