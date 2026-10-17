@@ -218,11 +218,18 @@ class _Builder:
         return at_cap or self.size >= MAX_REPORT_BYTES
 
     @property
-    def remaining(self) -> int | None:
-        """How many more findings may be kept (None: no cap)."""
+    def remaining(self) -> int:
+        """How many more findings may be kept: the cap, or what the size budget allows.
+
+        Without ``max_findings`` the legacy layers are still bounded, by the most
+        findings the 16 MiB budget could hold, so they never build unbounded lists.
+        """
+        if self.full:
+            return 0
+        by_size = (MAX_REPORT_BYTES - self.size) // _FINDING_OVERHEAD + 1
         if self.max_findings is None:
-            return None if self.size < MAX_REPORT_BYTES else 0
-        return 0 if self.full else self.max_findings - len(self.findings)
+            return by_size
+        return min(self.max_findings - len(self.findings), by_size)
 
     def drop(self, step: Step, severity: Severity, count: int = 1) -> None:
         """Count findings that are not kept."""
