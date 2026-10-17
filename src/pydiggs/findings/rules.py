@@ -29,6 +29,7 @@ __all__ = [
     "SCHEMATRON_BUNDLED",
     "SCHEMATRON_CASING_NUMERIC",
     "SCHEMATRON_CASING_UNITS",
+    "SCHEMATRON_SKIPPED",
     "SCHEMA_INCOMPLETE",
     "WELL_FORMED",
     "describe",
@@ -137,6 +138,8 @@ SCHEMATRON_BUNDLED: Final[dict[tuple[str, str], str]] = {
 #: pydiggs's own cross-unit casing rule (``validator._check_casing_diameters``).
 SCHEMATRON_CASING_UNITS: Final = "schematron.Casing.outside-gt-inside-converted"
 SCHEMATRON_CASING_NUMERIC: Final = "schematron.Casing.diameters-numeric-converted"
+#: The Schematron rules were not run because lxml's locations would be too long.
+SCHEMATRON_SKIPPED: Final = "schematron.skipped-location-budget"
 
 # libxml2 2.14 XML_SCHEMAV_CVC_* stems → the XSD 1.1 Part 1 validation-rule names.
 _CVC_STEMS: Final[dict[str, str]] = {
@@ -197,6 +200,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     "context.datablock-arity": "dataBlock tuple size does not match the Property count",
     SCHEMATRON_CASING_UNITS: "Casing outside diameter must exceed inside diameter (any unit)",
     SCHEMATRON_CASING_NUMERIC: "Casing diameters must be numeric",
+    SCHEMATRON_SKIPPED: "Schematron rules not run: locations would be too long",
 }
 
 

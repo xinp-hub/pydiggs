@@ -64,6 +64,12 @@ MAX_XPATH_CHARS: Final = 4096
 #: Budget for one report's findings, roughly as serialised to JSON.
 MAX_REPORT_BYTES: Final = 16 * 2**20
 _FINDING_OVERHEAD: Final = 200  # JSON keys, punctuation and the fixed fields
+#: Longest SVRL location lxml's Schematron skeleton may build before the step is skipped.
+MAX_SCHEMATRON_LOCATION: Final = 16 * 1024
+#: Longest namespace URI the Schematron step accepts.
+MAX_SCHEMATRON_NAMESPACE: Final = 1024
+_NS_STEP_CHARS: Final = len("/*[local-name()='' and namespace-uri()='']")
+_INDEX_CHARS: Final = 12  # "[n]" for any sibling count
 #: Where validate() may read dictionaries named by relative codeSpaces.
 LocalDictionaries = Literal["instance-dir", "off"]
 #: Default ``max_findings`` of :func:`validate`.
@@ -400,12 +406,55 @@ def _svrl_items(report: etree._ElementTree) -> Iterator[tuple[str, etree._Elemen
             yield context, el
 
 
+def _schematron_budget(doc: etree._ElementTree) -> str | None:
+    """Why lxml's Schematron skeleton must not run on ``doc``, or None.
+
+    The skeleton writes, for every failed assert, a location with one step per
+    ancestor, each carrying that element's full namespace URI, and keeps them all in
+    memory. One linear pass predicts the longest such location (namespace URIs are
+    read once, from their declarations).
+    """
+    root = doc.getroot()
+    for _, (_, uri) in etree.iterwalk(root, events=("start-ns",)):
+        if len(uri) > MAX_SCHEMATRON_NAMESPACE:
+            return f"a namespace URI is longer than {MAX_SCHEMATRON_NAMESPACE} characters"
+    lengths = [0]
+    for event, el in etree.iterwalk(root, events=("start", "end")):
+        if event == "end":
+            lengths.pop()
+            continue
+        tag = str(el.tag)
+        if tag.startswith("{"):
+            uri, _, local = tag[1:].partition("}")
+            step = _NS_STEP_CHARS + len(local) + len(uri) + _INDEX_CHARS
+        else:
+            step = 1 + len(tag) + _INDEX_CHARS
+        total = lengths[-1] + step
+        if total > MAX_SCHEMATRON_LOCATION:
+            return (
+                f"an element's Schematron location would exceed {MAX_SCHEMATRON_LOCATION // 1024}"
+                " KiB (deep nesting with long names or namespace URIs)"
+            )
+        lengths.append(total)
+    return None
+
+
 def _run_schematron(
     doc: etree._ElementTree,
     builder: _Builder,
     schematron_path: str | os.PathLike[str] | None,
 ) -> StepStatus:
     schematron = _schematron(schematron_path)
+    reason = _schematron_budget(doc)
+    if reason is not None:
+        builder.add(
+            Step.SCHEMATRON,
+            rules.SCHEMATRON_SKIPPED,
+            Severity.WARNING,
+            f"The Schematron rules were not run: {reason}.",
+        )
+        _run_casing(doc, builder)
+        return "incomplete"
     try:
         schematron.validate(doc)
     except etree.XSLTError as exc:  # e.g. an unknown function in a user rule's test
@@ -427,6 +476,12 @@ def _run_schematron(
         node = builder.locator.svrl_element(location) if builder.locator else None
         text = " ".join(item.findtext(f"{_SVRL}text", default="").split())
         builder.add(Step.SCHEMATRON, rule_id, Severity.ERROR, text, node=node)
+    _run_casing(doc, builder)
+    return builder.status(Step.SCHEMATRON)
+
+
+def _run_casing(doc: etree._ElementTree, builder: _Builder) -> None:
+    """Pydiggs's own unit-converting casing rule (part of the Schematron step)."""
     for casing, message in _casing_diameter_problems(doc):
         rule_id = (
             rules.SCHEMATRON_CASING_NUMERIC
@@ -434,7 +489,6 @@ def _run_schematron(
             else rules.SCHEMATRON_CASING_UNITS
         )
         builder.add(Step.SCHEMATRON, rule_id, Severity.ERROR, message, node=casing)
-    return builder.status(Step.SCHEMATRON)
 
 
 def _dictionary_validator(
