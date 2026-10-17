@@ -64,6 +64,8 @@ MAX_XPATH_CHARS: Final = 4096
 #: Budget for one report's findings, roughly as serialised to JSON.
 MAX_REPORT_BYTES: Final = 16 * 2**20
 _FINDING_OVERHEAD: Final = 200  # JSON keys, punctuation and the fixed fields
+#: Dictionary validators kept per thread (least recently used dropped first).
+MAX_CACHED_VALIDATORS: Final = 8
 #: Longest SVRL location lxml's Schematron skeleton may build before the step is skipped.
 MAX_SCHEMATRON_LOCATION: Final = 16 * 1024
 #: Longest namespace URI the Schematron step accepts.
@@ -531,7 +533,10 @@ def _dictionary_validator(
         except (OSError, etree.XMLSyntaxError) as exc:
             raise ResourceError(f"cannot read dictionary data: {exc}") from exc
         cached = (version, validator)
-        _CACHE.dictionaries[key] = cached
+    _CACHE.dictionaries.pop(key, None)
+    _CACHE.dictionaries[key] = cached  # most recently used last
+    while len(_CACHE.dictionaries) > MAX_CACHED_VALIDATORS:
+        del _CACHE.dictionaries[next(iter(_CACHE.dictionaries))]
     return cached[1]
 
 

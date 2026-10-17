@@ -208,3 +208,69 @@ def test_offline_findings_past_the_cap_stay_info(tmp_path, capsys, cap):
         report = validate(path, checks=["dictionary"], max_findings=1)
         marker = [f for f in report.findings if f.rule_id == rules.FINDINGS_TRUNCATED]
         assert [f.severity for f in marker] == [Severity.INFO]
+
+
+FIXTURES = ROOT / "tests" / "fixtures"
+
+
+def test_nothing_is_located_once_the_report_is_full(monkeypatch):
+    from pydiggs.findings.locate import Locator
+
+    calls = {"svrl_element": 0, "element_at": 0}
+    for name in calls:
+        real = getattr(Locator, name)
+
+        def counted(self, *args, _real=real, _name=name):
+            calls[_name] += 1
+            return _real(self, *args)
+
+        monkeypatch.setattr(Locator, name, counted)
+    boreholes = FIXTURES / "findings" / "two_failing_boreholes.xml"
+    report = validate(boreholes, checks=["schematron"], max_findings=1)
+    assert calls["svrl_element"] == 1  # three failed asserts, only the kept one located
+    assert report.steps[Step.SCHEMATRON] == "incomplete"
+    validate(SCHEMA_ERROR, checks=["schema"], max_findings=1)
+    assert calls["element_at"] == 1  # two schema errors
+
+
+def test_an_edited_dictionary_path_is_reloaded(tmp_path):
+    import os
+
+    from pydiggs.findings import run
+    from pydiggs.pydiggs import _DEFAULT_DICTIONARY
+
+    dictionary = tmp_path / "properties.xml"
+    dictionary.write_bytes(_DEFAULT_DICTIONARY.read_bytes())
+    first = run._dictionary_validator(dictionary, allow_network=False)
+    assert run._dictionary_validator(dictionary, allow_network=False) is first
+    later = dictionary.stat().st_mtime_ns + 10_000_000_000
+    os.utime(dictionary, ns=(later, later))
+    second = run._dictionary_validator(dictionary, allow_network=False)
+    assert second is not first
+    assert run._dictionary_validator(dictionary, allow_network=False) is second
+
+
+def test_long_user_schematron_ids_are_hashed():
+    long_id = "a" * (rules.MAX_USER_ID_CHARS + 1)
+    assert rules.schematron_user_rule(long_id, "c", "t") == rules.schematron_user_rule(
+        None, "c", "t"
+    )
+    ok_id = "a" * rules.MAX_USER_ID_CHARS
+    assert rules.schematron_user_rule(ok_id, "c", "t") == f"schematron.{ok_id}"
+
+
+def test_dictionary_validator_cache_is_a_small_lru(tmp_path, monkeypatch):
+    from pydiggs.findings import run
+
+    monkeypatch.setattr(run, "DictionarySemanticValidator", lambda **kwargs: object())
+    run._CACHE.dictionaries.clear()
+    paths = []
+    for i in range(run.MAX_CACHED_VALIDATORS + 3):
+        p = tmp_path / f"d{i}.xml"
+        p.write_text("<d/>")
+        paths.append(p)
+        run._dictionary_validator(p, allow_network=False)
+    assert len(run._CACHE.dictionaries) == run.MAX_CACHED_VALIDATORS
+    newest = run._dictionary_validator(paths[-1], allow_network=False)
+    assert run._dictionary_validator(paths[-1], allow_network=False) is newest
+    run._CACHE.dictionaries.clear()

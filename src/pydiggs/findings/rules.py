@@ -23,6 +23,7 @@ __all__ = [
     "DICTIONARY_OFFLINE",
     "FINDINGS_TRUNCATED",
     "HELP_URI",
+    "MAX_USER_ID_CHARS",
     "REMOVED",
     "RULE_ID_PATTERN",
     "SARIF_LEVEL",
@@ -41,6 +42,9 @@ __all__ = [
 
 
 _NAME_PATTERN: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+#: Longest user Schematron ``@id`` used as a rule id; longer ones are hashed.
+MAX_USER_ID_CHARS: Final = 4096
 
 #: Where every rule is documented.
 HELP_URI: Final = "https://xinp-hub.github.io/pydiggs/findings/#rule-ids"
@@ -244,8 +248,8 @@ def schema_rule(type_name: str | None) -> str:
 def schematron_user_rule(assert_id: str | None, context: str, test: str) -> str:
     """Rule id for an assert or report in a user-supplied Schematron file.
 
-    The assert's ``@id`` when it has one that fits the grammar; otherwise a stable hash
-    of its rule context and test.
+    The assert's ``@id`` when it has one that fits the grammar and is at most
+    :data:`MAX_USER_ID_CHARS` long; otherwise a stable hash of its rule context and test.
 
     Example:
         >>> schematron_user_rule("borehole-depth", "//Borehole", "@depth > 0")
@@ -253,7 +257,7 @@ def schematron_user_rule(assert_id: str | None, context: str, test: str) -> str:
         >>> schematron_user_rule(None, "/*", "name()='Diggs'")
         'schematron.user-45b6d8b8510e'
     """
-    if assert_id and _NAME_PATTERN.match(assert_id):
+    if assert_id and len(assert_id) <= MAX_USER_ID_CHARS and _NAME_PATTERN.match(assert_id):
         return f"schematron.{assert_id}"
     digest = hashlib.sha256(f"{context}\n{' '.join(test.split())}".encode()).hexdigest()
     return f"schematron.user-{digest[:12]}"

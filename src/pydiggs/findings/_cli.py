@@ -180,13 +180,18 @@ def _text(reports: Sequence[Report], unreadable: Sequence[UnreadableFile], out: 
 
 
 def _open_output(name: str) -> TextIO:
-    """Open ``--output`` for writing, refusing to write through a symlink."""
+    """Open ``--output`` for writing, refusing to write through a symlink.
+
+    A new file is created with mode 0600. An existing file is truncated and keeps
+    its mode (the user chose it).
+    """
     if Path(name).is_symlink():
         raise OSError(f"refusing to write through a symlink: {name}")
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(name, flags, 0o600)
-    if hasattr(os, "fchmod"):
-        os.fchmod(fd, 0o600)  # an existing file keeps its mode through O_CREAT
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | nofollow, 0o600)
+    except FileExistsError:
+        fd = os.open(name, os.O_WRONLY | os.O_TRUNC | nofollow)
     return os.fdopen(fd, "w", encoding="utf-8")
 
 
