@@ -214,3 +214,76 @@ def test_xpath_walk_stops_at_the_cap():
     assert loc.xpath(leaf, 100) is None
     assert len(loc._steps) < 30  # the capped walk stopped early
     assert loc.xpath(leaf).count("/") == 201
+
+
+_BH = (
+    '<samplingFeature><Borehole gml:id="BH-{i}"><totalMeasuredDepth uom="ft">-1'
+    "</totalMeasuredDepth></Borehole></samplingFeature>"
+)
+
+
+def _schematron_case(tmp_path, *, depth: int, uri: int = 0, name: int = 0, failing: int = 20):
+    ns = f' xmlns:x="urn:{"a" * uri}"' if uri else ""
+    tag = "x:j" if uri else "n" * max(name, 1)
+    path = tmp_path / "s.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}" xmlns:gml="http://www.opengis.net/gml/3.2"{ns}>'
+        + f"<{tag}>" * depth
+        + "".join(_BH.format(i=i) for i in range(failing))
+        + f"</{tag}>" * depth
+        + "</Diggs>"
+    )
+    return path
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "why"),
+    [
+        ({"depth": 100, "uri": 1000}, "location would exceed 16 KiB"),
+        ({"depth": 100, "name": 1000}, "location would exceed 16 KiB"),
+        ({"depth": 3, "uri": 2000}, "namespace URI is longer than 1024"),
+    ],
+    ids=["deep-namespace", "deep-names", "long-namespace"],
+)
+def test_schematron_is_skipped_when_locations_would_blow_up(tmp_path, kwargs, why):
+    from pydiggs import Severity, Step, validate
+
+    report = validate(_schematron_case(tmp_path, **kwargs), checks=["schematron"])
+    (finding,) = report.findings
+    assert finding.rule_id == "schematron.skipped-location-budget"
+    assert finding.severity is Severity.WARNING
+    assert why in finding.message
+    assert report.steps[Step.SCHEMATRON] == "incomplete"
+
+
+def test_schematron_runs_within_the_location_budget(tmp_path):
+    from pydiggs import validate
+
+    report = validate(_schematron_case(tmp_path, depth=10, uri=1000), checks=["schematron"])
+    assert [f.rule_id for f in report.findings] == ["schematron.Borehole.totalMeasuredDepth"] * 20
+
+
+_SKIP_RSS = """
+import resource, sys, tempfile
+from pathlib import Path
+from pydiggs import validate
+bh = ('<samplingFeature><Borehole gml:id="BH-{i}"><totalMeasuredDepth uom="ft">-1'
+      '</totalMeasuredDepth></Borehole></samplingFeature>')
+path = Path(tempfile.mkdtemp()) / "s.xml"
+path.write_text('<Diggs xmlns="http://diggsml.org/schemas/2.6" '
+                'xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:x="urn:' + "a" * 200000 + '">'
+                + "<x:j>" * 3 + "".join(bh.format(i=i) for i in range(2000)) + "</x:j>" * 3
+                + "</Diggs>")
+report = validate(path, checks=["schematron"])
+r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(r / 2**20 if sys.platform == "darwin" else r / 1024, report.findings[0].rule_id)
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
+def test_skipping_schematron_keeps_memory_bounded():
+    out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", _SKIP_RSS], capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert float(out[0]) < 200, out  # was 1,252 MB with the skeleton run
+    assert out[1] == "schematron.skipped-location-budget"
