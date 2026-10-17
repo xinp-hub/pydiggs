@@ -23,7 +23,11 @@ from lxml import etree, isoschematron
 import pydiggs
 from pydiggs import _xml, deprecations
 from pydiggs.detect import SCHEMA_PATHS, detect_diggs_version, schema_path_for
-from pydiggs.dictionary import DictionarySemanticValidator, ValidationMessage
+from pydiggs.dictionary import (
+    MAX_LOCAL_DICTIONARIES,
+    DictionarySemanticValidator,
+    ValidationMessage,
+)
 from pydiggs.errors import InstanceReadError, ResourceError
 from pydiggs.findings import rules
 from pydiggs.findings.locate import Locator
@@ -477,11 +481,14 @@ def _run_dictionary(
     *,
     allow_network: bool,
     local_dictionaries: LocalDictionaries,
+    max_bytes: int,
 ) -> StepStatus:
     semantic = _dictionary_validator(
         dictionary_path, allow_network=allow_network, local_dictionaries=local_dictionaries
     )
-    result = semantic.validate_tree(doc, instance, max_messages=builder.remaining)
+    result = semantic.validate_tree(
+        doc, instance, max_messages=builder.remaining, max_bytes=max_bytes
+    )
     for count, severity in result.dropped.values():
         builder.drop(Step.DICTIONARY, _SEVERITY.get(severity, Severity.ERROR), count)
     for message in result.messages:
@@ -497,11 +504,14 @@ def _run_dictionary(
             )
             continue
         if _is_local_inaccessible(message):
+            url = _QUOTED.search(message.text)
+            capped = url is not None and url[1] in semantic.local_capped
+            note = _CAPPED_NOTE if capped else _LOCAL_NOTE[local_dictionaries]
             builder.add(
                 Step.DICTIONARY,
                 rules.dictionary_rule(message.check),
                 Severity.WARNING,
-                _CHECK_PREFIX.sub("", message.text) + _LOCAL_NOTE[local_dictionaries],
+                _CHECK_PREFIX.sub("", message.text) + note,
                 node=message.node,
             )
             continue
@@ -519,6 +529,13 @@ _LOCAL_NOTE: Final = {
     ),
     "off": " Local dictionaries are not read (local_dictionaries='off').",
 }
+
+
+_QUOTED: Final = re.compile(r'"([^"]*)"')
+_CAPPED_NOTE: Final = (
+    f" The instance names more than {MAX_LOCAL_DICTIONARIES} different local dictionaries;"
+    " the others were not read."
+)
 
 
 def _is_local_inaccessible(message: ValidationMessage) -> bool:
@@ -705,6 +722,7 @@ def validate(
             dictionary_path,
             allow_network=allow_network,
             local_dictionaries=local_dictionaries,
+            max_bytes=limit,
         )
     if Step.SCHEMATRON in wanted:
         steps[Step.SCHEMATRON] = _run_schematron(doc, builder, schematron_path)
