@@ -163,3 +163,54 @@ def test_eight_megabytes_of_findings_stay_bounded():
     assert out[0] == "10001"  # 10,000 kept plus the truncation marker
     assert float(out[1]) < 700, out[1]  # peak RSS in MB, 7.8 MB input
     assert out[2] == "incomplete"
+
+
+_RUN = """
+import resource, sys, tempfile, time
+from pathlib import Path
+from pydiggs import validate
+NS = "http://diggsml.org/schemas/2.6"
+case = sys.argv[1]
+if case == "deep":
+    nm = "a" * 2500
+    xml = (f'<Diggs xmlns="{NS}">' + f"<{nm}>" * 200 + '<q codeSpace="urn:x">v</q>' * 8000
+           + f"</{nm}>" * 200 + "</Diggs>")
+    checks = ["dictionary"]
+else:
+    xml = (f'<Diggs xmlns="{NS}" xmlns:xlink="http://www.w3.org/1999/xlink">'
+           + '<r xlink:href="#no"/>' * 40000 + "</Diggs>")
+    checks = ["context"]
+path = Path(tempfile.mkdtemp()) / "case.xml"
+path.write_text(xml)
+start = time.perf_counter()
+report = validate(path, checks=checks)
+elapsed = time.perf_counter() - start
+r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(elapsed, r / 2**20 if sys.platform == "darwin" else r / 1024, len(report.findings))
+"""
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
+@pytest.mark.parametrize(
+    ("case", "seconds", "megabytes", "findings"),
+    [("deep", 20, 300, 8000), ("href", 10, 300, 10_001)],
+)
+def test_legacy_path_builders_do_not_run_in_validate(case, seconds, megabytes, findings):
+    # deep: 8,000 findings under 200 elements with 2,500-character names (was 4 GB);
+    # href: 820 KiB of unresolved xlink:href siblings (was quadratic, over 400 s).
+    out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", _RUN, case], capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert float(out[0]) < seconds, out
+    assert float(out[1]) < megabytes, out
+    assert int(out[2]) == findings
+
+
+def test_xpath_walk_stops_at_the_cap():
+    root = etree.fromstring(("<a>" * 200 + "<b/>" + "</a>" * 200).encode())
+    leaf = next(root.iter("b"))
+    loc = Locator(etree.ElementTree(root))
+    assert loc.xpath(leaf, 100) is None
+    assert len(loc._steps) < 30  # the capped walk stopped early
+    assert loc.xpath(leaf).count("/") == 201

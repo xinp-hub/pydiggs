@@ -171,3 +171,17 @@ def test_truncation_marker_is_not_compared_and_always_shown(tmp_path, capsys):
     main(["validate", "--checks", "dictionary", "--max-findings", "1", str(infos)])
     out = capsys.readouterr().out
     assert "info structure.findings-truncated: Stopped after 1 finding" in out
+
+
+def test_context_budget_counts_only_requested_steps(tmp_path):
+    # Geometry warnings only; the unrequested structure and context checks must not
+    # use up max_findings (code review, round 3).
+    path = tmp_path / "geom.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:xlink="http://www.w3.org/1999/xlink"><r xlink:href="#no"/>'
+        "<gml:Point><gml:pos>1 2</gml:pos></gml:Point></Diggs>"
+    )
+    report = validate(path, checks=["geometry"], max_findings=2)
+    assert [f.rule_id for f in report.findings] == ["geometry.srs-attributes"] * 2
+    assert report.steps[Step.GEOMETRY] == "passed"

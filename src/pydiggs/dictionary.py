@@ -219,6 +219,7 @@ class DictionarySemanticValidator:
         allow_network: bool = False,
         check_value_code_spaces: bool = False,
         local_dictionaries: str = "legacy",
+        legacy_paths: bool = True,
     ) -> None:
         # Check 13 (official dictionary-validation.xsl Step 14) runs only for
         # pydiggs.validate(); dictionary_check() keeps its 1.1 behaviour.
@@ -228,6 +229,8 @@ class DictionarySemanticValidator:
         if local_dictionaries not in ("legacy", "instance-dir", "off"):
             raise ValueError(f"unknown local_dictionaries mode {local_dictionaries!r}")
         self.local_dictionaries = local_dictionaries
+        # validate() passes False: the Locator gives locations, so no legacy path is built.
+        self.legacy_paths = legacy_paths
         self._local_trees: dict[object, etree._ElementTree | None] = {}
         self._local_by_url: dict[str, etree._ElementTree | None] = {}
         self.local_capped: set[str] = set()
@@ -650,9 +653,11 @@ class DictionarySemanticValidator:
         return self.validate_tree(_xml.parse(str(instance_path)), instance_path)
 
     def _path_of(self, el: etree._Element) -> str:
-        """The legacy element path, or "" once the result keeps no more messages."""
+        """The legacy element path ("" in validate() mode or once the result is full)."""
         result = self._result
-        if result is not None and result.limit is not None and len(result.messages) >= result.limit:
+        if not self.legacy_paths or (
+            result is not None and result.limit is not None and len(result.messages) >= result.limit
+        ):
             return ""
         return _element_path(el, self._positions)
 

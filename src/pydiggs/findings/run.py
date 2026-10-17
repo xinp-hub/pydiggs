@@ -245,9 +245,11 @@ class _Builder:
         xpath = gml_id = snippet = None
         if node is not None and self.locator is not None:
             line = line if line is not None else self.locator.line(node)
-            xpath = self.locator.xpath(node) + (f"/@{attribute}" if attribute else "")
-            if len(xpath) > MAX_XPATH_CHARS:
-                xpath = None  # a cut path could name another element; the line remains
+            suffix = f"/@{attribute}" if attribute else ""
+            # A path over the cap is None (a cut path could name another element); the
+            # line remains. The walk itself stops at the cap.
+            element_path = self.locator.xpath(node, MAX_XPATH_CHARS - len(suffix))
+            xpath = None if element_path is None else element_path + suffix
             gml_id = self.locator.gml_id(node)
             if gml_id is not None and len(gml_id) > MAX_XPATH_CHARS:
                 gml_id = None
@@ -465,6 +467,7 @@ def _dictionary_validator(
                 allow_network=allow_network,
                 check_value_code_spaces=True,
                 local_dictionaries=local_dictionaries,
+                legacy_paths=False,
             )
         except (OSError, etree.XMLSyntaxError) as exc:
             raise ResourceError(f"cannot read dictionary data: {exc}") from exc
@@ -577,11 +580,13 @@ def _run_deprecation(doc: etree._ElementTree, builder: _Builder, profile: str) -
 
 
 def _run_context(root: etree._Element, builder: _Builder, wanted: frozenset[Step]) -> None:
-    result = validate_context_tree(root, max_messages=builder.remaining)
+    checks = frozenset(c for c, (step, _) in rules.CONTEXT_RULES.items() if step in wanted)
+    result = validate_context_tree(
+        root, max_messages=builder.remaining, legacy_paths=False, checks=checks
+    )
     for check, (count, severity) in result.dropped.items():
         step, _ = rules.CONTEXT_RULES[check]
-        if step in wanted:
-            builder.drop(step, _SEVERITY.get(severity, Severity.ERROR), count)
+        builder.drop(step, _SEVERITY.get(severity, Severity.ERROR), count)
     for message in result.messages:
         step, rule_id = rules.CONTEXT_RULES[message.check]
         if step in wanted:
