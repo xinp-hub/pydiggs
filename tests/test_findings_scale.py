@@ -315,3 +315,29 @@ def test_gml_id_lookup_is_memoised():
     leaves = list(root.iter("c"))
     assert [loc.gml_id(c) for c in leaves] == ["top", "top"]
     assert root in loc._gml_ids
+
+
+_UNBOUNDED = """
+import resource, sys, tempfile
+from pathlib import Path
+from pydiggs import validate
+path = Path(tempfile.mkdtemp()) / "u.xml"
+path.write_text('<Diggs xmlns="http://diggsml.org/schemas/2.6">' + "<a>" * 200
+                + '<q codeSpace="urn:x">v</q>' * 600_000 + "</a>" * 200 + "</Diggs>")
+report = validate(path, checks=["dictionary"], max_findings=None)
+r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print(r / 2**20 if sys.platform == "darwin" else r / 1024, len(report.findings),
+      report.steps["dictionary"])
+"""
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
+def test_no_findings_cap_still_bounds_the_legacy_layers():
+    out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", _UNBOUNDED], capture_output=True, text=True, check=True
+    ).stdout.split()
+    # 15 MB input with 600,000 findings; the lxml tree alone is about 385 MB here.
+    assert float(out[0]) < 800, out  # was 859 MB and grew with the input
+    assert 10_000 < int(out[1]) < 20_000  # the 16 MiB budget, plus the marker
+    assert out[2] == "incomplete"

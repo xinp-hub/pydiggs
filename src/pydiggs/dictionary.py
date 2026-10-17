@@ -684,7 +684,7 @@ class DictionarySemanticValidator:
         self._result = result
         self._instance_dir = Path(instance_path).resolve().parent
         root = doc.getroot()
-        self._positions = _sibling_positions(root)
+        self._positions = _sibling_positions(root) if self.legacy_paths else {}
         self._check13 = None
         self._dict_cache = dict(self._baseline_cache)
         self._unreachable = set()
