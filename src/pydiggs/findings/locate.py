@@ -52,6 +52,7 @@ class Locator:
         """Bind to ``doc``."""
         self._doc = doc
         self._steps: dict[etree._Element, str] = {}
+        self._gml_ids: dict[etree._Element, str | None] = {}
         self._child_lists: dict[tuple[etree._Element, object], list[etree._Element]] = {}
 
     def _step(self, el: etree._Element) -> str:
@@ -110,16 +111,30 @@ class Locator:
         line = el.sourceline
         return line if isinstance(line, int) and line >= 1 else None
 
-    @staticmethod
-    def gml_id(el: etree._Element) -> str | None:
-        """``gml:id`` of the nearest element at or above ``el``."""
+    def gml_id(self, el: etree._Element, max_chars: int | None = None) -> str | None:
+        """``gml:id`` of the nearest element at or above ``el``, memoised per element.
+
+        An id longer than ``max_chars`` counts as none (and is not kept in memory), so a
+        huge id on an ancestor is read once, not once per finding.
+        """
+        path: list[etree._Element] = []
         node: etree._Element | None = el
+        found: str | None = None
         while node is not None:
+            if node in self._gml_ids:
+                found = self._gml_ids[node]
+                break
+            path.append(node)
             value = node.get(_GML_ID) if isinstance(node.tag, str) else None
             if value:
-                return str(value)
+                found = str(value)
+                if max_chars is not None and len(found) > max_chars:
+                    found = None
+                break
             node = node.getparent()
-        return None
+        for visited in path:
+            self._gml_ids[visited] = found
+        return found
 
     @staticmethod
     def snippet(el: etree._Element) -> str:
