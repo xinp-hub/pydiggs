@@ -72,7 +72,8 @@ pydiggs validate PATH... [--format text|json|sarif] [--output FILE]
   of the batch still runs.
 * `--checks` picks steps from `structure`, `schema`, `dictionary`, `schematron`,
   `geometry`, `deprecation`, `context` (default: all).
-* `--output` is created with mode `0600` and never written through a symbolic link.
+* `--output` is never written through a symbolic link. A new file is created with mode
+  `0600`; an existing file is overwritten and keeps its mode.
 * Text output escapes control and format characters (Unicode Cc and Cf, except tab) in
   paths and messages, so a file cannot send terminal escape sequences or bidi
   overrides to your terminal.
@@ -185,7 +186,8 @@ Rule ids are part of the stable contract.
 | `structure.findings-truncated` | as the worst dropped finding | `max_findings` or the 16 MiB report budget was reached; the rest were counted, not reported |
 | `schematron.<Context>.<property>` | error | A bundled Schematron rule, e.g. `schematron.Borehole.totalMeasuredDepth`, `schematron.Casing.outside-gt-inside` |
 | `schematron.Casing.outside-gt-inside-converted`, `schematron.Casing.diameters-numeric-converted` | error | pydiggs's unit-converting casing diameter rule |
-| `schematron.<id>` / `schematron.user-<hash>` | error | A rule from your own Schematron file: its `@id`, else a hash of its context and test |
+| `schematron.<id>` / `schematron.user-<hash>` | error | A rule from your own Schematron file: its `@id` (up to 4,096 characters), else a hash of its context and test |
+| `schematron.skipped-location-budget` | warning | The Schematron rules were not run: a namespace URI is longer than 1,024 characters, or an element's location would exceed 16 KiB (see [Residual risks](#residual-risks)); the step is `incomplete` |
 | `geometry.srs-attributes` | warning | A geometry with coordinates lacks `srsName` or `srsDimension` |
 | `deprecation.deprecated` | warning | Uses something the DIGGS schema deprecates |
 | `deprecation.removed` | error | Uses something the DIGGS schema has removed |
@@ -208,10 +210,14 @@ Rule ids are part of the stable contract.
 * **Local dictionaries.** `validate(local_dictionaries="instance-dir")` (the default;
   CLI `--local-dictionaries`) reads a dictionary named by a relative or `file:`
   codeSpace only if it is a file inside the instance's folder: there is no fallback to
-  the working directory, and `..` or a symlink cannot leave the folder. Anything else is
-  reported as `dictionary.3` (warning, "could not be accessed") with a note that says
-  why; the check is made before the file is opened, so the finding is the same whether
-  or not the file exists. `"off"` reads no local dictionary. `dictionary_check()`
+  the working directory, and `..` or a symlink cannot leave the folder. Anything else,
+  including a path the operating system rejects, is reported as `dictionary.3` (or
+  `dictionary.13` for a Check 13 value code list; warning, "could not be accessed") with
+  a note that says why; the check is made before the file is opened, so the finding is
+  the same whether or not the file exists. Each file is read once per instance however
+  its path is spelled, under `max_bytes` and only if it is a regular file, and at most
+  16 different local dictionaries are read per instance (the rest are `dictionary.3`
+  with a note). `"off"` reads no local dictionary. `dictionary_check()`
   keeps the 1.1 behaviour: next to the instance, then the working directory, and any
   `file:` URI.
 * **Offline dictionaries.** `validate()` reports an unbundled remote dictionary as
@@ -258,14 +264,29 @@ multisets over the steps both ran. The message is never compared.
 * Messages about an unreadable file do not contain its path; the report shows the path
   as described in [Paths](#paths).
 
-### Residual risk
+### Residual risks
 
-lxml's ISO Schematron skeleton (an XSLT 1.0 stylesheet run by libxslt) computes each
-failed assert's location by counting preceding siblings, so its own time grows with the
-square of the number of siblings, and it keeps a location string per failed assert in
-memory. pydiggs bounds everything it does itself, but cannot bound that. A service that
-validates untrusted files should keep `max_bytes` low and run each validation in a
-process with a time and memory limit.
+Services that validate files from untrusted sources should validate **each upload in
+its own folder**, in a separate process with a **time and memory limit**. pydiggs bounds
+the cases below where it can, but not all of them:
+
+* **lxml's Schematron skeleton** (an XSLT 1.0 stylesheet run by libxslt) counts preceding
+  siblings for every failed assert, so its time grows with the square of the number of
+  siblings, and it keeps a location string per failed assert in memory. validate()
+  skips the Schematron rules (`schematron.skipped-location-budget`, step `incomplete`)
+  when a namespace URI is longer than 1,024 characters or an element's location would
+  exceed 16 KiB, but a file with very many failing siblings is still costly inside lxml.
+* **libxml2** builds an XPath for every schema error it reports, which costs time in
+  proportion to the element's depth.
+* **`instance-dir`** reads any file in the instance's folder as a dictionary when a
+  codeSpace names it: in a shared upload folder that includes other users' uploads,
+  and a hard link to a file elsewhere cannot be told apart from a real file.
+* **The legacy entry points** (`validator`, `pydiggs schema_check` and the other
+  subcommands, `detect_diggs_version`) keep their 1.1.1 behaviour by design: local
+  dictionaries next to the instance, then in the working directory, and any `file:`
+  URI; a 1 GiB size limit; element paths that cost time in proportion to depth times
+  the number of findings, and a local dictionary parsed once per spelling of its path.
+  Use `validate()` for untrusted input.
 
 ## Privacy
 

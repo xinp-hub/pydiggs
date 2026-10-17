@@ -206,8 +206,9 @@ class Locator:
         URIs, which may contain quotes and XPath. It is parsed one step at a time
         (``*[local-name()='X' and namespace-uri()='U'][n]`` or ``name[n]``) and each step
         is resolved among the children of the element found so far, so the work is
-        proportional to the location's length. A trailing attribute step names its
-        element. Anything else gives None.
+        proportional to the location's length. A trailing attribute step (an assert
+        whose rule context is an attribute) names the attribute's element. Anything else
+        gives None, and the finding then has no line or xpath.
         """
         if not location or len(location) > _MAX_PATH:
             return None
