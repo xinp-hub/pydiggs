@@ -256,9 +256,7 @@ class _Builder:
             # line remains. The walk itself stops at the cap.
             element_path = self.locator.xpath(node, MAX_XPATH_CHARS - len(suffix))
             xpath = None if element_path is None else element_path + suffix
-            gml_id = self.locator.gml_id(node)
-            if gml_id is not None and len(gml_id) > MAX_XPATH_CHARS:
-                gml_id = None
+            gml_id = self.locator.gml_id(node, MAX_XPATH_CHARS)
             snippet = self.locator.snippet(node) if self.snippets else None
         finding = Finding(
             step=step,

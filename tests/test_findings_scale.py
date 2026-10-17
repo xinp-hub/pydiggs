@@ -287,3 +287,31 @@ def test_skipping_schematron_keeps_memory_bounded():
     ).stdout.split()
     assert float(out[0]) < 200, out  # was 1,252 MB with the skeleton run
     assert out[1] == "schematron.skipped-location-budget"
+
+
+@pytest.mark.slow
+def test_a_huge_gml_id_on_an_ancestor_is_read_once(tmp_path):
+    from pydiggs import validate
+
+    path = tmp_path / "id.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}" xmlns:gml="http://www.opengis.net/gml/3.2" gml:id="{"é" * 4_000_000}">'
+        + '<q codeSpace="urn:x">v</q>' * 10_000
+        + "</Diggs>",
+        encoding="utf-8",
+    )
+    start = time.perf_counter()
+    report = validate(path, checks=["dictionary"])
+    assert time.perf_counter() - start < 20  # was 95 s
+    assert len(report.findings) == 10_000
+    assert all(f.gml_id is None for f in report.findings)  # over the 4,096-character cap
+
+
+def test_gml_id_lookup_is_memoised():
+    root = etree.fromstring(
+        b'<a xmlns:gml="http://www.opengis.net/gml/3.2" gml:id="top"><b><c/><c/></b></a>'
+    )
+    loc = Locator(etree.ElementTree(root))
+    leaves = list(root.iter("c"))
+    assert [loc.gml_id(c) for c in leaves] == ["top", "top"]
+    assert root in loc._gml_ids
