@@ -11,7 +11,8 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, urlsplit
+from urllib.request import url2pathname
 
 from lxml import etree
 
@@ -227,6 +228,10 @@ class DictionarySemanticValidator:
         if local_dictionaries not in ("legacy", "instance-dir", "off"):
             raise ValueError(f"unknown local_dictionaries mode {local_dictionaries!r}")
         self.local_dictionaries = local_dictionaries
+        self._local_trees: dict[object, etree._ElementTree | None] = {}
+        self._local_by_url: dict[str, etree._ElementTree | None] = {}
+        self.local_capped: set[str] = set()
+        self._max_bytes: int | None = None
         self._result: DictionaryValidationResult | None = None
         self._check13: _Check13Index | None = None
         self.allow_network = allow_network
@@ -336,7 +341,9 @@ class DictionarySemanticValidator:
         Relative codeSpaces resolve against the instance's folder only (no working
         directory fallback); ``file:`` URIs and paths that leave the folder, through
         ``..`` or a symlink, are refused before the file is opened, so a refusal looks
-        the same whether or not the file exists. ``off`` refuses every local file.
+        the same whether or not the file exists. ``off`` refuses every local file. A
+        path the OS cannot handle (an embedded NUL, a symlink loop, a name that is too
+        long) is refused the same way.
         """
         if (
             self.local_dictionaries == "off"
@@ -344,23 +351,65 @@ class DictionarySemanticValidator:
             or base_url.startswith(("http://", "https://"))
         ):
             return []
-        if base_url.startswith("file:"):
-            path = Path(unquote(urlparse(base_url).path))
-        else:
-            path = Path(base_url)
-        if str(path).startswith(("//", "\\\\")):
+        try:
+            if base_url.startswith("file:"):
+                path = Path(url2pathname(urlsplit(base_url).path))
+            else:
+                path = Path(base_url)
+            if str(path).startswith(("//", "\\\\")):
+                return []
+            folder = self._instance_dir
+            candidate = path if path.is_absolute() else folder / path
+            # Lexical check first, so nothing outside the folder is even looked at.
+            if not Path(os.path.normpath(candidate)).is_relative_to(folder):
+                return []
+            resolved = candidate.resolve()
+        except (OSError, ValueError, RuntimeError):
             return []
-        folder = self._instance_dir
-        candidate = path if path.is_absolute() else folder / path
-        # Lexical check first, so nothing outside the folder is even looked at.
-        if not Path(os.path.normpath(candidate)).is_relative_to(folder):
-            return []
-        resolved = candidate.resolve()
         return [resolved] if resolved.is_relative_to(folder) else []
+
+    def _resolve_local(self, base_url: str) -> etree._ElementTree | None:
+        """``instance-dir`` / ``off`` mode: read a contained local dictionary, once.
+
+        Each file is read once per instance however it is spelled (keyed by device and
+        inode), with validate()'s size limit and only if it is a regular file. At most
+        :data:`MAX_LOCAL_DICTIONARIES` different files are read per instance; the URLs
+        refused for that reason are kept in ``local_capped``.
+        """
+        if base_url in self._local_by_url:
+            return self._local_by_url[base_url]
+        tree: etree._ElementTree | None = None
+        for path in self._contained_candidate(base_url):
+            try:
+                info = path.stat()
+            except (OSError, ValueError):
+                break
+            identity: object = (info.st_dev, info.st_ino) if info.st_ino else str(path)
+            if identity in self._local_trees:
+                tree = self._local_trees[identity]
+                break
+            if len(self._local_trees) >= MAX_LOCAL_DICTIONARIES:
+                self.local_capped.add(base_url)
+                break
+            try:
+                data, _ = _xml.read_limited(path, self._max_bytes, regular_only=True)
+                tree = _xml.parse_bytes(data, str(path))
+            except (OSError, ValueError, etree.XMLSyntaxError):
+                tree = None
+            self._local_trees[identity] = tree
+        self._local_by_url[base_url] = tree
+        return tree
 
     def _resolve_dictionary(self, base_url: str) -> etree._ElementTree | None:
         if base_url in self._dict_cache:
             return self._dict_cache[base_url]
+        if self.local_dictionaries != "legacy" and not base_url.startswith(("http://", "https://")):
+            tree = self._resolve_local(base_url)
+            if tree is not None:
+                return tree
+            if base_url.rstrip("/").endswith("properties.xml"):
+                return self._dict_cache.get(_MODERN_PROPERTIES_URL)
+            return None
         for path_candidate in self._local_candidates(base_url):
             # A leading // or \\ is a UNC path: on Windows, merely testing it opens an
             # SMB connection that sends the user's NTLM credentials to that host.
@@ -613,10 +662,12 @@ class DictionarySemanticValidator:
         instance_path: str | os.PathLike[str],
         *,
         max_messages: int | None = None,
+        max_bytes: int | None = None,
     ) -> DictionaryValidationResult:
         """Validate an already-parsed instance; ``instance_path`` anchors relative URLs.
 
         With ``max_messages``, messages past that number are only counted.
+        ``max_bytes`` limits each local dictionary read in ``instance-dir`` mode.
         """
         result = DictionaryValidationResult(limit=max_messages)
         self._result = result
@@ -626,6 +677,10 @@ class DictionarySemanticValidator:
         self._check13 = None
         self._dict_cache = dict(self._baseline_cache)
         self._unreachable = set()
+        self._local_trees = {}
+        self._local_by_url = {}
+        self.local_capped = set()
+        self._max_bytes = max_bytes
         baseline = set(map(id, self._baseline_cache.values()))
         self._definition_index = {
             tree: index for tree, index in self._definition_index.items() if id(tree) in baseline
@@ -1151,6 +1206,9 @@ def _xs_integer(text: str | None) -> int | None:
     value = _normalize_space(text)
     return int(value) if _XS_INTEGER.fullmatch(value) else None
 
+
+#: Most local dictionaries read for one instance in ``instance-dir`` mode.
+MAX_LOCAL_DICTIONARIES = 16
 
 _XPATH_WS_RUN = re.compile(r"[ \t\n\r]+")
 _CHECK13_SHOWN = 5  # the official message lists the first five invalid values

@@ -122,3 +122,94 @@ def test_a_failed_fetch_is_retried_on_the_next_file(tmp_path, monkeypatch):
     assert [r for r, _, _ in first] == ["dictionary.3"]
     assert _dictionary_findings(site, allow_network=True) == []
     assert calls == [url, url]
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    ["nul", "loop", "long"],
+)
+def test_paths_the_os_rejects_are_refused_without_a_traceback(tmp_path, capsys, spelling):
+    folder = tmp_path / "survey"
+    folder.mkdir()
+    if spelling == "nul":
+        code_space = (folder / "a").as_uri() + "%00b.xml"
+    elif spelling == "loop":
+        (folder / "loop.xml").symlink_to(folder / "loop.xml")
+        code_space = "./loop.xml"
+    else:
+        code_space = "./" + "n" * 300 + ".xml"  # longer than NAME_MAX
+    site = _instance(folder, code_space)
+    ((rule, severity, message),) = _dictionary_findings(site)
+    assert (rule, severity) == ("dictionary.3", "warning")
+    assert str(tmp_path) not in message or spelling == "nul"
+    other = _instance(tmp_path / "next", "./local.xml")
+    (tmp_path / "next" / "local.xml").write_text(_DICT)
+    code = main(["validate", "--format", "json", "--checks", "dictionary", str(site), str(other)])
+    out = capsys.readouterr()
+    assert code == 0  # warnings only; the batch went on
+    assert "Traceback" not in out.err
+    assert len(json.loads(out.out)["files"]) == 2
+
+
+def test_one_file_is_parsed_once_however_it_is_spelled(tmp_path, monkeypatch):
+    from pydiggs import _xml
+
+    folder = tmp_path / "survey"
+    (folder / "d").mkdir(parents=True)
+    (folder / "local.xml").write_text(_DICT)
+    spellings = [f"./{'d/../' * i}local.xml" for i in range(200)]
+    spellings += [f"{'./' * (i + 1)}local.xml" for i in range(200)]
+    folder.joinpath("site.xml").write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3">'
+        + "".join(f'<role codeSpace="{s}#surveyor">surveyor</role>' for s in spellings)
+        + "</Diggs>",
+        encoding="utf-8",
+    )
+    parsed: list[str | None] = []
+    real = _xml.parse_bytes
+
+    def spy(data, base_url):
+        parsed.append(base_url)
+        return real(data, base_url)
+
+    monkeypatch.setattr(_xml, "parse_bytes", spy)
+    assert _dictionary_findings(folder / "site.xml") == []
+    assert sum(url is not None and url.endswith("local.xml") for url in parsed) == 1
+
+
+def test_local_dictionaries_obey_max_bytes_regular_files_and_the_cap(tmp_path):
+    import os
+
+    folder = tmp_path / "survey"
+    folder.mkdir()
+    (folder / "big.xml").write_text(_DICT + " " * 10_000)
+    site = _instance(folder, "./big.xml")
+    assert _dictionary_findings(site, max_bytes=10_000_000) == []
+    assert [r for r, _, _ in _dictionary_findings(site, max_bytes=5_000)] == ["dictionary.3"]
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(folder / "pipe.xml")
+        fifo = _instance(tmp_path / "f", "../survey/pipe.xml")  # refused: outside
+        assert [r for r, _, _ in _dictionary_findings(fifo)] == ["dictionary.3"]
+        inside = _instance(folder / "sub", "../pipe.xml")
+        assert [r for r, _, _ in _dictionary_findings(inside)] == ["dictionary.3"]
+    many = tmp_path / "many"
+    many.mkdir()
+    for i in range(17):
+        (many / f"d{i}.xml").write_text(_DICT)
+    (many / "site.xml").write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3">'
+        + "".join(f'<role codeSpace="./d{i}.xml#surveyor">surveyor</role>' for i in range(17))
+        + "</Diggs>"
+    )
+    ((rule, _, message),) = _dictionary_findings(many / "site.xml")
+    assert rule == "dictionary.3"
+    assert "more than 16 different local dictionaries" in message
+
+
+def test_file_uri_inside_the_folder_is_percent_decoded(tmp_path):
+    folder = tmp_path / "survey"
+    folder.mkdir()
+    (folder / "a b.xml").write_text(_DICT)
+    site = _instance(folder, (folder / "a b.xml").as_uri())
+    assert "%20" in site.read_text()
+    assert _dictionary_findings(site) == []
