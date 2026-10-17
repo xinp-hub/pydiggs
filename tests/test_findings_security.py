@@ -223,13 +223,14 @@ def test_snippet_cost_does_not_scale_with_the_subtree():
     assert "urn:u" not in snippet
 
 
-def test_existing_output_file_is_made_private(tmp_path, monkeypatch, capsys):
+def test_existing_output_file_keeps_its_mode(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "out.json"
     out.write_text("old")
     out.chmod(0o644)
     assert main(["validate", "--format", "json", "--output", "out.json", str(NO_ERROR)]) == 0
-    assert stat.S_IMODE(out.stat().st_mode) == 0o600
+    assert stat.S_IMODE(out.stat().st_mode) == 0o644
+    assert out.read_text().startswith("{")
 
 
 def test_line_and_paragraph_separators_are_escaped():
