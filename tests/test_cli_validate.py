@@ -197,3 +197,12 @@ def test_timeout_reports_unreadable_files_and_rejects_bad_values(work, capsys):
     assert json.loads(out)["files"][0]["status"] == "unreadable"
     with pytest.raises(SystemExit):
         main(["validate", "--timeout", "0", "ok.xml"])
+
+
+def test_output_file_bytes_are_the_same_on_every_os(work, capsys):
+    for fmt in ("json", "sarif", "text"):
+        code, out, _ = _run(capsys, "--format", fmt, "bad.xml")
+        assert _run(capsys, "--format", fmt, "--output", f"out.{fmt}", "bad.xml")[0] == code
+        data = (work / f"out.{fmt}").read_bytes()
+        assert b"\r\n" not in data
+        assert data == out.replace("\r\n", "\n").encode("utf-8")

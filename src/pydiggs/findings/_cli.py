@@ -198,12 +198,13 @@ def _open_output(name: str) -> TextIO:
     """
     if Path(name).is_symlink():
         raise OSError(f"refusing to write through a symlink: {name}")
-    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    # O_BINARY and newline="": the same bytes on every OS (no CRLF on Windows).
+    extra = getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
     try:
-        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | nofollow, 0o600)
+        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | extra, 0o600)
     except FileExistsError:
-        fd = os.open(name, os.O_WRONLY | os.O_TRUNC | nofollow)
-    return os.fdopen(fd, "w", encoding="utf-8")
+        fd = os.open(name, os.O_WRONLY | os.O_TRUNC | extra)
+    return os.fdopen(fd, "w", encoding="utf-8", newline="")
 
 
 def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.Namespace:

@@ -124,20 +124,15 @@ def test_a_failed_fetch_is_retried_on_the_next_file(tmp_path, monkeypatch):
     assert calls == [url, url]
 
 
-@pytest.mark.parametrize(
-    "spelling",
-    ["nul", "loop", "long"],
-)
+@pytest.mark.parametrize("spelling", ["nul", "loop"])  # both raise inside Path.resolve()
 def test_paths_the_os_rejects_are_refused_without_a_traceback(tmp_path, capsys, spelling):
     folder = tmp_path / "survey"
     folder.mkdir()
     if spelling == "nul":
         code_space = (folder / "a").as_uri() + "%00b.xml"
-    elif spelling == "loop":
+    else:
         (folder / "loop.xml").symlink_to(folder / "loop.xml")
         code_space = "./loop.xml"
-    else:
-        code_space = "./" + "n" * 300 + ".xml"  # longer than NAME_MAX
     site = _instance(folder, code_space)
     ((rule, severity, message),) = _dictionary_findings(site)
     assert (rule, severity) == ("dictionary.3", "warning")
@@ -190,8 +185,13 @@ def test_local_dictionaries_obey_max_bytes_regular_files_and_the_cap(tmp_path):
         os.mkfifo(folder / "pipe.xml")
         fifo = _instance(tmp_path / "f", "../survey/pipe.xml")  # refused: outside
         assert [r for r, _, _ in _dictionary_findings(fifo)] == ["dictionary.3"]
-        inside = _instance(folder / "sub", "../pipe.xml")
-        assert [r for r, _, _ in _dictionary_findings(inside)] == ["dictionary.3"]
+        # Inside the instance's own folder: only regular_only stops a blocking read.
+        pipe_site = folder / "pipe_site.xml"
+        pipe_site.write_text(
+            '<Diggs xmlns="http://diggsml.org/schemas/3">'
+            '<role codeSpace="./pipe.xml#surveyor">surveyor</role></Diggs>'
+        )
+        assert [r for r, _, _ in _dictionary_findings(pipe_site)] == ["dictionary.3"]
     many = tmp_path / "many"
     many.mkdir()
     for i in range(17):

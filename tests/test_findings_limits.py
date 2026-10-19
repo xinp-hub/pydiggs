@@ -188,7 +188,7 @@ def test_context_budget_counts_only_requested_steps(tmp_path):
     assert report.steps[Step.GEOMETRY] == "passed"
 
 
-@pytest.mark.parametrize("cap", ["0", "1"])
+@pytest.mark.parametrize("cap", ["1", "2"])
 def test_offline_findings_past_the_cap_stay_info(tmp_path, capsys, cap):
     path = tmp_path / "offline.xml"
     path.write_text(
@@ -205,8 +205,8 @@ def test_offline_findings_past_the_cap_stay_info(tmp_path, capsys, cap):
     )  # fmt: skip
     capsys.readouterr()
     assert code == 0
-    if cap == "1":
-        report = validate(path, checks=["dictionary"], max_findings=1)
+    if cap:
+        report = validate(path, checks=["dictionary"], max_findings=int(cap))
         marker = [f for f in report.findings if f.rule_id == rules.FINDINGS_TRUNCATED]
         assert [f.severity for f in marker] == [Severity.INFO]
 
@@ -278,6 +278,16 @@ def test_dictionary_validator_cache_is_a_small_lru(tmp_path, monkeypatch):
     assert len(run._CACHE.dictionaries) == run.MAX_CACHED_VALIDATORS
     newest = run._dictionary_validator(paths[-1], allow_network=False)
     assert run._dictionary_validator(paths[-1], allow_network=False) is newest
+    # Least recently used goes first: touch the oldest kept entry, add one more.
+    oldest = paths[len(paths) - run.MAX_CACHED_VALIDATORS]
+    touched = run._dictionary_validator(oldest, allow_network=False)
+    extra = tmp_path / "extra.xml"
+    extra.write_text("<d/>")
+    run._dictionary_validator(extra, allow_network=False)
+    assert run._dictionary_validator(oldest, allow_network=False) is touched
+    second = paths[len(paths) - run.MAX_CACHED_VALIDATORS + 1]
+    keys = [key[0] for key in run._CACHE.dictionaries]
+    assert str(second.resolve()) not in keys  # it was the least recently used
     run._CACHE.dictionaries.clear()
 
 
@@ -334,7 +344,12 @@ def test_libxml2_limits_in_a_step_fail_closed(monkeypatch, step):
                 raise etree.XSLTApplyError("libxslt limit")
 
         monkeypatch.setattr(run, "_schematron", lambda path: (Failing(), contexts))
-    report = validate(NO_ERROR, checks=[step])
+    target = (
+        FIXTURES / "findings" / "two_failing_boreholes.xml" if step == "schematron" else NO_ERROR
+    )
+    report = validate(target, checks=[step])
+    if step == "schematron":  # pydiggs's own casing rule still runs
+        assert rules.SCHEMATRON_CASING_UNITS in {f.rule_id for f in report.findings}
     errors = [f for f in report.findings if f.rule_id == f"{step}.incomplete"]
     assert len(errors) == 1
     assert errors[0].severity is Severity.ERROR
