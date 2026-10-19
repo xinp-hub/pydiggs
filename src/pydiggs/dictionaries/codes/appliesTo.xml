@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="appliesTo">
+    <gml:description>Codes naming what a diggs:DesignFactor's value is applied to - an action, a material property, a calculated resistance, or a geosynthetic property. Used for the value of the appliesTo property of diggs:DesignFactor (core/Common.xsd), which exists specifically so a factor's identity (parameterName) and what it is applied to do not have to be conflated into one dictionary entry. The list is open.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml</gml:identifier>
+    <gml:name>DIGGS Design Factor Applies-To Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="permanent_action">
+            <gml:description>A permanent (dead) load or action - self-weight, earth pressure at rest, and similar actions that do not vary in time.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#permanent_action</gml:identifier>
+            <gml:name>Permanent action</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="variable_action">
+            <gml:description>A variable (live) load or action - traffic, construction surcharge, and similar actions that vary in time or magnitude.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#variable_action</gml:identifier>
+            <gml:name>Variable action</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="accidental_action">
+            <gml:description>An accidental action - impact, explosion, or another action of low probability and short duration.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#accidental_action</gml:identifier>
+            <gml:name>Accidental action</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="seismic_action">
+            <gml:description>An action arising from earthquake ground motion.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#seismic_action</gml:identifier>
+            <gml:name>Seismic action</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="soil_friction_angle">
+            <gml:description>The characteristic soil friction angle (peak or critical-state, as stated elsewhere on the governing ProvenancedParameter).</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#soil_friction_angle</gml:identifier>
+            <gml:name>Soil friction angle</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="soil_cohesion">
+            <gml:description>The characteristic soil cohesion or undrained shear strength.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#soil_cohesion</gml:identifier>
+            <gml:name>Soil cohesion</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bearing_resistance">
+            <gml:description>A calculated bearing (axial geotechnical) resistance.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#bearing_resistance</gml:identifier>
+            <gml:name>Bearing resistance</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sliding_resistance">
+            <gml:description>A calculated sliding or lateral geotechnical resistance.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#sliding_resistance</gml:identifier>
+            <gml:name>Sliding resistance</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="geosynthetic_tensile_strength">
+            <gml:description>The characteristic or long-term tensile strength of a geosynthetic reinforcement layer.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#geosynthetic_tensile_strength</gml:identifier>
+            <gml:name>Geosynthetic tensile strength</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="geosynthetic_tensile_stiffness">
+            <gml:description>The secant or isochronous tensile stiffness of a geosynthetic reinforcement layer.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/appliesTo.xml#geosynthetic_tensile_stiffness</gml:identifier>
+            <gml:name>Geosynthetic tensile stiffness</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignFactor/diggs:appliesTo</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

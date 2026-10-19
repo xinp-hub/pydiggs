@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="loadTestIncrementPhase">
+    <gml:description>Codes classifying whether a load test increment is part of seating, loading, unloading, or a reload within a cyclic sequence. Used for the value of diggs:LoadTestIncrementType/loadingPhase.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadTestIncrementPhase.xml</gml:identifier>
+    <gml:name>DIGGS Load Test Increment Phase Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="loading">
+            <gml:description>The load is being increased at this increment.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadTestIncrementPhase.xml#loading</gml:identifier>
+            <gml:name>Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LoadTestIncrement/diggs:loadingPhase</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="unloading">
+            <gml:description>The load is being decreased at this increment - e.g. between cycles of a cyclic loading procedure, or during final unloading at the end of the test.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadTestIncrementPhase.xml#unloading</gml:identifier>
+            <gml:name>Unloading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LoadTestIncrement/diggs:loadingPhase</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="reload">
+            <gml:description>The load is being reapplied at this increment following an unloading stage within a cyclic loading procedure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadTestIncrementPhase.xml#reload</gml:identifier>
+            <gml:name>Reload</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LoadTestIncrement/diggs:loadingPhase</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="seating">
+            <gml:description>The increment belongs to the seating or pre-loading cycle applied before the test proper - the seating load being applied or, afterwards, released - and its settlement is not part of the loading curve.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/loadTestIncrementPhase.xml#seating</gml:identifier>
+            <gml:name>Seating</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LoadTestIncrement/diggs:loadingPhase</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="samplingCategory">
+    <gml:description>Controlled vocabulary for diggs:AbstractSamplingActivityType/samplingCategory (realized by diggs:SamplingActivity) - ISO 22475-1:2021's sampler/technique capability categories, describing how much a sampling technique disturbs the material being sampled, independent of what was actually recovered (see diggs:SampleType/qualityClass for the sample-side counterpart, soil only). Categories A-E apply identically in structure to both soil (ISO 22475-1 section 5.3) and rock (section 5.4), each with its own definition; Category A is least disturbance, and the second (2021) edition of the standard added Categories D and E beyond the first edition's A-C. PROVISIONAL: verified against the standard's own foreword and table of contents (primary source), but the specific defining criteria for each category, especially the 2021-new D and E, are drawn from a secondary source (a named, dated trade-journal article directly quoting the prior edition's EC7-2 Table 1) rather than the paywalled standard text itself - see docs/build/R16/NOTES.md section 10 in the rigid-inclusions repo. Confirm against the full standard before treating the category-level descriptions as final.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/samplingCategory.xml</gml:identifier>
+    <gml:name>DIGGS Sampling Category</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="category_a">
+            <gml:description>Least disturbance to the material's fabric and structure; the only category able to yield samples suitable for strength and compressibility/stiffness testing (soil quality class 1) or equivalent high-quality rock samples.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/samplingCategory.xml#category_a</gml:identifier>
+            <gml:name>Category A sampling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SamplingActivity/diggs:samplingCategory</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="category_b">
+            <gml:description>Structure and composition largely preserved but with more disturbance than Category A; unsuitable for strength or compressibility testing, still reliable for density- and permeability-related classification.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/samplingCategory.xml#category_b</gml:identifier>
+            <gml:name>Category B sampling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SamplingActivity/diggs:samplingCategory</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="category_c">
+            <gml:description>Material and stratigraphic sequence identifiable but particle size, water content and finer structure are no longer reliably representative of in-situ conditions; in the 2006 first edition this was the most disturbed of three categories.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/samplingCategory.xml#category_c</gml:identifier>
+            <gml:name>Category C sampling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SamplingActivity/diggs:samplingCategory</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="category_d">
+            <gml:description>Introduced in the 2021 second edition as a further disturbance gradation between the original Category C and the new Category E. PROVISIONAL - defining criteria not sourced beyond the standard's table of contents; see the dictionary description.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/samplingCategory.xml#category_d</gml:identifier>
+            <gml:name>Category D sampling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SamplingActivity/diggs:samplingCategory</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="category_e">
+            <gml:description>Introduced in the 2021 second edition as the most disturbed category, extending beyond the original three-category (A-C) scheme. PROVISIONAL - defining criteria not sourced beyond the standard's table of contents; see the dictionary description.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/samplingCategory.xml#category_e</gml:identifier>
+            <gml:name>Category E sampling</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:SamplingActivity/diggs:samplingCategory</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

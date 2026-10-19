@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="geosyntheticReinforcementType">
+    <gml:description>Codes for a geosynthetic reinforcement layer's product form - geogrid or geotextile, and the axiality of a geogrid. Distinct from diggs:reinforcementType on diggs:ReinforcementType (steel cage arrangement) despite the shared element name - a different object, a different vocabulary. Used for the value of diggs:DesignGeosyntheticLayerType/reinforcementType and diggs:GeosyntheticType/reinforcementType.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/geosyntheticReinforcementType.xml</gml:identifier>
+    <gml:name>DIGGS Geosynthetic Reinforcement Product Form Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="geogrid_uniaxial">
+            <gml:description>A geogrid with primary tensile strength in one direction only.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/geosyntheticReinforcementType.xml#geogrid_uniaxial</gml:identifier>
+            <gml:name>Geogrid, uniaxial</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignGeosyntheticLayer/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Geosynthetic/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="geogrid_biaxial">
+            <gml:description>A geogrid with comparable tensile strength in two orthogonal directions.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/geosyntheticReinforcementType.xml#geogrid_biaxial</gml:identifier>
+            <gml:name>Geogrid, biaxial</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignGeosyntheticLayer/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Geosynthetic/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="geogrid_triaxial">
+            <gml:description>A geogrid with a triangular aperture geometry providing multi-directional tensile strength.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/geosyntheticReinforcementType.xml#geogrid_triaxial</gml:identifier>
+            <gml:name>Geogrid, triaxial</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignGeosyntheticLayer/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Geosynthetic/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="geotextile_woven">
+            <gml:description>A woven geotextile used for its tensile reinforcement function rather than filtration/separation alone.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/geosyntheticReinforcementType.xml#geotextile_woven</gml:identifier>
+            <gml:name>Geotextile, woven</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignGeosyntheticLayer/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Geosynthetic/diggs:reinforcementType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

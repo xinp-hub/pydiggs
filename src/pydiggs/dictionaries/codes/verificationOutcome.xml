@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="verificationOutcome">
+    <gml:description>Codes for the verdict of a diggs:DesignVerification - satisfied, not satisfied, or not required. A check that does not apply to a design states not_required rather than omitting the verification, so its inapplicability is a recorded decision. Used for the value of diggs:DesignVerificationType/diggs:outcome.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/verificationOutcome.xml</gml:identifier>
+    <gml:name>DIGGS Design Verification Outcome Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="satisfied">
+            <gml:description>The check was run and the design satisfies it - demand does not exceed capacity.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/verificationOutcome.xml#satisfied</gml:identifier>
+            <gml:name>Satisfied</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignVerification/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:AcceptanceCheck/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="not_satisfied">
+            <gml:description>The check was run and the design fails it - demand exceeds capacity.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/verificationOutcome.xml#not_satisfied</gml:identifier>
+            <gml:name>Not satisfied</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignVerification/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:AcceptanceCheck/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="not_required">
+            <gml:description>The check does not apply to this design, stated explicitly rather than left as an unperformed check.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/verificationOutcome.xml#not_required</gml:identifier>
+            <gml:name>Not required</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignVerification/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:AcceptanceCheck/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="waived">
+            <gml:description>The requirement was not met, and the departure was accepted rather than corrected - the outcome of a formal concession. Distinguished from not_satisfied, which records a failure without saying what followed, and from not_required, which means the requirement never applied to this subject in the first place. A waived check should normally cite, through nonConformanceRef, the diggs:NonConformance whose disposition records the concession; the pairing is with the accept_as_is disposition. Bound to diggs:AcceptanceCheck only: a design verification is either satisfied, not satisfied, or not required, and there is no party to grant a concession against a calculation.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/verificationOutcome.xml#waived</gml:identifier>
+            <gml:name>Waived</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:AcceptanceCheck/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="inconclusive">
+            <gml:description>The check was run and its evidence cannot decide the criterion - for example a record that does not meet the condition on which the criterion's reading rests, or one that shows no feature to measure. Neither satisfied nor not satisfied, and no concession is made: the criterion is left open. Bound to diggs:AcceptanceCheck only.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/verificationOutcome.xml#inconclusive</gml:identifier>
+            <gml:name>Inconclusive</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:AcceptanceCheck/diggs:outcome</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

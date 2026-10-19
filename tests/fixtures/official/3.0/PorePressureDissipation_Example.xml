@@ -8,6 +8,104 @@
     <documentInformation>
         <DocumentInformation gml:id="d1">
             <creationDate>2020-06-10</creationDate>
+            <!-- Local site grid used by localCoordinates on the CPT sounding. Axes are aligned with
+                 UTM Zone 11N and NAVD88 (no rotation, scale 1), so the origin is the sounding's
+                 projected reference point minus its local coordinates (142.35, 78.12, 6.00). -->
+            <crs>
+                <LocalCartesianCRS gml:id="site-grid-crs">
+                    <gml:description>Three-dimensional local site grid: E and N parallel to UTM Zone 11N
+                        easting and northing, U equal to NAVD88 height.</gml:description>
+                    <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">site-grid-crs</gml:identifier>
+                    <gml:name>Highway 1 bridge site grid</gml:name>
+                    <gml:scope>Site investigation for the Highway 1 Bridge Replacement</gml:scope>
+                    <gml:cartesianCS>
+                        <gml:CartesianCS gml:id="site-grid-cs">
+                            <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">site-grid-cs</gml:identifier>
+                            <gml:name>Site grid Cartesian CS</gml:name>
+                            <gml:axis>
+                                <gml:CoordinateSystemAxis gml:id="site-grid-e-axis" uom="m">
+                                    <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">site-grid-e</gml:identifier>
+                                    <gml:name>Site grid east</gml:name>
+                                    <gml:remarks>Parallel to UTM Zone 11N easting.</gml:remarks>
+                                    <gml:axisAbbrev>E</gml:axisAbbrev>
+                                    <gml:axisDirection codeSpace="EPSG">east</gml:axisDirection>
+                                </gml:CoordinateSystemAxis>
+                            </gml:axis>
+                            <gml:axis>
+                                <gml:CoordinateSystemAxis gml:id="site-grid-n-axis" uom="m">
+                                    <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">site-grid-n</gml:identifier>
+                                    <gml:name>Site grid north</gml:name>
+                                    <gml:remarks>Parallel to UTM Zone 11N northing.</gml:remarks>
+                                    <gml:axisAbbrev>N</gml:axisAbbrev>
+                                    <gml:axisDirection codeSpace="EPSG">north</gml:axisDirection>
+                                </gml:CoordinateSystemAxis>
+                            </gml:axis>
+                            <gml:axis>
+                                <gml:CoordinateSystemAxis gml:id="site-grid-u-axis" uom="m">
+                                    <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">site-grid-u</gml:identifier>
+                                    <gml:name>Height</gml:name>
+                                    <gml:remarks>Equal to NAVD88 height.</gml:remarks>
+                                    <gml:axisAbbrev>U</gml:axisAbbrev>
+                                    <gml:axisDirection codeSpace="EPSG">up</gml:axisDirection>
+                                </gml:CoordinateSystemAxis>
+                            </gml:axis>
+                        </gml:CartesianCS>
+                    </gml:cartesianCS>
+                    <gml:engineeringDatum>
+                        <gml:EngineeringDatum gml:id="site-grid-datum">
+                            <gml:identifier codeSpace="http://diggsml.org/def/authorities.xml#DIGGS">site-grid-datum</gml:identifier>
+                            <gml:name>Site grid datum</gml:name>
+                            <gml:scope/>
+                            <gml:anchorDefinition>Grid origin at UTM Zone 11N 387274.3151 E, 3742567.0030 N, NAVD88 height 0.</gml:anchorDefinition>
+                        </gml:EngineeringDatum>
+                    </gml:engineeringDatum>
+                    <originLocation>
+                        <PointLocation gml:id="site-grid-origin" srsDimension="3"
+                            srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911%262=http://www.opengis.net/def/crs/EPSG/0/5703">
+                            <gml:pos>387274.3151 3742567.003 0.0</gml:pos>
+                        </PointLocation>
+                    </originLocation>
+                    <axisLocation>
+                        <AxisLocation gml:id="site-grid-e-axis-location">
+                            <axisRef xlink:href="#site-grid-e-axis"/>
+                            <axisOrder>1</axisOrder>
+                            <location>
+                                <LinearExtent gml:id="site-grid-e-axis-extent" srsDimension="3"
+                                    srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911%262=http://www.opengis.net/def/crs/EPSG/0/5703">
+                                    <gml:posList>387274.3151 3742567.003 0.0 387275.3151 3742567.003 0.0</gml:posList>
+                                </LinearExtent>
+                            </location>
+                            <directionVector>1 0 0</directionVector>
+                        </AxisLocation>
+                    </axisLocation>
+                    <axisLocation>
+                        <AxisLocation gml:id="site-grid-n-axis-location">
+                            <axisRef xlink:href="#site-grid-n-axis"/>
+                            <axisOrder>2</axisOrder>
+                            <location>
+                                <LinearExtent gml:id="site-grid-n-axis-extent" srsDimension="3"
+                                    srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911%262=http://www.opengis.net/def/crs/EPSG/0/5703">
+                                    <gml:posList>387274.3151 3742567.003 0.0 387274.3151 3742568.003 0.0</gml:posList>
+                                </LinearExtent>
+                            </location>
+                            <directionVector>0 1 0</directionVector>
+                        </AxisLocation>
+                    </axisLocation>
+                    <axisLocation>
+                        <AxisLocation gml:id="site-grid-u-axis-location">
+                            <axisRef xlink:href="#site-grid-u-axis"/>
+                            <axisOrder>3</axisOrder>
+                            <location>
+                                <LinearExtent gml:id="site-grid-u-axis-extent" srsDimension="3"
+                                    srsName="https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/26911%262=http://www.opengis.net/def/crs/EPSG/0/5703">
+                                    <gml:posList>387274.3151 3742567.003 0.0 387274.3151 3742567.003 1.0</gml:posList>
+                                </LinearExtent>
+                            </location>
+                            <directionVector>0 0 1</directionVector>
+                        </AxisLocation>
+                    </axisLocation>
+                </LocalCartesianCRS>
+            </crs>
         </DocumentInformation>
     </documentInformation>
 
@@ -317,12 +415,15 @@
                 </PointLocation>
             </referencePoint>
 
-            <!-- localCoordinates (minOccurs 0, maxOccurs 1) — LocalCoordinateType: easting/northing/elevation (choice) -->
+            <!-- localCoordinates (minOccurs 0, maxOccurs 1) — LocalCoordinateType: the reference point
+                 in the local site grid, as a geometry in that grid (easting/northing/elevation are deprecated) -->
             <localCoordinates>
                 <LocalCoordinate>
-                    <diggs:easting uom="m">142.35</diggs:easting>
-                    <diggs:northing uom="m">78.12</diggs:northing>
-                    <diggs:elevation uom="m">6.00</diggs:elevation>
+                    <location>
+                        <PointLocation gml:id="cpt1-local" srsName="#site-grid-crs" srsDimension="3">
+                            <gml:pos>142.35 78.12 6.00</gml:pos>
+                        </PointLocation>
+                    </location>
                 </LocalCoordinate>
             </localCoordinates>
 

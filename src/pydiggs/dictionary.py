@@ -196,33 +196,31 @@ class DictionarySemanticValidator:
         self._definition_index: dict[etree._ElementTree, dict[str, etree._Element]] = {}
         self._default_properties = Path(dictionary_path) if dictionary_path else _DEFAULT_PROPERTIES
         self._register_local_dictionary(
+            self._default_properties,
             "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
-            self._default_properties,
-        )
-        self._register_local_dictionary(
             "http://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
-            self._default_properties,
         )
         if _DEFAULT_CODES_DIR.is_dir():
             for xml_path in sorted(_DEFAULT_CODES_DIR.glob("*.xml")):
-                filename = xml_path.name
-                for scheme in ("https", "http"):
-                    url = f"{scheme}://diggsml.org/def/codes/DIGGS/0.1/{filename}"
-                    self._register_local_dictionary(url, xml_path)
+                self._register_local_dictionary(
+                    xml_path,
+                    *(
+                        f"{scheme}://diggsml.org/def/codes/DIGGS/0.1/{xml_path.name}"
+                        for scheme in ("https", "http")
+                    ),
+                )
         legacy = _DEFAULT_DICT_DIR / "DIGGSTestPropertyDefinitions.xml"
-        if legacy.is_file():
-            for url in (
-                "http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
-                "https://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
-                "http://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
-                "https://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
-            ):
-                self._register_local_dictionary(url, legacy)
+        self._register_local_dictionary(
+            legacy,
+            "http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
+            "https://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
+            "http://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
+            "https://diggsml.org/terms/DIGGSTestPropertyDefinitions.xml",
+        )
         if extra_dictionaries:
             for path in extra_dictionaries:
                 p = Path(path)
-                self._register_local_dictionary(p.resolve().as_uri(), p)
-                self._register_local_dictionary(str(p.resolve()), p)
+                self._register_local_dictionary(p, p.resolve().as_uri(), str(p.resolve()))
 
         self._uom_units_by_class = self._load_uom_map(
             Path(uom_dictionary_path) if uom_dictionary_path else _DEFAULT_UOM
@@ -236,9 +234,12 @@ class DictionarySemanticValidator:
             (el.text or "").strip() for el in root.xpath("//pattern") if (el.text or "").strip()
         ]
 
-    def _register_local_dictionary(self, key: str, path: Path) -> None:
+    def _register_local_dictionary(self, path: Path, *keys: str) -> None:
+        """Parse ``path`` once and serve it for every URL in ``keys``."""
         if path.is_file():
-            self._dict_cache[key] = _xml.parse(str(path))
+            tree = _xml.parse(str(path))
+            for key in keys:
+                self._dict_cache[key] = tree
 
     def _load_uom_map(self, path: Path) -> dict[str, set[str]]:
         mapping: dict[str, set[str]] = {}

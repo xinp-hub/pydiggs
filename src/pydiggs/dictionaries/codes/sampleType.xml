@@ -1,0 +1,478 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="type">
+    <gml:description>Controlled vocabulary for diggs:SampleType/type, describing sample form only - the physical means by which a material sample was obtained (tube, drive, core, bulk, block, or fluid/gas extraction technique). Deliberately excludes sample class, sampler brand, insertion method, condition and purpose, each already modeled as its own diggs:Sample property (classification, samplerInsertionMethod, condition, purpose) or, for proprietary sampler brands, as an AlternateNames synonym on the relevant term here rather than a first-class code. Anchored on ISO 22475-1:2021 and the AGS4.2 SAMP_TYPE vocabulary rather than ASTM designations, since ASTM's sampling-practice family (D1587, D3550, D2113, D4220) has been withdrawn wholesale with no ASTM replacement named; an ASTM designation is cited as a secondary anchor only where one still stands. Not bound to diggs:DesignSampleType - that type deliberately has no type-equivalent property (see its own documentation in core/Core.xsd), so this vocabulary serves the as-built diggs:Sample object only.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml</gml:identifier>
+    <gml:name>DIGGS Sample Type</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="open_tube">
+            <gml:description>Thin- or thick-walled tube sample recovered by static or dynamic push without a separating piston.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#open_tube</gml:identifier>
+            <gml:name>Open-tube (open-drive) sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="thin_walled_tube">
+            <gml:description>Open-tube sample using a thin-walled tube meeting ISO 22475-1's edge-taper, area-ratio and inside-clearance-ratio criteria for minimal soil disturbance.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#thin_walled_tube</gml:identifier>
+            <gml:name>Thin-walled (Shelby) tube sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D1587/D1587M</diggs:authority>
+            <diggs:reference>https://store.astm.org/d1587_d1587m-15.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="piston">
+            <gml:description>Thin-walled tube sample taken with an internal piston held stationary at the sampling depth to reduce disturbance and improve recovery in soft or sensitive soils.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#piston</gml:identifier>
+            <gml:name>Stationary-piston tube sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D6519/D6519M</diggs:authority>
+            <diggs:reference>https://store.astm.org/d6519_d6519m-23.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="split_barrel">
+            <gml:description>Disturbed sample recovered in a longitudinally split, driven barrel sampler, most commonly as part of the Standard Penetration Test.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#split_barrel</gml:identifier>
+            <gml:name>Split-barrel (split-spoon) drive sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D1586/D1586M</diggs:authority>
+            <diggs:reference>https://www.astm.org/standards/d1586</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="split_barrel_liner">
+            <gml:description>Split-barrel drive sample retained in a removable liner rather than extruded directly from the barrel.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#split_barrel_liner</gml:identifier>
+            <gml:name>Split-barrel sample retained in liner</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D1586/D1586M</diggs:authority>
+            <diggs:reference>https://www.astm.org/standards/d1586</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ring_lined_barrel">
+            <gml:description>Sample recovered in a thick-walled, driven barrel fitted with stacked internal retaining rings.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#ring_lined_barrel</gml:identifier>
+            <gml:name>Thick-wall ring-lined (California) sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D3550/D3550M</diggs:authority>
+            <diggs:reference>https://store.astm.org/d3550_d3550m-17.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="window">
+            <gml:description>Sample recovered in the open mode (without liner) from a windowed sampler advanced by percussive or vibratory driving, typical of UK/European light cable-percussion practice.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#window</gml:identifier>
+            <gml:name>Window-sampler sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="windowless">
+            <gml:description>Sample recovered in a lined tube advanced by static or dynamic driving, without an open viewing window in the barrel wall.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#windowless</gml:identifier>
+            <gml:name>Windowless (dynamic liner) sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="triple_tube_soil">
+            <gml:description>Continuous soil core recovered with a triple-tube core barrel, minimizing rotational disturbance to the retained liner.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#triple_tube_soil</gml:identifier>
+            <gml:name>Triple-tube soil core (Mazier-type)</gml:name>
+            <gml:name>Mazier sampler</gml:name>
+            <gml:name>Mostap sampler</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bulk">
+            <gml:description>General disturbed sample of unspecified sampler or method, collected to represent the material at a location without preserving structure.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#bulk</gml:identifier>
+            <gml:name>Bulk disturbed sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="large_bulk">
+            <gml:description>Large-volume disturbed sample collected for earthworks or compaction-family testing requiring more material than a standard bulk sample.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#large_bulk</gml:identifier>
+            <gml:name>Large bulk sample, earthworks testing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="small_disturbed">
+            <gml:description>Small disturbed sample retained in a jar or bag, typically for moisture content or visual classification only.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#small_disturbed</gml:identifier>
+            <gml:name>Small disturbed (jar/bag) sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="grab">
+            <gml:description>Sample taken by hand or bucket from spoil, cuttings, or a stockpile rather than from an undisturbed in-situ location.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#grab</gml:identifier>
+            <gml:name>Grab sample (bucket, spoil, stockpile)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cuttings">
+            <gml:description>Material returned to the surface by the drilling process itself (flush return or auger flights) rather than by a dedicated sampler.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#cuttings</gml:identifier>
+            <gml:name>Drill cuttings / returns</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="block">
+            <gml:description>Sample hand-cut from an excavation, trial pit, or natural exposure, preserving orientation and structure; typically the highest achievable quality class.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#block</gml:identifier>
+            <gml:name>Block sample, hand-cut (cubical or cylindrical)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D7015/D7015M</diggs:authority>
+            <diggs:reference>https://store.astm.org/d7015_d7015m-18.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="rotary_core">
+            <gml:description>Rock or cohesive-soil core recovered by rotary drilling with a single-, double-, or triple-tube core barrel.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#rotary_core</gml:identifier>
+            <gml:name>Rotary core (single/double/triple tube)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D2113</diggs:authority>
+            <diggs:reference>https://www.astm.org/standards/d2113</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="wireline_core">
+            <gml:description>Rotary core recovered through the drill string via a retrievable inner tube, without withdrawing the full drill string.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#wireline_core</gml:identifier>
+            <gml:name>Wireline core</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="dry_core">
+            <gml:description>Rotary core recovered without circulating fluid or air flush.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#dry_core</gml:identifier>
+            <gml:name>Rotary dry core</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="gravity_core">
+            <gml:description>Marine or lacustrine sediment core recovered by free-fall penetration of a weighted corer.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#gravity_core</gml:identifier>
+            <gml:name>Gravity core</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="vibrocore">
+            <gml:description>Marine or lacustrine sediment core recovered using a vibrating corer to advance the tube.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#vibrocore</gml:identifier>
+            <gml:name>Vibrocore</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="piston_core">
+            <gml:description>Marine sediment core recovered with a piston corer, using an internal piston to improve recovery and reduce disturbance at depth.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#piston_core</gml:identifier>
+            <gml:name>Marine piston core</gml:name>
+            <gml:name>STACORE sampler</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="pumped">
+            <gml:description>Groundwater sample extracted by pumping.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#pumped</gml:identifier>
+            <gml:name>Pumped water sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="discrete_sampler">
+            <gml:description>Groundwater sample extracted from a specific depth using a discrete-interval sampler or bailer.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#discrete_sampler</gml:identifier>
+            <gml:name>Discrete-depth water sampler / bailer</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="vacuum_bottle">
+            <gml:description>Groundwater sample extracted using a pre-evacuated vacuum bottle.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#vacuum_bottle</gml:identifier>
+            <gml:name>Vacuum-bottle water sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ISO 22475-1</diggs:authority>
+            <diggs:reference>https://www.iso.org/standard/71002.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="water_sample">
+            <gml:description>Groundwater or surface-water sample whose specific extraction technique (pumped, discrete sampler, or vacuum bottle) was not recorded; use one of the more specific water terms when the technique is known. Matches AGS4.2 codes W and EW, which do not distinguish extraction form.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#water_sample</gml:identifier>
+            <gml:name>Water sample, extraction method not recorded</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="soil_gas_active">
+            <gml:description>Soil-gas or vapor sample extracted by pumping a volume of gas from the vadose zone into a collection device.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#soil_gas_active</gml:identifier>
+            <gml:name>Active (pumped) soil-gas sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D7663</diggs:authority>
+            <diggs:reference>https://store.astm.org/d7663-12r18e01.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="soil_gas_passive">
+            <gml:description>Soil-gas or vapor sample collected by leaving a sorbent material in the ground to adsorb vapors over an exposure period.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#soil_gas_passive</gml:identifier>
+            <gml:name>Passive (sorbent) soil-gas sample</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>ASTM D7758</diggs:authority>
+            <diggs:reference>https://store.astm.org/d7758-17.html</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="gas_sample">
+            <gml:description>Gas or vapor sample whose specific extraction technique (active/pumped or passive/sorbent) was not recorded; use one of the more specific soil-gas terms when the technique is known. Matches AGS4.2 codes G and EV, which do not distinguish extraction form.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#gas_sample</gml:identifier>
+            <gml:name>Gas/vapour sample, extraction method not recorded</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="fresh_batch">
+            <gml:description>Sample taken from a fresh, unset batch of concrete, grout, or similar cementitious material prior to placement or curing.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#fresh_batch</gml:identifier>
+            <gml:name>Sample of fresh, unset concrete or grout</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cast_cube">
+            <gml:description>Concrete or grout specimen cast to a cubical mould for curing and subsequent strength testing.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#cast_cube</gml:identifier>
+            <gml:name>Cube cast in a mould</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cast_cylinder">
+            <gml:description>Concrete or grout specimen cast to a cylindrical mould for curing and subsequent strength testing.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#cast_cylinder</gml:identifier>
+            <gml:name>Cylinder cast in a mould</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="hardened_core">
+            <gml:description>Core drilled from hardened, in-place concrete or grout.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml#hardened_core</gml:identifier>
+            <gml:name>Core cut from hardened concrete or grout</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:Sample/diggs:type</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

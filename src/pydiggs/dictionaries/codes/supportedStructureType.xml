@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="supportedStructureType">
+    <gml:description>Codes naming what a load transfer platform supports - the load source the design is prepared for. Used for the value of the supportedStructureType property of diggs:DesignRILTP (moved off diggs:RIProgramBasis at PB1, 2026-09-23, once real project data - a nine-zone substation under one shared basis - showed the value varies per platform, not per program). Several other properties are meaningful only for an embankment or wall, others only for a slab or mat. The list is open.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml</gml:identifier>
+    <gml:name>DIGGS Rigid Inclusion Supported Structure Type Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="footing">
+            <gml:description>An isolated or combined shallow footing bearing on the rigid inclusions and load transfer platform.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#footing</gml:identifier>
+            <gml:name>Footing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="mat">
+            <gml:description>A continuous mat (raft) foundation bearing on the rigid inclusions and load transfer platform.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#mat</gml:identifier>
+            <gml:name>Mat foundation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="slab">
+            <gml:description>A slab-on-grade floor supported by the rigid inclusions and load transfer platform.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#slab</gml:identifier>
+            <gml:name>Slab-on-grade</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="embankment">
+            <gml:description>An earth embankment (roadway, rail or levee fill) supported by the rigid inclusions and load transfer platform.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#embankment</gml:identifier>
+            <gml:name>Embankment</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="wall">
+            <gml:description>A retaining or MSE wall supported by the rigid inclusions.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#wall</gml:identifier>
+            <gml:name>Wall</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="tank">
+            <gml:description>A storage tank supported by the rigid inclusions and load transfer platform.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#tank</gml:identifier>
+            <gml:name>Tank</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="culvert">
+            <gml:description>A culvert or box structure supported by the rigid inclusions.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#culvert</gml:identifier>
+            <gml:name>Culvert</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bridge">
+            <gml:description>A bridge approach embankment or bridge substructure element supported by the rigid inclusions.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#bridge</gml:identifier>
+            <gml:name>Bridge</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="wind_turbine">
+            <gml:description>A wind turbine foundation, typically a gravity base, carrying high overturning moment relative to its vertical load.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#wind_turbine</gml:identifier>
+            <gml:name>Wind turbine foundation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="pavement">
+            <gml:description>A pavement, hardstanding or airport apron - a large-area, relatively lightly loaded surface structure whose governing criterion is normally differential settlement.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#pavement</gml:identifier>
+            <gml:name>Pavement or apron</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="silo">
+            <gml:description>A silo or comparable tall storage structure imposing a high, concentrated and cyclically varying load on a small footprint.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#silo</gml:identifier>
+            <gml:name>Silo</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="equipment_block">
+            <gml:description>A heavy reinforced-concrete block or plinth foundation sized to a single piece of substation or industrial equipment - a power transformer or shunt reactor, typically - supported by the rigid inclusions and load transfer platform. Rigid and continuous like a mat, but distinct from it: sized to the equipment footprint rather than spanning a building's structural grid.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/supportedStructureType.xml#equipment_block</gml:identifier>
+            <gml:name>Heavy equipment block foundation</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRILTP/diggs:supportedStructureType</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

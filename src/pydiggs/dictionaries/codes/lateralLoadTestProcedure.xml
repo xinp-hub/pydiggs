@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="lateralLoadTestProcedure">
+    <gml:description>Codes classifying the loading procedure used in a static lateral (transverse) load test - ASTM D3966/D3966M's eight named procedures. Used for the value of diggs:LateralLoadTestType/loadingProcedure.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml</gml:identifier>
+    <gml:name>DIGGS Lateral Load Test Procedure Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="standard_loading">
+            <gml:description>Load applied in increments, each held to a stabilization criterion or fixed duration, up to the target test load. ASTM D3966/D3966M's baseline procedure, analogous to staticLoadTestProcedure.xml#maintained_load for the axial case.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#standard_loading</gml:identifier>
+            <gml:name>Standard Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="excess_loading">
+            <gml:description>Standard loading continued beyond the target test load to a higher load, to establish behaviour beyond the design load.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#excess_loading</gml:identifier>
+            <gml:name>Loading in Excess of Standard Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cyclic_loading">
+            <gml:description>The load is repeatedly applied and removed (or reversed) between two levels for a number of cycles, to assess degradation of lateral resistance and stiffness with repeated loading.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#cyclic_loading</gml:identifier>
+            <gml:name>Cyclic Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="surge_loading">
+            <gml:description>Load is applied and released rapidly in a single cycle, simulating a transient event such as a berthing impact or wave surge.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#surge_loading</gml:identifier>
+            <gml:name>Surge Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="reverse_loading">
+            <gml:description>Load is applied in one direction, removed, then applied in the opposite direction, without necessarily cycling repeatedly.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#reverse_loading</gml:identifier>
+            <gml:name>Reverse Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="reciprocal_loading">
+            <gml:description>Load is alternated between two opposing directions for a number of cycles - distinguished from cyclic_loading by direction reversal rather than load-magnitude cycling in one direction.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#reciprocal_loading</gml:identifier>
+            <gml:name>Reciprocal Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="specified_lateral_movement">
+            <gml:description>Load is applied in increments sized to achieve stated lateral movement increments at the load application point, rather than stated load increments.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#specified_lateral_movement</gml:identifier>
+            <gml:name>Specified Lateral Movement</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="combined_loading">
+            <gml:description>Lateral load is applied together with a sustained axial load, to assess lateral behaviour under the axial load level the element will actually carry in service.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/lateralLoadTestProcedure.xml#combined_loading</gml:identifier>
+            <gml:name>Combined Loading</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:LateralLoadTest/diggs:loadingProcedure</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

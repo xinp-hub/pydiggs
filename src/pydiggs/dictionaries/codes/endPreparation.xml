@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="endPreparation">
+    <gml:description>Codes classifying how the loaded end faces of a specimen were prepared before a compression test. Used for the value of diggs:GroutSpecimen/diggs:endPreparation, which repeats where the ends were prepared in more than one way (for example sawed and then capped).</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/endPreparation.xml</gml:identifier>
+    <gml:name>DIGGS Specimen End Preparation Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="as_molded">
+            <gml:description>End faces left as molded; the load-bearing surfaces of cube specimens are molded. Source: EN 12390-3:2019 7.1.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/endPreparation.xml#as_molded</gml:identifier>
+            <gml:name>As molded</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#en_12390_3</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:endPreparation</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="sawed">
+            <gml:description>End faces sawed plane; ends not plane within 0.050 mm are sawed or ground to that tolerance, or capped. Source: ASTM C39/C39M-09a 6.2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/endPreparation.xml#sawed</gml:identifier>
+            <gml:name>Sawed</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c39</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:endPreparation</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="ground">
+            <gml:description>End faces ground plane. Grinding is the reference method for adjusting a specimen outside the dimensional tolerances. Source: ISO 1920-4:2020 4.1; EN 12390-3:2019 Annex A; ASTM C39/C39M-09a 6.2.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/endPreparation.xml#ground</gml:identifier>
+            <gml:name>Ground</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#iso_1920_4</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:endPreparation</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="capped_bonded">
+            <gml:description>Bonded caps applied: neat cement on freshly molded cylinders, high-strength gypsum paste or sulfur mortar on hardened cylinders and drilled cores. Source: ASTM C617/C617M.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/endPreparation.xml#capped_bonded</gml:identifier>
+            <gml:name>Capped (bonded caps)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c617</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:endPreparation</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="unbonded_caps">
+            <gml:description>Unbonded caps used in place of bonded caps: an elastomeric pad restrained by plates and rings, reused within the limits of the practice. Source: ASTM C1231/C1231M.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/endPreparation.xml#unbonded_caps</gml:identifier>
+            <gml:name>Unbonded caps</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:reference>https://diggsml.org/def/registry/DIGGS/0/specifications.xml#astm_c1231</diggs:reference>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:GroutSpecimen/diggs:endPreparation</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="basis">
+    <gml:description>Codes naming the unit of work an acceptance criterion is assessed over - distinct from scope, which says which features are governed. Used for the value of the basis property of diggs:AbstractAcceptanceCriterionType, inherited by both diggs:PerformanceCriterion and diggs:DesignConformanceCriterion. Where basis expresses a per-unit-length quantum, the reference length is given by the sibling baseLength element. Extended (S14-S20 dictionary sweep) to also cover diggs:DesignRITreatedAreaType/diggs:differentialSettlementBasis, which the schema's own documentation says shares this vocabulary with AbstractAcceptanceCriterionType/basis, plus a new angular_distortion entry named in that element's documentation but previously absent from this list.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/basis.xml</gml:identifier>
+    <gml:name>DIGGS Acceptance Criterion Basis Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="per_element">
+            <gml:description>The criterion is evaluated separately for each individual rigid inclusion or other element in scope.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/basis.xml#per_element</gml:identifier>
+            <gml:name>Per element</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:PerformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignConformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRITreatedArea/diggs:differentialSettlementBasis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="per_unit_cell">
+            <gml:description>The criterion is evaluated once per repeating unit cell of the design grid.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/basis.xml#per_unit_cell</gml:identifier>
+            <gml:name>Per unit cell</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:PerformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignConformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRITreatedArea/diggs:differentialSettlementBasis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="per_unit_length">
+            <gml:description>The criterion is evaluated per unit length, for example per 100 ft, with the reference length stated in the sibling baseLength element.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/basis.xml#per_unit_length</gml:identifier>
+            <gml:name>Per unit length</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:PerformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignConformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRITreatedArea/diggs:differentialSettlementBasis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="per_diameter">
+            <gml:description>The criterion is evaluated as a multiple of the element's diameter.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/basis.xml#per_diameter</gml:identifier>
+            <gml:name>As a multiple of element diameter</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:PerformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignConformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRITreatedArea/diggs:differentialSettlementBasis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="angular_distortion">
+            <gml:description>The criterion or predicted value is expressed as an angular distortion (differential settlement divided by span), rather than a magnitude or a per-unit-length gradient.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/basis.xml#angular_distortion</gml:identifier>
+            <gml:name>Angular distortion</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:PerformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignConformanceCriterion/diggs:basis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:DesignRITreatedArea/diggs:differentialSettlementBasis</diggs:sourceElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>

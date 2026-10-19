@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/codelists.xsl"?>
 
-<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/2.6 https://diggsml.org/schemas/2.6/Diggs.xsd" gml:id="classificationCode">
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="classificationCode">
     <gml:description>Classification codes as defined by the American Association of State Highway Transportation Officials (AASHTO M 145 or ASTM D 3282) for soils and soil-aggregate mixtures for highway construction purposes. These codes are used as values for the classificationCode property of the Lithology object.</gml:description>
     <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/aashtoM145.xml</gml:identifier>
     <gml:name>DIGGS Soil Classification  Definitions (AASHTO M 145)</gml:name>

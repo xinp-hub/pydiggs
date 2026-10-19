@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="https://diggsml.org/def/stylesheets/propertylists.xsl"?>
+
+<gml:Dictionary xmlns:diggs="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="columnType">
+    <gml:description>Codes naming the rigid inclusion installation technique family, shared by the design/specification intent (diggs:RIColumnSpecification/columnType) and the as-built record (diggs:RIColumn/columnType) so that design and as-built do not drift into different vocabularies for the same concept. Derived from the eleven-value installationType list carried by the retired CMCArrayType sketch (diggs-schema commit 0254e97, RigidInclusions.xsd, pre-C4 retirement). The list is open: technique families proliferate under proprietary trade names and cannot be closed.</gml:description>
+    <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml</gml:identifier>
+    <gml:name>DIGGS Rigid Inclusion Column Type Codelist Definitions</gml:name>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="simple_bored">
+            <gml:description>A column installed by simple rotary boring/drilling with no casing or slurry support.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#simple_bored</gml:identifier>
+            <gml:name>Simple bored</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bored_with_casing">
+            <gml:description>A column installed by rotary boring with temporary or permanent casing supporting the borehole.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#bored_with_casing</gml:identifier>
+            <gml:name>Bored with casing</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="bored_with_slurry">
+            <gml:description>A column installed by rotary boring with slurry (e.g. bentonite or polymer) supporting the borehole.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#bored_with_slurry</gml:identifier>
+            <gml:name>Bored with slurry</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="continuous_flight_hollow_auger">
+            <gml:description>A column installed with a continuous-flight hollow-stem auger, concrete or grout placed through the auger stem as it is withdrawn. Commonly abbreviated CFA; auger cast-in-place (ACIP) is a closely related replacement technique.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#continuous_flight_hollow_auger</gml:identifier>
+            <gml:name>Continuous flight hollow auger (CFA)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="micropile">
+            <gml:description>A small-diameter, typically drilled and grouted, high-capacity column.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#micropile</gml:identifier>
+            <gml:name>Micropile</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement' or .='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement' or .='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cip_vibro_driven">
+            <gml:description>A column formed by driving a closed-end casing or mandrel with a vibratory hammer and casting concrete in place.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#cip_vibro_driven</gml:identifier>
+            <gml:name>Cast-in-place, vibro-driven</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="cip_driven">
+            <gml:description>A column formed by driving a closed-end casing or mandrel with an impact hammer and casting concrete in place.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#cip_driven</gml:identifier>
+            <gml:name>Cast-in-place, driven</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="prefab_vibro_driven">
+            <gml:description>A prefabricated (precast or steel) column installed by vibratory driving.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#prefab_vibro_driven</gml:identifier>
+            <gml:name>Prefabricated, vibro-driven</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="prefab_driven">
+            <gml:description>A prefabricated (precast or steel) column installed by impact driving.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#prefab_driven</gml:identifier>
+            <gml:name>Prefabricated, driven</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="grouted_stone_column">
+            <gml:description>A column formed from stone or gravel that is grouted to give it rigidity, intermediate between an unbound aggregate pier and a fully cemented inclusion.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#grouted_stone_column</gml:identifier>
+            <gml:name>Grouted stone/gravel column</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement' or .='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement' or .='replacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="vibro_concrete_column">
+            <gml:description>A column formed by advancing a vibratory probe and placing concrete through it.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#vibro_concrete_column</gml:identifier>
+            <gml:name>Vibro concrete column (VCC)</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+    <gml:dictionaryEntry>
+        <diggs:Definition gml:id="drilled_displacement_column">
+            <gml:description>A column formed by a shaped displacement tool advanced with a rotary action, which pushes soil radially outward instead of removing it, and through which concrete or grout is placed as the tool is withdrawn. The most widely used rigid inclusion technique. Trade names in common use: Controlled Modulus Column (CMC, Menard); and Rigid Inclusion (RI), also marketed as GI, GeoConcrete Column (GCC), Controlled Stiffness Column (CSC) and Augered Pressure Grout Column (APGC) by Keller / Hayward Baker. Distinct from continuous_flight_hollow_auger, which removes spoil and is therefore a replacement technique.</gml:description>
+            <gml:identifier codeSpace="https://diggsml.org/def/authorities.xml#DIGGS">https://diggsml.org/def/codes/DIGGS/0.1/columnType.xml#drilled_displacement_column</gml:identifier>
+            <gml:name>Drilled displacement column</gml:name>
+            <diggs:dataType>string</diggs:dataType>
+            <diggs:authority>DIGGS</diggs:authority>
+            <diggs:occurrences>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumn/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumn/diggs:riInstallationMethod[.='full displacement' or .='partial displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+                <diggs:Occurrence>
+                    <diggs:sourceElementXpath>//diggs:RIColumnSpecification/diggs:columnType</diggs:sourceElementXpath>
+                    <diggs:conditionalElementXpath>ancestor::diggs:RIColumnSpecification/diggs:riInstallationMethod[.='full displacement' or .='partial displacement']</diggs:conditionalElementXpath>
+                </diggs:Occurrence>
+            </diggs:occurrences>
+        </diggs:Definition>
+    </gml:dictionaryEntry>
+</gml:Dictionary>
