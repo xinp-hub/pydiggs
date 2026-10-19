@@ -67,8 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or symlinks). `dictionary_check()` is unchanged.
 - In `validate()`, local dictionaries are read once per file however their path is
   spelled, under `max_bytes`, only if they are regular files, and at most 16 per
-  instance; Schematron rules are skipped (`schematron.skipped-location-budget`) when
-  lxml's locations would exceed 16 KiB or a namespace URI 1,024 characters.
+  instance, within one byte budget shared with the instance.
+- Fail closed: a step that cannot finish (a libxml2/libxslt limit, a deprecation XPath
+  that cannot be evaluated, or a file with more than 9,900,000 elements) is
+  `incomplete` with a `<step>.incomplete` error, never a pass.
+- `pydiggs validate --timeout SECONDS` validates each file in its own process and
+  reports a file that does not finish as a `structure.timeout` error.
+- Schematron runs without lxml's location strings (`generate-paths=false`); pydiggs
+  locates each failed assert from the rule contexts, which bounds memory per failure.
 - `validate(dictionary_path=...)` uses that dictionary for every properties URL; in
   `dictionary_check()` the bundled `codes/properties.xml` still replaces it (1.1
   behaviour, unchanged).
