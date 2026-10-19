@@ -2,6 +2,7 @@
 
 """Tests for `pydiggs` package."""
 
+import sys
 from pathlib import Path
 
 from lxml import etree, isoschematron
@@ -28,11 +29,12 @@ def test_schema_check_2(instance_path="tests/test_files/Syntax_Error_1.xml"):
     error_log = test.syntax_error_log
     assert error_log is not None
     # lxml names the file by its base name on POSIX and as given on Windows.
-    assert str(error_log) in (
+    name = (
+        "tests/test_files/Syntax_Error_1.xml" if sys.platform == "win32" else "Syntax_Error_1.xml"
+    )
+    assert str(error_log) == (
         "Opening and ending tag mismatch: creationDate line 4 and CreationDate, "
-        "line 4, column 52 (Syntax_Error_1.xml, line 4)",
-        "Opening and ending tag mismatch: creationDate line 4 and CreationDate, "
-        "line 4, column 52 (tests/test_files/Syntax_Error_1.xml, line 4)",
+        f"line 4, column 52 ({name}, line 4)"
     )
 
 

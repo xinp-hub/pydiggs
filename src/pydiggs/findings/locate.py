@@ -106,7 +106,8 @@ class Locator:
         """``gml:id`` of the nearest element at or above ``el``, memoised per element.
 
         An id longer than ``max_chars`` counts as none (and is not kept in memory), so a
-        huge id on an ancestor is read once, not once per finding.
+        huge id on an ancestor is read once, not once per finding. The memo assumes one
+        ``max_chars`` per Locator (validate() always passes the same cap).
         """
         path: list[etree._Element] = []
         node: etree._Element | None = el

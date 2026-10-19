@@ -1,3 +1,15 @@
-# Vendored reference data, fixtures and goldens are digest- or byte-checked, so git
-# must never convert line endings (Windows checkouts otherwise get CRLF).
-* -text
+# Text files are checked out with LF everywhere.
+* text=auto eol=lf
+
+# Vendored reference data, fixtures and goldens are digest- or byte-checked: never
+# convert their line endings.
+src/pydiggs/schemas/** -text
+src/pydiggs/dictionaries/** -text
+src/pydiggs/schematron/** -text
+src/pydiggs/deprecation/** -text
+src/pydiggs/PROVENANCE.toml -text
+src/pydiggs/findings/*.json -text
+tests/fixtures/** -text
+tests/test_files/** -text
+tests/test_schematron_schema/** -text
+tests/legacy_goldens/** -text
