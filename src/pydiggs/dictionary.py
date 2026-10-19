@@ -6,6 +6,7 @@ Ports the progressive checks documented in DIGGSml/validation
 
 from __future__ import annotations
 
+import errno
 import os
 import re
 from collections.abc import Callable, Iterable
@@ -396,7 +397,9 @@ class DictionarySemanticValidator:
         """``instance-dir`` / ``off`` mode: read a contained local dictionary, once.
 
         Each file is read once per instance however it is spelled (keyed by device and
-        inode), with validate()'s size limit and only if it is a regular file. At most
+        inode), only if it is a regular file, and within one byte budget shared by all
+        local dictionaries of the instance (validate() passes what ``max_bytes`` leaves
+        after the instance itself). At most
         :data:`MAX_LOCAL_DICTIONARIES` different files are read per instance; the URLs
         refused for that reason are kept in ``local_capped``.
         """
@@ -416,7 +419,11 @@ class DictionarySemanticValidator:
                 self.local_capped.add(base_url)
                 break
             try:
+                if self._max_bytes is not None and self._max_bytes < 1:
+                    raise OSError(errno.EFBIG, "local dictionary byte budget is used up")
                 data, _ = _xml.read_limited(path, self._max_bytes, regular_only=True)
+                if self._max_bytes is not None:
+                    self._max_bytes -= len(data)  # one budget for all local dictionaries
                 tree = _xml.parse_bytes(data, str(path))
             except (OSError, ValueError, etree.XMLSyntaxError):
                 tree = None
@@ -700,6 +707,32 @@ class DictionarySemanticValidator:
         self, instance_path: str | os.PathLike[str]
     ) -> DictionaryValidationResult:
         return self.validate_tree(_xml.parse(str(instance_path)), instance_path)
+
+    def release(self) -> None:
+        """Drop everything kept for the last instance (validate() calls it when done).
+
+        The validator itself is cached between files; without this, its caches would
+        keep the last instance's whole tree alive.
+        """
+        self._result = None
+        self._check13 = None
+        self._instance_dir = None
+        self._positions = {}
+        self._dict_cache = dict(self._baseline_cache)
+        self._local_trees = {}
+        self._local_by_url = {}
+        self.local_capped = set()
+        self._unreachable = set()
+        self._subtree_memo = {}
+        self._child_memo = {}
+        self._allowed_terms = {}
+        baseline = set(map(id, self._baseline_cache.values()))
+        self._definition_index = {
+            tree: index for tree, index in self._definition_index.items() if id(tree) in baseline
+        }
+        self._value_index = {
+            tree: index for tree, index in self._value_index.items() if id(tree) in baseline
+        }
 
     def _path_of(self, el: etree._Element) -> str:
         """The legacy element path ("" in validate() mode or once the result is full)."""

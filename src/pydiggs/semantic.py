@@ -23,7 +23,9 @@ class ContextValidationResult:
     legacy_paths: bool = True
     #: Context check numbers to record (None: all); validate() leaves out unrequested steps.
     checks: frozenset[int] | None = None
-    _positions: dict[etree._Element, int] | None = field(default=None, repr=False)
+    _positions: dict[etree._Element, int] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def path(self, el: etree._Element) -> str:
         """The legacy ``/name[n]/...`` path of ``el`` ("" when not needed).
@@ -91,6 +93,7 @@ def validate_context_tree(
     _check_geometry_srs(root, result)
     _check_hrefs(root, result)
     _check_datablocks(root, result)
+    result._positions = None  # do not keep a map of the whole tree in the result
     return result
 
 

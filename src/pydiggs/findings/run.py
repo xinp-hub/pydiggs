@@ -552,46 +552,54 @@ def _run_dictionary(
         dictionary_path, allow_network=allow_network, local_dictionaries=local_dictionaries
     )
 
-    def classify(severity: str, text: str, check: int) -> str:
-        # Count a dropped message at the severity validate() would have reported it.
-        probe = ValidationMessage(severity=severity, element_path="", text=text, check=check)
-        return "INFO" if not allow_network and _is_offline(probe) else severity
-
     try:
-        result = semantic.validate_tree(
-            doc, instance, max_messages=builder.remaining, max_bytes=max_bytes, classify=classify
-        )
-    except etree.XPathError as exc:  # a libxml2 limit
-        _incomplete(builder, Step.DICTIONARY, exc)
+
+        def classify(severity: str, text: str, check: int) -> str:
+            # Count a dropped message at the severity validate() would have reported it.
+            probe = ValidationMessage(severity=severity, element_path="", text=text, check=check)
+            return "INFO" if not allow_network and _is_offline(probe) else severity
+
+        try:
+            result = semantic.validate_tree(
+                doc,
+                instance,
+                max_messages=builder.remaining,
+                max_bytes=max_bytes,
+                classify=classify,
+            )
+        except etree.XPathError as exc:  # a libxml2 limit
+            _incomplete(builder, Step.DICTIONARY, exc)
+            return builder.status(Step.DICTIONARY)
+        for count, severity in result.dropped.values():
+            builder.drop(Step.DICTIONARY, _SEVERITY.get(severity, Severity.ERROR), count)
+        for message in result.messages:
+            if not allow_network and _is_offline(message):
+                builder.add(
+                    Step.DICTIONARY,
+                    rules.DICTIONARY_OFFLINE,
+                    Severity.INFO,
+                    _CHECK_PREFIX.sub("", message.text)
+                    + " It is not bundled with pydiggs and network access is off"
+                    " (allow_network=False), so it was not fetched.",
+                    node=message.node,
+                )
+                continue
+            if _is_local_inaccessible(message):
+                url = _QUOTED.search(message.text)
+                capped = url is not None and url[1] in semantic.local_capped
+                note = _CAPPED_NOTE if capped else _LOCAL_NOTE[local_dictionaries]
+                builder.add(
+                    Step.DICTIONARY,
+                    rules.dictionary_rule(message.check),
+                    Severity.WARNING,
+                    _CHECK_PREFIX.sub("", message.text) + note,
+                    node=message.node,
+                )
+                continue
+            builder.add_legacy(Step.DICTIONARY, rules.dictionary_rule(message.check), message)
         return builder.status(Step.DICTIONARY)
-    for count, severity in result.dropped.values():
-        builder.drop(Step.DICTIONARY, _SEVERITY.get(severity, Severity.ERROR), count)
-    for message in result.messages:
-        if not allow_network and _is_offline(message):
-            builder.add(
-                Step.DICTIONARY,
-                rules.DICTIONARY_OFFLINE,
-                Severity.INFO,
-                _CHECK_PREFIX.sub("", message.text)
-                + " It is not bundled with pydiggs and network access is off"
-                " (allow_network=False), so it was not fetched.",
-                node=message.node,
-            )
-            continue
-        if _is_local_inaccessible(message):
-            url = _QUOTED.search(message.text)
-            capped = url is not None and url[1] in semantic.local_capped
-            note = _CAPPED_NOTE if capped else _LOCAL_NOTE[local_dictionaries]
-            builder.add(
-                Step.DICTIONARY,
-                rules.dictionary_rule(message.check),
-                Severity.WARNING,
-                _CHECK_PREFIX.sub("", message.text) + note,
-                node=message.node,
-            )
-            continue
-        builder.add_legacy(Step.DICTIONARY, rules.dictionary_rule(message.check), message)
-    return builder.status(Step.DICTIONARY)
+    finally:
+        semantic.release()  # the validator is cached; keep no instance tree alive
 
 
 _REMOTE: Final = re.compile(r'"https?://[^"]+"')
@@ -689,6 +697,7 @@ class _StepOptions:
     allow_network: bool
     local_dictionaries: LocalDictionaries
     max_bytes: int
+    instance_bytes: int
 
 
 def _gate_element_count(
@@ -729,7 +738,7 @@ def _run_steps(
             o.dictionary_path,
             allow_network=o.allow_network,
             local_dictionaries=o.local_dictionaries,
-            max_bytes=o.max_bytes,
+            max_bytes=o.max_bytes - o.instance_bytes,
         )
     if Step.SCHEMATRON in wanted:
         steps[Step.SCHEMATRON] = _run_schematron(doc, builder, o.schematron_path)
@@ -879,6 +888,7 @@ def validate(
             allow_network=allow_network,
             local_dictionaries=local_dictionaries,
             max_bytes=limit,
+            instance_bytes=len(data),
         ),
     )
     # Well-formedness is always checked (nothing else can run without it), but an

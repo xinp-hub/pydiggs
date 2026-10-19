@@ -213,3 +213,58 @@ def test_file_uri_inside_the_folder_is_percent_decoded(tmp_path):
     site = _instance(folder, (folder / "a b.xml").as_uri())
     assert "%20" in site.read_text()
     assert _dictionary_findings(site) == []
+
+
+def _elements_reachable(obj, seen=None):
+    from lxml import etree
+
+    seen = set() if seen is None else seen
+    if id(obj) in seen:
+        return
+    seen.add(id(obj))
+    if isinstance(obj, etree._Element):
+        yield obj
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from _elements_reachable(k, seen)
+            yield from _elements_reachable(v, seen)
+    elif isinstance(obj, (list, tuple, set, frozenset)):
+        for v in obj:
+            yield from _elements_reachable(v, seen)
+
+
+def test_the_cached_validator_keeps_no_instance_tree(tmp_path):
+    from pydiggs.findings import run
+
+    site = _instance(tmp_path / "survey", "./local.xml")
+    (tmp_path / "survey" / "local.xml").write_text(_DICT)
+    validate(site, checks=["dictionary"])
+    cached = run._dictionary_validator(None, allow_network=False)
+    leftovers = [
+        el
+        for name, value in vars(cached).items()
+        if name not in ("_baseline_cache", "_definition_index", "_value_index")
+        for el in _elements_reachable(value)
+    ]
+    assert leftovers == []
+    assert cached._result is None
+    assert cached._instance_dir is None
+
+
+def test_local_dictionaries_share_the_instance_byte_budget(tmp_path):
+    folder = tmp_path / "survey"
+    folder.mkdir()
+    for name in ("a", "b"):
+        (folder / f"{name}.xml").write_text(_DICT.replace("surveyor", f"surveyor-{name}"))
+    site = folder / "site.xml"
+    site.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3">'
+        '<role codeSpace="./a.xml#surveyor-a">surveyor-a</role>'
+        '<role codeSpace="./b.xml#surveyor-b">surveyor-b</role>'
+        "</Diggs>"
+    )
+    one = (folder / "a.xml").stat().st_size
+    roomy = site.stat().st_size + 2 * one + 10
+    assert [r for r, _, _ in _dictionary_findings(site, max_bytes=roomy)] == []
+    tight = site.stat().st_size + one + 10  # the instance and one dictionary fit
+    assert [r for r, _, _ in _dictionary_findings(site, max_bytes=tight)] == ["dictionary.3"]
