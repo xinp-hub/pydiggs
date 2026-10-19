@@ -170,3 +170,30 @@ def test_console_script_entry_point(tmp_path):
     )
     assert out.returncode == 0
     assert json.loads(out.stdout)["files"][0]["path"] == "No_Error_2_6.xml"
+
+
+@pytest.mark.slow  # each worker loads the bundled validators afresh
+def test_timeout_runs_each_file_in_its_own_process(work, capsys):
+    plain = _run(capsys, "--format", "json", "ok.xml", "bad.xml")
+    isolated = _run(capsys, "--format", "json", "--timeout", "300", "ok.xml", "bad.xml")
+    assert isolated == plain  # same report, exit code and output
+
+
+def test_timeout_fails_closed_and_the_batch_goes_on(work, capsys):
+    code, out, _ = _run(capsys, "--format", "json", "--timeout", "0.001", "ok.xml", "bad.xml")
+    assert code == 1
+    files = json.loads(out)["files"]
+    assert [f["path"] for f in files] == ["bad.xml", "ok.xml"]
+    for entry in files:
+        (finding,) = entry["findings"]
+        assert (finding["rule_id"], finding["severity"]) == ("structure.timeout", "error")
+        assert {s["status"] for s in entry["steps"]} == {"incomplete"}
+        assert entry["sha256"]
+
+
+def test_timeout_reports_unreadable_files_and_rejects_bad_values(work, capsys):
+    code, out, _ = _run(capsys, "--format", "json", "--timeout", "300", "missing.xml")
+    assert code == 2
+    assert json.loads(out)["files"][0]["status"] == "unreadable"
+    with pytest.raises(SystemExit):
+        main(["validate", "--timeout", "0", "ok.xml"])

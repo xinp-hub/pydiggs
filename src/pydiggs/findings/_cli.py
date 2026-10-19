@@ -8,20 +8,24 @@ not be read (2 outranks 1). An XML syntax error is a finding, so it gives 1.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
+import multiprocessing
 import os
 import stat
 import sys
 import unicodedata
 from collections.abc import Iterator, Sequence
+from multiprocessing.connection import Connection
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 import pydiggs
+from pydiggs import _xml
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.errors import InstanceReadError, ResourceError
 from pydiggs.findings import _json, _sarif, rules
-from pydiggs.findings.model import Report, Severity, UnreadableFile
+from pydiggs.findings.model import Finding, Report, Severity, Step, UnreadableFile
 from pydiggs.findings.run import (
     DEFAULT_MAX_BYTES,
     DEFAULT_MAX_FINDINGS,
@@ -88,6 +92,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MAX_BYTES,
         metavar="N",
         help="refuse instances larger than N bytes (default 100 MiB)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="validate each file in its own process and stop it after SECONDS (an error)",
     )
     parser.add_argument(
         "--local-dictionaries",
@@ -207,7 +218,93 @@ def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.N
         parser.error("--max-findings must be 0 (no limit) or positive")
     if args.max_bytes < 1:
         parser.error("--max-bytes must be positive")
+    if args.timeout is not None and not args.timeout > 0:
+        parser.error("--timeout must be a positive number of seconds")
     return args
+
+
+def _validate_kwargs(args: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "diggs_version": args.diggs_version,
+        "checks": args.check_list,
+        "schema_path": args.schema_path,
+        "dictionary_path": args.dictionary_path,
+        "schematron_path": args.schematron_path,
+        "allow_network": args.allow_network,
+        "include_snippets": args.snippets,
+        "max_findings": args.max_findings or None,
+        "max_bytes": args.max_bytes,
+        "base_dir": args.base_dir,
+        "local_dictionaries": args.local_dictionaries,
+    }
+
+
+def _worker(conn: Connection, path: str, kwargs: dict[str, Any]) -> None:
+    """Validate one file in a child process and send back the report or the error."""
+    try:
+        conn.send(("report", validate(path, **kwargs)))
+    except (InstanceReadError, ResourceError) as exc:
+        conn.send(("error", exc))
+    finally:
+        conn.close()
+
+
+def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Report:
+    """Run validate() in a spawned process; past ``timeout`` seconds, stop it.
+
+    A file that times out gets a report with one structure.timeout ERROR and every
+    step incomplete (fail closed). Works the same on Windows, macOS and Linux: no
+    signals, a fresh interpreter per file.
+    """
+    context = multiprocessing.get_context("spawn")
+    receive, send = context.Pipe(duplex=False)
+    worker = context.Process(target=_worker, args=(send, str(path), kwargs), daemon=True)
+    worker.start()
+    send.close()
+    try:
+        if receive.poll(timeout):
+            kind, value = receive.recv()
+            if kind == "error":
+                raise value
+            report: Report = value
+            return report
+    except EOFError:  # the worker died without answering
+        return _timed_out(path, kwargs, timeout, died=True)
+    finally:
+        if worker.is_alive():
+            worker.terminate()
+            worker.join(5)
+            if worker.is_alive():
+                worker.kill()
+        worker.join()
+        receive.close()
+    return _timed_out(path, kwargs, timeout, died=False)
+
+
+def _timed_out(path: Path, kwargs: dict[str, Any], timeout: float, *, died: bool) -> Report:
+    shown, absolute = display_paths(path, kwargs.get("base_dir"))
+    try:
+        digest = hashlib.sha256(_xml.read_limited(path, kwargs["max_bytes"])[0]).hexdigest()
+    except OSError as exc:
+        raise InstanceReadError(exc.errno or 0, exc.strerror or "could not be read", shown) from exc
+    why = "stopped unexpectedly" if died else f"did not finish within {timeout:g} s (--timeout)"
+    return Report(
+        path=shown,
+        absolute_path=absolute,
+        sha256=digest,
+        diggs_version=None,
+        steps=dict.fromkeys(NATIVE_STEPS, "incomplete"),
+        findings=(
+            Finding(
+                step=Step.STRUCTURE,
+                rule_id=rules.TIMEOUT,
+                severity=Severity.ERROR,
+                message=f"Validation {why}; the file is not reported as passing.",
+            ),
+        ),
+        tool_version=pydiggs.__version__,
+        reference_data=reference_data(),
+    )
 
 
 def _run(
@@ -216,24 +313,13 @@ def _run(
     """Validate every input; ResourceError propagates (it aborts the batch)."""
     reports: list[Report] = []
     unreadable: list[UnreadableFile] = []
+    kwargs = _validate_kwargs(args)
     for path in inputs:
         try:
-            reports.append(
-                validate(
-                    path,
-                    diggs_version=args.diggs_version,
-                    checks=args.check_list,
-                    schema_path=args.schema_path,
-                    dictionary_path=args.dictionary_path,
-                    schematron_path=args.schematron_path,
-                    allow_network=args.allow_network,
-                    include_snippets=args.snippets,
-                    max_findings=args.max_findings or None,
-                    max_bytes=args.max_bytes,
-                    base_dir=args.base_dir,
-                    local_dictionaries=args.local_dictionaries,
-                )
-            )
+            if args.timeout is None:
+                reports.append(validate(path, **kwargs))
+            else:
+                reports.append(_validate_isolated(path, kwargs, args.timeout))
         except InstanceReadError as exc:
             shown, absolute = display_paths(path, args.base_dir)
             unreadable.append(

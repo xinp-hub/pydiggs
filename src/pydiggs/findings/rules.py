@@ -31,6 +31,7 @@ __all__ = [
     "SCHEMATRON_CASING_NUMERIC",
     "SCHEMATRON_CASING_UNITS",
     "SCHEMA_INCOMPLETE",
+    "TIMEOUT",
     "WELL_FORMED",
     "describe",
     "dictionary_rule",
@@ -51,6 +52,8 @@ HELP_URI: Final = "https://xinp-hub.github.io/pydiggs/findings/#rule-ids"
 
 WELL_FORMED: Final = "structure.well-formed"
 FINDINGS_TRUNCATED: Final = TRUNCATED_RULE
+#: pydiggs validate --timeout stopped the file's validation.
+TIMEOUT: Final = "structure.timeout"
 SCHEMA_INCOMPLETE: Final = "schema.incomplete"
 DICTIONARY_13: Final = "dictionary.13"
 DICTIONARY_OFFLINE: Final = "dictionary.offline"
@@ -193,6 +196,7 @@ _DICTIONARY_CHECKS: Final[dict[int, str]] = {
 _DESCRIPTIONS: Final[dict[str, str]] = {
     WELL_FORMED: "The file is not well-formed XML",
     FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
+    TIMEOUT: "Validation did not finish within --timeout",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
     DICTIONARY_OFFLINE: "A whitelisted remote code list is not bundled and network access is off",
     DEPRECATED: "Uses something the DIGGS schema deprecates",

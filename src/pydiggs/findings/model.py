@@ -268,6 +268,21 @@ class Report:
             self, "reference_data", _freeze(dict(sorted(self.reference_data.items())))
         )
 
+    def __reduce__(self) -> tuple[Any, tuple[dict[str, Any]]]:
+        """Pickle support (``steps`` and ``reference_data`` are read-only mappings)."""
+        return _rebuild_report, (
+            {
+                "path": self.path,
+                "sha256": self.sha256,
+                "diggs_version": self.diggs_version,
+                "steps": dict(self.steps),
+                "findings": self.findings,
+                "tool_version": self.tool_version,
+                "reference_data": dict(self.reference_data),
+                "absolute_path": self.absolute_path,
+            },
+        )
+
     @property
     def ok(self) -> bool:
         """True when there is no error-severity finding."""
@@ -307,6 +322,10 @@ class Report:
         return _sarif.sarif_log(
             [self], [], tool_version=self.tool_version, absolute_paths=absolute_paths
         )
+
+
+def _rebuild_report(fields: dict[str, Any]) -> Report:
+    return Report(**fields)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
