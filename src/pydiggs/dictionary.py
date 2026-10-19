@@ -252,6 +252,14 @@ class DictionarySemanticValidator:
         self._positions: dict[etree._Element, int] = {}
         self._instance_dir: Path | None = None
         self._definition_index: dict[etree._ElementTree, dict[str, etree._Element]] = {}
+        self._value_index: dict[
+            etree._ElementTree,
+            tuple[dict[str, tuple[int, etree._Element]], dict[str, tuple[int, etree._Element]]],
+        ] = {}
+        # Per instance: (ancestor, path) and (node, segments) match results.
+        self._subtree_memo: dict[tuple[etree._Element, str], bool] = {}
+        self._allowed_terms: dict[etree._ElementTree, list[str]] = {}
+        self._child_memo: dict[tuple[etree._Element, tuple[tuple[str, str], ...]], bool] = {}
         self._default_properties = Path(dictionary_path) if dictionary_path else _DEFAULT_PROPERTIES
         self._register_local_dictionary(
             self._default_properties,
@@ -475,16 +483,30 @@ class DictionarySemanticValidator:
     def _find_definition_by_value(
         self, dictionary: etree._ElementTree, value: str
     ) -> etree._Element | None:
+        """The first Definition, in document order, matching ``value`` by id or name.
+
+        A Definition matches when its id is ``value`` (or its alias) or one of its names
+        equals ``value`` ignoring case. Each dictionary is indexed once; this used to rescan every Definition and its
+        names for every codeSpace in the instance.
+        """
+        index = self._value_index.get(dictionary)
+        if index is None:
+            by_id: dict[str, tuple[int, etree._Element]] = {}
+            by_name: dict[str, tuple[int, etree._Element]] = {}
+            for position, el in enumerate(dictionary.xpath("//*[local-name()='Definition']")):
+                gml_id = el.get(_GML_ID) or el.get("id")
+                if gml_id is not None:
+                    by_id.setdefault(gml_id, (position, el))
+                for name_el in el.xpath(".//*[local-name()='name']"):
+                    by_name.setdefault(_text(name_el).lower(), (position, el))
+            index = (by_id, by_name)
+            self._value_index[dictionary] = index
+        by_id, by_name = index
         value_lower = value.lower()
         aliased = _PROPERTY_FRAGMENT_ALIASES.get(value_lower)
-        for el in dictionary.xpath("//*[local-name()='Definition']"):
-            gml_id = el.get(_GML_ID) or el.get("id")
-            if gml_id == value or (aliased and gml_id == aliased):
-                return el
-            for name_el in el.xpath(".//*[local-name()='name']"):
-                if _text(name_el).lower() == value_lower:
-                    return el
-        return None
+        hits = [by_id.get(value), by_id.get(aliased) if aliased else None, by_name.get(value_lower)]
+        found = [hit for hit in hits if hit is not None]
+        return min(found, key=lambda hit: hit[0])[1] if found else None
 
     def _lookup_definition(
         self, base_url: str, *, fragment: str | None = None, value: str | None = None
@@ -604,6 +626,12 @@ class DictionarySemanticValidator:
         return False
 
     def _match_within_subtree(self, root: etree._Element, path: str) -> bool:
+        key = (root, path)
+        if key not in self._subtree_memo:
+            self._subtree_memo[key] = self._match_within_subtree_uncached(root, path)
+        return self._subtree_memo[key]
+
+    def _match_within_subtree_uncached(self, root: etree._Element, path: str) -> bool:
         normalized = path.lstrip("/")
         if normalized.startswith("//"):
             segments = [
@@ -631,6 +659,14 @@ class DictionarySemanticValidator:
         return self._match_child_path(root, segments)
 
     def _match_child_path(self, node: etree._Element, segments: list[tuple[str, str]]) -> bool:
+        key = (node, tuple(segments))
+        if key not in self._child_memo:
+            self._child_memo[key] = self._match_child_path_uncached(node, segments)
+        return self._child_memo[key]
+
+    def _match_child_path_uncached(
+        self, node: etree._Element, segments: list[tuple[str, str]]
+    ) -> bool:
         if not segments:
             return True
         prefix, local_name = segments[0]
@@ -704,6 +740,12 @@ class DictionarySemanticValidator:
         self._definition_index = {
             tree: index for tree, index in self._definition_index.items() if id(tree) in baseline
         }
+        self._value_index = {
+            tree: index for tree, index in self._value_index.items() if id(tree) in baseline
+        }
+        self._subtree_memo = {}
+        self._child_memo = {}
+        self._allowed_terms = {}
 
         for el in root.xpath("//*[@codeSpace]"):
             if _local(el) in _SKIP_LOCAL_NAMES:
@@ -1104,9 +1146,13 @@ class DictionarySemanticValidator:
                 13,
             )
             return
-        allowed = [
-            str(v) for v in code_list.xpath("//*[local-name()='Definition']/@*[local-name()='id']")
-        ]
+        allowed = self._allowed_terms.get(code_list)
+        if allowed is None:
+            allowed = [
+                str(v)
+                for v in code_list.xpath("//*[local-name()='Definition']/@*[local-name()='id']")
+            ]
+            self._allowed_terms[code_list] = allowed
         invalid = self._invalid_result_values(el, frozenset(allowed))
         if invalid:
             shown = ", ".join(f'"{v}"' for v in invalid[:_CHECK13_SHOWN])
@@ -1154,10 +1200,9 @@ class DictionarySemanticValidator:
         if params_id:
             result_sets += index.citing(f"#{params_id}")
         # XPath "$resultSets/*" de-duplicates and returns document order.
-        values: list[str] = []
+        candidates: dict[str, None] = {}
         for result_set in index.in_document_order(result_sets):
-            values += index.column(result_set, column)
-        candidates = dict.fromkeys(values)
+            candidates.update(dict.fromkeys(index.column(result_set, column)))
         return [v for v in candidates if v and v != null_text and v not in allowed]
 
 
@@ -1168,7 +1213,10 @@ class _Check13Index:
         self.root = root
         self._order: dict[etree._Element, int] | None = None
         self._citing: dict[str, list[etree._Element]] | None = None
-        self._columns: dict[etree._Element, list[dict[str, None]]] = {}
+        self._rows: dict[etree._Element, list[tuple[str, ...]]] = {}
+        self._intern: dict[str, str] = {}
+        self._widths: dict[etree._Element, int] = {}
+        self._distinct: dict[tuple[etree._Element, int], tuple[str, ...]] = {}
 
     def citing(self, ref: str) -> list[etree._Element]:
         """ResultSets whose ``parameters/@*:href`` equals ``ref``."""
@@ -1190,14 +1238,15 @@ class _Check13Index:
         order = self._order
         return sorted(dict.fromkeys(elements), key=lambda el: order.get(el, 0))
 
-    def columns(self, result_set: etree._Element) -> list[dict[str, None]]:
-        """The ResultSet's dataValues as columns of distinct normalised values, once.
+    def rows(self, result_set: etree._Element) -> list[tuple[str, ...]]:
+        """The ResultSet's dataValues as rows of normalised fields, split once.
 
-        ``columns[c - 1]`` holds column ``c``'s distinct values in first-seen order, so
-        a property reads its column directly whatever the number of properties or rows.
+        Rows are tuples and equal values share one string (interned per document), so
+        the cache costs a pointer per field, whatever the number of properties.
         """
-        if result_set not in self._columns:
-            columns: list[dict[str, None]] = []
+        if result_set not in self._rows:
+            rows: list[tuple[str, ...]] = []
+            intern = self._intern
             for block in result_set:
                 if not isinstance(block.tag, str) or _local(block) != "dataValues":
                     continue
@@ -1207,20 +1256,39 @@ class _Check13Index:
                     _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
                 )
                 cs_pattern = re.compile(re.escape(cs))
-                for token in ts_pattern.split(_normalize_space(block.xpath("string()"))):
-                    if not token:
-                        continue
-                    for i, field_ in enumerate(cs_pattern.split(token)):
-                        if i == len(columns):
-                            columns.append({})
-                        columns[i][_normalize_space(field_)] = None
-            self._columns[result_set] = columns
-        return self._columns[result_set]
+                tokens = ts_pattern.split(_normalize_space(block.xpath("string()")))
+                rows.extend(
+                    tuple(
+                        intern.setdefault(v, v)
+                        for v in map(_normalize_space, cs_pattern.split(token))
+                    )
+                    for token in tokens
+                    if token
+                )
+            self._rows[result_set] = rows
+        return self._rows[result_set]
 
-    def column(self, result_set: etree._Element, column: int) -> list[str]:
-        """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order."""
-        columns = self.columns(result_set)
-        return list(columns[column - 1]) if column <= len(columns) else []
+    def column(self, result_set: etree._Element, column: int) -> Iterable[str]:
+        """Values in ``column`` (1-based) of the ResultSet's dataValues.
+
+        For a ResultSet with many rows the column's distinct values are cached, so many
+        properties reading it cost one pass; small ResultSets are just re-read (caching
+        them would cost more memory than it saves).
+        """
+        rows = self.rows(result_set)
+        width = self._widths.get(result_set)
+        if width is None:  # computed once (setdefault would evaluate max() every call)
+            width = self._widths[result_set] = max(map(len, rows), default=0)
+        if column > width:
+            return ()
+        if len(rows) < _CHECK13_CACHE_ROWS:
+            return (row[column - 1] for row in rows if column <= len(row))
+        key = (result_set, column)
+        if key not in self._distinct:
+            self._distinct[key] = tuple(
+                dict.fromkeys(row[column - 1] for row in rows if column <= len(row))
+            )
+        return self._distinct[key]
 
 
 _XS_INTEGER = re.compile(r"[+-]?[0-9]+")
@@ -1237,6 +1305,7 @@ MAX_LOCAL_DICTIONARIES = 16
 
 _XPATH_WS_RUN = re.compile(r"[ \t\n\r]+")
 _CHECK13_SHOWN = 5  # the official message lists the first five invalid values
+_CHECK13_CACHE_ROWS = 64  # cache a column's distinct values for ResultSets this tall
 _CHECK13_TERMS = 20  # pydiggs lists at most 20 valid terms (the official module lists all)
 
 

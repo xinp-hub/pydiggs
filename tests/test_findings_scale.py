@@ -324,3 +324,88 @@ def test_no_findings_cap_still_bounds_the_legacy_layers():
     assert float(out[0]) < 800, out  # was 859 MB and grew with the input
     assert 10_000 < int(out[1]) < 20_000  # the 16 MiB budget, plus the marker
     assert out[2] == "incomplete"
+
+
+def test_dictionary_by_value_lookups_are_indexed(tmp_path):
+    from pydiggs import validate
+
+    # 10,000 legacy (no '#') codeSpaces looked up by value: each used to rescan every
+    # Definition of properties.xml and its names.
+    path = tmp_path / "byval.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}">'
+        + '<q codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml">z</q>' * 10_000
+        + "</Diggs>"
+    )
+    validate(path, checks=["dictionary"], max_findings=1)  # warm the validator cache
+    start = time.perf_counter()
+    report = validate(path, checks=["dictionary"])
+    assert time.perf_counter() - start < 4  # about 0.5 s here
+    assert {f.rule_id for f in report.findings} == {"dictionary.5"}
+
+
+def test_measurement_ancestor_matches_are_memoised(tmp_path):
+    from pydiggs import validate
+
+    # 1,000 properties in a measurement with 100,000 other children: each property's
+    # Check 8 scanned the whole measurement for a procedure.
+    prop = (
+        '<Property index="{i}" gml:id="P{i}"><typeData>string</typeData><propertyClass '
+        'codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#loading_phase">'
+        "Loading Phase</propertyClass></Property>"
+    )
+    path = tmp_path / "mc.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2">'
+        "<measurement><Test gml:id='T'><outcome><TestResult gml:id='R'><results><ResultSet>"
+        "<parameters><PropertyParameters gml:id='PP'><properties>"
+        + "".join(prop.format(i=i + 1) for i in range(1000))
+        + "</properties></PropertyParameters></parameters><dataValues>"
+        + ",".join(["loading"] * 1000)
+        + "</dataValues></ResultSet></results></TestResult></outcome></Test>"
+        + "<x/>" * 100_000
+        + "</measurement></Diggs>"
+    )
+    validate(path, checks=["dictionary"], max_findings=1)
+    start = time.perf_counter()
+    validate(path, checks=["dictionary"])
+    assert time.perf_counter() - start < 4  # about 0.5 s here
+
+
+_C13MEM = """
+import tempfile
+from pathlib import Path
+from lxml import etree
+from pydiggs import validate
+k = r = 2200
+prop = ('<Property index="{i}" gml:id="P{i}"><typeData>string</typeData><propertyClass '
+        'codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#loading_phase">'
+        'Loading Phase</propertyClass></Property>')
+row = ",".join(["a"] * k)
+xml = ('<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2" '
+       'xmlns:xlink="http://www.w3.org/1999/xlink"><measurement><Test gml:id="T1"><outcome>'
+       '<TestResult gml:id="TR1"><results><ResultSet><parameters><PropertyParameters gml:id="PP">'
+       '<properties>' + "".join(prop.format(i=i + 1) for i in range(k))
+       + '</properties></PropertyParameters></parameters><dataValues>' + row
+       + '</dataValues></ResultSet>'
+       + ('<ResultSet><parameters xlink:href="#PP"/><dataValues>' + row + '</dataValues></ResultSet>') * r
+       + '</results></TestResult></outcome></Test></measurement></Diggs>')
+path = Path(tempfile.mkdtemp()) / "c13mem.xml"
+path.write_text(xml)
+etree.parse(str(path))  # parsing alone sets the baseline
+base = peak()
+report = validate(path, checks=["dictionary"])
+print(peak() - base, report.counts["error"])
+"""
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
+def test_check13_many_result_sets_stays_small():
+    # 2,200 properties x 2,200 ResultSets citing them (9.8 MiB): the per-ResultSet
+    # column cache used to grow to gigabytes.
+    out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", _PEAK + _C13MEM], capture_output=True, text=True, check=True
+    ).stdout.split()
+    assert float(out[0]) < 300, out  # MB beyond parsing
+    assert int(out[1]) == 2200
