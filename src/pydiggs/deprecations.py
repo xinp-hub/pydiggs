@@ -6,6 +6,9 @@ with an ``instanceXPath`` is evaluated against the instance with the registry's
 namespace bindings, and every match is reported, as a warning for ``deprecated`` and an
 error for ``removed``, with the official message text.
 
+Unlike the official module, an entry whose XPath fails to evaluate is not skipped:
+:func:`matches` raises, so validate() reports the step as incomplete.
+
 One deliberate difference from the official module: an entry applies only to
 instances whose DIGGS version is at or after the entry's ``since`` (deprecated) or
 ``removedIn`` (removed) release, so entries introduced in 3.1.0 never fire on 3.0.0,
@@ -166,28 +169,35 @@ def load_registry() -> tuple[dict[str, str], tuple[DeprecationEntry, ...]]:
     return namespaces, tuple(entries)
 
 
-def matches(doc: etree._ElementTree, diggs_version: str) -> list[Match]:
-    """Every use of a deprecated or removed item that applies to ``diggs_version``.
+def matches(
+    doc: etree._ElementTree, diggs_version: str, limit: int | None = None
+) -> tuple[list[Match], dict[str, int]]:
+    """Uses of deprecated or removed items that apply to ``diggs_version``.
 
-    Entries whose XPath lxml (XPath 1.0) cannot evaluate are skipped, as the official
-    module skips entries whose evaluation fails.
+    Returns the matches (at most ``limit`` of them) and, per entry status, how many
+    more there were. An XPath that cannot be evaluated (a registry entry lxml rejects,
+    or a libxml2 limit) raises :class:`lxml.etree.XPathError`: the check is then not
+    complete, and the caller must say so rather than pass the file.
     """
     namespaces, entries = load_registry()
     found: list[Match] = []
+    more: dict[str, int] = {}
     for entry in entries:
         if not applies(entry, diggs_version):
             continue
-        try:
-            result = doc.xpath(entry.instance_xpath, namespaces=namespaces)
-        except etree.XPathError:
-            continue
+        result = doc.xpath(entry.instance_xpath, namespaces=namespaces)
         if not isinstance(result, list):
             continue
         for node in result:
             if isinstance(node, etree._Element) and isinstance(node.tag, str):
-                found.append(Match(entry, node, None))
+                match = Match(entry, node, None)
             elif getattr(node, "is_attribute", False):
-                parent = node.getparent()
                 name = str(getattr(node, "attrname", ""))
-                found.append(Match(entry, parent, etree.QName(name).localname))
-    return found
+                match = Match(entry, node.getparent(), etree.QName(name).localname)
+            else:
+                continue
+            if limit is not None and len(found) >= limit:
+                more[entry.status] = more.get(entry.status, 0) + 1
+            else:
+                found.append(match)
+    return found, more

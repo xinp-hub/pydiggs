@@ -279,3 +279,64 @@ def test_dictionary_validator_cache_is_a_small_lru(tmp_path, monkeypatch):
     newest = run._dictionary_validator(paths[-1], allow_network=False)
     assert run._dictionary_validator(paths[-1], allow_network=False) is newest
     run._CACHE.dictionaries.clear()
+
+
+def test_too_many_elements_fails_closed(tmp_path, monkeypatch, capsys):
+    from pydiggs.findings import run
+
+    monkeypatch.setattr(run, "MAX_ELEMENTS", 10)
+    big = tmp_path / "big.xml"
+    big.write_text('<Diggs xmlns="http://diggsml.org/schemas/2.6">' + "<a/>" * 50 + "</Diggs>")
+    report = validate(big)
+    incomplete = sorted(f.rule_id for f in report.findings if f.rule_id.endswith(".incomplete"))
+    assert incomplete == [
+        "context.incomplete",
+        "deprecation.incomplete",
+        "dictionary.incomplete",
+        "geometry.incomplete",
+        "schematron.incomplete",
+        "structure.incomplete",
+    ]
+    assert all(f.severity is Severity.ERROR for f in report.findings if f.rule_id in incomplete)
+    assert report.steps[Step.SCHEMATRON] == "incomplete"
+    assert report.steps[Step.SCHEMA] == "failed"  # schema validation still runs
+    assert report.ok is False
+    code = main(["validate", "--format", "json", str(big), str(NO_ERROR)])
+    files = json.loads(capsys.readouterr().out)["files"]
+    assert code == 1
+    assert len(files) == 2  # the batch went on
+
+
+@pytest.mark.parametrize("step", ["dictionary", "context", "schematron", "deprecation"])
+def test_libxml2_limits_in_a_step_fail_closed(monkeypatch, step):
+    from lxml import etree
+
+    from pydiggs import deprecations
+    from pydiggs.dictionary import DictionarySemanticValidator
+    from pydiggs.findings import run
+
+    def boom(*args, **kwargs):
+        raise etree.XPathEvalError("XPath node set limit reached")
+
+    if step == "dictionary":
+        monkeypatch.setattr(DictionarySemanticValidator, "validate_tree", boom)
+    elif step == "context":
+        monkeypatch.setattr(run, "validate_context_tree", boom)
+    elif step == "deprecation":
+        monkeypatch.setattr(deprecations, "matches", boom)
+    else:
+        _compiled, contexts = run._schematron(None)
+
+        class Failing:
+            validation_report = None
+
+            def validate(self, doc):
+                raise etree.XSLTApplyError("libxslt limit")
+
+        monkeypatch.setattr(run, "_schematron", lambda path: (Failing(), contexts))
+    report = validate(NO_ERROR, checks=[step])
+    errors = [f for f in report.findings if f.rule_id == f"{step}.incomplete"]
+    assert len(errors) == 1
+    assert errors[0].severity is Severity.ERROR
+    assert report.steps[Step(step)] == "incomplete"
+    assert report.ok is False

@@ -169,18 +169,18 @@ def test_registry_3_1_0_entries_never_fire_on_older_versions():
     for version in ("3.0.0", "2.6", "2.5.a"):
         assert not any(deprecations.applies(e, version) for e in later)
     doc = etree.parse(str(DEPRECATION))
-    at_31 = {m.entry.key for m in deprecations.matches(doc, "3.1.0")}
+    at_31 = {m.entry.key for m in deprecations.matches(doc, "3.1.0")[0]}
     assert "element:diggs:MonitorResult" in at_31
     assert "element:diggs:originalProjectRef" in at_31
 
 
 def test_removed_entries_are_errors_with_the_official_text(monkeypatch):
     doc = etree.parse(str(DEPRECATION))
-    removed = next(m for m in deprecations.matches(doc, "3.1.0") if m.entry.status == "removed")
+    removed = next(m for m in deprecations.matches(doc, "3.1.0")[0] if m.entry.status == "removed")
     assert removed.entry.text() == (
         "Element diggs:MonitorResult was removed in 3.1.0; use diggs:TemporalResult."
     )
-    monkeypatch.setattr(deprecations, "matches", lambda doc, version: [removed])
+    monkeypatch.setattr(deprecations, "matches", lambda doc, version, limit=None: ([removed], {}))
     report = validate(DEPRECATION, checks=["deprecation"])
     (finding,) = report.findings
     assert (finding.rule_id, finding.severity) == (rules.REMOVED, Severity.ERROR)
@@ -219,13 +219,31 @@ def test_deprecation_text_variants(kwargs, expected):
     assert deprecations.DeprecationEntry(**{**base, **kwargs}).text() == expected
 
 
-def test_bad_registry_xpath_is_skipped(monkeypatch):
+def test_a_registry_xpath_that_fails_makes_the_step_incomplete(monkeypatch):
     namespaces, _ = deprecations.load_registry()
     broken = deprecations.DeprecationEntry(
         "k", "deprecated", "element", "x", "", "", "", "", "", "//[", True
     )
     monkeypatch.setattr(deprecations, "load_registry", lambda: (namespaces, (broken,)))
-    assert deprecations.matches(etree.parse(str(DEPRECATION)), "3.0.0") == []
+    with pytest.raises(etree.XPathError):
+        deprecations.matches(etree.parse(str(DEPRECATION)), "3.0.0")
+    report = validate(DEPRECATION, checks=["deprecation"])
+    (finding,) = report.findings
+    assert (finding.rule_id, finding.severity) == ("deprecation.incomplete", Severity.ERROR)
+    assert report.steps[Step.DEPRECATION] == "incomplete"
+    assert report.ok is False
+
+
+def test_deprecation_matches_stop_collecting_at_the_limit():
+    doc = etree.parse(str(DEPRECATION))
+    everything, _ = deprecations.matches(doc, "3.1.0")
+    kept, more = deprecations.matches(doc, "3.1.0", limit=1)
+    assert len(kept) == 1
+    assert sum(more.values()) == len(everything) - 1
+    report = validate(DEPRECATION, checks=["deprecation"], max_findings=1)
+    marker = [f for f in report.findings if f.rule_id == "structure.findings-truncated"]
+    assert marker
+    assert "1 more was" in marker[0].message
 
 
 def test_check13_wide_result_sets_split_rows_once(tmp_path):

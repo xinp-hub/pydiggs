@@ -13,6 +13,7 @@ import re
 import threading
 import tomllib
 from collections.abc import Iterable
+from dataclasses import dataclass
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -39,6 +40,7 @@ from pydiggs.semantic import validate_context_tree
 __all__ = [
     "DEFAULT_MAX_BYTES",
     "DEFAULT_MAX_FINDINGS",
+    "MAX_ELEMENTS",
     "MAX_MESSAGE_CHARS",
     "MAX_REPORT_BYTES",
     "MAX_XPATH_CHARS",
@@ -65,6 +67,19 @@ MAX_XPATH_CHARS: Final = 4096
 #: Budget for one report's findings, roughly as serialised to JSON.
 MAX_REPORT_BYTES: Final = 16 * 2**20
 _FINDING_OVERHEAD: Final = 200  # JSON keys, punctuation and the fixed fields
+#: Most elements the XPath-based steps (dictionary, Schematron, deprecation, geometry,
+#: context, structure root checks) accept; libxml2 caps XPath node sets at 10,000,000.
+MAX_ELEMENTS: Final = 9_900_000
+_XPATH_STEPS: Final = frozenset(
+    {
+        Step.DICTIONARY,
+        Step.SCHEMATRON,
+        Step.DEPRECATION,
+        Step.STRUCTURE,
+        Step.GEOMETRY,
+        Step.CONTEXT,
+    }
+)
 #: Dictionary validators kept per thread (least recently used dropped first).
 MAX_CACHED_VALIDATORS: Final = 8
 #: Where validate() may read dictionaries named by relative codeSpaces.
@@ -206,6 +221,8 @@ class _Builder:
         self.size = 0
         #: Findings not kept: count and worst severity per step.
         self.dropped: dict[Step, tuple[int, Severity]] = {}
+        #: Steps that could not finish (each has an ERROR finding).
+        self.incomplete: set[Step] = set()
 
     @property
     def full(self) -> bool:
@@ -288,7 +305,7 @@ class _Builder:
         )
 
     def status(self, step: Step) -> StepStatus:
-        if step in self.dropped:
+        if step in self.dropped or step in self.incomplete:
             return "incomplete"
         failed = any(f.step is step and f.severity is Severity.ERROR for f in self.findings)
         return "failed" if failed else "passed"
@@ -446,14 +463,24 @@ def _run_schematron(
     return builder.status(Step.SCHEMATRON)
 
 
-def _incomplete(builder: _Builder, step: Step, exc: Exception) -> None:
+def _element_count(data: bytes, doc: etree._ElementTree) -> int:
+    """Elements in ``doc``: a byte-level upper estimate, counted exactly near the limit."""
+    estimate = data.count(b"<") - data.count(b"</") - data.count(b"<!") - data.count(b"<?")
+    if estimate <= MAX_ELEMENTS // 2:
+        return estimate
+    return sum(1 for _ in doc.getroot().iter())
+
+
+def _incomplete(builder: _Builder, step: Step, exc: Exception | str) -> None:
     """Fail closed: a step that could not finish is an error, never a pass."""
+    builder.incomplete.add(step)
+    why = exc if isinstance(exc, str) else f"{type(exc).__name__}: {exc}"
     builder.add(
         step,
         rules.incomplete(step),
         Severity.ERROR,
-        f"The {step.value} check could not finish ({type(exc).__name__}: {exc}); its"
-        " results are partial, so the file is not reported as passing.",
+        f"The {step.value} check could not finish ({why}); its results are partial,"
+        " so the file is not reported as passing.",
     )
 
 
@@ -529,9 +556,13 @@ def _run_dictionary(
         probe = ValidationMessage(severity=severity, element_path="", text=text, check=check)
         return "INFO" if not allow_network and _is_offline(probe) else severity
 
-    result = semantic.validate_tree(
-        doc, instance, max_messages=builder.remaining, max_bytes=max_bytes, classify=classify
-    )
+    try:
+        result = semantic.validate_tree(
+            doc, instance, max_messages=builder.remaining, max_bytes=max_bytes, classify=classify
+        )
+    except etree.XPathError as exc:  # a libxml2 limit
+        _incomplete(builder, Step.DICTIONARY, exc)
+        return builder.status(Step.DICTIONARY)
     for count, severity in result.dropped.values():
         builder.drop(Step.DICTIONARY, _SEVERITY.get(severity, Severity.ERROR), count)
     for message in result.messages:
@@ -606,7 +637,16 @@ def _is_offline(message: ValidationMessage) -> bool:
 
 
 def _run_deprecation(doc: etree._ElementTree, builder: _Builder, profile: str) -> StepStatus:
-    for match in deprecations.matches(doc, profile):
+    try:
+        found, more = deprecations.matches(doc, profile, limit=builder.remaining)
+    except etree.XPathError as exc:
+        _incomplete(builder, Step.DEPRECATION, exc)
+        return builder.status(Step.DEPRECATION)
+    for status, count in more.items():  # past the cap: counted, never located
+        builder.drop(
+            Step.DEPRECATION, Severity.ERROR if status == "removed" else Severity.WARNING, count
+        )
+    for match in found:
         removed = match.entry.status == "removed"
         builder.add(
             Step.DEPRECATION,
@@ -621,9 +661,14 @@ def _run_deprecation(doc: etree._ElementTree, builder: _Builder, profile: str) -
 
 def _run_context(root: etree._Element, builder: _Builder, wanted: frozenset[Step]) -> None:
     checks = frozenset(c for c, (step, _) in rules.CONTEXT_RULES.items() if step in wanted)
-    result = validate_context_tree(
-        root, max_messages=builder.remaining, legacy_paths=False, checks=checks
-    )
+    try:
+        result = validate_context_tree(
+            root, max_messages=builder.remaining, legacy_paths=False, checks=checks
+        )
+    except etree.XPathError as exc:  # a libxml2 limit
+        for step in sorted(_CONTEXT_STEPS & wanted, key=lambda s: s.order):
+            _incomplete(builder, step, exc)
+        return
     for check, (count, severity) in result.dropped.items():
         step, _ = rules.CONTEXT_RULES[check]
         builder.drop(step, _SEVERITY.get(severity, Severity.ERROR), count)
@@ -631,6 +676,68 @@ def _run_context(root: etree._Element, builder: _Builder, wanted: frozenset[Step
         step, rule_id = rules.CONTEXT_RULES[message.check]
         if step in wanted:
             builder.add_legacy(step, rule_id, message)
+
+
+@dataclass(frozen=True, slots=True)
+class _StepOptions:
+    profile: str
+    instance: Path
+    schema_path: str | os.PathLike[str] | None
+    dictionary_path: str | os.PathLike[str] | None
+    schematron_path: str | os.PathLike[str] | None
+    allow_network: bool
+    local_dictionaries: LocalDictionaries
+    max_bytes: int
+
+
+def _gate_element_count(
+    data: bytes,
+    doc: etree._ElementTree,
+    builder: _Builder,
+    wanted: frozenset[Step],
+    steps: dict[Step, StepStatus],
+) -> frozenset[Step]:
+    """Remove the XPath-based steps (each an error) when the file has too many elements.
+
+    libxml2 refuses XPath node sets over 10,000,000 nodes, so those steps cannot be
+    trusted to finish.
+    """
+    if _element_count(data, doc) <= MAX_ELEMENTS:
+        return wanted
+    why = f"the file has more than {MAX_ELEMENTS:,} elements"
+    for step in sorted(_XPATH_STEPS & wanted, key=lambda s: s.order):
+        _incomplete(builder, step, why)
+        steps[step] = "incomplete"
+    return wanted - _XPATH_STEPS
+
+
+def _run_steps(
+    doc: etree._ElementTree,
+    builder: _Builder,
+    steps: dict[Step, StepStatus],
+    wanted: frozenset[Step],
+    o: _StepOptions,
+) -> None:
+    if Step.SCHEMA in wanted:
+        steps[Step.SCHEMA] = _run_schema(doc, builder, o.profile, o.schema_path)
+    if Step.DICTIONARY in wanted:
+        steps[Step.DICTIONARY] = _run_dictionary(
+            doc,
+            builder,
+            o.instance,
+            o.dictionary_path,
+            allow_network=o.allow_network,
+            local_dictionaries=o.local_dictionaries,
+            max_bytes=o.max_bytes,
+        )
+    if Step.SCHEMATRON in wanted:
+        steps[Step.SCHEMATRON] = _run_schematron(doc, builder, o.schematron_path)
+    if Step.DEPRECATION in wanted:
+        steps[Step.DEPRECATION] = _run_deprecation(doc, builder, o.profile)
+    if wanted & _CONTEXT_STEPS:
+        _run_context(doc.getroot(), builder, wanted)
+        for step in _CONTEXT_STEPS & wanted:
+            steps[step] = builder.status(step)
 
 
 def validate(
@@ -757,26 +864,22 @@ def validate(
     builder = _Builder(
         Locator(doc), snippets=include_snippets, scrub=scrub, max_findings=max_findings
     )
-    if Step.SCHEMA in wanted:
-        steps[Step.SCHEMA] = _run_schema(doc, builder, profile, schema_path)
-    if Step.DICTIONARY in wanted:
-        steps[Step.DICTIONARY] = _run_dictionary(
-            doc,
-            builder,
-            instance,
-            dictionary_path,
+    _run_steps(
+        doc,
+        builder,
+        steps,
+        _gate_element_count(data, doc, builder, wanted, steps),
+        _StepOptions(
+            profile=profile,
+            instance=instance,
+            schema_path=schema_path,
+            dictionary_path=dictionary_path,
+            schematron_path=schematron_path,
             allow_network=allow_network,
             local_dictionaries=local_dictionaries,
             max_bytes=limit,
-        )
-    if Step.SCHEMATRON in wanted:
-        steps[Step.SCHEMATRON] = _run_schematron(doc, builder, schematron_path)
-    if Step.DEPRECATION in wanted:
-        steps[Step.DEPRECATION] = _run_deprecation(doc, builder, profile)
-    if wanted & _CONTEXT_STEPS:
-        _run_context(doc.getroot(), builder, wanted)
-        for step in _CONTEXT_STEPS & wanted:
-            steps[step] = builder.status(step)
+        ),
+    )
     # Well-formedness is always checked (nothing else can run without it), but an
     # unrequested structure step stays "skipped" unless the file is not well-formed.
     for step in builder.dropped:
