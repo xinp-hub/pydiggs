@@ -340,3 +340,42 @@ def test_libxml2_limits_in_a_step_fail_closed(monkeypatch, step):
     assert errors[0].severity is Severity.ERROR
     assert report.steps[Step(step)] == "incomplete"
     assert report.ok is False
+
+
+_CUSTOM_DICTIONARY = """<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"
+  xmlns:diggs="http://diggsml.org/schemas/3" gml:id="custom">
+  <gml:dictionaryEntry><diggs:Definition gml:id="my_custom_ll">
+    <gml:name>my custom ll</gml:name></diggs:Definition></gml:dictionaryEntry>
+</gml:Dictionary>"""
+
+
+@pytest.mark.parametrize(
+    "code_space",
+    [
+        "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
+        "http://diggsml.org/def/codes/DIGGS/0.1/properties.xml",
+        "http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml",
+        "https://example.com/dictionaries/properties.xml",
+    ],
+    ids=["https", "http", "legacy-test-url", "properties-fallback"],
+)
+def test_dictionary_path_serves_every_properties_url(tmp_path, code_space):
+    from pydiggs import validator
+
+    dictionary = tmp_path / "custom.xml"
+    dictionary.write_text(_CUSTOM_DICTIONARY)
+    instance = tmp_path / "site.xml"
+    instance.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3"><Property index="1"><propertyClass '
+        f'codeSpace="{code_space}#my_custom_ll">my custom ll</propertyClass></Property></Diggs>'
+    )
+    report = validate(instance, checks=["dictionary"], dictionary_path=dictionary)
+    assert not [f for f in report.findings if f.severity is Severity.ERROR], report.findings
+    if "diggsml.org/def" in code_space:
+        # dictionary_check() keeps 1.1 behaviour: the bundled properties.xml wins.
+        assert (
+            validator(
+                str(instance), dictionary_path=str(dictionary), output_log=False
+            ).dictionary_check()
+            is False
+        )

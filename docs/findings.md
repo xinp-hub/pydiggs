@@ -220,6 +220,11 @@ Rule ids are part of the stable contract.
   with a note). `"off"` reads no local dictionary. `dictionary_check()`
   keeps the 1.1 behaviour: next to the instance, then the working directory, and any
   `file:` URI.
+* **`dictionary_path`.** In `validate()` the dictionary you pass serves both
+  `properties.xml` URLs (https and http), the legacy `DIGGSTestPropertyDefinitions.xml`
+  URLs (which are looked up in it first) and the fallback for any other
+  `…/properties.xml`. `dictionary_check()` keeps 1.1 behaviour: the bundled
+  `codes/properties.xml` is registered after it under the same URLs and replaces it.
 * **Offline dictionaries.** `validate()` reports an unbundled remote dictionary as
   `dictionary.offline` (info) when network access is off; `dictionary_check()` still
   reports Check 3 as a warning.

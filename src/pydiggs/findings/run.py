@@ -526,6 +526,7 @@ def _dictionary_validator(
                 check_value_code_spaces=True,
                 local_dictionaries=local_dictionaries,
                 legacy_paths=False,
+                dictionary_path_wins=True,
             )
         except (OSError, etree.XMLSyntaxError) as exc:
             raise ResourceError(f"cannot read dictionary data: {exc}") from exc

@@ -225,6 +225,7 @@ class DictionarySemanticValidator:
         check_value_code_spaces: bool = False,
         local_dictionaries: str = "legacy",
         legacy_paths: bool = True,
+        dictionary_path_wins: bool = False,
     ) -> None:
         # Check 13 (official dictionary-validation.xsl Step 14) runs only for
         # pydiggs.validate(); dictionary_check() keeps its 1.1 behaviour.
@@ -259,6 +260,13 @@ class DictionarySemanticValidator:
         )
         if _DEFAULT_CODES_DIR.is_dir():
             for xml_path in sorted(_DEFAULT_CODES_DIR.glob("*.xml")):
+                # The bundled codes/properties.xml is registered under the same URLs as
+                # dictionary_path and replaces it (dictionary_check() has always done
+                # so). validate() passes dictionary_path_wins=True: the user's file
+                # then serves both properties URLs, the legacy test-property URLs
+                # (looked up there first) and the *properties.xml fallback.
+                if dictionary_path_wins and dictionary_path and xml_path.name == "properties.xml":
+                    continue
                 self._register_local_dictionary(
                     xml_path,
                     *(

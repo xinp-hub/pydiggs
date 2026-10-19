@@ -69,6 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   spelled, under `max_bytes`, only if they are regular files, and at most 16 per
   instance; Schematron rules are skipped (`schematron.skipped-location-budget`) when
   lxml's locations would exceed 16 KiB or a namespace URI 1,024 characters.
+- `validate(dictionary_path=...)` uses that dictionary for every properties URL; in
+  `dictionary_check()` the bundled `codes/properties.xml` still replaces it (1.1
+  behaviour, unchanged).
 - `validate(base_dir=...)` and `--base-dir` report paths relative to a chosen folder.
   Without it, paths are bare file names when the working directory is `/` or an
   ancestor of the home directory.
