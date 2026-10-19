@@ -35,7 +35,7 @@ def _injected(tmp_path: Path, pad: int = 900) -> Path:
     return path
 
 
-def test_svrl_location_with_injected_namespace_is_matched_not_evaluated(tmp_path):
+def test_injected_namespace_is_never_evaluated(tmp_path):
     path = _injected(tmp_path)
     assert 3_000 < path.stat().st_size < 5_000
     validate(path, checks=["schematron"])  # compile the bundled rules once
@@ -45,24 +45,6 @@ def test_svrl_location_with_injected_namespace_is_matched_not_evaluated(tmp_path
     (finding,) = report.findings
     assert finding.gml_id == "BH-1"
     assert finding.xpath == "/Diggs[1]/x:w[1]/samplingFeature[1]/Borehole[1]/totalMeasuredDepth[1]"
-
-
-def test_svrl_location_grammar_rejects_anything_else():
-    doc = etree.ElementTree(etree.fromstring(b'<a xmlns="urn:x"><b/><b/></a>'))
-    loc = Locator(doc)
-    good = "/*[local-name()='a' and namespace-uri()='urn:x']/*[local-name()='b' and namespace-uri()='urn:x'][2]"
-    assert loc.svrl_element(good) is doc.getroot()[1]
-    assert loc.svrl_element(good + "/@id") is doc.getroot()[1]
-    for bad in (
-        "//b",
-        "/*[local-name()='a' and namespace-uri()='urn:x']/*[1]",
-        good + "[1]",
-        good + " | //*",
-        "/*[local-name()='a' and namespace-uri()='urn:x']/*[local-name()='b' and namespace-uri()='urn:x']",
-        "",
-        None,
-    ):
-        assert loc.svrl_element(bad) is None, bad
 
 
 def test_log_entry_paths_are_grammar_checked_before_evaluation():
@@ -254,3 +236,21 @@ def test_sarif_file_uris_for_extended_length_windows_paths(path, uri):
     from pydiggs.findings import _sarif
 
     assert _sarif.file_uri(path) == uri
+
+
+def test_a_long_unused_namespace_cannot_evade_schematron(tmp_path, capsys):
+    # Review round 4 (bad_evade.xml): a 1,025-character namespace URI that no element
+    # uses made validate() skip the Schematron rules with a warning, so a file with a
+    # negative depth passed. The rules now always run.
+    path = tmp_path / "evade.xml"
+    path.write_text(
+        f'<Diggs xmlns:pad="urn:{"a" * 1021}" xmlns="http://diggsml.org/schemas/2.6"'
+        ' xmlns:gml="http://www.opengis.net/gml/3.2"><samplingFeature><Borehole gml:id="BH-1">'
+        '<totalMeasuredDepth uom="ft">-1</totalMeasuredDepth></Borehole></samplingFeature>'
+        "</Diggs>"
+    )
+    report = validate(path, checks=["schematron"])
+    assert report.ok is False
+    assert [f.rule_id for f in report.findings] == ["schematron.Borehole.totalMeasuredDepth"]
+    assert main(["validate", "--checks", "schematron", str(path)]) == 1
+    capsys.readouterr()

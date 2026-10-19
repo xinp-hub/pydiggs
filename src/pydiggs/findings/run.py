@@ -12,7 +12,7 @@ import os
 import re
 import threading
 import tomllib
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from functools import cache
 from importlib import resources
 from pathlib import Path
@@ -30,6 +30,7 @@ from pydiggs.dictionary import (
 )
 from pydiggs.errors import InstanceReadError, ResourceError
 from pydiggs.findings import rules
+from pydiggs.findings._schematron import SVRL, RuleContexts, fired_counts, svrl_items
 from pydiggs.findings.locate import Locator
 from pydiggs.findings.model import Finding, Report, Severity, Step, StepStatus
 from pydiggs.pydiggs import _DEFAULT_DICTIONARY, _DEFAULT_SCHEMATRON, _casing_diameter_problems
@@ -66,12 +67,6 @@ MAX_REPORT_BYTES: Final = 16 * 2**20
 _FINDING_OVERHEAD: Final = 200  # JSON keys, punctuation and the fixed fields
 #: Dictionary validators kept per thread (least recently used dropped first).
 MAX_CACHED_VALIDATORS: Final = 8
-#: Longest SVRL location lxml's Schematron skeleton may build before the step is skipped.
-MAX_SCHEMATRON_LOCATION: Final = 16 * 1024
-#: Longest namespace URI the Schematron step accepts.
-MAX_SCHEMATRON_NAMESPACE: Final = 1024
-_NS_STEP_CHARS: Final = len("/*[local-name()='' and namespace-uri()='']")
-_INDEX_CHARS: Final = 12  # "[n]" for any sibling count
 #: Where validate() may read dictionaries named by relative codeSpaces.
 LocalDictionaries = Literal["instance-dir", "off"]
 #: Default ``max_findings`` of :func:`validate`.
@@ -83,7 +78,6 @@ _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO"
 #: libxml2 appends the position to syntax errors; it is in line/column already.
 _POSITION_SUFFIX: Final = re.compile(r", line \d+, column \d+$")
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
-_SVRL: Final = "{http://purl.oclc.org/dsdl/svrl}"
 _NO_ERRORS: Final = etree.XPath("/..")
 _LOG_LEVELS: Final = {
     "WARNING": Severity.WARNING,
@@ -97,7 +91,7 @@ class _Cache(threading.local):
 
     def __init__(self) -> None:
         self.schemas: dict[str, etree.XMLSchema] = {}
-        self.schematrons: dict[str, isoschematron.Schematron] = {}
+        self.schematrons: dict[str, tuple[isoschematron.Schematron, RuleContexts]] = {}
         self.dictionaries: dict[
             tuple[str, bool, str], tuple[tuple[int, int], DictionarySemanticValidator]
         ] = {}
@@ -381,20 +375,27 @@ def _run_schema(
     return builder.status(Step.SCHEMA)
 
 
-def _schematron(schematron_path: str | os.PathLike[str] | None) -> isoschematron.Schematron:
+def _schematron(
+    schematron_path: str | os.PathLike[str] | None,
+) -> tuple[isoschematron.Schematron, RuleContexts]:
     path = Path(schematron_path) if schematron_path is not None else _DEFAULT_SCHEMATRON
 
-    def build() -> isoschematron.Schematron:
+    def build() -> tuple[isoschematron.Schematron, RuleContexts]:
+        schema = _load_trusted(path, "Schematron rules")
         try:
-            return isoschematron.Schematron(
-                _load_trusted(path, "Schematron rules"),
+            compiled = isoschematron.Schematron(
+                schema,
                 store_report=True,
                 # validate() reads the SVRL report itself; an error finder that selects
                 # nothing stops lxml serialising every failed assert into its error log.
                 error_finder=_NO_ERRORS,
+                # No @location strings: they cost memory per failure and time per
+                # sibling; findings are located by RuleContexts instead.
+                compile_params={"generate-paths": "false"},
             )
         except (etree.SchematronParseError, etree.XSLTError) as exc:
             raise ResourceError(f"cannot use Schematron rules {str(path)!r}: {exc}") from exc
+        return compiled, RuleContexts(schema)
 
     if schematron_path is not None:
         return build()
@@ -403,71 +404,27 @@ def _schematron(schematron_path: str | os.PathLike[str] | None) -> isoschematron
     return _CACHE.schematrons[str(path)]
 
 
-def _svrl_items(report: etree._ElementTree) -> Iterator[tuple[str, etree._Element]]:
-    """(rule context, failed-assert or successful-report) in report order."""
-    context = ""
-    for el in report.getroot():
-        if el.tag == f"{_SVRL}fired-rule":
-            context = el.get("context") or ""
-        elif el.tag in (f"{_SVRL}failed-assert", f"{_SVRL}successful-report"):
-            yield context, el
-
-
-def _schematron_budget(doc: etree._ElementTree) -> str | None:
-    """Why lxml's Schematron skeleton must not run on ``doc``, or None.
-
-    The skeleton writes, for every failed assert, a location with one step per
-    ancestor, each carrying that element's full namespace URI, and keeps them all in
-    memory. One linear pass predicts the longest such location (namespace URIs are
-    read once, from their declarations).
-    """
-    root = doc.getroot()
-    for _, (_, uri) in etree.iterwalk(root, events=("start-ns",)):
-        if len(uri) > MAX_SCHEMATRON_NAMESPACE:
-            return f"a namespace URI is longer than {MAX_SCHEMATRON_NAMESPACE} characters"
-    lengths = [0]
-    for event, el in etree.iterwalk(root, events=("start", "end")):
-        if event == "end":
-            lengths.pop()
-            continue
-        tag = str(el.tag)
-        if tag.startswith("{"):
-            uri, _, local = tag[1:].partition("}")
-            step = _NS_STEP_CHARS + len(local) + len(uri) + _INDEX_CHARS
-        else:
-            step = 1 + len(tag) + _INDEX_CHARS
-        total = lengths[-1] + step
-        if total > MAX_SCHEMATRON_LOCATION:
-            return (
-                f"an element's Schematron location would exceed {MAX_SCHEMATRON_LOCATION // 1024}"
-                " KiB (deep nesting with long names or namespace URIs)"
-            )
-        lengths.append(total)
-    return None
-
-
 def _run_schematron(
     doc: etree._ElementTree,
     builder: _Builder,
     schematron_path: str | os.PathLike[str] | None,
 ) -> StepStatus:
-    schematron = _schematron(schematron_path)
-    reason = _schematron_budget(doc)
-    if reason is not None:
-        builder.add(
-            Step.SCHEMATRON,
-            rules.SCHEMATRON_SKIPPED,
-            Severity.WARNING,
-            f"The Schematron rules were not run: {reason}.",
-        )
-        _run_casing(doc, builder)
-        return "incomplete"
+    schematron, contexts = _schematron(schematron_path)
     try:
         schematron.validate(doc)
-    except etree.XSLTError as exc:  # e.g. an unknown function in a user rule's test
-        where = str(schematron_path) if schematron_path is not None else "bundled"
-        raise ResourceError(f"cannot apply Schematron rules {where!r}: {exc}") from exc
-    for context, item in _svrl_items(schematron.validation_report):
+    except etree.XSLTError as exc:
+        if schematron_path is not None:  # e.g. an unknown function in a user rule's test
+            raise ResourceError(
+                f"cannot apply Schematron rules {str(schematron_path)!r}: {exc}"
+            ) from exc
+        # The bundled rules are known to work: this is a libxml2/libxslt limit.
+        _incomplete(builder, Step.SCHEMATRON, exc)
+        _run_casing(doc, builder)
+        return "incomplete"
+    report = schematron.validation_report
+    fired = fired_counts(report)
+    matched_by_pattern: dict[int, list[etree._Element] | None] = {}
+    for context, item, pattern, index in svrl_items(report):
         test = item.get("test") or ""
         if schematron_path is None:
             rule_id = rules.SCHEMATRON_BUNDLED.get(
@@ -479,12 +436,25 @@ def _run_schematron(
         if builder.full:  # count only; do not locate
             builder.drop(Step.SCHEMATRON, Severity.ERROR)
             continue
-        location = item.get("location")
-        node = builder.locator.svrl_element(location) if builder.locator else None
-        text = " ".join(item.findtext(f"{_SVRL}text", default="").split())
+        if pattern not in matched_by_pattern:
+            matched_by_pattern[pattern] = contexts.matched(doc, pattern, fired.get(pattern, 0))
+        matched = matched_by_pattern[pattern]
+        node = matched[index] if matched is not None and 0 <= index < len(matched) else None
+        text = " ".join(item.findtext(f"{SVRL}text", default="").split())
         builder.add(Step.SCHEMATRON, rule_id, Severity.ERROR, text, node=node)
     _run_casing(doc, builder)
     return builder.status(Step.SCHEMATRON)
+
+
+def _incomplete(builder: _Builder, step: Step, exc: Exception) -> None:
+    """Fail closed: a step that could not finish is an error, never a pass."""
+    builder.add(
+        step,
+        rules.incomplete(step),
+        Severity.ERROR,
+        f"The {step.value} check could not finish ({type(exc).__name__}: {exc}); its"
+        " results are partial, so the file is not reported as passing.",
+    )
 
 
 def _run_casing(doc: etree._ElementTree, builder: _Builder) -> None:

@@ -215,23 +215,27 @@ FIXTURES = ROOT / "tests" / "fixtures"
 
 
 def test_nothing_is_located_once_the_report_is_full(monkeypatch):
+    from pydiggs.findings._schematron import RuleContexts
     from pydiggs.findings.locate import Locator
 
-    calls = {"svrl_element": 0, "element_at": 0}
-    for name in calls:
-        real = getattr(Locator, name)
+    calls = {"matched": 0, "element_at": 0, "xpath": 0}
+    for owner, name in ((RuleContexts, "matched"), (Locator, "element_at"), (Locator, "xpath")):
+        real = getattr(owner, name)
 
         def counted(self, *args, _real=real, _name=name):
             calls[_name] += 1
             return _real(self, *args)
 
-        monkeypatch.setattr(Locator, name, counted)
+        monkeypatch.setattr(owner, name, counted)
     boreholes = FIXTURES / "findings" / "two_failing_boreholes.xml"
     report = validate(boreholes, checks=["schematron"], max_findings=1)
-    assert calls["svrl_element"] == 1  # three failed asserts, only the kept one located
+    assert calls["xpath"] == 1  # four findings, only the kept one located
+    assert calls["matched"] == 1  # the pattern's contexts evaluated once
     assert report.steps[Step.SCHEMATRON] == "incomplete"
+    calls["xpath"] = 0
     validate(SCHEMA_ERROR, checks=["schema"], max_findings=1)
     assert calls["element_at"] == 1  # two schema errors
+    assert calls["xpath"] == 1
 
 
 def test_an_edited_dictionary_path_is_reloaded(tmp_path):

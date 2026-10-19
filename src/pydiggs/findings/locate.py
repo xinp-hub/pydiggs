@@ -25,15 +25,6 @@ _MAX_PATH: Final = 4 * 1024 * 1024
 _NAME: Final = r"[^\W\d][\w.\-]*"
 _LOG_PATH: Final = re.compile(rf"(?:/(?:\*|{_NAME}(?::{_NAME})?)(?:\[[1-9][0-9]{{0,8}}\])?)+")
 _LOG_STEP: Final = re.compile(rf"/(?P<name>\*|{_NAME}(?::{_NAME})?)(?:\[(?P<index>[0-9]+)\])?")
-_PLAIN_STEP: Final = re.compile(rf"/(?P<name>{_NAME})(?:\[(?P<index>[1-9][0-9]{{0,8}})\])?")
-_INDEX: Final = re.compile(r"\[([1-9][0-9]{0,8})\]")
-_NS_STEP: Final = "/*[local-name()='"
-_NS_MIDDLE: Final = "' and namespace-uri()='"
-#: How many "']" inside one namespace URI are tried before giving up.
-_MAX_NS_CLOSES: Final = 8
-_ATTRIBUTE_STEP: Final = re.compile(
-    rf"(?:{_NAME}|\*\[local-name\(\)='{_NAME}' and namespace-uri\(\)='[^']*'\])"
-)
 
 
 def _qname(el: etree._Element) -> str:
@@ -199,82 +190,6 @@ class Locator:
                 return None
         return node
 
-    def svrl_element(self, location: str | None) -> etree._Element | None:
-        """The element an SVRL ``@location`` from lxml's ISO Schematron skeleton names.
-
-        The location is never evaluated: it is built from the instance's own namespace
-        URIs, which may contain quotes and XPath. It is parsed one step at a time
-        (``*[local-name()='X' and namespace-uri()='U'][n]`` or ``name[n]``) and each step
-        is resolved among the children of the element found so far, so the work is
-        proportional to the location's length. A trailing attribute step (an assert
-        whose rule context is an attribute) names the attribute's element. Anything else
-        gives None, and the finding then has no line or xpath.
-        """
-        if not location or len(location) > _MAX_PATH:
-            return None
-        node: etree._Element | None = None
-        pos = 0
-        while pos < len(location):
-            if location.startswith("/@", pos) and node is not None:
-                return node if _ATTRIBUTE_STEP.fullmatch(location, pos + 2) else None
-            found = self._svrl_step(node, location, pos)
-            if found is None:
-                return None
-            node, pos = found
-        return node
-
-    def _svrl_step(
-        self, parent: etree._Element | None, location: str, pos: int
-    ) -> tuple[etree._Element, int] | None:
-        """Resolve the step at ``pos``; return the element and where the next step starts."""
-        if location.startswith(_NS_STEP, pos):
-            return self._namespaced_step(parent, location, pos + len(_NS_STEP))
-        match = _PLAIN_STEP.match(location, pos)
-        if match is None:
-            return None
-        name = match["name"]
-        # Counted by name(): no-namespace and default-namespace siblings alike.
-        if parent is None:
-            group = [c for c in self._group(None, "{*}" + name) if c.prefix is None]
-        else:
-            group = self._prefixed(parent, name, None)
-        node = _pick(group, match["index"])
-        if node is None or node.tag != name:  # this step form means "no namespace"
-            return None
-        return node, match.end()
-
-    def _namespaced_step(
-        self, parent: etree._Element | None, location: str, start: int
-    ) -> tuple[etree._Element, int] | None:
-        end_local = location.find("'", start)
-        if end_local < 0 or not location.startswith(_NS_MIDDLE, end_local):
-            return None
-        local = location[start:end_local]
-        ns_start = end_local + len(_NS_MIDDLE)
-        # Siblings are counted by local name alone (skeleton: preceding-sibling::*
-        # [local-name()=local-name(current())]), whatever their namespace.
-        group = self._group(parent, "{*}" + local)
-        close = location.find("']", ns_start)
-        for _ in range(_MAX_NS_CLOSES):  # a namespace URI may itself contain "']"
-            if close < 0:
-                break
-            index, after = _index_at(location, close + 2)
-            if location[after : after + 1] in ("", "/"):
-                node = _pick(group, index)
-                if node is not None and node.tag == f"{{{location[ns_start:close]}}}{local}":
-                    return node, after
-            close = location.find("']", close + 1)
-        return None
-
-    def _group(self, parent: etree._Element | None, tag: str) -> list[etree._Element]:
-        """Children of ``parent`` matching ``{*}local``; for the root step, the root."""
-        if parent is not None:
-            return self._children(parent, tag)
-        root = self._doc.getroot()
-        local = tag.removeprefix("{*}")
-        root_tag = str(root.tag)
-        return [root] if root_tag == local or root_tag.endswith("}" + local) else []
-
 
 def _pick(group: list[etree._Element], index: str | None) -> etree._Element | None:
     """The ``[n]``-th of ``group``, or its only member when there is no ``[n]``."""
@@ -282,11 +197,6 @@ def _pick(group: list[etree._Element], index: str | None) -> etree._Element | No
         return group[0] if len(group) == 1 else None
     n = int(index)
     return group[n - 1] if 1 <= n <= len(group) and len(group) > 1 else None
-
-
-def _index_at(location: str, pos: int) -> tuple[str | None, int]:
-    match = _INDEX.match(location, pos)
-    return (match[1], match.end()) if match else (None, pos)
 
 
 def _shallow(el: etree._Element) -> etree._Element:

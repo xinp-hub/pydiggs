@@ -30,53 +30,20 @@ def peak():
 """
 
 
-def _ns_step(local: str, ns: str, index: int | None) -> str:
-    step = f"/*[local-name()='{local}' and namespace-uri()='{ns}']"
-    return step + (f"[{index}]" if index is not None else "")
-
-
-def _resolve_all(n: int) -> float:
-    xml = f'<Diggs xmlns="{NS}"><s>' + "<Borehole><d>-1</d></Borehole>" * n + "</s></Diggs>"
-    doc = etree.ElementTree(etree.fromstring(xml.encode()))
-    loc = Locator(doc)
-    prefix = _ns_step("Diggs", NS, None) + _ns_step("s", NS, None)
-    boreholes = list(doc.getroot()[0])  # lxml's parent[i] is O(i): index once
-    start = time.perf_counter()
-    for i in range(1, n + 1):
-        found = loc.svrl_element(prefix + _ns_step("Borehole", NS, i) + _ns_step("d", NS, None))
-        assert found is not None
-        assert found.getparent() is boreholes[i - 1]
-        assert loc.xpath(found) == f"/Diggs[1]/s[1]/Borehole[{i}]/d[1]"
-    return time.perf_counter() - start
-
-
-def test_svrl_locations_resolve_in_linear_time():
-    small, large = _resolve_all(2_000), _resolve_all(8_000)
-    assert large < 3.0, large
-    assert large < 8 * max(small, 0.05), (small, large)  # 4x the input, well under 16x
-
-
 _BIG_NS = """
-import resource, sys, time
+import time
 from lxml import etree
 from pydiggs.findings.locate import Locator
 ns = "urn:" + "a" * (1024 * 1024)
 xml = ('<r xmlns:x="' + ns + '"><x:p>' + "<x:c/>" * 3000 + "</x:p></r>").encode()
 doc = etree.ElementTree(etree.fromstring(xml))
-def rss():
-    return peak() * 2**20
-base = rss()
+children = list(doc.getroot()[0])
+base = peak()
 loc = Locator(doc)
-step = lambda local, i=None: (
-    f"/*[local-name()='{local}' and namespace-uri()='{ns}']" + (f"[{i}]" if i else "")
-)
 start = time.perf_counter()
 for i in (1, 1500, 3000):
-    path = "/r" + step("p") + step("c", i)
-    el = loc.svrl_element(path)
-    assert el is not None and el.getparent().index(el) == i - 1
-    assert loc.xpath(el) == f"/r[1]/x:p[1]/x:c[{i}]"
-print(time.perf_counter() - start, (rss() - base) / 2**20)
+    assert loc.xpath(children[i - 1]) == f"/r[1]/x:p[1]/x:c[{i}]"
+print(time.perf_counter() - start, peak() - base)
 """
 
 
@@ -258,23 +225,19 @@ def _schematron_case(tmp_path, *, depth: int, uri: int = 0, name: int = 0, faili
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "why"),
-    [
-        ({"depth": 100, "uri": 1000}, "location would exceed 16 KiB"),
-        ({"depth": 100, "name": 1000}, "location would exceed 16 KiB"),
-        ({"depth": 3, "uri": 2000}, "namespace URI is longer than 1024"),
-    ],
+    "kwargs",
+    [{"depth": 100, "uri": 1000}, {"depth": 100, "name": 1000}, {"depth": 3, "uri": 2000}],
     ids=["deep-namespace", "deep-names", "long-namespace"],
 )
-def test_schematron_is_skipped_when_locations_would_blow_up(tmp_path, kwargs, why):
-    from pydiggs import Severity, Step, validate
+def test_schematron_runs_and_locates_where_lxml_paths_would_blow_up(tmp_path, kwargs):
+    # With generate-paths=false lxml builds no location strings, so these run in full.
+    from pydiggs import Step, validate
 
     report = validate(_schematron_case(tmp_path, **kwargs), checks=["schematron"])
-    (finding,) = report.findings
-    assert finding.rule_id == "schematron.skipped-location-budget"
-    assert finding.severity is Severity.WARNING
-    assert why in finding.message
-    assert report.steps[Step.SCHEMATRON] == "incomplete"
+    assert [f.rule_id for f in report.findings] == ["schematron.Borehole.totalMeasuredDepth"] * 20
+    assert report.steps[Step.SCHEMATRON] == "failed"
+    assert {f.gml_id for f in report.findings} == {f"BH-{i}" for i in range(20)}
+    assert all(f.line for f in report.findings)
 
 
 def test_schematron_runs_within_the_location_budget(tmp_path):
@@ -296,17 +259,18 @@ path.write_text('<Diggs xmlns="http://diggsml.org/schemas/2.6" '
                 + "<x:j>" * 3 + "".join(bh.format(i=i) for i in range(2000)) + "</x:j>" * 3
                 + "</Diggs>")
 report = validate(path, checks=["schematron"])
-print(peak(), report.findings[0].rule_id)
+print(peak(), report.findings[0].rule_id, report.ok)
 """
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
-def test_skipping_schematron_keeps_memory_bounded():
+def test_long_namespace_schematron_stays_bounded():
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
         [sys.executable, "-c", _PEAK + _SKIP_RSS], capture_output=True, text=True, check=True
     ).stdout.split()
-    assert float(out[0]) < 200, out  # was 1,252 MB with the skeleton run
-    assert out[1] == "schematron.skipped-location-budget"
+    assert float(out[0]) < 300, out  # 1,252 MB with lxml's location strings
+    assert out[1] == "schematron.Borehole.totalMeasuredDepth"
+    assert out[2] == "False"
 
 
 @pytest.mark.slow
