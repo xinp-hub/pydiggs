@@ -409,3 +409,23 @@ def test_check13_many_result_sets_stays_small():
     ).stdout.split()
     assert float(out[0]) < 300, out  # MB beyond parsing
     assert int(out[1]) == 2200
+
+
+def test_context_checks_do_not_build_long_namespace_strings(tmp_path):
+    import tracemalloc
+
+    from pydiggs import validate
+
+    # 1,000 siblings in a 100 KB namespace: the context checks built each element's
+    # '{namespace}name' string (r/nsbomb.py: 3,000 x 1 MB took 3 GB).
+    path = tmp_path / "nsbomb.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}" xmlns:x="urn:{"a" * 100_000}">' + "<x:j/>" * 1000 + "</Diggs>"
+    )
+    tracemalloc.start()
+    try:
+        validate(path, checks=["structure", "geometry", "context"])
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 20 * 2**20, peak  # tags would need 100 MB

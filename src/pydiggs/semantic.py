@@ -108,7 +108,9 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
         )
         return
     # documentInformation property expected as early child (DIGGSml diggs-check)
-    doc_info = [c for c in root if isinstance(c.tag, str) and _local(c) == "documentInformation"]
+    # Tag filters ("{*}name") match in C: no element's {namespace}name string is built
+    # (a long namespace URI made each of those strings huge).
+    doc_info = list(root.iterchildren("{*}documentInformation"))
     if not doc_info:
         result.add(
             "ERROR",
@@ -118,9 +120,7 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
             node=root,
         )
         return
-    objects = [
-        c for c in doc_info[0] if isinstance(c.tag, str) and _local(c) == "DocumentInformation"
-    ]
+    objects = list(doc_info[0].iterchildren("{*}DocumentInformation"))
     if len(objects) != 1:
         result.add(
             "ERROR",
@@ -146,15 +146,9 @@ def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -
         "PointLocation",
         "MultiPointLocation",
     }
-    for el in root.iter():
-        if not isinstance(el.tag, str) or _local(el) not in geom_names:
-            continue
+    for el in root.iter(*(f"{{*}}{name}" for name in sorted(geom_names))):
         # Only require on elements that look like geometry containers with pos/posList
-        has_coords = any(
-            isinstance(c.tag, str) and _local(c) in {"pos", "posList", "coordinates"}
-            for c in el.iter()
-            if c is not el
-        )
+        has_coords = any(c is not el for c in el.iter("{*}pos", "{*}posList", "{*}coordinates"))
         if not has_coords and el.get("srsName") is None:
             continue
         if not el.get("srsName"):
@@ -177,17 +171,13 @@ def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -
 
 def _check_hrefs(root: etree._Element, result: ContextValidationResult) -> None:
     gml_ids = set()
-    for el in root.iter():
-        if not isinstance(el.tag, str):
-            continue
+    for el in root.iter(etree.Element):  # elements only, without building their tags
         gid = el.get("{http://www.opengis.net/gml/3.2}id") or el.get("id")
         if gid:
             gml_ids.add(gid)
 
     xlink = "{http://www.w3.org/1999/xlink}href"
-    for el in root.iter():
-        if not isinstance(el.tag, str):
-            continue
+    for el in root.iter(etree.Element):
         href = el.get(xlink) or el.get("href")
         if not href or not href.startswith("#"):
             continue
