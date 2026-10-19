@@ -88,12 +88,13 @@ def read_limited(
             # O_NONBLOCK: opening a FIFO must not hang; then refuse anything irregular.
             flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
             with os.fdopen(os.open(path, flags), "rb") as fh:
-                if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+                info = os.fstat(fh.fileno())
+                if not stat.S_ISREG(info.st_mode):
                     raise OSError(errno.EINVAL, "not a regular file")
-                data = fh.read(limit + 1)
+                data = _read(fh, info, limit)
         else:
             with Path(path).open("rb") as fh:
-                data = fh.read(limit + 1)
+                data = _read(fh, os.fstat(fh.fileno()), limit)
     if len(data) > limit:
         if regular_only:  # validate(): no file name; it reports the path in its own form
             raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
@@ -103,6 +104,20 @@ def read_limited(
             raise OSError(errno.EINVAL, "compressed XML is not accepted")
         raise OSError(f"compressed XML is not accepted: {name}")
     return data, name
+
+
+def _read(fh: IO[bytes], info: os.stat_result, limit: int) -> bytes:
+    """Read at most ``limit + 1`` bytes, asking first for only the file's size.
+
+    read(n) allocates n bytes at once, so asking for the limit itself would reserve
+    100 MiB (or 1 GiB) for every small file. A file that grew since fstat() is read on
+    up to the limit.
+    """
+    size = info.st_size if stat.S_ISREG(info.st_mode) and info.st_size > 0 else limit
+    data = fh.read(min(size, limit) + 1)
+    if len(data) > size and len(data) <= limit:
+        data += fh.read(limit + 1 - len(data))
+    return data
 
 
 def parse_bytes(data: bytes, base_url: str | None) -> etree._ElementTree:
