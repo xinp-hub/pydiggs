@@ -53,6 +53,11 @@ says why, so `report.ok` is False and the CLI exits 1:
   gets a `<step>.incomplete` error. Schema validation still runs. The elements are
   counted on the parsed tree (about 0.1 s per million), so no encoding or entity can
   hide them.
+* `schematron.incomplete` when an element has more than **50,000 child elements**
+  (`MAX_SCHEMATRON_SIBLINGS`): the Schematron rules (bundled or your own) are not run,
+  because libxslt can take minutes on such a file. pydiggs's own casing diameter rule
+  still runs, so its findings can appear next to the error. Schema validation and the
+  other steps are not affected; `schematron_check()` is unchanged.
 * `dictionary.incomplete` when a local dictionary was not read because of a safety
   limit: more than 16 different local dictionaries, or more than their byte budget
   (see [Limits](#limits)). The codeSpace also gets its `dictionary.3` warning.
@@ -72,6 +77,7 @@ says why, so `report.ok` is False and the CLI exits 1:
 | `max_findings` | `--max-findings N` | 10,000 (`None` / `0`: no limit) | Findings past the limit are only counted. One extra `structure.findings-truncated` finding, as severe as the worst one left out (so `report.ok` and `--fail-on` stay right), says how many and from which steps; those steps are `incomplete`. |
 | `max_bytes` | `--max-bytes N` | 100 MiB | A larger file raises `InstanceReadError` (an `unreadable` entry in the CLI). The legacy `validator` keeps its 1 GiB limit. |
 | (fixed) | | 20 MiB of local dictionaries per instance | All local dictionaries of one instance share this budget (or what `max_bytes` leaves after the instance, if less). A parsed dictionary takes about 35 times its file size in memory, so this caps their trees at under 1 GB. A dictionary past the budget is not read: `dictionary.3` plus a `dictionary.incomplete` error. Real DIGGS dictionaries are under 1 MB. |
+| (fixed) | | 50,000 child elements under one element | Above it the Schematron step is skipped with a `schematron.incomplete` error (the casing rule still runs). |
 | | `--timeout SECONDS` | none | Positive, at most 86,400 (one day). |
 | (fixed) | | 16 MiB per report | Findings count towards a budget of roughly their JSON size; reaching it truncates exactly like `max_findings`. |
 | (fixed) | | 4,096 characters | A longer `message` is cut and ends in "…". A longer `xpath` or `gml_id` is reported as `null` (a cut path could name another element); the line is kept. |
@@ -213,7 +219,7 @@ Rule ids are part of the stable contract.
 | `structure.diggs-root` | error | Root is not `Diggs`, or `documentInformation` is missing or holds more than one `DocumentInformation` |
 | `schema.cvc-<rule>` | error / warning | An XML Schema validation rule, e.g. `schema.cvc-complex-type.2.4`, `schema.cvc-datatype-valid.1.2.1`, `schema.cvc-minInclusive-valid`, named from libxml2's error type |
 | `schema.libxml2.<TYPE>` | error / warning | A libxml2 error type that names no XSD rule, e.g. `schema.libxml2.SCHEMAV_DOCUMENT_ELEMENT_MISSING` |
-| `<step>.incomplete` | error | The step could not finish: libxml2 could not finish schema validation, a libxml2/libxslt limit stopped an XPath or the bundled Schematron, or the file has more than 9,900,000 elements (see [Fail closed](#fail-closed)); the step is `incomplete` |
+| `<step>.incomplete` | error | The step could not finish: libxml2 could not finish schema validation, a libxml2/libxslt limit stopped an XPath or the bundled Schematron, the file has more than 9,900,000 elements, an element has more than 50,000 children (Schematron), or a local dictionary was skipped by a safety limit (see [Fail closed](#fail-closed)); the step is `incomplete` |
 | `structure.markup-entity` | error | The internal DTD declares an entity whose value contains markup; no other check ran (see [Fail closed](#fail-closed)) |
 | `structure.timeout` | error | `pydiggs validate --timeout` stopped the file, or its worker died; the requested steps are `incomplete` |
 | `structure.internal-error` | error | `pydiggs validate` caught an unexpected error for this file; the requested steps are `incomplete` |
@@ -326,9 +332,10 @@ higher):
 
 | Cost | Input | CPU |
 |---|---|---|
-| Schematron (libxslt matches every element against the bundled rule contexts) | 9.5 MB, one parent with about 120,000 same-named children that a rule matches, each declaring its own prefix | 44 s |
-| | 9 MB, 17 parents with about 30,000 matched children each | 13.5 s |
-| | 8 MB, about 125,000 failing siblings | 9 s |
+| Schematron (libxslt matches every element against the bundled rule contexts) | 9 MB, 17 parents with about 30,000 matched children each | 13.5 s |
+| | 7.9 MB, 5 parents with 50,000 matched children each (at the cap) | 10.4 s |
+| | 7.8 MB, about 125,000 aggregated failures | 8.3 s |
+| | 9.5 MB, one parent with about 120,000 children, each with its own prefix | 44 s before the 50,000-children cap; now refused (`schematron.incomplete`) in 1.1 s |
 | | 1 MB, 18,000 sibling features (no failures) | 0.1 s (31 s with the pre-1.2 rule contexts) |
 | Schema validation (lxml builds an XPath for every libxml2 error by counting siblings) | 2 MB of sibling schema errors (37,000 siblings) | 14 s |
 | | 4 MB of the same | 107 s |
@@ -339,8 +346,9 @@ higher):
 The bundled rules' contexts were rewritten for 1.2 (`*[local-name()='C'][parent::*[local-name()='P']]`
 instead of `//*[local-name()='P']/*[local-name()='C']`; same elements, same verdicts):
 the old form made libxslt quadratic in the number of siblings of any element (over
-400 s on four 8 to 11 MB files that now take 7 to 12 s in all), the new one only when one
-parent has very many children that a rule matches, as in the first two rows.
+400 s on four 8 to 11 MB files that now take 7 to 12 s in all, or are refused by the
+cap), the new one only when parents have very many children that a rule matches, as
+in the first rows. The 50,000-children cap bounds the worst of those.
 
 Entity expansion is not a cost: an internal DTD entity with markup is refused before
 the tree is built (`structure.markup-entity`; a 9.6 MB file that expands to 12 million

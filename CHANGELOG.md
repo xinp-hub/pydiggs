@@ -75,6 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   process and reports a file that does not finish as a `structure.timeout` error. With
   or without it, an unexpected error for one file becomes a `structure.internal-error`
   for that file and the batch goes on.
+- In `validate()`, the Schematron step (bundled or user rules) is skipped with a
+  `schematron.incomplete` error when an element has more than 50,000 child elements,
+  where libxslt can take minutes; the casing diameter rule still runs.
+  `schematron_check()` is unchanged.
 - In `validate()`, local dictionaries are limited to 20 MiB in all per instance (a
   parsed dictionary takes about 35 times its size in memory); a codeSpace not read
   because of that limit or the 16-dictionary cap makes the dictionary step
@@ -115,8 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evaluated in time growing with the square of the number of siblings (a 1 MB file
   with 18,000 sibling features took 31 s of CPU; now 0.1 s). Verdicts, failures and
   the `schematron_check()` output are unchanged, and the rule ids are the same.
-  libxslt is still quadratic when one parent has very many children that a rule
-  matches (see the residual risks in the findings guide).
+  libxslt is still slow when parents have very many children that a rule matches;
+  `validate()` refuses more than 50,000 children under one element.
 - Creating a `DictionarySemanticValidator` parses each bundled dictionary once instead
   of once per URL form, which more than offsets the larger dictionary bundle.
 
