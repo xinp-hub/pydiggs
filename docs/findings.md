@@ -42,14 +42,28 @@ says why, so `report.ok` is False and the CLI exits 1:
 * `<step>.incomplete`: an XPath error from libxml2 (its node-set limit is 10,000,000
   nodes), an XSLT error while applying the bundled Schematron, a deprecation-registry
   XPath that cannot be evaluated, or libxml2 failing inside schema validation.
+* `structure.markup-entity`: the file's internal DTD declares an entity whose value
+  contains markup (`<`, also when written `&#60;`), such as
+  `<!ENTITY e "<b/><b/>">`. One such entity can multiply the number of elements
+  without the file growing, so `validate()` reports this one error and runs no other
+  check. Only the prolog is read to decide this, with entities left unexpanded.
+  Entities whose value is plain text (`<!ENTITY org "Acme Ltd">`) still work.
 * A file with more than **9,900,000 elements** does not run the XPath-based steps
   (dictionary, Schematron, deprecation, geometry, context, structure root checks): each
-  gets a `<step>.incomplete` error. Schema validation still runs. A 42 MB file with
-  10.5 million elements is reported in about 3 s.
+  gets a `<step>.incomplete` error. Schema validation still runs. The elements are
+  counted on the parsed tree (about 0.1 s per million), so no encoding or entity can
+  hide them.
+* `dictionary.incomplete` when a local dictionary was not read because of a safety
+  limit: more than 16 different local dictionaries, or more than their byte budget
+  (see [Limits](#limits)). The codeSpace also gets its `dictionary.3` warning.
 * `structure.findings-truncated` takes the severity of the worst finding it stands for.
 * `structure.timeout`: `pydiggs validate --timeout SECONDS` validates each file in its
-  own process and stops it after SECONDS (start-up included); that file's steps are all
-  `incomplete` and the batch goes on.
+  own process and stops it after SECONDS (start-up included); that file's requested
+  steps are `incomplete` and the batch goes on. A worker that dies (killed, out of
+  memory) is reported the same way.
+* `structure.internal-error`: `pydiggs validate` caught an unexpected exception for one
+  file (a bug, or `MemoryError`); that file's requested steps are `incomplete` and the
+  batch goes on. Only a broken resource you passed (`ResourceError`) stops the batch.
 
 ### Limits
 
@@ -57,6 +71,8 @@ says why, so `report.ok` is False and the CLI exits 1:
 |---|---|---|---|
 | `max_findings` | `--max-findings N` | 10,000 (`None` / `0`: no limit) | Findings past the limit are only counted. One extra `structure.findings-truncated` finding, as severe as the worst one left out (so `report.ok` and `--fail-on` stay right), says how many and from which steps; those steps are `incomplete`. |
 | `max_bytes` | `--max-bytes N` | 100 MiB | A larger file raises `InstanceReadError` (an `unreadable` entry in the CLI). The legacy `validator` keeps its 1 GiB limit. |
+| (fixed) | | 20 MiB of local dictionaries per instance | All local dictionaries of one instance share this budget (or what `max_bytes` leaves after the instance, if less). A parsed dictionary takes about 35 times its file size in memory, so this caps their trees at under 1 GB. A dictionary past the budget is not read: `dictionary.3` plus a `dictionary.incomplete` error. Real DIGGS dictionaries are under 1 MB. |
+| | `--timeout SECONDS` | none | Positive, at most 86,400 (one day). |
 | (fixed) | | 16 MiB per report | Findings count towards a budget of roughly their JSON size; reaching it truncates exactly like `max_findings`. |
 | (fixed) | | 4,096 characters | A longer `message` is cut and ends in "…". A longer `xpath` or `gml_id` is reported as `null` (a cut path could name another element); the line is kept. |
 
@@ -198,7 +214,9 @@ Rule ids are part of the stable contract.
 | `schema.cvc-<rule>` | error / warning | An XML Schema validation rule, e.g. `schema.cvc-complex-type.2.4`, `schema.cvc-datatype-valid.1.2.1`, `schema.cvc-minInclusive-valid`, named from libxml2's error type |
 | `schema.libxml2.<TYPE>` | error / warning | A libxml2 error type that names no XSD rule, e.g. `schema.libxml2.SCHEMAV_DOCUMENT_ELEMENT_MISSING` |
 | `<step>.incomplete` | error | The step could not finish: libxml2 could not finish schema validation, a libxml2/libxslt limit stopped an XPath or the bundled Schematron, or the file has more than 9,900,000 elements (see [Fail closed](#fail-closed)); the step is `incomplete` |
-| `structure.timeout` | error | `pydiggs validate --timeout` stopped the file; every step is `incomplete` |
+| `structure.markup-entity` | error | The internal DTD declares an entity whose value contains markup; no other check ran (see [Fail closed](#fail-closed)) |
+| `structure.timeout` | error | `pydiggs validate --timeout` stopped the file, or its worker died; the requested steps are `incomplete` |
+| `structure.internal-error` | error | `pydiggs validate` caught an unexpected error for this file; the requested steps are `incomplete` |
 | `dictionary.1` ... `dictionary.12` | as the legacy check | The legacy dictionary checks, numbered as in their messages (1 uncontrolled codeSpace, 2 not whitelisted, 3 not accessible, 4 not a dictionary, 5 code not found, 6 wrong context, 7 name mismatch, 8 wrong measurement, 9 data type, 10 unitless with uom, 11 missing uom, 12 invalid uom) |
 | `dictionary.13` | error / warning | Result values (in the property's `dataValues` column) are not terms of the code list its definition names in `valueCodeSpace` |
 | `dictionary.offline` | info | A whitelisted remote (http/https) code list that pydiggs does not bundle was not fetched because network access is off. This replaces the `dictionary.3` (or `dictionary.13`) "could not be accessed" warning in `validate()` when `allow_network=False`; with network access on, a failed fetch is still `dictionary.3` at warning. |
@@ -234,11 +252,12 @@ Rule ids are part of the stable contract.
   a note that says why; the check is made before the file is opened, so the finding is
   the same whether or not the file exists. Each file is read once per instance however
   its path is spelled, under `max_bytes` and only if it is a regular file, and at most
-  16 different local dictionaries are read per instance (the rest are `dictionary.3`
-  with a note). All local dictionaries of an instance share one byte budget: what
-  `max_bytes` leaves after the instance itself. `"off"` reads no local dictionary. `dictionary_check()`
-  keeps the 1.1 behaviour: next to the instance, then the working directory, and any
-  `file:` URI.
+  16 different local dictionaries are read per instance. All local dictionaries of an
+  instance share one byte budget: 20 MiB, or what `max_bytes` leaves after the instance
+  if that is less. A dictionary left unread by the cap or the budget is `dictionary.3`
+  with a note and makes the step `incomplete` with a `dictionary.incomplete` error.
+  `"off"` reads no local dictionary. `dictionary_check()` keeps the 1.1 behaviour: next
+  to the instance, then the working directory, and any `file:` URI.
 * **`dictionary_path`.** In `validate()` the dictionary you pass serves both
   `properties.xml` URLs (https and http), the legacy `DIGGSTestPropertyDefinitions.xml`
   URLs (which are looked up in it first) and the fallback for any other
@@ -281,9 +300,14 @@ multisets over the steps both ran. The message is never compared.
 
 * Schematron runs with `generate-paths=false`: lxml builds no `@location` strings (they
   copied the instance's namespace URIs, cost memory per failed assert and time per
-  sibling). pydiggs locates each failed assert from the trusted schema instead: the
-  n-th `svrl:fired-rule` of a pattern belongs to the n-th element, in document order,
-  matched by one of that pattern's rule contexts. Nothing from the instance is
+  sibling). pydiggs locates each failed assert from the trusted schema instead, read
+  from the same included and expanded schema lxml compiles, with the active phase
+  applied: the n-th `svrl:fired-rule` of a pattern belongs to the n-th element, in
+  document order, matched by one of that pattern's rule contexts (the first matching
+  rule wins). The pairing is checked: the `active-pattern` id, the number of
+  `fired-rule` elements and each one's context must agree with the elements found,
+  or that pattern's failures have no location (never a wrong one). Contexts that match
+  attributes, text or the root are never located. Nothing from the instance is
   evaluated as XPath. libxml2 error-log paths are checked against their `/name[n]`
   grammar and resolved by walking the tree.
 * A broken user Schematron file (a test that does not compile, or an unknown function)
@@ -293,35 +317,66 @@ multisets over the steps both ran. The message is never compared.
 
 ### Residual risks
 
-pydiggs's own code is bounded: on the security review's test files (up to 10 MB, default
-settings) no pydiggs-owned path took more than about 15 s or 400 MB beyond parsing. Three
-costs belong to lxml and libxml2/libxslt and are not bounded by pydiggs. Measured on an
-Apple M3 Max MacBook Pro (one process, default settings, lxml 6.1.3, libxml2 2.14.6):
+pydiggs's own code is bounded. On the security reviews' test files (up to 10 MB, default
+settings) no pydiggs-owned path took more than about 5 s of CPU or 700 MB beyond
+parsing. The costs below belong to lxml and libxml2/libxslt and are not bounded by
+pydiggs. Measured on an Apple M3 Max MacBook Pro in CPU seconds (one process, default
+settings, lxml 6.1.3, libxml2 2.14.6, libxslt 1.1.43; wall time on a busy machine is
+higher):
 
-| Cost | Input | Time |
+| Cost | Input | CPU |
 |---|---|---|
-| Schematron (libxslt runs lxml's ISO skeleton; roughly quadratic in sibling count) | 2 MB, 32,766 failing sibling Boreholes | 22 s (pydiggs's own Schematron work: under 1 s) |
-| | 8 MB, about 125,000 failing siblings | over 200 s |
-| | 11.5 MB, 20,000 sibling Property elements, no failures | 180 s |
-| Schema validation (lxml builds an XPath for every libxml2 error by counting siblings) | 2 MB, 73,583 sibling schema errors | 40 s |
-| | 8 MB of the same | over 400 s |
-| Parsing (the lxml tree) | 42 MB, 10.5 million elements | 1.4 GiB |
+| Schematron (libxslt matches every element against the bundled rule contexts) | 9.5 MB, one parent with about 120,000 same-named children that a rule matches, each declaring its own prefix | 44 s |
+| | 9 MB, 17 parents with about 30,000 matched children each | 13.5 s |
+| | 8 MB, about 125,000 failing siblings | 9 s |
+| | 1 MB, 18,000 sibling features (no failures) | 0.1 s (31 s with the pre-1.2 rule contexts) |
+| Schema validation (lxml builds an XPath for every libxml2 error by counting siblings) | 2 MB of sibling schema errors (37,000 siblings) | 14 s |
+| | 4 MB of the same | 107 s |
+| | 8 MB of the same | over 200 s |
+| Parsing (the lxml tree) | 42 MB, 10.5 million elements | 1.4 GiB, 1.4 s |
+| Local dictionaries (parsed trees) | 20 MiB of `<b/>` elements, the most the budget allows | about 800 MB |
+
+The bundled rules' contexts were rewritten for 1.2 (`*[local-name()='C'][parent::*[local-name()='P']]`
+instead of `//*[local-name()='P']/*[local-name()='C']`; same elements, same verdicts):
+the old form made libxslt quadratic in the number of siblings of any element (over
+400 s on four 8 to 11 MB files that now take 7 to 12 s in all), the new one only when one
+parent has very many children that a rule matches, as in the first two rows.
+
+Entity expansion is not a cost: an internal DTD entity with markup is refused before
+the tree is built (`structure.markup-entity`; a 9.6 MB file that expands to 12 million
+elements is reported in 0.1 s and 54 MB, where 1.2 development builds used 1.7 GB).
 
 Services that validate files from untrusted sources should therefore validate **each
-upload in its own folder**, in a separate process with a **time and memory limit**:
-`pydiggs validate --timeout SECONDS` does the first (a file that runs out of time is a
-`structure.timeout` error), and `--max-bytes` keeps inputs small. Also:
+upload in its own folder**, in a separate process with a **time and memory limit**.
+`pydiggs validate --timeout SECONDS` gives a time limit (a file that runs out of time,
+or whose worker dies, is a `structure.timeout` error) and `--max-bytes` keeps inputs
+small. Also:
 
+* **`--timeout` has a floor.** Each file gets a fresh interpreter (the `spawn` start
+  method, on every OS), which imports pydiggs and lxml and compiles the bundled
+  schemas before validating: about 0.3 s of CPU for a small file, and several seconds
+  of wall time on a loaded machine. The limit includes that start-up, so values under
+  about 10 s can stop files that would pass; use 30 s or more on shared machines.
+* **`spawn` re-imports your main module.** A script that calls
+  `pydiggs.cli.main(["validate", "--timeout", ...])` must do it under
+  `if __name__ == "__main__":`, or each worker runs the script again. The `pydiggs`
+  command needs nothing.
+* **No memory limit.** `--timeout` limits time only. Workers have no memory or CPU
+  rlimit, run with your privileges and inherit your environment; set memory limits
+  with the operating system or the container (for example `ulimit -v`, a cgroup, or a
+  Kubernetes memory limit).
 * **`instance-dir`** reads any file in the instance's folder as a dictionary when a
   codeSpace names it: in a shared upload folder that includes other users' uploads,
   and a hard link to a file elsewhere cannot be told apart from a real file.
 * **The legacy entry points** (`validator`, `pydiggs schema_check` and the other
   subcommands, `detect_diggs_version`) keep their 1.1.1 behaviour by design: local
   dictionaries next to the instance, then in the working directory, and any `file:`
-  URI; a 1 GiB size limit; Schematron with lxml's location strings; element paths that
-  cost time in proportion to depth times the number of findings; a local dictionary
-  parsed once per spelling of its path; and a `dictionary_path` that the bundled
-  `codes/properties.xml` replaces. Use `validate()` for untrusted input.
+  URI; a 1 GiB size limit; internal DTD entities expanded; Schematron with lxml's
+  location strings; element paths that cost time in proportion to depth times the
+  number of findings; a local dictionary parsed once per spelling of its path; and a
+  `dictionary_path` that the bundled `codes/properties.xml` replaces. They use the same
+  rewritten bundled Schematron rules, so their verdicts and output are unchanged. Use
+  `validate()` for untrusted input.
 
 ## Privacy
 

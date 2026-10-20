@@ -11,6 +11,7 @@
   - parent/child contexts written as *[local-name()='C'][parent::*[local-name()='P']]
     rather than //*[local-name()='P']/*[local-name()='C']: the same elements match,
     but libxslt no longer slows down with the square of the number of siblings
+    (it still does when one parent has very many children that a rule matches)
 -->
 <schema xmlns="http://purl.oclc.org/dsdl/schematron"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"

@@ -71,8 +71,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fail closed: a step that cannot finish (a libxml2/libxslt limit, a deprecation XPath
   that cannot be evaluated, or a file with more than 9,900,000 elements) is
   `incomplete` with a `<step>.incomplete` error, never a pass.
-- `pydiggs validate --timeout SECONDS` validates each file in its own process and
-  reports a file that does not finish as a `structure.timeout` error.
+- `pydiggs validate --timeout SECONDS` (at most one day) validates each file in its own
+  process and reports a file that does not finish as a `structure.timeout` error. With
+  or without it, an unexpected error for one file becomes a `structure.internal-error`
+  for that file and the batch goes on.
+- In `validate()`, local dictionaries are limited to 20 MiB in all per instance (a
+  parsed dictionary takes about 35 times its size in memory); a codeSpace not read
+  because of that limit or the 16-dictionary cap makes the dictionary step
+  `incomplete` with a `dictionary.incomplete` error.
 - Schematron runs without lxml's location strings (`generate-paths=false`); pydiggs
   locates each failed assert from the rule contexts, which bounds memory per failure.
 - `validate(dictionary_path=...)` uses that dictionary for every properties URL; in
@@ -104,16 +110,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wheel contains.
 
 ### Performance
+- The bundled Schematron rules match `*[local-name()='C'][parent::*[local-name()='P']]`
+  instead of the equivalent `//*[local-name()='P']/*[local-name()='C']`, which libxslt
+  evaluated in time growing with the square of the number of siblings (a 1 MB file
+  with 18,000 sibling features took 31 s of CPU; now 0.1 s). Verdicts, failures and
+  the `schematron_check()` output are unchanged, and the rule ids are the same.
+  libxslt is still quadratic when one parent has very many children that a rule
+  matches (see the residual risks in the findings guide).
 - Creating a `DictionarySemanticValidator` parses each bundled dictionary once instead
   of once per URL form, which more than offsets the larger dictionary bundle.
 
 ### Security
-- `validate()` and `pydiggs validate` treat everything in an instance as data: Schematron
-  location paths (which carry the instance's namespace URIs) are matched against the
-  tree, never evaluated as XPath; only regular files are read (a FIFO cannot block);
-  messages about unreadable files carry no path; `--output` creates new files with mode
-  0600, keeps an existing file's mode, and never writes through a symlink; text output escapes control and bidi characters. A
-  broken user Schematron file is a `ResourceError` (exit 2).
+- `validate()` and `pydiggs validate` treat everything in an instance as data: the
+  element paths in libxml2's schema messages (which can carry the instance's namespace
+  URIs) are checked against a strict grammar and resolved by walking the tree, never
+  evaluated as XPath, and Schematron failures are located from the trusted rule
+  contexts, not from the report's location strings. Only regular files are read (a
+  FIFO cannot block); messages about unreadable files carry no path; `--output` creates
+  new files with mode 0600, keeps an existing file's mode, and never writes through a
+  symlink; text output escapes control and bidi characters. A broken user Schematron
+  file is a `ResourceError` (exit 2).
+- In `validate()`, an instance whose internal DTD declares an entity with markup (`<`)
+  in its value gets one `structure.markup-entity` error and no other check runs, so an
+  entity cannot multiply the tree past the limits. Entities with plain text still work.
+  The element limit is counted on the parsed tree (an entity or a UTF-7 file cannot
+  hide elements from it).
 - `dictionaries/whiteList.xml`, which decides where `allow_network=True` may fetch
   dictionaries from, is maintained in pyDIGGS and digest-checked rather than synced
   from upstream, so a data update cannot widen it.
