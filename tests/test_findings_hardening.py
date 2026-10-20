@@ -63,6 +63,7 @@ def test_markup_entities_are_found_in_every_unicode_encoding(tmp_path, encoding)
         bom = b"\xff\xfe\x00\x00" if encoding.endswith("le") else b"\x00\x00\xfe\xff"
         text = f'<!DOCTYPE Diggs [<!ENTITY e "<b/>">]><Diggs xmlns="{NS}">&e;</Diggs>'
         path.write_bytes(bom + text.encode(encoding))
+    assert run._markup_entity(path.read_bytes()) == "e"  # the cheap first line
     report = validate(path)
     assert [f.rule_id for f in report.findings] == ["structure.markup-entity"]
     assert not report.ok
@@ -477,3 +478,223 @@ def test_the_casing_rule_still_runs_above_the_sibling_cap(tmp_path, monkeypatch)
     )
     rules = {f.rule_id for f in validate(path, checks=["schematron"]).findings}
     assert rules == {"schematron.incomplete", "schematron.Casing.outside-gt-inside-converted"}
+
+
+# --- Schematron fired-element cap -----------------------------------------------------
+
+
+def _cement(tmp_path: Path, parents: int, per_parent: int, value: str = "-1") -> Path:
+    path = tmp_path / f"cement_{parents}_{per_parent}.xml"
+    group = "<Cement>" + f"<weight>{value}</weight>" * per_parent + "</Cement>"
+    path.write_text(f'<Diggs xmlns="{NS}">{group * parents}</Diggs>')
+    return path
+
+
+@pytest.mark.parametrize("user_rules", [False, True])
+def test_schematron_is_refused_above_the_fired_element_cap(tmp_path, monkeypatch, user_rules):
+    monkeypatch.setattr(run, "MAX_SCHEMATRON_FIRED", 50)
+    kwargs = {}
+    if user_rules:
+        kwargs["schematron_path"] = _sch(
+            tmp_path, "user", _pattern("P", "*[local-name()='weight']", "neg")
+        )
+    under = validate(_cement(tmp_path, 5, 10), checks=["schematron"], **kwargs)
+    assert under.steps["schematron"] == "failed"
+    assert len(under.findings) == 50
+    over = validate(_cement(tmp_path, 3, 17), checks=["schematron"], **kwargs)
+    assert not over.ok and over.steps["schematron"] == "incomplete"
+    (finding,) = over.findings
+    assert finding.rule_id == "schematron.incomplete"
+    assert "more than 50 elements" in finding.message
+
+
+def test_the_fired_count_agrees_with_xpath(tmp_path):
+    """The C-level count of the bundled contexts equals an XPath count of the same."""
+    _, contexts = run._schematron(None)
+    xml = (
+        f'<Diggs xmlns="{NS}" xmlns:o="urn:other"><Cement><weight>1</weight>'
+        "<o:weight>1</o:weight><x><weight/></x></Cement><o:Cement><weight/></o:Cement>"
+        "<weight/><Casing><casingOutsideDiameter/></Casing><Grading><percentPassing/>"
+        "</Grading></Diggs>"
+    )
+    doc = etree.ElementTree(etree.fromstring(xml))
+    expected = (
+        sum(int(doc.xpath(f"count(//{c})")) for c in contexts.patterns[0]) + 1
+    )  # the Casing context is counted by name (an upper bound): one Casing
+    assert contexts.fired_count(doc, 1_000) == expected
+    assert contexts.fired_count(doc, 2) == 3  # stops just past the limit
+
+
+# --- dictionary Check 6/7/8 bounds ----------------------------------------------------
+
+
+def _self_dictionary(tmp_path: Path, elements: int, paths: int, terminal: str = "m") -> Path:
+    """One file that is both the instance and its own local dictionary (audit B1)."""
+    path = tmp_path / "self.xml"
+    occurrences = "".join(
+        "<diggs:Occurrence><diggs:sourceElementXpath>"
+        f"//diggs:n{i}/diggs:{terminal}</diggs:sourceElementXpath></diggs:Occurrence>"
+        for i in range(paths)
+    )
+    refs = '<diggs:a codeSpace="./self.xml#t">t</diggs:a>' * elements
+    path.write_text(
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/3" gml:id="x"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="t"><gml:name>t</gml:name>'
+        f"<diggs:occurrences>{occurrences}</diggs:occurrences></diggs:Definition>"
+        f"</gml:dictionaryEntry><gml:description>{refs}</gml:description></gml:Dictionary>"
+    )
+    return path
+
+
+def test_definition_paths_are_matched_by_their_last_step(tmp_path):
+    """Paths whose last step cannot name the element are never tried: linear time."""
+    path = _self_dictionary(tmp_path, elements=10_000, paths=900)
+    start = time.process_time()
+    report = validate(path, checks=["dictionary"], max_findings=None)
+    elapsed = time.process_time() - start
+    assert report.steps["dictionary"] == "failed"
+    assert {f.rule_id for f in report.findings} == {"dictionary.6"}
+    message = report.findings[0].message
+    assert message.count("//diggs:n") == 20 and "... and 880 more" in message
+    assert elapsed < 4, elapsed  # 9 million path tests: minutes before, ~10 s unfiltered
+
+
+def test_too_many_paths_or_too_much_work_fail_closed(tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    report = validate(_self_dictionary(tmp_path, 10, 1_001), checks=["dictionary"])
+    assert not report.ok and report.steps["dictionary"] == "incomplete"
+    (finding,) = report.findings
+    assert "more than 1,000 paths or names" in finding.message
+    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 500)
+    worked = validate(_self_dictionary(tmp_path, 400, 5, terminal="a"), checks=["dictionary"])
+    assert worked.steps["dictionary"] == "incomplete"
+    assert any("more than 500 steps" in f.message for f in worked.findings)
+    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 10**9)
+    assert (
+        validate(_self_dictionary(tmp_path, 400, 5, terminal="a"), checks=["dictionary"]).steps[
+            "dictionary"
+        ]
+        == "failed"
+    )
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "tests/test_files/AtterbergExample.xml",
+        "tests/fixtures/official/2.6/AtterbergExample-from25.xml",
+    ],
+)
+def test_check8_reads_descendant_paths_in_validate(name):
+    """ancestor::diggs:measurement//diggs:procedure means any descendant (Check 8).
+
+    dictionary_check() keeps reading it as a direct child, which skips Check 8 for these
+    files; validate() reports the two errors.
+    """
+    report = validate(ROOT / name, checks=["dictionary"])
+    check8 = sorted(
+        (f.line, f.message.split('"')[1]) for f in report.findings if f.rule_id == "dictionary.8"
+    )
+    assert check8 == [(178, "uscs group symbol"), (188, "natural water content")]
+    assert all(f.severity.value == "error" for f in report.findings if f.rule_id == "dictionary.8")
+
+
+def test_paths_naming_absent_ancestors_are_rejected_cheaply(tmp_path):
+    """Each path costs one step when one of its ancestors is missing, not a walk."""
+    path = _self_dictionary(tmp_path, elements=4_000, paths=900, terminal="a")
+    report = validate(path, checks=["dictionary"], max_findings=None)
+    assert report.steps["dictionary"] == "failed"  # 3.6 million steps, within the budget
+
+
+# --- local dictionaries refused for safety --------------------------------------------
+
+
+def _local_site(tmp_path: Path, dictionary: bytes) -> Path:
+    (tmp_path / "dict.xml").write_bytes(dictionary)
+    site = tmp_path / "site.xml"
+    site.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3">'
+        '<role codeSpace="./dict.xml#t">t</role></Diggs>'
+    )
+    return site
+
+
+@pytest.mark.parametrize(
+    ("dictionary", "why"),
+    [
+        (
+            b'<!DOCTYPE d [<!ENTITY e "<x/>">]><gml:Dictionary'
+            b' xmlns:gml="http://www.opengis.net/gml/3.2">&e;</gml:Dictionary>',
+            "markup entity 'e'",
+        ),
+        (b"<a>" * 300 + b"</a>" * 300, "libxml2 refused it"),
+    ],
+)
+def test_unsafe_local_dictionaries_fail_closed(tmp_path, dictionary, why):
+    report = validate(_local_site(tmp_path, dictionary), checks=["dictionary"])
+    assert not report.ok and report.steps["dictionary"] == "incomplete"
+    by_rule = {f.rule_id: f for f in report.findings}
+    assert set(by_rule) == {"dictionary.incomplete", "dictionary.3"}
+    assert why in by_rule["dictionary.incomplete"].message
+    assert by_rule["dictionary.3"].severity.value == "warning"
+
+
+# --- reports, worker crashes, scrubbing -----------------------------------------------
+
+
+def test_reports_pickle_with_every_field():
+    import dataclasses
+
+    report = validate(NO_ERROR, checks=["schema"], base_dir=ROOT)
+    report = dataclasses.replace(report, absolute_path="/x/y.xml")
+    again = pickle.loads(pickle.dumps(report))  # noqa: S301 - our own bytes
+    assert again == report
+    for item in dataclasses.fields(report):
+        assert getattr(again, item.name) == getattr(report, item.name), item.name
+    assert again.absolute_path == "/x/y.xml"
+
+
+def test_the_real_worker_reports_a_crash(work, monkeypatch):
+    sent = []
+
+    class Conn:
+        def send(self, value):
+            sent.append(value)
+
+        def close(self):
+            pass
+
+    def boom(path, **kwargs):
+        raise RuntimeError(f"boom in {Path(path).resolve()}")
+
+    monkeypatch.setattr(_cli, "validate", boom)
+    _cli._worker(Conn(), str(work / "ok.xml"), {})
+    ((kind, text),) = sent
+    assert kind == "crash" and text.startswith("RuntimeError: boom in ")
+    monkeypatch.setattr(_cli.multiprocessing, "get_context", lambda method: _Context(sent[0]))
+    report = _cli._validate_isolated(work / "ok.xml", {"max_bytes": 10**8}, 5.0)
+    (finding,) = report.findings
+    assert finding.rule_id == "structure.internal-error"
+    assert str(work) not in finding.message  # scrubbed to the shown path
+    assert "boom in ok.xml" in finding.message
+
+
+def test_internal_error_text_is_cut_short(work, monkeypatch):
+    def boom(path, **kwargs):
+        raise ValueError("x" * 5_000)
+
+    monkeypatch.setattr(_cli, "validate", boom)
+    reports, _ = _cli._run(_cli._options(_cli.build_parser(), ["ok.xml"]), [work / "ok.xml"])
+    (finding,) = reports[0].findings
+    assert len(finding.message) < 400
+
+
+def test_old_bundled_rule_contexts_keep_their_rule_ids():
+    from pydiggs.findings import rules
+
+    old = "//*[local-name()='Grading']/*[local-name()='percentPassing']"
+    assert (
+        rules.schematron_bundled_rule(old, "number(.) >= 0") == "schematron.Grading.percentPassing"
+    )
