@@ -698,3 +698,149 @@ def test_old_bundled_rule_contexts_keep_their_rule_ids():
     assert (
         rules.schematron_bundled_rule(old, "number(.) >= 0") == "schematron.Grading.percentPassing"
     )
+
+
+# --- round 7: per-element costs in dictionary Checks 8 to 13 --------------------------
+
+_LOCAL_DEF = (
+    '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+    ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="x"><gml:dictionaryEntry>'
+    '<diggs:Definition gml:id="t"><gml:name>t</gml:name><diggs:occurrences>'
+    "<diggs:Occurrence><diggs:sourceElementXpath>//diggs:propertyClass"
+    "</diggs:sourceElementXpath>{conditionals}</diggs:Occurrence></diggs:occurrences>"
+    "{extra}</diggs:Definition></gml:dictionaryEntry></gml:Dictionary>"
+)
+
+
+def _local_definition(tmp_path: Path, body: str, conditionals: str = "", extra: str = "") -> Path:
+    (tmp_path / "d.xml").write_text(_LOCAL_DEF.format(conditionals=conditionals, extra=extra))
+    site = tmp_path / "i.xml"
+    site.write_text(f'<Diggs xmlns="{NS}">{body}</Diggs>')
+    return site
+
+
+def test_property_class_siblings_are_read_once(tmp_path):
+    """Audit: 8,000 coded siblings under one parent took 59 s (each rescanned the rest)."""
+    el = (
+        '<propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml'
+        '#aashto_group_index">aashto_group_index</propertyClass>'
+    )
+    path = tmp_path / "bsib.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}"><characteristicProperty>{el * 4_000}</characteristicProperty></Diggs>'
+    )
+    start = time.process_time()
+    report = validate(path, checks=["dictionary"])
+    assert time.process_time() - start < 3
+    assert report.steps["dictionary"] == "passed"
+
+
+def test_definitions_are_read_once_and_huge_ones_refused(tmp_path):
+    body = '<p><propertyClass codeSpace="./d.xml#t">t</propertyClass></p>' * 500
+    site = _local_definition(tmp_path, body, extra="<x/>" * 9_000)
+    start = time.process_time()
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
+    assert time.process_time() - start < 3  # 500 x 4 whole-Definition XPaths before
+    huge = _local_definition(tmp_path, body, extra="<x/>" * 10_001)
+    report = validate(huge, checks=["dictionary"])
+    assert report.steps["dictionary"] == "incomplete"
+    assert any("more than 10,000 nodes" in f.message for f in report.findings)
+
+
+def test_long_conditional_paths_are_bounded(tmp_path):
+    def conditionals(steps: int) -> str:
+        return "".join(
+            "<diggs:conditionalElementXpath>ancestor::diggs:a/"
+            f"{'diggs:b/' * steps}diggs:z{i}</diggs:conditionalElementXpath>"
+            for i in range(4)
+        )
+
+    body = "<a>" + "<b/>" * 3_000 + '<propertyClass codeSpace="./d.xml#t">t</propertyClass></a>'
+    start = time.process_time()
+    report = validate(_local_definition(tmp_path, body, conditionals(60)), checks=["dictionary"])
+    assert time.process_time() - start < 3
+    assert report.steps["dictionary"] == "failed"  # Check 8: no z child
+    too_long = validate(_local_definition(tmp_path, body, conditionals(64)), checks=["dictionary"])
+    assert too_long.steps["dictionary"] == "incomplete"
+    assert any("more than 64 steps" in f.message for f in too_long.findings)
+
+
+def test_a_slash_inside_a_predicate_is_not_a_step(tmp_path):
+    cond = (
+        "<diggs:conditionalElementXpath>ancestor::diggs:measurement//diggs:procedure/"
+        'diggs:X/diggs:method[text()="ERI/ERT"]</diggs:conditionalElementXpath>'
+    )
+    inside = (
+        '<measurement><Test><outcome><propertyClass codeSpace="./d.xml#t">t</propertyClass>'
+        "</outcome><procedure><X><method>ERI/ERT</method></X></procedure></Test></measurement>"
+    )
+    assert validate(_local_definition(tmp_path, inside, cond), checks=["dictionary"]).ok
+    other = inside.replace("<X>", "<Y>").replace("</X>", "</Y>")
+    report = validate(_local_definition(tmp_path, other, cond), checks=["dictionary"])
+    (finding,) = [f for f in report.findings if f.rule_id == "dictionary.8"]
+    assert finding.message.endswith("measurements: \n     method.")
+
+
+def test_overlong_names_in_a_local_dictionary_fail_closed(tmp_path):
+    name = "n" * 60_000
+    site = _local_site(tmp_path, f"<{name}/>".encode())
+    report = validate(site, checks=["dictionary"])
+    assert report.steps["dictionary"] == "incomplete"
+    assert any("Name too long" in f.message for f in report.findings)
+
+
+def test_internal_error_text_is_scrubbed_before_it_is_cut(work, monkeypatch, tmp_path):
+    import urllib.parse
+
+    home = work.parent
+    monkeypatch.setenv("HOME", str(home))
+    target = work / "ok.xml"
+    spellings = [str(target.resolve()), target.resolve().as_uri(), urllib.parse.quote(str(home))]
+
+    def boom(path, **kwargs):
+        raise RuntimeError("x" * 280 + " ".join(spellings) + f" {home}/elsewhere.txt")
+
+    monkeypatch.setattr(_cli, "validate", boom)
+    reports, _ = _cli._run(_cli._options(_cli.build_parser(), ["ok.xml"]), [target])
+    (finding,) = reports[0].findings
+    assert str(home) not in finding.message
+    assert str(home)[:12] not in finding.message  # not even a cut-off prefix
+    assert "ok.xml" in finding.message
+
+
+# --- round 7: Schematron count branches ---------------------------------------------
+
+
+def test_fired_count_falls_back_to_xpath_count(tmp_path, monkeypatch):
+    monkeypatch.setattr(run, "MAX_SCHEMATRON_FIRED", 5)
+    path = _cement(tmp_path, 1, 6)
+    # A prefixed name test and a descendant step are not "local name plus predicates".
+    for context in ("d:weight", "*[local-name()='Cement']//*[local-name()='weight']"):
+        sch = tmp_path / "x.sch"
+        sch.write_text(
+            f'<sch:schema {SCH}><sch:ns prefix="d" uri="{NS}"/>'
+            + _pattern("P", context, "neg")
+            + "</sch:schema>"
+        )
+        report = validate(path, checks=["schematron"], schematron_path=sch)
+        assert report.steps["schematron"] == "incomplete", context
+    _, contexts = run._schematron(None)
+    doc = etree.ElementTree(
+        etree.fromstring(f'<Diggs xmlns="{NS}"><Cement><a><weight/></a></Cement></Diggs>')
+    )
+    assert contexts._count(doc, "*[local-name()='Cement']//*[local-name()='weight']", 10) == 1
+
+
+def test_an_unexpanded_abstract_pattern_is_never_located():
+    schema = etree.ElementTree(
+        etree.fromstring(
+            f'<sch:schema {SCH}><sch:pattern abstract="true" id="a">'
+            '<sch:rule context="$x"><sch:assert test="1"/></sch:rule></sch:pattern>'
+            '<sch:pattern id="b"><sch:rule context="b"><sch:assert test="1"/></sch:rule>'
+            "</sch:pattern></sch:schema>"
+        )
+    )
+    contexts = RuleContexts(schema)
+    assert contexts.patterns == [[], ["b"]]
+    doc = etree.ElementTree(etree.fromstring("<r><b/></r>"))
+    assert contexts.matched(doc, 0, FiredPattern("a", ["$x"])) is None

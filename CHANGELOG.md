@@ -88,7 +88,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   definition paths that can name it, a Definition may list at most 1,000 paths or
   names, and path matching may take at most 5,000,000 steps per instance; past either
   limit the step is `incomplete` with a `dictionary.incomplete` error. Check 6 and 8
-  messages list at most 20 paths.
+  messages list at most 20 paths. Each Definition is read once per instance (it may
+  have at most 10,000 nodes, and a path at most 64 steps), a property's `typeData`,
+  `uom` and `nullValue` siblings are found once per parent, and sibling reads and
+  Check 13's ResultSets count towards the same budget.
+- In `validate()`, a `/` inside a predicate of a definition path (for example
+  `[text()="electrical resistivity (ERI/ERT)"]`) no longer splits the path.
 - In `validate()`, Check 8 reads `//` in a definition's conditional paths as "any
   descendant". `dictionary_check()` keeps reading it as a direct child, which skips
   Check 8 under a measurement; the two AtterbergExample files in the test corpus
