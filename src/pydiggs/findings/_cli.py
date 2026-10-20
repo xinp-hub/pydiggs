@@ -12,6 +12,7 @@ import hashlib
 import io
 import multiprocessing
 import os
+import pickle
 import stat
 import sys
 import unicodedata
@@ -32,10 +33,14 @@ from pydiggs.findings.run import (
     NATIVE_STEPS,
     display_paths,
     reference_data,
+    selected_steps,
     validate,
 )
 
-__all__ = ["build_parser", "expand_inputs", "main"]
+__all__ = ["MAX_TIMEOUT", "build_parser", "expand_inputs", "main"]
+
+#: Largest ``--timeout``: one day.
+MAX_TIMEOUT = 86_400
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -219,8 +224,8 @@ def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.N
         parser.error("--max-findings must be 0 (no limit) or positive")
     if args.max_bytes < 1:
         parser.error("--max-bytes must be positive")
-    if args.timeout is not None and not args.timeout > 0:
-        parser.error("--timeout must be a positive number of seconds")
+    if args.timeout is not None and not 0 < args.timeout <= MAX_TIMEOUT:  # also NaN, inf
+        parser.error(f"--timeout must be a positive number of seconds, at most {MAX_TIMEOUT:,}")
     return args
 
 
@@ -246,31 +251,35 @@ def _worker(conn: Connection, path: str, kwargs: dict[str, Any]) -> None:
         conn.send(("report", validate(path, **kwargs)))
     except (InstanceReadError, ResourceError) as exc:
         conn.send(("error", exc))
+    except Exception as exc:  # becomes an ERROR report in the parent
+        conn.send(("crash", _describe(exc)))
     finally:
         conn.close()
+
+
+def _describe(exc: BaseException) -> str:
+    return f"{type(exc).__name__}: {exc}"[:1000]
 
 
 def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Report:
     """Run validate() in a spawned process; past ``timeout`` seconds, stop it.
 
     A file that times out gets a report with one structure.timeout ERROR and every
-    step incomplete (fail closed). Works the same on Windows, macOS and Linux: no
-    signals, a fresh interpreter per file.
+    requested step incomplete (fail closed). Works the same on Windows, macOS and
+    Linux: no signals, a fresh interpreter per file.
     """
     context = multiprocessing.get_context("spawn")
     receive, send = context.Pipe(duplex=False)
     worker = context.Process(target=_worker, args=(send, str(path), kwargs), daemon=True)
     worker.start()
     send.close()
+    answer: tuple[str, Any] | None = None
+    died = False
     try:
         if receive.poll(timeout):
-            kind, value = receive.recv()
-            if kind == "error":
-                raise value
-            report: Report = value
-            return report
-    except EOFError:  # the worker died without answering
-        return _timed_out(path, kwargs, timeout, died=True)
+            answer = receive.recv()
+    except (EOFError, OSError, pickle.UnpicklingError):  # died without a usable answer
+        died = True
     finally:
         if worker.is_alive():
             worker.terminate()
@@ -279,28 +288,38 @@ def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Re
                 worker.kill()
         worker.join()
         receive.close()
-    return _timed_out(path, kwargs, timeout, died=False)
+    if answer is None:
+        why = "stopped unexpectedly" if died else f"did not finish within {timeout:g} s (--timeout)"
+        return _failed(path, kwargs, rules.TIMEOUT, f"Validation {why}")
+    kind, value = answer
+    if kind == "error":
+        raise value
+    if kind == "crash":
+        return _failed(path, kwargs, rules.INTERNAL_ERROR, f"Validation failed ({value})")
+    report: Report = value
+    return report
 
 
-def _timed_out(path: Path, kwargs: dict[str, Any], timeout: float, *, died: bool) -> Report:
+def _failed(path: Path, kwargs: dict[str, Any], rule_id: str, why: str) -> Report:
+    """A report with one ERROR and every requested step incomplete (fail closed)."""
     shown, absolute = display_paths(path, kwargs.get("base_dir"))
     try:
-        digest = hashlib.sha256(_xml.read_limited(path, kwargs["max_bytes"])[0]).hexdigest()
+        data, _ = _xml.read_limited(path, kwargs["max_bytes"], regular_only=True)
     except OSError as exc:
         raise InstanceReadError(exc.errno or 0, exc.strerror or "could not be read", shown) from exc
-    why = "stopped unexpectedly" if died else f"did not finish within {timeout:g} s (--timeout)"
+    wanted = selected_steps(kwargs.get("checks"))
     return Report(
         path=shown,
         absolute_path=absolute,
-        sha256=digest,
+        sha256=hashlib.sha256(data).hexdigest(),
         diggs_version=None,
-        steps=dict.fromkeys(NATIVE_STEPS, "incomplete"),
+        steps={s: "incomplete" if s in wanted else "skipped" for s in NATIVE_STEPS},
         findings=(
             Finding(
                 step=Step.STRUCTURE,
-                rule_id=rules.TIMEOUT,
+                rule_id=rule_id,
                 severity=Severity.ERROR,
-                message=f"Validation {why}; the file is not reported as passing.",
+                message=f"{why}; the file is not reported as passing.",
             ),
         ),
         tool_version=pydiggs.__version__,
@@ -311,14 +330,24 @@ def _timed_out(path: Path, kwargs: dict[str, Any], timeout: float, *, died: bool
 def _run(
     args: argparse.Namespace, inputs: Sequence[Path]
 ) -> tuple[list[Report], list[UnreadableFile]]:
-    """Validate every input; ResourceError propagates (it aborts the batch)."""
+    """Validate every input; ResourceError propagates (it aborts the batch).
+
+    Any other unexpected error for one file becomes an ERROR report for that file
+    (``structure.internal-error``) and the batch goes on.
+    """
     reports: list[Report] = []
     unreadable: list[UnreadableFile] = []
     kwargs = _validate_kwargs(args)
     for path in inputs:
         try:
             if args.timeout is None:
-                reports.append(validate(path, **kwargs))
+                try:
+                    reports.append(validate(path, **kwargs))
+                except (InstanceReadError, ResourceError):
+                    raise
+                except Exception as exc:  # fail closed for this file only
+                    why = f"Validation failed ({_describe(exc)})"
+                    reports.append(_failed(path, kwargs, rules.INTERNAL_ERROR, why))
             else:
                 reports.append(_validate_isolated(path, kwargs, args.timeout))
         except InstanceReadError as exc:

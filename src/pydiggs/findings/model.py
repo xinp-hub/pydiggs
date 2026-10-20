@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Final, Literal, get_args
@@ -269,19 +269,15 @@ class Report:
         )
 
     def __reduce__(self) -> tuple[Any, tuple[dict[str, Any]]]:
-        """Pickle support (``steps`` and ``reference_data`` are read-only mappings)."""
-        return _rebuild_report, (
-            {
-                "path": self.path,
-                "sha256": self.sha256,
-                "diggs_version": self.diggs_version,
-                "steps": dict(self.steps),
-                "findings": self.findings,
-                "tool_version": self.tool_version,
-                "reference_data": dict(self.reference_data),
-                "absolute_path": self.absolute_path,
-            },
-        )
+        """Pickle support (``steps`` and ``reference_data`` are read-only mappings).
+
+        Built from :func:`dataclasses.fields`, so a new field cannot be forgotten.
+        """
+        values: dict[str, Any] = {}
+        for item in fields(self):
+            value = getattr(self, item.name)
+            values[item.name] = dict(value) if isinstance(value, Mapping) else value
+        return _rebuild_report, (values,)
 
     @property
     def ok(self) -> bool:
@@ -324,8 +320,8 @@ class Report:
         )
 
 
-def _rebuild_report(fields: dict[str, Any]) -> Report:
-    return Report(**fields)
+def _rebuild_report(values: dict[str, Any]) -> Report:
+    return Report(**values)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
