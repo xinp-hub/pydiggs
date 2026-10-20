@@ -23,11 +23,14 @@ __all__ = [
     "DICTIONARY_OFFLINE",
     "FINDINGS_TRUNCATED",
     "HELP_URI",
+    "INTERNAL_ERROR",
+    "MARKUP_ENTITY",
     "MAX_USER_ID_CHARS",
     "REMOVED",
     "RULE_ID_PATTERN",
     "SARIF_LEVEL",
     "SCHEMATRON_BUNDLED",
+    "SCHEMATRON_BUNDLED_ALIASES",
     "SCHEMATRON_CASING_NUMERIC",
     "SCHEMATRON_CASING_UNITS",
     "SCHEMA_INCOMPLETE",
@@ -38,6 +41,7 @@ __all__ = [
     "incomplete",
     "is_valid_rule_id",
     "schema_rule",
+    "schematron_bundled_rule",
     "schematron_user_rule",
 ]
 
@@ -51,9 +55,13 @@ MAX_USER_ID_CHARS: Final = 4096
 HELP_URI: Final = "https://xinp-hub.github.io/pydiggs/findings/#rule-ids"
 
 WELL_FORMED: Final = "structure.well-formed"
+#: The internal DTD declares an entity whose value contains markup; nothing else ran.
+MARKUP_ENTITY: Final = "structure.markup-entity"
 FINDINGS_TRUNCATED: Final = TRUNCATED_RULE
 #: pydiggs validate --timeout stopped the file's validation.
 TIMEOUT: Final = "structure.timeout"
+#: pydiggs validate caught an unexpected error for one file (the batch went on).
+INTERNAL_ERROR: Final = "structure.internal-error"
 SCHEMA_INCOMPLETE: Final = "schema.incomplete"
 DICTIONARY_13: Final = "dictionary.13"
 DICTIONARY_OFFLINE: Final = "dictionary.offline"
@@ -77,57 +85,59 @@ def _rule(context: str, test: str) -> tuple[str, str]:
 #: the rule's ``@context`` and the assert's whitespace-normalised ``@test``.
 SCHEMATRON_BUNDLED: Final[dict[tuple[str, str], str]] = {
     _rule(
-        "//*[local-name()='Borehole']/*[local-name()='totalMeasuredDepth']", "number(.) > 0"
+        "*[local-name()='totalMeasuredDepth'][parent::*[local-name()='Borehole']]", "number(.) > 0"
     ): "schematron.Borehole.totalMeasuredDepth",
     _rule(
-        "//*[local-name()='DriveSet']/*[local-name()='penetration']", "number(.) >= 0"
+        "*[local-name()='penetration'][parent::*[local-name()='DriveSet']]", "number(.) >= 0"
     ): "schematron.DriveSet.penetration",
     _rule(
-        "//*[local-name()='DrivenPenetrationTest']/*[local-name()='hammerEfficiency']",
+        "*[local-name()='hammerEfficiency'][parent::*[local-name()='DrivenPenetrationTest']]",
         "number(.) >= 0 and number(.) <= 100",
     ): "schematron.DrivenPenetrationTest.hammerEfficiency",
     _rule(
-        "//*[local-name()='Casing']/*[local-name()='casingOutsideDiameter']", "number(.) > 0"
+        "*[local-name()='casingOutsideDiameter'][parent::*[local-name()='Casing']]", "number(.) > 0"
     ): "schematron.Casing.casingOutsideDiameter",
     _rule(
-        "//*[local-name()='Casing']/*[local-name()='casingInsideDiameter']", "number(.) > 0"
+        "*[local-name()='casingInsideDiameter'][parent::*[local-name()='Casing']]", "number(.) > 0"
     ): "schematron.Casing.casingInsideDiameter",
     _rule(
-        "//*[local-name()='AbstractLinearSamplingFeature']/*[local-name()='plunge']",
+        "*[local-name()='plunge'][parent::*[local-name()='AbstractLinearSamplingFeature']]",
         "number(.) >= -45 and number(.) <= -10",
     ): "schematron.AbstractLinearSamplingFeature.plunge",
     _rule(
-        "//*[local-name()='CasagrandeTrial']/*[local-name()='waterContent']", "number(.) >= 0"
+        "*[local-name()='waterContent'][parent::*[local-name()='CasagrandeTrial']]",
+        "number(.) >= 0",
     ): "schematron.CasagrandeTrial.waterContent",
     _rule(
-        "//*[local-name()='CasagrandeTrial']/*[local-name()='blowCount']", "number(.) >= 0"
+        "*[local-name()='blowCount'][parent::*[local-name()='CasagrandeTrial']]", "number(.) >= 0"
     ): "schematron.CasagrandeTrial.blowCount",
     _rule(
-        "//*[local-name()='FieldProperties']/*[local-name()='plasticity']", "number(.) >= 0"
+        "*[local-name()='plasticity'][parent::*[local-name()='FieldProperties']]", "number(.) >= 0"
     ): "schematron.FieldProperties.plasticity",
     _rule(
-        "//*[local-name()='Cement']/*[local-name()='weight']", "number(.) > 0"
+        "*[local-name()='weight'][parent::*[local-name()='Cement']]", "number(.) > 0"
     ): "schematron.Cement.weight",
     _rule(
-        "//*[local-name()='Cement']/*[local-name()='specificGravity']", "number(.) > 0"
+        "*[local-name()='specificGravity'][parent::*[local-name()='Cement']]", "number(.) > 0"
     ): "schematron.Cement.specificGravity",
     _rule(
-        "//*[local-name()='SpecimenConditions']/*[local-name()='voidRatio']", "number(.) >= 0"
+        "*[local-name()='voidRatio'][parent::*[local-name()='SpecimenConditions']]",
+        "number(.) >= 0",
     ): "schematron.SpecimenConditions.voidRatio",
     _rule(
-        "//*[local-name()='Grading']/*[local-name()='percentPassing']", "number(.) >= 0"
+        "*[local-name()='percentPassing'][parent::*[local-name()='Grading']]", "number(.) >= 0"
     ): "schematron.Grading.percentPassing",
     _rule(
-        "//*[local-name()='Grading']/*[local-name()='percentRetained']", "number(.) >= 0"
+        "*[local-name()='percentRetained'][parent::*[local-name()='Grading']]", "number(.) >= 0"
     ): "schematron.Grading.percentRetained",
     _rule(
-        "//*[local-name()='Grading']/*[local-name()='weightRetained']", "number(.) >= 0"
+        "*[local-name()='weightRetained'][parent::*[local-name()='Grading']]", "number(.) >= 0"
     ): "schematron.Grading.weightRetained",
     _rule(
-        "//*[local-name()='Grading']/*[local-name()='particleSize']", "number(.) > 0"
+        "*[local-name()='particleSize'][parent::*[local-name()='Grading']]", "number(.) > 0"
     ): "schematron.Grading.particleSize",
     _rule(
-        "//*[local-name()='AbstractTrialGroutBatch']/*[local-name()='specificGravityMix']",
+        "*[local-name()='specificGravityMix'][parent::*[local-name()='AbstractTrialGroutBatch']]",
         "number(.) > 1.0",
     ): "schematron.AbstractTrialGroutBatch.specificGravityMix",
     _rule(
@@ -141,6 +151,24 @@ SCHEMATRON_BUNDLED: Final[dict[tuple[str, str], str]] = {
         "not($outsideUom = $insideUom) or $outsideDiameter > $insideDiameter",
     ): "schematron.Casing.outside-gt-inside",
 }
+_PARENT_FORM: Final = re.compile(
+    r"^\*\[local-name\(\)='(\w+)'\]\[parent::\*\[local-name\(\)='(\w+)'\]\]$"
+)
+#: The same rules under the contexts the bundled file used before 1.2.0
+#: (``//*[local-name()='P']/*[local-name()='C']``, which matches the same elements),
+#: so a report keyed by either spelling gets the same rule id.
+SCHEMATRON_BUNDLED_ALIASES: Final[dict[tuple[str, str], str]] = {
+    (f"//*[local-name()='{m[2]}']/*[local-name()='{m[1]}']", test): rule_id
+    for (context, test), rule_id in SCHEMATRON_BUNDLED.items()
+    if (m := _PARENT_FORM.match(context))
+}
+
+
+def schematron_bundled_rule(context: str, test: str) -> str | None:
+    """The rule id of a bundled Schematron assert, from its rule context and test."""
+    key = _rule(context, test)
+    return SCHEMATRON_BUNDLED.get(key) or SCHEMATRON_BUNDLED_ALIASES.get(key)
+
 
 #: pydiggs's own cross-unit casing rule (``validator._check_casing_diameters``).
 SCHEMATRON_CASING_UNITS: Final = "schematron.Casing.outside-gt-inside-converted"
@@ -195,8 +223,10 @@ _DICTIONARY_CHECKS: Final[dict[int, str]] = {
 
 _DESCRIPTIONS: Final[dict[str, str]] = {
     WELL_FORMED: "The file is not well-formed XML",
+    MARKUP_ENTITY: "The internal DTD declares an entity whose value contains markup",
     FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
     TIMEOUT: "Validation did not finish within --timeout",
+    INTERNAL_ERROR: "Validation failed with an unexpected error",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
     DICTIONARY_OFFLINE: "A whitelisted remote code list is not bundled and network access is off",
     DEPRECATED: "Uses something the DIGGS schema deprecates",

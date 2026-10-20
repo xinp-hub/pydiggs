@@ -5,27 +5,31 @@ stops building, for every failed assert, a location string with one step per anc
 (which cost memory per failure and time per sibling). The failures are located here
 instead.
 
-The skeleton runs each pattern as one pass over the instance's elements in document
-order, and every element matched by one of the pattern's rules (the first matching
-rule wins) yields one ``svrl:fired-rule``, followed by that element's failed asserts
-and successful reports. So the n-th ``fired-rule`` of a pattern belongs to the n-th
-element, in document order, matched by any rule context of that pattern: the union of
-those contexts, evaluated once per pattern. The Schematron file is trusted input, so its
-XPaths may be evaluated; the instance's data never are.
+The skeleton runs each active pattern (in schema order, filtered by the phase) as one
+pass over the instance's elements in document order, and every element matched by one
+of the pattern's rules (the first matching rule wins) yields one ``svrl:fired-rule``,
+followed by that element's failed asserts and successful reports. So the n-th
+``fired-rule`` of a pattern belongs to the n-th element, in document order, matched by
+any rule context of that pattern. The patterns are read from the same included and
+expanded schema lxml compiles. The Schematron file is trusted input, so its XPaths may
+be evaluated; the instance's data never are.
 
-If the count of matched elements differs from the count of ``fired-rule`` elements
-(abstract patterns, includes, or contexts lxml evaluates differently), that pattern's
-failures are left without a location rather than located wrongly.
+A pattern's failures are left without a location rather than located wrongly when the
+pairing cannot be verified: the ``active-pattern`` ids differ, the number of matched
+elements differs from the number of ``fired-rule`` elements, or the n-th element's first
+matching rule is not the n-th ``fired-rule``'s context (contexts that select attributes,
+text or the root, or that lxml evaluates differently).
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Final
 
 from lxml import etree
 
-__all__ = ["SVRL", "RuleContexts", "fired_counts", "svrl_items"]
+__all__ = ["SVRL", "FiredPattern", "RuleContexts", "fired_patterns", "svrl_items"]
 
 SVRL: Final = "{http://purl.oclc.org/dsdl/svrl}"
 _SCHEMATRON_NAMESPACES: Final = (
@@ -57,26 +61,39 @@ def _branches(context: str) -> list[str]:
     return [b for b in out if b]
 
 
-def _as_xpath(context: str) -> str:
-    """An XPath selecting the nodes an XSLT match pattern matches (for element patterns)."""
-    return " | ".join(f"({b})" if b.startswith("/") else f"(//{b})" for b in _branches(context))
-
-
 class RuleContexts:
     """The rule contexts of one Schematron schema, grouped by active pattern."""
 
-    def __init__(self, schema: etree._ElementTree) -> None:
-        """Read the patterns, rules and namespace bindings of ``schema``."""
+    def __init__(self, schema: etree._ElementTree, phase: str | None = None) -> None:
+        """Read the patterns, rules and namespace bindings of ``schema``.
+
+        ``schema`` must be included and expanded already (lxml's
+        ``store_schematron=True`` tree); ``phase`` is the compile-time phase (None:
+        the schema's ``defaultPhase``, else ``#ALL``), as in lxml's skeleton.
+        """
         root = schema.getroot()
         self.namespaces = {
             str(el.get("prefix")): str(el.get("uri"))
             for el in root.iter(*_tags("ns"))
             if el.get("prefix") and el.get("uri")
         }
+        phase = phase if phase is not None else root.get("defaultPhase") or "#ALL"
+        active: set[str] | None = None
+        if phase != "#ALL":
+            active = {
+                str(a.get("pattern"))
+                for ph in root.iterchildren(*_tags("phase"))
+                if ph.get("id") == phase
+                for a in ph.iterchildren(*_tags("active"))
+            }
+        self.ids: list[str | None] = []
         self.patterns: list[list[str]] = []
-        for pattern in root.iter(*_tags("pattern")):
-            if pattern.get("abstract") == "true" or pattern.get("is-a"):
-                self.patterns.append([])  # instantiated by lxml's expansion; not located
+        for pattern in root.iterchildren(*_tags("pattern")):
+            if active is not None and pattern.get("id") not in active:
+                continue
+            self.ids.append(pattern.get("id"))
+            if pattern.get("abstract") == "true":
+                self.patterns.append([])  # lxml expands these away; never located
                 continue
             self.patterns.append(
                 [
@@ -87,26 +104,67 @@ class RuleContexts:
             )
 
     def matched(
-        self, doc: etree._ElementTree, pattern: int, fired: int
+        self, doc: etree._ElementTree, pattern: int, fired: FiredPattern
     ) -> list[etree._Element] | None:
         """Elements of pattern number ``pattern`` that fired a rule, in document order.
 
-        None when they cannot be paired reliably with the report's ``fired`` count.
-        Callers cache the answer per document (this object is shared between documents).
+        None when they cannot be paired reliably with the report's ``fired`` rules.
+        Each context is evaluated on its own; one pass in document order then picks
+        each element's first matching rule (a union XPath over many contexts is
+        quadratic in libxml2). Callers cache the answer per document (this object is
+        shared between documents).
         """
-        contexts = self.patterns[pattern] if pattern < len(self.patterns) else []
-        if not contexts:
+        if pattern >= len(self.patterns) or not self.patterns[pattern]:
             return None
-        try:
-            found = doc.xpath(
-                " | ".join(_as_xpath(c) for c in contexts), namespaces=self.namespaces
-            )
-        except (etree.XPathError, ValueError):
+        expected = self.ids[pattern]
+        if fired.id is not None and expected is not None and fired.id != expected:
             return None
-        if not isinstance(found, list):
+        contexts = self.patterns[pattern]
+        first: dict[etree._Element, int] = {}
+        for index in range(len(contexts) - 1, -1, -1):  # earlier rules overwrite later
+            found = self._select(doc, contexts[index])
+            if found is None:
+                return None
+            first.update(dict.fromkeys(found, index))
+        if len(first) != len(fired.contexts):
             return None
-        nodes = [n for n in found if isinstance(n, etree._Element) and isinstance(n.tag, str)]
-        return nodes if len(nodes) == fired else None
+        nodes: list[etree._Element] = []
+        if first:
+            for el in doc.getroot().iter():
+                rule = first.get(el)
+                if rule is None:
+                    continue
+                if contexts[rule] != fired.contexts[len(nodes)]:
+                    return None
+                nodes.append(el)
+                if len(nodes) == len(first):
+                    break
+        return nodes
+
+    def _select(self, doc: etree._ElementTree, context: str) -> list[etree._Element] | None:
+        """The elements ``context`` matches, or None if it may match anything else."""
+        found: list[etree._Element] = []
+        for branch in _branches(context):
+            xpath = branch if branch.startswith("/") else f"//{branch}"
+            try:
+                result = doc.xpath(xpath, namespaces=self.namespaces)
+            except (etree.XPathError, ValueError):
+                return None
+            if not isinstance(result, list):
+                return None
+            for node in result:
+                if not (isinstance(node, etree._Element) and isinstance(node.tag, str)):
+                    return None
+                found.append(node)
+        return found
+
+
+@dataclass(frozen=True)
+class FiredPattern:
+    """One ``svrl:active-pattern``: its id and the context of each ``fired-rule``."""
+
+    id: str | None
+    contexts: list[str]
 
 
 def svrl_items(
@@ -128,14 +186,15 @@ def svrl_items(
             yield context, el, max(pattern, 0), fired
 
 
-def fired_counts(report: etree._ElementTree) -> dict[int, int]:
-    """Number of ``fired-rule`` elements per pattern number."""
-    counts: dict[int, int] = {}
+def fired_patterns(report: etree._ElementTree) -> dict[int, FiredPattern]:
+    """Each pattern number's ``active-pattern`` id and ``fired-rule`` contexts."""
+    patterns: dict[int, FiredPattern] = {}
     pattern = -1
     for el in report.getroot():
         if el.tag == f"{SVRL}active-pattern":
             pattern += 1
-            counts.setdefault(pattern, 0)
+            patterns[pattern] = FiredPattern(el.get("id"), [])
         elif el.tag == f"{SVRL}fired-rule":
-            counts[max(pattern, 0)] = counts.get(max(pattern, 0), 0) + 1
-    return counts
+            current = patterns.setdefault(max(pattern, 0), FiredPattern(None, []))
+            current.contexts.append(el.get("context") or "")
+    return patterns

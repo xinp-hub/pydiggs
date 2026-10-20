@@ -172,6 +172,7 @@ def test_one_file_is_parsed_once_however_it_is_spelled(tmp_path, monkeypatch):
     assert sum(url is not None and url.endswith("local.xml") for url in parsed) == 1
 
 
+@pytest.mark.timeout(120)  # includes a FIFO: a blocking read must fail fast
 def test_local_dictionaries_obey_max_bytes_regular_files_and_the_cap(tmp_path):
     import os
 
@@ -180,7 +181,10 @@ def test_local_dictionaries_obey_max_bytes_regular_files_and_the_cap(tmp_path):
     (folder / "big.xml").write_text(_DICT + " " * 10_000)
     site = _instance(folder, "./big.xml")
     assert _dictionary_findings(site, max_bytes=10_000_000) == []
-    assert [r for r, _, _ in _dictionary_findings(site, max_bytes=5_000)] == ["dictionary.3"]
+    over = validate(site, checks=["dictionary"], max_bytes=5_000)
+    assert sorted(f.rule_id for f in over.findings) == ["dictionary.3", "dictionary.incomplete"]
+    assert not over.ok  # a budget skip fails closed
+    assert over.steps["dictionary"] == "incomplete"
     if hasattr(os, "mkfifo"):
         os.mkfifo(folder / "pipe.xml")
         fifo = _instance(tmp_path / "f", "../survey/pipe.xml")  # refused: outside
@@ -201,9 +205,50 @@ def test_local_dictionaries_obey_max_bytes_regular_files_and_the_cap(tmp_path):
         + "".join(f'<role codeSpace="./d{i}.xml#surveyor">surveyor</role>' for i in range(17))
         + "</Diggs>"
     )
-    ((rule, _, message),) = _dictionary_findings(many / "site.xml")
-    assert rule == "dictionary.3"
-    assert "more than 16 different local dictionaries" in message
+    capped = validate(many / "site.xml", checks=["dictionary"])
+    assert not capped.ok and capped.steps["dictionary"] == "incomplete"
+    by_rule = {f.rule_id: f.message for f in capped.findings}
+    assert set(by_rule) == {"dictionary.3", "dictionary.incomplete"}
+    assert "more than 16 different local dictionaries" in by_rule["dictionary.3"]
+
+
+def test_sixteen_decoys_cannot_hide_a_bad_code(tmp_path):
+    """16 good local dictionaries first, then the one with the bad code: ok is False."""
+    folder = tmp_path / "ldb"
+    folder.mkdir()
+    for i in range(17):
+        (folder / f"d{i}.xml").write_text(_DICT)
+    roles = "".join(f'<role codeSpace="./d{i}.xml#surveyor">surveyor</role>' for i in range(16))
+    (folder / "site.xml").write_text(
+        f'<Diggs xmlns="http://diggsml.org/schemas/3">{roles}'
+        '<role codeSpace="./d16.xml#nosuchterm">nosuchterm</role></Diggs>'
+    )
+    report = validate(folder / "site.xml", checks=["dictionary"])
+    assert not report.ok
+    (error,) = [f for f in report.findings if f.severity.value == "error"]
+    assert error.rule_id == "dictionary.incomplete"
+    assert "1 codeSpace(s) were not read" in error.message
+
+
+def test_local_dictionaries_share_a_20_mib_budget(tmp_path, monkeypatch):
+    from pydiggs.findings import run
+
+    monkeypatch.setattr(run, "MAX_LOCAL_DICTIONARY_BYTES", 2_000)
+    folder = tmp_path / "survey"
+    folder.mkdir()
+    for name in ("a", "b"):
+        (folder / f"{name}.xml").write_text(_DICT + " " * 1_000)
+    (folder / "site.xml").write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3">'
+        '<role codeSpace="./a.xml#surveyor">surveyor</role>'
+        '<role codeSpace="./b.xml#surveyor">surveyor</role></Diggs>'
+    )
+    report = validate(folder / "site.xml", checks=["dictionary"])
+    assert [f.rule_id for f in report.findings if f.severity.value == "error"] == [
+        "dictionary.incomplete"
+    ]
+    monkeypatch.setattr(run, "MAX_LOCAL_DICTIONARY_BYTES", 20_000)
+    assert validate(folder / "site.xml", checks=["dictionary"]).ok
 
 
 def test_file_uri_inside_the_folder_is_percent_decoded(tmp_path):
@@ -267,4 +312,7 @@ def test_local_dictionaries_share_the_instance_byte_budget(tmp_path):
     roomy = site.stat().st_size + 2 * one + 10
     assert [r for r, _, _ in _dictionary_findings(site, max_bytes=roomy)] == []
     tight = site.stat().st_size + one + 10  # the instance and one dictionary fit
-    assert [r for r, _, _ in _dictionary_findings(site, max_bytes=tight)] == ["dictionary.3"]
+    assert sorted(r for r, _, _ in _dictionary_findings(site, max_bytes=tight)) == [
+        "dictionary.3",
+        "dictionary.incomplete",
+    ]

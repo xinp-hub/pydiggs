@@ -241,6 +241,7 @@ class DictionarySemanticValidator:
         self._local_trees: dict[object, etree._ElementTree | None] = {}
         self._local_by_url: dict[str, etree._ElementTree | None] = {}
         self.local_capped: set[str] = set()
+        self.local_over_budget: set[str] = set()
         self._max_bytes: int | None = None
         self._result: DictionaryValidationResult | None = None
         self._check13: _Check13Index | None = None
@@ -401,7 +402,8 @@ class DictionarySemanticValidator:
         local dictionaries of the instance (validate() passes what ``max_bytes`` leaves
         after the instance itself). At most
         :data:`MAX_LOCAL_DICTIONARIES` different files are read per instance; the URLs
-        refused for that reason are kept in ``local_capped``.
+        refused for that reason are kept in ``local_capped``, and those refused because
+        the byte budget ran out in ``local_over_budget``.
         """
         if base_url in self._local_by_url:
             return self._local_by_url[base_url]
@@ -425,7 +427,11 @@ class DictionarySemanticValidator:
                 if self._max_bytes is not None:
                     self._max_bytes -= len(data)  # one budget for all local dictionaries
                 tree = _xml.parse_bytes(data, str(path))
-            except (OSError, ValueError, etree.XMLSyntaxError):
+            except OSError as exc:
+                if exc.errno == errno.EFBIG:
+                    self.local_over_budget.add(base_url)
+                tree = None
+            except (ValueError, etree.XMLSyntaxError):
                 tree = None
             self._local_trees[identity] = tree
         self._local_by_url[base_url] = tree
@@ -722,6 +728,7 @@ class DictionarySemanticValidator:
         self._local_trees = {}
         self._local_by_url = {}
         self.local_capped = set()
+        self.local_over_budget = set()
         self._unreachable = set()
         self._subtree_memo = {}
         self._child_memo = {}
@@ -768,6 +775,7 @@ class DictionarySemanticValidator:
         self._local_trees = {}
         self._local_by_url = {}
         self.local_capped = set()
+        self.local_over_budget = set()
         self._max_bytes = max_bytes
         baseline = set(map(id, self._baseline_cache.values()))
         self._definition_index = {

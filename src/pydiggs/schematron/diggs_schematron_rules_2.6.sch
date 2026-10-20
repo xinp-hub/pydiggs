@@ -8,6 +8,9 @@
   - removed XSLT3 unit-conversion API function and the casing diameter
     cross-unit rule that depended on it (same-uom comparison retained)
   - element order adjusted for lxml's ISO Schematron RELAX NG
+  - parent/child contexts written as *[local-name()='C'][parent::*[local-name()='P']]
+    rather than //*[local-name()='P']/*[local-name()='C']: the same elements match,
+    but libxslt no longer slows down with the square of the number of siblings
 -->
 <schema xmlns="http://purl.oclc.org/dsdl/schematron"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -18,55 +21,55 @@
   <ns prefix="xsi" uri="http://www.w3.org/2001/XMLSchema-instance"/>
 
   <pattern id="DIGGS-validation-rules">
-    <rule context="//*[local-name()='Borehole']/*[local-name()='totalMeasuredDepth']">
+    <rule context="*[local-name()='totalMeasuredDepth'][parent::*[local-name()='Borehole']]">
       <assert test="number(.) &gt; 0">totalMeasuredDepth must be positive</assert>
     </rule>
-    <rule context="//*[local-name()='DriveSet']/*[local-name()='penetration']">
+    <rule context="*[local-name()='penetration'][parent::*[local-name()='DriveSet']]">
       <assert test="number(.) &gt;= 0">Penetration depth must be positive</assert>
     </rule>
-    <rule context="//*[local-name()='DrivenPenetrationTest']/*[local-name()='hammerEfficiency']">
+    <rule context="*[local-name()='hammerEfficiency'][parent::*[local-name()='DrivenPenetrationTest']]">
       <assert test="number(.) &gt;= 0 and number(.) &lt;= 100">Energy efficiency must be between 0 and 100</assert>
     </rule>
-    <rule context="//*[local-name()='Casing']/*[local-name()='casingOutsideDiameter']">
+    <rule context="*[local-name()='casingOutsideDiameter'][parent::*[local-name()='Casing']]">
       <assert test="number(.) &gt; 0">casingOutsideDiameter must be positive</assert>
     </rule>
-    <rule context="//*[local-name()='Casing']/*[local-name()='casingInsideDiameter']">
+    <rule context="*[local-name()='casingInsideDiameter'][parent::*[local-name()='Casing']]">
       <assert test="number(.) &gt; 0">casingInsideDiameter must be positive</assert>
     </rule>
-    <rule context="//*[local-name()='AbstractLinearSamplingFeature']/*[local-name()='plunge']">
+    <rule context="*[local-name()='plunge'][parent::*[local-name()='AbstractLinearSamplingFeature']]">
       <assert test="number(.) &gt;= -45 and number(.) &lt;= -10">Plunge must be between -45 and -10 degrees</assert>
     </rule>
-    <rule context="//*[local-name()='CasagrandeTrial']/*[local-name()='waterContent']">
+    <rule context="*[local-name()='waterContent'][parent::*[local-name()='CasagrandeTrial']]">
       <assert test="number(.) &gt;= 0">waterContent must be non-negative</assert>
     </rule>
-    <rule context="//*[local-name()='CasagrandeTrial']/*[local-name()='blowCount']">
+    <rule context="*[local-name()='blowCount'][parent::*[local-name()='CasagrandeTrial']]">
       <assert test="number(.) &gt;= 0">blowCount must be non-negative</assert>
     </rule>
-    <rule context="//*[local-name()='FieldProperties']/*[local-name()='plasticity']">
+    <rule context="*[local-name()='plasticity'][parent::*[local-name()='FieldProperties']]">
       <assert test="number(.) &gt;= 0">plasticity must be non-negative</assert>
     </rule>
-    <rule context="//*[local-name()='Cement']/*[local-name()='weight']">
+    <rule context="*[local-name()='weight'][parent::*[local-name()='Cement']]">
       <assert test="number(.) &gt; 0">weight must be positive</assert>
     </rule>
-    <rule context="//*[local-name()='Cement']/*[local-name()='specificGravity']">
+    <rule context="*[local-name()='specificGravity'][parent::*[local-name()='Cement']]">
       <assert test="number(.) &gt; 0">specificGravity must be positive</assert>
     </rule>
-    <rule context="//*[local-name()='SpecimenConditions']/*[local-name()='voidRatio']">
+    <rule context="*[local-name()='voidRatio'][parent::*[local-name()='SpecimenConditions']]">
       <assert test="number(.) &gt;= 0">voidRatio must be non-negative</assert>
     </rule>
-    <rule context="//*[local-name()='Grading']/*[local-name()='percentPassing']">
+    <rule context="*[local-name()='percentPassing'][parent::*[local-name()='Grading']]">
       <assert test="number(.) &gt;= 0">percentPassing must be non-negative</assert>
     </rule>
-    <rule context="//*[local-name()='Grading']/*[local-name()='percentRetained']">
+    <rule context="*[local-name()='percentRetained'][parent::*[local-name()='Grading']]">
       <assert test="number(.) &gt;= 0">percentRetained must be non-negative</assert>
     </rule>
-    <rule context="//*[local-name()='Grading']/*[local-name()='weightRetained']">
+    <rule context="*[local-name()='weightRetained'][parent::*[local-name()='Grading']]">
       <assert test="number(.) &gt;= 0">weightRetained must be non-negative</assert>
     </rule>
-    <rule context="//*[local-name()='Grading']/*[local-name()='particleSize']">
+    <rule context="*[local-name()='particleSize'][parent::*[local-name()='Grading']]">
       <assert test="number(.) &gt; 0">particleSize must be positive</assert>
     </rule>
-    <rule context="//*[local-name()='AbstractTrialGroutBatch']/*[local-name()='specificGravityMix']">
+    <rule context="*[local-name()='specificGravityMix'][parent::*[local-name()='AbstractTrialGroutBatch']]">
       <assert test="number(.) &gt; 1.0">Specific gravity mix must be greater than water (1.0)</assert>
     </rule>
 

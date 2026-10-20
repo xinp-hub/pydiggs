@@ -8,6 +8,7 @@ writes no files.
 from __future__ import annotations
 
 import hashlib
+import itertools
 import os
 import re
 import threading
@@ -31,7 +32,13 @@ from pydiggs.dictionary import (
 )
 from pydiggs.errors import InstanceReadError, ResourceError
 from pydiggs.findings import rules
-from pydiggs.findings._schematron import SVRL, RuleContexts, fired_counts, svrl_items
+from pydiggs.findings._schematron import (
+    SVRL,
+    FiredPattern,
+    RuleContexts,
+    fired_patterns,
+    svrl_items,
+)
 from pydiggs.findings.locate import Locator
 from pydiggs.findings.model import Finding, Report, Severity, Step, StepStatus
 from pydiggs.pydiggs import _DEFAULT_DICTIONARY, _DEFAULT_SCHEMATRON, _casing_diameter_problems
@@ -41,12 +48,14 @@ __all__ = [
     "DEFAULT_MAX_BYTES",
     "DEFAULT_MAX_FINDINGS",
     "MAX_ELEMENTS",
+    "MAX_LOCAL_DICTIONARY_BYTES",
     "MAX_MESSAGE_CHARS",
     "MAX_REPORT_BYTES",
     "MAX_XPATH_CHARS",
     "NATIVE_STEPS",
     "display_paths",
     "reference_data",
+    "selected_steps",
     "validate",
 ]
 
@@ -80,6 +89,9 @@ _XPATH_STEPS: Final = frozenset(
         Step.CONTEXT,
     }
 )
+#: Most bytes of local dictionaries (relative codeSpaces) read for one instance, in
+#: total; a parsed dictionary takes about 35 times its size in memory.
+MAX_LOCAL_DICTIONARY_BYTES: Final = 20 * 2**20
 #: Dictionary validators kept per thread (least recently used dropped first).
 MAX_CACHED_VALIDATORS: Final = 8
 #: Where validate() may read dictionaries named by relative codeSpaces.
@@ -94,6 +106,8 @@ _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO"
 _POSITION_SUFFIX: Final = re.compile(r", line \d+, column \d+$")
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
 _NO_ERRORS: Final = etree.XPath("/..")
+_PROLOG_CHUNK: Final = 64 * 1024
+_NOT_FIRED: Final = FiredPattern(None, [])
 _LOG_LEVELS: Final = {
     "WARNING": Severity.WARNING,
     "ERROR": Severity.ERROR,
@@ -182,7 +196,8 @@ def _limits(max_findings: int | None, max_bytes: int) -> int:
     return limit
 
 
-def _checks(checks: Iterable[str | Step] | None) -> frozenset[Step]:
+def selected_steps(checks: Iterable[str | Step] | None) -> frozenset[Step]:
+    """The steps ``checks`` selects (all of them for None); ValueError on unknown names."""
     if checks is None:
         return frozenset(NATIVE_STEPS)
     if isinstance(checks, str):
@@ -409,10 +424,12 @@ def _schematron(
                 # No @location strings: they cost memory per failure and time per
                 # sibling; findings are located by RuleContexts instead.
                 compile_params={"generate-paths": "false"},
+                # Locate failures from the same included and expanded schema.
+                store_schematron=True,
             )
         except (etree.SchematronParseError, etree.XSLTError) as exc:
             raise ResourceError(f"cannot use Schematron rules {str(path)!r}: {exc}") from exc
-        return compiled, RuleContexts(schema)
+        return compiled, RuleContexts(compiled.schematron)
 
     if schematron_path is not None:
         return build()
@@ -439,22 +456,22 @@ def _run_schematron(
         _run_casing(doc, builder)
         return "incomplete"
     report = schematron.validation_report
-    fired = fired_counts(report)
+    fired = fired_patterns(report)
     matched_by_pattern: dict[int, list[etree._Element] | None] = {}
     for context, item, pattern, index in svrl_items(report):
         test = item.get("test") or ""
         if schematron_path is None:
-            rule_id = rules.SCHEMATRON_BUNDLED.get(
-                (context, " ".join(test.split())),
-                rules.schematron_user_rule(item.get("id"), context, test),
-            )
+            bundled = rules.schematron_bundled_rule(context, test)
+            rule_id = bundled or rules.schematron_user_rule(item.get("id"), context, test)
         else:
             rule_id = rules.schematron_user_rule(item.get("id"), context, test)
         if builder.full:  # count only; do not locate
             builder.drop(Step.SCHEMATRON, Severity.ERROR)
             continue
         if pattern not in matched_by_pattern:
-            matched_by_pattern[pattern] = contexts.matched(doc, pattern, fired.get(pattern, 0))
+            matched_by_pattern[pattern] = contexts.matched(
+                doc, pattern, fired.get(pattern, _NOT_FIRED)
+            )
         matched = matched_by_pattern[pattern]
         node = matched[index] if matched is not None and 0 <= index < len(matched) else None
         text = " ".join(item.findtext(f"{SVRL}text", default="").split())
@@ -463,12 +480,44 @@ def _run_schematron(
     return builder.status(Step.SCHEMATRON)
 
 
-def _element_count(data: bytes, doc: etree._ElementTree) -> int:
-    """Elements in ``doc``: a byte-level upper estimate, counted exactly near the limit."""
-    estimate = data.count(b"<") - data.count(b"</") - data.count(b"<!") - data.count(b"<?")
-    if estimate <= MAX_ELEMENTS // 2:
-        return estimate
-    return sum(1 for _ in doc.getroot().iter())
+def _element_count(doc: etree._ElementTree) -> int:
+    """Nodes in the parsed tree, counted exactly, stopping just past :data:`MAX_ELEMENTS`.
+
+    Counted on the tree, never estimated from the bytes: an entity can expand to many
+    elements and a UTF-7 file spells ``<`` as ``+ADw-``. About 0.1 s per million.
+    """
+    return sum(1 for _ in itertools.islice(doc.getroot().iter(), MAX_ELEMENTS + 1))
+
+
+def _markup_entity(data: bytes) -> str | None:
+    """Name of the first internal-DTD entity whose value contains markup, else None.
+
+    Only the prolog is parsed (up to the root start tag), with entities left
+    unexpanded, so a markup entity is refused before it can multiply the tree. A file
+    that is not well-formed returns None; the full parse reports it.
+    """
+    parser = etree.XMLPullParser(
+        events=("start",),
+        resolve_entities=False,
+        load_dtd=False,
+        dtd_validation=False,
+        no_network=True,
+        huge_tree=False,
+    )
+    try:
+        for start in range(0, len(data), _PROLOG_CHUNK):
+            parser.feed(data[start : start + _PROLOG_CHUNK])
+            for _, element in parser.read_events():
+                dtd = element.getroottree().docinfo.internalDTD
+                if dtd is None:
+                    return None
+                for entity in dtd.iterentities():
+                    if "<" in (entity.content or ""):
+                        return entity.name or ""
+                return None
+    except etree.XMLSyntaxError:
+        return None
+    return None
 
 
 def _incomplete(builder: _Builder, step: Step, exc: Exception | str) -> None:
@@ -486,7 +535,12 @@ def _incomplete(builder: _Builder, step: Step, exc: Exception | str) -> None:
 
 def _run_casing(doc: etree._ElementTree, builder: _Builder) -> None:
     """Pydiggs's own unit-converting casing rule (part of the Schematron step)."""
-    for casing, message in _casing_diameter_problems(doc):
+    try:
+        problems = _casing_diameter_problems(doc)
+    except etree.XPathError as exc:
+        _incomplete(builder, Step.SCHEMATRON, exc)
+        return
+    for casing, message in problems:
         rule_id = (
             rules.SCHEMATRON_CASING_NUMERIC
             if message == "Casing diameter values must be numeric."
@@ -586,8 +640,14 @@ def _run_dictionary(
                 continue
             if _is_local_inaccessible(message):
                 url = _QUOTED.search(message.text)
-                capped = url is not None and url[1] in semantic.local_capped
-                note = _CAPPED_NOTE if capped else _LOCAL_NOTE[local_dictionaries]
+                name = url[1] if url is not None else None
+                note = (
+                    _CAPPED_NOTE
+                    if name in semantic.local_capped
+                    else _BUDGET_NOTE
+                    if name in semantic.local_over_budget
+                    else _LOCAL_NOTE[local_dictionaries]
+                )
                 builder.add(
                     Step.DICTIONARY,
                     rules.dictionary_rule(message.check),
@@ -597,6 +657,7 @@ def _run_dictionary(
                 )
                 continue
             builder.add_legacy(Step.DICTIONARY, rules.dictionary_rule(message.check), message)
+        _local_skips_incomplete(builder, semantic)
         return builder.status(Step.DICTIONARY)
     finally:
         semantic.release()  # the validator is cached; keep no instance tree alive
@@ -619,6 +680,31 @@ _CAPPED_NOTE: Final = (
     f" The instance names more than {MAX_LOCAL_DICTIONARIES} different local dictionaries;"
     " the others were not read."
 )
+
+
+_BUDGET_NOTE: Final = (
+    " The instance's local dictionaries together exceed the local-dictionary byte budget;"
+    " this one was not read."
+)
+
+
+def _local_skips_incomplete(builder: _Builder, semantic: DictionarySemanticValidator) -> None:
+    """Fail closed when a safety limit kept a local dictionary from being read."""
+    if semantic.local_capped:
+        _incomplete(
+            builder,
+            Step.DICTIONARY,
+            f"the instance names more than {MAX_LOCAL_DICTIONARIES} different local"
+            f" dictionaries; {len(semantic.local_capped)} codeSpace(s) were not read",
+        )
+    if semantic.local_over_budget:
+        _incomplete(
+            builder,
+            Step.DICTIONARY,
+            "local dictionaries exceed their byte budget"
+            f" ({MAX_LOCAL_DICTIONARY_BYTES // 2**20} MiB, or what max_bytes leaves);"
+            f" {len(semantic.local_over_budget)} codeSpace(s) were not read",
+        )
 
 
 def _is_local_inaccessible(message: ValidationMessage) -> bool:
@@ -701,7 +787,6 @@ class _StepOptions:
 
 
 def _gate_element_count(
-    data: bytes,
     doc: etree._ElementTree,
     builder: _Builder,
     wanted: frozenset[Step],
@@ -712,7 +797,7 @@ def _gate_element_count(
     libxml2 refuses XPath node sets over 10,000,000 nodes, so those steps cannot be
     trusted to finish.
     """
-    if _element_count(data, doc) <= MAX_ELEMENTS:
+    if _element_count(doc) <= MAX_ELEMENTS:
         return wanted
     why = f"the file has more than {MAX_ELEMENTS:,} elements"
     for step in sorted(_XPATH_STEPS & wanted, key=lambda s: s.order):
@@ -738,7 +823,7 @@ def _run_steps(
             o.dictionary_path,
             allow_network=o.allow_network,
             local_dictionaries=o.local_dictionaries,
-            max_bytes=o.max_bytes - o.instance_bytes,
+            max_bytes=min(MAX_LOCAL_DICTIONARY_BYTES, o.max_bytes - o.instance_bytes),
         )
     if Step.SCHEMATRON in wanted:
         steps[Step.SCHEMATRON] = _run_schematron(doc, builder, o.schematron_path)
@@ -831,7 +916,7 @@ def validate(
         raise ValueError(
             f"local_dictionaries must be 'instance-dir' or 'off', got {local_dictionaries!r}"
         )
-    wanted = _checks(checks)
+    wanted = selected_steps(checks)
     shown, absolute = display_paths(path, base_dir)
     instance = Path(path)
     try:
@@ -854,6 +939,19 @@ def validate(
             reference_data=reference_data(),
         )
 
+    entity = _markup_entity(data)
+    if entity is not None:
+        builder = _Builder(None, snippets=False, scrub=scrub)
+        builder.add(
+            Step.STRUCTURE,
+            rules.MARKUP_ENTITY,
+            Severity.ERROR,
+            f"The internal DTD declares the entity {entity[:200]!r}, whose"
+            " value contains markup ('<'). validate() does not expand markup entities,"
+            " so no other check ran.",
+        )
+        steps[Step.STRUCTURE] = "failed"
+        return report(builder, diggs_version)
     try:
         doc = _xml.parse_bytes(data, str(instance.resolve()))
     except etree.XMLSyntaxError as exc:
@@ -878,7 +976,7 @@ def validate(
         doc,
         builder,
         steps,
-        _gate_element_count(data, doc, builder, wanted, steps),
+        _gate_element_count(doc, builder, wanted, steps),
         _StepOptions(
             profile=profile,
             instance=instance,

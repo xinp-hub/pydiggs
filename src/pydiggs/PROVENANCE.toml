@@ -1014,4 +1014,4 @@ sha256 = "d7e918871bd16cb816dc64918f3047f4fdbc53926ac9604ee1ebe00627d57df6"
 [files."schematron/diggs_schematron_rules_2.6.sch"]
 source = "local"
 note = "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); see the file header for the changes."
-sha256 = "b5e1023c0778b8c902334c0082d9492f4ff5b68ef10d9cbeed514da5ecd2248f"
+sha256 = "07e087da0a7083a118e4480c450d1316bbd5b03db8310613bfba5d7f1e82bb11"
