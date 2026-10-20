@@ -54,15 +54,38 @@ def test_a_markup_entity_is_one_error_and_nothing_else_runs(tmp_path, value):
     assert {s for s, v in report.steps.items() if v != "skipped"} == {Step.STRUCTURE}
 
 
-def test_markup_entities_are_found_in_utf16_and_through_parameter_entities(tmp_path):
-    utf16 = _entity_file(tmp_path, "<b/>", encoding="utf-16")
-    assert [f.rule_id for f in validate(utf16).findings] == ["structure.markup-entity"]
-    nested = tmp_path / "pe.xml"
-    nested.write_text(
-        "<!DOCTYPE Diggs [<!ENTITY % p \"<!ENTITY e '<b/>'>\"> %p;]>"
-        f'<Diggs xmlns="{NS}">&e;</Diggs>'
-    )
-    assert [f.rule_id for f in validate(nested).findings] == ["structure.markup-entity"]
+@pytest.mark.parametrize("encoding", ["utf-16", "utf-32", "utf-32-le", "utf-32-be"])
+def test_markup_entities_are_found_in_every_unicode_encoding(tmp_path, encoding):
+    """utf-16 and utf-32 write a BOM; lxml's push parser cannot read UTF-32 with one."""
+    declared = encoding if encoding in ("utf-16", "utf-32") else "utf-8"
+    path = _entity_file(tmp_path, "<b/>", encoding=declared)
+    if encoding in ("utf-32-le", "utf-32-be"):  # BOM written by hand, no declaration
+        bom = b"\xff\xfe\x00\x00" if encoding.endswith("le") else b"\x00\x00\xfe\xff"
+        text = f'<!DOCTYPE Diggs [<!ENTITY e "<b/>">]><Diggs xmlns="{NS}">&e;</Diggs>'
+        path.write_bytes(bom + text.encode(encoding))
+    report = validate(path)
+    assert [f.rule_id for f in report.findings] == ["structure.markup-entity"]
+    assert not report.ok
+
+
+def test_the_main_parse_is_checked_too(tmp_path, monkeypatch):
+    """If the cheap first check ever misses one, the main parser's own DTD still refuses."""
+    monkeypatch.setattr(run, "_markup_entity", lambda data: None)
+    report = validate(_entity_file(tmp_path, "<!--x-->", uses=1))
+    assert [f.rule_id for f in report.findings] == ["structure.markup-entity"]
+    assert {s for s, v in report.steps.items() if v != "skipped"} == {Step.STRUCTURE}
+
+
+def test_parameter_entities_reach_the_check():
+    """A parameter entity's own value counts. (The full parse would also reject these
+    files, because pydiggs does not load DTDs, so the check is tested directly.)"""
+    declaring = (
+        f'<!DOCTYPE r [<!ENTITY % p "&#60;!ENTITY e \'<b/>\'>"> %p;]><r xmlns="{NS}">&e;</r>'
+    ).encode()
+    valued = f'<!DOCTYPE r [<!ENTITY % p "<b/>"><!ENTITY e "x">]><r xmlns="{NS}">&e;</r>'
+    assert run._markup_entity(declaring) == "p"
+    assert run._markup_entity(valued.encode()) == "p"
+    assert run._markup_entity(b'<!DOCTYPE r [<!ENTITY % p "text">]><r/>') is None
 
 
 def test_plain_text_entities_still_work(tmp_path):

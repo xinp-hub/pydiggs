@@ -111,6 +111,14 @@ _POSITION_SUFFIX: Final = re.compile(r", line \d+, column \d+$")
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
 _NO_ERRORS: Final = etree.XPath("/..")
 _PROLOG_CHUNK: Final = 64 * 1024
+#: Parser options that leave every entity unexpanded and read nothing external.
+_UNEXPANDED: Final[dict[str, bool]] = {
+    "resolve_entities": False,
+    "load_dtd": False,
+    "dtd_validation": False,
+    "no_network": True,
+    "huge_tree": False,
+}
 _NOT_FIRED: Final = FiredPattern(None, [])
 _LOG_LEVELS: Final = {
     "WARNING": Severity.WARNING,
@@ -514,35 +522,39 @@ def _element_count(doc: etree._ElementTree) -> int:
     return sum(1 for _ in itertools.islice(doc.getroot().iter(), MAX_ELEMENTS + 1))
 
 
+def _dtd_markup_entity(doc: etree._ElementTree) -> str | None:
+    """Name of the first entity in ``doc``'s internal DTD whose value has markup."""
+    dtd = doc.docinfo.internalDTD
+    if dtd is None:
+        return None
+    for entity in dtd.iterentities():
+        if "<" in (entity.content or ""):
+            return entity.name or ""
+    return None
+
+
 def _markup_entity(data: bytes) -> str | None:
     """Name of the first internal-DTD entity whose value contains markup, else None.
 
-    Only the prolog is parsed (up to the root start tag), with entities left
-    unexpanded, so a markup entity is refused before it can multiply the tree. A file
-    that is not well-formed returns None; the full parse reports it.
+    A cheap first line, before the full parse: the prolog is parsed up to the root
+    start tag with entities left unexpanded. When that parser cannot decide (lxml's
+    push parser rejects, for example, UTF-32 with a BOM), the whole file is parsed
+    without expanding entities instead; "cannot tell" is never "safe". validate()
+    checks the main parse's DTD again afterwards.
     """
-    parser = etree.XMLPullParser(
-        events=("start",),
-        resolve_entities=False,
-        load_dtd=False,
-        dtd_validation=False,
-        no_network=True,
-        huge_tree=False,
-    )
+    parser = etree.XMLPullParser(events=("start",), **_UNEXPANDED)
     try:
         for start in range(0, len(data), _PROLOG_CHUNK):
             parser.feed(data[start : start + _PROLOG_CHUNK])
             for _, element in parser.read_events():
-                dtd = element.getroottree().docinfo.internalDTD
-                if dtd is None:
-                    return None
-                for entity in dtd.iterentities():
-                    if "<" in (entity.content or ""):
-                        return entity.name or ""
-                return None
+                return _dtd_markup_entity(element.getroottree())
     except etree.XMLSyntaxError:
-        return None
-    return None
+        pass
+    try:
+        root = etree.fromstring(data, etree.XMLParser(**_UNEXPANDED))
+    except etree.XMLSyntaxError:
+        return None  # not well-formed even unexpanded; the main parse reports it
+    return _dtd_markup_entity(root.getroottree())
 
 
 def _incomplete(builder: _Builder, step: Step, exc: Exception | str) -> None:
@@ -964,8 +976,7 @@ def validate(
             reference_data=reference_data(),
         )
 
-    entity = _markup_entity(data)
-    if entity is not None:
+    def refuse(entity: str) -> Report:
         builder = _Builder(None, snippets=False, scrub=scrub)
         builder.add(
             Step.STRUCTURE,
@@ -977,6 +988,10 @@ def validate(
         )
         steps[Step.STRUCTURE] = "failed"
         return report(builder, diggs_version)
+
+    entity = _markup_entity(data)
+    if entity is not None:
+        return refuse(entity)
     try:
         doc = _xml.parse_bytes(data, str(instance.resolve()))
     except etree.XMLSyntaxError as exc:
@@ -993,6 +1008,9 @@ def validate(
         steps[Step.STRUCTURE] = "failed"
         return report(builder, diggs_version)
 
+    entity = _dtd_markup_entity(doc)  # what the main parser itself saw
+    if entity is not None:
+        return refuse(entity)
     profile = diggs_version or detect_diggs_version(doc)
     builder = _Builder(
         Locator(doc), snippets=include_snippets, scrub=scrub, max_findings=max_findings
