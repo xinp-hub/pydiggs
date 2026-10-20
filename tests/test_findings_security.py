@@ -39,9 +39,9 @@ def test_injected_namespace_is_never_evaluated(tmp_path):
     path = _injected(tmp_path)
     assert 3_000 < path.stat().st_size < 5_000
     validate(path, checks=["schematron"])  # compile the bundled rules once
-    start = time.perf_counter()
+    start = time.process_time()  # CPU time: wall time fails on a loaded machine
     report = validate(path, checks=["schematron"])
-    assert time.perf_counter() - start < 1.0
+    assert time.process_time() - start < 1.0
     (finding,) = report.findings
     assert finding.gml_id == "BH-1"
     assert finding.xpath == "/Diggs[1]/x:w[1]/samplingFeature[1]/Borehole[1]/totalMeasuredDepth[1]"
