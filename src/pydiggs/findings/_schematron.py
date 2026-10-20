@@ -23,6 +23,7 @@ text or the root, or that lxml evaluates differently).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Final
@@ -36,6 +37,29 @@ _SCHEMATRON_NAMESPACES: Final = (
     "http://purl.oclc.org/dsdl/schematron",
     "http://www.ascc.net/xml/schematron",
 )
+
+
+_NAMED: Final = re.compile(r"^\*\[local-name\(\)\s*=\s*'([\w.\-]+)'\](.*)$", re.S)
+_PARENT: Final = re.compile(r"\[parent::\*\[local-name\(\)\s*=\s*'([\w.\-]+)'\]\]")
+
+
+def _only_predicates(text: str) -> bool:
+    """True if ``text`` is nothing but ``[...]`` predicates (so it narrows, never moves)."""
+    depth, quote = 0, ""
+    for ch in text:
+        if quote:
+            quote = "" if ch == quote else quote
+        elif ch in "'\"":
+            quote = ch
+        elif ch == "[":
+            depth += 1
+        elif ch == "]":
+            depth -= 1
+            if depth < 0:
+                return False
+        elif depth == 0 and not ch.isspace():
+            return False
+    return depth == 0 and not quote
 
 
 def _tags(local: str) -> tuple[str, ...]:
@@ -93,7 +117,8 @@ class RuleContexts:
                 continue
             self.ids.append(pattern.get("id"))
             if pattern.get("abstract") == "true":
-                self.patterns.append([])  # lxml expands these away; never located
+                # Defence in depth: lxml's stored schema has already expanded these away.
+                self.patterns.append([])
                 continue
             self.patterns.append(
                 [
@@ -140,6 +165,47 @@ class RuleContexts:
                 if len(nodes) == len(first):
                     break
         return nodes
+
+    def fired_count(self, doc: etree._ElementTree, limit: int) -> int:
+        """How many elements the active patterns' rules will fire on, or more.
+
+        Each pattern counts the elements its rule contexts match (an element matched
+        by two rules of one pattern counts twice, so this is an upper bound). A context
+        named by a local name, ``*[local-name()='X']...``, is counted with lxml's
+        C-level tag filter (an exact parent test, or every ``X``); any other is counted
+        with XPath ``count()``. A context XPath cannot evaluate (a ``$variable``, an
+        XSLT function) is not counted. Counting stops once it passes ``limit``.
+        """
+        total = 0
+        for contexts in self.patterns:
+            for context in contexts:
+                for branch in _branches(context):
+                    total += self._count(doc, branch, limit - total + 1)
+                    if total > limit:
+                        return total
+        return total
+
+    def _count(self, doc: etree._ElementTree, branch: str, stop: int) -> int:
+        named = _NAMED.match(branch)
+        if named is not None and _only_predicates(named[2]):
+            local, rest = named[1], named[2]
+            parent = _PARENT.fullmatch(rest)
+            count = 0
+            for el in doc.getroot().iter("{*}" + local):
+                if parent is not None:
+                    up = el.getparent()
+                    if up is None or etree.QName(up).localname != parent[1]:
+                        continue
+                count += 1
+                if count >= stop:
+                    break
+            return count
+        xpath = branch if branch.startswith("/") else f"//{branch}"
+        try:
+            found = doc.xpath(f"count({xpath})", namespaces=self.namespaces)
+        except (etree.XPathError, ValueError):
+            return 0
+        return int(found) if isinstance(found, float) else 0
 
     def _select(self, doc: etree._ElementTree, context: str) -> list[etree._Element] | None:
         """The elements ``context`` matches, or None if it may match anything else."""

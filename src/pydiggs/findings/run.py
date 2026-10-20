@@ -51,6 +51,7 @@ __all__ = [
     "MAX_LOCAL_DICTIONARY_BYTES",
     "MAX_MESSAGE_CHARS",
     "MAX_REPORT_BYTES",
+    "MAX_SCHEMATRON_FIRED",
     "MAX_SCHEMATRON_SIBLINGS",
     "MAX_XPATH_CHARS",
     "NATIVE_STEPS",
@@ -93,6 +94,9 @@ _XPATH_STEPS: Final = frozenset(
 #: Most child elements one element may have for the Schematron step to run; above it the
 #: step is skipped with a ``schematron.incomplete`` error (libxslt is quadratic there).
 MAX_SCHEMATRON_SIBLINGS: Final = 50_000
+#: Most elements the Schematron rules may fire on (counted before running them); above
+#: it the step is skipped with a ``schematron.incomplete`` error.
+MAX_SCHEMATRON_FIRED: Final = 100_000
 #: Most bytes of local dictionaries (relative codeSpaces) read for one instance, in
 #: total; a parsed dictionary takes about 35 times its size in memory.
 MAX_LOCAL_DICTIONARY_BYTES: Final = 20 * 2**20
@@ -110,15 +114,7 @@ _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO"
 _POSITION_SUFFIX: Final = re.compile(r", line \d+, column \d+$")
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
 _NO_ERRORS: Final = etree.XPath("/..")
-_PROLOG_CHUNK: Final = 64 * 1024
-#: Parser options that leave every entity unexpanded and read nothing external.
-_UNEXPANDED: Final[dict[str, bool]] = {
-    "resolve_entities": False,
-    "load_dtd": False,
-    "dtd_validation": False,
-    "no_network": True,
-    "huge_tree": False,
-}
+
 _NOT_FIRED: Final = FiredPattern(None, [])
 _LOG_LEVELS: Final = {
     "WARNING": Severity.WARNING,
@@ -468,6 +464,17 @@ def _run_schematron(
         )
         _run_casing(doc, builder)
         return "incomplete"
+    fired_total = contexts.fired_count(doc, MAX_SCHEMATRON_FIRED)
+    if fired_total > MAX_SCHEMATRON_FIRED:
+        # libxslt's time grows with the square of the elements a rule fires on.
+        _incomplete(
+            builder,
+            Step.SCHEMATRON,
+            f"the rules would fire on more than {MAX_SCHEMATRON_FIRED:,} elements,"
+            " the most the Schematron rules are run on",
+        )
+        _run_casing(doc, builder)
+        return "incomplete"
     try:
         schematron.validate(doc)
     except etree.XSLTError as exc:
@@ -522,39 +529,8 @@ def _element_count(doc: etree._ElementTree) -> int:
     return sum(1 for _ in itertools.islice(doc.getroot().iter(), MAX_ELEMENTS + 1))
 
 
-def _dtd_markup_entity(doc: etree._ElementTree) -> str | None:
-    """Name of the first entity in ``doc``'s internal DTD whose value has markup."""
-    dtd = doc.docinfo.internalDTD
-    if dtd is None:
-        return None
-    for entity in dtd.iterentities():
-        if "<" in (entity.content or ""):
-            return entity.name or ""
-    return None
-
-
-def _markup_entity(data: bytes) -> str | None:
-    """Name of the first internal-DTD entity whose value contains markup, else None.
-
-    A cheap first line, before the full parse: the prolog is parsed up to the root
-    start tag with entities left unexpanded. When that parser cannot decide (lxml's
-    push parser rejects, for example, UTF-32 with a BOM), the whole file is parsed
-    without expanding entities instead; "cannot tell" is never "safe". validate()
-    checks the main parse's DTD again afterwards.
-    """
-    parser = etree.XMLPullParser(events=("start",), **_UNEXPANDED)
-    try:
-        for start in range(0, len(data), _PROLOG_CHUNK):
-            parser.feed(data[start : start + _PROLOG_CHUNK])
-            for _, element in parser.read_events():
-                return _dtd_markup_entity(element.getroottree())
-    except etree.XMLSyntaxError:
-        pass
-    try:
-        root = etree.fromstring(data, etree.XMLParser(**_UNEXPANDED))
-    except etree.XMLSyntaxError:
-        return None  # not well-formed even unexpanded; the main parse reports it
-    return _dtd_markup_entity(root.getroottree())
+_dtd_markup_entity = _xml.dtd_markup_entity
+_markup_entity = _xml.markup_entity
 
 
 def _incomplete(builder: _Builder, step: Step, exc: Exception | str) -> None:
@@ -617,6 +593,7 @@ def _dictionary_validator(
                 check_value_code_spaces=True,
                 local_dictionaries=local_dictionaries,
                 legacy_paths=False,
+                bounded=True,
                 dictionary_path_wins=True,
             )
         except (OSError, etree.XMLSyntaxError) as exc:
@@ -679,7 +656,9 @@ def _run_dictionary(
                 url = _QUOTED.search(message.text)
                 name = url[1] if url is not None else None
                 note = (
-                    _CAPPED_NOTE
+                    _REFUSED_NOTE
+                    if name in semantic.local_refused
+                    else _CAPPED_NOTE
                     if name in semantic.local_capped
                     else _BUDGET_NOTE
                     if name in semantic.local_over_budget
@@ -695,6 +674,10 @@ def _run_dictionary(
                 continue
             builder.add_legacy(Step.DICTIONARY, rules.dictionary_rule(message.check), message)
         _local_skips_incomplete(builder, semantic)
+        if semantic.limits_hit:
+            why = semantic.limits_hit[0]
+            more = len(semantic.limits_hit) - 1
+            _incomplete(builder, Step.DICTIONARY, why + (f" ({more:,} more)" if more else ""))
         return builder.status(Step.DICTIONARY)
     finally:
         semantic.release()  # the validator is cached; keep no instance tree alive
@@ -719,6 +702,9 @@ _CAPPED_NOTE: Final = (
 )
 
 
+_REFUSED_NOTE: Final = (
+    " It was not read for safety (a markup entity in its DTD, or a libxml2 limit)."
+)
 _BUDGET_NOTE: Final = (
     " The instance's local dictionaries together exceed the local-dictionary byte budget;"
     " this one was not read."
@@ -733,6 +719,15 @@ def _local_skips_incomplete(builder: _Builder, semantic: DictionarySemanticValid
             Step.DICTIONARY,
             f"the instance names more than {MAX_LOCAL_DICTIONARIES} different local"
             f" dictionaries; {len(semantic.local_capped)} codeSpace(s) were not read",
+        )
+    if semantic.local_refused:
+        url, reason = next(iter(semantic.local_refused.items()))
+        more = len(semantic.local_refused) - 1
+        _incomplete(
+            builder,
+            Step.DICTIONARY,
+            f"the local dictionary {url[:200]!r} was not read: {reason}"
+            + (f" ({more:,} more)" if more else ""),
         )
     if semantic.local_over_budget:
         _incomplete(

@@ -63,12 +63,19 @@ def _errors(report: Report, *steps: Step, exclude: frozenset[str] = frozenset())
     ]
 
 
+#: Files where validate() finds Check 8 errors that dictionary_check() misses, because
+#: dictionary_check() reads ``measurement//procedure`` as a direct child (documented).
+_CHECK8_DIFFERS = frozenset({"AtterbergExample.xml", "AtterbergExample-from25.xml"})
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize("path", CORPUS, ids=lambda p: p.as_posix())
 def test_validate_agrees_with_the_legacy_methods(path):
     report = validate(path)
     legacy = validator(str(path), output_log=False)
     wp04 = frozenset({rules.DICTIONARY_13, rules.DEPRECATED, rules.REMOVED})
+    if path.name in _CHECK8_DIFFERS:  # validate() reads "//" as descendant (Check 8)
+        wp04 |= {"dictionary.8"}
     if report.steps[Step.STRUCTURE] == "failed" and _errors(report, Step.STRUCTURE)[0].rule_id == (
         rules.WELL_FORMED
     ):

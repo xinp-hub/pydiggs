@@ -19,7 +19,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, cast
+from typing import IO, Final, cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
@@ -118,6 +118,68 @@ def _read(fh: IO[bytes], info: os.stat_result, limit: int) -> bytes:
     if len(data) > size and len(data) <= limit:
         data += fh.read(limit + 1 - len(data))
     return data
+
+
+#: Parser options that leave every entity unexpanded and read nothing external.
+_UNEXPANDED: Final[dict[str, bool]] = {
+    "resolve_entities": False,
+    "load_dtd": False,
+    "dtd_validation": False,
+    "no_network": True,
+    "huge_tree": False,
+}
+
+
+def unexpanded_pull_parser() -> etree.XMLPullParser:
+    """A push parser reporting ``start`` events that expands no entity at all."""
+    return etree.XMLPullParser(events=("start",), **_UNEXPANDED)
+
+
+def parse_unexpanded(data: bytes) -> etree._ElementTree:
+    """Parse ``data`` with every entity left unexpanded (to inspect its DTD).
+
+    Raises:
+        lxml.etree.XMLSyntaxError: if the data is not well-formed.
+    """
+    return etree.fromstring(data, etree.XMLParser(**_UNEXPANDED)).getroottree()
+
+
+_PROLOG_CHUNK: Final = 64 * 1024
+
+
+def dtd_markup_entity(doc: etree._ElementTree) -> str | None:
+    """Name of the first entity in ``doc``'s internal DTD whose value has markup."""
+    dtd = doc.docinfo.internalDTD
+    if dtd is None:
+        return None
+    for entity in dtd.iterentities():
+        if "<" in (entity.content or ""):
+            return entity.name or ""
+    return None
+
+
+def markup_entity(data: bytes) -> str | None:
+    """Name of the first internal-DTD entity whose value contains markup, else None.
+
+    A cheap first line, before the full parse: the prolog is parsed up to the root
+    start tag with entities left unexpanded. When that parser cannot decide (lxml's
+    push parser rejects, for example, UTF-32 with a BOM), the whole file is parsed
+    without expanding entities instead; "cannot tell" is never "safe". validate()
+    checks the main parse's DTD again afterwards.
+    """
+    parser = unexpanded_pull_parser()
+    try:
+        for start in range(0, len(data), _PROLOG_CHUNK):
+            parser.feed(data[start : start + _PROLOG_CHUNK])
+            for _, element in parser.read_events():
+                return dtd_markup_entity(element.getroottree())
+    except etree.XMLSyntaxError:
+        pass
+    try:
+        unexpanded = parse_unexpanded(data)
+    except etree.XMLSyntaxError:
+        return None  # not well-formed even unexpanded; the main parse reports it
+    return dtd_markup_entity(unexpanded)
 
 
 def parse_bytes(data: bytes, base_url: str | None) -> etree._ElementTree:
