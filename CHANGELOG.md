@@ -74,11 +74,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pydiggs validate --timeout SECONDS` (at most one day) validates each file in its own
   process and reports a file that does not finish as a `structure.timeout` error. With
   or without it, an unexpected error for one file becomes a `structure.internal-error`
-  for that file and the batch goes on.
+  for that file (the exception type and a short text, with the file's path scrubbed)
+  and the batch goes on.
 - In `validate()`, the Schematron step (bundled or user rules) is skipped with a
   `schematron.incomplete` error when an element has more than 50,000 child elements,
   where libxslt can take minutes; the casing diameter rule still runs.
   `schematron_check()` is unchanged.
+- In `validate()`, the Schematron step (bundled or user rules) is also skipped with a
+  `schematron.incomplete` error when the rules would fire on more than 100,000
+  elements, counted in linear time before they run: libxslt's time grows with the
+  square of the number of elements the rules fire on, whatever their parents.
+- In `validate()`, dictionary Checks 6 to 8 try each element only against the
+  definition paths that can name it, a Definition may list at most 1,000 paths or
+  names, and path matching may take at most 5,000,000 steps per instance; past either
+  limit the step is `incomplete` with a `dictionary.incomplete` error. Check 6 and 8
+  messages list at most 20 paths.
+- In `validate()`, Check 8 reads `//` in a definition's conditional paths as "any
+  descendant". `dictionary_check()` keeps reading it as a direct child, which skips
+  Check 8 under a measurement; the two AtterbergExample files in the test corpus
+  therefore get two `dictionary.8` errors from `validate()` only.
+- In `validate()`, a local dictionary with a markup entity in its internal DTD, or one
+  libxml2 refuses for a resource limit, is a `dictionary.incomplete` error instead of a
+  `dictionary.3` warning.
 - In `validate()`, local dictionaries are limited to 20 MiB in all per instance (a
   parsed dictionary takes about 35 times its size in memory); a codeSpace not read
   because of that limit or the 16-dictionary cap makes the dictionary step
@@ -119,8 +136,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   evaluated in time growing with the square of the number of siblings (a 1 MB file
   with 18,000 sibling features took 31 s of CPU; now 0.1 s). Verdicts, failures and
   the `schematron_check()` output are unchanged, and the rule ids are the same.
-  libxslt is still slow when parents have very many children that a rule matches;
-  `validate()` refuses more than 50,000 children under one element.
+  libxslt is still quadratic in the number of elements the rules fire on;
+  `validate()` refuses files where that is over 100,000, or where one element has
+  more than 50,000 children.
 - Creating a `DictionarySemanticValidator` parses each bundled dictionary once instead
   of once per URL form, which more than offsets the larger dictionary bundle.
 
@@ -136,7 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file is a `ResourceError` (exit 2).
 - In `validate()`, an instance whose internal DTD declares an entity with markup (`<`)
   in its value gets one `structure.markup-entity` error and no other check runs, so an
-  entity cannot multiply the tree past the limits. Entities with plain text still work.
+  entity cannot multiply the tree past the limits; this holds in every encoding the
+  parser reads, including UTF-32 with a BOM. Entities with plain text still work.
   The element limit is counted on the parsed tree (an entity or a UTF-7 file cannot
   hide elements from it).
 - `dictionaries/whiteList.xml`, which decides where `allow_network=True` may fetch
