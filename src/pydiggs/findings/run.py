@@ -51,6 +51,7 @@ __all__ = [
     "MAX_LOCAL_DICTIONARY_BYTES",
     "MAX_MESSAGE_CHARS",
     "MAX_REPORT_BYTES",
+    "MAX_SCHEMATRON_SIBLINGS",
     "MAX_XPATH_CHARS",
     "NATIVE_STEPS",
     "display_paths",
@@ -89,6 +90,9 @@ _XPATH_STEPS: Final = frozenset(
         Step.CONTEXT,
     }
 )
+#: Most child elements one element may have for the Schematron step to run; above it the
+#: step is skipped with a ``schematron.incomplete`` error (libxslt is quadratic there).
+MAX_SCHEMATRON_SIBLINGS: Final = 50_000
 #: Most bytes of local dictionaries (relative codeSpaces) read for one instance, in
 #: total; a parsed dictionary takes about 35 times its size in memory.
 MAX_LOCAL_DICTIONARY_BYTES: Final = 20 * 2**20
@@ -444,6 +448,18 @@ def _run_schematron(
     schematron_path: str | os.PathLike[str] | None,
 ) -> StepStatus:
     schematron, contexts = _schematron(schematron_path)
+    widest = _widest_parent(doc)
+    if widest > MAX_SCHEMATRON_SIBLINGS:
+        # libxslt matches rule contexts in time quadratic in a parent's matched
+        # children; refuse rather than run for minutes (human decision, round 5).
+        _incomplete(
+            builder,
+            Step.SCHEMATRON,
+            f"an element has {widest:,} child elements, more than the"
+            f" {MAX_SCHEMATRON_SIBLINGS:,} the Schematron rules are run on",
+        )
+        _run_casing(doc, builder)
+        return "incomplete"
     try:
         schematron.validate(doc)
     except etree.XSLTError as exc:
@@ -478,6 +494,15 @@ def _run_schematron(
         builder.add(Step.SCHEMATRON, rule_id, Severity.ERROR, text, node=node)
     _run_casing(doc, builder)
     return builder.status(Step.SCHEMATRON)
+
+
+def _widest_parent(doc: etree._ElementTree) -> int:
+    """The most element children any one element has (one linear pass)."""
+    widest = 0
+    for el in doc.getroot().iter(etree.Element):
+        if len(el) > widest:  # len() counts comments too; count elements only if needed
+            widest = max(widest, sum(1 for _ in el.iterchildren(etree.Element)))
+    return widest
 
 
 def _element_count(doc: etree._ElementTree) -> int:

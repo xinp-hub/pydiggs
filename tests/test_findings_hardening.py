@@ -412,3 +412,45 @@ def test_subtree_memo_is_keyed_by_the_remainder_path():
     assert semantic._match_within_subtree(root, "a/c") is False
     assert semantic._match_within_subtree(root, "a") is True
     assert semantic._match_within_subtree(root, "c") is False
+
+
+# --- Schematron sibling cap -----------------------------------------------------------
+
+
+def _wide(tmp_path: Path, children: int) -> Path:
+    path = tmp_path / f"wide_{children}.xml"
+    body = "<percentPassing>-1</percentPassing>" * children
+    path.write_text(f'<Diggs xmlns="{NS}"><Grading>{body}<!--c--></Grading></Diggs>')
+    return path
+
+
+@pytest.mark.parametrize("user_rules", [False, True])
+def test_schematron_is_refused_above_the_sibling_cap(tmp_path, monkeypatch, user_rules):
+    monkeypatch.setattr(run, "MAX_SCHEMATRON_SIBLINGS", 100)
+    kwargs = {}
+    if user_rules:
+        kwargs["schematron_path"] = _sch(
+            tmp_path, "user", _pattern("P", "*[local-name()='percentPassing']", "neg")
+        )
+    under = validate(_wide(tmp_path, 100), checks=["schematron"], **kwargs)
+    assert under.steps["schematron"] == "failed"
+    assert len(under.findings) == 100
+    assert "schematron.incomplete" not in {f.rule_id for f in under.findings}
+    over = validate(_wide(tmp_path, 101), checks=["schematron"], **kwargs)
+    assert not over.ok
+    assert over.steps["schematron"] == "incomplete"
+    (finding,) = over.findings
+    assert (finding.rule_id, finding.severity.value) == ("schematron.incomplete", "error")
+    assert "101 child elements, more than the 100" in finding.message
+
+
+def test_the_casing_rule_still_runs_above_the_sibling_cap(tmp_path, monkeypatch):
+    monkeypatch.setattr(run, "MAX_SCHEMATRON_SIBLINGS", 3)
+    path = tmp_path / "casing.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}"><a/><a/><a/><a/><Casing>'
+        '<casingOutsideDiameter uom="cm">1</casingOutsideDiameter>'
+        '<casingInsideDiameter uom="m">1</casingInsideDiameter></Casing></Diggs>'
+    )
+    rules = {f.rule_id for f in validate(path, checks=["schematron"]).findings}
+    assert rules == {"schematron.incomplete", "schematron.Casing.outside-gt-inside-converted"}
