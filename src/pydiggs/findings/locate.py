@@ -45,6 +45,9 @@ class Locator:
         self._steps: dict[etree._Element, str] = {}
         self._gml_ids: dict[etree._Element, str | None] = {}
         self._child_lists: dict[tuple[etree._Element, object], list[etree._Element]] = {}
+        self._prefix_groups: dict[
+            tuple[etree._Element, str], dict[str | None, list[etree._Element]]
+        ] = {}
 
     def _step(self, el: etree._Element) -> str:
         """``name()[n]`` for one element, cached; ``n`` counts same-``name()`` siblings.
@@ -155,13 +158,19 @@ class Locator:
     def _prefixed(
         self, parent: etree._Element, local: str, prefix: str | None
     ) -> list[etree._Element]:
-        """Children with this local name and prefix (any namespace), listed once."""
-        key = (parent, ("prefix", local, prefix))
-        if key not in self._child_lists:
-            self._child_lists[key] = [
-                c for c in self._children(parent, "{*}" + local) if c.prefix == prefix
-            ]
-        return self._child_lists[key]
+        """Children with this local name and prefix (any namespace).
+
+        The children with one local name are grouped by prefix once per parent, so many
+        siblings that each use their own prefix stay linear.
+        """
+        key = (parent, local)
+        groups = self._prefix_groups.get(key)
+        if groups is None:
+            groups = {}
+            for child in parent.iterchildren("{*}" + local):
+                groups.setdefault(child.prefix, []).append(child)
+            self._prefix_groups[key] = groups
+        return groups.get(prefix, [])
 
     def element_at(self, path: str | None) -> etree._Element | None:
         """The element libxml2's ``_LogEntry.path`` (``xmlGetNodePath``) names.
