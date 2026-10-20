@@ -186,9 +186,16 @@ def parse_bytes(data: bytes, base_url: str | None) -> etree._ElementTree:
     """Parse bytes already read by :func:`read_limited` with :func:`safe_parser`.
 
     Raises:
-        etree.XMLSyntaxError: if the content is not well-formed XML.
+        etree.XMLSyntaxError: if the content is not well-formed XML. Its
+            ``parser_errors`` lists this parse's own errors (the exception's
+            ``error_log`` can also hold earlier parses' errors).
     """
-    root = etree.fromstring(data, parser=safe_parser(), base_url=base_url)
+    parser = safe_parser()
+    try:
+        root = etree.fromstring(data, parser=parser, base_url=base_url)
+    except etree.XMLSyntaxError as exc:
+        exc.parser_errors = list(parser.error_log)
+        raise
     return etree.ElementTree(root)
 
 

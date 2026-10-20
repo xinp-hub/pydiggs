@@ -460,7 +460,8 @@ class DictionarySemanticValidator:
                     self.local_over_budget.add(base_url)
                 tree = None
             except etree.XMLSyntaxError as exc:
-                limit = next((e for e in exc.error_log if _is_parser_limit(e)), None)
+                errors = getattr(exc, "parser_errors", [])  # this parse's errors only
+                limit = next((e for e in errors if _is_parser_limit(e)), None)
                 if limit is not None:
                     self.local_refused[base_url] = f"libxml2 refused it ({limit.message})"
                 tree = None

@@ -844,3 +844,15 @@ def test_an_unexpanded_abstract_pattern_is_never_located():
     assert contexts.patterns == [[], ["b"]]
     doc = etree.ElementTree(etree.fromstring("<r><b/></r>"))
     assert contexts.matched(doc, 0, FiredPattern("a", ["$x"])) is None
+
+
+def test_parser_limits_are_read_from_this_parse_only(tmp_path):
+    """lxml's exception log can hold earlier parses' errors; only this parse counts."""
+    for _ in range(150):  # fill the shared log with limit errors from other parses
+        with pytest.raises(etree.XMLSyntaxError):
+            _xml.parse_bytes(b"<" + b"n" * 60_000 + b"/>", None)
+    broken = validate(_local_site(tmp_path, b"<a><b></a>"), checks=["dictionary"])
+    assert broken.steps["dictionary"] == "passed"  # malformed, not a limit: warning only
+    assert [f.rule_id for f in broken.findings] == ["dictionary.3"]
+    limited = validate(_local_site(tmp_path, b"<" + b"m" * 60_000 + b"/>"), checks=["dictionary"])
+    assert limited.steps["dictionary"] == "incomplete"
