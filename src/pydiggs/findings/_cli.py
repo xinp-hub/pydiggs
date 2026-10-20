@@ -258,7 +258,20 @@ def _worker(conn: Connection, path: str, kwargs: dict[str, Any]) -> None:
 
 
 def _describe(exc: BaseException) -> str:
-    return f"{type(exc).__name__}: {exc}"[:1000]
+    """The exception's type and its text, cut short (scrubbed by :func:`_failed`)."""
+    text = " ".join(str(exc).split())
+    return f"{type(exc).__name__}: {text[:_MAX_ERROR_TEXT]}" if text else type(exc).__name__
+
+
+_MAX_ERROR_TEXT = 300
+
+
+def _scrub(text: str, path: Path, shown: str) -> str:
+    """Replace the file's absolute path, then the home folder, as validate() does."""
+    for spelling in sorted({str(path.resolve()), str(path.absolute())}, key=len, reverse=True):
+        text = text.replace(spelling, shown)
+    home = str(Path.home())
+    return text.replace(home, "~") if len(home) > 1 else text
 
 
 def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Report:
@@ -303,6 +316,7 @@ def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Re
 def _failed(path: Path, kwargs: dict[str, Any], rule_id: str, why: str) -> Report:
     """A report with one ERROR and every requested step incomplete (fail closed)."""
     shown, absolute = display_paths(path, kwargs.get("base_dir"))
+    why = _scrub(why, path, shown)
     try:
         data, _ = _xml.read_limited(path, kwargs["max_bytes"], regular_only=True)
     except OSError as exc:
