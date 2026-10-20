@@ -54,6 +54,7 @@ dev = [
   "mypy>=1.13",
   "ruff>=0.8",
   "jsonschema>=4.26.0",
+  "pytest-timeout>=2.4.0",
 ]
 docs = [
   "mkdocs-material>=9.5",

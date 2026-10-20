@@ -118,6 +118,7 @@ def test_instance_read_error_names_the_shown_path_only(tmp_path, monkeypatch):
     assert "secret-folder" not in str(exc.value)
 
 
+@pytest.mark.timeout(30)  # a FIFO that blocks must fail fast, not hang the run
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on this platform")
 def test_fifos_are_skipped_and_refused_without_blocking(tmp_path, capsys):
     from pydiggs.findings._cli import expand_inputs
