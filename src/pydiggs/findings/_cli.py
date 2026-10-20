@@ -16,6 +16,7 @@ import pickle
 import stat
 import sys
 import unicodedata
+import urllib.parse
 from collections.abc import Iterator, Sequence
 from multiprocessing.connection import Connection
 from pathlib import Path
@@ -252,26 +253,48 @@ def _worker(conn: Connection, path: str, kwargs: dict[str, Any]) -> None:
     except (InstanceReadError, ResourceError) as exc:
         conn.send(("error", exc))
     except Exception as exc:  # becomes an ERROR report in the parent
-        conn.send(("crash", _describe(exc)))
+        conn.send(("crash", _describe(exc, Path(path), kwargs)))
     finally:
         conn.close()
 
 
-def _describe(exc: BaseException) -> str:
-    """The exception's type and its text, cut short (scrubbed by :func:`_failed`)."""
-    text = " ".join(str(exc).split())
+def _describe(exc: BaseException, path: Path, kwargs: dict[str, Any]) -> str:
+    """The exception's type and its text: scrubbed, then cut short, then scrubbed again.
+
+    The raw text is scrubbed first, so a path is never cut in half before it can be
+    recognised; the cut text is scrubbed again by :func:`_failed`.
+    """
+    shown, _ = display_paths(path, kwargs.get("base_dir"))
+    text = " ".join(_scrub(str(exc), path, shown).split())
     return f"{type(exc).__name__}: {text[:_MAX_ERROR_TEXT]}" if text else type(exc).__name__
 
 
 _MAX_ERROR_TEXT = 300
 
 
+def _spellings(location: Path) -> list[str]:
+    """Ways an error text may spell an absolute path: plain, file: URI, %-encoded."""
+    plain = str(location)
+    forms = {plain, urllib.parse.quote(plain), plain.replace(os.sep, "/")}
+    try:
+        uri = location.as_uri()
+    except ValueError:
+        uri = ""
+    if uri:
+        forms |= {uri, urllib.parse.unquote(uri)}
+    return [f for f in forms if len(f) > 1]
+
+
 def _scrub(text: str, path: Path, shown: str) -> str:
     """Replace the file's absolute path, then the home folder, as validate() does."""
-    for spelling in sorted({str(path.resolve()), str(path.absolute())}, key=len, reverse=True):
+    instance: set[str] = set()
+    for location in {path.resolve(), path.absolute()}:
+        instance.update(_spellings(location))
+    for spelling in sorted(instance, key=len, reverse=True):
         text = text.replace(spelling, shown)
-    home = str(Path.home())
-    return text.replace(home, "~") if len(home) > 1 else text
+    for spelling in sorted(_spellings(Path.home()), key=len, reverse=True):
+        text = text.replace(spelling, "~")
+    return text
 
 
 def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Report:
@@ -360,7 +383,7 @@ def _run(
                 except (InstanceReadError, ResourceError):
                     raise
                 except Exception as exc:  # fail closed for this file only
-                    why = f"Validation failed ({_describe(exc)})"
+                    why = f"Validation failed ({_describe(exc, path, kwargs)})"
                     reports.append(_failed(path, kwargs, rules.INTERNAL_ERROR, why))
             else:
                 reports.append(_validate_isolated(path, kwargs, args.timeout))
