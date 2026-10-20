@@ -7,11 +7,14 @@ Ports the progressive checks documented in DIGGSml/validation
 from __future__ import annotations
 
 import errno
+import functools
+import itertools
 import os
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Final
 from urllib.parse import unquote, urlparse, urlsplit
 from urllib.request import url2pathname
 
@@ -274,7 +277,12 @@ class DictionarySemanticValidator:
         # Per instance: (ancestor, path) and (node, segments) match results.
         self._subtree_memo: dict[tuple[etree._Element, str], bool] = {}
         self._allowed_terms: dict[etree._ElementTree, list[str]] = {}
-        self._child_memo: dict[tuple[etree._Element, tuple[tuple[str, str], ...]], bool] = {}
+        self._child_memo: dict[tuple[etree._Element, int, int], bool] = {}
+        self._segment_cache: dict[str, tuple[tuple[str, str], ...]] = {}
+        self._sibling_cache: dict[
+            etree._Element,
+            tuple[etree._Element | None, etree._Element | None, etree._Element | None],
+        ] = {}
         self._default_properties = Path(dictionary_path) if dictionary_path else _DEFAULT_PROPERTIES
         self._register_local_dictionary(
             self._default_properties,
@@ -452,9 +460,9 @@ class DictionarySemanticValidator:
                     self.local_over_budget.add(base_url)
                 tree = None
             except etree.XMLSyntaxError as exc:
-                error = exc.error_log.last_error
-                if error is not None and error.type_name == "ERR_RESOURCE_LIMIT":
-                    self.local_refused[base_url] = f"libxml2 refused it ({exc.msg})"
+                limit = next((e for e in exc.error_log if _is_parser_limit(e)), None)
+                if limit is not None:
+                    self.local_refused[base_url] = f"libxml2 refused it ({limit.message})"
                 tree = None
             except ValueError:
                 tree = None
@@ -572,22 +580,71 @@ class DictionarySemanticValidator:
         return self._resolve_dictionary(base_url), None
 
     def _paths(self, definition: etree._Element) -> _DefinitionPaths:
-        """A Definition's source and conditional paths and names, read once per instance."""
+        """What the checks read from a Definition, read once per instance (not per use)."""
         info = self._definition_info.get(definition)
         if info is None:
-            info = _DefinitionPaths(
-                _PathGroup(self._source_xpaths(definition)),
-                _PathGroup(self._conditional_xpaths(definition)),
-                self._definition_names(definition),
-            )
+            size = sum(1 for _ in itertools.islice(definition.iter(), MAX_DEFINITION_NODES + 1))
+            self._spend(size)
+            if self.bounded and size > MAX_DEFINITION_NODES:
+                info = _DefinitionPaths.too_big()
+            else:
+                info = _DefinitionPaths(
+                    _PathGroup(self._source_xpaths(definition), strip=self.bounded),
+                    _PathGroup(self._conditional_xpaths(definition), strip=self.bounded),
+                    self._definition_names(definition),
+                    definition,
+                )
             self._definition_info[definition] = info
         return info
+
+    def _siblings(
+        self, parent: etree._Element | None
+    ) -> tuple[etree._Element | None, etree._Element | None, etree._Element | None]:
+        """A parent's last ``typeData`` and ``uom`` and first ``nullValue`` children.
+
+        Read once per parent: a property with many coded siblings would otherwise
+        rescan them for every one.
+        """
+        if parent is None:
+            return None, None, None
+        found = self._sibling_cache.get(parent)
+        if found is None:
+            self._spend(len(parent))
+            type_data = uom = null_value = None
+            for child in parent:
+                if not isinstance(child.tag, str):
+                    continue
+                local = _local(child)
+                if local == "typeData":
+                    type_data = child
+                elif local == "uom":
+                    uom = child
+                elif local == "nullValue" and null_value is None:
+                    null_value = child
+            found = (type_data, uom, null_value)
+            self._sibling_cache[parent] = found
+        return found
+
+    def _segments(self, path: str) -> tuple[tuple[str, str], ...]:
+        """The (prefix, local) steps of a relative path, parsed once per instance."""
+        segments = self._segment_cache.get(path)
+        if segments is None:
+            steps = [step for step in path.split("/") if step]
+            self._spend(len(steps))
+            if self.bounded and len(steps) > MAX_PATH_STEPS:
+                raise _LimitError(f"a dictionary path has more than {MAX_PATH_STEPS} steps")
+            segments = tuple(_parse_xpath_segment(step) for step in steps)
+            self._segment_cache[path] = segments
+        return segments
 
     def _parsed(self, xpath_expr: str) -> list[tuple[str, str]]:
         """The (prefix, local) steps of an absolute path, parsed once per instance."""
         parsed = self._parsed_paths.get(xpath_expr)
         if parsed is None:
             segments = [segment for segment in xpath_expr.lstrip("/").split("/") if segment]
+            self._spend(len(segments))
+            if self.bounded and len(segments) > MAX_PATH_STEPS:
+                raise _LimitError(f"a dictionary path has more than {MAX_PATH_STEPS} steps")
             parsed = [_parse_xpath_segment(segment) for segment in segments]
             self._parsed_paths[xpath_expr] = parsed
         return parsed
@@ -607,7 +664,9 @@ class DictionarySemanticValidator:
         """Count path-matching work; past the budget, stop (validate() only)."""
         self._work += units
         if self.bounded and self._work > MAX_PATH_MATCH_WORK:
-            raise _WorkBudgetError
+            raise _LimitError(
+                f"matching dictionary paths took more than {MAX_PATH_MATCH_WORK:,} steps"
+            )
 
     def _definition_names(self, definition: etree._Element) -> set[str]:
         return {_text(c).lower() for c in definition.xpath(".//*[local-name()='name']") if _text(c)}
@@ -635,6 +694,8 @@ class DictionarySemanticValidator:
     def _evaluate_xpath_match(self, el: etree._Element, xpath_expr: str, *, relative: bool) -> bool:
         """Approximate DIGGSml ``evaluateXPathMatch`` for bundled offline validation."""
         expr = xpath_expr.strip()
+        if self.bounded:  # predicates are ignored; a "/" inside one is not a step
+            expr = _strip_predicates(expr)
         if not expr:
             return True
         if expr.startswith("ancestor::"):
@@ -718,11 +779,7 @@ class DictionarySemanticValidator:
         # "//b" as any descendant, as XPath does (Check 8).
         normalized = path if self.bounded else path.lstrip("/")
         if normalized.startswith("//"):
-            segments = [
-                _parse_xpath_segment(segment)
-                for segment in normalized.lstrip("/").split("/")
-                if segment
-            ]
+            segments = self._segments(normalized.lstrip("/"))
             if not segments:
                 return False
             first_prefix, first_local = segments[0]
@@ -736,34 +793,39 @@ class DictionarySemanticValidator:
                     continue
                 if len(segments) == 1:
                     return True
-                if self._match_child_path(candidate, segments[1:]):
+                if self._match_child_path(candidate, segments, 1):
                     return True
             return False
+        return self._match_child_path(root, self._segments(normalized), 0)
 
-        segments = [_parse_xpath_segment(segment) for segment in normalized.split("/") if segment]
-        return self._match_child_path(root, segments)
+    def _match_child_path(
+        self, node: etree._Element, segments: tuple[tuple[str, str], ...], offset: int
+    ) -> bool:
+        """Whether ``segments[offset:]`` names a child path below ``node`` (memoised).
 
-    def _match_child_path(self, node: etree._Element, segments: list[tuple[str, str]]) -> bool:
-        key = (node, tuple(segments))
+        ``segments`` comes from :meth:`_segments`, which keeps one tuple per path, so
+        the memo key holds its identity and an offset: nothing is copied per step.
+        """
+        key = (node, id(segments), offset)
         if key not in self._child_memo:
-            self._child_memo[key] = self._match_child_path_uncached(node, segments)
+            self._child_memo[key] = self._match_child_path_uncached(node, segments, offset)
         return self._child_memo[key]
 
     def _match_child_path_uncached(
-        self, node: etree._Element, segments: list[tuple[str, str]]
+        self, node: etree._Element, segments: tuple[tuple[str, str], ...], offset: int
     ) -> bool:
-        if not segments:
+        if offset >= len(segments):
             return True
-        prefix, local_name = segments[0]
+        prefix, local_name = segments[offset]
         for child in node:
             self._spend()
             if not isinstance(child.tag, str):
                 continue
             if _local(child) != local_name or not _element_matches_prefix(child, prefix):
                 continue
-            if len(segments) == 1:
+            if offset + 1 == len(segments):
                 return True
-            if self._match_child_path(child, segments[1:]):
+            if self._match_child_path(child, segments, offset + 1):
                 return True
         return False
 
@@ -812,6 +874,8 @@ class DictionarySemanticValidator:
         self._unreachable = set()
         self._subtree_memo = {}
         self._child_memo = {}
+        self._segment_cache = {}
+        self._sibling_cache = {}
         self._definition_info = {}
         self._parsed_paths = {}
         self._ancestor_cache = {}
@@ -872,6 +936,8 @@ class DictionarySemanticValidator:
         }
         self._subtree_memo = {}
         self._child_memo = {}
+        self._segment_cache = {}
+        self._sibling_cache = {}
         self._definition_info = {}
         self._parsed_paths = {}
         self._ancestor_cache = {}
@@ -885,10 +951,8 @@ class DictionarySemanticValidator:
             start = len(result.messages)
             try:
                 self._validate_element(el, result)
-            except _WorkBudgetError:
-                self.limits_hit.append(
-                    f"matching dictionary paths took more than {MAX_PATH_MATCH_WORK:,} steps"
-                )
+            except _LimitError as exc:
+                self.limits_hit.append(str(exc))
                 break
             finally:
                 for message in result.messages[start:]:
@@ -1060,10 +1124,8 @@ class DictionarySemanticValidator:
         value = _text(el)
 
         info = self._paths(definition)
-        if self.bounded and info.too_many():
-            self.limits_hit.append(
-                f"a dictionary definition lists more than {MAX_DEFINITION_PATHS:,} paths or names"
-            )
+        if self.bounded and (why := info.over_limits()):
+            self.limits_hit.append(why)
             return
         source_xpaths = info.sources.paths
         # DIGGS properties dictionary documentation allows the same codes on
@@ -1106,10 +1168,7 @@ class DictionarySemanticValidator:
             return
 
         # First name in document order (a set's order depends on PYTHONHASHSEED).
-        definition_name = next(
-            (_text(c).lower() for c in definition.xpath(".//*[local-name()='name']") if _text(c)),
-            fragment,
-        )
+        definition_name = info.first_name or fragment
 
         if not self._has_measurement_without_procedure(el):
             conditionals = info.conditionals.paths
@@ -1117,7 +1176,8 @@ class DictionarySemanticValidator:
             if conditionals and not any(self._conditional_ok(el, xp) for xp in relative):
                 targets = []
                 for xp in self._listed(conditionals):
-                    term = xp.rstrip("/").split("/")[-1]
+                    shown = _strip_predicates(xp) if self.bounded else xp
+                    term = shown.rstrip("/").split("/")[-1]
                     if ":" in term:
                         term = term.split(":", 1)[1]
                     if "[" in term:
@@ -1137,20 +1197,8 @@ class DictionarySemanticValidator:
                 return
 
         parent = el.getparent()
-        sibling_type = None
-        sibling_uom = None
-        if parent is not None:
-            for child in parent:
-                if not isinstance(child.tag, str):
-                    continue
-                if _local(child) == "typeData":
-                    sibling_type = child
-                if _local(child) == "uom":
-                    sibling_uom = child
-
-        def_data_type_el = next(
-            (c for c in definition.xpath(".//*[local-name()='dataType']")), None
-        )
+        sibling_type, sibling_uom, _ = self._siblings(parent)
+        def_data_type_el = info.data_type
         if (
             sibling_type is not None
             and def_data_type_el is not None
@@ -1169,9 +1217,7 @@ class DictionarySemanticValidator:
             )
             return
 
-        quantity_el = next(
-            (c for c in definition.xpath(".//*[local-name()='quantityClass']")), None
-        )
+        quantity_el = info.quantity_class
         quantity = _text(quantity_el) if quantity_el is not None else ""
         if not quantity:
             if sibling_uom is not None:
@@ -1261,13 +1307,12 @@ class DictionarySemanticValidator:
         """
         if not self.check_value_code_spaces:
             return
-        vcs_el = next(iter(definition.xpath(".//*[local-name()='valueCodeSpace']")), None)
+        info = self._paths(definition)
+        vcs_el = info.value_code_space
         value_code_space = _normalize_space(vcs_el.text if vcs_el is not None else "")
         if not value_code_space:
             return
-        name_el = next(
-            (c for c in definition if isinstance(c.tag, str) and _local(c) == "name"), None
-        )
+        name_el = info.name_child
         definition_name = name_el.xpath("string()") if name_el is not None else ""
         code_list_url = value_code_space.split("#", 1)[0]
         if not self._is_whitelisted(code_list_url):
@@ -1333,9 +1378,7 @@ class DictionarySemanticValidator:
         column = _xs_integer(prop.get("index"))
         if column is None or column < 1:
             return []
-        null_el = next(
-            (c for c in prop if isinstance(c.tag, str) and _local(c) == "nullValue"), None
-        )
+        null_el = self._siblings(prop)[2]
         null_text = _normalize_space(null_el.xpath("string()") if null_el is not None else "")
         params = next((a for a in el.iterancestors() if _local(a) == "PropertyParameters"), None)
         if params is None:
@@ -1347,6 +1390,7 @@ class DictionarySemanticValidator:
         result_sets = [a for a in params.iterancestors() if _local(a) == "ResultSet"][:1]
         if params_id:
             result_sets += index.citing(f"#{params_id}")
+        self._spend(len(result_sets))  # properties x citing ResultSets
         # XPath "$resultSets/*" de-duplicates and returns document order.
         candidates: dict[str, None] = {}
         for result_set in index.in_document_order(result_sets):
@@ -1456,12 +1500,16 @@ MAX_LOCAL_DICTIONARIES = 16
 MAX_DEFINITION_PATHS = 1_000
 #: validate(): most path-matching steps per instance (the largest corpus file needs 30,000).
 MAX_PATH_MATCH_WORK = 5_000_000
+#: validate(): most steps in one dictionary path.
+MAX_PATH_STEPS = 64
+#: validate(): most nodes in one dictionary Definition (real ones have under 100).
+MAX_DEFINITION_NODES = 10_000
 #: validate(): paths listed in one Check 6 or Check 8 message.
 MAX_LISTED_PATHS = 20
 
 
-class _WorkBudgetError(Exception):
-    """MAX_PATH_MATCH_WORK was used up (validate() only)."""
+class _LimitError(Exception):
+    """A validate()-only limit was reached; the message says which."""
 
 
 class _PathGroup:
@@ -1471,7 +1519,7 @@ class _PathGroup:
     name is the path's last step, so only those paths are tried for an element.
     """
 
-    def __init__(self, paths: list[str]) -> None:
+    def __init__(self, paths: list[str], *, strip: bool = False) -> None:
         self.paths = paths
         self.mentions_property_class = any("propertyClass" in p for p in paths)
         self.ancestor = [p for p in paths if p.startswith("ancestor::")]
@@ -1479,7 +1527,8 @@ class _PathGroup:
         for p in paths:
             if p.startswith("ancestor::"):
                 continue
-            steps = [step for step in p.lstrip("/").split("/") if step]
+            shown = _strip_predicates(p) if strip else p
+            steps = [step for step in shown.lstrip("/").split("/") if step]
             if steps:
                 local = _parse_xpath_segment(steps[-1])[1]
                 self.by_terminal.setdefault(local, []).append(p)
@@ -1496,15 +1545,84 @@ class _PathGroup:
 
 
 class _DefinitionPaths:
-    def __init__(self, sources: _PathGroup, conditionals: _PathGroup, names: set[str]) -> None:
+    """What the checks read from one Definition, read once per instance."""
+
+    def __init__(
+        self,
+        sources: _PathGroup,
+        conditionals: _PathGroup,
+        names: set[str],
+        definition: etree._Element | None,
+    ) -> None:
         self.sources = sources
         self.conditionals = conditionals
         self.names = names
-
-    def too_many(self) -> bool:
-        return max(len(self.sources.paths), len(self.conditionals.paths), len(self.names)) > (
-            MAX_DEFINITION_PATHS
+        self.too_large = definition is None
+        first: dict[str, etree._Element] = {}
+        first_name: str | None = None
+        if definition is not None:
+            for el in definition.iter(etree.Element):
+                local = _local(el)
+                if local in _DEFINITION_FIELDS and local not in first and el is not definition:
+                    first[local] = el
+                if local == "name" and first_name is None and el is not definition and _text(el):
+                    first_name = _text(el).lower()
+        self.first_name = first_name
+        self.data_type = first.get("dataType")
+        self.quantity_class = first.get("quantityClass")
+        self.value_code_space = first.get("valueCodeSpace")
+        self.name_child = (
+            next((c for c in definition if isinstance(c.tag, str) and _local(c) == "name"), None)
+            if definition is not None
+            else None
         )
+
+    @classmethod
+    def too_big(cls) -> _DefinitionPaths:
+        return cls(_PathGroup([]), _PathGroup([]), set(), None)
+
+    def over_limits(self) -> str | None:
+        """Why validate() must not check against this Definition, or None."""
+        if self.too_large:
+            return f"a dictionary definition has more than {MAX_DEFINITION_NODES:,} nodes"
+        if max(len(self.sources.paths), len(self.conditionals.paths), len(self.names)) > (
+            MAX_DEFINITION_PATHS
+        ):
+            return (
+                f"a dictionary definition lists more than {MAX_DEFINITION_PATHS:,} paths or names"
+            )
+        return None
+
+
+_DEFINITION_FIELDS: Final = frozenset({"dataType", "quantityClass", "valueCodeSpace"})
+
+
+def _is_parser_limit(entry: etree._LogEntry) -> bool:
+    """A libxml2 safety limit (amplification, depth, text or name length)."""
+    return entry.type_name in ("ERR_RESOURCE_LIMIT", "ERR_NAME_TOO_LONG") or (
+        entry.message or ""
+    ).startswith("Name too long")
+
+
+@functools.lru_cache(maxsize=4096)
+def _strip_predicates(path: str) -> str:
+    """``path`` without its ``[...]`` predicates (quote-aware), which matching ignores."""
+    out: list[str] = []
+    depth, quote = 0, ""
+    for ch in path:
+        if quote:
+            if ch == quote:
+                quote = ""
+            continue
+        if depth and ch in "'\"":
+            quote = ch
+        elif ch == "[":
+            depth += 1
+        elif ch == "]" and depth:
+            depth -= 1
+        elif not depth:
+            out.append(ch)
+    return "".join(out)
 
 
 _XPATH_WS_RUN = re.compile(r"[ \t\n\r]+")
