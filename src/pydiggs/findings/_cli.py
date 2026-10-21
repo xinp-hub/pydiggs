@@ -275,7 +275,8 @@ _MAX_ERROR_TEXT = 300
 def _spellings(location: Path) -> list[str]:
     """Ways an error text may spell an absolute path: plain, file: URI, %-encoded."""
     plain = str(location)
-    forms = {plain, urllib.parse.quote(plain), plain.replace(os.sep, "/")}
+    posix = location.as_posix()  # on Windows: forward slashes, no %5C when encoded
+    forms = {plain, posix, urllib.parse.quote(posix)}
     try:
         uri = location.as_uri()
     except ValueError:
