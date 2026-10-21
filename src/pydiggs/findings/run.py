@@ -13,7 +13,7 @@ import os
 import re
 import threading
 import tomllib
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import cache
 from importlib import resources
@@ -536,7 +536,11 @@ _markup_entity = _xml.markup_entity
 def _incomplete(builder: _Builder, step: Step, exc: Exception | str) -> None:
     """Fail closed: a step that could not finish is an error, never a pass."""
     builder.incomplete.add(step)
-    why = exc if isinstance(exc, str) else f"{type(exc).__name__}: {exc}"
+    if isinstance(exc, str):
+        why = exc
+    else:  # the builder scrubs the instance's path; keep an exception's text short
+        text = " ".join(str(exc).split())
+        why = f"{type(exc).__name__}: {text[:300]}" if text else type(exc).__name__
     builder.add(
         step,
         rules.incomplete(step),
@@ -550,7 +554,7 @@ def _run_casing(doc: etree._ElementTree, builder: _Builder) -> None:
     """Pydiggs's own unit-converting casing rule (part of the Schematron step)."""
     try:
         problems = _casing_diameter_problems(doc)
-    except etree.XPathError as exc:
+    except Exception as exc:  # an XPath limit or a bug: fail closed
         _incomplete(builder, Step.SCHEMATRON, exc)
         return
     for casing, message in problems:
@@ -796,6 +800,8 @@ def _run_context(root: etree._Element, builder: _Builder, wanted: frozenset[Step
         for step in sorted(_CONTEXT_STEPS & wanted, key=lambda s: s.order):
             _incomplete(builder, step, exc)
         return
+    if result.limits_hit:
+        _incomplete(builder, Step.CONTEXT, result.limits_hit[0])
     for check, (count, severity) in result.dropped.items():
         step, _ = rules.CONTEXT_RULES[check]
         builder.drop(step, _SEVERITY.get(severity, Severity.ERROR), count)
@@ -846,25 +852,57 @@ def _run_steps(
     o: _StepOptions,
 ) -> None:
     if Step.SCHEMA in wanted:
-        steps[Step.SCHEMA] = _run_schema(doc, builder, o.profile, o.schema_path)
+        steps[Step.SCHEMA] = _guarded(
+            builder, [Step.SCHEMA], lambda: _run_schema(doc, builder, o.profile, o.schema_path)
+        )
     if Step.DICTIONARY in wanted:
-        steps[Step.DICTIONARY] = _run_dictionary(
-            doc,
+        steps[Step.DICTIONARY] = _guarded(
             builder,
-            o.instance,
-            o.dictionary_path,
-            allow_network=o.allow_network,
-            local_dictionaries=o.local_dictionaries,
-            max_bytes=min(MAX_LOCAL_DICTIONARY_BYTES, o.max_bytes - o.instance_bytes),
+            [Step.DICTIONARY],
+            lambda: _run_dictionary(
+                doc,
+                builder,
+                o.instance,
+                o.dictionary_path,
+                allow_network=o.allow_network,
+                local_dictionaries=o.local_dictionaries,
+                max_bytes=min(MAX_LOCAL_DICTIONARY_BYTES, o.max_bytes - o.instance_bytes),
+            ),
         )
     if Step.SCHEMATRON in wanted:
-        steps[Step.SCHEMATRON] = _run_schematron(doc, builder, o.schematron_path)
+        steps[Step.SCHEMATRON] = _guarded(
+            builder, [Step.SCHEMATRON], lambda: _run_schematron(doc, builder, o.schematron_path)
+        )
     if Step.DEPRECATION in wanted:
-        steps[Step.DEPRECATION] = _run_deprecation(doc, builder, o.profile)
+        steps[Step.DEPRECATION] = _guarded(
+            builder, [Step.DEPRECATION], lambda: _run_deprecation(doc, builder, o.profile)
+        )
     if wanted & _CONTEXT_STEPS:
-        _run_context(doc.getroot(), builder, wanted)
+        context_steps = sorted(_CONTEXT_STEPS & wanted, key=lambda s: s.order)
+        _guarded(builder, context_steps, lambda: _run_context(doc.getroot(), builder, wanted))
         for step in _CONTEXT_STEPS & wanted:
             steps[step] = builder.status(step)
+
+
+def _guarded(
+    builder: _Builder, steps: list[Step], run: Callable[[], StepStatus | None]
+) -> StepStatus:
+    """Run one step; an unexpected error makes it incomplete (fail closed), never raises.
+
+    Only the errors validate() documents (a broken trusted resource) propagate. Any
+    other exception, from a pydiggs bug or an lxml surprise, becomes a
+    ``<step>.incomplete`` error, so it can neither escape validate() nor leave the
+    step "passed".
+    """
+    try:
+        status = run()
+    except (ResourceError, InstanceReadError):
+        raise
+    except Exception as exc:  # fail closed on anything unexpected
+        for step in steps:
+            _incomplete(builder, step, exc)
+        return "incomplete"
+    return status if status is not None else builder.status(steps[0])
 
 
 def validate(
