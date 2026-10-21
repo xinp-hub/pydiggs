@@ -603,9 +603,11 @@ def test_check8_reads_descendant_paths_in_validate(name):
 
 def test_paths_naming_absent_ancestors_are_rejected_cheaply(tmp_path):
     """Each path costs one step when one of its ancestors is missing, not a walk."""
-    path = _self_dictionary(tmp_path, elements=4_000, paths=900, terminal="a")
+    path = _self_dictionary(tmp_path, elements=1_500, paths=900, terminal="a")
     report = validate(path, checks=["dictionary"], max_findings=None)
-    assert report.steps["dictionary"] == "failed"  # 3.6 million steps, within the budget
+    # About 3 units per path tried (4 million), within the 5 million budget; walking
+    # the ancestors instead would pass it.
+    assert report.steps["dictionary"] == "failed"
 
 
 # --- local dictionaries refused for safety --------------------------------------------
@@ -856,3 +858,475 @@ def test_parser_limits_are_read_from_this_parse_only(tmp_path):
     assert [f.rule_id for f in broken.findings] == ["dictionary.3"]
     limited = validate(_local_site(tmp_path, b"<" + b"m" * 60_000 + b"/>"), checks=["dictionary"])
     assert limited.steps["dictionary"] == "incomplete"
+
+
+# --- round 8 -------------------------------------------------------------------------
+
+_DEF_HEAD = (
+    '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+    ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="x"><gml:dictionaryEntry>'
+    '<diggs:Definition gml:id="t">'
+)
+_DEF_TAIL = "</diggs:Definition></gml:dictionaryEntry></gml:Dictionary>"
+
+
+def _definition(
+    tmp_path: Path, inner: str, body: str, extra_files: dict[str, str] | None = None
+) -> Path:
+    """A local Definition ``t`` (``inner`` is its content) and an instance ``body``."""
+    (tmp_path / "d.xml").write_text(_DEF_HEAD + inner + _DEF_TAIL)
+    for name, text in (extra_files or {}).items():
+        (tmp_path / name).write_text(text)
+    site = tmp_path / "i.xml"
+    site.write_text(
+        f'<Diggs xmlns="{NS}" xmlns:gml="http://www.opengis.net/gml/3.2">{body}</Diggs>'
+    )
+    return site
+
+
+def _sources(*paths: str) -> str:
+    return (
+        "<diggs:occurrences><diggs:Occurrence>"
+        + "".join(f"<diggs:sourceElementXpath>{p}</diggs:sourceElementXpath>" for p in paths)
+        + "</diggs:Occurrence></diggs:occurrences>"
+    )
+
+
+_PC = '<propertyClass codeSpace="./d.xml#t">t</propertyClass>'
+
+
+def _rules(report) -> list[str]:
+    return sorted(f.rule_id for f in report.findings)
+
+
+def test_huge_column_indexes_never_raise(tmp_path):
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = (
+        "<gml:name>t</gml:name>"
+        + _sources("//diggs:propertyClass")
+        + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    )
+    for index, rules_expected in (("0" * 5_000 + "1", ["dictionary.13"]), ("9" * 5_001, [])):
+        body = (
+            '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+            f'<Property index="{index}">{_PC}</Property></properties></PropertyParameters>'
+            "</parameters><dataValues>bad</dataValues></ResultSet>"
+        )
+        report = validate(
+            _definition(tmp_path, inner, body, {"c.xml": codes}), checks=["dictionary"]
+        )
+        assert _rules(report) == rules_expected, index[:3]
+
+
+@pytest.mark.parametrize(
+    ("target", "step"),
+    [
+        ("_run_schema", "schema"),
+        ("_run_dictionary", "dictionary"),
+        ("_run_schematron", "schematron"),
+        ("_run_deprecation", "deprecation"),
+        ("_run_context", "context"),
+        ("_casing_diameter_problems", "schematron"),
+    ],
+)
+def test_an_unexpected_error_in_any_step_fails_closed(monkeypatch, target, step):
+    def boom(*args, **kwargs):
+        raise RuntimeError(f"bug in {NO_ERROR.resolve()}")
+
+    monkeypatch.setattr(run, target, boom)
+    report = validate(NO_ERROR, checks=[step])
+    assert not report.ok and report.steps[step] == "incomplete"
+    (finding,) = [f for f in report.findings if f.rule_id == f"{step}.incomplete"]
+    assert "RuntimeError: bug in" in finding.message
+    assert str(NO_ERROR.resolve()) not in finding.message  # scrubbed by the builder
+
+
+def test_every_candidate_path_is_charged(tmp_path, monkeypatch):
+    """Audit: paths rejected on their prefix cost nothing, so the budget never stopped them."""
+    from pydiggs import dictionary
+
+    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 50_000)
+    inner = "<gml:name>t</gml:name>" + _sources(
+        *(f"//gml:propertyClass[{i}]" for i in range(500)), "//diggs:propertyClass"
+    )
+    report = validate(_definition(tmp_path, inner, _PC * 200), checks=["dictionary"])
+    assert report.steps["dictionary"] == "incomplete"
+
+
+def test_check13_columns_are_read_once_per_result_set(tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    calls = []
+    real = dictionary._Check13Index.column
+    monkeypatch.setattr(
+        dictionary._Check13Index,
+        "column",
+        lambda self, rs, col: calls.append(col) or real(self, rs, col),
+    )
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = (
+        "<gml:name>t</gml:name>"
+        + _sources("//diggs:propertyClass")
+        + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    )
+    props = f'<Property index="1">{_PC}</Property>' * 300
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f"{props}</properties></PropertyParameters></parameters>"
+        "<dataValues>ok bad other</dataValues></ResultSet>"
+    )
+    report = validate(_definition(tmp_path, inner, body, {"c.xml": codes}), checks=["dictionary"])
+    assert _rules(report) == ["dictionary.13"] * 300
+    assert len(calls) == 1
+
+
+def test_code_list_terms_are_not_rebuilt_per_property(tmp_path):
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c">'
+        + "".join(f'<diggs:Definition gml:id="v{i}"/>' for i in range(50_000))
+        + "</gml:Dictionary>"
+    )
+    inner = (
+        "<gml:name>t</gml:name>"
+        + _sources("//diggs:propertyClass")
+        + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    )
+    site = _definition(tmp_path, inner, _PC * 5_000, {"c.xml": codes})
+    start = time.process_time()
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
+    assert time.process_time() - start < 4  # 5,000 x a 50,000-term frozenset before
+
+
+def test_ancestor_name_sets_are_shared():
+    from pydiggs.dictionary import DictionarySemanticValidator
+
+    chain = (
+        "".join(f"<c{i}>" for i in range(50))
+        + "<p><x/></p>" * 3
+        + "".join(f"</c{i}>" for i in reversed(range(50)))
+    )
+    root = etree.fromstring(f"<r>{chain}</r>")
+    xs = list(root.iter("x"))
+    semantic = DictionarySemanticValidator(bounded=True)
+    sets = [semantic._ancestor_names(x) for x in xs]
+    assert sets[0] is sets[1] is sets[2]  # one set for the three <p> parents
+    assert "p" in sets[0] and "c49" in sets[0]
+
+
+def test_child_path_memo_entries_are_charged():
+    from pydiggs import dictionary
+    from pydiggs.dictionary import DictionarySemanticValidator
+
+    semantic = DictionarySemanticValidator(bounded=True)
+    root = etree.fromstring("<a>" + "<b/>" * 10 + "</a>")
+    segments = semantic._segments("b/z")
+    before = semantic._work
+    for child in [root, *root]:
+        semantic._match_child_path(child, segments, 0)
+    assert semantic._work - before >= dictionary._MEMO_ENTRY_COST * 11
+
+
+def test_datablocks_in_nested_measurements_are_counted_in_linear_time(tmp_path):
+    path = tmp_path / "nest.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}"><measurement>'
+        + "<result>" * 150
+        + "<Property/>" * 8_000
+        + "</result>" * 150
+        + "<dataBlock>1,2 3</dataBlock></measurement></Diggs>"
+    )
+    start = time.process_time()
+    report = validate(path, checks=["context"])
+    assert time.process_time() - start < 3
+    (finding,) = report.findings
+    assert "tuple 1 has 2 value(s) but 8000 Property declaration(s)" in finding.message
+
+
+def test_linear_datablock_check_matches_the_legacy_one():
+    import random
+
+    from pydiggs import semantic
+
+    names = ["measurement", "result", "Result", "Property", "dataBlock", "x"]
+    compared = 0
+    for seed in range(600):
+        rng = random.Random(seed)  # noqa: S311 - test data
+
+        def element(depth: int, rng: random.Random = rng) -> etree._Element:
+            el = etree.Element(rng.choice(names) if depth else "Diggs")
+            if el.tag == "dataBlock":
+                el.text = " ".join(
+                    ",".join("1" * rng.randint(0, 3)) for _ in range(rng.randint(0, 3))
+                )
+                return el
+            if depth < 6:
+                for _ in range(rng.randint(0, 3)):
+                    el.append(element(depth + 1, rng))
+            return el
+
+        root = element(0)
+        legacy = semantic.ContextValidationResult()
+        semantic._check_datablocks(root, legacy)
+        linear = semantic.ContextValidationResult(legacy_paths=False)
+        semantic._check_datablocks_linear(root, linear)
+        assert [(m.text, m.node) for m in linear.messages] == [
+            (m.text, m.node) for m in legacy.messages
+        ], seed
+        compared += len(legacy.messages)
+    assert compared > 100
+
+
+def test_datablock_pairs_are_bounded(monkeypatch):
+    from pydiggs import semantic
+
+    monkeypatch.setattr(semantic, "MAX_DATABLOCK_PAIRS", 10)
+    root = etree.fromstring(
+        "<Diggs>"
+        + "<measurement>" * 5
+        + "<result><Property/></result>"
+        + "<dataBlock>1</dataBlock>" * 3
+        + "</measurement>" * 5
+        + "</Diggs>"
+    )
+    result = semantic.validate_context_tree(root, legacy_paths=False)
+    assert result.limits_hit
+    assert not [m for m in result.messages if m.check == 103]
+
+
+def test_a_predicate_only_conditional_matches_nothing(tmp_path):
+    inner = (
+        "<gml:name>v</gml:name><diggs:occurrences><diggs:Occurrence>"
+        "<diggs:conditionalElementXpath>[@x='only a predicate']</diggs:conditionalElementXpath>"
+        "</diggs:Occurrence></diggs:occurrences>"
+    )
+    body = '<Property><propertyClass codeSpace="./d.xml#t">v</propertyClass></Property>'
+    assert _rules(validate(_definition(tmp_path, inner, body), checks=["dictionary"])) == [
+        "dictionary.8"
+    ]
+
+
+@pytest.mark.parametrize("home", ["/", "a b@c"])
+def test_scrubbing_handles_odd_home_folders(tmp_path, monkeypatch, home):
+    import urllib.parse
+
+    home_path = Path(home) if home == "/" else tmp_path / home
+    monkeypatch.setenv("HOME", str(home_path))
+    target = tmp_path / "site.xml"
+    if home == "/":
+        text = _cli._scrub("RuntimeError: /etc/passwd and file:///x", target, "site.xml")
+        assert text == "RuntimeError: /etc/passwd and file:///x"  # nothing becomes "~"
+        return
+    raw = f"at {urllib.parse.quote(str(home_path))}/q and {home_path.as_uri()}/r"
+    text = _cli._scrub(raw, target, "site.xml")
+    assert text == "at ~/q and ~/r"
+
+
+def test_scrubbing_survives_an_unknown_home(monkeypatch, tmp_path):
+    def nohome():
+        raise RuntimeError("no home")
+
+    monkeypatch.setattr(Path, "home", staticmethod(nohome))
+    assert _cli._scrub("x", tmp_path / "a.xml", "a.xml") == "x"
+
+
+# --- round 8: pinned behaviour of the refactored dictionary reads ---------------------
+
+
+def _check(tmp_path: Path, inner: str, body: str, files: dict[str, str] | None = None):
+    report = validate(_definition(tmp_path, inner, body, files), checks=["dictionary"])
+    return [(f.rule_id, f.message) for f in report.findings]
+
+
+_SRC = _sources("//diggs:propertyClass")
+
+
+@pytest.mark.parametrize(
+    ("siblings", "expected"),
+    [
+        ("<typeData>string</typeData><typeData>double</typeData>", []),  # the last one counts
+        ("<typeData>double</typeData><typeData>string</typeData>", ["dictionary.9"]),
+    ],
+)
+def test_the_last_type_data_sibling_counts(tmp_path, siblings, expected):
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:dataType>double</diggs:dataType>"
+    found = _check(tmp_path, inner, f"<Property>{_PC}{siblings}</Property>")
+    assert [r for r, _ in found] == expected
+
+
+@pytest.mark.parametrize(
+    ("siblings", "expected"),
+    [
+        ("<uom>kg</uom><uom>m</uom>", []),  # the last one counts
+        ("<uom>m</uom><uom>kg</uom>", ["dictionary.12"]),
+    ],
+)
+def test_the_last_uom_sibling_counts(tmp_path, siblings, expected):
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:quantityClass>length</diggs:quantityClass>"
+    found = _check(tmp_path, inner, f"<Property>{_PC}{siblings}</Property>")
+    assert [r for r, _ in found] == expected
+
+
+@pytest.mark.parametrize(("value", "expected"), [("x", []), ("y", ["dictionary.13"])])
+def test_the_first_null_value_sibling_counts(tmp_path, value, expected):
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f'<Property index="1">{_PC}<nullValue>x</nullValue><nullValue>y</nullValue></Property>'
+        f"</properties></PropertyParameters></parameters><dataValues>{value}</dataValues>"
+        "</ResultSet>"
+    )
+    assert [r for r, _ in _check(tmp_path, inner, body, {"c.xml": codes})] == expected
+
+
+def test_definition_fields_are_the_first_in_document_order(tmp_path):
+    """The first non-empty name; the first dataType, even inside a nested element."""
+    inner = (
+        "<gml:name></gml:name><diggs:x><gml:name>First</gml:name>"
+        "<diggs:dataType>integer</diggs:dataType></diggs:x><gml:name>Second</gml:name>"
+        + _SRC
+        + "<diggs:dataType>string</diggs:dataType>"
+    )
+    ((rule, message),) = _check(
+        tmp_path, inner, f"<Property>{_PC}<typeData>string</typeData></Property>"
+    )
+    assert rule == "dictionary.9"
+    assert 'for "first" should be "integer"' in message
+
+
+def test_check13_names_the_definition_by_its_direct_name_child(tmp_path):
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = (
+        "<diggs:x><gml:name>inner</gml:name></diggs:x><gml:name>outer</gml:name>"
+        + _SRC
+        + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    )
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f'<Property index="1">{_PC}</Property></properties></PropertyParameters>'
+        "</parameters><dataValues>bad</dataValues></ResultSet>"
+    )
+    ((rule, message),) = _check(tmp_path, inner, body, {"c.xml": codes})
+    assert rule == "dictionary.13" and 'of "outer" are not terms' in message
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        '//diggs:a/diggs:propertyClass[@k="x/y"]',  # a "/" inside the last step's predicate
+        '//diggs:a/diggs:propertyClass[text()="a]b"]',  # a "]" inside a quoted string
+    ],
+)
+def test_predicates_do_not_change_a_source_path_steps(tmp_path, source):
+    inner = "<gml:name>t</gml:name>" + _sources(source)
+    assert _check(tmp_path, inner, f"<a>{_PC}</a>") == []
+    assert [r for r, _ in _check(tmp_path, inner, f"<b>{_PC}</b>")] == ["dictionary.6"]
+
+
+@pytest.mark.parametrize(("steps", "incomplete"), [(64, False), (65, True)])
+def test_path_length_limit_boundary(tmp_path, steps, incomplete):
+    absolute = "//" + "diggs:a/" * (steps - 1) + "diggs:propertyClass"
+    report = validate(
+        _definition(tmp_path, "<gml:name>t</gml:name>" + _sources(absolute), _PC),
+        checks=["dictionary"],
+    )
+    assert (report.steps["dictionary"] == "incomplete") is incomplete
+    # The steps below the ancestor step count (the remainder is matched as a path).
+    conditional = "ancestor::diggs:a/" + "diggs:b/" * (steps - 1) + "diggs:z"
+    inner = (
+        "<gml:name>t</gml:name><diggs:occurrences><diggs:Occurrence><diggs:sourceElementXpath>"
+        "//diggs:propertyClass</diggs:sourceElementXpath><diggs:conditionalElementXpath>"
+        f"{conditional}</diggs:conditionalElementXpath></diggs:Occurrence></diggs:occurrences>"
+    )
+    report = validate(_definition(tmp_path, inner, f"<a>{_PC}</a>"), checks=["dictionary"])
+    assert (report.steps["dictionary"] == "incomplete") is incomplete
+
+
+def test_home_scrubbing_prefers_the_longest_spelling(tmp_path, monkeypatch):
+    home = tmp_path / "h"
+    monkeypatch.setenv("HOME", str(home))
+    assert _cli._scrub(f"at {home.as_uri()}/x", tmp_path / "a.xml", "a.xml") == "at ~/x"
+
+
+def test_the_strip_cache_is_per_instance():
+    from pydiggs.dictionary import DictionarySemanticValidator
+
+    semantic = DictionarySemanticValidator(bounded=True)
+    assert semantic._stripped("a[x/y]/b") == "a/b"
+    semantic.release()
+    assert semantic._strip_cache == {}
+
+
+def test_work_is_charged_where_it_is_done():
+    """Each kind of dictionary work counts towards the budget (unit level)."""
+    from pydiggs.dictionary import DictionarySemanticValidator
+
+    semantic = DictionarySemanticValidator(bounded=True)
+    root = etree.fromstring("<a><b><p/>" + "<x/>" * 40 + "</b></a>")
+    el = root[0][0]
+    semantic._evaluate_xpath_match(el, "//nothing", relative=False)  # parse it once
+    before = semantic._work
+    semantic._evaluate_xpath_match(el, "//nothing", relative=False)
+    assert semantic._work > before  # every path tried costs at least one unit
+    before = semantic._work
+    semantic._siblings(root[0])
+    assert semantic._work - before >= 41  # reading a parent's children
+
+
+def test_check13_result_sets_are_charged(tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    props = "".join(f'<Property index="{i + 1}">{_PC}</Property>' for i in range(30))
+    citing = (
+        '<ResultSet><parameters xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#PP"/>'
+        "<dataValues>ok</dataValues></ResultSet>"
+    ) * 300
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f"{props}</properties></PropertyParameters></parameters></ResultSet>{citing}"
+    )
+    site = _definition(tmp_path, inner, body, {"c.xml": codes})
+    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 5_000)  # 30 x 301 > 5,000
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
+    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 50_000)
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
+
+
+def test_a_context_limit_makes_the_step_incomplete(tmp_path, monkeypatch):
+    from pydiggs import semantic
+
+    monkeypatch.setattr(semantic, "MAX_DATABLOCK_PAIRS", 2)
+    path = tmp_path / "m.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}">'
+        + "<measurement>" * 3
+        + "<dataBlock>1</dataBlock>"
+        + "</measurement>" * 3
+        + "</Diggs>"
+    )
+    report = validate(path, checks=["context"])
+    assert report.steps["context"] == "incomplete"
+    assert "context.incomplete" in {f.rule_id for f in report.findings}
