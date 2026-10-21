@@ -292,9 +292,20 @@ def _scrub(text: str, path: Path, shown: str) -> str:
         instance.update(_spellings(location))
     for spelling in sorted(instance, key=len, reverse=True):
         text = text.replace(spelling, shown)
-    for spelling in sorted(_spellings(Path.home()), key=len, reverse=True):
-        text = text.replace(spelling, "~")
+    home = _home()
+    if home is not None:
+        for spelling in sorted(_spellings(home), key=len, reverse=True):
+            text = text.replace(spelling, "~")
     return text
+
+
+def _home() -> Path | None:
+    """The home folder, or None when it is unknown or the filesystem root."""
+    try:
+        home = Path.home()
+    except (KeyError, RuntimeError, OSError):
+        return None
+    return None if home == Path(home.anchor) else home
 
 
 def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Report:
