@@ -26,6 +26,8 @@ class ContextValidationResult:
     _positions: dict[etree._Element, int] | None = field(
         default=None, init=False, repr=False, compare=False
     )
+    #: validate(): why a check stopped early (its results are partial).
+    limits_hit: list[str] = field(default_factory=list, compare=False)
 
     def path(self, el: etree._Element) -> str:
         """The legacy ``/name[n]/...`` path of ``el`` ("" when not needed).
@@ -92,7 +94,10 @@ def validate_context_tree(
     _check_structure(root, result)
     _check_geometry_srs(root, result)
     _check_hrefs(root, result)
-    _check_datablocks(root, result)
+    if legacy_paths:
+        _check_datablocks(root, result)
+    else:
+        _check_datablocks_linear(root, result)
     result._positions = None  # do not keep a map of the whole tree in the result
     return result
 
@@ -222,3 +227,104 @@ def _check_datablocks(root: etree._Element, result: ContextValidationResult) -> 
                         node=block,
                     )
                     break
+
+
+#: validate(): most (dataBlock, enclosing measurement) pairs examined per document.
+MAX_DATABLOCK_PAIRS = 5_000_000
+
+
+def _tuple_lengths(block: etree._Element) -> list[int]:
+    text = (block.text or "").strip()
+    return [len([v for v in tup.split(",") if v != ""]) for tup in text.split()] if text else []
+
+
+def _check_datablocks_linear(root: etree._Element, result: ContextValidationResult) -> None:
+    """:func:`_check_datablocks` in linear time (validate(); same messages, same order).
+
+    One pre-order walk finds, for every ``Property``, its deepest ``result``/``Result``
+    ancestor, and lists every ``dataBlock`` under each enclosing ``measurement``; one
+    post-order sum then gives each measurement the number of Properties below a result
+    inside it (what the legacy XPath counted, which rescanned every nested
+    measurement's subtree). The pairs (block, enclosing measurement) are bounded by
+    MAX_DATABLOCK_PAIRS; past it the check stops and says so.
+    """
+    walk = _DataBlockWalk(root)
+    if walk.over_limit:
+        result.limits_hit.append(
+            "dataBlocks inside nested measurements needed more than "
+            f"{MAX_DATABLOCK_PAIRS:,} comparisons"
+        )
+        return
+    lengths: dict[etree._Element, list[int]] = {}
+    for measurement in walk.measurements:  # document order, as //measurement
+        n_props = walk.properties_below(measurement)
+        if not n_props or not walk.blocks[measurement]:
+            continue
+        for block in walk.blocks[measurement]:
+            counts = lengths.get(block)
+            if counts is None:
+                counts = lengths[block] = _tuple_lengths(block)
+            bad = next(((i, c) for i, c in enumerate(counts, start=1) if c != n_props), None)
+            if bad is not None:
+                result.add(
+                    "ERROR",
+                    result.path(block),
+                    (
+                        f"dataBlock tuple {bad[0]} has {bad[1]} value(s) but "
+                        f"{n_props} Property declaration(s) were found."
+                    ),
+                    103,
+                    node=block,
+                )
+
+
+class _DataBlockWalk:
+    """The measurements, their dataBlocks and Property counts of one document.
+
+    Memory grows with the number of measurements and (dataBlock, measurement) pairs,
+    not with the size of the document.
+    """
+
+    def __init__(self, root: etree._Element) -> None:
+        self.measurements: list[etree._Element] = []
+        self.blocks: dict[etree._Element, list[etree._Element]] = {}
+        self.over_limit = False
+        own: dict[etree._Element, int] = {}  # Properties whose deepest result it encloses
+        parent: dict[etree._Element, etree._Element | None] = {}
+        pairs = 0
+        # (element, enclosing measurements, innermost measurement around its deepest
+        # result ancestor: the measurement a Property there is counted for)
+        stack: list[tuple[etree._Element, tuple[etree._Element, ...], etree._Element | None]]
+        stack = [(root, (), None)]
+        while stack:
+            el, inside, counted = stack.pop()
+            local = _local(el)
+            if local == "Property" and counted is not None:
+                own[counted] += 1
+            if local == "dataBlock" and inside:
+                pairs += len(inside)
+                if pairs > MAX_DATABLOCK_PAIRS:
+                    self.over_limit = True
+                    return
+                for measurement in inside:
+                    self.blocks[measurement].append(el)
+            if local == "measurement":
+                self.measurements.append(el)
+                self.blocks[el] = []
+                own[el] = 0
+                parent[el] = inside[-1] if inside else None
+                inside = (*inside, el)
+            elif local in ("result", "Result"):
+                # A Property below this result counts for every measurement around it.
+                counted = inside[-1] if inside else None
+            children = list(el.iterchildren(etree.Element))
+            stack.extend((child, inside, counted) for child in reversed(children))
+        self._totals: dict[etree._Element, int] = dict(own)
+        for measurement in reversed(self.measurements):  # inner measurements first
+            up = parent[measurement]
+            if up is not None:
+                self._totals[up] += self._totals[measurement]
+
+    def properties_below(self, measurement: etree._Element) -> int:
+        """Properties below a result strictly inside ``measurement``."""
+        return self._totals[measurement]
