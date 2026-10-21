@@ -253,6 +253,7 @@ class DictionarySemanticValidator:
         self._ancestor_sets: dict[tuple[int, str], tuple[frozenset[str], frozenset[str]]] = {}
         self._strip_cache: dict[str, str] = {}
         self._invalid_cache: dict[tuple[object, ...], list[str]] = {}
+        self._columns_cache: dict[etree._Element, frozenset[int]] = {}
         self._local_trees: dict[object, etree._ElementTree | None] = {}
         self._local_by_url: dict[str, etree._ElementTree | None] = {}
         self.local_capped: set[str] = set()
@@ -916,6 +917,7 @@ class DictionarySemanticValidator:
         self._ancestor_sets = {}
         self._strip_cache = {}
         self._invalid_cache = {}
+        self._columns_cache = {}
         self.limits_hit = []
         self._work = 0
         self._allowed_terms = {}
@@ -981,6 +983,7 @@ class DictionarySemanticValidator:
         self._ancestor_sets = {}
         self._strip_cache = {}
         self._invalid_cache = {}
+        self._columns_cache = {}
         self.limits_hit = []
         self._work = 0
         self._allowed_terms = {}
@@ -1408,6 +1411,15 @@ class DictionarySemanticValidator:
                 13,
             )
 
+    def _wanted_columns(self, params: etree._Element) -> frozenset[int]:
+        """The column indexes the Properties of one PropertyParameters ask for."""
+        wanted = self._columns_cache.get(params)
+        if wanted is None:
+            found = (_xs_integer(p.get("index")) for p in params.iter("{*}Property"))
+            wanted = self._columns_cache[params] = frozenset(c for c in found if c and c > 0)
+            self._spend(len(wanted) + 1)
+        return wanted
+
     def _check13_index(self, root: etree._ElementTree) -> _Check13Index:
         # getroottree() returns a new wrapper each call; the root element is stable.
         if self._check13 is None or self._check13.root.getroot() is not root.getroot():
@@ -1435,6 +1447,7 @@ class DictionarySemanticValidator:
         if params_id:
             result_sets += index.citing(f"#{params_id}")
         self._spend(len(result_sets))  # properties x citing ResultSets
+        wanted = self._wanted_columns(params)
         # XPath "$resultSets/*" de-duplicates and returns document order.
         ordered = tuple(index.in_document_order(result_sets))
         key = (ordered, column, null_text, id(allowed))
@@ -1442,7 +1455,7 @@ class DictionarySemanticValidator:
         if cached is None:
             candidates: dict[str, None] = {}
             for result_set in ordered:
-                candidates.update(dict.fromkeys(index.column(result_set, column)))
+                candidates.update(dict.fromkeys(index.column(result_set, column, wanted)))
             self._spend(len(candidates))
             cached = [v for v in candidates if v and v != null_text and v not in allowed]
             self._invalid_cache[key] = cached
@@ -1465,7 +1478,7 @@ class _Check13Index:
         self._shared: dict[tuple[str, ...], tuple[str, ...]] = {}
         self._order: dict[etree._Element, int] | None = None
         self._citing: dict[str, list[etree._Element]] | None = None
-        self._distinct: dict[etree._Element, list[tuple[str, ...]]] = {}
+        self._distinct: dict[etree._Element, dict[int, tuple[str, ...]]] = {}
 
     def citing(self, ref: str) -> list[etree._Element]:
         """ResultSets whose ``parameters/@*:href`` equals ``ref``."""
@@ -1489,8 +1502,8 @@ class _Check13Index:
         return sorted(dict.fromkeys(elements), key=lambda el: order.get(el, 0))
 
     @staticmethod
-    def _rows(result_set: etree._Element) -> Iterator[tuple[str, ...]]:
-        """The ResultSet's dataValues as rows of normalised fields, one at a time."""
+    def _rows(result_set: etree._Element) -> Iterator[tuple[re.Pattern[str], str]]:
+        """The ResultSet's dataValues rows, unsplit, each with its field separator."""
         for block in result_set:
             if not isinstance(block.tag, str) or _local(block) != "dataValues":
                 continue
@@ -1500,34 +1513,39 @@ class _Check13Index:
             cs_pattern = re.compile(re.escape(cs))
             for token in ts_pattern.split(_normalize_space(block.xpath("string()"))):
                 if token:
-                    yield tuple(map(_normalize_space, cs_pattern.split(token)))
+                    yield cs_pattern, token
 
-    def column(self, result_set: etree._Element, column: int) -> Iterable[str]:
+    def column(
+        self, result_set: etree._Element, column: int, wanted: frozenset[int] = frozenset()
+    ) -> Iterable[str]:
         """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order.
 
-        One streaming pass per ResultSet collects every column's distinct values, so a
-        wide ResultSet read by many properties is split once, and no rows are kept.
+        One streaming pass reads ``column`` and the other ``wanted`` columns (the
+        indexes the citing properties ask for) not read yet; each row is split only
+        up to the last of them, and only their distinct values are kept, so a very
+        wide row costs neither memory nor a split of every field. Fields are counted as
+        they are read; past MAX_CHECK13_FIELDS validate() stops at once.
         """
-        columns = self._distinct.get(result_set)
-        if columns is None:
-            seen: list[dict[str, None]] = []
-            fields = 0
-            for row in self._rows(result_set):
-                fields += len(row)
-                if len(row) > len(seen):
-                    seen.extend({} for _ in range(len(row) - len(seen)))
-                for index, value in enumerate(row):
-                    seen[index].setdefault(value, None)
-            self._fields += fields
-            if self._bounded and self._fields > MAX_CHECK13_FIELDS:
-                raise _LimitError(
-                    f"Check 13 would read more than {MAX_CHECK13_FIELDS:,} dataValues fields"
-                )
+        columns = self._distinct.setdefault(result_set, {})
+        if column not in columns:
+            need = sorted(c for c in wanted | {column} if c not in columns and c >= 1)
+            last = need[-1]
+            seen: dict[int, dict[str, None]] = {c: {} for c in need}
+            for cs_pattern, token in self._rows(result_set):
+                parts = cs_pattern.split(token, maxsplit=last)
+                self._fields += min(len(parts), last)
+                if self._bounded and self._fields > MAX_CHECK13_FIELDS:
+                    raise _LimitError(
+                        f"Check 13 would read more than {MAX_CHECK13_FIELDS:,} dataValues fields"
+                    )
+                for c in need:
+                    if c <= len(parts):
+                        seen[c].setdefault(_normalize_space(parts[c - 1]), None)
             shared = self._shared  # equal columns (often one repeated value) share a tuple
-            columns = self._distinct[result_set] = [
-                shared.setdefault(t, t) for t in (tuple(values) for values in seen)
-            ]
-        return columns[column - 1] if column <= len(columns) else ()
+            for c, values in seen.items():
+                found = tuple(values)
+                columns[c] = shared.setdefault(found, found)
+        return columns[column]
 
 
 _XS_INTEGER = re.compile(r"[+-]?[0-9]+")
@@ -1659,33 +1677,55 @@ _DEFINITION_FIELDS: Final = frozenset({"dataType", "quantityClass", "valueCodeSp
 
 
 def _is_parser_limit(entry: etree._LogEntry) -> bool:
-    """A libxml2 safety limit (amplification, depth, text or name length).
+    """A libxml2 safety limit (amplification, depth, text, name or node size).
 
-    libxml2 builds differ in the error code and wording they use for the same limit
-    (the Windows lxml wheel's depth limit is one example), so both the code and the
-    message are matched, broadly: a limit taken for a plain syntax error would turn a
-    refused dictionary into a mere warning.
+    libxml2 builds differ in the error code they use for the same limit (the Windows
+    lxml wheel's depth limit is one example), so libxml2's own limit phrases are also
+    matched. Codes for ordinary structural errors are never read by their wording:
+    they quote names from the file ("maximumDepth", an entity called "depth"), which
+    must not turn a malformed dictionary into a refused one.
     """
     if entry.type_name in _LIMIT_ERRORS:
         return True
+    if entry.type_name in _STRUCTURAL_ERRORS or entry.type_name.startswith("NS_ERR"):
+        return False
     message = (entry.message or "").lower()
-    return any(marker in message for marker in _LIMIT_MARKERS)
+    return any(phrase in message for phrase in _LIMIT_PHRASES)
 
 
 _LIMIT_ERRORS: Final = frozenset(
     {"ERR_RESOURCE_LIMIT", "ERR_NAME_TOO_LONG", "ERR_ENTITY_LOOP", "ERR_ENTITY_AMPLIFICATION"}
 )
-_LIMIT_MARKERS: Final = (
-    "depth",
-    "too long",
-    "too large",
-    "huge",
-    "amplification",
-    "resource limit",
-    "limit exceeded",
-    "maximum",
+_STRUCTURAL_ERRORS: Final = frozenset(
+    {
+        "ERR_TAG_NAME_MISMATCH",
+        "ERR_UNDECLARED_ENTITY",
+        "WAR_UNDECLARED_ENTITY",
+        "ERR_ATTRIBUTE_REDEFINED",
+        "ERR_TAG_NOT_FINISHED",
+        "ERR_NAME_REQUIRED",
+        "ERR_GT_REQUIRED",
+        "ERR_LT_IN_ATTRIBUTE",
+        "ERR_ATTRIBUTE_WITHOUT_VALUE",
+        "ERR_DOCUMENT_END",
+        "ERR_UNKNOWN_ENCODING",
+        "ERR_UNSUPPORTED_ENCODING",
+    }
+)
+#: libxml2's own wording for its limits (lower case). Multi-word phrases only, so a
+#: name quoted in an ordinary message cannot match.
+_LIMIT_PHRASES: Final = (
+    "excessive depth in document",
     "xml_parse_huge",
-    "entity loop",
+    "huge text node",
+    "text node too long",
+    "name too long",
+    "entity amplification",
+    "entity reference loop",
+    "too big found",  # comment, PI and CDATA size limits (the *_NOT_FINISHED codes)
+    "resource limit exceeded",
+    "buffer size limit exceeded",
+    "huge input lookup",
 )
 
 
