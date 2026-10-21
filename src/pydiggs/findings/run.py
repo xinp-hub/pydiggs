@@ -48,6 +48,7 @@ __all__ = [
     "DEFAULT_MAX_BYTES",
     "DEFAULT_MAX_FINDINGS",
     "MAX_ELEMENTS",
+    "MAX_ENTITY_EXPANSION",
     "MAX_LOCAL_DICTIONARY_BYTES",
     "MAX_MESSAGE_CHARS",
     "MAX_REPORT_BYTES",
@@ -530,6 +531,44 @@ def _element_count(doc: etree._ElementTree) -> int:
 
 
 _dtd_markup_entity = _xml.dtd_markup_entity
+#: validate() refuses a file whose internal-DTD entities make its text more than this
+#: many times its raw size (human decision, 2026-10-21).
+MAX_ENTITY_EXPANSION: Final = 2
+
+
+def _expanded_size(doc: etree._ElementTree, limit: int) -> int:
+    """Characters of text, tails and attribute values, if the DTD declares entities.
+
+    Only measured when the internal DTD declares an entity (without one, nothing can
+    expand); one pass over the tree, stopping as soon as ``limit`` is passed.
+    Returns 0 when there is nothing to measure.
+    """
+    dtd = doc.docinfo.internalDTD
+    if dtd is None or next(iter(dtd.iterentities()), None) is None:
+        return 0
+    total = 0
+    for node in doc.getroot().iter():
+        total += len(node.text or "") + len(node.tail or "")
+        if isinstance(node.tag, str):
+            total += sum(len(v) for v in node.attrib.values())
+        if total > limit:
+            break
+    return total
+
+
+def _base_url(instance: Path) -> str | None:
+    """The instance's path for libxml2, or its file: URI if the path is not UTF-8."""
+    resolved = instance.resolve()
+    try:
+        str(resolved).encode("utf-8")
+    except UnicodeEncodeError:  # a surrogate-escaped (non-UTF-8) file name
+        try:
+            return resolved.as_uri()
+        except ValueError:
+            return None
+    return str(resolved)
+
+
 _markup_entity = _xml.markup_entity
 
 
@@ -1009,13 +1048,14 @@ def validate(
             reference_data=reference_data(),
         )
 
-    def refuse(entity: str) -> Report:
+    def refuse(entity: str, rule_id: str = rules.MARKUP_ENTITY, message: str = "") -> Report:
         builder = _Builder(None, snippets=False, scrub=scrub)
         builder.add(
             Step.STRUCTURE,
-            rules.MARKUP_ENTITY,
+            rule_id,
             Severity.ERROR,
-            f"The internal DTD declares the entity {entity[:200]!r}, whose"
+            message
+            or f"The internal DTD declares the entity {entity[:200]!r}, whose"
             " value contains markup ('<'). validate() does not expand markup entities,"
             " so no other check ran.",
         )
@@ -1026,7 +1066,7 @@ def validate(
     if entity is not None:
         return refuse(entity)
     try:
-        doc = _xml.parse_bytes(data, str(instance.resolve()))
+        doc = _xml.parse_bytes(data, _base_url(instance))
     except etree.XMLSyntaxError as exc:
         builder = _Builder(None, snippets=False, scrub=scrub)
         line, column = exc.position
@@ -1044,6 +1084,15 @@ def validate(
     entity = _dtd_markup_entity(doc)  # what the main parser itself saw
     if entity is not None:
         return refuse(entity)
+    expanded = _expanded_size(doc, MAX_ENTITY_EXPANSION * len(data))
+    if expanded > MAX_ENTITY_EXPANSION * len(data):
+        return refuse(
+            "",
+            rules.ENTITY_EXPANSION,
+            f"The internal DTD's entities expand this {len(data):,}-byte file to more than"
+            f" {MAX_ENTITY_EXPANSION} times its size in text; validate() does not run"
+            " checks on files that grow when parsed, so no other check ran.",
+        )
     profile = diggs_version or detect_diggs_version(doc)
     builder = _Builder(
         Locator(doc), snippets=include_snippets, scrub=scrub, max_findings=max_findings

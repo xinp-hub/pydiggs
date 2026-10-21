@@ -21,6 +21,7 @@ __all__ = [
     "DEPRECATED",
     "DICTIONARY_13",
     "DICTIONARY_OFFLINE",
+    "ENTITY_EXPANSION",
     "FINDINGS_TRUNCATED",
     "HELP_URI",
     "INTERNAL_ERROR",
@@ -57,6 +58,8 @@ HELP_URI: Final = "https://xinp-hub.github.io/pydiggs/findings/#rule-ids"
 WELL_FORMED: Final = "structure.well-formed"
 #: The internal DTD declares an entity whose value contains markup; nothing else ran.
 MARKUP_ENTITY: Final = "structure.markup-entity"
+#: The internal DTD's entities expand the file to more than twice its size; nothing else ran.
+ENTITY_EXPANSION: Final = "structure.entity-expansion"
 FINDINGS_TRUNCATED: Final = TRUNCATED_RULE
 #: pydiggs validate --timeout stopped the file's validation.
 TIMEOUT: Final = "structure.timeout"
@@ -224,6 +227,7 @@ _DICTIONARY_CHECKS: Final[dict[int, str]] = {
 _DESCRIPTIONS: Final[dict[str, str]] = {
     WELL_FORMED: "The file is not well-formed XML",
     MARKUP_ENTITY: "The internal DTD declares an entity whose value contains markup",
+    ENTITY_EXPANSION: "Entities expand the file to more than twice its size",
     FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
     TIMEOUT: "Validation did not finish within --timeout",
     INTERNAL_ERROR: "Validation failed with an unexpected error",
