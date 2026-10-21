@@ -7,7 +7,6 @@ Ports the progressive checks documented in DIGGSml/validation
 from __future__ import annotations
 
 import errno
-import functools
 import itertools
 import os
 import re
@@ -251,6 +250,9 @@ class DictionarySemanticValidator:
         self._definition_info: dict[etree._Element, _DefinitionPaths] = {}
         self._parsed_paths: dict[str, list[tuple[str, str]]] = {}
         self._ancestor_cache: dict[etree._Element, frozenset[str]] = {}
+        self._ancestor_sets: dict[tuple[int, str], tuple[frozenset[str], frozenset[str]]] = {}
+        self._strip_cache: dict[str, str] = {}
+        self._invalid_cache: dict[tuple[object, ...], list[str]] = {}
         self._local_trees: dict[object, etree._ElementTree | None] = {}
         self._local_by_url: dict[str, etree._ElementTree | None] = {}
         self.local_capped: set[str] = set()
@@ -276,7 +278,7 @@ class DictionarySemanticValidator:
         ] = {}
         # Per instance: (ancestor, path) and (node, segments) match results.
         self._subtree_memo: dict[tuple[etree._Element, str], bool] = {}
-        self._allowed_terms: dict[etree._ElementTree, list[str]] = {}
+        self._allowed_terms: dict[etree._ElementTree, tuple[list[str], frozenset[str]]] = {}
         self._child_memo: dict[tuple[etree._Element, int, int], bool] = {}
         self._segment_cache: dict[str, tuple[tuple[str, str], ...]] = {}
         self._sibling_cache: dict[
@@ -650,14 +652,39 @@ class DictionarySemanticValidator:
             self._parsed_paths[xpath_expr] = parsed
         return parsed
 
+    def _stripped(self, path: str) -> str:
+        """``path`` without predicates, once per instance."""
+        stripped = self._strip_cache.get(path)
+        if stripped is None:
+            self._spend(1 + len(path) // 64)
+            stripped = self._strip_cache[path] = _strip_predicates(path)
+        return stripped
+
     def _ancestor_names(self, el: etree._Element) -> frozenset[str]:
-        """Local names of ``el``'s ancestors, computed once per parent."""
+        """Local names of ``el``'s ancestors, computed once per parent.
+
+        Equal sets are shared: a parent whose name is already in its own ancestors'
+        set reuses that set, and one set is kept per (ancestors' set, name), so many
+        parents under one deep chain do not each copy the chain.
+        """
         parent = el.getparent()
         if parent is None:
             return frozenset()
         names = self._ancestor_cache.get(parent)
         if names is None:
-            names = self._ancestor_names(parent) | {_local(parent)}
+            above = self._ancestor_names(parent)
+            local = _local(parent)
+            if local in above:
+                names = above
+            else:
+                key = (id(above), local)
+                shared = self._ancestor_sets.get(key)
+                if shared is None:
+                    self._spend(len(above) + 1)
+                    names = above | {local}
+                    self._ancestor_sets[key] = (above, names)  # keeps ``above`` alive
+                else:
+                    names = shared[1]
             self._ancestor_cache[parent] = names
         return names
 
@@ -694,9 +721,13 @@ class DictionarySemanticValidator:
 
     def _evaluate_xpath_match(self, el: etree._Element, xpath_expr: str, *, relative: bool) -> bool:
         """Approximate DIGGSml ``evaluateXPathMatch`` for bundled offline validation."""
+        self._spend()
         expr = xpath_expr.strip()
         if self.bounded:  # predicates are ignored; a "/" inside one is not a step
-            expr = _strip_predicates(expr)
+            stripped = self._stripped(expr)
+            if expr and not stripped:
+                return False  # nothing but a predicate: it names no element
+            expr = stripped
         if not expr:
             return True
         if expr.startswith("ancestor::"):
@@ -771,6 +802,7 @@ class DictionarySemanticValidator:
     def _match_within_subtree(self, root: etree._Element, path: str) -> bool:
         key = (root, path)
         if key not in self._subtree_memo:
+            self._spend(_MEMO_ENTRY_COST)
             self._subtree_memo[key] = self._match_within_subtree_uncached(root, path)
         return self._subtree_memo[key]
 
@@ -809,6 +841,7 @@ class DictionarySemanticValidator:
         """
         key = (node, id(segments), offset)
         if key not in self._child_memo:
+            self._spend(_MEMO_ENTRY_COST)  # bounds the memo's memory with the budget
             self._child_memo[key] = self._match_child_path_uncached(node, segments, offset)
         return self._child_memo[key]
 
@@ -880,6 +913,9 @@ class DictionarySemanticValidator:
         self._definition_info = {}
         self._parsed_paths = {}
         self._ancestor_cache = {}
+        self._ancestor_sets = {}
+        self._strip_cache = {}
+        self._invalid_cache = {}
         self.limits_hit = []
         self._work = 0
         self._allowed_terms = {}
@@ -942,6 +978,9 @@ class DictionarySemanticValidator:
         self._definition_info = {}
         self._parsed_paths = {}
         self._ancestor_cache = {}
+        self._ancestor_sets = {}
+        self._strip_cache = {}
+        self._invalid_cache = {}
         self.limits_hit = []
         self._work = 0
         self._allowed_terms = {}
@@ -1133,6 +1172,7 @@ class DictionarySemanticValidator:
         # Detector/measurand as on Property/propertyClass, but many Occurrence
         # entries only list propertyClass.
         candidates = info.sources.candidates(name)
+        self._spend(len(candidates))
         if name == "measurand" and info.sources.mentions_property_class:
             source_xpaths = [*source_xpaths, "//diggs:measurand"]
             candidates = [*candidates, "//diggs:measurand"]
@@ -1174,10 +1214,11 @@ class DictionarySemanticValidator:
         if not self._has_measurement_without_procedure(el):
             conditionals = info.conditionals.paths
             relative = info.conditionals.relative_candidates(name)
+            self._spend(len(relative))
             if conditionals and not any(self._conditional_ok(el, xp) for xp in relative):
                 targets = []
                 for xp in self._listed(conditionals):
-                    shown = _strip_predicates(xp) if self.bounded else xp
+                    shown = self._stripped(xp) if self.bounded else xp
                     term = shown.rstrip("/").split("/")[-1]
                     if ":" in term:
                         term = term.split(":", 1)[1]
@@ -1340,14 +1381,16 @@ class DictionarySemanticValidator:
                 13,
             )
             return
-        allowed = self._allowed_terms.get(code_list)
-        if allowed is None:
-            allowed = [
+        known = self._allowed_terms.get(code_list)
+        if known is None:
+            listed = [
                 str(v)
                 for v in code_list.xpath("//*[local-name()='Definition']/@*[local-name()='id']")
             ]
-            self._allowed_terms[code_list] = allowed
-        invalid = self._invalid_result_values(el, frozenset(allowed))
+            self._spend(len(listed))
+            known = self._allowed_terms[code_list] = (listed, frozenset(listed))
+        allowed = known[0]
+        invalid = self._invalid_result_values(el, known[1])
         if invalid:
             shown = ", ".join(f'"{v}"' for v in invalid[:_CHECK13_SHOWN])
             more = " ..." if len(invalid) > _CHECK13_SHOWN else ""
@@ -1393,10 +1436,17 @@ class DictionarySemanticValidator:
             result_sets += index.citing(f"#{params_id}")
         self._spend(len(result_sets))  # properties x citing ResultSets
         # XPath "$resultSets/*" de-duplicates and returns document order.
-        candidates: dict[str, None] = {}
-        for result_set in index.in_document_order(result_sets):
-            candidates.update(dict.fromkeys(index.column(result_set, column)))
-        return [v for v in candidates if v and v != null_text and v not in allowed]
+        ordered = tuple(index.in_document_order(result_sets))
+        key = (ordered, column, null_text, id(allowed))
+        cached = self._invalid_cache.get(key)
+        if cached is None:
+            candidates: dict[str, None] = {}
+            for result_set in ordered:
+                candidates.update(dict.fromkeys(index.column(result_set, column)))
+            self._spend(len(candidates))
+            cached = [v for v in candidates if v and v != null_text and v not in allowed]
+            self._invalid_cache[key] = cached
+        return cached
 
 
 class _Check13Index:
@@ -1490,7 +1540,19 @@ _XS_INTEGER = re.compile(r"[+-]?[0-9]+")
 def _xs_integer(text: str | None) -> int | None:
     """Parse an xs:integer (optional sign, ASCII digits; no underscores or other digits)."""
     value = _normalize_space(text)
-    return int(value) if _XS_INTEGER.fullmatch(value) else None
+    if not _XS_INTEGER.fullmatch(value):
+        return None
+    digits = value.lstrip("+-").lstrip("0")
+    if len(digits) > _MAX_INTEGER_DIGITS:
+        return None  # no real column index; int() refuses over 4,300 digits anyway
+    number = int(digits or "0")  # leading zeros count towards int()'s digit limit too
+    return -number if value.startswith("-") else number
+
+
+_MAX_INTEGER_DIGITS = 18
+#: Work units charged per memo entry, so the budget also caps memo memory (about
+#: 1.25 million entries at MAX_PATH_MATCH_WORK).
+_MEMO_ENTRY_COST = 4
 
 
 #: Most local dictionaries read for one instance in ``instance-dir`` mode.
@@ -1605,7 +1667,6 @@ def _is_parser_limit(entry: etree._LogEntry) -> bool:
     ).startswith("Name too long")
 
 
-@functools.lru_cache(maxsize=4096)
 def _strip_predicates(path: str) -> str:
     """``path`` without its ``[...]`` predicates (quote-aware), which matching ignores."""
     out: list[str] = []
