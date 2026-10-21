@@ -10,7 +10,7 @@ import errno
 import itertools
 import os
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -1411,7 +1411,7 @@ class DictionarySemanticValidator:
     def _check13_index(self, root: etree._ElementTree) -> _Check13Index:
         # getroottree() returns a new wrapper each call; the root element is stable.
         if self._check13 is None or self._check13.root.getroot() is not root.getroot():
-            self._check13 = _Check13Index(root)
+            self._check13 = _Check13Index(root, bounded=self.bounded)
         return self._check13
 
     def _invalid_result_values(self, el: etree._Element, allowed: frozenset[str]) -> list[str]:
@@ -1450,16 +1450,22 @@ class DictionarySemanticValidator:
 
 
 class _Check13Index:
-    """Per-document lookups for Check 13, built once instead of once per property."""
+    """Per-document lookups for Check 13, built once instead of once per property.
 
-    def __init__(self, root: etree._ElementTree) -> None:
+    No rows are kept: each column's distinct values are read in one streaming pass over
+    the ResultSet's dataValues and only those values are cached, so memory grows with
+    the distinct values, not the cells. validate() reads at most MAX_CHECK13_FIELDS
+    fields per document (a 10 MB file holds at most about 5 million).
+    """
+
+    def __init__(self, root: etree._ElementTree, *, bounded: bool) -> None:
         self.root = root
+        self._bounded = bounded
+        self._fields = 0
+        self._shared: dict[tuple[str, ...], tuple[str, ...]] = {}
         self._order: dict[etree._Element, int] | None = None
         self._citing: dict[str, list[etree._Element]] | None = None
-        self._rows: dict[etree._Element, list[tuple[str, ...]]] = {}
-        self._intern: dict[str, str] = {}
-        self._widths: dict[etree._Element, int] = {}
-        self._distinct: dict[tuple[etree._Element, int], tuple[str, ...]] = {}
+        self._distinct: dict[etree._Element, list[tuple[str, ...]]] = {}
 
     def citing(self, ref: str) -> list[etree._Element]:
         """ResultSets whose ``parameters/@*:href`` equals ``ref``."""
@@ -1476,62 +1482,52 @@ class _Check13Index:
         return self._citing.get(ref, [])
 
     def in_document_order(self, elements: list[etree._Element]) -> list[etree._Element]:
-        if self._order is None:
-            self._order = {el: i for i, el in enumerate(self.root.iter())}
+        """``elements`` (all ResultSets) de-duplicated, in document order."""
+        if self._order is None:  # only ResultSets are ordered: no map of the whole tree
+            self._order = {el: i for i, el in enumerate(self.root.iter("{*}ResultSet"))}
         order = self._order
         return sorted(dict.fromkeys(elements), key=lambda el: order.get(el, 0))
 
-    def rows(self, result_set: etree._Element) -> list[tuple[str, ...]]:
-        """The ResultSet's dataValues as rows of normalised fields, split once.
-
-        Rows are tuples and equal values share one string (interned per document), so
-        the cache costs a pointer per field, whatever the number of properties.
-        """
-        if result_set not in self._rows:
-            rows: list[tuple[str, ...]] = []
-            intern = self._intern
-            for block in result_set:
-                if not isinstance(block.tag, str) or _local(block) != "dataValues":
-                    continue
-                cs = block.get("cs") or ","
-                ts = block.get("ts") or " "
-                ts_pattern = (
-                    _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
-                )
-                cs_pattern = re.compile(re.escape(cs))
-                tokens = ts_pattern.split(_normalize_space(block.xpath("string()")))
-                rows.extend(
-                    tuple(
-                        intern.setdefault(v, v)
-                        for v in map(_normalize_space, cs_pattern.split(token))
-                    )
-                    for token in tokens
-                    if token
-                )
-            self._rows[result_set] = rows
-        return self._rows[result_set]
+    @staticmethod
+    def _rows(result_set: etree._Element) -> Iterator[tuple[str, ...]]:
+        """The ResultSet's dataValues as rows of normalised fields, one at a time."""
+        for block in result_set:
+            if not isinstance(block.tag, str) or _local(block) != "dataValues":
+                continue
+            cs = block.get("cs") or ","
+            ts = block.get("ts") or " "
+            ts_pattern = _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
+            cs_pattern = re.compile(re.escape(cs))
+            for token in ts_pattern.split(_normalize_space(block.xpath("string()"))):
+                if token:
+                    yield tuple(map(_normalize_space, cs_pattern.split(token)))
 
     def column(self, result_set: etree._Element, column: int) -> Iterable[str]:
-        """Values in ``column`` (1-based) of the ResultSet's dataValues.
+        """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order.
 
-        For a ResultSet with many rows the column's distinct values are cached, so many
-        properties reading it cost one pass; small ResultSets are just re-read (caching
-        them would cost more memory than it saves).
+        One streaming pass per ResultSet collects every column's distinct values, so a
+        wide ResultSet read by many properties is split once, and no rows are kept.
         """
-        rows = self.rows(result_set)
-        width = self._widths.get(result_set)
-        if width is None:  # computed once (setdefault would evaluate max() every call)
-            width = self._widths[result_set] = max(map(len, rows), default=0)
-        if column > width:
-            return ()
-        if len(rows) < _CHECK13_CACHE_ROWS:
-            return (row[column - 1] for row in rows if column <= len(row))
-        key = (result_set, column)
-        if key not in self._distinct:
-            self._distinct[key] = tuple(
-                dict.fromkeys(row[column - 1] for row in rows if column <= len(row))
-            )
-        return self._distinct[key]
+        columns = self._distinct.get(result_set)
+        if columns is None:
+            seen: list[dict[str, None]] = []
+            fields = 0
+            for row in self._rows(result_set):
+                fields += len(row)
+                if len(row) > len(seen):
+                    seen.extend({} for _ in range(len(row) - len(seen)))
+                for index, value in enumerate(row):
+                    seen[index].setdefault(value, None)
+            self._fields += fields
+            if self._bounded and self._fields > MAX_CHECK13_FIELDS:
+                raise _LimitError(
+                    f"Check 13 would read more than {MAX_CHECK13_FIELDS:,} dataValues fields"
+                )
+            shared = self._shared  # equal columns (often one repeated value) share a tuple
+            columns = self._distinct[result_set] = [
+                shared.setdefault(t, t) for t in (tuple(values) for values in seen)
+            ]
+        return columns[column - 1] if column <= len(columns) else ()
 
 
 _XS_INTEGER = re.compile(r"[+-]?[0-9]+")
@@ -1563,6 +1559,8 @@ MAX_LOCAL_DICTIONARIES = 16
 MAX_DEFINITION_PATHS = 1_000
 #: validate(): most path-matching steps per instance (the largest corpus file needs 30,000).
 MAX_PATH_MATCH_WORK = 5_000_000
+#: validate(): most dataValues fields Check 13 reads per document.
+MAX_CHECK13_FIELDS = 20_000_000
 #: validate(): most steps in one dictionary path.
 MAX_PATH_STEPS = 64
 #: validate(): most nodes in one dictionary Definition (real ones have under 100).
@@ -1689,7 +1687,6 @@ def _strip_predicates(path: str) -> str:
 
 _XPATH_WS_RUN = re.compile(r"[ \t\n\r]+")
 _CHECK13_SHOWN = 5  # the official message lists the first five invalid values
-_CHECK13_CACHE_ROWS = 64  # cache a column's distinct values for ResultSets this tall
 _CHECK13_TERMS = 20  # pydiggs lists at most 20 valid terms (the official module lists all)
 
 
