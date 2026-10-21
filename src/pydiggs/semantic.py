@@ -94,7 +94,10 @@ def validate_context_tree(
     """
     result = ContextValidationResult(limit=max_messages, legacy_paths=legacy_paths, checks=checks)
     _check_structure(root, result)
-    _check_geometry_srs(root, result)
+    if legacy_paths:
+        _check_geometry_srs(root, result)
+    else:
+        _check_geometry_srs_official(root, result)
     _check_hrefs(root, result)
     if legacy_paths:
         _check_datablocks(root, result)
@@ -136,6 +139,54 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
             100,
             node=doc_info[0],
         )
+
+
+_GEOMETRY_NAMES = (
+    "Point",
+    "LineString",
+    "LinearExtent",
+    "Polygon",
+    "Curve",
+    "Surface",
+    "MultiPoint",
+    "MultiCurve",
+    "MultiSurface",
+    "PointLocation",
+    "MultiPointLocation",
+)
+
+
+def _has_both(el: etree._Element) -> bool:
+    return el.get("srsName") is not None and el.get("srsDimension") is not None
+
+
+def _check_geometry_srs_official(root: etree._Element, result: ContextValidationResult) -> None:
+    """validate(): the official geometry module's rule (DIGGSml/validation).
+
+    A geometry object passes when it, or any ancestor, declares both srsName and
+    srsDimension. When only a descendant (its gml:pos or gml:posList, which GML 3.2
+    allows) declares them, one warning says that DIGGS best practice is the object
+    itself; when none does, one warning names what is missing. The legacy
+    context_check() keeps its per-attribute check, which also flagged objects whose
+    coordinates carry both attributes.
+    """
+    for el in root.iter(*(f"{{*}}{name}" for name in sorted(_GEOMETRY_NAMES))):
+        coords = [c for c in el.iter("{*}pos", "{*}posList", "{*}coordinates") if c is not el]
+        if not coords and el.get("srsName") is None:
+            continue
+        if _has_both(el) or any(_has_both(a) for a in el.iterancestors()):
+            continue
+        name = _local(el)
+        if any(_has_both(d) for d in el.iterdescendants()):
+            text = (
+                f"Geometry: <{name}> has no srsName and srsDimension itself; they are on a"
+                " child element (allowed by GML 3.2), but DIGGS best practice is to put"
+                " them on the geometry object."
+            )
+        else:
+            missing = [a for a in ("srsName", "srsDimension") if not el.get(a)]
+            text = f"Geometry: <{name}> should declare {' and '.join(missing)}."
+        result.add("WARNING", result.path(el), text, 101, node=el)
 
 
 def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -> None:
