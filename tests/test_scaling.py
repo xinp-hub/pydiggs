@@ -461,3 +461,27 @@ def test_namespace_walk_is_linear():
         return run._namespaces(doc)[1]  # bytes of all URIs: one entry per declaration
 
     assert _ratio(walk(5_000), walk(10_000), "namespace declarations (bytes)") <= LINEAR
+
+
+def test_check13_many_wanted_columns_over_short_rows(semantic, tmp_path):
+    """Each row costs what it holds, not the number of columns the properties want."""
+    import time
+
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+
+    def body(columns: int) -> str:
+        props = "".join(f'<Property index="{i}">{PC}</Property>' for i in range(1, columns + 1))
+        return (
+            '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+            f"{props}</properties></PropertyParameters></parameters>"
+            f"<dataValues>{' '.join(['z'] * 100_000)}</dataValues></ResultSet>"
+        )
+
+    def cpu(columns: int) -> float:
+        start = time.process_time()
+        _work(semantic, tmp_path / str(columns), body(columns), files)
+        return time.process_time() - start
+
+    small, large = cpu(20), cpu(800)  # 40x the wanted columns over one-field rows
+    print(f"RATIO check 13 wanted columns x short rows: {small:.2f}s -> {large:.2f}s")
+    assert large < 3 * small + 0.5  # wanted x rows would be about 40x (seconds)

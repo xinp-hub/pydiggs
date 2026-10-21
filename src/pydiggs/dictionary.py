@@ -6,6 +6,7 @@ Ports the progressive checks documented in DIGGSml/validation
 
 from __future__ import annotations
 
+import bisect
 import errno
 import itertools
 import os
@@ -1538,9 +1539,10 @@ class _Check13Index:
                     raise _LimitError(
                         f"Check 13 would read more than {MAX_CHECK13_FIELDS:,} dataValues fields"
                     )
-                for c in need:
-                    if c <= len(parts):
-                        seen[c].setdefault(_normalize_space(parts[c - 1]), None)
+                # Only the wanted columns this row has: never all wanted per row.
+                for i in range(bisect.bisect_right(need, len(parts))):
+                    c = need[i]
+                    seen[c].setdefault(_normalize_space(parts[c - 1]), None)
             shared = self._shared  # equal columns (often one repeated value) share a tuple
             for c, values in seen.items():
                 found = tuple(values)
