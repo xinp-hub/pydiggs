@@ -27,6 +27,7 @@ __all__ = [
     "INTERNAL_ERROR",
     "MARKUP_ENTITY",
     "MAX_USER_ID_CHARS",
+    "NAMESPACE_TOO_LONG",
     "REMOVED",
     "RULE_ID_PATTERN",
     "SARIF_LEVEL",
@@ -60,6 +61,8 @@ WELL_FORMED: Final = "structure.well-formed"
 MARKUP_ENTITY: Final = "structure.markup-entity"
 #: The internal DTD's entities expand the file to more than twice its size; nothing else ran.
 ENTITY_EXPANSION: Final = "structure.entity-expansion"
+#: A namespace URI longer than 1,024 characters; nothing else ran.
+NAMESPACE_TOO_LONG: Final = "structure.namespace-too-long"
 FINDINGS_TRUNCATED: Final = TRUNCATED_RULE
 #: pydiggs validate --timeout stopped the file's validation.
 TIMEOUT: Final = "structure.timeout"
@@ -228,6 +231,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     WELL_FORMED: "The file is not well-formed XML",
     MARKUP_ENTITY: "The internal DTD declares an entity whose value contains markup",
     ENTITY_EXPANSION: "Entities expand the file to more than twice its size",
+    NAMESPACE_TOO_LONG: "A namespace URI is longer than 1,024 characters",
     FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
     TIMEOUT: "Validation did not finish within --timeout",
     INTERNAL_ERROR: "Validation failed with an unexpected error",

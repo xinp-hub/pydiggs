@@ -7,6 +7,7 @@ writes no files.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import itertools
 import os
@@ -51,6 +52,7 @@ __all__ = [
     "MAX_ENTITY_EXPANSION",
     "MAX_LOCAL_DICTIONARY_BYTES",
     "MAX_MESSAGE_CHARS",
+    "MAX_NAMESPACE_CHARS",
     "MAX_REPORT_BYTES",
     "MAX_SCHEMATRON_FIRED",
     "MAX_SCHEMATRON_SIBLINGS",
@@ -534,25 +536,53 @@ _dtd_markup_entity = _xml.dtd_markup_entity
 #: validate() refuses a file whose internal-DTD entities make its text more than this
 #: many times its raw size (human decision, 2026-10-21).
 MAX_ENTITY_EXPANSION: Final = 2
+#: validate() refuses a file that declares a longer namespace URI (human decision,
+#: 2026-10-21): every element's tag carries it, so it multiplies the cost of each step.
+MAX_NAMESPACE_CHARS: Final = 1_024
 
 
-def _expanded_size(doc: etree._ElementTree, limit: int) -> int:
-    """Characters of text, tails and attribute values, if the DTD declares entities.
+def _namespaces(doc: etree._ElementTree) -> tuple[int, int]:
+    """(longest namespace URI declared, total bytes of all of them), in one C-level walk.
 
-    Only measured when the internal DTD declares an entity (without one, nothing can
-    expand); one pass over the tree, stopping as soon as ``limit`` is passed.
-    Returns 0 when there is nothing to measure.
+    ``start-ns`` events report every declaration, including ``xmlns`` defaults an
+    internal DTD's ATTLIST adds.
     """
-    dtd = doc.docinfo.internalDTD
-    if dtd is None or next(iter(dtd.iterentities()), None) is None:
+    longest = total = 0
+    for _, (_, uri) in etree.iterwalk(doc.getroot(), events=("start-ns",)):
+        longest = max(longest, len(uri))
+        total += _utf8_size(uri)
+    return longest, total
+
+
+def _utf8_size(text: str) -> int:
+    return len(text) if text.isascii() else len(text.encode("utf-8", "surrogatepass"))
+
+
+def _expanded_size(
+    doc: etree._ElementTree, limit: int, namespace_bytes: int = 0, data: bytes | None = None
+) -> int:
+    """UTF-8 bytes of text, tails, attribute values and namespace URIs, if there is a DTD.
+
+    Measured only when the document has an internal DTD (entities and ATTLIST
+    defaults can only come from there); one pass over the tree, stopping as soon as
+    ``limit`` is passed. Bytes, so it compares like for like with the raw file size.
+    ATTLIST attribute defaults are not in the tree (``get()`` reads them from the DTD),
+    so with ``data`` the file is parsed once more with the defaults filled in and that
+    tree is measured. Returns 0 when there is nothing to measure.
+    """
+    if doc.docinfo.internalDTD is None:
         return 0
-    total = 0
+    if data is not None:
+        # The main parse succeeded; if this one fails, measure the main tree instead.
+        with contextlib.suppress(etree.XMLSyntaxError):
+            doc = _xml.parse_bytes(data, None, attribute_defaults=True)
+    total = namespace_bytes
     for node in doc.getroot().iter():
-        total += len(node.text or "") + len(node.tail or "")
-        if isinstance(node.tag, str):
-            total += sum(len(v) for v in node.attrib.values())
         if total > limit:
             break
+        total += _utf8_size(node.text or "") + _utf8_size(node.tail or "")
+        if isinstance(node.tag, str):
+            total += sum(_utf8_size(v) for v in node.attrib.values())
     return total
 
 
@@ -1048,7 +1078,7 @@ def validate(
             reference_data=reference_data(),
         )
 
-    def refuse(entity: str, rule_id: str = rules.MARKUP_ENTITY, message: str = "") -> Report:
+    def refuse(entity: str, *, rule_id: str = rules.MARKUP_ENTITY, message: str = "") -> Report:
         builder = _Builder(None, snippets=False, scrub=scrub)
         builder.add(
             Step.STRUCTURE,
@@ -1084,12 +1114,21 @@ def validate(
     entity = _dtd_markup_entity(doc)  # what the main parser itself saw
     if entity is not None:
         return refuse(entity)
-    expanded = _expanded_size(doc, MAX_ENTITY_EXPANSION * len(data))
+    longest, namespace_bytes = _namespaces(doc)
+    if longest > MAX_NAMESPACE_CHARS:
+        return refuse(
+            "",
+            rule_id=rules.NAMESPACE_TOO_LONG,
+            message=f"A namespace URI in this file is {longest:,} characters long, more than the"
+            f" {MAX_NAMESPACE_CHARS:,} validate() accepts (real ones are under 100), so no"
+            " other check ran.",
+        )
+    expanded = _expanded_size(doc, MAX_ENTITY_EXPANSION * len(data), namespace_bytes, data)
     if expanded > MAX_ENTITY_EXPANSION * len(data):
         return refuse(
             "",
-            rules.ENTITY_EXPANSION,
-            f"The internal DTD's entities expand this {len(data):,}-byte file to more than"
+            rule_id=rules.ENTITY_EXPANSION,
+            message=f"The internal DTD's entities expand this {len(data):,}-byte file to more than"
             f" {MAX_ENTITY_EXPANSION} times its size in text; validate() does not run"
             " checks on files that grow when parsed, so no other check ran.",
         )

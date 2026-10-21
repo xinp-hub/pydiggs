@@ -41,7 +41,7 @@ _DEFAULT_PORTS = {"http": 80, "https": 443}
 XMLSource = str | bytes | os.PathLike[str] | IO[bytes]
 
 
-def safe_parser() -> etree.XMLParser:
+def safe_parser(*, attribute_defaults: bool = False) -> etree.XMLParser:
     """Return a new parser that refuses external entities, DTDs and the network.
 
     ``resolve_entities="internal"`` expands only entities declared inside the
@@ -56,6 +56,7 @@ def safe_parser() -> etree.XMLParser:
         dtd_validation=False,
         no_network=True,
         huge_tree=False,
+        attribute_defaults=attribute_defaults,
     )
 
 
@@ -182,7 +183,9 @@ def markup_entity(data: bytes) -> str | None:
     return dtd_markup_entity(unexpanded)
 
 
-def parse_bytes(data: bytes, base_url: str | None) -> etree._ElementTree:
+def parse_bytes(
+    data: bytes, base_url: str | None, *, attribute_defaults: bool = False
+) -> etree._ElementTree:
     """Parse bytes already read by :func:`read_limited` with :func:`safe_parser`.
 
     Raises:
@@ -190,7 +193,7 @@ def parse_bytes(data: bytes, base_url: str | None) -> etree._ElementTree:
             ``parser_errors`` lists this parse's own errors (the exception's
             ``error_log`` can also hold earlier parses' errors).
     """
-    parser = safe_parser()
+    parser = safe_parser(attribute_defaults=attribute_defaults)
     try:
         root = etree.fromstring(data, parser=parser, base_url=base_url)
     except etree.XMLSyntaxError as exc:
