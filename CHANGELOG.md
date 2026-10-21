@@ -92,6 +92,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   have at most 10,000 nodes, and a path at most 64 steps), a property's `typeData`,
   `uom` and `nullValue` siblings are found once per parent, and sibling reads and
   Check 13's ResultSets count towards the same budget.
+- In `validate()`, any unexpected error inside a step is that step's `incomplete`
+  error instead of an exception, and the remaining per-element work in the dictionary
+  checks (candidate paths, Check 13 values and terms, ancestor names, memos) is cached
+  or counted towards the work budget. In the context step, Properties for `dataBlock`
+  arity are counted in one pass (same messages as `context_check()`).
 - In `validate()`, a `/` inside a predicate of a definition path (for example
   `[text()="electrical resistivity (ERI/ERT)"]`) no longer splits the path.
 - In `validate()`, Check 8 reads `//` in a definition's conditional paths as "any

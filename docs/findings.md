@@ -41,7 +41,10 @@ says why, so `report.ok` is False and the CLI exits 1:
 
 * `<step>.incomplete`: an XPath error from libxml2 (its node-set limit is 10,000,000
   nodes), an XSLT error while applying the bundled Schematron, a deprecation-registry
-  XPath that cannot be evaluated, or libxml2 failing inside schema validation.
+  XPath that cannot be evaluated, or libxml2 failing inside schema validation. Any
+  other unexpected error inside a step (a bug) is reported the same way, with the
+  exception's type and a short text, so it can neither escape `validate()` nor leave
+  the step `passed`.
 * `structure.markup-entity`: the file's internal DTD declares an entity whose value
   contains markup (`<`, also when written `&#60;`), such as
   `<!ENTITY e "<b/><b/>">`. One such entity can multiply the number of elements
@@ -77,9 +80,11 @@ says why, so `report.ok` is False and the CLI exits 1:
   10,000 nodes, or uses a path of more than 64 steps; or more than 5,000,000
   dictionary work steps in one instance (path matching, sibling reads, Check 13's
   ResultSets). Real DIGGS definitions list at most 9 paths, and the largest corpus file
-  needs 30,000 steps; files shaped like real ones reach the budget at about 30 to
+  needs 39,000 steps; files shaped like real ones reach the budget at about 30 to
   40 MB (an AtterbergExample measurement repeated 3,000 times, 26.5 MB, needs
-  3.3 million), so a very large file can be `incomplete` for this reason alone.
+  3.7 million), so a very large file can be `incomplete` for this reason alone.
+* `context.incomplete` when `dataBlock`s inside nested `measurement`s would need more
+  than 5,000,000 comparisons.
 * `structure.findings-truncated` takes the severity of the worst finding it stands for.
 * `structure.timeout`: `pydiggs validate --timeout SECONDS` validates each file in its
   own process and stops it after SECONDS (start-up included); that file's requested
@@ -296,7 +301,11 @@ in `validate()`:
   16 different local dictionaries are read per instance. All local dictionaries of an
   instance share one byte budget: 20 MiB, or what `max_bytes` leaves after the instance
   if that is less. A dictionary left unread by the cap or the budget is `dictionary.3`
-  with a note and makes the step `incomplete` with a `dictionary.incomplete` error.
+  with a note and makes the step `incomplete` with a `dictionary.incomplete` error. A
+  local dictionary that is simply not well-formed XML (no safety limit involved) is a
+  `dictionary.3` warning, "could not be accessed", by design: that is what the
+  official validator reports, and whoever controls the dictionary could as well
+  write a permissive one.
   `"off"` reads no local dictionary. `dictionary_check()` keeps the 1.1 behaviour: next
   to the instance, then the working directory, and any `file:` URI.
 * **`dictionary_path`.** In `validate()` the dictionary you pass serves both
@@ -359,8 +368,10 @@ multisets over the steps both ran. The message is never compared.
 ### Residual risks
 
 pydiggs's own code is bounded. On the security reviews' test files (up to 10 MB, default
-settings) no pydiggs-owned path took more than about 9 s of CPU (1,000 conditional paths
-tried against 140,000 elements, stopped by the work budget) or 700 MB beyond parsing. The costs below belong to lxml and libxml2/libxslt and are not bounded by
+settings) no pydiggs-owned path took more than about 11 s of CPU (1,000 conditional
+paths tried against 180,000 elements, stopped by the work budget) or about 500 MB
+beyond parsing (Check 13's row cache plus path memos in one file); Check 13's row cache
+alone took about 350 MB for a 9.8 MB file of one-cell rows. The costs below belong to lxml and libxml2/libxslt and are not bounded by
 pydiggs. Measured on an Apple M3 Max MacBook Pro in CPU seconds (one process, default
 settings, lxml 6.1.3, libxml2 2.14.6, libxslt 1.1.43; wall time on a busy machine is
 higher):
@@ -370,8 +381,8 @@ higher):
 | Schematron (libxslt; grows with the square of the number of elements the rules fire on, whatever their parents) | 1.8 MB, 100,000 fired elements, all failing (the most `validate()` runs) | 3.4 to 5.5 s |
 | | 1.7 MB, 100,000 fired elements, all passing | 3.6 s |
 | | 9 MB, about 1 million fired elements (21 parents × 50,000) | 174 s and 1.7 GB before the cap; now refused (`schematron.incomplete`) in 1.7 s |
-| | 9.9 MB, 100,000 fired elements among 1.1 million same-named elements the rules do not fire on (under both caps) | 35 to 41 s and 480 MB; 22 to 28 s with `Casing` |
-| | 9.2 MB with no element a rule fires on | 6.3 s |
+| | 9.9 MB, 100,000 fired elements among 1.1 million same-named elements the rules do not fire on (under both caps) | 35 to 43 s and about 500 MB; 22 to 29 s with `Casing` |
+| | 9 to 10 MB with no element a rule fires on | 5 to 6 s |
 | | 1 MB, 18,000 sibling features (no failures) | 0.1 s (31 s with the pre-1.2 rule contexts) |
 | Schema validation (lxml builds an XPath for every libxml2 error by counting siblings) | 2 MB of sibling schema errors (37,000 siblings) | 14 s |
 | | 4 MB of the same | 107 s |
