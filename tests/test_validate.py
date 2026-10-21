@@ -87,6 +87,11 @@ def test_validate_agrees_with_the_legacy_methods(path):
         assert not legacy.schematron_check()
         assert not legacy.context_check()
         return
+    if report.status == "not-diggs":  # validate() checks nothing else (UX finding U-01)
+        assert report.diggs_version is None and report.verdict == "not-diggs"
+        assert not legacy.context_check()  # the legacy root check fails it too
+        SCHEMA.validate(json.loads(report.to_json()))
+        return
     assert legacy.schema_check() is (not _errors(report, Step.SCHEMA))
     assert legacy.dictionary_check() is (not _errors(report, Step.DICTIONARY, exclude=wp04))
     assert legacy.schematron_check() is (not _errors(report, Step.SCHEMATRON))

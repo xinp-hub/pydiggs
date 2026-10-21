@@ -26,9 +26,24 @@ report.to_sarif()  # a SARIF 2.1.0 log, as a dict
 ```
 
 `validate()` runs every native step by default, even after an earlier one fails, and
-records what happened to each in `report.steps`: `passed`, `failed` (at least one error),
-`skipped` (not asked for, or the file is not well-formed XML) or `incomplete` (the step
-could not finish, or lost findings to `max_findings`; its findings are partial).
+records what happened to each in `report.steps`: `passed`, `partial` (no error, but part
+of the step could not be checked: the dictionary step when a code list was not fetched
+because network access is off, `dictionary.offline`), `failed` (at least one error),
+`skipped` (not asked for, the file is not well-formed XML, or it is not a DIGGS file) or
+`incomplete` (the step could not finish, or lost findings to `max_findings`; its
+findings are partial). A step with an error is `failed` or `incomplete`, never
+`partial`.
+
+A file whose root element is not `Diggs` (any namespace) is **not a DIGGS file**: it
+gets one `structure.diggs-root` error naming the root it has, `report.status` is
+`not-diggs`, `diggs_version` is `None`, and every other step is `skipped`, since no
+DIGGS check means anything for it.
+
+`report.verdict` sums a file up in one word, derived only from its status, steps and
+findings (in this order): `not-diggs`; `not-valid` (any error, which includes every
+incomplete step); `partly-checked` (no error, but a step is `partial` or `incomplete`);
+`valid-with-warnings`; `valid`. An unreadable input's verdict is `unreadable`. The
+text output starts each file's line with it.
 Well-formedness is always checked, because nothing else can run without it: a file
 that is not well-formed reports `structure` as `failed` even when `structure` was not
 asked for.
@@ -197,6 +212,7 @@ published with this site at
       "sha256": "9f2c...",
       "diggs_version": "2.6",
       "status": "checked",
+      "verdict": "not-valid",
       "steps": [{"step": "structure", "status": "passed"}, {"step": "schema", "status": "failed"}],
       "counts": {"error": 1, "warning": 0, "info": 0},
       "findings": [
@@ -224,7 +240,8 @@ published with this site at
 | `tool.reference_data` | Upstream commit of each vendored DIGGS source (`schemas`, `def`), from the bundled `PROVENANCE.toml` |
 | `files[].path` | See [Paths](#paths); absolute only with `--absolute-paths` / `absolute_paths=True` |
 | `files[].sha256` | Digest of the file's bytes (`null` when unreadable) |
-| `files[].status` | `checked` or `unreadable`; an unreadable entry also has `error` |
+| `files[].status` | `checked`, `not-diggs` (the root is not `Diggs`; `diggs_version` is `null` and only `structure` ran) or `unreadable` (the entry also has `error`) |
+| `files[].verdict` | `valid`, `valid-with-warnings`, `not-valid`, `partly-checked`, `not-diggs` or `unreadable`, derived as described under [validate()](#findings-json-and-sarif-output); SARIF carries `status` and `verdict` in each artifact's `properties` |
 | `findings[].layer` | `native` (pydiggs's own checks); `official` is reserved for the DIGGSml/validation layer |
 | `findings[].step` | One of `structure`, `schema`, `codeType`, `dictionary`, `schematron`, `geometry`, `crs`, `coordinate`, `deprecation`, `context` |
 | `location.line`, `location.column` | 1-based; the column is known only for XML syntax errors |
@@ -264,7 +281,7 @@ Rule ids are part of the stable contract.
 | Rule id | Severity | What it means |
 |---|---|---|
 | `structure.well-formed` | error | Not well-formed XML (line and column from libxml2) |
-| `structure.diggs-root` | error | Root is not `Diggs`, or `documentInformation` is missing or holds more than one `DocumentInformation` |
+| `structure.diggs-root` | error | Root is not `Diggs` (then the file is `not-diggs` and nothing else runs), or `documentInformation` is missing or holds more than one `DocumentInformation` |
 | `schema.cvc-<rule>` | error / warning | An XML Schema validation rule, e.g. `schema.cvc-complex-type.2.4`, `schema.cvc-datatype-valid.1.2.1`, `schema.cvc-minInclusive-valid`, named from libxml2's error type |
 | `schema.libxml2.<TYPE>` | error / warning | A libxml2 error type that names no XSD rule, e.g. `schema.libxml2.SCHEMAV_DOCUMENT_ELEMENT_MISSING` |
 | `<step>.incomplete` | error | The step could not finish: libxml2 could not finish schema validation, a libxml2/libxslt limit stopped an XPath or the bundled Schematron, the file has more than 9,900,000 elements, an element has more than 50,000 children or the rules would fire on more than 100,000 elements (Schematron), a local dictionary was refused by a safety limit, or dictionary path matching passed its limits (see [Fail closed](#fail-closed)); the step is `incomplete` |
@@ -280,7 +297,7 @@ Rule ids are part of the stable contract.
 | `schematron.<Context>.<property>` | error | A bundled Schematron rule, e.g. `schematron.Borehole.totalMeasuredDepth`, `schematron.Casing.outside-gt-inside` |
 | `schematron.Casing.outside-gt-inside-converted`, `schematron.Casing.diameters-numeric-converted` | error | pydiggs's unit-converting casing diameter rule |
 | `schematron.<id>` / `schematron.user-<hash>` | error | A rule from your own Schematron file: its `@id` (up to 4,096 characters), else a hash of its context and test |
-| `geometry.srs-attributes` | warning | A geometry with coordinates lacks `srsName` or `srsDimension` |
+| `geometry.srs-attributes` | warning | A geometry object with coordinates has no `srsName` and `srsDimension` on itself or any ancestor: one warning per object, saying either what is missing or that they sit on a child (`gml:pos`/`gml:posList`, allowed by GML 3.2) when DIGGS best practice is the object itself |
 | `deprecation.deprecated` | warning | Uses something the DIGGS schema deprecates |
 | `deprecation.removed` | error | Uses something the DIGGS schema has removed |
 | `context.xlink-href-resolves` | warning | A local `xlink:href="#id"` matches no `gml:id` |
@@ -313,6 +330,13 @@ in `validate()`:
   one). Predicates in definition paths (`[text()="…"]`) are ignored, as before, so
   matching is lenient; in `validate()` a `/` inside a predicate no longer splits the
   path into steps (`dictionary_check()` keeps splitting it).
+* **Geometry SRS.** `validate()` follows the official geometry module: a geometry
+  object passes when it or an ancestor declares both `srsName` and `srsDimension`; when
+  only a child (`gml:pos`, `gml:posList`) does, as GML 3.2 allows, it gets one
+  best-practice warning; otherwise one warning names what is missing (the official
+  module reports that last case as an error; pydiggs keeps it a warning). The legacy
+  `context_check()` keeps one warning per missing attribute on the object itself, so
+  `DocumentationExample.xml` gets 62 there and 31 in `validate()`.
 * **Local dictionaries.** `validate(local_dictionaries="instance-dir")` (the default;
   CLI `--local-dictionaries`) reads a dictionary named by a relative or `file:`
   codeSpace only if it is a file inside the instance's folder: there is no fallback to

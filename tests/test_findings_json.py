@@ -37,7 +37,15 @@ def test_schema_is_a_valid_2020_12_schema_with_the_published_id():
 def test_schema_enums_match_the_model():
     assert SCHEMA["$defs"]["step"]["enum"] == [s.value for s in Step]
     statuses = SCHEMA["$defs"]["file"]["properties"]["steps"]["items"]["properties"]["status"]
-    assert statuses["enum"] == ["passed", "failed", "skipped", "incomplete"]
+    assert statuses["enum"] == ["passed", "partial", "failed", "skipped", "incomplete"]
+    from typing import get_args
+
+    from pydiggs.findings.model import FileStatus, StepStatus, Verdict
+
+    assert statuses["enum"] == list(get_args(StepStatus))
+    file_props = SCHEMA["$defs"]["file"]["properties"]
+    assert file_props["status"]["enum"] == [*get_args(FileStatus), "unreadable"]
+    assert file_props["verdict"]["enum"] == list(get_args(Verdict))
 
 
 @settings(deadline=None)  # no per-example deadline: timing varies under CI load
@@ -92,6 +100,7 @@ def test_document_shape_and_field_order():
         "sha256",
         "diggs_version",
         "status",
+        "verdict",
         "steps",
         "counts",
         "findings",

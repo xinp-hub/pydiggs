@@ -267,7 +267,7 @@ def _sch(tmp_path: Path, name: str, body: str, attrs: str = "") -> Path:
 
 def _located(tmp_path: Path, sch: Path) -> list[tuple[str, str | None]]:
     doc = tmp_path / "doc.xml"
-    doc.write_text('<r><a n="1"/><b n="2"/><c n="3"/></r>')
+    doc.write_text('<Diggs><a n="1"/><b n="2"/><c n="3"/></Diggs>')
     report = validate(doc, checks=["schematron"], schematron_path=sch)
     return sorted((f.message, f.xpath) for f in report.findings)
 
@@ -288,7 +288,7 @@ def test_default_phase_patterns_are_numbered_as_lxml_runs_them(tmp_path):
         + _pattern("P2", "b", "B"),
         'defaultPhase="p2"',
     )
-    assert _located(tmp_path, sch) == [("B", "/r[1]/b[1]")]
+    assert _located(tmp_path, sch) == [("B", "/Diggs[1]/b[1]")]
 
 
 def test_abstract_patterns_do_not_shift_the_numbering(tmp_path):
@@ -298,13 +298,13 @@ def test_abstract_patterns_do_not_shift_the_numbering(tmp_path):
     )
     instance = '<sch:pattern is-a="abs" id="inst"><sch:param name="x" value="c"/></sch:pattern>'
     sch = _sch(tmp_path, "abstract", abstract + _pattern("P1", "a", "A") + instance)
-    assert _located(tmp_path, sch) == [("A", "/r[1]/a[1]"), ("ABS", "/r[1]/c[1]")]
+    assert _located(tmp_path, sch) == [("A", "/Diggs[1]/a[1]"), ("ABS", "/Diggs[1]/c[1]")]
 
 
 def test_included_patterns_are_located(tmp_path):
     (tmp_path / "inc.sch").write_text(f"<sch:pattern {SCH} " + _pattern("P1", "a", "A")[13:])
     sch = _sch(tmp_path, "include", '<sch:include href="inc.sch"/>' + _pattern("P2", "b", "B"))
-    assert _located(tmp_path, sch) == [("A", "/r[1]/a[1]"), ("B", "/r[1]/b[1]")]
+    assert _located(tmp_path, sch) == [("A", "/Diggs[1]/a[1]"), ("B", "/Diggs[1]/b[1]")]
 
 
 def test_first_matching_rule_wins_and_unlocatable_contexts_stay_unlocated(tmp_path):
@@ -315,15 +315,15 @@ def test_first_matching_rule_wins_and_unlocatable_contexts_stay_unlocated(tmp_pa
         "</sch:pattern>"
     )
     assert _located(tmp_path, _sch(tmp_path, "first", first)) == [
-        ("BC", "/r[1]/c[1]"),
-        ("N2", "/r[1]/b[1]"),
+        ("BC", "/Diggs[1]/c[1]"),
+        ("N2", "/Diggs[1]/b[1]"),
     ]
     attr = _pattern("P", "@n", "AT") + _pattern("Q", "c", "C")
     assert _located(tmp_path, _sch(tmp_path, "attr", attr)) == [
         ("AT", None),
         ("AT", None),
         ("AT", None),
-        ("C", "/r[1]/c[1]"),
+        ("C", "/Diggs[1]/c[1]"),
     ]
 
 
@@ -529,20 +529,29 @@ def test_the_fired_count_agrees_with_xpath(tmp_path):
 
 
 def _self_dictionary(tmp_path: Path, elements: int, paths: int, terminal: str = "m") -> Path:
-    """One file that is both the instance and its own local dictionary (audit B1)."""
-    path = tmp_path / "self.xml"
+    """An instance and a local dictionary with many source paths (audit B1).
+
+    The audit's file was its own dictionary; since round 10 a file whose root is not
+    Diggs is refused as not-diggs, so the dictionary is a separate file here.
+    """
     occurrences = "".join(
         "<diggs:Occurrence><diggs:sourceElementXpath>"
         f"//diggs:n{i}/diggs:{terminal}</diggs:sourceElementXpath></diggs:Occurrence>"
         for i in range(paths)
     )
-    refs = '<diggs:a codeSpace="./self.xml#t">t</diggs:a>' * elements
-    path.write_text(
+    (tmp_path / "d.xml").write_text(
         '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
         ' xmlns:diggs="http://diggsml.org/schemas/3" gml:id="x"><gml:dictionaryEntry>'
         '<diggs:Definition gml:id="t"><gml:name>t</gml:name>'
         f"<diggs:occurrences>{occurrences}</diggs:occurrences></diggs:Definition>"
-        f"</gml:dictionaryEntry><gml:description>{refs}</gml:description></gml:Dictionary>"
+        "</gml:dictionaryEntry></gml:Dictionary>"
+    )
+    refs = '<diggs:a codeSpace="./d.xml#t">t</diggs:a>' * elements
+    path = tmp_path / "self.xml"
+    path.write_text(
+        '<diggs:Diggs xmlns:gml="http://www.opengis.net/gml/3.2"'
+        f' xmlns:diggs="http://diggsml.org/schemas/3"><gml:description>{refs}'
+        "</gml:description></diggs:Diggs>"
     )
     return path
 
@@ -1647,3 +1656,105 @@ def test_strip_cache_charges_and_ancestor_sets_reuse_their_parents():
     x = inner_a[0]
     # x's ancestors are r, a, b, a: the inner a adds nothing new, so its set is b's.
     assert semantic._ancestor_names(x) is semantic._ancestor_names(inner_a)
+
+
+# --- round 10: UX findings (U-01, U-03, U-04, U-07) ------------------------------------
+
+
+def test_a_non_diggs_file_is_reported_as_not_diggs(tmp_path, capsys):
+    import json
+
+    path = tmp_path / "notes.xml"
+    path.write_text("<notes><item>meeting</item></notes>")
+    report = validate(path)
+    assert (report.status, report.verdict, report.diggs_version) == ("not-diggs", "not-diggs", None)
+    assert report.steps["structure"] == "failed"
+    assert {v for s, v in report.steps.items() if s != Step.STRUCTURE} == {"skipped"}
+    (finding,) = report.findings
+    assert finding.rule_id == "structure.diggs-root"
+    assert "<notes>, not <Diggs>" in finding.message
+    entry = json.loads(report.to_json())["files"][0]
+    assert (entry["status"], entry["verdict"], entry["diggs_version"]) == (
+        "not-diggs",
+        "not-diggs",
+        None,
+    )
+    artifact = report.to_sarif()["runs"][0]["artifacts"][0]
+    assert artifact["properties"] == {"status": "not-diggs", "verdict": "not-diggs"}
+    assert _cli.main([str(path)]) == 1
+    assert ": not-diggs: 1 error(s)" in capsys.readouterr().out
+
+
+def test_an_offline_only_dictionary_step_is_partial(tmp_path):
+    """U-04: a code list that could not be fetched offline leaves the step partial."""
+    path = tmp_path / "offline.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3"><role codeSpace='
+        '"https://diggsml.org/def/codes/DIGGS/0.1/status.xml#active">active</role></Diggs>'
+    )
+    report = validate(path, checks=["dictionary"])
+    assert [f.rule_id for f in report.findings] == ["dictionary.offline"]
+    assert report.steps["dictionary"] == "partial"
+    assert report.ok and report.verdict == "partly-checked"
+
+
+def test_partial_never_hides_a_failure(tmp_path):
+    """precedence: incomplete > failed > partial > passed."""
+    from pydiggs.findings.model import Finding, Report, Severity
+
+    def make(status: str, severity: Severity | None) -> Report:
+        findings = (
+            (Finding(step=Step.DICTIONARY, rule_id="dictionary.5", severity=severity, message="m"),)
+            if severity
+            else ()
+        )
+        return Report(
+            path="a.xml",
+            sha256="0" * 64,
+            diggs_version="2.6",
+            steps={Step.DICTIONARY: status},
+            findings=findings,
+            tool_version="x",
+        )
+
+    assert make("passed", None).verdict == "valid"
+    assert make("passed", Severity.WARNING).verdict == "valid-with-warnings"
+    assert make("partial", Severity.WARNING).verdict == "partly-checked"
+    assert make("partial", None).verdict == "partly-checked"
+    assert make("failed", Severity.ERROR).verdict == "not-valid"
+    assert make("incomplete", Severity.ERROR).verdict == "not-valid"
+
+
+def test_unreadable_entries_carry_their_verdict():
+    from pydiggs.findings import _json
+    from pydiggs.findings.model import UnreadableFile
+
+    entry = _json.unreadable_entry(UnreadableFile(path="x.xml", error="gone"))
+    assert (entry["status"], entry["verdict"]) == ("unreadable", "unreadable")
+
+
+def test_srs_on_the_child_position_is_one_best_practice_warning():
+    """U-03: GML 3.2 allows srsName/srsDimension on gml:pos; the official module warns once."""
+    path = ROOT / "tests" / "fixtures" / "official" / "2.6" / "DocumentationExample.xml"
+    report = validate(path, checks=["geometry"])
+    srs = [f for f in report.findings if f.rule_id == "geometry.srs-attributes"]
+    assert len(srs) == 31  # one per geometry object; 62 (two per object) before
+    assert all("on a child element" in f.message for f in srs)
+    from pydiggs.semantic import validate_context
+
+    legacy = [m for m in validate_context(str(path)).messages if m.check == 101]
+    assert len(legacy) == 62  # context_check() keeps its per-attribute warnings
+
+
+def test_srs_on_an_ancestor_passes():
+    from pydiggs import semantic
+
+    root = etree.fromstring(
+        f'<Diggs xmlns="{NS}" xmlns:gml="http://www.opengis.net/gml/3.2">'
+        '<x srsName="urn:ogc:def:crs:EPSG::4326" srsDimension="2"><PointLocation>'
+        "<gml:pos>1 2</gml:pos></PointLocation></x><PointLocation><gml:pos>1 2</gml:pos>"
+        "</PointLocation></Diggs>"
+    )
+    result = semantic.validate_context_tree(root, legacy_paths=False)
+    srs = [m.text for m in result.messages if m.check == 101]
+    assert srs == ["Geometry: <PointLocation> should declare srsName and srsDimension."]

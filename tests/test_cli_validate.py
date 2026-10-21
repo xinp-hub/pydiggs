@@ -47,7 +47,7 @@ def _run(capsys, *argv):
 def test_text_output_and_exit_codes(work, capsys):
     code, out, err = _run(capsys, "ok.xml")
     assert (code, err) == (0, "")
-    assert out.startswith("ok.xml: 0 error(s), 31 warning(s), 20 info\n")
+    assert out.startswith("ok.xml: valid-with-warnings: 0 error(s), 29 warning(s), 20 info\n")
     code, out, _ = _run(capsys, "bad.xml", "--checks", "schema")
     assert code == 1
     assert "bad.xml:12: error schema.cvc-complex-type.2.4: Element" in out

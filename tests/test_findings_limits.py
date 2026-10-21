@@ -24,14 +24,14 @@ def test_defaults():
 
 def test_truncation_keeps_n_findings_plus_one_marker():
     full = validate(NO_ERROR)
-    assert len(full.findings) == 51
+    assert len(full.findings) == 49
     report = validate(NO_ERROR, max_findings=5)
     marker = [f for f in report.findings if f.rule_id == rules.FINDINGS_TRUNCATED]
     assert len(report.findings) == 6
     (finding,) = marker
     assert finding.step is Step.STRUCTURE
     assert finding.severity is Severity.WARNING  # the worst finding left out
-    assert "Stopped after 5 findings; 46 more were not reported" in finding.message
+    assert "Stopped after 5 findings; 44 more were not reported" in finding.message
     assert report.steps[Step.DICTIONARY] == "incomplete"
     assert report.steps[Step.SCHEMA] == "passed"
 
@@ -46,7 +46,7 @@ def test_truncated_errors_keep_the_report_failing():
 
 
 def test_no_limit_and_bad_limits():
-    assert len(validate(NO_ERROR, max_findings=None).findings) == 51
+    assert len(validate(NO_ERROR, max_findings=None).findings) == 49
     for bad in (0, -1, 1.5, True):
         with pytest.raises(ValueError, match="max_findings"):
             validate(NO_ERROR, max_findings=bad)  # type: ignore[arg-type]
@@ -73,7 +73,7 @@ def test_cli_max_findings(capsys):
     assert len(findings) == 4
     assert findings[0]["rule_id"] == "structure.findings-truncated"
     assert main(["validate", "--format", "json", "--max-findings", "0", str(NO_ERROR)]) == 0
-    assert len(json.loads(capsys.readouterr().out)["files"][0]["findings"]) == 51
+    assert len(json.loads(capsys.readouterr().out)["files"][0]["findings"]) == 49
     with pytest.raises(SystemExit) as exc:
         main(["validate", "--max-findings", "-1", str(NO_ERROR)])
     assert exc.value.code == 2
@@ -183,8 +183,9 @@ def test_context_budget_counts_only_requested_steps(tmp_path):
         ' xmlns:xlink="http://www.w3.org/1999/xlink"><r xlink:href="#no"/>'
         "<gml:Point><gml:pos>1 2</gml:pos></gml:Point></Diggs>"
     )
-    report = validate(path, checks=["geometry"], max_findings=2)
-    assert [f.rule_id for f in report.findings] == ["geometry.srs-attributes"] * 2
+    # One warning per geometry object since round 10 (it named each attribute before).
+    report = validate(path, checks=["geometry"], max_findings=1)
+    assert [f.rule_id for f in report.findings] == ["geometry.srs-attributes"]
     assert report.steps[Step.GEOMETRY] == "passed"
 
 

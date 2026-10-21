@@ -47,7 +47,7 @@ def reports(draw: st.DrawFn) -> Report:
     steps = draw(
         st.dictionaries(
             st.sampled_from(list(Step)),
-            st.sampled_from(["passed", "failed", "skipped", "incomplete"]),
+            st.sampled_from(["passed", "partial", "failed", "skipped", "incomplete"]),
             max_size=4,
         )
     )
@@ -59,6 +59,7 @@ def reports(draw: st.DrawFn) -> Report:
         steps=steps,
         findings=tuple(draw(st.lists(findings(), max_size=6))),
         tool_version="1.2.0",
+        status=draw(st.sampled_from(["checked", "not-diggs"])),
         reference_data=draw(
             st.dictionaries(
                 st.sampled_from(["schemas", "def", "diggs-examples"]),

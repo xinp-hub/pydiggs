@@ -95,6 +95,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In `validate()`, a file whose internal-DTD entities make its parsed text more than
   twice its raw size gets one `structure.entity-expansion` error and no other check
   runs (human decision). Small text entities such as `&deg;` still work.
+- The diggs-findings 1.0 format (not yet released, so changed in place): each file has
+  a `verdict` (`valid`, `valid-with-warnings`, `not-valid`, `partly-checked`,
+  `not-diggs`, `unreadable`); a file whose root is not `Diggs` has status `not-diggs`,
+  `diggs_version` null and every step but `structure` skipped; and a step can be
+  `partial` (the dictionary step when a code list could not be fetched offline), so an
+  offline-unchecked step is never `passed`. Text output starts each file's line with
+  its verdict; SARIF carries status and verdict in each artifact's properties.
+- In `validate()`, `geometry.srs-attributes` follows the official geometry module: no
+  warning when an ancestor declares both attributes, one best-practice warning when
+  only the child `gml:pos`/`gml:posList` does, and one warning per object otherwise
+  (two before). `context_check()` is unchanged.
 - In `validate()`, a namespace URI longer than 1,024 characters gives one
   `structure.namespace-too-long` error and no other check runs (human decision). The
   2x expansion check now runs whenever there is an internal DTD, counts UTF-8 bytes,
