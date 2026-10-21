@@ -238,6 +238,25 @@ def _tuple_lengths(block: etree._Element) -> list[int]:
     return [len([v for v in tup.split(",") if v != ""]) for tup in text.split()] if text else []
 
 
+def _block_shape(counts: list[int]) -> tuple[int, int, int] | None:
+    """(first tuple's count, 1-based index of the first other count or 0, that count)."""
+    if not counts:
+        return None
+    first = counts[0]
+    other = next(((i, c) for i, c in enumerate(counts, start=1) if c != first), (0, 0))
+    return first, other[0], other[1]
+
+
+def _first_mismatch(shape: tuple[int, int, int] | None, n_props: int) -> tuple[int, int] | None:
+    """The first tuple whose count is not ``n_props``, in O(1) per (block, measurement)."""
+    if shape is None:
+        return None
+    first, index, count = shape
+    if first != n_props:
+        return 1, first
+    return (index, count) if index else None
+
+
 def _check_datablocks_linear(root: etree._Element, result: ContextValidationResult) -> None:
     """:func:`_check_datablocks` in linear time (validate(); same messages, same order).
 
@@ -255,16 +274,15 @@ def _check_datablocks_linear(root: etree._Element, result: ContextValidationResu
             f"{MAX_DATABLOCK_PAIRS:,} comparisons"
         )
         return
-    lengths: dict[etree._Element, list[int]] = {}
+    shapes: dict[etree._Element, tuple[int, int, int] | None] = {}
     for measurement in walk.measurements:  # document order, as //measurement
         n_props = walk.properties_below(measurement)
         if not n_props or not walk.blocks[measurement]:
             continue
         for block in walk.blocks[measurement]:
-            counts = lengths.get(block)
-            if counts is None:
-                counts = lengths[block] = _tuple_lengths(block)
-            bad = next(((i, c) for i, c in enumerate(counts, start=1) if c != n_props), None)
+            if block not in shapes:
+                shapes[block] = _block_shape(_tuple_lengths(block))
+            bad = _first_mismatch(shapes[block], n_props)
             if bad is not None:
                 result.add(
                     "ERROR",
