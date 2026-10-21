@@ -69,7 +69,7 @@
     },
     "file": {
       "type": "object",
-      "required": ["path", "sha256", "diggs_version", "status", "steps", "counts", "findings"],
+      "required": ["path", "sha256", "diggs_version", "status", "verdict", "steps", "counts", "findings"],
       "additionalProperties": false,
       "properties": {
         "path": {
@@ -82,10 +82,17 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "diggs_version": {
-          "description": "DIGGS profile the file was checked as (2.5.a, 2.6, 3.0.0), or null when it could not be told.",
+          "description": "DIGGS profile the file was checked as (2.5.a, 2.6, 3.0.0), or null when it could not be told or the file is not DIGGS.",
           "type": ["string", "null"]
         },
-        "status": { "enum": ["checked", "unreadable"] },
+        "status": {
+          "enum": ["checked", "not-diggs", "unreadable"],
+          "description": "not-diggs: the root element is not a DIGGS Diggs element; only the structure step ran."
+        },
+        "verdict": {
+          "enum": ["valid", "valid-with-warnings", "not-valid", "partly-checked", "not-diggs", "unreadable"],
+          "description": "Derived from status, steps and findings: not-diggs or unreadable from the status; else not-valid if any finding is an error; else partly-checked if a step is partial or incomplete; else valid-with-warnings if any finding is a warning; else valid."
+        },
         "error": {
           "type": "string",
           "description": "Why an unreadable file could not be read."
@@ -99,8 +106,8 @@
             "properties": {
               "step": { "$ref": "#/$defs/step" },
               "status": {
-                "enum": ["passed", "failed", "skipped", "incomplete"],
-                "description": "incomplete: the step could not finish, or lost findings to max_findings (see the structure.findings-truncated finding)."
+                "enum": ["passed", "partial", "failed", "skipped", "incomplete"],
+                "description": "partial: no error, but part of the step could not be checked offline (dictionary.offline); incomplete: the step could not finish, or lost findings to max_findings (see the structure.findings-truncated finding). A step with an error is failed (or incomplete), never partial."
               }
             }
           }
@@ -116,6 +123,7 @@
         "required": ["error"],
         "properties": {
           "sha256": { "type": "null" },
+          "verdict": { "const": "unreadable" },
           "findings": { "maxItems": 0 }
         }
       },

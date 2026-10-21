@@ -41,7 +41,7 @@ from pydiggs.findings._schematron import (
     svrl_items,
 )
 from pydiggs.findings.locate import Locator
-from pydiggs.findings.model import Finding, Report, Severity, Step, StepStatus
+from pydiggs.findings.model import FileStatus, Finding, Report, Severity, Step, StepStatus
 from pydiggs.pydiggs import _DEFAULT_DICTIONARY, _DEFAULT_SCHEMATRON, _casing_diameter_problems
 from pydiggs.semantic import validate_context_tree
 
@@ -586,6 +586,35 @@ def _expanded_size(
     return total
 
 
+def _parsed_refusal(doc: etree._ElementTree, data: bytes) -> tuple[str, str] | None:
+    """(rule id, message) when the parsed file must not be checked at all, else None."""
+    entity = _dtd_markup_entity(doc)  # what the main parser itself saw
+    if entity is not None:
+        return (
+            rules.MARKUP_ENTITY,
+            f"The internal DTD declares the entity {entity[:200]!r}, whose value contains"
+            " markup ('<'). validate() does not expand markup entities, so no other"
+            " check ran.",
+        )
+    longest, namespace_bytes = _namespaces(doc)
+    if longest > MAX_NAMESPACE_CHARS:
+        return (
+            rules.NAMESPACE_TOO_LONG,
+            f"A namespace URI in this file is {longest:,} characters long, more than the"
+            f" {MAX_NAMESPACE_CHARS:,} validate() accepts (real ones are under 100), so no"
+            " other check ran.",
+        )
+    limit = MAX_ENTITY_EXPANSION * len(data)
+    if _expanded_size(doc, limit, namespace_bytes, data) > limit:
+        return (
+            rules.ENTITY_EXPANSION,
+            f"The internal DTD's entities expand this {len(data):,}-byte file to more than"
+            f" {MAX_ENTITY_EXPANSION} times its size in text; validate() does not run"
+            " checks on files that grow when parsed, so no other check ran.",
+        )
+    return None
+
+
 def _base_url(instance: Path) -> str | None:
     """The instance's path for libxml2, or its file: URI if the path is not UTF-8."""
     resolved = instance.resolve()
@@ -1066,7 +1095,7 @@ def validate(
     steps: dict[Step, StepStatus] = dict.fromkeys(NATIVE_STEPS, "skipped")
     scrub = (str(instance.resolve()), shown)
 
-    def report(builder: _Builder, version: str | None) -> Report:
+    def report(builder: _Builder, version: str | None, status: FileStatus = "checked") -> Report:
         return Report(
             path=shown,
             absolute_path=absolute,
@@ -1076,6 +1105,7 @@ def validate(
             findings=(*builder.findings, *filter(None, [builder.truncation()])),
             tool_version=pydiggs.__version__,
             reference_data=reference_data(),
+            status=status,
         )
 
     def refuse(entity: str, *, rule_id: str = rules.MARKUP_ENTITY, message: str = "") -> Report:
@@ -1111,27 +1141,23 @@ def validate(
         steps[Step.STRUCTURE] = "failed"
         return report(builder, diggs_version)
 
-    entity = _dtd_markup_entity(doc)  # what the main parser itself saw
-    if entity is not None:
-        return refuse(entity)
-    longest, namespace_bytes = _namespaces(doc)
-    if longest > MAX_NAMESPACE_CHARS:
-        return refuse(
-            "",
-            rule_id=rules.NAMESPACE_TOO_LONG,
-            message=f"A namespace URI in this file is {longest:,} characters long, more than the"
-            f" {MAX_NAMESPACE_CHARS:,} validate() accepts (real ones are under 100), so no"
-            " other check ran.",
+    refusal = _parsed_refusal(doc, data)
+    if refusal is not None:
+        return refuse("", rule_id=refusal[0], message=refusal[1])
+    root_name = etree.QName(doc.getroot()).localname
+    if root_name != "Diggs":
+        # Not a DIGGS file: no profile, nothing else is meaningful (UX finding U-01).
+        builder = _Builder(Locator(doc), snippets=include_snippets, scrub=scrub)
+        builder.add(
+            Step.STRUCTURE,
+            rules.DIGGS_ROOT,
+            Severity.ERROR,
+            f"The root element is <{root_name[:200]}>, not <Diggs>: this is not a DIGGS"
+            " file, so no other check ran.",
+            node=doc.getroot(),
         )
-    expanded = _expanded_size(doc, MAX_ENTITY_EXPANSION * len(data), namespace_bytes, data)
-    if expanded > MAX_ENTITY_EXPANSION * len(data):
-        return refuse(
-            "",
-            rule_id=rules.ENTITY_EXPANSION,
-            message=f"The internal DTD's entities expand this {len(data):,}-byte file to more than"
-            f" {MAX_ENTITY_EXPANSION} times its size in text; validate() does not run"
-            " checks on files that grow when parsed, so no other check ran.",
-        )
+        steps[Step.STRUCTURE] = "failed"
+        return report(builder, None, "not-diggs")
     profile = diggs_version or detect_diggs_version(doc)
     builder = _Builder(
         Locator(doc), snippets=include_snippets, scrub=scrub, max_findings=max_findings
@@ -1157,4 +1183,9 @@ def validate(
     # unrequested structure step stays "skipped" unless the file is not well-formed.
     for step in builder.dropped:
         steps[step] = "incomplete"
+    # A dictionary step that passed only because some code lists could not be fetched
+    # offline was not fully checked (UX finding U-04): partial, never passed.
+    offline = any(f.rule_id == rules.DICTIONARY_OFFLINE for f in builder.findings)
+    if offline and steps.get(Step.DICTIONARY) == "passed":
+        steps[Step.DICTIONARY] = "partial"
     return report(builder, profile)

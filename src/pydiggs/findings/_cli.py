@@ -183,7 +183,10 @@ def _text(reports: Sequence[Report], unreadable: Sequence[UnreadableFile], out: 
     for report in reports:
         c = report.counts
         path = _safe(report.path)
-        out.write(f"{path}: {c['error']} error(s), {c['warning']} warning(s), {c['info']} info\n")
+        out.write(
+            f"{path}: {report.verdict}: {c['error']} error(s), {c['warning']} warning(s),"
+            f" {c['info']} info\n"
+        )
         for f in report.findings:
             if f.severity is Severity.INFO and f.rule_id != rules.FINDINGS_TRUNCATED:
                 continue

@@ -21,6 +21,7 @@ __all__ = [
     "DEPRECATED",
     "DICTIONARY_13",
     "DICTIONARY_OFFLINE",
+    "DIGGS_ROOT",
     "ENTITY_EXPANSION",
     "FINDINGS_TRUNCATED",
     "HELP_URI",
@@ -57,6 +58,8 @@ MAX_USER_ID_CHARS: Final = 4096
 HELP_URI: Final = "https://xinp-hub.github.io/pydiggs/findings/#rule-ids"
 
 WELL_FORMED: Final = "structure.well-formed"
+#: The root is not a DIGGS ``Diggs`` element.
+DIGGS_ROOT: Final = "structure.diggs-root"
 #: The internal DTD declares an entity whose value contains markup; nothing else ran.
 MARKUP_ENTITY: Final = "structure.markup-entity"
 #: The internal DTD's entities expand the file to more than twice its size; nothing else ran.

@@ -120,12 +120,20 @@ def _run(
     locations: list[dict[str, Any]] = []
     for report in reports:
         loc = _artifact_location(report.path, report.absolute_path, absolute_paths=absolute_paths)
-        index_ = artifact_index({"location": loc, "hashes": {"sha-256": report.sha256}})
+        index_ = artifact_index(
+            {
+                "location": loc,
+                "hashes": {"sha-256": report.sha256},
+                "properties": {"status": report.status, "verdict": report.verdict},
+            }
+        )
         locations.append({**loc, "index": index_})
     notifications = []
     for item in unreadable:
         loc = _artifact_location(item.path, item.absolute_path, absolute_paths=absolute_paths)
-        index_ = artifact_index({"location": loc})
+        index_ = artifact_index(
+            {"location": loc, "properties": {"status": "unreadable", "verdict": "unreadable"}}
+        )
         notifications.append(
             {
                 "level": "error",

@@ -17,6 +17,7 @@ from pydiggs.findings.keys import ConformanceKey, location_key
 
 __all__ = [
     "RULE_ID_PATTERN",
+    "FileStatus",
     "Finding",
     "Layer",
     "Report",
@@ -24,6 +25,7 @@ __all__ = [
     "Step",
     "StepStatus",
     "UnreadableFile",
+    "Verdict",
     "is_valid_rule_id",
 ]
 
@@ -91,7 +93,13 @@ _LAYERS: Final = frozenset(get_args(Layer))
 
 #: What happened to a step: ran with no errors, ran with errors, not run, or could not
 #: finish (its findings are then partial).
-StepStatus = Literal["passed", "failed", "skipped", "incomplete"]
+StepStatus = Literal["passed", "partial", "failed", "skipped", "incomplete"]
+#: A checked file's status: ``not-diggs`` when its root is not a DIGGS ``Diggs`` element.
+FileStatus = Literal["checked", "not-diggs"]
+#: One word for what a report means, derived from its status, steps and findings.
+Verdict = Literal[
+    "valid", "valid-with-warnings", "not-valid", "partly-checked", "not-diggs", "unreadable"
+]
 _STEP_STATUSES: Final = frozenset(get_args(StepStatus))
 
 #: Every rule id matches this; the part before the first dot is a :class:`Step` value.
@@ -256,6 +264,7 @@ class Report:
     tool_version: str
     reference_data: Mapping[str, str] = field(default_factory=dict, hash=False)
     absolute_path: str | None = None
+    status: FileStatus = "checked"
 
     def __post_init__(self) -> None:
         steps = {Step(k): v for k, v in self.steps.items()}
@@ -283,6 +292,24 @@ class Report:
     def ok(self) -> bool:
         """True when there is no error-severity finding."""
         return not any(f.severity is Severity.ERROR for f in self.findings)
+
+    @property
+    def verdict(self) -> Verdict:
+        """One word for the result, derived only from status, steps and findings.
+
+        In order: ``not-diggs`` (the root is not ``Diggs``); ``not-valid`` (any error,
+        which includes every ``incomplete`` step); ``partly-checked`` (no error, but a
+        step is ``partial`` or ``incomplete``); ``valid-with-warnings``; ``valid``.
+        """
+        if self.status == "not-diggs":
+            return "not-diggs"
+        if not self.ok:
+            return "not-valid"
+        if any(v in ("partial", "incomplete") for v in self.steps.values()):
+            return "partly-checked"
+        if any(f.severity is Severity.WARNING for f in self.findings):
+            return "valid-with-warnings"
+        return "valid"
 
     @property
     def counts(self) -> dict[str, int]:
