@@ -1659,10 +1659,34 @@ _DEFINITION_FIELDS: Final = frozenset({"dataType", "quantityClass", "valueCodeSp
 
 
 def _is_parser_limit(entry: etree._LogEntry) -> bool:
-    """A libxml2 safety limit (amplification, depth, text or name length)."""
-    return entry.type_name in ("ERR_RESOURCE_LIMIT", "ERR_NAME_TOO_LONG") or (
-        entry.message or ""
-    ).startswith("Name too long")
+    """A libxml2 safety limit (amplification, depth, text or name length).
+
+    libxml2 builds differ in the error code and wording they use for the same limit
+    (the Windows lxml wheel's depth limit is one example), so both the code and the
+    message are matched, broadly: a limit taken for a plain syntax error would turn a
+    refused dictionary into a mere warning.
+    """
+    if entry.type_name in _LIMIT_ERRORS:
+        return True
+    message = (entry.message or "").lower()
+    return any(marker in message for marker in _LIMIT_MARKERS)
+
+
+_LIMIT_ERRORS: Final = frozenset(
+    {"ERR_RESOURCE_LIMIT", "ERR_NAME_TOO_LONG", "ERR_ENTITY_LOOP", "ERR_ENTITY_AMPLIFICATION"}
+)
+_LIMIT_MARKERS: Final = (
+    "depth",
+    "too long",
+    "too large",
+    "huge",
+    "amplification",
+    "resource limit",
+    "limit exceeded",
+    "maximum",
+    "xml_parse_huge",
+    "entity loop",
+)
 
 
 def _strip_predicates(path: str) -> str:
