@@ -92,6 +92,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   have at most 10,000 nodes, and a path at most 64 steps), a property's `typeData`,
   `uom` and `nullValue` siblings are found once per parent, and sibling reads and
   Check 13's ResultSets count towards the same budget.
+- In `validate()`, a file whose internal-DTD entities make its parsed text more than
+  twice its raw size gets one `structure.entity-expansion` error and no other check
+  runs (human decision). Small text entities such as `&deg;` still work.
+- In `validate()`, Check 13 keeps no copy of each ResultSet's rows, only each column's
+  distinct values (read in one streaming pass and charged to the work budget);
+  dataBlock arity is checked in constant time per (dataBlock, measurement); and a file
+  whose path is not valid UTF-8 is passed to libxml2 as a `file:` URI.
 - In `validate()`, any unexpected error inside a step is that step's `incomplete`
   error instead of an exception, and the remaining per-element work in the dictionary
   checks (candidate paths, Check 13 values and terms, ancestor names, memos) is cached

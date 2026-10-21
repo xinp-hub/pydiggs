@@ -1330,3 +1330,124 @@ def test_a_context_limit_makes_the_step_incomplete(tmp_path, monkeypatch):
     report = validate(path, checks=["context"])
     assert report.steps["context"] == "incomplete"
     assert "context.incomplete" in {f.rule_id for f in report.findings}
+
+
+# --- round 9 -------------------------------------------------------------------------
+
+
+def _entities(tmp_path: Path, value: str, uses: int) -> Path:
+    path = tmp_path / "ent.xml"
+    path.write_text(
+        f'<!DOCTYPE Diggs [<!ENTITY e "{value}">]><Diggs xmlns="{NS}">' + "&e;" * uses + "</Diggs>"
+    )
+    return path
+
+
+def test_entities_that_grow_the_file_are_refused(tmp_path):
+    report = validate(_entities(tmp_path, "x" * 1_000, 50))
+    (finding,) = report.findings
+    assert (finding.rule_id, finding.severity.value) == ("structure.entity-expansion", "error")
+    assert {s for s, v in report.steps.items() if v != "skipped"} == {Step.STRUCTURE}
+    assert not report.ok
+
+
+def test_small_text_entities_still_work(tmp_path):
+    path = tmp_path / "deg.xml"
+    path.write_text(
+        '<!DOCTYPE Diggs [<!ENTITY deg "&#176;">]>'
+        f'<Diggs xmlns="{NS}"><a>12&deg; north</a><b>3&deg;</b></Diggs>'
+    )
+    report = validate(path, checks=["schema", "context"])
+    assert "structure.entity-expansion" not in {f.rule_id for f in report.findings}
+    assert report.steps["schema"] == "failed"  # it ran
+
+
+def test_entity_expansion_boundary(tmp_path, monkeypatch):
+    path = _entities(tmp_path, "x" * 100, 40)  # 4,000 characters of text
+    raw = path.stat().st_size
+    doc = _xml.parse(str(path))
+    size = run._expanded_size(doc, 10**9)
+    assert size == 4_000
+    monkeypatch.setattr(run, "MAX_ENTITY_EXPANSION", size / raw + 0.01)  # just under: runs
+    assert validate(path, checks=["context"]).steps["context"] != "skipped"
+    monkeypatch.setattr(run, "MAX_ENTITY_EXPANSION", size / raw - 0.01)  # just over: refused
+    assert [f.rule_id for f in validate(path).findings] == ["structure.entity-expansion"]
+
+
+def test_no_entities_means_nothing_is_measured(tmp_path):
+    doc = _xml.parse(str(NO_ERROR))
+    assert run._expanded_size(doc, 1) == 0  # no internal DTD: never refused
+
+
+def test_check13_keeps_no_rows_and_charges_fields(tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f'<Property index="1">{_PC}</Property></properties></PropertyParameters>'
+        "</parameters><dataValues>" + "ok,x " * 3_000 + "</dataValues></ResultSet>"
+    )
+    site = _definition(tmp_path, inner, body, {"c.xml": codes})
+    assert not hasattr(dictionary._Check13Index, "rows")
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 5_000)  # 6,000 fields
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 50_000)
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
+
+
+def test_each_datablock_pair_is_constant_time(tmp_path):
+    path = tmp_path / "scan.xml"
+    path.write_text(
+        f'<Diggs xmlns="{NS}">'
+        + "<measurement>" * 100
+        + "<result><Property/></result>"
+        + "<dataBlock>"
+        + "1 " * 200_000
+        + "2,2</dataBlock>"
+        + "</measurement>" * 100
+        + "</Diggs>"
+    )
+    start = time.process_time()
+    report = validate(path, checks=["context"])
+    assert time.process_time() - start < 3  # 100 x 200,000 tuple rescans before
+    assert len(report.findings) == 100
+    assert all("tuple 200001 has 2 value(s)" in f.message for f in report.findings)
+
+
+def test_a_non_utf8_file_name_is_passed_as_a_uri(tmp_path, monkeypatch):
+    import pathlib
+
+    weird = Path(str(tmp_path / "a\udcff.xml"))
+    assert run._base_url(weird).startswith("file://")
+    target = NO_ERROR.resolve()
+    real = pathlib.Path.resolve
+
+    def resolve(self, strict=False):
+        resolved = real(self, strict)
+        return (
+            Path(str(resolved).replace("No_Error", "No\udcffError"))
+            if resolved == target
+            else resolved
+        )
+
+    monkeypatch.setattr(pathlib.Path, "resolve", resolve)
+    report = validate(NO_ERROR)  # no UnicodeEncodeError from lxml
+    assert report.ok
+    report.to_json()
+
+
+@pytest.mark.parametrize("use", ["<a/>&e;", '<a v="&e;"/>'])
+def test_expansion_in_tails_and_attributes_counts(tmp_path, use):
+    path = tmp_path / "t.xml"
+    path.write_text(
+        f'<!DOCTYPE Diggs [<!ENTITY e "{"x" * 1_000}">]><Diggs xmlns="{NS}">'
+        + use * 50
+        + "</Diggs>"
+    )
+    assert [f.rule_id for f in validate(path).findings] == ["structure.entity-expansion"]
