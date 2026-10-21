@@ -636,7 +636,12 @@ def _local_site(tmp_path: Path, dictionary: bytes) -> Path:
 )
 def test_unsafe_local_dictionaries_fail_closed(tmp_path, dictionary, why):
     report = validate(_local_site(tmp_path, dictionary), checks=["dictionary"])
-    assert not report.ok and report.steps["dictionary"] == "incomplete"
+    try:  # what this platform's libxml2 reports, shown if the assertion fails
+        _xml.parse_bytes(dictionary, None)
+        errors = ["parsed"]
+    except etree.XMLSyntaxError as exc:
+        errors = [(e.type_name, e.domain_name, e.message) for e in exc.parser_errors]
+    assert not report.ok and report.steps["dictionary"] == "incomplete", (errors, report.findings)
     by_rule = {f.rule_id: f for f in report.findings}
     assert set(by_rule) == {"dictionary.incomplete", "dictionary.3"}
     assert why in by_rule["dictionary.incomplete"].message
@@ -795,9 +800,13 @@ def test_internal_error_text_is_scrubbed_before_it_is_cut(work, monkeypatch, tmp
     import urllib.parse
 
     home = work.parent
-    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
     target = work / "ok.xml"
-    spellings = [str(target.resolve()), target.resolve().as_uri(), urllib.parse.quote(str(home))]
+    spellings = [
+        str(target.resolve()),
+        target.resolve().as_uri(),
+        urllib.parse.quote(home.as_posix()),
+    ]
 
     def boom(path, **kwargs):
         raise RuntimeError("x" * 280 + " ".join(spellings) + f" {home}/elsewhere.txt")
@@ -1118,14 +1127,15 @@ def test_a_predicate_only_conditional_matches_nothing(tmp_path):
 def test_scrubbing_handles_odd_home_folders(tmp_path, monkeypatch, home):
     import urllib.parse
 
-    home_path = Path(home) if home == "/" else tmp_path / home
-    monkeypatch.setenv("HOME", str(home_path))
+    home_path = Path(Path.cwd().anchor) if home == "/" else tmp_path / home
+    # Path.home() reads HOME on POSIX but USERPROFILE on Windows: patch it directly.
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home_path))
     target = tmp_path / "site.xml"
     if home == "/":
         text = _cli._scrub("RuntimeError: /etc/passwd and file:///x", target, "site.xml")
         assert text == "RuntimeError: /etc/passwd and file:///x"  # nothing becomes "~"
         return
-    raw = f"at {urllib.parse.quote(str(home_path))}/q and {home_path.as_uri()}/r"
+    raw = f"at {urllib.parse.quote(home_path.as_posix())}/q and {home_path.as_uri()}/r"
     text = _cli._scrub(raw, target, "site.xml")
     assert text == "at ~/q and ~/r"
 
@@ -1261,8 +1271,9 @@ def test_path_length_limit_boundary(tmp_path, steps, incomplete):
 
 def test_home_scrubbing_prefers_the_longest_spelling(tmp_path, monkeypatch):
     home = tmp_path / "h"
-    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
     assert _cli._scrub(f"at {home.as_uri()}/x", tmp_path / "a.xml", "a.xml") == "at ~/x"
+    assert _cli._scrub(f"at {home}{os.sep}x", tmp_path / "a.xml", "a.xml") == f"at ~{os.sep}x"
 
 
 def test_the_strip_cache_is_per_instance():
