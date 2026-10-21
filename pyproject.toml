@@ -160,6 +160,7 @@ filterwarnings = [
 markers = [
   "slow: excluded from the fast feedback loop",
   "network: requires network access",
+  "scaling: complexity tests (work grows linearly); run in CI's Linux job",
 ]
 
 [tool.coverage.run]

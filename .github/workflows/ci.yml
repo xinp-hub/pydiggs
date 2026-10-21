@@ -101,7 +101,7 @@ jobs:
           python-version: "3.13"
       - run: uv sync --all-groups
       - name: pytest (fast suite)
-        run: uv run pytest -q -m "not slow" -p no:randomly --durations=25
+        run: uv run pytest -q -m "not slow and not scaling" -p no:randomly --durations=25
 
   build:
     name: build & inspect

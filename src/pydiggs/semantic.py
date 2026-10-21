@@ -28,6 +28,8 @@ class ContextValidationResult:
     )
     #: validate(): why a check stopped early (its results are partial).
     limits_hit: list[str] = field(default_factory=list, compare=False)
+    #: validate(): units of dataBlock work done (pairs and tuples read), for tests.
+    work: int = field(default=0, compare=False)
 
     def path(self, el: etree._Element) -> str:
         """The legacy ``/name[n]/...`` path of ``el`` ("" when not needed).
@@ -280,8 +282,11 @@ def _check_datablocks_linear(root: etree._Element, result: ContextValidationResu
         if not n_props or not walk.blocks[measurement]:
             continue
         for block in walk.blocks[measurement]:
+            result.work += 1
             if block not in shapes:
-                shapes[block] = _block_shape(_tuple_lengths(block))
+                counts = _tuple_lengths(block)
+                result.work += len(counts)
+                shapes[block] = _block_shape(counts)
             bad = _first_mismatch(shapes[block], n_props)
             if bad is not None:
                 result.add(
