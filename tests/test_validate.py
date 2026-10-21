@@ -72,6 +72,9 @@ _CHECK8_DIFFERS = frozenset({"AtterbergExample.xml", "AtterbergExample-from25.xm
 @pytest.mark.parametrize("path", CORPUS, ids=lambda p: p.as_posix())
 def test_validate_agrees_with_the_legacy_methods(path):
     report = validate(path)
+    # No safety limit may trip on a legitimate file: nothing incomplete, anywhere.
+    assert "incomplete" not in report.steps.values(), report.steps
+    assert not [f.rule_id for f in report.findings if f.rule_id.endswith(".incomplete")]
     legacy = validator(str(path), output_log=False)
     wp04 = frozenset({rules.DICTIONARY_13, rules.DEPRECATED, rules.REMOVED})
     if path.name in _CHECK8_DIFFERS:  # validate() reads "//" as descendant (Check 8)

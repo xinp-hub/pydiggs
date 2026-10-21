@@ -95,8 +95,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - In `validate()`, a file whose internal-DTD entities make its parsed text more than
   twice its raw size gets one `structure.entity-expansion` error and no other check
   runs (human decision). Small text entities such as `&deg;` still work.
-- In `validate()`, Check 13 keeps no copy of each ResultSet's rows, only each column's
-  distinct values (read in one streaming pass and charged to the work budget);
+- In `validate()`, a namespace URI longer than 1,024 characters gives one
+  `structure.namespace-too-long` error and no other check runs (human decision). The
+  2x expansion check now runs whenever there is an internal DTD, counts UTF-8 bytes,
+  and includes ATTLIST defaults and namespace URIs.
+- In `validate()`, Check 13 keeps no copy of each ResultSet's rows, only the distinct
+  values of the columns its properties ask for, read in one streaming pass that splits
+  each row no further than needed (at most 20 million fields per document);
   dataBlock arity is checked in constant time per (dataBlock, measurement); and a file
   whose path is not valid UTF-8 is passed to libxml2 as a `file:` URI.
 - In `validate()`, any unexpected error inside a step is that step's `incomplete`

@@ -54,14 +54,21 @@ says why, so `report.ok` is False and the CLI exits 1:
   the whole file is parsed without expanding entities, and the DTD the main parser
   saw is checked again after the full parse. Entities whose value is plain text
   (`<!ENTITY org "Acme Ltd">`) still work.
-* `structure.entity-expansion`: the internal DTD declares entities and, once parsed,
-  the file's text (element text, tails and attribute values) is more than **twice its
-  raw size in bytes**. Plain-text entities that stay under that still work (an
-  `&deg;` here and there costs nothing). The text is measured in one pass, and only
-  when the DTD declares an entity; `validate()` then reports this one error and runs
-  no other check. Every size limit (`max_bytes`, the 10 MB the security review
-  measures against) refers to the raw file, so this keeps the parsed size within a
-  small factor of it.
+* `structure.namespace-too-long`: a namespace URI longer than **1,024 characters** is
+  declared, in the file or as an `xmlns` default from the internal DTD's ATTLIST. Every
+  element's tag carries its namespace, so one long URI multiplies the cost of every
+  step; real DIGGS URIs are under 100 characters. One C-level pass over the namespace
+  declarations decides this; `validate()` reports this one error and runs no other
+  check.
+* `structure.entity-expansion`: the file has an internal DTD and, once parsed, its
+  text (element text, tails, attribute values including ATTLIST defaults, and
+  namespace URIs) is more than **twice its raw size**, both counted in UTF-8 bytes.
+  Plain-text entities that stay under that still work (an `&deg;` here and there
+  costs nothing). The text is measured in one pass, only when there is an internal
+  DTD (with one, the file is parsed a second time with ATTLIST defaults filled in, to
+  measure them); `validate()` then reports this one error and runs no other check.
+  Every size limit (`max_bytes`, the 10 MB the security review measures against)
+  refers to the raw file, so this keeps the parsed size within a small factor of it.
 * A file with more than **9,900,000 elements** does not run the XPath-based steps
   (dictionary, Schematron, deprecation, geometry, context, structure root checks): each
   gets a `<step>.incomplete` error. Schema validation still runs. The elements are
@@ -82,11 +89,17 @@ says why, so `report.ok` is False and the CLI exits 1:
   limit: more than 16 different local dictionaries, more than their byte budget (see
   [Limits](#limits)), an internal DTD that declares a markup entity, or a libxml2
   resource limit (entity amplification, nesting depth, a huge text node, an overlong
-  name). The codeSpace also gets its `dictionary.3` warning.
+  name, a comment, processing instruction or CDATA section over libxml2's 10 MB node
+  limit). The codeSpace also gets its `dictionary.3` warning. Limits are recognised by
+  libxml2's error code or its own limit wording; on a libxml2 build that reports a
+  limit with neither, it is indistinguishable from a syntax error and gives only the
+  warning.
 * `dictionary.incomplete` when the dictionary checks would cost too much: a Definition
   that lists more than 1,000 source or conditional paths or names, has more than
   10,000 nodes, or uses a path of more than 64 steps; more than 20,000,000 `dataValues`
-  fields read by Check 13 (a 10 MB file holds at most about 5 million); or more than
+  fields read by Check 13 (a 10 MB file holds at most about 5 million; Check 13 reads
+  only the columns its properties ask for, each row split no further than the last of
+  them); or more than
   5,000,000 dictionary work steps in one instance (path matching, sibling reads, Check 13's
   ResultSets). Real DIGGS definitions list at most 9 paths, and the largest corpus file
   needs 39,000 steps; files shaped like real ones reach the budget at about 30 to
@@ -256,7 +269,8 @@ Rule ids are part of the stable contract.
 | `schema.libxml2.<TYPE>` | error / warning | A libxml2 error type that names no XSD rule, e.g. `schema.libxml2.SCHEMAV_DOCUMENT_ELEMENT_MISSING` |
 | `<step>.incomplete` | error | The step could not finish: libxml2 could not finish schema validation, a libxml2/libxslt limit stopped an XPath or the bundled Schematron, the file has more than 9,900,000 elements, an element has more than 50,000 children or the rules would fire on more than 100,000 elements (Schematron), a local dictionary was refused by a safety limit, or dictionary path matching passed its limits (see [Fail closed](#fail-closed)); the step is `incomplete` |
 | `structure.markup-entity` | error | The internal DTD declares an entity whose value contains markup; no other check ran (see [Fail closed](#fail-closed)) |
-| `structure.entity-expansion` | error | The internal DTD's entities make the parsed text more than twice the file's raw size; no other check ran |
+| `structure.entity-expansion` | error | The internal DTD's entities or ATTLIST defaults make the parsed text more than twice the file's raw size; no other check ran |
+| `structure.namespace-too-long` | error | A namespace URI is longer than 1,024 characters; no other check ran |
 | `structure.timeout` | error | `pydiggs validate --timeout` stopped the file, or its worker died; the requested steps are `incomplete` |
 | `structure.internal-error` | error | `pydiggs validate` caught an unexpected error for this file; the requested steps are `incomplete` |
 | `dictionary.1` ... `dictionary.12` | as the legacy check | The legacy dictionary checks, numbered as in their messages (1 uncontrolled codeSpace, 2 not whitelisted, 3 not accessible, 4 not a dictionary, 5 code not found, 6 wrong context, 7 name mismatch, 8 wrong measurement, 9 data type, 10 unitless with uom, 11 missing uom, 12 invalid uom) |
@@ -384,8 +398,10 @@ pydiggs's own code is bounded. On the security reviews' test files (up to 10 MB 
 default settings) no pydiggs-owned path took more than about 12 s of CPU (1,000
 conditional paths tried against 180,000 elements, stopped by the work budget) or about
 350 MB beyond parsing (ancestor-name sets under a 250-deep chain with 260,000 parents).
-Check 13 keeps no rows, only each column's distinct values (a 9.8 MB file of one-cell
-rows peaks at about 205 MB in all, where it used 425 MB). The costs below belong to lxml and libxml2/libxslt and are not bounded by
+Check 13 keeps no rows, only the distinct values of the columns its properties ask
+for (a 9.8 MB file of one-cell rows peaks at about 205 MB in all, where it used 425 MB;
+one 9 MB row of 9 million empty fields takes 0.2 s and 113 MB, where reading every
+column took 2.1 GB). The costs below belong to lxml and libxml2/libxslt and are not bounded by
 pydiggs. Measured on an Apple M3 Max MacBook Pro in CPU seconds (one process, default
 settings, lxml 6.1.3, libxml2 2.14.6, libxslt 1.1.43; wall time on a busy machine is
 higher):
@@ -418,7 +434,10 @@ reads: usually decided from the prolog alone, and for UTF-32 with a BOM, which l
 push parser cannot read, after one parse that expands no entity. A file whose
 plain-text entities make its text more than twice its raw size is refused after the
 parse (`structure.entity-expansion`); the parse itself is libxml2's, which limits
-amplification to a factor of about 5. A 9.6 MB file that would expand to 12 million
+entity amplification to a factor of about 5 and any single text, comment, PI, CDATA or
+attribute node to 10 MB (without `huge_tree`, which pydiggs never sets), so the
+largest parse pydiggs can be asked to do is bounded by the raw size before its own 2x
+check runs. A 9.6 MB file that would expand to 12 million
 elements is reported in 0.1 s and 54 MB, where 1.2 development builds used 1.7 GB;
 dataBlocks of entity-expanded text that took 9 s are refused in under 0.1 s. Local
 dictionaries with markup entities are refused the same way (`dictionary.incomplete`);

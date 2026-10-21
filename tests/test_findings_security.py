@@ -239,7 +239,7 @@ def test_sarif_file_uris_for_extended_length_windows_paths(path, uri):
     assert _sarif.file_uri(path) == uri
 
 
-def test_a_long_unused_namespace_cannot_evade_schematron(tmp_path, capsys):
+def test_a_long_unused_namespace_cannot_evade_schematron(tmp_path, capsys, monkeypatch):
     # Review round 4 (bad_evade.xml): a 1,025-character namespace URI that no element
     # uses made validate() skip the Schematron rules with a warning, so a file with a
     # negative depth passed. The rules now always run.
@@ -250,8 +250,15 @@ def test_a_long_unused_namespace_cannot_evade_schematron(tmp_path, capsys):
         '<totalMeasuredDepth uom="ft">-1</totalMeasuredDepth></Borehole></samplingFeature>'
         "</Diggs>"
     )
+    # Since round 10 a URI over 1,024 characters is refused outright (fail closed)...
+    report = validate(path, checks=["schematron"])
+    assert [f.rule_id for f in report.findings] == ["structure.namespace-too-long"]
+    assert main(["validate", "--checks", "schematron", str(path)]) == 1
+    capsys.readouterr()
+    # ...and the layer below still runs the rules when that limit is lifted.
+    from pydiggs.findings import run
+
+    monkeypatch.setattr(run, "MAX_NAMESPACE_CHARS", 10**9)
     report = validate(path, checks=["schematron"])
     assert report.ok is False
     assert [f.rule_id for f in report.findings] == ["schematron.Borehole.totalMeasuredDepth"]
-    assert main(["validate", "--checks", "schematron", str(path)]) == 1
-    capsys.readouterr()

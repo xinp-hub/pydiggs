@@ -229,11 +229,18 @@ def _schematron_case(tmp_path, *, depth: int, uri: int = 0, name: int = 0, faili
     [{"depth": 100, "uri": 1000}, {"depth": 100, "name": 1000}, {"depth": 3, "uri": 2000}],
     ids=["deep-namespace", "deep-names", "long-namespace"],
 )
-def test_schematron_runs_and_locates_where_lxml_paths_would_blow_up(tmp_path, kwargs):
+def test_schematron_runs_and_locates_where_lxml_paths_would_blow_up(tmp_path, kwargs, monkeypatch):
     # With generate-paths=false lxml builds no location strings, so these run in full.
+    # (A namespace URI over 1,024 characters is refused first by default; the limit
+    # is lifted here to test the layer below it.)
     from pydiggs import Step, validate
+    from pydiggs.findings import run
 
-    report = validate(_schematron_case(tmp_path, **kwargs), checks=["schematron"])
+    path = _schematron_case(tmp_path, **kwargs)
+    if kwargs.get("uri", 0) > run.MAX_NAMESPACE_CHARS:
+        assert [f.rule_id for f in validate(path).findings] == ["structure.namespace-too-long"]
+        monkeypatch.setattr(run, "MAX_NAMESPACE_CHARS", 10**9)
+    report = validate(path, checks=["schematron"])
     assert [f.rule_id for f in report.findings] == ["schematron.Borehole.totalMeasuredDepth"] * 20
     assert report.steps[Step.SCHEMATRON] == "failed"
     assert {f.gml_id for f in report.findings} == {f"BH-{i}" for i in range(20)}
@@ -251,6 +258,8 @@ _SKIP_RSS = """
 import resource, sys, tempfile
 from pathlib import Path
 from pydiggs import validate
+from pydiggs.findings import run
+run.MAX_NAMESPACE_CHARS = 10**9  # by default the file is refused; test the layer below
 bh = ('<samplingFeature><Borehole gml:id="BH-{i}"><totalMeasuredDepth uom="ft">-1'
       '</totalMeasuredDepth></Borehole></samplingFeature>')
 path = Path(tempfile.mkdtemp()) / "s.xml"

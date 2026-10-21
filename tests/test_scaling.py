@@ -101,34 +101,43 @@ def test_property_class_siblings(semantic, tmp_path):
 
 def test_definition_size(semantic, tmp_path):
     def run_with(junk: int, elements: int) -> int:
-        files = {
-            "d.xml": _definition(
-                "<gml:name>t</gml:name>" + _sources("//diggs:propertyClass") + "<x/>" * junk
-            )
-        }
+        inner = "<gml:name>t</gml:name>" + _sources("//diggs:propertyClass") + "<x/>" * junk
+        files = {"d.xml": _definition(inner)}
         return _work(semantic, tmp_path / f"{junk}_{elements}", f"<p>{PC}</p>" * elements, files)
 
-    # Each element must not pay for the Definition again: doubling the elements while
-    # the Definition is large costs little more.
-    small = run_with(9_000, 500)
-    large = run_with(9_000, 1_000)
-    assert _ratio(small, large, "definition size x elements") <= LINEAR
+    # Doubling the elements with the Definition fixed: linear.
+    assert _ratio(run_with(9_000, 500), run_with(9_000, 1_000), "elements") <= LINEAR
+    # Doubling the Definition with the elements fixed: the extra cost is the extra
+    # Definition nodes once (4,500), not once per element (500 x 4,500).
+    extra = run_with(9_000, 500) - run_with(4_500, 500)
+    print(f"RATIO definition size doubled: +{extra} units")
+    assert extra <= 4_500 + 100
 
 
 def test_long_conditional_paths(semantic, tmp_path):
-    def run_with(steps: int) -> int:
+    def run_with(steps: int) -> tuple[int, list[tuple[object, ...]]]:
+        # A chain of <b> as deep as the path, so every step is walked to the end.
         path = "ancestor::diggs:a/" + "diggs:b/" * steps + "diggs:z"
         files = {
             "d.xml": _definition(
                 "<gml:name>t</gml:name>" + _sources("//diggs:propertyClass", conditionals=(path,))
             )
         }
-        body = "<a>" + "<b/>" * 2_000 + PC + "</a>"
-        return _work(semantic, tmp_path / str(steps), body, files)
+        body = "<a>" + "<b>" * steps + "</b>" * steps + PC + "</a>"
+        keys: list[tuple[object, ...]] = []
 
-    small = run_with(30)
-    large = run_with(60)
-    assert _ratio(small, large, "conditional path length") <= LINEAR
+        def memo_keys(s: DictionarySemanticValidator) -> int:
+            keys.extend(s._child_memo)
+            return s._work
+
+        return _work(semantic, tmp_path / str(steps), body, files, memo_keys), keys
+
+    small, keys_small = run_with(30)
+    large, keys_large = run_with(60)
+    assert _ratio(small, large, "conditional path length, walked to the end") <= LINEAR
+    # Memo keys stay three items (node, path identity, offset): no copy of the steps.
+    assert {len(k) for k in keys_small + keys_large} == {3}
+    assert len(keys_large) >= 60
 
 
 def test_candidate_paths(semantic, tmp_path):
@@ -342,3 +351,113 @@ def test_entity_expansion_cap(tmp_path):
 
     assert "structure.entity-expansion" not in rules(file(1))
     assert rules(file(200)) == ["structure.entity-expansion"]
+
+
+# --- calls to the expensive primitives (a regression that bypasses ``work`` still fails) --
+
+
+def _counting(monkeypatch, module, name: str, size=lambda result: 1) -> list[int]:
+    """Replace ``module.name`` with a wrapper that records ``size(result)`` per call."""
+    calls: list[int] = []
+    real = getattr(module, name)
+
+    def wrapper(*args, **kwargs):
+        result = real(*args, **kwargs)
+        calls.append(size(result))
+        return result
+
+    monkeypatch.setattr(module, name, wrapper)
+    return calls
+
+
+def test_datablock_tuples_are_counted_once_per_block(monkeypatch):
+    from pydiggs import semantic
+
+    counted = _counting(monkeypatch, semantic, "_tuple_lengths", len)
+    _datablock_work(100, 20_000)
+    small = sum(counted)
+    counted.clear()
+    _datablock_work(200, 20_000)  # twice the enclosing measurements, same block
+    assert small == sum(counted) == 20_000
+    _ratio(small, sum(counted), "datablock tuples read (nesting doubled)")
+
+
+def test_check13_reads_only_the_wanted_column(semantic, tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+
+    def body(width: int) -> str:
+        row = ",".join(f"x{i}" for i in range(width))
+        return (
+            '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+            f'<Property index="1">{PC}</Property></properties></PropertyParameters>'
+            f"</parameters><dataValues>{row} {row}</dataValues></ResultSet>"
+        )
+
+    normalised = _counting(monkeypatch, dictionary, "_normalize_space")
+
+    fields: list[int] = []
+
+    def stored(s: DictionarySemanticValidator) -> int:
+        index = s._check13
+        if index is None:
+            return 0
+        fields.append(index._fields)  # each row is split only up to the wanted column
+        return sum(len(t) for cols in index._distinct.values() for t in cols.values())
+
+    small = _work(semantic, tmp_path / "a", body(20_000), files, stored)
+    calls_small = len(normalised)
+    normalised.clear()
+    large = _work(semantic, tmp_path / "b", body(40_000), files, stored)
+    assert small == large == 1  # one wanted column, one distinct value: nothing else kept
+    assert fields == [2, 2]  # two rows, one field read from each
+    # Fields are normalised for the wanted column only, not for every field of the row.
+    assert len(normalised) <= calls_small + 50
+    _ratio(calls_small, len(normalised), "check 13 row width (fields normalised)")
+
+
+def test_sibling_names_are_read_once_per_parent(semantic, tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    names = _counting(monkeypatch, dictionary, "_local")
+
+    def body(n: int) -> str:
+        el = (
+            '<propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml'
+            '#aashto_group_index">aashto_group_index</propertyClass>'
+        )
+        return f"<characteristicProperty>{el * n}</characteristicProperty>"
+
+    _work(semantic, tmp_path / "a", body(1_000))
+    small = len(names)
+    names.clear()
+    _work(semantic, tmp_path / "b", body(2_000))
+    assert _ratio(small, len(names), "sibling scans (local-name calls)") <= LINEAR
+
+
+def test_namespace_uri_cap(tmp_path):
+    def file(length: int) -> Path:
+        path = tmp_path / f"ns{length}.xml"
+        path.write_text(f'<Diggs xmlns="urn:{"a" * (length - 4)}"><a/></Diggs>')
+        return path
+
+    def rules(path: Path) -> list[str]:
+        return [f.rule_id for f in validate(path, checks=["structure"]).findings]
+
+    assert "structure.namespace-too-long" not in rules(file(1_024))
+    assert rules(file(1_025)) == ["structure.namespace-too-long"]
+
+
+def test_namespace_walk_is_linear():
+    def walk(n: int) -> int:
+        doc = etree.ElementTree(
+            etree.fromstring(
+                f'<r xmlns="{NS}">'
+                + "".join(f'<a xmlns:p{i}="urn:{i}"/>' for i in range(n))
+                + "</r>"
+            )
+        )
+        return run._namespaces(doc)[1]  # bytes of all URIs: one entry per declaration
+
+    assert _ratio(walk(5_000), walk(10_000), "namespace declarations (bytes)") <= LINEAR

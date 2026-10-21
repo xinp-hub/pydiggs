@@ -974,7 +974,7 @@ def test_check13_columns_are_read_once_per_result_set(tmp_path, monkeypatch):
     monkeypatch.setattr(
         dictionary._Check13Index,
         "column",
-        lambda self, rs, col: calls.append(col) or real(self, rs, col),
+        lambda self, rs, col, *rest: calls.append(col) or real(self, rs, col, *rest),
     )
     codes = (
         '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
@@ -1377,8 +1377,9 @@ def test_entity_expansion_boundary(tmp_path, monkeypatch):
     path = _entities(tmp_path, "x" * 100, 40)  # 4,000 characters of text
     raw = path.stat().st_size
     doc = _xml.parse(str(path))
-    size = run._expanded_size(doc, 10**9)
-    assert size == 4_000
+    namespaces = run._namespaces(doc)[1]  # the namespace URI counts too
+    size = run._expanded_size(doc, 10**9, namespaces)
+    assert size == 4_000 + namespaces
     monkeypatch.setattr(run, "MAX_ENTITY_EXPANSION", size / raw + 0.01)  # just under: runs
     assert validate(path, checks=["context"]).steps["context"] != "skipped"
     monkeypatch.setattr(run, "MAX_ENTITY_EXPANSION", size / raw - 0.01)  # just over: refused
@@ -1406,7 +1407,7 @@ def test_check13_keeps_no_rows_and_charges_fields(tmp_path, monkeypatch):
     )
     site = _definition(tmp_path, inner, body, {"c.xml": codes})
     assert not hasattr(dictionary._Check13Index, "rows")
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 5_000)  # 6,000 fields
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 2_000)  # 3,000 rows, 1 field read each
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
     monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 50_000)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
@@ -1462,3 +1463,187 @@ def test_expansion_in_tails_and_attributes_counts(tmp_path, use):
         + "</Diggs>"
     )
     assert [f.rule_id for f in validate(path).findings] == ["structure.entity-expansion"]
+
+
+# --- round 10 ------------------------------------------------------------------------
+
+
+def test_an_overlong_namespace_uri_is_refused(tmp_path):
+    path = tmp_path / "ns.xml"
+    path.write_text(f'<Diggs xmlns="urn:{"a" * 2_000}"><a/></Diggs>')
+    report = validate(path)
+    (finding,) = report.findings
+    assert (finding.rule_id, finding.severity.value) == ("structure.namespace-too-long", "error")
+    assert {s for s, v in report.steps.items() if v != "skipped"} == {Step.STRUCTURE}
+
+
+def test_attlist_namespace_defaults_count_towards_expansion(tmp_path):
+    """An ATTLIST default xmlns:p is declared on every <a> without growing the file."""
+    uri = "urn:" + "u" * 1_000  # under the 1,024 limit
+    path = tmp_path / "attlist.xml"
+    path.write_text(
+        f'<!DOCTYPE Diggs [<!ATTLIST a xmlns:p CDATA "{uri}">]><Diggs xmlns="{NS}">'
+        + "<a/>" * 200
+        + "</Diggs>"
+    )
+    assert [f.rule_id for f in validate(path).findings] == ["structure.entity-expansion"]
+    too_long = tmp_path / "attlist_long.xml"
+    too_long.write_text(
+        f'<!DOCTYPE Diggs [<!ATTLIST a xmlns:p CDATA "urn:{"u" * 1_100}">]>'
+        f'<Diggs xmlns="{NS}"><a/></Diggs>'
+    )
+    assert [f.rule_id for f in validate(too_long).findings] == ["structure.namespace-too-long"]
+
+
+def test_attlist_attribute_defaults_count_towards_expansion(tmp_path):
+    """libxml2 applies an ATTLIST default to every matching element: it is counted."""
+    path = tmp_path / "defaults.xml"
+    path.write_text(
+        f'<!DOCTYPE Diggs [<!ATTLIST a x CDATA "{"v" * 500}">]><Diggs>'
+        + '<a xmlns=""/>' * 100
+        + "</Diggs>"
+    )
+    doc = _xml.parse(str(path))
+    assert all(len(a.get("x", "")) == 500 for a in doc.getroot())  # applied, no entity
+    assert [f.rule_id for f in validate(path).findings] == ["structure.entity-expansion"]
+
+
+def test_expansion_is_measured_in_bytes(tmp_path):
+    """Text is counted as UTF-8 bytes, like the raw file size it is compared with."""
+    doc = _xml.parse_bytes('<!DOCTYPE r [<!ENTITY e "x">]><r a="€">ééé</r>'.encode(), None)
+    assert run._expanded_size(doc, 10**9) == 3 + 6  # "€" is 3 bytes, "ééé" 6
+
+
+@pytest.mark.parametrize(
+    "dictionary",
+    [
+        b"<a><!--" + b"x" * 10_500_000 + b"--></a>",
+        b"<a><?p " + b"x" * 10_500_000 + b"?></a>",
+        b"<a><![CDATA[" + b"x" * 10_500_000 + b"]]></a>",
+    ],
+    ids=["comment", "pi", "cdata"],
+)
+def test_oversized_comment_pi_and_cdata_in_a_local_dictionary_fail_closed(tmp_path, dictionary):
+    report = validate(_local_site(tmp_path, dictionary), checks=["dictionary"])
+    assert report.steps["dictionary"] == "incomplete", report.findings
+    assert any("too big" in f.message for f in report.findings)
+
+
+@pytest.mark.parametrize(
+    "dictionary",
+    [
+        b"<maximumDepth><b></maximumDepth>",  # a tag mismatch quoting a limit-like name
+        b"<XML_PARSE_HUGE><b></XML_PARSE_HUGE>",  # a quoted name equal to a limit phrase
+        b"<a>&depth;</a>",  # an undeclared entity called "depth"
+        b"<a><q:depth/></a>",  # an undeclared namespace prefix
+    ],
+)
+def test_ordinary_errors_quoting_limit_words_stay_warnings(tmp_path, dictionary):
+    report = validate(_local_site(tmp_path, dictionary), checks=["dictionary"])
+    assert [f.rule_id for f in report.findings] == ["dictionary.3"]
+    assert report.steps["dictionary"] == "passed"
+
+
+def test_a_context_step_error_fails_both_context_steps(monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("bug")
+
+    monkeypatch.setattr(run, "validate_context_tree", boom)
+    report = validate(NO_ERROR, checks=["geometry", "context"])
+    assert report.steps["geometry"] == report.steps["context"] == "incomplete"
+    assert {f.rule_id for f in report.findings} == {"geometry.incomplete", "context.incomplete"}
+
+
+def test_invalid_values_are_cached_per_null_value(tmp_path):
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f'<Property index="1">{_PC}<nullValue>x</nullValue></Property>'
+        f'<Property index="1">{_PC}<nullValue>y</nullValue></Property>'
+        "</properties></PropertyParameters></parameters><dataValues>x y</dataValues></ResultSet>"
+    )
+    messages = [
+        m for r, m in _check(tmp_path, inner, body, {"c.xml": codes}) if r == "dictionary.13"
+    ]
+    assert len(messages) == 2
+    assert '"y"' in messages[0] and '"x"' not in messages[0].split(":")[1]
+    assert '"x"' in messages[1]
+
+
+def test_entity_expansion_at_exactly_twice_the_raw_size(tmp_path):
+    """Exactly 2x is allowed; one byte more is refused (MAX_ENTITY_EXPANSION = 2)."""
+
+    def build(pad: int, length: int) -> tuple[Path, int, int]:
+        path = tmp_path / "x.xml"
+        path.write_text(
+            f'<!DOCTYPE Diggs [<!ENTITY e "{"x" * length}">]>'
+            f"<Diggs{' ' * pad}>" + "<a>&e;</a>" * 20 + "</Diggs>"
+        )
+        doc = _xml.parse(str(path))
+        size = run._expanded_size(doc, 10**9, run._namespaces(doc)[1], path.read_bytes())
+        return path, size, path.stat().st_size
+
+    for length in (100, 101):  # one of the two parities can hit 2x exactly
+        pad = 0
+        path, size, raw = build(pad, length)
+        while 2 * raw < size:
+            pad += 1
+            path, size, raw = build(pad, length)
+        if 2 * raw == size:
+            break
+    assert 2 * raw == size
+    assert "structure.entity-expansion" not in {f.rule_id for f in validate(path).findings}
+    path, size, raw = build(pad - 1, length)  # one raw byte fewer: now over 2x
+    assert [f.rule_id for f in validate(path).findings] == ["structure.entity-expansion"]
+
+
+def test_limit_comparisons_allow_the_limit_itself(tmp_path, monkeypatch):
+    from pydiggs import dictionary, semantic
+    from pydiggs.dictionary import _xs_integer
+
+    assert _xs_integer("9" * 18) == int("9" * 18)
+    assert _xs_integer("9" * 19) is None
+    monkeypatch.setattr(semantic, "MAX_DATABLOCK_PAIRS", 3)
+    root = etree.fromstring(
+        "<Diggs>"
+        + "<measurement>" * 3
+        + "<dataBlock>1</dataBlock>"
+        + "</measurement>" * 3
+        + "</Diggs>"
+    )
+    assert not semantic.validate_context_tree(root, legacy_paths=False).limits_hit  # 3 pairs
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f'<Property index="1">{_PC}</Property></properties></PropertyParameters>'
+        "</parameters><dataValues>" + "ok " * 10 + "</dataValues></ResultSet>"
+    )
+    site = _definition(tmp_path, inner, body, {"c.xml": codes})
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 10)  # exactly 10 fields
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 9)
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
+
+
+def test_strip_cache_charges_and_ancestor_sets_reuse_their_parents():
+    from pydiggs.dictionary import DictionarySemanticValidator
+
+    semantic = DictionarySemanticValidator(bounded=True)
+    before = semantic._work
+    semantic._stripped("a[x]/b")
+    assert semantic._work > before
+    root = etree.fromstring("<r><a><b><a><x/></a></b></a></r>")
+    inner_a = root[0][0][0]
+    x = inner_a[0]
+    # x's ancestors are r, a, b, a: the inner a adds nothing new, so its set is b's.
+    assert semantic._ancestor_names(x) is semantic._ancestor_names(inner_a)
