@@ -397,7 +397,8 @@ xml = ('<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengi
        '<properties>' + "".join(prop.format(i=i + 1) for i in range(k))
        + '</properties></PropertyParameters></parameters><dataValues>' + row
        + '</dataValues></ResultSet>'
-       + ('<ResultSet><parameters xlink:href="#PP"/><dataValues>' + row + '</dataValues></ResultSet>') * r
+       + ('<ResultSet><parameters xlink:href="#PP">' + OWN + '</parameters><dataValues>' + row
+          + '</dataValues></ResultSet>') * r
        + '</results></TestResult></outcome></Test></measurement></Diggs>')
 path = Path(tempfile.mkdtemp()) / "c13mem.xml"
 path.write_text(xml)
@@ -410,11 +411,17 @@ print(peak() - base, report.counts["error"])
 
 @pytest.mark.slow
 @pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
-def test_check13_many_result_sets_stays_small():
+@pytest.mark.parametrize("own", ["", "<PropertyParameters/>"], ids=["cite", "cite-and-own"])
+def test_check13_many_result_sets_stays_small(own):
     # 2,200 properties x 2,200 ResultSets citing them (9.8 MiB): the per-ResultSet
-    # column cache used to grow to gigabytes.
+    # column cache used to grow to gigabytes. With an (empty) PropertyParameters of
+    # their own as well, every ResultSet's groups differ, yet the column sets must still
+    # be shared (code review, round 12: 718 MB when they were keyed by the groups).
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-        [sys.executable, "-c", _PEAK + _C13MEM], capture_output=True, text=True, check=True
+        [sys.executable, "-c", _PEAK + f"OWN = {own!r}\n" + _C13MEM],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.split()
     assert float(out[0]) < 300, out  # MB beyond parsing
     assert int(out[1]) == 2200
@@ -438,3 +445,42 @@ def test_context_checks_do_not_build_long_namespace_strings(tmp_path):
     finally:
         tracemalloc.stop()
     assert peak < 20 * 2**20, peak  # tags would need 100 MB
+
+
+def _sc():
+    from tests import test_scaling
+
+    return test_scaling
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize(
+    ("shape", "expected"),
+    [
+        (lambda: _sc()._bigcite(55_000, 30_000), "passed"),
+        (lambda: _sc()._dupcite(500), "passed"),
+        (lambda: _sc()._outside(20_000, 7_000_000), "passed"),
+        (lambda: _sc()._propcite(50_000, 50_000), "incomplete"),
+    ],
+    ids=["bigcite", "dupcite", "outside", "propcite"],
+)
+def test_check13_ten_megabyte_shapes_stay_within_the_bar(tmp_path, shape, expected):
+    """The security review's shapes at about 10 MB: linear (passed) or fail closed."""
+    from pydiggs import validate
+    from tests.test_scaling import _C13_DEF, _CODES, GML
+
+    (tmp_path / "d.xml").write_text(_C13_DEF)
+    (tmp_path / "c.xml").write_text(_CODES)
+    instance = tmp_path / "i.xml"
+    instance.write_text(f'<Diggs xmlns="{NS}" xmlns:gml="{GML}">{shape()}</Diggs>')
+    size = instance.stat().st_size
+    assert 7_000_000 < size <= 10_500_000, size
+    start = time.process_time()
+    report = validate(instance, checks=["dictionary"])
+    cpu = time.process_time() - start
+    print(f"RATIO 10 MB shape: {size / 1e6:.1f} MB, {cpu:.1f} s CPU, {report.steps['dictionary']}")
+    assert report.steps["dictionary"] == expected
+    if expected == "incomplete":
+        assert "dictionary.incomplete" in {f.rule_id for f in report.findings}
+        assert report.verdict == "not-valid"
+    assert cpu < 30

@@ -1329,9 +1329,11 @@ def test_check13_result_sets_are_charged(tmp_path, monkeypatch):
         f"{props}</properties></PropertyParameters></parameters></ResultSet>{citing}"
     )
     site = _definition(tmp_path, inner, body, {"c.xml": codes})
-    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 5_000)  # 30 x 301 > 5,000
+    work = _check13_work(monkeypatch, site)
+    assert work >= 30 * 301 * dictionary._CHECK13_STEP  # properties x citing ResultSets
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", 30 * 301 * dictionary._CHECK13_STEP)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
-    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 50_000)
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
 
 
@@ -1400,6 +1402,24 @@ def test_no_entities_means_nothing_is_measured(tmp_path):
     assert run._expanded_size(doc, 1) == 0  # no internal DTD: never refused
 
 
+def _check13_work(monkeypatch, site) -> int:
+    """Check 13 work units validate() spends on ``site`` with an unbounded budget."""
+    from pydiggs import dictionary
+
+    seen = []
+    real = dictionary._Check13Index.__init__
+
+    def init(self, *args, **kwargs):
+        real(self, *args, **kwargs)
+        seen.append(self)
+
+    monkeypatch.setattr(dictionary._Check13Index, "__init__", init)
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", 10**12)
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
+    monkeypatch.setattr(dictionary._Check13Index, "__init__", real)
+    return seen[-1]._work
+
+
 def test_check13_keeps_no_rows_and_charges_fields(tmp_path, monkeypatch):
     from pydiggs import dictionary
 
@@ -1416,9 +1436,12 @@ def test_check13_keeps_no_rows_and_charges_fields(tmp_path, monkeypatch):
     )
     site = _definition(tmp_path, inner, body, {"c.xml": codes})
     assert not hasattr(dictionary._Check13Index, "rows")
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 2_000)  # 3,000 rows, 1 field read each
+    work = _check13_work(monkeypatch, site)
+    # 3,000 rows: each token and each of its two fields (split at most once) is charged.
+    assert work >= 3_000 * 3 * dictionary._CHECK13_STEP
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work - 3_000)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 50_000)
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
 
 
@@ -1641,9 +1664,10 @@ def test_limit_comparisons_allow_the_limit_itself(tmp_path, monkeypatch):
         "</parameters><dataValues>" + "ok " * 10 + "</dataValues></ResultSet>"
     )
     site = _definition(tmp_path, inner, body, {"c.xml": codes})
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 10)  # exactly 10 fields
+    work = _check13_work(monkeypatch, site)
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work)  # exactly the work needed
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_FIELDS", 9)
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work - 1)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
 
 
@@ -1800,9 +1824,10 @@ def test_srs_on_an_ancestor_passes():
 
 @pytest.mark.timeout(30)
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on this platform")
-def test_a_fifo_external_dtd_is_never_opened(tmp_path):
+def test_a_fifo_external_dtd_is_never_opened(tmp_path, monkeypatch):
     """The ATTLIST-defaults parse must not read the external subset (it would block here)."""
     os.mkfifo(tmp_path / "pipe.dtd")
+    monkeypatch.chdir(tmp_path)  # the second parse has no base URL: relative ids meet cwd
     path = tmp_path / "fifo.xml"
     path.write_text(
         f'<!DOCTYPE Diggs SYSTEM "pipe.dtd" [<!ATTLIST a x CDATA "v">]><Diggs xmlns="{NS}"><a/></Diggs>'
@@ -1893,9 +1918,27 @@ def test_check13_characters_scanned_are_capped(tmp_path, monkeypatch):
         "</parameters><dataValues>" + "ok " * 100 + "</dataValues></ResultSet>"
     )
     site = _definition(tmp_path, inner, body, {"c.xml": codes})
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_CHARS", 200)  # exactly 100 x "ok"
+    work = _check13_work(monkeypatch, site)
+    (tmp_path / "pad").mkdir()
+    (tmp_path / "commas").mkdir()
+    # Separators count: the same text with 10,000 more spaces costs 10,000 more units.
+    padded = _definition(
+        tmp_path / "pad",
+        inner,
+        body.replace("</dataValues>", " " * 10_000 + "</dataValues>"),
+        {"c.xml": codes},
+    )
+    assert _check13_work(monkeypatch, padded) == work + 10_000
+    commas = _definition(
+        tmp_path / "commas",
+        inner,
+        body.replace("<dataValues>", '<dataValues ts=",">').replace("ok " * 100, "," * 10_000),
+        {"c.xml": codes},
+    )
+    assert _check13_work(monkeypatch, commas) >= 10_000  # separator-only text is charged
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_CHARS", 199)
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work - 1)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
 
 
@@ -2105,3 +2148,84 @@ def test_a_relative_external_dtd_is_not_read_from_the_working_directory(tmp_path
     for base_url in (None, str(tmp_path / "elsewhere" / "i.xml")):
         measured = _xml.parse_bytes(data, base_url, attribute_defaults=True)
         assert all("x" not in a.attrib for a in measured.getroot())
+
+
+def test_check13_index_charges_every_loop():
+    """The invariant at _Check13Index: each iteration is charged to the one counter."""
+    from pydiggs import dictionary
+
+    step = dictionary._CHECK13_STEP
+    root = etree.fromstring(
+        f'<Diggs xmlns="{NS}" xmlns:xlink="http://www.w3.org/1999/xlink">'
+        '<ResultSet><parameters xlink:href="#B" other="x"/><x><y>'
+        '<PropertyParameters gml:id="A" xmlns:gml="http://www.opengis.net/gml/3.2">'
+        '<Property index="1"><c/></Property><Property index="no"/><Property index="3"/>'
+        "</PropertyParameters></y></x></ResultSet></Diggs>"
+    )
+    index = dictionary._Check13Index(root.getroottree(), bounded=True)
+    layout = index.layout()
+    # 3 elements x (start + end) and the two attributes of ResultSet/parameters.
+    assert index._work == step * (3 * 2 + 2)
+    params = root.find(".//{*}PropertyParameters")
+    assert layout.nearest_rs[params] is root[0]  # at any depth, as the driver reads it
+    assert layout.refs[root[0]] == ["#B"]
+    before = index._work
+    assert index.group_columns(params) == frozenset({1, 3})
+    assert index._work - before == 3 * step  # each Property examined
+    before = index._work
+    leaf = root.find(".//{*}c")
+    assert index.nearest(leaf, "PropertyParameters") is params
+    assert index._work - before == 2 * step  # Property, then PropertyParameters
+    before = index._work
+    assert index.nearest(leaf, "nothing") is None
+    assert index._work - before == 6 * step  # every ancestor up to the root
+
+
+def test_check13_union_work_is_charged_and_shared():
+    from pydiggs import dictionary
+
+    step = dictionary._CHECK13_STEP
+    props = "".join(f'<Property index="{i}"/>' for i in range(1, 101))
+    root = etree.fromstring(
+        f'<Diggs xmlns="{NS}" xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:xlink="http://www.w3.org/1999/xlink">'
+        f'<ResultSet><parameters><PropertyParameters gml:id="B">{props}'
+        "</PropertyParameters></parameters></ResultSet>"
+        + '<ResultSet><parameters xlink:href="#B"><PropertyParameters/></parameters></ResultSet>'
+        * 3
+        + "</Diggs>"
+    )
+    index = dictionary._Check13Index(root.getroottree(), bounded=True)
+    sets = root.findall("{*}ResultSet")
+    index.layout()
+    first = index._columns_for(sets[1])
+    before = index._work
+    second = index._columns_for(sets[2])
+    assert second is first  # one union for every ResultSet citing the same groups
+    # href, cited group, groups (own empty one + B, +1): no union rebuilt.
+    assert index._work - before == step * (1 + 1 + 3)
+    assert index._columns_for(sets[0]) is first  # B's own ResultSet shares it too
+
+
+def test_check13_cached_property_and_result_set_pairs_are_still_charged(tmp_path, monkeypatch):
+    """300 Properties asking for the same column of 301 ResultSets: the values are cached
+    after the first, but each property still walks its ResultSets and is charged."""
+    from pydiggs import dictionary
+
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    props = f'<Property index="1">{_PC}</Property>' * 300
+    citing = (
+        '<ResultSet><parameters xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#PP"/>'
+        "<dataValues>ok</dataValues></ResultSet>"
+    ) * 300
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f"{props}</properties></PropertyParameters></parameters></ResultSet>{citing}"
+    )
+    site = _definition(tmp_path, inner, body, {"c.xml": codes})
+    assert _check13_work(monkeypatch, site) >= 300 * 301 * dictionary._CHECK13_STEP

@@ -594,7 +594,7 @@ def test_check13_doubling_property_parameters_over_many_rows(semantic, tmp_path)
 
     small = _work(semantic, tmp_path / "a", body(100), files, scanned)
     large = _work(semantic, tmp_path / "b", body(200), files, scanned)
-    assert small == large == 200 * 2_000
+    assert small == large == 200 * 2_000 + 199  # every character, separators included
     _ratio(small, large, "check 13 PropertyParameters x rows (characters scanned)")
 
 
@@ -625,3 +625,130 @@ def test_check13_splits_a_wide_row_only_up_to_the_wanted_column(semantic, tmp_pa
     assert fields == 1
     print(f"RATIO check 13 million-field row: peak {peaks[0] / 2**20:.1f} MiB")
     assert peaks[0] < 25 * 2**20, peaks  # a full split alone is about 60 MiB
+
+
+# --- round 12: every Check 13 unit is charged to one counter --------------------------
+
+_XL = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
+
+
+def _c13_work(s: DictionarySemanticValidator) -> int:
+    return s._check13._work if s._check13 else 0
+
+
+def _bigcite(result_sets: int, properties: int) -> str:
+    """ResultSets each citing #B (``properties`` Properties) beside an empty own group."""
+    fill = '<Property index="2"/>' * properties
+    return (
+        '<ResultSet><parameters><PropertyParameters gml:id="B"><properties>'
+        f'<Property index="1">{PC}</Property>{fill}</properties></PropertyParameters>'
+        "</parameters></ResultSet>"
+        + f'<ResultSet><parameters {_XL} xlink:href="#B"><PropertyParameters/></parameters>'
+        "<dataValues>v1,v2</dataValues></ResultSet>" * result_sets
+    )
+
+
+def test_check13_bigcite_doubling_result_sets(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(semantic, tmp_path / "a", _bigcite(500, 2_000), files, _c13_work)
+    large = _work(semantic, tmp_path / "b", _bigcite(1_000, 2_000), files, _c13_work)
+    assert _ratio(small, large, "check 13 bigcite result sets (work)") <= LINEAR
+
+
+def test_check13_bigcite_doubling_cited_properties(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(semantic, tmp_path / "a", _bigcite(500, 2_000), files, _c13_work)
+    large = _work(semantic, tmp_path / "b", _bigcite(500, 4_000), files, _c13_work)
+    # The cited group's columns are read once, not once per citing ResultSet.
+    assert large - small <= 2_000 * 4 * 4, (small, large)
+    _ratio(small, large, "check 13 bigcite cited properties (work)")
+
+
+def _dupcite(result_sets: int) -> str:
+    """ResultSet i cites #B i times."""
+    return (
+        '<ResultSet><parameters><PropertyParameters gml:id="B"><properties>'
+        f'<Property index="1">{PC}</Property>'
+        + '<Property index="2"/>' * 200
+        + "</properties></PropertyParameters></parameters></ResultSet>"
+        + "".join(
+            "<ResultSet>" + f'<parameters {_XL} xlink:href="#B"/>' * (i + 1) + "</ResultSet>"
+            for i in range(result_sets)
+        )
+    )
+
+
+def test_check13_dupcite_work_is_linear_in_the_file(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(semantic, tmp_path / "a", _dupcite(100), files, _c13_work)
+    large = _work(semantic, tmp_path / "b", _dupcite(200), files, _c13_work)
+    # The hrefs themselves grow 4x (R^2/2); the work is charged per href, so it grows
+    # with the file, never with R x the cited group's 201 Properties.
+    hrefs = (200 * 201 // 2) / (100 * 101 // 2)
+    assert _ratio(small, large, "check 13 dupcite (work)") <= hrefs * 1.1
+
+
+def _outside(groups: int, commas: int) -> str:
+    """PropertyParameters at ResultSet/x (outside parameters) over separator-only data."""
+    pps = "".join(
+        f'<PropertyParameters gml:id="P{k}"><properties><Property index="{k + 1}">{PC}'
+        "</Property></properties></PropertyParameters>"
+        for k in range(groups)
+    )
+    return f'<ResultSet><parameters/><x>{pps}</x><dataValues ts=",">{"," * commas}</dataValues></ResultSet>'
+
+
+def test_check13_outside_groups_share_one_pass(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+
+    def chars(s: DictionarySemanticValidator) -> int:
+        return s._check13._chars if s._check13 else 0
+
+    small = _work(semantic, tmp_path / "a", _outside(100, 50_000), files, chars)
+    large = _work(semantic, tmp_path / "b", _outside(200, 50_000), files, chars)
+    # Nearest-ResultSet rule: the groups under x are this ResultSet's, read in one pass.
+    assert small == large == 50_000
+
+
+def test_check13_outside_doubling_commas(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(semantic, tmp_path / "a", _outside(100, 100_000), files, _c13_work)
+    large = _work(semantic, tmp_path / "b", _outside(100, 200_000), files, _c13_work)
+    assert small >= 100_000 * 4  # each comma is charged: a character and an empty token
+    assert _ratio(small, large, "check 13 separator-only data (work)") <= LINEAR
+
+
+def test_check13_cited_groups_join_the_one_pass(semantic, tmp_path):
+    """K ``parameters xlink:href="#Pi"`` on one ResultSet: still one pass."""
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+
+    def body(groups: int) -> str:
+        params = "".join(
+            f'<PropertyParameters gml:id="P{i}"><properties><Property index="{i + 1}">{PC}'
+            "</Property></properties></PropertyParameters>"
+            for i in range(groups)
+        )
+        cites = "".join(f'<parameters {_XL} xlink:href="#P{i}"/>' for i in range(groups))
+        return (
+            f"<group>{params}</group>"
+            f"<ResultSet>{cites}<dataValues>{'x' * 50_000}</dataValues></ResultSet>"
+        )
+
+    def chars(s: DictionarySemanticValidator) -> int:
+        return s._check13._chars if s._check13 else 0
+
+    small = _work(semantic, tmp_path / "a", body(50), files, chars)
+    large = _work(semantic, tmp_path / "b", body(100), files, chars)
+    assert small == large == 50_000
+
+
+def _propcite(properties: int, result_sets: int) -> str:
+    """``properties`` coded Properties in #B, each read from ``result_sets`` citers:
+    inherently properties x ResultSets, as in the official module."""
+    props = "".join(f'<Property index="{i + 1}">{PC}</Property>' for i in range(properties))
+    return (
+        f'<ResultSet><parameters><PropertyParameters gml:id="B"><properties>{props}'
+        "</properties></PropertyParameters></parameters></ResultSet>"
+        + f'<ResultSet><parameters {_XL} xlink:href="#B"/><dataValues/></ResultSet>'
+        * result_sets
+    )

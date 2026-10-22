@@ -11,7 +11,7 @@ import errno
 import itertools
 import os
 import re
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
@@ -254,7 +254,6 @@ class DictionarySemanticValidator:
         self._ancestor_sets: dict[tuple[int, str], tuple[frozenset[str], frozenset[str]]] = {}
         self._strip_cache: dict[str, str] = {}
         self._invalid_cache: dict[tuple[object, ...], list[str]] = {}
-        self._columns_cache: dict[etree._Element, frozenset[int]] = {}
         self._local_trees: dict[object, etree._ElementTree | None] = {}
         self._local_by_url: dict[str, etree._ElementTree | None] = {}
         self.local_capped: set[str] = set()
@@ -918,7 +917,6 @@ class DictionarySemanticValidator:
         self._ancestor_sets = {}
         self._strip_cache = {}
         self._invalid_cache = {}
-        self._columns_cache = {}
         self.limits_hit = []
         self._work = 0
         self._allowed_terms = {}
@@ -984,7 +982,6 @@ class DictionarySemanticValidator:
         self._ancestor_sets = {}
         self._strip_cache = {}
         self._invalid_cache = {}
-        self._columns_cache = {}
         self.limits_hit = []
         self._work = 0
         self._allowed_terms = {}
@@ -1412,15 +1409,6 @@ class DictionarySemanticValidator:
                 13,
             )
 
-    def _wanted_columns(self, params: etree._Element) -> frozenset[int]:
-        """The column indexes the Properties of one PropertyParameters ask for."""
-        wanted = self._columns_cache.get(params)
-        if wanted is None:
-            found = (_xs_integer(p.get("index")) for p in params.iter("{*}Property"))
-            wanted = self._columns_cache[params] = frozenset(c for c in found if c and c > 0)
-            self._spend(len(wanted) + 1)
-        return wanted
-
     def _check13_index(self, root: etree._ElementTree) -> _Check13Index:
         # getroottree() returns a new wrapper each call; the root element is stable.
         if self._check13 is None or self._check13.root.getroot() is not root.getroot():
@@ -1428,169 +1416,275 @@ class DictionarySemanticValidator:
         return self._check13
 
     def _invalid_result_values(self, el: etree._Element, allowed: frozenset[str]) -> list[str]:
-        """Distinct values in this property's dataValues column that are not ``allowed``."""
+        """Distinct values in this property's dataValues column that are not ``allowed``.
+
+        All the work is charged to the Check 13 counter (:meth:`_Check13Index.charge`).
+        """
         prop = el.getparent()
         if prop is None:
             return []
+        index = self._check13_index(el.getroottree())
+        index.charge(_CHECK13_STEP)
         column = _xs_integer(prop.get("index"))
         if column is None or column < 1:
             return []
         null_el = self._siblings(prop)[2]
         null_text = _normalize_space(null_el.xpath("string()") if null_el is not None else "")
-        params = next((a for a in el.iterancestors() if _local(a) == "PropertyParameters"), None)
+        index.charge(len(null_text))
+        params = index.nearest(el, "PropertyParameters")
         if params is None:
             return []
-        index = self._check13_index(params.getroottree())
-        params_id = next(
-            (str(v) for k, v in params.attrib.items() if etree.QName(k).localname == "id"), ""
-        )
-        result_sets = [a for a in params.iterancestors() if _local(a) == "ResultSet"][:1]
-        if params_id:
-            result_sets += index.citing(f"#{params_id}")
-        self._spend(len(result_sets))  # properties x citing ResultSets
-        wanted = self._wanted_columns(params)
-        # XPath "$resultSets/*" de-duplicates and returns document order.
-        ordered = tuple(index.in_document_order(result_sets))
+        # The ResultSets that hold or cite these PropertyParameters, in document order
+        # (XPath "$resultSets/*" de-duplicates and returns document order).
+        ordered = index.result_sets_of(params)
         key = (ordered, column, null_text, id(allowed))
+        index.charge(_CHECK13_STEP * (len(ordered) + 1))  # properties x citing ResultSets
         cached = self._invalid_cache.get(key)
         if cached is None:
             candidates: dict[str, None] = {}
             for result_set in ordered:
-                candidates.update(dict.fromkeys(index.column(result_set, column, wanted)))
-            self._spend(len(candidates))
+                values = index.column(result_set, column)
+                index.charge(_CHECK13_STEP * (len(values) + 1))
+                candidates.update(dict.fromkeys(values))
             cached = [v for v in candidates if v and v != null_text and v not in allowed]
             self._invalid_cache[key] = cached
         return cached
 
 
+class _Check13Layout:
+    """Which ResultSets hold or cite which PropertyParameters, read in one pass.
+
+    A PropertyParameters belongs to its nearest ResultSet ancestor, at any depth, and
+    is cited by every ResultSet whose ``parameters`` child has an ``href`` of ``#`` and
+    its id. The driver (which ResultSets a property's values come from) and the
+    column sets (which columns a ResultSet must yield) both read this one map, so the
+    two cannot drift apart.
+    """
+
+    __slots__ = ("by_id", "citing", "nearest_rs", "owned", "refs")
+
+    def __init__(self) -> None:
+        self.nearest_rs: dict[etree._Element, etree._Element | None] = {}
+        self.owned: dict[etree._Element, list[etree._Element]] = {}
+        self.by_id: dict[str, list[etree._Element]] = {}
+        self.citing: dict[str, list[etree._Element]] = {}
+        self.refs: dict[etree._Element, list[str]] = {}
+
+
+def _first_id(el: etree._Element) -> str:
+    """The value of the element's first attribute whose local name is ``id``, or ""."""
+    return next((str(v) for k, v in el.attrib.items() if etree.QName(k).localname == "id"), "")
+
+
 class _Check13Index:
     """Per-document lookups for Check 13, built once instead of once per property.
 
-    No rows are kept: each column's distinct values are read in one streaming pass over
-    the ResultSet's dataValues and only those values are cached, so memory grows with
-    the distinct values, not the cells. validate() reads at most MAX_CHECK13_FIELDS
-    fields per document (a 10 MB file holds at most about 5 million).
+    No rows are kept: each ResultSet's dataValues are read in one streaming pass that
+    collects every column any of its PropertyParameters (held or cited) asks for, and
+    only their distinct values are cached, so memory grows with the distinct values,
+    not the cells or the columns asked for.
+
+    Invariant: every unit of Check 13 work is charged to :meth:`charge`, one counter
+    bounded by MAX_CHECK13_WORK in validate() (it raises _LimitError, so the step fails
+    closed as ``dictionary.incomplete``). Every loop that can iterate is charged as it
+    goes or before it starts: each element of the layout pass, each ancestor walked,
+    each Property examined and each ``index`` parsed, each ``href`` and group of a
+    column set, each character of every ``dataValues`` string on every pass (before it
+    is normalised or split, so separator-only text counts), each token and each field.
     """
 
     def __init__(self, root: etree._ElementTree, *, bounded: bool) -> None:
         self.root = root
         self._bounded = bounded
-        self._fields = 0
-        self._chars = 0
-        self._wanted_cache: dict[tuple[etree._Element, ...], frozenset[int]] = {}
-        self._params_by_id: dict[str, etree._Element] | None = None
-        self._shared: dict[tuple[str, ...], tuple[str, ...]] = {}
+        self._work = 0  # the one bounded Check 13 counter
+        self._fields = 0  # diagnostics: fields split out of rows
+        self._chars = 0  # diagnostics: dataValues characters read
+        self._layout: _Check13Layout | None = None
+        self._group_columns: dict[etree._Element, frozenset[int]] = {}
+        self._unions: dict[frozenset[frozenset[int]], frozenset[int]] = {}
+        self._rs_columns: dict[etree._Element, frozenset[int]] = {}
+        self._sorted: dict[frozenset[int], list[int]] = {}
         self._order: dict[etree._Element, int] | None = None
-        self._citing: dict[str, list[etree._Element]] | None = None
+        self._ordered: dict[etree._Element, tuple[etree._Element, ...]] = {}
+        self._read: dict[etree._Element, frozenset[int]] = {}
+        self._shared: dict[tuple[str, ...], tuple[str, ...]] = {}
         self._distinct: dict[etree._Element, dict[int, tuple[str, ...]]] = {}
 
-    def citing(self, ref: str) -> list[etree._Element]:
-        """ResultSets whose ``parameters/@*:href`` equals ``ref``."""
-        if self._citing is None:
-            self._citing = {}
-            for rs in self.root.iter():
-                if not isinstance(rs.tag, str) or _local(rs) != "ResultSet":
+    def charge(self, units: int) -> None:
+        """Count Check 13 work; past MAX_CHECK13_WORK, stop (validate() only)."""
+        self._work += units
+        if self._bounded and self._work > MAX_CHECK13_WORK:
+            raise _LimitError(f"Check 13 took more than {MAX_CHECK13_WORK:,} work units")
+
+    def nearest(self, el: etree._Element, local: str) -> etree._Element | None:
+        """The nearest ancestor of ``el`` with local name ``local`` (each step charged)."""
+        for ancestor in el.iterancestors():
+            self.charge(_CHECK13_STEP)
+            if _local(ancestor) == local:
+                return ancestor
+        return None
+
+    def layout(self) -> _Check13Layout:
+        """The ResultSet / PropertyParameters map, from one filtered pass over the tree."""
+        if self._layout is None:
+            layout = _Check13Layout()
+            open_sets: list[etree._Element] = []
+            tags = ("{*}ResultSet", "{*}PropertyParameters", "{*}parameters")
+            for event, el in etree.iterwalk(self.root, events=("start", "end"), tag=tags):
+                self.charge(_CHECK13_STEP)
+                local = _local(el)
+                if local == "ResultSet":
+                    if event == "start":
+                        open_sets.append(el)
+                    else:
+                        open_sets.pop()
+                elif event == "end":
                     continue
-                for child in rs:
-                    if isinstance(child.tag, str) and _local(child) == "parameters":
-                        for key, value in child.attrib.items():
-                            if etree.QName(key).localname == "href":
-                                self._citing.setdefault(str(value), []).append(rs)
-        return self._citing.get(ref, [])
+                elif local == "PropertyParameters":
+                    owner = open_sets[-1] if open_sets else None
+                    layout.nearest_rs[el] = owner
+                    if owner is not None:
+                        layout.owned.setdefault(owner, []).append(el)
+                    ident = _first_id(el)
+                    if ident:
+                        layout.by_id.setdefault(ident, []).append(el)
+                elif open_sets and el.getparent() is open_sets[-1]:  # ResultSet/parameters
+                    for key, value in el.attrib.items():
+                        self.charge(_CHECK13_STEP)
+                        if etree.QName(key).localname == "href":
+                            layout.citing.setdefault(str(value), []).append(open_sets[-1])
+                            layout.refs.setdefault(open_sets[-1], []).append(str(value))
+            self._layout = layout
+        return self._layout
 
-    def in_document_order(self, elements: list[etree._Element]) -> list[etree._Element]:
-        """``elements`` (all ResultSets) de-duplicated, in document order."""
-        if self._order is None:  # only ResultSets are ordered: no map of the whole tree
-            self._order = {el: i for i, el in enumerate(self.root.iter("{*}ResultSet"))}
-        order = self._order
-        return sorted(dict.fromkeys(elements), key=lambda el: order.get(el, 0))
+    def result_sets_of(self, params: etree._Element) -> tuple[etree._Element, ...]:
+        """The ResultSets a property in ``params`` reads, in document order.
 
-    @staticmethod
-    def _rows(result_set: etree._Element) -> Iterator[tuple[re.Pattern[str], str]]:
-        """The ResultSet's dataValues rows, unsplit, each with its field separator."""
+        Its nearest ResultSet ancestor and every ResultSet citing ``params`` by id,
+        de-duplicated.
+        """
+        found = self._ordered.get(params)
+        if found is None:
+            layout = self.layout()
+            owner = layout.nearest_rs.get(params)
+            sets = [owner] if owner is not None else []
+            ident = _first_id(params)
+            if ident:
+                sets += layout.citing.get(f"#{ident}", [])
+            self.charge(_CHECK13_STEP * (len(sets) + 1))
+            if self._order is None:  # only ResultSets are ordered: no map of the whole tree
+                self._order = {}
+                for i, el in enumerate(self.root.iter("{*}ResultSet")):
+                    self.charge(_CHECK13_STEP)
+                    self._order[el] = i
+            order = self._order
+            found = tuple(sorted(dict.fromkeys(sets), key=lambda el: order.get(el, 0)))
+            self._ordered[params] = found
+        return found
+
+    def group_columns(self, params: etree._Element) -> frozenset[int]:
+        """The column indexes the Properties of one PropertyParameters ask for."""
+        found = self._group_columns.get(params)
+        if found is None:
+            columns = set()
+            for prop in params.iter("{*}Property"):
+                self.charge(_CHECK13_STEP)
+                c = _xs_integer(prop.get("index"))
+                if c is not None and c > 0:
+                    columns.add(c)
+            found = self._group_columns[params] = frozenset(columns)
+        return found
+
+    def _columns_for(self, result_set: etree._Element) -> frozenset[int]:
+        """Every column any PropertyParameters held or cited by the ResultSet asks for.
+
+        One frozenset per PropertyParameters; the union is cached on the set of those
+        (non-empty) sets, so many ResultSets citing the same groups share one union.
+        """
+        found = self._rs_columns.get(result_set)
+        if found is None:
+            layout = self.layout()
+            groups = dict.fromkeys(layout.owned.get(result_set, ()))
+            for ref in layout.refs.get(result_set, ()):
+                self.charge(_CHECK13_STEP)
+                if ref.startswith("#"):
+                    cited = layout.by_id.get(ref[1:], ())
+                    self.charge(_CHECK13_STEP * len(cited))
+                    groups.update(dict.fromkeys(cited))
+            self.charge(_CHECK13_STEP * (len(groups) + 1))
+            key = frozenset(s for s in map(self.group_columns, groups) if s)
+            found = self._unions.get(key)
+            if found is None:
+                self.charge(_CHECK13_STEP * sum(len(s) for s in key))
+                found = self._unions[key] = frozenset().union(*key)
+            self._rs_columns[result_set] = found
+        return found
+
+    def _need(self, asked: frozenset[int]) -> list[int]:
+        """``asked`` sorted, cached per (shared) set."""
+        found = self._sorted.get(asked)
+        if found is None:
+            self.charge(_CHECK13_STEP * (len(asked) + 1))
+            found = self._sorted[asked] = sorted(asked)
+        return found
+
+    def column(self, result_set: etree._Element, column: int) -> tuple[str, ...]:
+        """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order.
+
+        The first call reads every column the ResultSet's PropertyParameters ask for
+        (:meth:`_columns_for`, plus ``column``) in one streaming pass; each row is split
+        only up to the last of them, and only their distinct values are kept, so a very
+        wide row costs neither memory nor a split of every field.
+        """
+        read = self._read.get(result_set)
+        columns = self._distinct.setdefault(result_set, {})
+        if read is not None and column in read:
+            return columns.get(column, ())
+        if read is None:
+            asked = self._columns_for(result_set)
+            if column not in asked:
+                self.charge(_CHECK13_STEP * (len(asked) + 1))
+                asked = asked | {column}
+        else:
+            asked = frozenset({column})  # a column outside every group: one more pass
+        need = self._need(asked)
+        if read is not None:
+            self.charge(_CHECK13_STEP * (len(read) + 1))
+            read = read | asked
+        else:
+            read = asked
+        last = need[-1]
+        seen: dict[int, dict[str, None]] = {}
         for block in result_set:
+            self.charge(_CHECK13_STEP)
             if not isinstance(block.tag, str) or _local(block) != "dataValues":
                 continue
             cs = block.get("cs") or ","
             ts = block.get("ts") or " "
+            self.charge(len(cs) + len(ts))
             ts_pattern = _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
             cs_pattern = re.compile(re.escape(cs))
-            for token in ts_pattern.split(_normalize_space(block.xpath("string()"))):
-                if token:
-                    yield cs_pattern, token
-
-    def _wanted(self, result_set: etree._Element) -> frozenset[int]:
-        """Every column index any Property may ask of this ResultSet.
-
-        The indexes of the Properties in the PropertyParameters inside its own
-        ``parameters``, and in every PropertyParameters its ``parameters`` cite by
-        ``xlink:href``: so the ResultSet is read in one pass, whatever the number of
-        PropertyParameters. The set is cached per group of PropertyParameters, not per
-        ResultSet, so many ResultSets citing one wide PropertyParameters share it.
-        """
-        if self._params_by_id is None:
-            self._params_by_id = {}
-            for params in self.root.iter("{*}PropertyParameters"):
-                ident = next(
-                    (str(v) for k, v in params.attrib.items() if etree.QName(k).localname == "id"),
-                    "",
-                )
-                if ident:
-                    self._params_by_id.setdefault(ident, params)
-        groups: list[etree._Element] = []
-        for parameters in result_set.iterchildren("{*}parameters"):
-            groups.extend(parameters.iter("{*}PropertyParameters"))
-            for key, value in parameters.attrib.items():
-                if etree.QName(key).localname == "href" and str(value).startswith("#"):
-                    cited = self._params_by_id.get(str(value)[1:])
-                    if cited is not None:
-                        groups.append(cited)
-        group_key = tuple(groups)
-        wanted = self._wanted_cache.get(group_key)
-        if wanted is None:
-            found = (_xs_integer(p.get("index")) for g in groups for p in g.iter("{*}Property"))
-            wanted = self._wanted_cache[group_key] = frozenset(c for c in found if c and c > 0)
-        return wanted
-
-    def column(
-        self, result_set: etree._Element, column: int, wanted: frozenset[int] = frozenset()
-    ) -> Iterable[str]:
-        """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order.
-
-        One streaming pass reads every column any Property may ask of this ResultSet
-        (:meth:`_wanted`, plus ``column`` and ``wanted``); each row is split only up to
-        the last of them, and only their distinct values are kept, so a very wide row
-        costs neither memory nor a split of every field. Fields and characters are
-        counted as they are read; past MAX_CHECK13_FIELDS or MAX_CHECK13_CHARS
-        validate() stops at once.
-        """
-        columns = self._distinct.setdefault(result_set, {})
-        if column not in columns:
-            asked = self._wanted(result_set) | wanted | {column}
-            need = sorted(c for c in asked if c not in columns and c >= 1)
-            last = need[-1]
-            seen: dict[int, dict[str, None]] = {c: {} for c in need}
-            for cs_pattern, token in self._rows(result_set):
+            text = block.xpath("string()")
+            self.charge(len(text))  # before normalising or splitting: separators count
+            self._chars += len(text)
+            tokens = ts_pattern.split(_normalize_space(text))
+            self.charge(_CHECK13_STEP * len(tokens))
+            for token in tokens:
+                if not token:
+                    continue
                 parts = cs_pattern.split(token, maxsplit=last)
+                self.charge(_CHECK13_STEP * len(parts))
                 self._fields += min(len(parts), last)
-                self._chars += len(token)
-                if self._bounded and self._fields > MAX_CHECK13_FIELDS:
-                    raise _LimitError(
-                        f"Check 13 would read more than {MAX_CHECK13_FIELDS:,} dataValues fields"
-                    )
-                if self._bounded and self._chars > MAX_CHECK13_CHARS:
-                    raise _LimitError(
-                        f"Check 13 would read more than {MAX_CHECK13_CHARS:,} dataValues characters"
-                    )
                 # Only the wanted columns this row has: never all wanted per row.
                 for i in range(bisect.bisect_right(need, len(parts))):
                     c = need[i]
-                    seen[c].setdefault(_normalize_space(parts[c - 1]), None)
-            shared = self._shared  # equal columns (often one repeated value) share a tuple
-            for c, values in seen.items():
-                found = tuple(values)
-                columns[c] = shared.setdefault(found, found)
-        return columns[column]
+                    seen.setdefault(c, {}).setdefault(_normalize_space(parts[c - 1]), None)
+        shared = self._shared  # equal columns (often one repeated value) share a tuple
+        for c, values in seen.items():
+            found = tuple(values)
+            columns[c] = shared.setdefault(found, found)
+        self._read[result_set] = read
+        return columns.get(column, ())
 
 
 _XS_INTEGER = re.compile(r"[+-]?[0-9]+")
@@ -1622,11 +1716,12 @@ MAX_LOCAL_DICTIONARIES = 16
 MAX_DEFINITION_PATHS = 1_000
 #: validate(): most path-matching steps per instance (the largest corpus file needs 30,000).
 MAX_PATH_MATCH_WORK = 5_000_000
-#: validate(): most dataValues fields Check 13 reads per document.
-MAX_CHECK13_FIELDS = 20_000_000
-#: validate(): most dataValues characters Check 13 scans per document (every ResultSet
-#: is read once, so this is a backstop: a 100 MiB file holds at most about 100 million).
-MAX_CHECK13_CHARS = 200_000_000
+#: validate(): most Check 13 work units per document (see :class:`_Check13Index`): one
+#: per dataValues character read, _CHECK13_STEP per element, ancestor, Property, token,
+#: field or other Python-level step. A 10 MB file read once needs well under a tenth.
+MAX_CHECK13_WORK = 200_000_000
+#: Work units per Python-level Check 13 step (a character read costs one).
+_CHECK13_STEP = 4
 #: validate(): most steps in one dictionary path.
 MAX_PATH_STEPS = 64
 #: validate(): most nodes in one dictionary Definition (real ones have under 100).
