@@ -1434,19 +1434,16 @@ class DictionarySemanticValidator:
         params = index.nearest(el, "PropertyParameters")
         if params is None:
             return []
-        # The ResultSets that hold or cite these PropertyParameters, in document order
-        # (XPath "$resultSets/*" de-duplicates and returns document order).
-        ordered = index.result_sets_of(params)
-        key = (ordered, column, null_text, id(allowed))
-        index.charge(_CHECK13_STEP * (len(ordered) + 1))  # properties x citing ResultSets
+        key = (params, column, null_text, id(allowed))
         cached = self._invalid_cache.get(key)
         if cached is None:
-            candidates: dict[str, None] = {}
-            for result_set in ordered:
-                values = index.column(result_set, column)
-                index.charge(_CHECK13_STEP * (len(values) + 1))
-                candidates.update(dict.fromkeys(values))
-            cached = [v for v in candidates if v and v != null_text and v not in allowed]
+            # The column's distinct values over every ResultSet that holds or cites these
+            # PropertyParameters, in document order (XPath "$resultSets/*"), merged once
+            # per PropertyParameters: each property then costs one lookup, not one per
+            # ResultSet.
+            values = index.values(params, column)
+            index.charge(_CHECK13_STEP * (len(values) + 1))
+            cached = [v for v in values if v and v != null_text and v not in allowed]
             self._invalid_cache[key] = cached
         return cached
 
@@ -1490,7 +1487,8 @@ class _Check13Index:
     goes or before it starts: each element of the layout pass, each ancestor walked,
     each Property examined and each ``index`` parsed, each ``href`` and group of a
     column set, each character of every ``dataValues`` string on every pass (before it
-    is normalised or split, so separator-only text counts), each token and each field.
+    is normalised or split, so separator-only text counts), each token, each field and
+    each value merged over a group's ResultSets.
     """
 
     def __init__(self, root: etree._ElementTree, *, bounded: bool) -> None:
@@ -1506,6 +1504,7 @@ class _Check13Index:
         self._sorted: dict[frozenset[int], list[int]] = {}
         self._order: dict[etree._Element, int] | None = None
         self._ordered: dict[etree._Element, tuple[etree._Element, ...]] = {}
+        self._merged: dict[etree._Element, dict[int, tuple[str, ...]]] = {}
         self._read: dict[etree._Element, frozenset[int]] = {}
         self._shared: dict[tuple[str, ...], tuple[str, ...]] = {}
         self._distinct: dict[etree._Element, dict[int, tuple[str, ...]]] = {}
@@ -1583,17 +1582,54 @@ class _Check13Index:
         return found
 
     def group_columns(self, params: etree._Element) -> frozenset[int]:
-        """The column indexes the Properties of one PropertyParameters ask for."""
+        """Every column index a property inside one PropertyParameters may ask for.
+
+        The ``index`` of each element in it (itself included) that has one: a property's
+        column is its parent's ``index``, and that parent is always inside the nearest
+        PropertyParameters, so the set covers every column the driver asks for.
+        """
         found = self._group_columns.get(params)
         if found is None:
             columns = set()
-            for prop in params.iter("{*}Property"):
+            for holder in params.xpath("descendant-or-self::*[@index]"):
                 self.charge(_CHECK13_STEP)
-                c = _xs_integer(prop.get("index"))
+                c = _xs_integer(holder.get("index"))
                 if c is not None and c > 0:
                     columns.add(c)
             found = self._group_columns[params] = frozenset(columns)
         return found
+
+    def values(self, params: etree._Element, column: int) -> tuple[str, ...]:
+        """Distinct values of ``column`` over the ResultSets of ``params``, in order.
+
+        For a column of the group, the merge over all its ResultSets is built once and
+        shared by every property of the group; at each ResultSet only the smaller of the
+        group's columns and the ResultSet's read columns is walked.
+        """
+        group = self.group_columns(params)
+        if column not in group:  # never for a property's own column; kept exact anyway
+            merged: dict[str, None] = {}
+            for result_set in self.result_sets_of(params):
+                found = self.column(result_set, column)
+                self.charge(_CHECK13_STEP * (len(found) + 1))
+                merged.update(dict.fromkeys(found))
+            return tuple(merged)
+        table = self._merged.get(params)
+        if table is None:
+            acc: dict[int, dict[str, None]] = {}
+            for result_set in self.result_sets_of(params):
+                self.column(result_set, column)  # reads every column of its groups once
+                read = self._distinct[result_set]
+                self.charge(_CHECK13_STEP * (min(len(group), len(read)) + 1))
+                if len(group) <= len(read):
+                    pairs = [(c, read[c]) for c in group if c in read]
+                else:
+                    pairs = [(c, v) for c, v in read.items() if c in group]
+                for c, found in pairs:
+                    self.charge(_CHECK13_STEP * len(found))
+                    acc.setdefault(c, {}).update(dict.fromkeys(found))
+            table = self._merged[params] = {c: tuple(v) for c, v in acc.items()}
+        return table.get(column, ())
 
     def _columns_for(self, result_set: etree._Element) -> frozenset[int]:
         """Every column any PropertyParameters held or cited by the ResultSet asks for.

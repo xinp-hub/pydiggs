@@ -453,6 +453,17 @@ def _sc():
     return test_scaling
 
 
+_C13_CPU = """
+import sys, time
+from pydiggs import validate
+start = time.process_time()
+report = validate(sys.argv[1], checks=["dictionary"])
+cpu = time.process_time() - start
+print(report.steps["dictionary"], report.verdict, cpu,
+      int("dictionary.incomplete" in {f.rule_id for f in report.findings}))
+"""
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize(
     ("shape", "expected"),
@@ -460,13 +471,19 @@ def _sc():
         (lambda: _sc()._bigcite(55_000, 30_000), "passed"),
         (lambda: _sc()._dupcite(500), "passed"),
         (lambda: _sc()._outside(20_000, 7_000_000), "passed"),
-        (lambda: _sc()._propcite(50_000, 50_000), "incomplete"),
+        (lambda: _sc()._propcite(50_000, 50_000), "passed"),
+        (lambda: _sc()._cross(400, 200, 400), "incomplete"),
     ],
-    ids=["bigcite", "dupcite", "outside", "propcite"],
+    ids=["bigcite", "dupcite", "outside", "propcite", "cross"],
 )
 def test_check13_ten_megabyte_shapes_stay_within_the_bar(tmp_path, shape, expected):
-    """The security review's shapes at about 10 MB: linear (passed) or fail closed."""
-    from pydiggs import validate
+    """The security review's shapes at about 10 MB: linear (passed) or fail closed.
+
+    Timed in a child process without coverage tracing (which slows these Python loops
+    about eight times on CI), as a user would run it.
+    """
+    import os
+
     from tests.test_scaling import _C13_DEF, _CODES, GML
 
     (tmp_path / "d.xml").write_text(_C13_DEF)
@@ -475,12 +492,17 @@ def test_check13_ten_megabyte_shapes_stay_within_the_bar(tmp_path, shape, expect
     instance.write_text(f'<Diggs xmlns="{NS}" xmlns:gml="{GML}">{shape()}</Diggs>')
     size = instance.stat().st_size
     assert 7_000_000 < size <= 10_500_000, size
-    start = time.process_time()
-    report = validate(instance, checks=["dictionary"])
-    cpu = time.process_time() - start
-    print(f"RATIO 10 MB shape: {size / 1e6:.1f} MB, {cpu:.1f} s CPU, {report.steps['dictionary']}")
-    assert report.steps["dictionary"] == expected
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("COV_", "COVERAGE"))}
+    out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
+        [sys.executable, "-c", _C13_CPU, str(instance)],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
+    ).stdout.split()
+    step, verdict, cpu, refused = out[0], out[1], float(out[2]), out[3] == "1"
+    print(f"RATIO 10 MB shape: {size / 1e6:.1f} MB, {cpu:.1f} s CPU, {step}")
+    assert step == expected
     if expected == "incomplete":
-        assert "dictionary.incomplete" in {f.rule_id for f in report.findings}
-        assert report.verdict == "not-valid"
+        assert refused and verdict == "not-valid"
     assert cpu < 30

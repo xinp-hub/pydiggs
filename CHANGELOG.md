@@ -93,7 +93,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `uom` and `nullValue` siblings are found once per parent, and sibling reads count
   towards the same budget. Check 13 has one budget of its own (200 million units):
   every character it reads and every element, Property, reference, token, field and
-  property-and-ResultSet pair it examines is charged, so no Check 13 loop is unbounded.
+  merged value it examines is charged, so no Check 13 loop is unbounded. A column's
+  values over a group's ResultSets are merged once for all the group's properties.
 - In `validate()`, a file whose internal-DTD entities make its parsed text more than
   twice its raw size gets one `structure.entity-expansion` error and no other check
   runs (human decision). Small text entities such as `&deg;` still work.

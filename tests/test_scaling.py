@@ -752,3 +752,47 @@ def _propcite(properties: int, result_sets: int) -> str:
         + f'<ResultSet><parameters {_XL} xlink:href="#B"/><dataValues/></ResultSet>'
         * result_sets
     )
+
+
+def _cross(groups: int, result_sets: int, columns: int) -> str:
+    """Every ResultSet cites every group: memberships x columns, which grows faster
+    than the file; it must stop at the Check 13 budget."""
+    pps = "".join(
+        f'<PropertyParameters gml:id="P{p}"><Property index="1">{PC}</Property>'
+        + "".join(f'<Property index="{c}"/>' for c in range(2, columns + 1))
+        + "</PropertyParameters>"
+        for p in range(groups)
+    )
+    cites = "".join(f'<parameters {_XL} xlink:href="#P{p}"/>' for p in range(groups))
+    row = ",".join(["a"] * columns)
+    return f"<group>{pps}</group>" + (
+        f"<ResultSet>{cites}<dataValues>{row}</dataValues></ResultSet>" * result_sets
+    )
+
+
+def test_check13_an_index_outside_a_property_joins_the_one_pass(semantic, tmp_path):
+    """A coded element whose parent is the PropertyParameters itself asks for that
+    element's ``index``: the column set includes it, so there is no pass per group."""
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+
+    def body(groups: int) -> str:
+        pps = "".join(
+            f'<PropertyParameters index="{k + 1}">{PC}</PropertyParameters>' for k in range(groups)
+        )
+        return f"<ResultSet><parameters>{pps}</parameters><dataValues>{'x' * 50_000}</dataValues></ResultSet>"
+
+    def chars(s: DictionarySemanticValidator) -> int:
+        return s._check13._chars if s._check13 else 0
+
+    small = _work(semantic, tmp_path / "a", body(50), files, chars)
+    large = _work(semantic, tmp_path / "b", body(100), files, chars)
+    assert small == large == 50_000
+
+
+def test_check13_doubling_properties_over_citing_result_sets(semantic, tmp_path):
+    """Each property's values are merged once per group: properties x ResultSets is
+    gone (the security review's 10 MB shape took 60 s under CI coverage)."""
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(semantic, tmp_path / "a", _propcite(500, 500), files, _c13_work)
+    large = _work(semantic, tmp_path / "b", _propcite(1_000, 1_000), files, _c13_work)
+    assert _ratio(small, large, "check 13 properties x citing ResultSets (work)") <= LINEAR

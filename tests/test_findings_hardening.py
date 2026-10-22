@@ -1330,8 +1330,8 @@ def test_check13_result_sets_are_charged(tmp_path, monkeypatch):
     )
     site = _definition(tmp_path, inner, body, {"c.xml": codes})
     work = _check13_work(monkeypatch, site)
-    assert work >= 30 * 301 * dictionary._CHECK13_STEP  # properties x citing ResultSets
-    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", 30 * 301 * dictionary._CHECK13_STEP)
+    assert work >= 2 * 301 * dictionary._CHECK13_STEP  # each ResultSet read and merged
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work - 1)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
     monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
@@ -2207,9 +2207,10 @@ def test_check13_union_work_is_charged_and_shared():
     assert index._columns_for(sets[0]) is first  # B's own ResultSet shares it too
 
 
-def test_check13_cached_property_and_result_set_pairs_are_still_charged(tmp_path, monkeypatch):
-    """300 Properties asking for the same column of 301 ResultSets: the values are cached
-    after the first, but each property still walks its ResultSets and is charged."""
+def test_check13_properties_and_result_sets_add_not_multiply(tmp_path, monkeypatch):
+    """Each property's values are merged once over its group's ResultSets, so doubling
+    the properties or the citing ResultSets adds work; it does not multiply it (the
+    security review's properties x ResultSets shape took 60 s on CI before)."""
     from pydiggs import dictionary
 
     codes = (
@@ -2218,14 +2219,26 @@ def test_check13_cached_property_and_result_set_pairs_are_still_charged(tmp_path
         '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
     )
     inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
-    props = f'<Property index="1">{_PC}</Property>' * 300
-    citing = (
-        '<ResultSet><parameters xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#PP"/>'
-        "<dataValues>ok</dataValues></ResultSet>"
-    ) * 300
-    body = (
-        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
-        f"{props}</properties></PropertyParameters></parameters></ResultSet>{citing}"
-    )
-    site = _definition(tmp_path, inner, body, {"c.xml": codes})
-    assert _check13_work(monkeypatch, site) >= 300 * 301 * dictionary._CHECK13_STEP
+
+    def work(properties: int, result_sets: int, name: str) -> int:
+        props = "".join(f'<Property index="{i + 1}">{_PC}</Property>' for i in range(properties))
+        citing = (
+            '<ResultSet><parameters xmlns:xlink="http://www.w3.org/1999/xlink"'
+            ' xlink:href="#PP"/><dataValues>ok</dataValues></ResultSet>'
+        ) * result_sets
+        body = (
+            '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+            f"{props}</properties></PropertyParameters></parameters></ResultSet>{citing}"
+        )
+        (tmp_path / name).mkdir()
+        return _check13_work(
+            monkeypatch, _definition(tmp_path / name, inner, body, {"c.xml": codes})
+        )
+
+    base = work(300, 300, "a")
+    more_properties = work(600, 300, "b") - base
+    more_result_sets = work(300, 600, "c") - base
+    step = dictionary._CHECK13_STEP
+    # A product would add at least 300 x 300 steps; a few dozen per property is linear.
+    assert more_properties <= 300 * 40 * step, more_properties
+    assert more_result_sets <= 300 * 40 * step, more_result_sets

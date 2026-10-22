@@ -122,8 +122,8 @@ says why, so `report.ok` is False and the CLI exits 1:
   that lists more than 1,000 source or conditional paths or names, has more than
   10,000 nodes, or uses a path of more than 64 steps; more than 200,000,000 Check 13
   work units (one per `dataValues` character read, separators included, and 4 per
-  element, ancestor, Property, reference, token, field or property-and-ResultSet pair
-  it examines; a 10 MB file read once needs well under a tenth of that); or more than
+  element, ancestor, Property, reference, token, field or merged value it examines; a
+  10 MB file of 4.8 million cells needs about 70 million); or more than
   5,000,000 dictionary work steps in one instance (path matching, sibling reads). Real DIGGS definitions list at most 9 paths, and the largest corpus file
   needs 39,000 steps; files shaped like real ones reach the budget at about 30 to
   40 MB (an AtterbergExample measurement repeated 3,000 times, 26.5 MB, needs
@@ -448,17 +448,17 @@ The geometry rule is one pass over the tree (250 nested `MultiCurve` around 170,
 99 s). Check 13 reads each ResultSet once for all the Properties of the
 PropertyParameters it holds (its nearest ResultSet, at any depth) or cites by
 `xlink:href` (400 of them over 2,000 rows of one 2 KB field: 1.4 s, where it took
-44 s); only a property whose `index` sits outside a Property costs one more pass, and
-every pass is charged to the Check 13 budget. The security review's 10 MB shapes are
-linear or stop at the budget: 55,000 ResultSets citing a 30,000-Property group, 1.1 s;
-500 ResultSets citing one group up to 500 times each, 0.6 s; 20,000 PropertyParameters
-outside `parameters` over 7 million separators, 0.8 s (the first and last of these
-shapes ran for more than 460 s before, the last growing to 3 GB); 50,000 coded Properties each read from 50,000 citing ResultSets (the
-official module's own properties x ResultSets work), `incomplete` after 7.2 s. Check 13
-keeps no rows, only the distinct values of the columns its properties ask for, and one
-column set per group of PropertyParameters (2,200 ResultSets of 2,200 cells citing one
-group, 9.9 MB: about 210 MB beyond parsing, where keying the sets by ResultSet used
-718 MB; one 9 MB row of 9 million empty fields takes 0.2 s and 113 MB, where reading
+44 s), and a column's values over a group's ResultSets are merged once for all the
+group's properties. The security review's 10 MB shapes are linear or stop at the
+budget: 55,000 ResultSets citing a 30,000-Property group, 1.4 s; 500 ResultSets citing
+one group up to 500 times each, 0.6 s; 20,000 PropertyParameters outside `parameters`
+over 7 million separators, 1.0 s (the first and last of these shapes ran for more than
+460 s before, the last growing to 3 GB); 50,000 coded Properties read from 50,000
+citing ResultSets, 2.0 s; 200 ResultSets each citing the same 400 groups of 400
+columns, `incomplete` after 6 s. Check 13 keeps no rows, only the distinct values of
+the columns its properties ask for, and one column set per group of
+PropertyParameters (2,200 ResultSets of 2,200 cells citing one group, 9.9 MB: about
+205 MB beyond parsing, where keying the sets by ResultSet used 718 MB; one 9 MB row of 9 million empty fields takes 0.2 s and 113 MB, where reading
 every column took 2.1 GB). The costs below belong to lxml and libxml2/libxslt and are not bounded by
 pydiggs. Measured on an Apple M3 Max MacBook Pro in CPU seconds (one process, default
 settings, lxml 6.1.3, libxml2 2.14.6, libxslt 1.1.43; wall time on a busy machine is
