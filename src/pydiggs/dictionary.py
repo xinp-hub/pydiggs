@@ -1424,15 +1424,15 @@ class DictionarySemanticValidator:
         if prop is None:
             return []
         index = self._check13_index(el.getroottree())
-        index.charge(_CHECK13_STEP)
-        column = _xs_integer(prop.get("index"))
-        if column is None or column < 1:
+        index.charge(_CHECK13_PROPERTY)
+        # The property's column (its parent's index) and group (the parent's nearest
+        # PropertyParameters, the parent itself if it is one), both read once in the
+        # layout pass: never re-parsed per coded child, never found by walking ancestors.
+        layout = index.layout()
+        column = layout.column.get(prop)
+        if column is None:
             return []
-        # The property's group: the nearest PropertyParameters of its parent (the parent
-        # itself if it is one), read from the layout pass, not by walking ancestors.
-        params = index.layout().holder_group.get(prop)
-        if params is None:
-            return []
+        params = layout.holder_group[prop]
         null_el = self._siblings(prop)[2]
         null_text = null_el.xpath("string()") if null_el is not None else ""
         index.charge(len(null_text) + _CHECK13_STEP)
@@ -1466,7 +1466,17 @@ class _Check13Layout:
     read this one map, so the two cannot drift apart.
     """
 
-    __slots__ = ("by_id", "citing", "columns", "holder_group", "nearest_rs", "owned", "refs")
+    __slots__ = (
+        "by_id",
+        "citing",
+        "column",
+        "columns",
+        "group_id",
+        "holder_group",
+        "nearest_rs",
+        "owned",
+        "refs",
+    )
 
     def __init__(self) -> None:
         self.nearest_rs: dict[etree._Element, etree._Element | None] = {}
@@ -1474,13 +1484,39 @@ class _Check13Layout:
         self.by_id: dict[str, list[etree._Element]] = {}
         self.citing: dict[str, list[etree._Element]] = {}
         self.refs: dict[etree._Element, list[str]] = {}
-        self.holder_group: dict[etree._Element, etree._Element | None] = {}
+        self.holder_group: dict[etree._Element, etree._Element] = {}
         self.columns: dict[etree._Element, set[int]] = {}
+        self.column: dict[etree._Element, int] = {}
+        self.group_id: dict[etree._Element, str] = {}
 
 
-def _first_id(el: etree._Element) -> str:
-    """The value of the element's first attribute whose local name is ``id``, or ""."""
-    return next((str(v) for k, v in el.attrib.items() if etree.QName(k).localname == "id"), "")
+def _first_id(el: etree._Element, charge: Callable[[int], None]) -> str:
+    """The value of the element's first attribute whose local name is ``id``, or "".
+
+    Each attribute looked at is charged. The names are listed once and only the id is
+    read: lxml's ``attrib.items()`` looks each value up by name, which is quadratic
+    in the number of attributes.
+    """
+    for key in el.keys():  # noqa: SIM118  # iterating an element yields its children
+        charge(_CHECK13_ATTR)
+        if etree.QName(key).localname == "id":
+            return str(el.get(key))
+    return ""
+
+
+def _index_column(text: str) -> int | None:
+    """A property ``index`` as a column (1 or more), or None.
+
+    An index longer than _MAX_INDEX_CHARS raw characters is never a column, so no
+    padded value is normalised or parsed (real ones are a few digits).
+    """
+    if len(text) > _MAX_INDEX_CHARS:
+        return None
+    column = _xs_integer(text)
+    return column if column is not None and column > 0 else None
+
+
+_MAX_INDEX_CHARS = 64
 
 
 class _Check13Index:
@@ -1565,26 +1601,34 @@ class _Check13Index:
                     layout.nearest_rs[el] = owner
                     if owner is not None:
                         layout.owned.setdefault(owner, []).append(el)
-                    ident = _first_id(el)
+                    ident = _first_id(el, self.charge)
                     if ident:
                         layout.by_id.setdefault(ident, []).append(el)
+                        layout.group_id[el] = ident
                     open_groups.append(el)
                     self.charge(_CHECK13_STEP)
                 elif local == "parameters" and open_sets and el.getparent() is open_sets[-1]:
-                    for key, value in el.attrib.items():
-                        self.charge(_CHECK13_STEP)
+                    # Names only: items() is quadratic (see _first_id); iterating the
+                    # element itself would yield its children.
+                    for key in el.keys():  # noqa: SIM118
+                        self.charge(_CHECK13_ATTR)
                         if etree.QName(key).localname == "href":
-                            layout.citing.setdefault(str(value), []).append(open_sets[-1])
-                            layout.refs.setdefault(open_sets[-1], []).append(str(value))
+                            value = str(el.get(key))
+                            layout.citing.setdefault(value, []).append(open_sets[-1])
+                            layout.refs.setdefault(open_sets[-1], []).append(value)
+                # Looking up "index" scans the element's attributes: charge each one.
+                self.charge(_CHECK13_ATTR_SCAN * len(el.attrib))
                 text = el.get("index")
                 if text is not None:
                     # Kept: the element, its group and its column (about 200 bytes).
                     self.charge(2 * _CHECK13_STEP + len(text))
-                    group = open_groups[-1] if open_groups else None
-                    layout.holder_group[el] = group
-                    c = _xs_integer(text)
-                    if group is not None and c is not None and c > 0:
-                        layout.columns.setdefault(group, set()).add(c)
+                    if open_groups:  # an index outside every group is never asked for
+                        group = open_groups[-1]
+                        layout.holder_group[el] = group
+                        c = _index_column(text)
+                        if c is not None:
+                            layout.column[el] = c
+                            layout.columns.setdefault(group, set()).add(c)
             self._layout = layout
         return self._layout
 
@@ -1599,7 +1643,7 @@ class _Check13Index:
             layout = self.layout()
             owner = layout.nearest_rs.get(params)
             sets = [owner] if owner is not None else []
-            ident = _first_id(params)
+            ident = layout.group_id.get(params, "")
             if ident:
                 sets += layout.citing.get(f"#{ident}", [])
             self.charge(_CHECK13_STEP * (len(sets) + 1))
@@ -1783,24 +1827,31 @@ MAX_DEFINITION_PATHS = 1_000
 #: validate(): most path-matching steps per instance (the largest corpus file needs 30,000).
 MAX_PATH_MATCH_WORK = 5_000_000
 #: validate(): most Check 13 work units per document (see :class:`_Check13Index`). The
-#: weights below make one unit cost at most about 60 ns on an Apple M3 Max, whatever
-#: the loop (``scripts/calibrate_check13.py`` measures them), so the cap is about 12 s.
+#: weights below make one unit cost at most about 30 ns on an Apple M3 Max, whatever
+#: the loop (``scripts/calibrate_check13.py`` measures them), so the cap is about 6 s
+#: there and at most about 24 s on hardware four times slower.
 MAX_CHECK13_WORK = 200_000_000
 #: Units per Python-level Check 13 step that keeps or walks an entry (an index, a
 #: group, a column, a reference, a ResultSet child).
-_CHECK13_STEP = 16
+_CHECK13_STEP = 32
 #: Units per element event of the layout pass.
-_CHECK13_EVENT = 8
+_CHECK13_EVENT = 16
 #: validate(): most entries Check 13 keeps in its per-key caches (merged values, column
 #: unions, sorted columns, invalid values): at most about 8 to 30 bytes each.
 MAX_CHECK13_KEPT = 10_000_000
+#: Units per coded element Check 13 looks at (its code list, column and group).
+_CHECK13_PROPERTY = 160
+#: Units per attribute scanned for an ``index`` in the layout pass.
+_CHECK13_ATTR_SCAN = 2
+#: Units per attribute looked at (an id, an href).
+_CHECK13_ATTR = 32
 #: Units per dataValues token.
-_CHECK13_TOKEN = 4
+_CHECK13_TOKEN = 14
 #: Units per field split out of a row.
-_CHECK13_FIELD = 5
+_CHECK13_FIELD = 8
 #: Units per column looked at while merging a group's ResultSets, and per value merged.
-_CHECK13_WALK = 2
-_CHECK13_MERGE = 8
+_CHECK13_WALK = 4
+_CHECK13_MERGE = 16
 #: Units per dataValues character read.
 _CHECK13_CHAR = 1
 #: validate(): most steps in one dictionary path.

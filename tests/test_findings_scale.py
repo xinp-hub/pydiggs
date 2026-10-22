@@ -492,6 +492,8 @@ print(report.steps["dictionary"], report.verdict, cpu,
         (lambda: _sc()._nestpp(250, 480_000, distinct=True), "passed"),
         (lambda: _sc()._merge(300, 300, 1_350, skip_own=False), "failed"),
         (lambda: _sc()._merge(300, 300, 1_350, skip_own=True), "incomplete"),
+        (lambda: _sc()._hugeindex(4_000_000, 120_000), "passed"),
+        (lambda: _sc()._manyattr(600, 2_000), "passed"),
     ],
     ids=[
         "bigcite",
@@ -503,6 +505,8 @@ print(report.steps["dictionary"], report.verdict, cpu,
         "nestppd",
         "merge10",
         "merge10b",
+        "hugeindex",
+        "manyattr",
     ],
 )
 def test_check13_ten_megabyte_shapes_stay_within_the_bar(tmp_path, shape, expected):

@@ -95,9 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   every character it reads and every element, `index`, group, reference, token, field
   and merged value it examines or keeps is charged, so no Check 13 loop is unbounded
   and what it keeps stays under 1 GB. The weights are calibrated so that a unit costs
-  about the same time in every loop (`scripts/calibrate_check13.py`; on an Apple M3
-  Max the worst loop is about 60 ns a unit, so the whole budget is about 12 s, and a
-  typical 10 MB file needs 10 to 15 % of it). A column's values over a group's
+  about the same time in every loop (`scripts/calibrate_check13.py`, which exits 1 if
+  any loop costs more than 30 ns a unit on the machine it runs on; on an Apple M3 Max
+  the worst loop is about 27 ns, so the whole budget is about 6 s there and 12 to 24 s
+  on hardware two to four times slower; data-shaped 10 MB files use 26 to 29 % of it,
+  the densest shape tried 74 %). A property `index` is parsed once, in the layout
+  pass, and an index longer than 64 characters is not a column. A column's values over a group's
   ResultSets are merged once for all the group's properties, and each `index` belongs
   to its nearest PropertyParameters only, so nested PropertyParameters are not
   re-read.

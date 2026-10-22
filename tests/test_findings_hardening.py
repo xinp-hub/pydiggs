@@ -928,7 +928,14 @@ def test_huge_column_indexes_never_raise(tmp_path):
         + _sources("//diggs:propertyClass")
         + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
     )
-    for index, rules_expected in (("0" * 5_000 + "1", ["dictionary.13"]), ("9" * 5_001, [])):
+    # Leading zeros are allowed (xs:integer) up to 64 characters; a longer index is
+    # never a column (round 14: it was re-parsed for each coded child).
+    cases = (
+        ("0" * 60 + "1", ["dictionary.13"]),
+        ("0" * 5_000 + "1", []),
+        ("9" * 5_001, []),
+    )
+    for index, rules_expected in cases:
         body = (
             '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
             f'<Property index="{index}">{_PC}</Property></properties></PropertyParameters>'
@@ -2156,7 +2163,11 @@ def test_check13_index_charges_every_loop():
     """The invariant at _Check13Index: each iteration is charged to the one counter."""
     from pydiggs import dictionary
 
-    step, event = dictionary._CHECK13_STEP, dictionary._CHECK13_EVENT
+    step, event, attr = (
+        dictionary._CHECK13_STEP,
+        dictionary._CHECK13_EVENT,
+        dictionary._CHECK13_ATTR,
+    )
     root = etree.fromstring(
         f'<Diggs xmlns="{NS}" xmlns:xlink="http://www.w3.org/1999/xlink">'
         '<ResultSet><parameters xlink:href="#B" other="x"/><x><y>'
@@ -2171,8 +2182,10 @@ def test_check13_index_charges_every_loop():
     holders = ["1", "no", "7", "3"]
     expected = (
         event * 2 * elements  # every element's start and end
-        + step * 2  # the two attributes of ResultSet/parameters
+        + dictionary._CHECK13_ATTR_SCAN * 7  # every attribute scanned for an index
+        + attr * 2  # the two attributes of ResultSet/parameters
         + step * 2  # two PropertyParameters
+        + attr * 2  # each group's attributes looked at for an id (one each)
         + sum(2 * step + len(h) for h in holders)  # each index kept with its group
     )
     assert index._work == expected
@@ -2208,8 +2221,8 @@ def test_nested_groups_read_each_index_once():
         return index._work
 
     base = work(120, 1_000)
-    assert work(240, 1_000) - base < 120 * 100  # depth adds per group, not per holder
-    assert work(120, 2_000) - base < 1_000 * 100  # holders add once each
+    assert work(240, 1_000) - base < 120 * 300  # depth adds per group, not per holder
+    assert work(120, 2_000) - base < 1_000 * 300  # holders add once each
 
 
 def test_check13_union_work_is_charged_and_shared():
@@ -2404,3 +2417,190 @@ def test_check13_kept_values_are_capped(tmp_path, monkeypatch):
     report = validate(site, checks=["dictionary"])
     assert report.steps["dictionary"] == "incomplete"
     assert any("would keep more than 1,000" in f.message for f in report.findings)
+
+
+# --- round 14: pins for guards that already work -------------------------------------
+
+_C13_INNER = (
+    "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+)
+_MANY_CODES = (
+    '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+    ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c">'
+    + "".join(
+        f'<gml:dictionaryEntry><diggs:Definition gml:id="v{i}"/></gml:dictionaryEntry>'
+        for i in range(5_000)
+    )
+    + "</gml:Dictionary>"
+)
+
+
+def _c13_run(tmp_path, monkeypatch, body: str, codes: str = _OK_CODES, **caps: int):
+    """validate() the body's dictionary step; return the report and the Check 13 index."""
+    from pydiggs import dictionary
+
+    seen = []
+    real = dictionary._Check13Index.__init__
+
+    def init(self, *args, **kwargs):
+        real(self, *args, **kwargs)
+        seen.append(self)
+
+    monkeypatch.setattr(dictionary._Check13Index, "__init__", init)
+    for name, value in caps.items():
+        monkeypatch.setattr(dictionary, name, value)
+    tmp_path.mkdir(exist_ok=True)
+    site = _definition(tmp_path, _C13_INNER, body, {"c.xml": codes})
+    report = validate(site, checks=["dictionary"])
+    monkeypatch.setattr(dictionary._Check13Index, "__init__", real)
+    return report, seen[-1]
+
+
+def test_check13_a_long_null_value_is_charged_for_every_coded_child(tmp_path, monkeypatch):
+    """One Property with 3,000 coded children and a 100 KB nullValue: the null text is
+    read for each child, and each read is charged, so the step stops (a 4.7 MB file of
+    this shape ran for more than 120 s when it was not)."""
+    body = (
+        '<ResultSet><parameters><PropertyParameters><Property index="1">'
+        + _PC * 3_000
+        + f"<nullValue>{'n' * 100_000}</nullValue></Property></PropertyParameters>"
+        "</parameters><dataValues>ok</dataValues></ResultSet>"
+    )
+    report, _ = _c13_run(tmp_path, monkeypatch, body)
+    assert report.steps["dictionary"] == "incomplete"
+    assert any("work units" in f.message for f in report.findings)
+
+
+def _merged_only(values: int) -> str:
+    """One group, one ResultSet, ``values`` distinct values that are all valid terms:
+    the invalid-value list stays empty, so only the merge keeps entries."""
+    data = " ".join(f"v{i}" for i in range(values))
+    return (
+        f'<ResultSet><parameters><PropertyParameters><Property index="1">{_PC}</Property>'
+        f"</PropertyParameters></parameters><dataValues>{data}</dataValues></ResultSet>"
+    )
+
+
+def _unions_only(result_sets: int, columns: int) -> str:
+    """Each ResultSet splits the same columns into two groups at a different point:
+    every union is new, but every sorted column list is the same."""
+    sets = []
+    for r in range(result_sets):
+        cut = r % (columns - 1) + 1
+        first = "".join(f'<Property index="{c}"/>' for c in range(2, cut + 1))
+        second = "".join(f'<Property index="{c}"/>' for c in range(cut + 1, columns + 1))
+        sets.append(
+            f'<ResultSet><parameters><PropertyParameters><Property index="1">{_PC}</Property>'
+            f"{first}</PropertyParameters><PropertyParameters>{second}</PropertyParameters>"
+            "</parameters><dataValues>v1</dataValues></ResultSet>"
+        )
+    return "".join(sets)
+
+
+def _invalid_only(properties: int, values: int) -> str:
+    """One group whose coded Properties differ only in their nullValue: one merge, but
+    one invalid-value list per null text."""
+    props = "".join(
+        f'<Property index="1">{_PC}<nullValue>n{p}</nullValue></Property>'
+        for p in range(properties)
+    )
+    data = " ".join(f"bad{i}" for i in range(values))
+    return (
+        f"<ResultSet><parameters><PropertyParameters>{props}</PropertyParameters></parameters>"
+        f"<dataValues>{data}</dataValues></ResultSet>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("shape", "codes", "grows"),
+    [
+        (lambda: _merged_only(3_000), _MANY_CODES, "_merged"),
+        (lambda: _unions_only(50, 200), _MANY_CODES, "_unions"),
+        (lambda: _invalid_only(50, 200), _OK_CODES, "_invalid_cache"),
+    ],
+    ids=["merged-values", "unions", "invalid-lists"],
+)
+def test_check13_each_kept_cache_is_counted_on_its_own(tmp_path, monkeypatch, shape, codes, grows):
+    """A shape where one cache grows and the others stay tiny: the kept count must
+    follow that cache alone, and a cap below it must stop the step."""
+    body = shape()
+    report, index = _c13_run(tmp_path / "a", monkeypatch, body, codes)
+    assert report.steps["dictionary"] in ("passed", "failed"), report.findings
+    kept = index._kept
+    assert kept > 2_000, kept
+    merged = sum(len(v) for table in index._merged.values() for v in table.values())
+    unions = sum(len(u) for u in index._unions.values())
+    grown = {"_merged": merged, "_unions": unions, "_invalid_cache": kept - merged - unions}[grows]
+    if grows == "_unions":
+        assert len(index._sorted) < 5  # one sorted list shared by every union
+    assert grown > 0.8 * kept, (grown, kept)  # this cache is most of what is kept
+    report, _ = _c13_run(tmp_path / "b", monkeypatch, body, codes, MAX_CHECK13_KEPT=kept // 2)
+    assert report.steps["dictionary"] == "incomplete"
+    assert any("would keep more than" in f.message for f in report.findings)
+
+
+def test_check13_kept_cap_boundary(tmp_path, monkeypatch):
+    body = _merged_only(300)
+    report, index = _c13_run(tmp_path / "a", monkeypatch, body, _MANY_CODES)
+    kept = index._kept
+    report, _ = _c13_run(tmp_path / "b", monkeypatch, body, _MANY_CODES, MAX_CHECK13_KEPT=kept)
+    assert report.steps["dictionary"] in ("passed", "failed")  # exactly at the cap: allowed
+    report, _ = _c13_run(tmp_path / "c", monkeypatch, body, _MANY_CODES, MAX_CHECK13_KEPT=kept - 1)
+    assert report.steps["dictionary"] == "incomplete"
+
+
+def test_check13_groups_sharing_readers_share_one_merge(tmp_path, monkeypatch):
+    """Two groups read from the same ResultSet, with different null texts: one merge,
+    and each property's result still uses its own null text."""
+    body = (
+        '<group><PropertyParameters gml:id="A"><Property index="1">'
+        f"{_PC}<nullValue>x</nullValue></Property></PropertyParameters>"
+        '<PropertyParameters gml:id="B"><Property index="1">'
+        f"{_PC}<nullValue>y</nullValue></Property></PropertyParameters></group>"
+        f'<ResultSet><parameters {_XLINK} xlink:href="#A"/><parameters {_XLINK} xlink:href="#B"/>'
+        "<dataValues>x y z</dataValues></ResultSet>"
+    )
+    report, index = _c13_run(tmp_path, monkeypatch, body)
+    assert len(index._merged) == 1
+    messages = sorted(f.message for f in report.findings if f.rule_id == "dictionary.13")
+    assert len(messages) == 2
+    assert any('"y", "z"' in m and '"x"' not in m for m in messages)  # null text x skipped
+    assert any('"x", "z"' in m and '"y"' not in m for m in messages)  # null text y skipped
+
+
+def test_check13_holders_outside_every_group_are_not_kept():
+    from pydiggs import dictionary
+
+    root = etree.fromstring(
+        f'<Diggs xmlns="{NS}"><a index="1"/><b index="2"/><ResultSet><PropertyParameters>'
+        '<Property index="3"/></PropertyParameters></ResultSet></Diggs>'
+    )
+    layout = dictionary._Check13Index(root.getroottree(), bounded=True).layout()
+    assert [etree.QName(el).localname for el in layout.holder_group] == ["Property"]
+
+
+def test_check13_sorted_column_lists_are_kept_once_per_set():
+    from pydiggs import dictionary
+
+    root = etree.fromstring(f'<Diggs xmlns="{NS}"/>')
+    index = dictionary._Check13Index(root.getroottree(), bounded=True)
+    asked = frozenset({3, 1, 2})
+    assert index._need(asked) == [1, 2, 3]
+    assert index._kept == len(asked) + 1
+    assert index._need(asked) == [1, 2, 3]  # cached: kept once
+    assert index._kept == len(asked) + 1
+
+
+def test_check13_an_index_longer_than_64_characters_is_not_a_column(tmp_path):
+    def run(pad: int) -> list[str]:
+        folder = tmp_path / str(pad)
+        folder.mkdir()
+        return _check13_messages(
+            folder,
+            f'<ResultSet><parameters><PropertyParameters><Property index="{" " * pad}1">'
+            f"{_PC}</Property></PropertyParameters></parameters>"
+            "<dataValues>bad</dataValues></ResultSet>",
+        )
+
+    assert len(run(63)) == 1  # 64 characters: still column 1
+    assert run(64) == []  # 65 characters: not a column, never normalised or parsed

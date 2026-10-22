@@ -659,9 +659,9 @@ def test_check13_bigcite_doubling_cited_properties(semantic, tmp_path):
     files = {"d.xml": _C13_DEF, "c.xml": _CODES}
     small = _work(semantic, tmp_path / "a", _bigcite(500, 2_000), files, _c13_work)
     large = _work(semantic, tmp_path / "b", _bigcite(500, 4_000), files, _c13_work)
-    # The extra Properties are charged once each (about 50 units: their layout events
+    # The extra Properties are charged once each (about 100 units: their layout events
     # and kept index), not once per citing ResultSet (500 x 2,000 more).
-    assert large - small <= 2_000 * 64, (small, large)
+    assert large - small <= 2_000 * 150, (small, large)
     _ratio(small, large, "check 13 bigcite cited properties (work)")
 
 
@@ -861,3 +861,62 @@ def _merge(groups: int, result_sets: int, values: int, *, skip_own: bool) -> str
         data = " ".join(f"r{r}x{j}" for j in range(values))
         sets.append(f"<ResultSet>{cites}<dataValues>{data}</dataValues></ResultSet>")
     return f"<group>{pps}</group>" + "".join(sets)
+
+
+def _hugeindex(pad: int, children: int) -> str:
+    """One Property whose index is ``pad`` spaces and "1", with many coded children
+    (round 14: the index was re-parsed for every child)."""
+    return (
+        f'<ResultSet><PropertyParameters><Property index="{" " * pad}1">'
+        + PC * children
+        + "</Property></PropertyParameters><dataValues>v1</dataValues></ResultSet>"
+    )
+
+
+def test_check13_an_index_is_parsed_once(semantic, tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    parsed = _counting(monkeypatch, dictionary, "_xs_integer")
+    _work(semantic, tmp_path / "a", _hugeindex(10, 1_000), files, _c13_work)
+    small = len(parsed)
+    parsed.clear()
+    _work(semantic, tmp_path / "b", _hugeindex(10, 2_000), files, _c13_work)
+    assert len(parsed) == small  # once in the layout pass, never per coded child
+
+
+def test_check13_doubling_children_of_a_long_index(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(semantic, tmp_path / "a", _hugeindex(100_000, 1_000), files, _c13_work)
+    large = _work(semantic, tmp_path / "b", _hugeindex(100_000, 2_000), files, _c13_work)
+    from pydiggs import dictionary
+
+    # The long index is read once (charged by length); each child costs a constant,
+    # at least the coded-element weight.
+    assert 1_000 * dictionary._CHECK13_PROPERTY <= large - small < 1_000 * 400, (small, large)
+    _ratio(small, large, "check 13 coded children of a long index (work)")
+
+
+def _manyattr(groups: int, attributes: int) -> str:
+    """Groups whose id comes after many other attributes (round 14)."""
+    attrs = " ".join(f'a{i}=""' for i in range(attributes))
+    return (
+        "<ResultSet>"
+        + "".join(
+            f'<PropertyParameters {attrs} gml:id="P{k}"><Property index="1">{PC}'
+            "</Property></PropertyParameters>"
+            for k in range(groups)
+        )
+        + "<dataValues>v1</dataValues></ResultSet>"
+    )
+
+
+def test_check13_doubling_attributes_before_an_id(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(semantic, tmp_path / "a", _manyattr(50, 500), files, _c13_work)
+    large = _work(semantic, tmp_path / "b", _manyattr(50, 1_000), files, _c13_work)
+    from pydiggs import dictionary
+
+    # Each attribute is charged where it is looked at (about 2 x 500 x 50 more).
+    assert large - small >= 50 * 500 * dictionary._CHECK13_ATTR
+    assert _ratio(small, large, "check 13 attributes before an id (work)") <= LINEAR
