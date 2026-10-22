@@ -51,15 +51,17 @@ def reports(draw: st.DrawFn) -> Report:
             max_size=4,
         )
     )
+    status = draw(st.sampled_from(["checked", "not-diggs"]))
+    versions = st.sampled_from(["2.5.a", "2.6", "3.0.0"])
     return Report(
         path=draw(_PATHS),
         absolute_path=draw(st.none() | _PATHS.map(lambda p: "/abs/" + p)),
         sha256=draw(st.text(alphabet="0123456789abcdef", min_size=64, max_size=64)),
-        diggs_version=draw(st.none() | st.sampled_from(["2.5.a", "2.6", "3.0.0"])),
+        diggs_version=None if status == "not-diggs" else draw(st.none() | versions),
         steps=steps,
         findings=tuple(draw(st.lists(findings(), max_size=6))),
         tool_version="1.2.0",
-        status=draw(st.sampled_from(["checked", "not-diggs"])),
+        status=status,
         reference_data=draw(
             st.dictionaries(
                 st.sampled_from(["schemas", "def", "diggs-examples"]),

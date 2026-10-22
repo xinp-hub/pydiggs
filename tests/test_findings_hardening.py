@@ -1545,6 +1545,9 @@ def test_oversized_comment_pi_and_cdata_in_a_local_dictionary_fail_closed(tmp_pa
         b"<XML_PARSE_HUGE><b></XML_PARSE_HUGE>",  # a quoted name equal to a limit phrase
         b"<a>&depth;</a>",  # an undeclared entity called "depth"
         b"<a><q:depth/></a>",  # an undeclared namespace prefix
+        # A PI that never ends quotes its target in a *_NOT_FINISHED error, the code
+        # libxml2 also uses for its size limits, so only multi-word phrases may match.
+        b"<a><?depth_XML_PARSE_HUGE ",
     ],
 )
 def test_ordinary_errors_quoting_limit_words_stay_warnings(tmp_path, dictionary):
@@ -1723,6 +1726,38 @@ def test_partial_never_hides_a_failure(tmp_path):
     assert make("partial", None).verdict == "partly-checked"
     assert make("failed", Severity.ERROR).verdict == "not-valid"
     assert make("incomplete", Severity.ERROR).verdict == "not-valid"
+    # Warnings cut by max_findings: incomplete with no error is partly checked.
+    assert make("incomplete", Severity.WARNING).verdict == "partly-checked"
+    assert make("incomplete", None).verdict == "partly-checked"
+
+
+def test_a_not_diggs_report_has_no_version():
+    from pydiggs.findings.model import Report
+
+    with pytest.raises(ValueError, match="diggs_version"):
+        Report(
+            path="a.xml",
+            sha256="0" * 64,
+            diggs_version="2.6",
+            steps={},
+            tool_version="x",
+            status="not-diggs",
+        )
+
+
+@pytest.mark.parametrize("status", ["unreadable", "Checked", "", "valid"])
+def test_a_report_refuses_an_unknown_file_status(status):
+    from pydiggs.findings.model import Report
+
+    with pytest.raises(ValueError, match=repr(status)):
+        Report(
+            path="a.xml",
+            sha256="0" * 64,
+            diggs_version="2.6",
+            steps={},
+            tool_version="x",
+            status=status,  # type: ignore[arg-type]
+        )
 
 
 def test_unreadable_entries_carry_their_verdict():
@@ -1758,3 +1793,315 @@ def test_srs_on_an_ancestor_passes():
     result = semantic.validate_context_tree(root, legacy_paths=False)
     srs = [m.text for m in result.messages if m.check == 101]
     assert srs == ["Geometry: <PointLocation> should declare srsName and srsDimension."]
+
+
+# --- round 11 ------------------------------------------------------------------------
+
+
+@pytest.mark.timeout(30)
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on this platform")
+def test_a_fifo_external_dtd_is_never_opened(tmp_path):
+    """The ATTLIST-defaults parse must not read the external subset (it would block here)."""
+    os.mkfifo(tmp_path / "pipe.dtd")
+    path = tmp_path / "fifo.xml"
+    path.write_text(
+        f'<!DOCTYPE Diggs SYSTEM "pipe.dtd" [<!ATTLIST a x CDATA "v">]><Diggs xmlns="{NS}"><a/></Diggs>'
+    )
+    report = validate(path, checks=["structure"])
+    assert "structure.entity-expansion" not in {f.rule_id for f in report.findings}
+
+
+def test_an_external_dtd_contributes_nothing(tmp_path):
+    """Same result whether the external subset exists or not: no existence oracle."""
+    path = tmp_path / "ext.xml"
+    path.write_text(
+        '<!DOCTYPE Diggs SYSTEM "ext.dtd" [<!ATTLIST b y CDATA "z">]><Diggs>'
+        + '<a xmlns=""/>' * 20
+        + "</Diggs>"
+    )
+    without = validate(path, checks=["structure"])
+    (tmp_path / "ext.dtd").write_text(f'<!ATTLIST a x CDATA "{"v" * 5_000}">')
+    with_file = validate(path, checks=["structure"])
+    assert [f.rule_id for f in with_file.findings] == [f.rule_id for f in without.findings]
+    assert "structure.entity-expansion" not in {f.rule_id for f in with_file.findings}
+    measured = _xml.parse_bytes(path.read_bytes(), str(path), attribute_defaults=True)
+    assert all("x" not in a.attrib for a in measured.getroot())  # never filled from outside
+
+
+def _srs_reference(root: etree._Element) -> list[tuple[etree._Element, str]]:
+    """The official module's rule written as it reads (per-object ancestor and subtree
+    walks), kept to compare the one-pass walk with."""
+    from pydiggs import semantic
+
+    out = []
+    for el in root.iter(*(f"{{*}}{n}" for n in sorted(semantic._GEOMETRY_NAMES))):
+        if semantic._has_both(el) or any(semantic._has_both(a) for a in el.iterancestors()):
+            continue
+        child = any(semantic._has_both(d) for d in el.iterdescendants())
+        out.append((el, semantic._srs_text(el, etree.QName(el).localname, child)))
+    return out
+
+
+def test_one_pass_srs_rule_matches_the_per_object_rule():
+    import random
+
+    from pydiggs import semantic
+
+    def compare(root: etree._Element) -> int:
+        result = semantic.ContextValidationResult(legacy_paths=False)
+        semantic._check_geometry_srs_official(root, result)
+        got = [(m.node, m.text) for m in result.messages]
+        assert got == _srs_reference(root)
+        return len(got)
+
+    compared = 0
+    for name in sorted((ROOT / "tests").rglob("*.xml")):
+        try:
+            compared += compare(_xml.parse(str(name)).getroot())
+        except etree.XMLSyntaxError:
+            continue
+    names = ["Point", "PointLocation", "LinearExtent", "MultiCurve", "Solid", "pos", "posList", "x"]
+    for seed in range(400):
+        rng = random.Random(seed)  # noqa: S311 - test data
+
+        def element(depth: int, rng: random.Random = rng) -> etree._Element:
+            el = etree.Element(f"{{urn:g}}{rng.choice(names)}" if depth else "Diggs")
+            for attr in ("srsName", "srsDimension"):
+                if rng.random() < 0.3:
+                    el.set(attr, "1")
+            if depth < 6:
+                for _ in range(rng.randint(0, 3)):
+                    el.append(element(depth + 1, rng))
+            return el
+
+        compared += compare(element(0))
+    assert compared > 100
+
+
+def test_check13_characters_scanned_are_capped(tmp_path, monkeypatch):
+    from pydiggs import dictionary
+
+    codes = (
+        '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+        ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+        '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f'<Property index="1">{_PC}</Property></properties></PropertyParameters>'
+        "</parameters><dataValues>" + "ok " * 100 + "</dataValues></ResultSet>"
+    )
+    site = _definition(tmp_path, inner, body, {"c.xml": codes})
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_CHARS", 200)  # exactly 100 x "ok"
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "passed"
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_CHARS", 199)
+    assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
+
+
+# --- geometry: the official element list (human decision) ----------------------------
+
+_GML = "http://www.opengis.net/gml/3.2"
+
+
+def _srs(body: str) -> list[tuple[str, str]]:
+    from pydiggs import semantic
+
+    root = etree.fromstring(f'<Diggs xmlns="{NS}" xmlns:gml="{_GML}">{body}</Diggs>')
+    result = semantic.validate_context_tree(root, legacy_paths=False)
+    return [(m.severity, m.text) for m in result.messages if m.check == 101]
+
+
+def test_geometry_list_is_the_official_modules():
+    from pydiggs import semantic
+
+    assert semantic._GEOMETRY_NAMES == (
+        "LinearExtent",
+        "MultiPointLocation",
+        "MultiCurve",
+        "Solid",
+        "PointLocation",
+        "PlanarObservationRepresentation",
+        "PlanarSurface",
+        "MultiPlanarSurface",
+        "RectifiedGrid",
+    )
+
+
+def test_a_point_without_srs_is_not_a_checked_object():
+    assert _srs("<gml:Point><gml:pos>1 2</gml:pos></gml:Point>") == []
+
+
+@pytest.mark.parametrize("name", ["Solid", "PlanarSurface"])
+def test_an_object_with_coordinates_and_no_srs_warns(name):
+    assert _srs(f"<{name}><gml:posList>1 2 3 4</gml:posList></{name}>") == [
+        ("WARNING", f"Geometry: <{name}> should declare srsName and srsDimension.")
+    ]
+
+
+def test_an_empty_linear_extent_warns():
+    """No coordinates pre-filter any more: the official module checks it too."""
+    assert _srs('<LinearExtent gml:id="l"/>') == [
+        ("WARNING", "Geometry: <LinearExtent> should declare srsName and srsDimension.")
+    ]
+
+
+def test_a_point_location_with_only_srs_dimension_names_srs_name():
+    assert _srs('<PointLocation srsDimension="2"/>') == [
+        ("WARNING", "Geometry: <PointLocation> should declare srsName.")
+    ]
+
+
+def test_an_empty_srs_name_counts_as_present():
+    """The module tests exists(@srsName): an empty value is not missing."""
+    assert _srs('<PointLocation srsName="" srsDimension="2"/>') == []
+    assert _srs('<PointLocation srsName=""/>') == [
+        ("WARNING", "Geometry: <PointLocation> should declare srsDimension.")
+    ]
+
+
+def test_srs_on_a_child_names_only_what_the_object_lacks():
+    got = _srs(
+        '<MultiCurve srsName="urn:x"><gml:pos srsName="urn:x" srsDimension="2">1 2</gml:pos>'
+        "</MultiCurve>"
+    )
+    assert got == [
+        (
+            "WARNING",
+            "Geometry: <MultiCurve> has no srsDimension itself; srsName and srsDimension are"
+            " on a child element (allowed by GML 3.2), but DIGGS best practice is to put"
+            " them on the geometry object.",
+        )
+    ]
+
+
+def test_legacy_context_check_keeps_its_own_list():
+    from pydiggs import semantic
+
+    root = etree.fromstring(
+        f'<Diggs xmlns="{NS}" xmlns:gml="{_GML}"><gml:Point><gml:pos>1 2</gml:pos></gml:Point>'
+        '<LinearExtent gml:id="l"/></Diggs>'
+    )
+    legacy = semantic.validate_context_tree(root)
+    assert [m.text for m in legacy.messages if m.check == 101] == [
+        "Geometry: <Point> should declare srsName.",
+        "Geometry: <Point> should declare srsDimension.",
+    ]
+
+
+# --- round 11: partial precedence end to end ------------------------------------------
+
+_OFFLINE_ROLE = (
+    '<role xmlns="{ns}" codeSpace='
+    '"https://diggsml.org/def/codes/DIGGS/0.1/status.xml#active">active</role>'
+)
+
+
+def _with_offline_role(tmp_path, source: Path) -> Path:
+    text = source.read_text(encoding="utf-8")
+    ns = etree.QName(etree.fromstring(text.encode()).tag).namespace
+    end = text.rindex("</")
+    path = tmp_path / source.name
+    path.write_text(text[:end] + _OFFLINE_ROLE.format(ns=ns) + text[end:], encoding="utf-8")
+    return path
+
+
+def test_offline_with_a_dictionary_error_is_failed_not_partial(tmp_path):
+    path = _with_offline_role(tmp_path, ROOT / "tests" / "test_files" / "AtterbergExample.xml")
+    report = validate(path, checks=["dictionary"])
+    rules_found = {f.rule_id for f in report.findings}
+    assert {"dictionary.offline", "dictionary.8"} <= rules_found
+    assert report.steps["dictionary"] == "failed"
+    assert report.verdict == "not-valid"
+
+
+def test_offline_with_truncation_is_incomplete_not_partial(tmp_path):
+    path = tmp_path / "offline.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3">'
+        + "".join(
+            f'<role codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/status{i}.xml#a">a</role>'
+            for i in range(3)
+        )
+        + "</Diggs>"
+    )
+    report = validate(path, checks=["dictionary"], max_findings=1)
+    rules_found = [f.rule_id for f in report.findings]
+    assert "structure.findings-truncated" in rules_found
+    assert report.steps["dictionary"] == "incomplete"
+    assert report.verdict == "partly-checked"
+
+
+def test_cli_text_says_why_a_file_is_partly_checked(tmp_path, capsys):
+    from pydiggs.findings import _cli
+
+    path = tmp_path / "offline.xml"
+    path.write_text(
+        '<Diggs xmlns="http://diggsml.org/schemas/3"><role codeSpace='
+        '"https://diggsml.org/def/codes/DIGGS/0.1/status.xml#active">active</role></Diggs>'
+    )
+    assert _cli.main([str(path), "--checks", "dictionary"]) == 0
+    out = capsys.readouterr().out
+    assert ": partly-checked: 0 error(s), 0 warning(s), 1 info" in out
+    assert ": not fully checked: dictionary (partial)\n" in out
+    assert " info dictionary.offline: " in out  # shown though INFO is otherwise hidden
+
+
+def test_cli_text_hides_info_on_a_fully_checked_file(tmp_path, capsys):
+    from pydiggs.findings import _cli
+
+    path = tmp_path / "ok.xml"
+    path.write_text('<Diggs xmlns="http://diggsml.org/schemas/3"/>')
+    _cli.main([str(path), "--checks", "structure"])
+    out = capsys.readouterr().out
+    assert "not fully checked" not in out
+
+
+@pytest.mark.timeout(30)
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on this platform")
+def test_a_fifo_external_dtd_by_absolute_path_is_never_opened(tmp_path):
+    fifo = tmp_path / "abs.dtd"
+    os.mkfifo(fifo)
+    path = tmp_path / "sub" / "fifo.xml"
+    path.parent.mkdir()
+    path.write_text(
+        f'<!DOCTYPE Diggs SYSTEM "{fifo.as_posix()}" [<!ATTLIST a x CDATA "v">]>'
+        f'<Diggs xmlns="{NS}"><a/></Diggs>'
+    )
+    report = validate(path, checks=["structure"])
+    assert "structure.entity-expansion" not in {f.rule_id for f in report.findings}
+
+
+def test_a_file_uri_external_dtd_contributes_nothing(tmp_path):
+    """Neither its ATTLIST defaults nor its entities are read, by file: URI either."""
+    dtd = tmp_path / "far" / "ext.dtd"
+    dtd.parent.mkdir()
+    dtd.write_text(f'<!ATTLIST a x CDATA "{"v" * 5_000}"><!ENTITY big "{"w" * 5_000}">')
+    path = tmp_path / "ext.xml"
+    path.write_text(
+        f'<!DOCTYPE Diggs SYSTEM "{dtd.as_uri()}" [<!ATTLIST b y CDATA "z">]><Diggs>'
+        + '<a xmlns=""/>' * 20
+        + "</Diggs>"
+    )
+    report = validate(path, checks=["structure"])
+    assert "structure.entity-expansion" not in {f.rule_id for f in report.findings}
+    measured = _xml.parse_bytes(path.read_bytes(), str(path), attribute_defaults=True)
+    assert all("x" not in a.attrib for a in measured.getroot())
+    uses = path.read_text().replace('<a xmlns=""/>', '<a xmlns="">&big;</a>')
+    with pytest.raises(etree.XMLSyntaxError, match="'big' not defined"):  # never loaded
+        _xml.parse_bytes(uses.encode(), str(path), attribute_defaults=True)
+
+
+def test_a_relative_external_dtd_is_not_read_from_the_working_directory(tmp_path, monkeypatch):
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    (cwd / "rel.dtd").write_text(f'<!ATTLIST a x CDATA "{"v" * 5_000}">')
+    monkeypatch.chdir(cwd)
+    data = (
+        b'<!DOCTYPE Diggs SYSTEM "rel.dtd" [<!ATTLIST b y CDATA "z">]><Diggs>'
+        + b'<a xmlns=""/>' * 20
+        + b"</Diggs>"
+    )
+    for base_url in (None, str(tmp_path / "elsewhere" / "i.xml")):
+        measured = _xml.parse_bytes(data, base_url, attribute_defaults=True)
+        assert all("x" not in a.attrib for a in measured.getroot())

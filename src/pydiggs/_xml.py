@@ -41,6 +41,19 @@ _DEFAULT_PORTS = {"http": 80, "https": 443}
 XMLSource = str | bytes | os.PathLike[str] | IO[bytes]
 
 
+class _RefuseExternal(etree.Resolver):  # type: ignore[misc]  # lxml has no stubs here
+    """Answer every external load (DTD subset, parameter entity) with nothing.
+
+    ``attribute_defaults=True`` makes libxml2 read the external DTD subset (a
+    ``SYSTEM`` id) even with ``load_dtd=False``: from local disk, a FIFO or a UNC
+    path. This resolver runs before libxml2 opens anything and returns an empty
+    document, so no file is opened and nothing outside the instance contributes.
+    """
+
+    def resolve(self, url: str, pubid: str, context: object) -> object:  # noqa: ARG002
+        return self.resolve_string("", context)
+
+
 def safe_parser(*, attribute_defaults: bool = False) -> etree.XMLParser:
     """Return a new parser that refuses external entities, DTDs and the network.
 
@@ -49,8 +62,13 @@ def safe_parser(*, attribute_defaults: bool = False) -> etree.XMLParser:
     unresolved and libxml2 reports them as undefined. (``False`` would leave entity
     nodes in the tree, which ``XMLSchema.validate`` cannot handle.) A fresh parser
     per call keeps this safe across threads; lxml parsers are not shareable.
+
+    ``attribute_defaults=True`` fills in the internal DTD subset's ATTLIST defaults
+    (validate() measures them). That option alone would make libxml2 load the
+    external subset, so such a parser also refuses every external load: only the
+    internal subset ever contributes.
     """
-    return etree.XMLParser(
+    parser = etree.XMLParser(
         resolve_entities="internal",
         load_dtd=False,
         dtd_validation=False,
@@ -58,6 +76,9 @@ def safe_parser(*, attribute_defaults: bool = False) -> etree.XMLParser:
         huge_tree=False,
         attribute_defaults=attribute_defaults,
     )
+    if attribute_defaults:
+        parser.resolvers.add(_RefuseExternal())
+    return parser
 
 
 def read_limited(

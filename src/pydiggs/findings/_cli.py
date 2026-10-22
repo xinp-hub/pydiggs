@@ -187,8 +187,19 @@ def _text(reports: Sequence[Report], unreadable: Sequence[UnreadableFile], out: 
             f"{path}: {report.verdict}: {c['error']} error(s), {c['warning']} warning(s),"
             f" {c['info']} info\n"
         )
+        # A partly checked file says why, even though INFO findings are not listed:
+        # which steps did not finish, and each code list that could not be fetched.
+        shown = {rules.FINDINGS_TRUNCATED}
+        if report.verdict == "partly-checked":
+            unfinished = ", ".join(
+                f"{step.value} ({status})"
+                for step, status in report.steps.items()
+                if status in ("partial", "incomplete")
+            )
+            out.write(f"  {path}: not fully checked: {unfinished}\n")
+            shown.add(rules.DICTIONARY_OFFLINE)
         for f in report.findings:
-            if f.severity is Severity.INFO and f.rule_id != rules.FINDINGS_TRUNCATED:
+            if f.severity is Severity.INFO and f.rule_id not in shown:
                 continue
             where = f"{path}:{f.line}" if f.line else path
             if f.line and f.column:

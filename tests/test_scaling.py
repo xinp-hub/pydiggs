@@ -485,3 +485,143 @@ def test_check13_many_wanted_columns_over_short_rows(semantic, tmp_path):
     small, large = cpu(20), cpu(800)  # 40x the wanted columns over one-field rows
     print(f"RATIO check 13 wanted columns x short rows: {small:.2f}s -> {large:.2f}s")
     assert large < 3 * small + 0.5  # wanted x rows would be about 40x (seconds)
+
+
+def test_geometry_srs_is_one_pass(monkeypatch):
+    from pydiggs import semantic
+
+    calls = _counting(monkeypatch, semantic, "_has_both")
+
+    def run_with(depth: int) -> int:
+        calls.clear()
+        root = etree.fromstring(
+            '<Diggs xmlns:gml="http://www.opengis.net/gml/3.2">'
+            + '<gml:MultiCurve srsName="x">' * depth
+            + "<c/>" * 2_000
+            + "</gml:MultiCurve>" * depth
+            + "</Diggs>"
+        )
+        result = ContextValidationResult(legacy_paths=False)
+        semantic._check_geometry_srs_official(root, result)
+        assert len(result.messages) == depth
+        return len(calls)
+
+    # Twice the nested MultiCurves around the same 2,000 children: about twice the
+    # calls (two per element), not depth x children.
+    assert _ratio(run_with(50), run_with(100), "geometry nesting depth (_has_both calls)") <= LINEAR
+
+
+def _geometry_calls(monkeypatch, depth: int, points: int) -> int:
+    """``_has_both`` calls of the geometry rule on MultiCurves nested ``depth`` deep
+    around ``points`` PointLocation/pos (the reviewer's repro shape: 250 deep around
+    420,000 took 99 s when each object walked its ancestors and subtree)."""
+    from pydiggs import semantic
+
+    calls = _counting(monkeypatch, semantic, "_has_both")
+    root = etree.fromstring(
+        '<Diggs xmlns:gml="http://www.opengis.net/gml/3.2">'
+        + "<gml:MultiCurve>" * depth
+        + "<gml:PointLocation><gml:pos>1 2</gml:pos></gml:PointLocation>" * points
+        + "</gml:MultiCurve>" * depth
+        + "</Diggs>"
+    )
+    result = ContextValidationResult(legacy_paths=False)
+    semantic._check_geometry_srs_official(root, result)
+    assert len(result.messages) == depth + points
+    monkeypatch.undo()
+    return len(calls)
+
+
+def test_geometry_doubling_depth_around_many_objects(monkeypatch):
+    small = _geometry_calls(monkeypatch, 100, 5_000)
+    large = _geometry_calls(monkeypatch, 200, 5_000)
+    # depth x objects would be about 2x as well, so compare with the element count:
+    # 2 calls per element, whatever the depth.
+    assert large <= 2 * (200 + 2 * 5_000 + 1) + 1
+    assert _ratio(small, large, "geometry nesting depth around 5,000 objects") < 1.05
+
+
+def test_geometry_doubling_objects_under_deep_nesting(monkeypatch):
+    small = _geometry_calls(monkeypatch, 250, 5_000)
+    large = _geometry_calls(monkeypatch, 250, 10_000)
+    assert large <= 2 * (250 + 2 * 10_000 + 1) + 1  # not 250 per object
+    assert _ratio(small, large, "geometry objects under 250 nested MultiCurves") <= LINEAR
+
+
+def test_check13_one_pass_per_result_set(semantic, tmp_path):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+
+    def body(groups: int) -> str:
+        params = "".join(
+            f'<PropertyParameters gml:id="P{i}"><properties><Property index="{i + 2}">{PC}'
+            "</Property></properties></PropertyParameters>"
+            for i in range(groups)
+        )
+        return (
+            f"<ResultSet><parameters>{params}</parameters>"
+            f"<dataValues>{'x' * 50_000}</dataValues></ResultSet>"
+        )
+
+    def scanned(s: DictionarySemanticValidator) -> int:
+        return s._check13._chars if s._check13 else 0
+
+    small = _work(semantic, tmp_path / "a", body(50), files, scanned)
+    large = _work(semantic, tmp_path / "b", body(100), files, scanned)
+    # The block is read once, whatever the number of PropertyParameters (each asking
+    # for its own column): 50,000 characters, not 50,000 per PropertyParameters.
+    assert small == large == 50_000
+    _ratio(small, large, "check 13 PropertyParameters (characters scanned)")
+
+
+def test_check13_doubling_property_parameters_over_many_rows(semantic, tmp_path):
+    """The reviewer's repro shape (400 PropertyParameters over 2,000 rows of one 2 KB
+    field took 44 s): K PropertyParameters, each asking for its own column, read the
+    rows once, so the characters scanned do not grow with K."""
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    row = "x" * 2_000
+
+    def body(groups: int) -> str:
+        params = "".join(
+            f'<PropertyParameters gml:id="P{i}"><properties><Property index="{i + 1}">{PC}'
+            "</Property></properties></PropertyParameters>"
+            for i in range(groups)
+        )
+        values = " ".join([row] * 200)
+        return f"<ResultSet><parameters>{params}</parameters><dataValues>{values}</dataValues></ResultSet>"
+
+    def scanned(s: DictionarySemanticValidator) -> int:
+        return s._check13._chars if s._check13 else 0
+
+    small = _work(semantic, tmp_path / "a", body(100), files, scanned)
+    large = _work(semantic, tmp_path / "b", body(200), files, scanned)
+    assert small == large == 200 * 2_000
+    _ratio(small, large, "check 13 PropertyParameters x rows (characters scanned)")
+
+
+def test_check13_splits_a_wide_row_only_up_to_the_wanted_column(semantic, tmp_path):
+    """Pins maxsplit: one row of a million fields, one wanted column. Splitting every
+    field would hold a million strings (tens of MB); the split stops after field 1."""
+    import tracemalloc
+
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    body = (
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><properties>'
+        f'<Property index="1">{PC}</Property></properties></PropertyParameters>'
+        f"</parameters><dataValues>{','.join(['ab'] * 1_000_000)}</dataValues></ResultSet>"
+    )
+    peaks: list[int] = []
+
+    def peak(s: DictionarySemanticValidator) -> int:
+        peaks.append(tracemalloc.get_traced_memory()[1])
+        return s._check13._fields if s._check13 else 0
+
+    (tmp_path / "w").mkdir()
+    tracemalloc.start()
+    try:
+        tracemalloc.reset_peak()
+        fields = _work(semantic, tmp_path / "w", body, files, peak)
+    finally:
+        tracemalloc.stop()
+    assert fields == 1
+    print(f"RATIO check 13 million-field row: peak {peaks[0] / 2**20:.1f} MiB")
+    assert peaks[0] < 25 * 2**20, peaks  # a full split alone is about 60 MiB

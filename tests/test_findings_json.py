@@ -155,6 +155,41 @@ def test_unreadable_entry_rules_are_enforced_by_the_schema():
         VALIDATOR.validate(_doc([entry]))
 
 
+def _checked_entry(**changes: object) -> dict:
+    entry = _file_with(Finding(step="schema", rule_id="schema.x", severity="info", message=""))
+    entry = entry.to_dict()
+    entry.update(changes)
+    return entry
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"status": "not-diggs", "verdict": "valid", "diggs_version": None},
+        {"status": "not-diggs", "verdict": "not-valid", "diggs_version": None},
+        {"status": "not-diggs", "verdict": "not-diggs", "diggs_version": "2.6"},
+        {"status": "checked", "verdict": "not-diggs"},
+        {"status": "checked", "verdict": "unreadable"},
+        {"status": "unreadable", "verdict": "valid"},
+    ],
+    ids=lambda c: f"{c['status']}-{c['verdict']}-{c.get('diggs_version', 'v')}",
+)
+def test_the_schema_ties_status_to_verdict(changes):
+    with pytest.raises(jsonschema.ValidationError):
+        VALIDATOR.validate(_doc([_checked_entry(**changes)]))
+
+
+@pytest.mark.parametrize("verdict", ["valid", "valid-with-warnings", "not-valid", "partly-checked"])
+def test_the_schema_allows_every_checked_verdict(verdict):
+    VALIDATOR.validate(_doc([_checked_entry(verdict=verdict)]))
+    not_diggs = _checked_entry(status="not-diggs", verdict="not-diggs", diggs_version=None)
+    VALIDATOR.validate(_doc([not_diggs]))
+    unreadable = _json.unreadable_entry(UnreadableFile(path="b.xml", error="gone"))
+    VALIDATOR.validate(_doc([unreadable]))
+    with pytest.raises(jsonschema.ValidationError):
+        VALIDATOR.validate(_doc([{**unreadable, "verdict": verdict}]))
+
+
 def test_dumps_is_deterministic_and_indent_configurable():
     report = _file_with(Finding(step="schema", rule_id="schema.x", severity="info", message="é"))
     assert report.to_json() == report.to_json()

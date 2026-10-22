@@ -101,6 +101,7 @@ Verdict = Literal[
     "valid", "valid-with-warnings", "not-valid", "partly-checked", "not-diggs", "unreadable"
 ]
 _STEP_STATUSES: Final = frozenset(get_args(StepStatus))
+_FILE_STATUSES: Final = frozenset(get_args(FileStatus))
 
 #: Every rule id matches this; the part before the first dot is a :class:`Step` value.
 RULE_ID_PATTERN: Final = re.compile(r"^(?P<step>[A-Za-z]+)\.[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -267,6 +268,10 @@ class Report:
     status: FileStatus = "checked"
 
     def __post_init__(self) -> None:
+        if self.status not in _FILE_STATUSES:
+            raise ValueError(f"unknown file status {self.status!r}")
+        if self.status == "not-diggs" and self.diggs_version is not None:
+            raise ValueError("a not-diggs report has no diggs_version")
         steps = {Step(k): v for k, v in self.steps.items()}
         for step, status in steps.items():
             if status not in _STEP_STATUSES:
@@ -297,9 +302,11 @@ class Report:
     def verdict(self) -> Verdict:
         """One word for the result, derived only from status, steps and findings.
 
-        In order: ``not-diggs`` (the root is not ``Diggs``); ``not-valid`` (any error,
-        which includes every ``incomplete`` step); ``partly-checked`` (no error, but a
-        step is ``partial`` or ``incomplete``); ``valid-with-warnings``; ``valid``.
+        In order: ``not-diggs`` (the root is not ``Diggs``); ``not-valid`` (any error);
+        ``partly-checked`` (no error, but a step is ``partial`` or ``incomplete``: a
+        step stopped by a safety limit has an error, so it is ``not-valid``, while one
+        whose warnings were cut by ``max_findings`` may have none); ``valid-with-warnings``;
+        ``valid``.
         """
         if self.status == "not-diggs":
             return "not-diggs"

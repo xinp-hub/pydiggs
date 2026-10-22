@@ -1476,6 +1476,9 @@ class _Check13Index:
         self.root = root
         self._bounded = bounded
         self._fields = 0
+        self._chars = 0
+        self._wanted_cache: dict[tuple[etree._Element, ...], frozenset[int]] = {}
+        self._params_by_id: dict[str, etree._Element] | None = None
         self._shared: dict[tuple[str, ...], tuple[str, ...]] = {}
         self._order: dict[etree._Element, int] | None = None
         self._citing: dict[str, list[etree._Element]] | None = None
@@ -1516,28 +1519,68 @@ class _Check13Index:
                 if token:
                     yield cs_pattern, token
 
+    def _wanted(self, result_set: etree._Element) -> frozenset[int]:
+        """Every column index any Property may ask of this ResultSet.
+
+        The indexes of the Properties in the PropertyParameters inside its own
+        ``parameters``, and in every PropertyParameters its ``parameters`` cite by
+        ``xlink:href``: so the ResultSet is read in one pass, whatever the number of
+        PropertyParameters. The set is cached per group of PropertyParameters, not per
+        ResultSet, so many ResultSets citing one wide PropertyParameters share it.
+        """
+        if self._params_by_id is None:
+            self._params_by_id = {}
+            for params in self.root.iter("{*}PropertyParameters"):
+                ident = next(
+                    (str(v) for k, v in params.attrib.items() if etree.QName(k).localname == "id"),
+                    "",
+                )
+                if ident:
+                    self._params_by_id.setdefault(ident, params)
+        groups: list[etree._Element] = []
+        for parameters in result_set.iterchildren("{*}parameters"):
+            groups.extend(parameters.iter("{*}PropertyParameters"))
+            for key, value in parameters.attrib.items():
+                if etree.QName(key).localname == "href" and str(value).startswith("#"):
+                    cited = self._params_by_id.get(str(value)[1:])
+                    if cited is not None:
+                        groups.append(cited)
+        group_key = tuple(groups)
+        wanted = self._wanted_cache.get(group_key)
+        if wanted is None:
+            found = (_xs_integer(p.get("index")) for g in groups for p in g.iter("{*}Property"))
+            wanted = self._wanted_cache[group_key] = frozenset(c for c in found if c and c > 0)
+        return wanted
+
     def column(
         self, result_set: etree._Element, column: int, wanted: frozenset[int] = frozenset()
     ) -> Iterable[str]:
         """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order.
 
-        One streaming pass reads ``column`` and the other ``wanted`` columns (the
-        indexes the citing properties ask for) not read yet; each row is split only
-        up to the last of them, and only their distinct values are kept, so a very
-        wide row costs neither memory nor a split of every field. Fields are counted as
-        they are read; past MAX_CHECK13_FIELDS validate() stops at once.
+        One streaming pass reads every column any Property may ask of this ResultSet
+        (:meth:`_wanted`, plus ``column`` and ``wanted``); each row is split only up to
+        the last of them, and only their distinct values are kept, so a very wide row
+        costs neither memory nor a split of every field. Fields and characters are
+        counted as they are read; past MAX_CHECK13_FIELDS or MAX_CHECK13_CHARS
+        validate() stops at once.
         """
         columns = self._distinct.setdefault(result_set, {})
         if column not in columns:
-            need = sorted(c for c in wanted | {column} if c not in columns and c >= 1)
+            asked = self._wanted(result_set) | wanted | {column}
+            need = sorted(c for c in asked if c not in columns and c >= 1)
             last = need[-1]
             seen: dict[int, dict[str, None]] = {c: {} for c in need}
             for cs_pattern, token in self._rows(result_set):
                 parts = cs_pattern.split(token, maxsplit=last)
                 self._fields += min(len(parts), last)
+                self._chars += len(token)
                 if self._bounded and self._fields > MAX_CHECK13_FIELDS:
                     raise _LimitError(
                         f"Check 13 would read more than {MAX_CHECK13_FIELDS:,} dataValues fields"
+                    )
+                if self._bounded and self._chars > MAX_CHECK13_CHARS:
+                    raise _LimitError(
+                        f"Check 13 would read more than {MAX_CHECK13_CHARS:,} dataValues characters"
                     )
                 # Only the wanted columns this row has: never all wanted per row.
                 for i in range(bisect.bisect_right(need, len(parts))):
@@ -1581,6 +1624,9 @@ MAX_DEFINITION_PATHS = 1_000
 MAX_PATH_MATCH_WORK = 5_000_000
 #: validate(): most dataValues fields Check 13 reads per document.
 MAX_CHECK13_FIELDS = 20_000_000
+#: validate(): most dataValues characters Check 13 scans per document (every ResultSet
+#: is read once, so this is a backstop: a 100 MiB file holds at most about 100 million).
+MAX_CHECK13_CHARS = 200_000_000
 #: validate(): most steps in one dictionary path.
 MAX_PATH_STEPS = 64
 #: validate(): most nodes in one dictionary Definition (real ones have under 100).
@@ -1718,7 +1764,6 @@ _STRUCTURAL_ERRORS: Final = frozenset(
 #: name quoted in an ordinary message cannot match.
 _LIMIT_PHRASES: Final = (
     "excessive depth in document",
-    "xml_parse_huge",
     "huge text node",
     "text node too long",
     "name too long",

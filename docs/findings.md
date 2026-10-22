@@ -37,13 +37,19 @@ findings are partial). A step with an error is `failed` or `incomplete`, never
 A file whose root element is not `Diggs` (any namespace) is **not a DIGGS file**: it
 gets one `structure.diggs-root` error naming the root it has, `report.status` is
 `not-diggs`, `diggs_version` is `None`, and every other step is `skipped`, since no
-DIGGS check means anything for it.
+DIGGS check means anything for it. In the test corpus,
+`tests/fixtures/official/known_invalid/2.6_Temporal_Spatial_CRS_Example.xml` (a
+`gml:Dictionary`, not a DIGGS instance) is reported this way.
 
 `report.verdict` sums a file up in one word, derived only from its status, steps and
-findings (in this order): `not-diggs`; `not-valid` (any error, which includes every
-incomplete step); `partly-checked` (no error, but a step is `partial` or `incomplete`);
-`valid-with-warnings`; `valid`. An unreadable input's verdict is `unreadable`. The
-text output starts each file's line with it.
+findings (in this order): `not-diggs`; `not-valid` (any error); `partly-checked` (no
+error, but a step is `partial` or `incomplete`: a step stopped by a safety limit always
+has an error, so it is `not-valid`, but one whose warnings were cut by `max_findings`
+may have none); `valid-with-warnings`; `valid`. An unreadable input's verdict is `unreadable`. The
+text output starts each file's line with it. Text output lists errors and warnings,
+not info findings; for a `partly-checked` file it adds a `not fully checked:` line
+naming the `partial` or `incomplete` steps and lists its `dictionary.offline` findings,
+so the reason is always shown.
 Well-formedness is always checked, because nothing else can run without it: a file
 that is not well-formed reports `structure` as `failed` even when `structure` was not
 asked for.
@@ -80,8 +86,11 @@ says why, so `report.ok` is False and the CLI exits 1:
   namespace URIs) is more than **twice its raw size**, both counted in UTF-8 bytes.
   Plain-text entities that stay under that still work (an `&deg;` here and there
   costs nothing). The text is measured in one pass, only when there is an internal
-  DTD (with one, the file is parsed a second time with ATTLIST defaults filled in, to
-  measure them); `validate()` then reports this one error and runs no other check.
+  DTD (with one, the file is parsed a second time with the internal subset's ATTLIST
+  defaults filled in, to measure them); `validate()` then reports this one error and
+  runs no other check. Only the internal DTD subset is ever used: an external subset
+  (a `SYSTEM` id) is never opened by `validate()`, so a local file, a FIFO or a network
+  share named there contributes nothing and is not even touched.
   Every size limit (`max_bytes`, the 10 MB the security review measures against)
   refers to the raw file, so this keeps the parsed size within a small factor of it.
 * A file with more than **9,900,000 elements** does not run the XPath-based steps
@@ -297,7 +306,7 @@ Rule ids are part of the stable contract.
 | `schematron.<Context>.<property>` | error | A bundled Schematron rule, e.g. `schematron.Borehole.totalMeasuredDepth`, `schematron.Casing.outside-gt-inside` |
 | `schematron.Casing.outside-gt-inside-converted`, `schematron.Casing.diameters-numeric-converted` | error | pydiggs's unit-converting casing diameter rule |
 | `schematron.<id>` / `schematron.user-<hash>` | error | A rule from your own Schematron file: its `@id` (up to 4,096 characters), else a hash of its context and test |
-| `geometry.srs-attributes` | warning | A geometry object with coordinates has no `srsName` and `srsDimension` on itself or any ancestor: one warning per object, saying either what is missing or that they sit on a child (`gml:pos`/`gml:posList`, allowed by GML 3.2) when DIGGS best practice is the object itself |
+| `geometry.srs-attributes` | warning | A geometry object (one of the nine the official geometry module checks, with or without coordinates) has no `srsName` and `srsDimension` on itself or any ancestor: one warning per object, saying either what is missing or that they sit on a child (`gml:pos`/`gml:posList`, allowed by GML 3.2) when DIGGS best practice is the object itself |
 | `deprecation.deprecated` | warning | Uses something the DIGGS schema deprecates |
 | `deprecation.removed` | error | Uses something the DIGGS schema has removed |
 | `context.xlink-href-resolves` | warning | A local `xlink:href="#id"` matches no `gml:id` |
@@ -330,13 +339,26 @@ in `validate()`:
   one). Predicates in definition paths (`[text()="…"]`) are ignored, as before, so
   matching is lenient; in `validate()` a `/` inside a predicate no longer splits the
   path into steps (`dictionary_check()` keeps splitting it).
-* **Geometry SRS.** `validate()` follows the official geometry module: a geometry
-  object passes when it or an ancestor declares both `srsName` and `srsDimension`; when
-  only a child (`gml:pos`, `gml:posList`) does, as GML 3.2 allows, it gets one
-  best-practice warning; otherwise one warning names what is missing (the official
-  module reports that last case as an error; pydiggs keeps it a warning). The legacy
-  `context_check()` keeps one warning per missing attribute on the object itself, so
-  `DocumentationExample.xml` gets 62 there and 31 in `validate()`.
+* **Geometry SRS.** `validate()` follows the official geometry module
+  (`modules/geometry-validation.xsl`, DIGGSml/validation commit `5f7a365`). It checks
+  the same nine objects: `LinearExtent`, `MultiPointLocation`, `MultiCurve`, `Solid`,
+  `PointLocation`, `PlanarObservationRepresentation`, `PlanarSurface`,
+  `MultiPlanarSurface` and `RectifiedGrid`, with or without coordinates (so an empty
+  `<LinearExtent gml:id="l"/>` is checked; `gml:Point`, `gml:LineString` and other GML
+  primitives are not). An object passes when it or an ancestor has both `srsName` and
+  `srsDimension` (present, even if empty); when only a child (`gml:pos`,
+  `gml:posList`) has them, as GML 3.2 allows, it gets one best-practice warning;
+  otherwise one warning names what is missing. The official module reports that last
+  case, an object with no SRS on itself, any ancestor or any child, as an error;
+  pydiggs keeps it a warning, for coordinate-less objects too. The legacy
+  `context_check()` keeps its own list (`Point`, `LineString`, `LinearExtent`,
+  `Polygon`, `Curve`, `Surface`, `MultiPoint`, `MultiCurve`, `MultiSurface`,
+  `PointLocation`, `MultiPointLocation`), skips objects with no coordinates and no
+  `srsName`, and gives one warning per missing attribute on the object itself, so
+  `DocumentationExample.xml` gets 62 there and 31 in `validate()`. Across the 73
+  corpus files (the pydiggs test files and the desktop app's test data) the new list
+  changes one verdict: the 3.x `Aeromag.xml` goes from valid to valid-with-warnings
+  (its `RectifiedGrid` has SRS only on a child).
 * **Local dictionaries.** `validate(local_dictionaries="instance-dir")` (the default;
   CLI `--local-dictionaries`) reads a dictionary named by a relative or `file:`
   codeSpace only if it is a file inside the instance's folder: there is no fallback to
@@ -419,9 +441,13 @@ multisets over the steps both ran. The message is never compared.
 ### Residual risks
 
 pydiggs's own code is bounded. On the security reviews' test files (up to 10 MB raw,
-default settings) no pydiggs-owned path took more than about 12 s of CPU (1,000
+default settings) no pydiggs-owned path took more than about 11 s of CPU (1,000
 conditional paths tried against 180,000 elements, stopped by the work budget) or about
 350 MB beyond parsing (ancestor-name sets under a 250-deep chain with 260,000 parents).
+The geometry rule is one pass over the tree (250 nested `MultiCurve` around 170,000
+`PointLocation`, 9 MB: 1.4 s, where walking each object's ancestors and subtree took
+99 s), and Check 13 reads each ResultSet once however many PropertyParameters ask for
+its columns (400 of them over 2,000 rows of one 2 KB field: 1.4 s, where it took 44 s).
 Check 13 keeps no rows, only the distinct values of the columns its properties ask
 for (a 9.8 MB file of one-cell rows peaks at about 205 MB in all, where it used 425 MB;
 one 9 MB row of 9 million empty fields takes 0.2 s and 113 MB, where reading every

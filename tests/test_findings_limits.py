@@ -181,7 +181,7 @@ def test_context_budget_counts_only_requested_steps(tmp_path):
     path.write_text(
         '<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2"'
         ' xmlns:xlink="http://www.w3.org/1999/xlink"><r xlink:href="#no"/>'
-        "<gml:Point><gml:pos>1 2</gml:pos></gml:Point></Diggs>"
+        "<PointLocation><gml:pos>1 2</gml:pos></PointLocation></Diggs>"
     )
     # One warning per geometry object since round 10 (it named each attribute before).
     report = validate(path, checks=["geometry"], max_findings=1)

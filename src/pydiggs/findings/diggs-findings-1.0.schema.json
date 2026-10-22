@@ -118,19 +118,40 @@
           "items": { "$ref": "#/$defs/finding" }
         }
       },
-      "if": { "properties": { "status": { "const": "unreadable" } } },
-      "then": {
-        "required": ["error"],
-        "properties": {
-          "sha256": { "type": "null" },
-          "verdict": { "const": "unreadable" },
-          "findings": { "maxItems": 0 }
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "unreadable" } } },
+          "then": {
+            "required": ["error"],
+            "properties": {
+              "sha256": { "type": "null" },
+              "verdict": { "const": "unreadable" },
+              "findings": { "maxItems": 0 }
+            }
+          },
+          "else": {
+            "not": { "required": ["error"] },
+            "properties": { "sha256": { "type": "string" } }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "not-diggs" } } },
+          "then": {
+            "properties": {
+              "verdict": { "const": "not-diggs" },
+              "diggs_version": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "checked" } } },
+          "then": {
+            "properties": {
+              "verdict": { "enum": ["valid", "valid-with-warnings", "not-valid", "partly-checked"] }
+            }
+          }
         }
-      },
-      "else": {
-        "not": { "required": ["error"] },
-        "properties": { "sha256": { "type": "string" } }
-      }
+      ]
     },
     "finding": {
       "type": "object",

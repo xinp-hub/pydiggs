@@ -101,18 +101,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `diggs_version` null and every step but `structure` skipped; and a step can be
   `partial` (the dictionary step when a code list could not be fetched offline), so an
   offline-unchecked step is never `passed`. Text output starts each file's line with
-  its verdict; SARIF carries status and verdict in each artifact's properties.
-- In `validate()`, `geometry.srs-attributes` follows the official geometry module: no
-  warning when an ancestor declares both attributes, one best-practice warning when
-  only the child `gml:pos`/`gml:posList` does, and one warning per object otherwise
-  (two before). `context_check()` is unchanged.
+  its verdict, and a partly checked file gets a line naming its unfinished steps plus
+  its `dictionary.offline` findings (shown although info findings are not); SARIF
+  carries status and verdict in each artifact's properties. The JSON Schema ties
+  status to verdict (a `not-diggs` file has verdict `not-diggs` and no
+  `diggs_version`), and `Report` refuses an unknown status.
+- In `validate()`, `geometry.srs-attributes` follows the official geometry module
+  (human decision): it checks the module's nine objects (`LinearExtent`,
+  `MultiPointLocation`, `MultiCurve`, `Solid`, `PointLocation`,
+  `PlanarObservationRepresentation`, `PlanarSurface`, `MultiPlanarSurface`,
+  `RectifiedGrid`) with or without coordinates, and no longer `gml:Point`,
+  `LineString`, `Polygon`, `Curve`, `Surface`, `MultiPoint` or `MultiSurface`. No
+  warning when the object or an ancestor declares both attributes, one best-practice
+  warning when only the child `gml:pos`/`gml:posList` does, and one warning per object
+  otherwise (two before; the official module makes that an error). The rule is one
+  pass over the tree. `context_check()` is unchanged.
 - In `validate()`, a namespace URI longer than 1,024 characters gives one
   `structure.namespace-too-long` error and no other check runs (human decision). The
   2x expansion check now runs whenever there is an internal DTD, counts UTF-8 bytes,
   and includes ATTLIST defaults and namespace URIs.
 - In `validate()`, Check 13 keeps no copy of each ResultSet's rows, only the distinct
-  values of the columns its properties ask for, read in one streaming pass that splits
-  each row no further than needed (at most 20 million fields per document);
+  values of the columns its properties ask for. Each ResultSet is read in one streaming
+  pass, whatever the number of PropertyParameters its own `parameters` hold or cite:
+  the pass collects every column any of them asks for and splits each row no further
+  than the last of those (at most 20 million fields and 200 million characters per
+  document);
   dataBlock arity is checked in constant time per (dataBlock, measurement); and a file
   whose path is not valid UTF-8 is passed to libxml2 as a `file:` URI.
 - In `validate()`, any unexpected error inside a step is that step's `incomplete`

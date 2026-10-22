@@ -141,18 +141,20 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
         )
 
 
+#: validate(): the geometry objects the official geometry module checks, exactly its
+#: list (DIGGSml/validation, modules/geometry-validation.xsl at commit
+#: 5f7a3650f10e1d1c5a0210dc08f5b80e791017b5, 2026-10-13). The legacy context_check()
+#: keeps its own list in :func:`_check_geometry_srs`.
 _GEOMETRY_NAMES = (
-    "Point",
-    "LineString",
     "LinearExtent",
-    "Polygon",
-    "Curve",
-    "Surface",
-    "MultiPoint",
-    "MultiCurve",
-    "MultiSurface",
-    "PointLocation",
     "MultiPointLocation",
+    "MultiCurve",
+    "Solid",
+    "PointLocation",
+    "PlanarObservationRepresentation",
+    "PlanarSurface",
+    "MultiPlanarSurface",
+    "RectifiedGrid",
 )
 
 
@@ -163,30 +165,62 @@ def _has_both(el: etree._Element) -> bool:
 def _check_geometry_srs_official(root: etree._Element, result: ContextValidationResult) -> None:
     """validate(): the official geometry module's rule (DIGGSml/validation).
 
-    A geometry object passes when it, or any ancestor, declares both srsName and
-    srsDimension. When only a descendant (its gml:pos or gml:posList, which GML 3.2
-    allows) declares them, one warning says that DIGGS best practice is the object
-    itself; when none does, one warning names what is missing. The legacy
-    context_check() keeps its per-attribute check, which also flagged objects whose
-    coordinates carry both attributes.
+    Every element named in :data:`_GEOMETRY_NAMES` is checked, with or without
+    coordinates. It passes when it, or any ancestor, has both srsName and srsDimension
+    (present, as in the module's ``exists()``). When only a descendant (its gml:pos or
+    gml:posList, which GML 3.2 allows) has them, one warning says that DIGGS best
+    practice is the object itself, as the module does. When none has them, one warning
+    names what is missing: the module reports that case as an error, pydiggs keeps it a
+    warning. The legacy context_check() keeps its per-attribute check.
+
+    One pass over the tree (no walk up or down per object): on the way down each
+    element learns whether it or an ancestor has both attributes; on the way up it
+    tells its parent whether a descendant has both. Findings come out in document
+    order.
     """
-    for el in root.iter(*(f"{{*}}{name}" for name in sorted(_GEOMETRY_NAMES))):
-        coords = [c for c in el.iter("{*}pos", "{*}posList", "{*}coordinates") if c is not el]
-        if not coords and el.get("srsName") is None:
+    geometry = frozenset(_GEOMETRY_NAMES)
+    found: list[tuple[int, etree._Element, str]] = []
+    frames: list[_SrsFrame] = []
+    order = 0
+    for event, el in etree.iterwalk(root, events=("start", "end")):
+        if not isinstance(el.tag, str):
             continue
-        if _has_both(el) or any(_has_both(a) for a in el.iterancestors()):
+        if event == "start":
+            above = bool(frames) and frames[-1].self_or_above
+            frames.append(_SrsFrame(above or _has_both(el), order))
+            order += 1
             continue
-        name = _local(el)
-        if any(_has_both(d) for d in el.iterdescendants()):
-            text = (
-                f"Geometry: <{name}> has no srsName and srsDimension itself; they are on a"
-                " child element (allowed by GML 3.2), but DIGGS best practice is to put"
-                " them on the geometry object."
-            )
-        else:
-            missing = [a for a in ("srsName", "srsDimension") if not el.get(a)]
-            text = f"Geometry: <{name}> should declare {' and '.join(missing)}."
+        frame = frames.pop()
+        local = el.tag.rsplit("}", 1)[-1]
+        if local in geometry and not frame.self_or_above:
+            found.append((frame.order, el, _srs_text(el, local, frame.below_both)))
+        if frames:
+            parent = frames[-1]
+            parent.below_both = parent.below_both or frame.below_both or _has_both(el)
+    for _, el, text in sorted(found, key=lambda item: item[0]):
         result.add("WARNING", result.path(el), text, 101, node=el)
+
+
+class _SrsFrame:
+    """One open element in :func:`_check_geometry_srs_official`'s walk."""
+
+    __slots__ = ("below_both", "order", "self_or_above")
+
+    def __init__(self, self_or_above: bool, order: int) -> None:
+        self.self_or_above = self_or_above  # it or an ancestor has both attributes
+        self.order = order  # document order of its start
+        self.below_both = False  # a descendant has both attributes
+
+
+def _srs_text(el: etree._Element, name: str, child_has_both: bool) -> str:
+    missing = " and ".join(a for a in ("srsName", "srsDimension") if el.get(a) is None)
+    if child_has_both:
+        return (
+            f"Geometry: <{name}> has no {missing} itself; srsName and srsDimension are"
+            " on a child element (allowed by GML 3.2), but DIGGS best practice is to"
+            " put them on the geometry object."
+        )
+    return f"Geometry: <{name}> should declare {missing}."
 
 
 def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -> None:
@@ -366,12 +400,17 @@ class _DataBlockWalk:
         own: dict[etree._Element, int] = {}  # Properties whose deepest result it encloses
         parent: dict[etree._Element, etree._Element | None] = {}
         pairs = 0
-        # (element, enclosing measurements, innermost measurement around its deepest
-        # result ancestor: the measurement a Property there is counted for)
-        stack: list[tuple[etree._Element, tuple[etree._Element, ...], etree._Element | None]]
-        stack = [(root, (), None)]
-        while stack:
-            el, inside, counted = stack.pop()
+        # One frame per open element: (enclosing measurements, the measurement a
+        # Property there is counted for). iterwalk keeps no list of pending children,
+        # so memory does not grow with a wide element.
+        frames: list[tuple[tuple[etree._Element, ...], etree._Element | None]] = []
+        for event, el in etree.iterwalk(root, events=("start", "end")):
+            if not isinstance(el.tag, str):
+                continue
+            if event == "end":
+                frames.pop()
+                continue
+            inside, counted = frames[-1] if frames else ((), None)
             local = _local(el)
             if local == "Property" and counted is not None:
                 own[counted] += 1
@@ -391,8 +430,7 @@ class _DataBlockWalk:
             elif local in ("result", "Result"):
                 # A Property below this result counts for every measurement around it.
                 counted = inside[-1] if inside else None
-            children = list(el.iterchildren(etree.Element))
-            stack.extend((child, inside, counted) for child in reversed(children))
+            frames.append((inside, counted))
         self._totals: dict[etree._Element, int] = dict(own)
         for measurement in reversed(self.measurements):  # inner measurements first
             up = parent[measurement]
