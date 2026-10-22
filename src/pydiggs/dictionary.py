@@ -1428,13 +1428,18 @@ class DictionarySemanticValidator:
         column = _xs_integer(prop.get("index"))
         if column is None or column < 1:
             return []
-        null_el = self._siblings(prop)[2]
-        null_text = _normalize_space(null_el.xpath("string()") if null_el is not None else "")
-        index.charge(len(null_text))
-        params = index.nearest(el, "PropertyParameters")
+        # The property's group: the nearest PropertyParameters of its parent (the parent
+        # itself if it is one), read from the layout pass, not by walking ancestors.
+        params = index.layout().holder_group.get(prop)
         if params is None:
             return []
-        key = (params, column, null_text, id(allowed))
+        null_el = self._siblings(prop)[2]
+        null_text = null_el.xpath("string()") if null_el is not None else ""
+        index.charge(len(null_text) + _CHECK13_STEP)
+        null_text = _normalize_space(null_text)
+        # Keyed by the ResultSets read, not the group: groups read by the same
+        # ResultSets share the result.
+        key = (index.readers(params), column, null_text, id(allowed))
         cached = self._invalid_cache.get(key)
         if cached is None:
             # The column's distinct values over every ResultSet that holds or cites these
@@ -1444,6 +1449,7 @@ class DictionarySemanticValidator:
             values = index.values(params, column)
             index.charge(_CHECK13_STEP * (len(values) + 1))
             cached = [v for v in values if v and v != null_text and v not in allowed]
+            index.keep(len(cached) + 1)
             self._invalid_cache[key] = cached
         return cached
 
@@ -1453,12 +1459,14 @@ class _Check13Layout:
 
     A PropertyParameters belongs to its nearest ResultSet ancestor, at any depth, and
     is cited by every ResultSet whose ``parameters`` child has an ``href`` of ``#`` and
-    its id. The driver (which ResultSets a property's values come from) and the
-    column sets (which columns a ResultSet must yield) both read this one map, so the
-    two cannot drift apart.
+    its id. Each element with an ``index`` belongs to its nearest PropertyParameters
+    (itself, if it is one): that group's own columns are those indexes, so nested
+    groups never re-read their children. The driver (which ResultSets a property's
+    values come from) and the column sets (which columns a ResultSet must yield) both
+    read this one map, so the two cannot drift apart.
     """
 
-    __slots__ = ("by_id", "citing", "nearest_rs", "owned", "refs")
+    __slots__ = ("by_id", "citing", "columns", "holder_group", "nearest_rs", "owned", "refs")
 
     def __init__(self) -> None:
         self.nearest_rs: dict[etree._Element, etree._Element | None] = {}
@@ -1466,6 +1474,8 @@ class _Check13Layout:
         self.by_id: dict[str, list[etree._Element]] = {}
         self.citing: dict[str, list[etree._Element]] = {}
         self.refs: dict[etree._Element, list[str]] = {}
+        self.holder_group: dict[etree._Element, etree._Element | None] = {}
+        self.columns: dict[etree._Element, set[int]] = {}
 
 
 def _first_id(el: etree._Element) -> str:
@@ -1481,14 +1491,15 @@ class _Check13Index:
     only their distinct values are cached, so memory grows with the distinct values,
     not the cells or the columns asked for.
 
-    Invariant: every unit of Check 13 work is charged to :meth:`charge`, one counter
-    bounded by MAX_CHECK13_WORK in validate() (it raises _LimitError, so the step fails
-    closed as ``dictionary.incomplete``). Every loop that can iterate is charged as it
-    goes or before it starts: each element of the layout pass, each ancestor walked,
-    each Property examined and each ``index`` parsed, each ``href`` and group of a
-    column set, each character of every ``dataValues`` string on every pass (before it
-    is normalised or split, so separator-only text counts), each token, each field and
-    each value merged over a group's ResultSets.
+    Invariant: every unit of Check 13 work, and every entry it keeps, is charged to
+    :meth:`charge`, one counter bounded by MAX_CHECK13_WORK in validate() (it raises
+    _LimitError, so the step fails closed as ``dictionary.incomplete``). Every loop
+    that can iterate is charged as it goes or before it starts: each event of the
+    layout pass, each ``index`` parsed, each ``href``, group and column of a column
+    set, each character of every ``dataValues`` string (before it is normalised or
+    split, so separator-only text counts), each token and field, and each value
+    merged over a group's ResultSets. The weights are calibrated so that one unit
+    costs about the same time whatever the loop (``scripts/calibrate_check13.py``).
     """
 
     def __init__(self, root: etree._ElementTree, *, bounded: bool) -> None:
@@ -1504,8 +1515,10 @@ class _Check13Index:
         self._sorted: dict[frozenset[int], list[int]] = {}
         self._order: dict[etree._Element, int] | None = None
         self._ordered: dict[etree._Element, tuple[etree._Element, ...]] = {}
-        self._merged: dict[etree._Element, dict[int, tuple[str, ...]]] = {}
-        self._read: dict[etree._Element, frozenset[int]] = {}
+        self._kept = 0  # entries kept in caches that can grow faster than the file
+        self._reader_ids: dict[tuple[etree._Element, ...], int] = {}
+        self._readers: dict[etree._Element, int] = {}
+        self._merged: dict[tuple[int, frozenset[int]], dict[int, tuple[str, ...]]] = {}
         self._shared: dict[tuple[str, ...], tuple[str, ...]] = {}
         self._distinct: dict[etree._Element, dict[int, tuple[str, ...]]] = {}
 
@@ -1515,30 +1528,38 @@ class _Check13Index:
         if self._bounded and self._work > MAX_CHECK13_WORK:
             raise _LimitError(f"Check 13 took more than {MAX_CHECK13_WORK:,} work units")
 
-    def nearest(self, el: etree._Element, local: str) -> etree._Element | None:
-        """The nearest ancestor of ``el`` with local name ``local`` (each step charged)."""
-        for ancestor in el.iterancestors():
-            self.charge(_CHECK13_STEP)
-            if _local(ancestor) == local:
-                return ancestor
-        return None
+    def keep(self, entries: int) -> None:
+        """Count entries kept in a cache whose size is not bounded by the file's.
+
+        Merged values, column unions, sorted column lists and invalid-value lists are
+        kept per distinct key, and keys can multiply (each ResultSet citing a different
+        set of groups); past MAX_CHECK13_KEPT entries validate() stops, so what Check 13
+        keeps stays a few hundred MB at most.
+        """
+        self._kept += entries
+        if self._bounded and self._kept > MAX_CHECK13_KEPT:
+            raise _LimitError(f"Check 13 would keep more than {MAX_CHECK13_KEPT:,} values")
 
     def layout(self) -> _Check13Layout:
-        """The ResultSet / PropertyParameters map, from one filtered pass over the tree."""
+        """The ResultSet / PropertyParameters / index map, from one pass over the tree."""
         if self._layout is None:
             layout = _Check13Layout()
             open_sets: list[etree._Element] = []
-            tags = ("{*}ResultSet", "{*}PropertyParameters", "{*}parameters")
-            for event, el in etree.iterwalk(self.root, events=("start", "end"), tag=tags):
-                self.charge(_CHECK13_STEP)
-                local = _local(el)
-                if local == "ResultSet":
-                    if event == "start":
-                        open_sets.append(el)
-                    else:
-                        open_sets.pop()
-                elif event == "end":
+            open_groups: list[etree._Element] = []
+            for event, el in etree.iterwalk(self.root, events=("start", "end")):
+                self.charge(_CHECK13_EVENT)
+                tag = el.tag
+                if not isinstance(tag, str):
                     continue
+                local = tag[tag.rfind("}") + 1 :]
+                if event == "end":
+                    if local == "ResultSet":
+                        open_sets.pop()
+                    elif local == "PropertyParameters":
+                        open_groups.pop()
+                    continue
+                if local == "ResultSet":
+                    open_sets.append(el)
                 elif local == "PropertyParameters":
                     owner = open_sets[-1] if open_sets else None
                     layout.nearest_rs[el] = owner
@@ -1547,12 +1568,23 @@ class _Check13Index:
                     ident = _first_id(el)
                     if ident:
                         layout.by_id.setdefault(ident, []).append(el)
-                elif open_sets and el.getparent() is open_sets[-1]:  # ResultSet/parameters
+                    open_groups.append(el)
+                    self.charge(_CHECK13_STEP)
+                elif local == "parameters" and open_sets and el.getparent() is open_sets[-1]:
                     for key, value in el.attrib.items():
                         self.charge(_CHECK13_STEP)
                         if etree.QName(key).localname == "href":
                             layout.citing.setdefault(str(value), []).append(open_sets[-1])
                             layout.refs.setdefault(open_sets[-1], []).append(str(value))
+                text = el.get("index")
+                if text is not None:
+                    # Kept: the element, its group and its column (about 200 bytes).
+                    self.charge(2 * _CHECK13_STEP + len(text))
+                    group = open_groups[-1] if open_groups else None
+                    layout.holder_group[el] = group
+                    c = _xs_integer(text)
+                    if group is not None and c is not None and c > 0:
+                        layout.columns.setdefault(group, set()).add(c)
             self._layout = layout
         return self._layout
 
@@ -1581,54 +1613,61 @@ class _Check13Index:
             self._ordered[params] = found
         return found
 
-    def group_columns(self, params: etree._Element) -> frozenset[int]:
-        """Every column index a property inside one PropertyParameters may ask for.
+    def readers(self, params: etree._Element) -> int:
+        """A small id for the tuple of ResultSets ``params`` is read from.
 
-        The ``index`` of each element in it (itself included) that has one: a property's
-        column is its parent's ``index``, and that parent is always inside the nearest
-        PropertyParameters, so the set covers every column the driver asks for.
+        Groups read from the same ResultSets get the same id, so they share merges and
+        results; the tuple is hashed once per group, not once per property.
+        """
+        found = self._readers.get(params)
+        if found is None:
+            sets = self.result_sets_of(params)
+            self.charge(_CHECK13_STEP * (len(sets) + 1))
+            found = self._reader_ids.setdefault(sets, len(self._reader_ids))
+            self._readers[params] = found
+        return found
+
+    def group_columns(self, params: etree._Element) -> frozenset[int]:
+        """The columns of the elements whose nearest PropertyParameters is ``params``.
+
+        A property's column is its parent's ``index``, and that parent's nearest
+        PropertyParameters is the property's group, so the set holds every column the
+        driver asks of the group. Each ``index`` belongs to exactly one group: nested
+        groups are never re-scanned.
         """
         found = self._group_columns.get(params)
         if found is None:
-            columns = set()
-            for holder in params.xpath("descendant-or-self::*[@index]"):
-                self.charge(_CHECK13_STEP)
-                c = _xs_integer(holder.get("index"))
-                if c is not None and c > 0:
-                    columns.add(c)
-            found = self._group_columns[params] = frozenset(columns)
+            own = self.layout().columns.get(params, ())
+            self.charge(_CHECK13_STEP * (len(own) + 1))
+            found = self._group_columns[params] = frozenset(own)
         return found
 
     def values(self, params: etree._Element, column: int) -> tuple[str, ...]:
         """Distinct values of ``column`` over the ResultSets of ``params``, in order.
 
-        For a column of the group, the merge over all its ResultSets is built once and
-        shared by every property of the group; at each ResultSet only the smaller of the
-        group's columns and the ResultSet's read columns is walked.
+        ``column`` is always one of the group's (:meth:`group_columns`), and every
+        ResultSet of the group reads all of them in its one pass. The merge over all
+        the group's ResultSets is built once and shared by every property of the
+        group; at each ResultSet only the smaller of the group's columns and the
+        ResultSet's read columns is walked.
         """
         group = self.group_columns(params)
-        if column not in group:  # never for a property's own column; kept exact anyway
-            merged: dict[str, None] = {}
-            for result_set in self.result_sets_of(params):
-                found = self.column(result_set, column)
-                self.charge(_CHECK13_STEP * (len(found) + 1))
-                merged.update(dict.fromkeys(found))
-            return tuple(merged)
-        table = self._merged.get(params)
+        key = (self.readers(params), group)
+        table = self._merged.get(key)
         if table is None:
             acc: dict[int, dict[str, None]] = {}
             for result_set in self.result_sets_of(params):
-                self.column(result_set, column)  # reads every column of its groups once
-                read = self._distinct[result_set]
-                self.charge(_CHECK13_STEP * (min(len(group), len(read)) + 1))
+                read = self._read(result_set)
+                self.charge(_CHECK13_WALK * min(len(group), len(read)) + _CHECK13_STEP)
                 if len(group) <= len(read):
                     pairs = [(c, read[c]) for c in group if c in read]
                 else:
                     pairs = [(c, v) for c, v in read.items() if c in group]
                 for c, found in pairs:
-                    self.charge(_CHECK13_STEP * len(found))
+                    self.charge(_CHECK13_MERGE * len(found))
                     acc.setdefault(c, {}).update(dict.fromkeys(found))
-            table = self._merged[params] = {c: tuple(v) for c, v in acc.items()}
+            self.keep(sum(len(v) for v in acc.values()) + 1)
+            table = self._merged[key] = {c: tuple(v) for c, v in acc.items()}
         return table.get(column, ())
 
     def _columns_for(self, result_set: etree._Element) -> frozenset[int]:
@@ -1651,7 +1690,9 @@ class _Check13Index:
             key = frozenset(s for s in map(self.group_columns, groups) if s)
             found = self._unions.get(key)
             if found is None:
-                self.charge(_CHECK13_STEP * sum(len(s) for s in key))
+                size = sum(len(s) for s in key)
+                self.charge(_CHECK13_STEP * (size + 1))
+                self.keep(size + 1)
                 found = self._unions[key] = frozenset().union(*key)
             self._rs_columns[result_set] = found
         return found
@@ -1661,34 +1702,24 @@ class _Check13Index:
         found = self._sorted.get(asked)
         if found is None:
             self.charge(_CHECK13_STEP * (len(asked) + 1))
+            self.keep(len(asked) + 1)
             found = self._sorted[asked] = sorted(asked)
         return found
 
-    def column(self, result_set: etree._Element, column: int) -> tuple[str, ...]:
-        """Distinct values in ``column`` (1-based) of the ResultSet's dataValues, in order.
+    def _read(self, result_set: etree._Element) -> dict[int, tuple[str, ...]]:
+        """The distinct values of every column the ResultSet's groups ask for.
 
-        The first call reads every column the ResultSet's PropertyParameters ask for
-        (:meth:`_columns_for`, plus ``column``) in one streaming pass; each row is split
-        only up to the last of them, and only their distinct values are kept, so a very
-        wide row costs neither memory nor a split of every field.
+        One streaming pass over its dataValues, the first time it is asked; each row is
+        split only up to the last wanted column, and only distinct values are kept, so a
+        very wide row costs neither memory nor a split of every field.
         """
-        read = self._read.get(result_set)
-        columns = self._distinct.setdefault(result_set, {})
-        if read is not None and column in read:
-            return columns.get(column, ())
-        if read is None:
-            asked = self._columns_for(result_set)
-            if column not in asked:
-                self.charge(_CHECK13_STEP * (len(asked) + 1))
-                asked = asked | {column}
-        else:
-            asked = frozenset({column})  # a column outside every group: one more pass
-        need = self._need(asked)
-        if read is not None:
-            self.charge(_CHECK13_STEP * (len(read) + 1))
-            read = read | asked
-        else:
-            read = asked
+        columns = self._distinct.get(result_set)
+        if columns is not None:
+            return columns
+        columns = self._distinct[result_set] = {}
+        need = self._need(self._columns_for(result_set))
+        if not need:
+            return columns
         last = need[-1]
         seen: dict[int, dict[str, None]] = {}
         for block in result_set:
@@ -1701,15 +1732,15 @@ class _Check13Index:
             ts_pattern = _XPATH_WS_RUN if _normalize_space(ts) == "" else re.compile(re.escape(ts))
             cs_pattern = re.compile(re.escape(cs))
             text = block.xpath("string()")
-            self.charge(len(text))  # before normalising or splitting: separators count
+            self.charge(len(text) * _CHECK13_CHAR)  # before normalising: separators count
             self._chars += len(text)
             tokens = ts_pattern.split(_normalize_space(text))
-            self.charge(_CHECK13_STEP * len(tokens))
+            self.charge(_CHECK13_TOKEN * len(tokens))
             for token in tokens:
                 if not token:
                     continue
                 parts = cs_pattern.split(token, maxsplit=last)
-                self.charge(_CHECK13_STEP * len(parts))
+                self.charge(_CHECK13_FIELD * len(parts))
                 self._fields += min(len(parts), last)
                 # Only the wanted columns this row has: never all wanted per row.
                 for i in range(bisect.bisect_right(need, len(parts))):
@@ -1719,8 +1750,7 @@ class _Check13Index:
         for c, values in seen.items():
             found = tuple(values)
             columns[c] = shared.setdefault(found, found)
-        self._read[result_set] = read
-        return columns.get(column, ())
+        return columns
 
 
 _XS_INTEGER = re.compile(r"[+-]?[0-9]+")
@@ -1752,12 +1782,27 @@ MAX_LOCAL_DICTIONARIES = 16
 MAX_DEFINITION_PATHS = 1_000
 #: validate(): most path-matching steps per instance (the largest corpus file needs 30,000).
 MAX_PATH_MATCH_WORK = 5_000_000
-#: validate(): most Check 13 work units per document (see :class:`_Check13Index`): one
-#: per dataValues character read, _CHECK13_STEP per element, ancestor, Property, token,
-#: field or other Python-level step. A 10 MB file read once needs well under a tenth.
+#: validate(): most Check 13 work units per document (see :class:`_Check13Index`). The
+#: weights below make one unit cost at most about 60 ns on an Apple M3 Max, whatever
+#: the loop (``scripts/calibrate_check13.py`` measures them), so the cap is about 12 s.
 MAX_CHECK13_WORK = 200_000_000
-#: Work units per Python-level Check 13 step (a character read costs one).
-_CHECK13_STEP = 4
+#: Units per Python-level Check 13 step that keeps or walks an entry (an index, a
+#: group, a column, a reference, a ResultSet child).
+_CHECK13_STEP = 16
+#: Units per element event of the layout pass.
+_CHECK13_EVENT = 8
+#: validate(): most entries Check 13 keeps in its per-key caches (merged values, column
+#: unions, sorted columns, invalid values): at most about 8 to 30 bytes each.
+MAX_CHECK13_KEPT = 10_000_000
+#: Units per dataValues token.
+_CHECK13_TOKEN = 4
+#: Units per field split out of a row.
+_CHECK13_FIELD = 5
+#: Units per column looked at while merging a group's ResultSets, and per value merged.
+_CHECK13_WALK = 2
+_CHECK13_MERGE = 8
+#: Units per dataValues character read.
+_CHECK13_CHAR = 1
 #: validate(): most steps in one dictionary path.
 MAX_PATH_STEPS = 64
 #: validate(): most nodes in one dictionary Definition (real ones have under 100).

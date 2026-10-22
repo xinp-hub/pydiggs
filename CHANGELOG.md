@@ -92,9 +92,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   have at most 10,000 nodes, and a path at most 64 steps), a property's `typeData`,
   `uom` and `nullValue` siblings are found once per parent, and sibling reads count
   towards the same budget. Check 13 has one budget of its own (200 million units):
-  every character it reads and every element, Property, reference, token, field and
-  merged value it examines is charged, so no Check 13 loop is unbounded. A column's
-  values over a group's ResultSets are merged once for all the group's properties.
+  every character it reads and every element, `index`, group, reference, token, field
+  and merged value it examines or keeps is charged, so no Check 13 loop is unbounded
+  and what it keeps stays under 1 GB. The weights are calibrated so that a unit costs
+  about the same time in every loop (`scripts/calibrate_check13.py`; on an Apple M3
+  Max the worst loop is about 60 ns a unit, so the whole budget is about 12 s, and a
+  typical 10 MB file needs 10 to 15 % of it). A column's values over a group's
+  ResultSets are merged once for all the group's properties, and each `index` belongs
+  to its nearest PropertyParameters only, so nested PropertyParameters are not
+  re-read.
 - In `validate()`, a file whose internal-DTD entities make its parsed text more than
   twice its raw size gets one `structure.entity-expansion` error and no other check
   runs (human decision). Small text entities such as `&deg;` still work.

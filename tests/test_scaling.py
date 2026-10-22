@@ -659,8 +659,9 @@ def test_check13_bigcite_doubling_cited_properties(semantic, tmp_path):
     files = {"d.xml": _C13_DEF, "c.xml": _CODES}
     small = _work(semantic, tmp_path / "a", _bigcite(500, 2_000), files, _c13_work)
     large = _work(semantic, tmp_path / "b", _bigcite(500, 4_000), files, _c13_work)
-    # The cited group's columns are read once, not once per citing ResultSet.
-    assert large - small <= 2_000 * 4 * 4, (small, large)
+    # The extra Properties are charged once each (about 50 units: their layout events
+    # and kept index), not once per citing ResultSet (500 x 2,000 more).
+    assert large - small <= 2_000 * 64, (small, large)
     _ratio(small, large, "check 13 bigcite cited properties (work)")
 
 
@@ -796,3 +797,67 @@ def test_check13_doubling_properties_over_citing_result_sets(semantic, tmp_path)
     small = _work(semantic, tmp_path / "a", _propcite(500, 500), files, _c13_work)
     large = _work(semantic, tmp_path / "b", _propcite(1_000, 1_000), files, _c13_work)
     assert _ratio(small, large, "check 13 properties x citing ResultSets (work)") <= LINEAR
+
+
+def _nestpp(depth: int, holders: int, *, distinct: bool) -> str:
+    """One ResultSet, ``depth`` nested PropertyParameters, ``holders`` index holders
+    innermost (round 13: each holder was re-read by every enclosing group)."""
+    fill = (
+        "".join(f'<a index="{i + 2}"/>' for i in range(holders))
+        if distinct
+        else '<a index="1"/>' * holders
+    )
+    return (
+        "<ResultSet>"
+        + "<PropertyParameters>" * depth
+        + f'<Property index="1">{PC}</Property>{fill}'
+        + "</PropertyParameters>" * depth
+        + "<dataValues>v1 v2</dataValues></ResultSet>"
+    )
+
+
+@pytest.mark.parametrize("distinct", [False, True], ids=["nestpp", "nestppd"])
+def test_check13_nested_groups_doubling_depth(semantic, tmp_path, distinct):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(
+        semantic, tmp_path / "a", _nestpp(100, 5_000, distinct=distinct), files, _c13_work
+    )
+    large = _work(
+        semantic, tmp_path / "b", _nestpp(200, 5_000, distinct=distinct), files, _c13_work
+    )
+    # Depth x holders would double the work; each extra group costs a few steps.
+    assert large - small < 100 * 200, (small, large)
+    _ratio(small, large, "check 13 nested groups depth (work)")
+
+
+@pytest.mark.parametrize("distinct", [False, True], ids=["nestpp", "nestppd"])
+def test_check13_nested_groups_doubling_holders(semantic, tmp_path, distinct):
+    files = {"d.xml": _C13_DEF, "c.xml": _CODES}
+    small = _work(
+        semantic, tmp_path / "a", _nestpp(200, 5_000, distinct=distinct), files, _c13_work
+    )
+    large = _work(
+        semantic, tmp_path / "b", _nestpp(200, 10_000, distinct=distinct), files, _c13_work
+    )
+    assert _ratio(small, large, "check 13 nested groups holders (work)") <= LINEAR
+
+
+def _merge(groups: int, result_sets: int, values: int, *, skip_own: bool) -> str:
+    """Every ResultSet cites every group (or all but one, so each group is read from a
+    different set of ResultSets), each with ``values`` distinct values (code review,
+    round 13: merge10 / merge10b)."""
+    pps = "".join(
+        f'<PropertyParameters gml:id="P{p}"><Property index="1">{PC}</Property>'
+        "</PropertyParameters>"
+        for p in range(groups)
+    )
+    sets = []
+    for r in range(result_sets):
+        cites = "".join(
+            f'<parameters {_XL} xlink:href="#P{p}"/>'
+            for p in range(groups)
+            if not (skip_own and p == r)
+        )
+        data = " ".join(f"r{r}x{j}" for j in range(values))
+        sets.append(f"<ResultSet>{cites}<dataValues>{data}</dataValues></ResultSet>")
+    return f"<group>{pps}</group>" + "".join(sets)

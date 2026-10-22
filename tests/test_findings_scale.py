@@ -400,6 +400,11 @@ xml = ('<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengi
        + ('<ResultSet><parameters xlink:href="#PP">' + OWN + '</parameters><dataValues>' + row
           + '</dataValues></ResultSet>') * r
        + '</results></TestResult></outcome></Test></measurement></Diggs>')
+if OWN == "NESTED":  # 250 nested groups around 480,000 distinct index holders (9.4 MB)
+    xml = ('<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2">'
+           '<ResultSet>' + '<PropertyParameters>' * 250 + prop.format(i=1)
+           + "".join(f'<a index="{i + 2}"/>' for i in range(480_000))
+           + '</PropertyParameters>' * 250 + '<dataValues>a</dataValues></ResultSet></Diggs>')
 path = Path(tempfile.mkdtemp()) / "c13mem.xml"
 path.write_text(xml)
 etree.parse(str(path))  # parsing alone sets the baseline
@@ -411,12 +416,18 @@ print(peak() - base, report.counts["error"])
 
 @pytest.mark.slow
 @pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
-@pytest.mark.parametrize("own", ["", "<PropertyParameters/>"], ids=["cite", "cite-and-own"])
-def test_check13_many_result_sets_stays_small(own):
+@pytest.mark.parametrize(
+    ("own", "errors"),
+    [("", 2200), ("<PropertyParameters/>", 2200), ("NESTED", 1)],
+    ids=["cite", "cite-and-own", "nested-groups"],
+)
+def test_check13_many_result_sets_stays_small(own, errors):
     # 2,200 properties x 2,200 ResultSets citing them (9.8 MiB): the per-ResultSet
     # column cache used to grow to gigabytes. With an (empty) PropertyParameters of
     # their own as well, every ResultSet's groups differ, yet the column sets must still
     # be shared (code review, round 12: 718 MB when they were keyed by the groups).
+    # Nested groups keep each index once, not once per enclosing group (security
+    # review, round 13: 3.7 GB).
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
         [sys.executable, "-c", _PEAK + f"OWN = {own!r}\n" + _C13MEM],
         capture_output=True,
@@ -424,7 +435,7 @@ def test_check13_many_result_sets_stays_small(own):
         check=True,
     ).stdout.split()
     assert float(out[0]) < 300, out  # MB beyond parsing
-    assert int(out[1]) == 2200
+    assert int(out[1]) == errors
 
 
 def test_context_checks_do_not_build_long_namespace_strings(tmp_path):
@@ -456,15 +467,19 @@ def _sc():
 _C13_CPU = """
 import sys, time
 from pydiggs import validate
+from lxml import etree
+etree.parse(sys.argv[1])  # parsing alone sets the baseline
+base = peak()
 start = time.process_time()
 report = validate(sys.argv[1], checks=["dictionary"])
 cpu = time.process_time() - start
 print(report.steps["dictionary"], report.verdict, cpu,
-      int("dictionary.incomplete" in {f.rule_id for f in report.findings}))
+      int("dictionary.incomplete" in {f.rule_id for f in report.findings}), peak() - base)
 """
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(sys.platform == "win32", reason="resource module is POSIX only")
 @pytest.mark.parametrize(
     ("shape", "expected"),
     [
@@ -472,9 +487,23 @@ print(report.steps["dictionary"], report.verdict, cpu,
         (lambda: _sc()._dupcite(500), "passed"),
         (lambda: _sc()._outside(20_000, 7_000_000), "passed"),
         (lambda: _sc()._propcite(50_000, 50_000), "passed"),
-        (lambda: _sc()._cross(400, 200, 400), "incomplete"),
+        (lambda: _sc()._cross(400, 200, 400), "failed"),
+        (lambda: _sc()._nestpp(250, 550_000, distinct=False), "passed"),
+        (lambda: _sc()._nestpp(250, 480_000, distinct=True), "passed"),
+        (lambda: _sc()._merge(300, 300, 1_350, skip_own=False), "failed"),
+        (lambda: _sc()._merge(300, 300, 1_350, skip_own=True), "incomplete"),
     ],
-    ids=["bigcite", "dupcite", "outside", "propcite", "cross"],
+    ids=[
+        "bigcite",
+        "dupcite",
+        "outside",
+        "propcite",
+        "cross",
+        "nestpp",
+        "nestppd",
+        "merge10",
+        "merge10b",
+    ],
 )
 def test_check13_ten_megabyte_shapes_stay_within_the_bar(tmp_path, shape, expected):
     """The security review's shapes at about 10 MB: linear (passed) or fail closed.
@@ -494,15 +523,17 @@ def test_check13_ten_megabyte_shapes_stay_within_the_bar(tmp_path, shape, expect
     assert 7_000_000 < size <= 10_500_000, size
     env = {k: v for k, v in os.environ.items() if not k.startswith(("COV_", "COVERAGE"))}
     out = subprocess.run(  # noqa: S603  # fixed argv, our own interpreter
-        [sys.executable, "-c", _C13_CPU, str(instance)],
+        [sys.executable, "-c", _PEAK + _C13_CPU, str(instance)],
         capture_output=True,
         text=True,
         check=True,
         env=env,
     ).stdout.split()
     step, verdict, cpu, refused = out[0], out[1], float(out[2]), out[3] == "1"
-    print(f"RATIO 10 MB shape: {size / 1e6:.1f} MB, {cpu:.1f} s CPU, {step}")
+    memory = float(out[4])
+    print(f"RATIO 10 MB shape: {size / 1e6:.1f} MB, {cpu:.1f} s CPU, {memory:.0f} MB, {step}")
     assert step == expected
     if expected == "incomplete":
         assert refused and verdict == "not-valid"
     assert cpu < 30
+    assert memory < 350  # MB beyond parsing, the documented bound

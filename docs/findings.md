@@ -45,11 +45,12 @@ DIGGS check means anything for it. In the test corpus,
 findings (in this order): `not-diggs`; `not-valid` (any error); `partly-checked` (no
 error, but a step is `partial` or `incomplete`: a step stopped by a safety limit always
 has an error, so it is `not-valid`, but one whose warnings were cut by `max_findings`
-may have none); `valid-with-warnings`; `valid`. An unreadable input's verdict is `unreadable`. The
-text output starts each file's line with it. Text output lists errors and warnings,
-not info findings; for a `partly-checked` file it adds a `not fully checked:` line
-naming the `partial` or `incomplete` steps and lists its `dictionary.offline` findings,
-so the reason is always shown.
+may have none); `valid-with-warnings`; `valid`. An unreadable input's verdict is
+`unreadable`. The text output starts each file's line with it. Text output lists
+errors and warnings, not info findings; for a `partly-checked` file it adds a
+`not fully checked:` line naming the `partial` or `incomplete` steps and lists its
+`dictionary.offline` findings, so the reason is always shown.
+
 Well-formedness is always checked, because nothing else can run without it: a file
 that is not well-formed reports `structure` as `failed` even when `structure` was not
 asked for.
@@ -121,11 +122,16 @@ says why, so `report.ok` is False and the CLI exits 1:
 * `dictionary.incomplete` when the dictionary checks would cost too much: a Definition
   that lists more than 1,000 source or conditional paths or names, has more than
   10,000 nodes, or uses a path of more than 64 steps; more than 200,000,000 Check 13
-  work units (one per `dataValues` character read, separators included, and 4 per
-  element, ancestor, Property, reference, token, field or merged value it examines; a
-  10 MB file of 4.8 million cells needs about 70 million); or more than
-  5,000,000 dictionary work steps in one instance (path matching, sibling reads). Real DIGGS definitions list at most 9 paths, and the largest corpus file
-  needs 39,000 steps; files shaped like real ones reach the budget at about 30 to
+  work units (one per `dataValues` character read, separators included, and a weight
+  per element, `index`, group, reference, token, field and merged value, calibrated by
+  `scripts/calibrate_check13.py` so that a unit costs at most about 60 ns whatever the
+  loop: the whole budget is about 12 s of CPU; typical 10 MB files need 10 to 15 % of
+  it, and the densest one tried, 4.8 million cells, about 83 million or 42 %); more
+  than 10,000,000 values kept in Check 13's per-key caches (merged values, column
+  unions, sorted columns, invalid values: a few hundred MB at most); or more than
+  5,000,000 dictionary work steps in one instance (path matching, sibling reads).
+  Real DIGGS definitions list at most 9 paths, and the largest corpus file needs
+  39,000 steps; files shaped like real ones reach the budget at about 30 to
   40 MB (an AtterbergExample measurement repeated 3,000 times, 26.5 MB, needs
   3.7 million), so a very large file can be `incomplete` for this reason alone.
 * `context.incomplete` when `dataBlock`s inside nested `measurement`s would need more
@@ -455,11 +461,20 @@ one group up to 500 times each, 0.6 s; 20,000 PropertyParameters outside `parame
 over 7 million separators, 1.0 s (the first and last of these shapes ran for more than
 460 s before, the last growing to 3 GB); 50,000 coded Properties read from 50,000
 citing ResultSets, 2.0 s; 200 ResultSets each citing the same 400 groups of 400
-columns, `incomplete` after 6 s. Check 13 keeps no rows, only the distinct values of
+columns, `incomplete` after about 5 s. Each `index` belongs to its nearest
+PropertyParameters only, so 250 nested PropertyParameters around 480,000 index holders
+(9.4 MB) take 1.5 s and about 240 MB, where re-reading every holder for each enclosing
+group took 102 s and 3.7 GB. Check 13 keeps no rows, only the distinct values of
 the columns its properties ask for, and one column set per group of
 PropertyParameters (2,200 ResultSets of 2,200 cells citing one group, 9.9 MB: about
-205 MB beyond parsing, where keying the sets by ResultSet used 718 MB; one 9 MB row of 9 million empty fields takes 0.2 s and 113 MB, where reading
-every column took 2.1 GB). The costs below belong to lxml and libxml2/libxslt and are not bounded by
+205 MB beyond parsing, where keying the sets by ResultSet used 718 MB; one 9 MB row
+of 9 million empty fields takes 0.2 s and 113 MB, where reading every column took
+2.1 GB). Groups read by the same ResultSets share one merge (300 groups each cited by
+the same 300 ResultSets, 2,700 distinct values each: 1.3 s and 171 MB); when every
+group is read by a different set of ResultSets, the merges are counted against the
+kept-values cap instead and the step stops `incomplete` (1.5 s, about 250 MB).
+
+The costs below belong to lxml and libxml2/libxslt and are not bounded by
 pydiggs. Measured on an Apple M3 Max MacBook Pro in CPU seconds (one process, default
 settings, lxml 6.1.3, libxml2 2.14.6, libxslt 1.1.43; wall time on a busy machine is
 higher):

@@ -979,12 +979,14 @@ def test_check13_columns_are_read_once_per_result_set(tmp_path, monkeypatch):
     from pydiggs import dictionary
 
     calls = []
-    real = dictionary._Check13Index.column
-    monkeypatch.setattr(
-        dictionary._Check13Index,
-        "column",
-        lambda self, rs, col, *rest: calls.append(col) or real(self, rs, col, *rest),
-    )
+    real = dictionary._Check13Index._read
+
+    def read(self, rs):
+        if rs not in self._distinct:  # a pass over the ResultSet's dataValues
+            calls.append(rs)
+        return real(self, rs)
+
+    monkeypatch.setattr(dictionary._Check13Index, "_read", read)
     codes = (
         '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
         ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
@@ -1438,7 +1440,7 @@ def test_check13_keeps_no_rows_and_charges_fields(tmp_path, monkeypatch):
     assert not hasattr(dictionary._Check13Index, "rows")
     work = _check13_work(monkeypatch, site)
     # 3,000 rows: each token and each of its two fields (split at most once) is charged.
-    assert work >= 3_000 * 3 * dictionary._CHECK13_STEP
+    assert work >= 3_000 * (dictionary._CHECK13_TOKEN + 2 * dictionary._CHECK13_FIELD)
     monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work - 3_000)
     assert validate(site, checks=["dictionary"]).steps["dictionary"] == "incomplete"
     monkeypatch.setattr(dictionary, "MAX_CHECK13_WORK", work)
@@ -2154,31 +2156,60 @@ def test_check13_index_charges_every_loop():
     """The invariant at _Check13Index: each iteration is charged to the one counter."""
     from pydiggs import dictionary
 
-    step = dictionary._CHECK13_STEP
+    step, event = dictionary._CHECK13_STEP, dictionary._CHECK13_EVENT
     root = etree.fromstring(
         f'<Diggs xmlns="{NS}" xmlns:xlink="http://www.w3.org/1999/xlink">'
         '<ResultSet><parameters xlink:href="#B" other="x"/><x><y>'
         '<PropertyParameters gml:id="A" xmlns:gml="http://www.opengis.net/gml/3.2">'
-        '<Property index="1"><c/></Property><Property index="no"/><Property index="3"/>'
+        '<Property index="1"><c/></Property><Property index="no"/>'
+        '<PropertyParameters index="7"><Property index="3"/></PropertyParameters>'
         "</PropertyParameters></y></x></ResultSet></Diggs>"
     )
     index = dictionary._Check13Index(root.getroottree(), bounded=True)
     layout = index.layout()
-    # 3 elements x (start + end) and the two attributes of ResultSet/parameters.
-    assert index._work == step * (3 * 2 + 2)
-    params = root.find(".//{*}PropertyParameters")
-    assert layout.nearest_rs[params] is root[0]  # at any depth, as the driver reads it
+    elements = len(list(root.iter()))
+    holders = ["1", "no", "7", "3"]
+    expected = (
+        event * 2 * elements  # every element's start and end
+        + step * 2  # the two attributes of ResultSet/parameters
+        + step * 2  # two PropertyParameters
+        + sum(2 * step + len(h) for h in holders)  # each index kept with its group
+    )
+    assert index._work == expected
+    outer, inner = root.findall(".//{*}PropertyParameters")
+    assert layout.nearest_rs[outer] is root[0]  # at any depth, as the driver reads it
+    assert layout.nearest_rs[inner] is root[0]
     assert layout.refs[root[0]] == ["#B"]
-    before = index._work
-    assert index.group_columns(params) == frozenset({1, 3})
-    assert index._work - before == 3 * step  # each Property examined
-    before = index._work
-    leaf = root.find(".//{*}c")
-    assert index.nearest(leaf, "PropertyParameters") is params
-    assert index._work - before == 2 * step  # Property, then PropertyParameters
-    before = index._work
-    assert index.nearest(leaf, "nothing") is None
-    assert index._work - before == 6 * step  # every ancestor up to the root
+    # Each index belongs to its nearest group only (a group's own index to itself):
+    # the outer group never re-reads the inner one's holders.
+    assert index.group_columns(outer) == frozenset({1})
+    assert index.group_columns(inner) == frozenset({7, 3})
+    first = root.find(".//{*}Property")
+    assert layout.holder_group[first] is outer
+    assert layout.holder_group[inner] is inner
+
+
+def test_nested_groups_read_each_index_once():
+    """Nested PropertyParameters around index holders (round 13): each holder is read
+    once, not once per enclosing group."""
+    from pydiggs import dictionary
+
+    def work(depth: int, holders: int) -> int:
+        root = etree.fromstring(
+            f'<Diggs xmlns="{NS}"><ResultSet>'
+            + "<PropertyParameters>" * depth
+            + "".join(f'<a index="{i}"/>' for i in range(1, holders + 1))
+            + "</PropertyParameters>" * depth
+            + "</ResultSet></Diggs>"
+        )
+        index = dictionary._Check13Index(root.getroottree(), bounded=True)
+        for group in root.iter("{*}PropertyParameters"):
+            index.group_columns(group)
+        return index._work
+
+    base = work(120, 1_000)
+    assert work(240, 1_000) - base < 120 * 100  # depth adds per group, not per holder
+    assert work(120, 2_000) - base < 1_000 * 100  # holders add once each
 
 
 def test_check13_union_work_is_charged_and_shared():
@@ -2202,8 +2233,9 @@ def test_check13_union_work_is_charged_and_shared():
     before = index._work
     second = index._columns_for(sets[2])
     assert second is first  # one union for every ResultSet citing the same groups
-    # href, cited group, groups (own empty one + B, +1): no union rebuilt.
-    assert index._work - before == step * (1 + 1 + 3)
+    # href, cited group, its own empty group's set, groups (own + B, +1): no union
+    # rebuilt.
+    assert index._work - before == step * (1 + 1 + 1 + 3)
     assert index._columns_for(sets[0]) is first  # B's own ResultSet shares it too
 
 
@@ -2242,3 +2274,133 @@ def test_check13_properties_and_result_sets_add_not_multiply(tmp_path, monkeypat
     # A product would add at least 300 x 300 steps; a few dozen per property is linear.
     assert more_properties <= 300 * 40 * step, more_properties
     assert more_result_sets <= 300 * 40 * step, more_result_sets
+
+
+# --- round 13: pins for the Check 13 rework ------------------------------------------
+
+_OK_CODES = (
+    '<gml:Dictionary xmlns:gml="http://www.opengis.net/gml/3.2"'
+    ' xmlns:diggs="http://diggsml.org/schemas/2.6" gml:id="c"><gml:dictionaryEntry>'
+    '<diggs:Definition gml:id="ok"/></gml:dictionaryEntry></gml:Dictionary>'
+)
+_XLINK = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
+
+
+def _check13_messages(tmp_path, body: str) -> list[str]:
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    site = _definition(tmp_path, inner, body, {"c.xml": _OK_CODES})
+    report = validate(site, checks=["dictionary"])
+    assert report.steps["dictionary"] in ("passed", "failed"), report.findings
+    return sorted(
+        f.message.split(":", 1)[1] for f in report.findings if f.rule_id == "dictionary.13"
+    )
+
+
+def test_check13_each_column_has_its_own_result(tmp_path):
+    got = _check13_messages(
+        tmp_path,
+        '<ResultSet><parameters><PropertyParameters><Property index="1">'
+        f'{_PC}</Property><Property index="2">{_PC}</Property></PropertyParameters>'
+        "</parameters><dataValues>bad1,bad2</dataValues></ResultSet>",
+    )
+    assert len(got) == 2
+    assert '"bad1"' in got[0] and '"bad2"' in got[1]
+
+
+def test_check13_reads_the_nearest_result_set(tmp_path):
+    got = _check13_messages(
+        tmp_path,
+        "<ResultSet><nested><ResultSet><parameters><PropertyParameters>"
+        f'<Property index="1">{_PC}</Property></PropertyParameters></parameters>'
+        "<dataValues>innerbad</dataValues></ResultSet></nested>"
+        "<dataValues>outerbad</dataValues></ResultSet>",
+    )
+    assert len(got) == 1 and '"innerbad"' in got[0] and "outerbad" not in got[0]
+
+
+def test_check13_only_a_direct_parameters_child_cites(tmp_path):
+    got = _check13_messages(
+        tmp_path,
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><Property index="1">'
+        f"{_PC}</Property></PropertyParameters></parameters><dataValues>ok</dataValues>"
+        f'</ResultSet><ResultSet><x><parameters {_XLINK} xlink:href="#PP"/></x>'
+        "<dataValues>citedbad</dataValues></ResultSet>",
+    )
+    assert got == []
+
+
+def test_check13_values_follow_document_order(tmp_path):
+    got = _check13_messages(
+        tmp_path,
+        f'<ResultSet><parameters {_XLINK} xlink:href="#PP"/><dataValues>b1</dataValues>'
+        '</ResultSet><ResultSet><parameters><PropertyParameters gml:id="PP">'
+        f'<Property index="1">{_PC}</Property></PropertyParameters></parameters>'
+        "<dataValues>a1</dataValues></ResultSet>",
+    )
+    assert len(got) == 1 and '"b1", "a1"' in got[0]
+
+
+def test_check13_every_group_sharing_an_id_is_read(tmp_path):
+    got = _check13_messages(
+        tmp_path,
+        '<group><PropertyParameters gml:id="D"><Property index="1">'
+        f'{_PC}</Property></PropertyParameters><PropertyParameters gml:id="D">'
+        f'<Property index="2">{_PC}</Property></PropertyParameters></group>'
+        f'<ResultSet><parameters {_XLINK} xlink:href="#D"/><dataValues>ok,bad</dataValues>'
+        "</ResultSet>",
+    )
+    assert len(got) == 1 and '"bad"' in got[0]
+
+
+def test_check13_values_charges_each_column_walked_and_value_merged():
+    from pydiggs import dictionary as d
+
+    root = etree.fromstring(
+        f'<Diggs xmlns="{NS}" xmlns:gml="http://www.opengis.net/gml/3.2" {_XLINK}>'
+        '<ResultSet><parameters><PropertyParameters gml:id="PP"><Property index="1"/>'
+        '<Property index="2"/></PropertyParameters></parameters>'
+        "<dataValues>a,c b</dataValues></ResultSet>"
+        f'<ResultSet><parameters xlink:href="#PP"/><dataValues>a</dataValues></ResultSet>'
+        "</Diggs>"
+    )
+    index = d._Check13Index(root.getroottree(), bounded=True)
+    params = root.find(".//{*}PropertyParameters")
+    first, second = root.findall("{*}ResultSet")
+    index.readers(params)
+    assert index._read(first) == {1: ("a", "b"), 2: ("c",)}
+    assert index._read(second) == {1: ("a",)}
+    before = index._work
+    assert index.values(params, 1) == ("a", "b")
+    walked = (d._CHECK13_WALK * 2 + d._CHECK13_STEP) + (d._CHECK13_WALK * 1 + d._CHECK13_STEP)
+    assert index._work - before == walked + d._CHECK13_MERGE * (2 + 1 + 1)
+    before = index._work
+    assert index.values(params, 2) == ("c",)  # merged once for the whole group
+    assert index._work == before
+
+
+def test_check13_kept_values_are_capped(tmp_path, monkeypatch):
+    """Every group read by a different set of ResultSets keeps its own merge: the
+    entries kept are counted, and past MAX_CHECK13_KEPT the step fails closed."""
+    from pydiggs import dictionary
+
+    pps = "".join(
+        f'<PropertyParameters gml:id="P{p}"><Property index="1">{_PC}</Property>'
+        "</PropertyParameters>"
+        for p in range(10)
+    )
+    sets = "".join(
+        "<ResultSet>"
+        + "".join(f'<parameters {_XLINK} xlink:href="#P{p}"/>' for p in range(10) if p != r)
+        + "<dataValues>"
+        + " ".join(f"r{r}x{j}" for j in range(20))
+        + "</dataValues></ResultSet>"
+        for r in range(10)
+    )
+    inner = "<gml:name>t</gml:name>" + _SRC + "<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>"
+    site = _definition(tmp_path, inner, f"<group>{pps}</group>{sets}", {"c.xml": _OK_CODES})
+    report = validate(site, checks=["dictionary"])
+    assert report.steps["dictionary"] == "failed"  # 10 merges of 9 x 20 values: 1,800+
+    monkeypatch.setattr(dictionary, "MAX_CHECK13_KEPT", 1_000)
+    report = validate(site, checks=["dictionary"])
+    assert report.steps["dictionary"] == "incomplete"
+    assert any("would keep more than 1,000" in f.message for f in report.findings)
