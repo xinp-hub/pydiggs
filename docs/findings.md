@@ -121,18 +121,19 @@ says why, so `report.ok` is False and the CLI exits 1:
   warning.
 * `dictionary.incomplete` when the dictionary checks would cost too much: a Definition
   that lists more than 1,000 source or conditional paths or names, has more than
-  10,000 nodes, or uses a path of more than 64 steps; more than 200,000,000 Check 13
+  10,000 nodes, or uses a path of more than 64 steps; more than 250,000,000 Check 13
   work units (one per `dataValues` character read, separators included, and a weight
   per element, attribute, coded element, `index`, group, reference, token, field and
   merged value, calibrated by `scripts/calibrate_check13.py` so that a unit costs at
-  most about 30 ns whatever the loop, measured on an Apple M3 Max: the whole budget is
-  about 6 s of CPU there, and 12 to 24 s on hardware two to four times slower, such as
+  most about 30 ns whatever the loop (25 ns measured, the median of three runs, on an
+  Apple M3 Max): the whole budget is about 6 s of CPU there, and 13 to 26 s on hardware
+  two to four times slower, such as
   a CI runner or an older laptop. Share of the budget used by the script's data-shaped
-  files: a CPT-like sounding (6 numeric columns, 230,000 rows, 9.5 MB) 26 %; one-
-  character cells (10 columns, 500,000 rows, 10 MB) 29 %; one group of 10 to 200
-  coded columns cited by 1 to 10 ResultSets of 1,000 to 50,000 rows, 4 to 11 % at 2 to
+  files: a CPT-like sounding (6 numeric columns, 230,000 rows, 9.5 MB) 21 %; one-
+  character cells (10 columns, 500,000 rows, 10 MB) 23 %; one group of 10 to 200
+  coded columns cited by 1 to 10 ResultSets of 1,000 to 50,000 rows, 3 to 9 % at 2 to
   6 MB; and the densest shape tried, 4.8 million cells in 10 MB, 147 million or
-  74 %); more
+  59 %); more
   than 10,000,000 values kept in Check 13's per-key caches (merged values, column
   unions, sorted columns, invalid values: a few hundred MB at most); or more than
   5,000,000 dictionary work steps in one instance (path matching, sibling reads).

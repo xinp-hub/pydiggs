@@ -9,9 +9,9 @@ and the time the whole budget would take at that rate; then the share of the bud
 that files shaped like real data use. The figures in the docs were measured on an
 Apple M3 Max; CI runners or older laptops may be two to four times slower.
 
-It exits 1 if any loop costs more than 30 ns per unit on the machine it runs on (a
-machine-relative figure: run it on the release machine as part of the release
-checklist, not in CI).
+Each figure is the median of three runs. It exits 1 if any loop costs more than
+30 ns per unit on the machine it runs on (a machine-relative figure: run it on the
+release machine as part of the release checklist, not in CI).
 
 Usage (from the repository root; not a test, it takes about a minute)::
 
@@ -20,6 +20,7 @@ Usage (from the repository root; not a test, it takes about a minute)::
 
 from __future__ import annotations
 
+import statistics
 import sys
 import tempfile
 import time
@@ -42,6 +43,8 @@ _DEFINITION = (
 )
 #: The weights invariant: no loop may cost more than this per unit (on an M3 Max).
 LIMIT_NS = 30.0
+#: Runs per shape; the CPU figures are their median.
+RUNS = 3
 DEFINITION = _DEFINITION.format(value="<diggs:valueCodeSpace>./c.xml</diggs:valueCodeSpace>")
 BASELINE = _DEFINITION.format(value="")
 CODES = (
@@ -291,9 +294,11 @@ def main() -> int:
     worst = 0.0
     for name, build in _shapes().items():
         body = build()
-        cpu, units, size, stopped = _measure(body)
-        base = _measure(body, BASELINE)[0]
-        cpu = max(cpu - base, 0.0)
+        runs = []
+        for _ in range(RUNS):  # the median of three, so one noisy run cannot fail it
+            cpu, units, size, stopped = _measure(body)
+            runs.append(cpu - _measure(body, BASELINE)[0])
+        cpu = max(statistics.median(runs), 0.0)
         rate = cpu / units * 1e9 if units else 0.0
         worst = max(worst, rate)
         note = "  (stopped at a limit)" if stopped else ""
@@ -305,7 +310,10 @@ def main() -> int:
     print()
     print(f"{'legitimate':<15} {'MB':>5} {'CPU s':>6} {'units':>13} {'of cap':>7}")
     for name, build in _legitimate().items():
-        cpu, units, size, _ = _measure(build())
+        body = build()
+        measured = [_measure(body) for _ in range(RUNS)]
+        cpu = statistics.median(m[0] for m in measured)
+        _, units, size, _ = measured[0]
         print(f"{name:<15} {size:>5.1f} {cpu:>6.2f} {units:>13,} {units / MAX_CHECK13_WORK:>7.1%}")
     if worst > LIMIT_NS:
         print(

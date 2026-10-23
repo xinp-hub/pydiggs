@@ -91,15 +91,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   messages list at most 20 paths. Each Definition is read once per instance (it may
   have at most 10,000 nodes, and a path at most 64 steps), a property's `typeData`,
   `uom` and `nullValue` siblings are found once per parent, and sibling reads count
-  towards the same budget. Check 13 has one budget of its own (200 million units):
+  towards the same budget. Check 13 has one budget of its own (250 million units):
   every character it reads and every element, `index`, group, reference, token, field
   and merged value it examines or keeps is charged, so no Check 13 loop is unbounded
   and what it keeps stays under 1 GB. The weights are calibrated so that a unit costs
   about the same time in every loop (`scripts/calibrate_check13.py`, which exits 1 if
   any loop costs more than 30 ns a unit on the machine it runs on; on an Apple M3 Max
-  the worst loop is about 27 ns, so the whole budget is about 6 s there and 12 to 24 s
-  on hardware two to four times slower; data-shaped 10 MB files use 26 to 29 % of it,
-  the densest shape tried 74 %). A property `index` is parsed once, in the layout
+  the worst loop is about 25 ns, the median of three runs, so the whole budget is about
+  6 s there and 13 to 26 s on hardware two to four times slower; data-shaped 10 MB
+  files use 21 to 23 % of it, the densest shape tried 59 %). A property `index` is parsed once, in the layout
   pass, and an index longer than 64 characters is not a column. A column's values over a group's
   ResultSets are merged once for all the group's properties, and each `index` belongs
   to its nearest PropertyParameters only, so nested PropertyParameters are not

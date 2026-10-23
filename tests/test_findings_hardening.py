@@ -2604,3 +2604,23 @@ def test_check13_an_index_longer_than_64_characters_is_not_a_column(tmp_path):
 
     assert len(run(63)) == 1  # 64 characters: still column 1
     assert run(64) == []  # 65 characters: not a column, never normalised or parsed
+
+
+@pytest.mark.parametrize(("children", "step"), [(2_200, "passed"), (2_600, "incomplete")])
+def test_check13_default_cap_is_250_million_units(tmp_path, monkeypatch, children, step):
+    """At the shipped cap (round 14b: 250 million), the long-nullValue shape costs about
+    100,000 units per coded child: 2,200 children (about 220 million) finish, 2,600
+    (about 260 million) stop."""
+    from pydiggs import dictionary
+
+    assert dictionary.MAX_CHECK13_WORK == 250_000_000
+    body = (
+        '<ResultSet><parameters><PropertyParameters><Property index="1">'
+        + _PC * children
+        + f"<nullValue>{'n' * 100_000}</nullValue></Property></PropertyParameters>"
+        "</parameters><dataValues>ok</dataValues></ResultSet>"
+    )
+    report, index = _c13_run(tmp_path, monkeypatch, body)
+    assert report.steps["dictionary"] == step
+    if step == "passed":
+        assert 200_000_000 < index._work <= dictionary.MAX_CHECK13_WORK  # over the old cap

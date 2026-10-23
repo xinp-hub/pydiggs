@@ -1829,8 +1829,8 @@ MAX_PATH_MATCH_WORK = 5_000_000
 #: validate(): most Check 13 work units per document (see :class:`_Check13Index`). The
 #: weights below make one unit cost at most about 30 ns on an Apple M3 Max, whatever
 #: the loop (``scripts/calibrate_check13.py`` measures them), so the cap is about 6 s
-#: there and at most about 24 s on hardware four times slower.
-MAX_CHECK13_WORK = 200_000_000
+#: there and at most about 26 s on hardware four times slower (round 14b: 250M).
+MAX_CHECK13_WORK = 250_000_000
 #: Units per Python-level Check 13 step that keeps or walks an entry (an index, a
 #: group, a column, a reference, a ResultSet child).
 _CHECK13_STEP = 32
