@@ -14,6 +14,19 @@ def test_version_matches_installed_metadata():
     assert pkg.__version__ == metadata.version(DIST)
 
 
+def test_reports_name_the_installed_version(tmp_path):
+    from pydiggs.findings import _json, _sarif
+
+    path = tmp_path / "a.xml"
+    path.write_text('<Diggs xmlns="http://diggsml.org/schemas/2.6"/>', encoding="utf-8")
+    report = pkg.validate(path)
+    assert report.tool_version == metadata.version(DIST)
+    log = _sarif.sarif_log([report], [], tool_version=report.tool_version)
+    assert log["runs"][0]["tool"]["driver"]["version"] == metadata.version(DIST)
+    doc = _json.document([], tool_version=report.tool_version, reference_data={})
+    assert doc["tool"]["version"] == metadata.version(DIST)
+
+
 def test_ships_py_typed_marker():
     assert resources.files(pkg).joinpath("py.typed").is_file()
 
