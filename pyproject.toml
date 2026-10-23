@@ -53,6 +53,8 @@ dev = [
   "hypothesis>=6.115",
   "mypy>=1.13",
   "ruff>=0.8",
+  "jsonschema>=4.26.0",
+  "pytest-timeout>=2.4.0",
 ]
 docs = [
   "mkdocs-material>=9.5",
@@ -125,6 +127,12 @@ files = ["src", "scripts"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
+# New modules are fully typed; keep them that way.
+[[tool.mypy.overrides]]
+module = ["pydiggs.errors", "pydiggs.findings", "pydiggs.findings.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
 [[tool.mypy.overrides]]
 module = ["lxml", "lxml.*"]
 ignore_missing_imports = true
@@ -152,6 +160,7 @@ filterwarnings = [
 markers = [
   "slow: excluded from the fast feedback loop",
   "network: requires network access",
+  "scaling: complexity tests (work grows linearly); run in CI's Linux job",
 ]
 
 [tool.coverage.run]

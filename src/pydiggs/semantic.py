@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from lxml import etree
 
 from pydiggs import _xml
-from pydiggs.dictionary import ValidationMessage
+from pydiggs.dictionary import ValidationMessage, _element_path, _sibling_positions, _worse
 
 
 @dataclass
@@ -15,14 +15,58 @@ class ContextValidationResult:
     """Outcome of non-dictionary semantic checks."""
 
     messages: list[ValidationMessage] = field(default_factory=list)
+    #: Keep at most this many messages (None: all). The rest are only counted in
+    #: ``dropped`` as {check: (count, worst severity)}; validate() sets it.
+    limit: int | None = None
+    dropped: dict[int, tuple[int, str]] = field(default_factory=dict)
+    #: False in validate(): the Locator gives locations, so no legacy path is built.
+    legacy_paths: bool = True
+    #: Context check numbers to record (None: all); validate() leaves out unrequested steps.
+    checks: frozenset[int] | None = None
+    _positions: dict[etree._Element, int] | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
+    #: validate(): why a check stopped early (its results are partial).
+    limits_hit: list[str] = field(default_factory=list, compare=False)
+    #: validate(): units of dataBlock work done (pairs and tuples read), for tests.
+    work: int = field(default=0, compare=False)
+
+    def path(self, el: etree._Element) -> str:
+        """The legacy ``/name[n]/...`` path of ``el`` ("" when not needed).
+
+        Sibling positions are computed once per document (they were recounted for
+        every message, which was quadratic in the number of siblings).
+        """
+        if not self.legacy_paths or (self.limit is not None and len(self.messages) >= self.limit):
+            return ""
+        if self._positions is None:
+            self._positions = _sibling_positions(el.getroottree().getroot())
+        return _element_path(el, self._positions)
 
     @property
     def ok(self) -> bool:
-        return not any(m.severity == "ERROR" for m in self.messages)
+        return not any(m.severity == "ERROR" for m in self.messages) and not any(
+            severity == "ERROR" for _, severity in self.dropped.values()
+        )
 
-    def add(self, severity: str, path: str, text: str, check: int) -> None:
+    def add(
+        self,
+        severity: str,
+        path: str,
+        text: str,
+        check: int,
+        node: etree._Element | None = None,
+    ) -> None:
+        if self.checks is not None and check not in self.checks:
+            return
+        if self.limit is not None and len(self.messages) >= self.limit:
+            count, worst = self.dropped.get(check, (0, severity))
+            self.dropped[check] = (count + 1, _worse(worst, severity))
+            return
         self.messages.append(
-            ValidationMessage(severity=severity, element_path=path, text=text, check=check)
+            ValidationMessage(
+                severity=severity, element_path=path, text=text, check=check, node=node
+            )
         )
 
 
@@ -30,31 +74,36 @@ def _local(el: etree._Element) -> str:
     return str(etree.QName(el).localname)
 
 
-def _path(el: etree._Element) -> str:
-    parts: list[str] = []
-    node: etree._Element | None = el
-    while node is not None and isinstance(node.tag, str):
-        name = _local(node)
-        prev = [
-            s
-            for s in node.itersiblings(preceding=True)
-            if isinstance(s.tag, str) and _local(s) == name
-        ]
-        parts.append(f"{name}[{len(prev) + 1}]")
-        node = node.getparent()
-    return "/" + "/".join(reversed(parts))
-
-
 def validate_context(instance_path: str) -> ContextValidationResult:
     """Run DIGGS structure, geometry SRS, xlink href, and dataBlock checks."""
-    result = ContextValidationResult()
-    doc = _xml.parse(instance_path)
-    root = doc.getroot()
+    return validate_context_tree(_xml.parse(instance_path).getroot())
 
+
+def validate_context_tree(
+    root: etree._Element,
+    *,
+    max_messages: int | None = None,
+    legacy_paths: bool = True,
+    checks: frozenset[int] | None = None,
+) -> ContextValidationResult:
+    """Run the context checks on an already-parsed document root.
+
+    With ``max_messages``, messages past that number are only counted. With
+    ``legacy_paths=False`` (validate()), no legacy element path is built. ``checks``
+    limits the messages recorded (and counted) to those check numbers.
+    """
+    result = ContextValidationResult(limit=max_messages, legacy_paths=legacy_paths, checks=checks)
     _check_structure(root, result)
-    _check_geometry_srs(root, result)
+    if legacy_paths:
+        _check_geometry_srs(root, result)
+    else:
+        _check_geometry_srs_official(root, result)
     _check_hrefs(root, result)
-    _check_datablocks(root, result)
+    if legacy_paths:
+        _check_datablocks(root, result)
+    else:
+        _check_datablocks_linear(root, result)
+    result._positions = None  # do not keep a map of the whole tree in the result
     return result
 
 
@@ -65,28 +114,113 @@ def _check_structure(root: etree._Element, result: ContextValidationResult) -> N
             f"/{_local(root)}[1]",
             "Structure: root element must be Diggs.",
             100,
+            node=root,
         )
         return
     # documentInformation property expected as early child (DIGGSml diggs-check)
-    doc_info = [c for c in root if isinstance(c.tag, str) and _local(c) == "documentInformation"]
+    # Tag filters ("{*}name") match in C: no element's {namespace}name string is built
+    # (a long namespace URI made each of those strings huge).
+    doc_info = list(root.iterchildren("{*}documentInformation"))
     if not doc_info:
         result.add(
             "ERROR",
             "/Diggs[1]",
             "Structure: Diggs root must contain a documentInformation element.",
             100,
+            node=root,
         )
         return
-    objects = [
-        c for c in doc_info[0] if isinstance(c.tag, str) and _local(c) == "DocumentInformation"
-    ]
+    objects = list(doc_info[0].iterchildren("{*}DocumentInformation"))
     if len(objects) != 1:
         result.add(
             "ERROR",
-            _path(doc_info[0]),
+            result.path(doc_info[0]),
             "Structure: documentInformation must contain exactly one DocumentInformation object.",
             100,
+            node=doc_info[0],
         )
+
+
+#: validate(): the geometry objects the official geometry module checks, exactly its
+#: list (DIGGSml/validation, modules/geometry-validation.xsl at commit
+#: 5f7a3650f10e1d1c5a0210dc08f5b80e791017b5, 2026-10-13). The legacy context_check()
+#: keeps its own list in :func:`_check_geometry_srs`.
+_GEOMETRY_NAMES = (
+    "LinearExtent",
+    "MultiPointLocation",
+    "MultiCurve",
+    "Solid",
+    "PointLocation",
+    "PlanarObservationRepresentation",
+    "PlanarSurface",
+    "MultiPlanarSurface",
+    "RectifiedGrid",
+)
+
+
+def _has_both(el: etree._Element) -> bool:
+    return el.get("srsName") is not None and el.get("srsDimension") is not None
+
+
+def _check_geometry_srs_official(root: etree._Element, result: ContextValidationResult) -> None:
+    """validate(): the official geometry module's rule (DIGGSml/validation).
+
+    Every element named in :data:`_GEOMETRY_NAMES` is checked, with or without
+    coordinates. It passes when it, or any ancestor, has both srsName and srsDimension
+    (present, as in the module's ``exists()``). When only a descendant (its gml:pos or
+    gml:posList, which GML 3.2 allows) has them, one warning says that DIGGS best
+    practice is the object itself, as the module does. When none has them, one warning
+    names what is missing: the module reports that case as an error, pydiggs keeps it a
+    warning. The legacy context_check() keeps its per-attribute check.
+
+    One pass over the tree (no walk up or down per object): on the way down each
+    element learns whether it or an ancestor has both attributes; on the way up it
+    tells its parent whether a descendant has both. Findings come out in document
+    order.
+    """
+    geometry = frozenset(_GEOMETRY_NAMES)
+    found: list[tuple[int, etree._Element, str]] = []
+    frames: list[_SrsFrame] = []
+    order = 0
+    for event, el in etree.iterwalk(root, events=("start", "end")):
+        if not isinstance(el.tag, str):
+            continue
+        if event == "start":
+            above = bool(frames) and frames[-1].self_or_above
+            frames.append(_SrsFrame(above or _has_both(el), order))
+            order += 1
+            continue
+        frame = frames.pop()
+        local = el.tag.rsplit("}", 1)[-1]
+        if local in geometry and not frame.self_or_above:
+            found.append((frame.order, el, _srs_text(el, local, frame.below_both)))
+        if frames:
+            parent = frames[-1]
+            parent.below_both = parent.below_both or frame.below_both or _has_both(el)
+    for _, el, text in sorted(found, key=lambda item: item[0]):
+        result.add("WARNING", result.path(el), text, 101, node=el)
+
+
+class _SrsFrame:
+    """One open element in :func:`_check_geometry_srs_official`'s walk."""
+
+    __slots__ = ("below_both", "order", "self_or_above")
+
+    def __init__(self, self_or_above: bool, order: int) -> None:
+        self.self_or_above = self_or_above  # it or an ancestor has both attributes
+        self.order = order  # document order of its start
+        self.below_both = False  # a descendant has both attributes
+
+
+def _srs_text(el: etree._Element, name: str, child_has_both: bool) -> str:
+    missing = " and ".join(a for a in ("srsName", "srsDimension") if el.get(a) is None)
+    if child_has_both:
+        return (
+            f"Geometry: <{name}> has no {missing} itself; srsName and srsDimension are"
+            " on a child element (allowed by GML 3.2), but DIGGS best practice is to"
+            " put them on the geometry object."
+        )
+    return f"Geometry: <{name}> should declare {missing}."
 
 
 def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -> None:
@@ -104,46 +238,38 @@ def _check_geometry_srs(root: etree._Element, result: ContextValidationResult) -
         "PointLocation",
         "MultiPointLocation",
     }
-    for el in root.iter():
-        if not isinstance(el.tag, str) or _local(el) not in geom_names:
-            continue
+    for el in root.iter(*(f"{{*}}{name}" for name in sorted(geom_names))):
         # Only require on elements that look like geometry containers with pos/posList
-        has_coords = any(
-            isinstance(c.tag, str) and _local(c) in {"pos", "posList", "coordinates"}
-            for c in el.iter()
-            if c is not el
-        )
+        has_coords = any(c is not el for c in el.iter("{*}pos", "{*}posList", "{*}coordinates"))
         if not has_coords and el.get("srsName") is None:
             continue
         if not el.get("srsName"):
             result.add(
                 "WARNING",
-                _path(el),
+                result.path(el),
                 f"Geometry: <{_local(el)}> should declare srsName.",
                 101,
+                node=el,
             )
         if not el.get("srsDimension"):
             result.add(
                 "WARNING",
-                _path(el),
+                result.path(el),
                 f"Geometry: <{_local(el)}> should declare srsDimension.",
                 101,
+                node=el,
             )
 
 
 def _check_hrefs(root: etree._Element, result: ContextValidationResult) -> None:
     gml_ids = set()
-    for el in root.iter():
-        if not isinstance(el.tag, str):
-            continue
+    for el in root.iter(etree.Element):  # elements only, without building their tags
         gid = el.get("{http://www.opengis.net/gml/3.2}id") or el.get("id")
         if gid:
             gml_ids.add(gid)
 
     xlink = "{http://www.w3.org/1999/xlink}href"
-    for el in root.iter():
-        if not isinstance(el.tag, str):
-            continue
+    for el in root.iter(etree.Element):
         href = el.get(xlink) or el.get("href")
         if not href or not href.startswith("#"):
             continue
@@ -151,9 +277,10 @@ def _check_hrefs(root: etree._Element, result: ContextValidationResult) -> None:
         if target not in gml_ids:
             result.add(
                 "WARNING",
-                _path(el),
+                result.path(el),
                 f'xlink:href "{href}" does not resolve to a gml:id in this instance.',
                 102,
+                node=el,
             )
 
 
@@ -178,11 +305,138 @@ def _check_datablocks(root: etree._Element, result: ContextValidationResult) -> 
                 if len(values) != n_props:
                     result.add(
                         "ERROR",
-                        _path(block),
+                        result.path(block),
                         (
                             f"dataBlock tuple {i} has {len(values)} value(s) but "
                             f"{n_props} Property declaration(s) were found."
                         ),
                         103,
+                        node=block,
                     )
                     break
+
+
+#: validate(): most (dataBlock, enclosing measurement) pairs examined per document.
+MAX_DATABLOCK_PAIRS = 5_000_000
+
+
+def _tuple_lengths(block: etree._Element) -> list[int]:
+    text = (block.text or "").strip()
+    return [len([v for v in tup.split(",") if v != ""]) for tup in text.split()] if text else []
+
+
+def _block_shape(counts: list[int]) -> tuple[int, int, int] | None:
+    """(first tuple's count, 1-based index of the first other count or 0, that count)."""
+    if not counts:
+        return None
+    first = counts[0]
+    other = next(((i, c) for i, c in enumerate(counts, start=1) if c != first), (0, 0))
+    return first, other[0], other[1]
+
+
+def _first_mismatch(shape: tuple[int, int, int] | None, n_props: int) -> tuple[int, int] | None:
+    """The first tuple whose count is not ``n_props``, in O(1) per (block, measurement)."""
+    if shape is None:
+        return None
+    first, index, count = shape
+    if first != n_props:
+        return 1, first
+    return (index, count) if index else None
+
+
+def _check_datablocks_linear(root: etree._Element, result: ContextValidationResult) -> None:
+    """:func:`_check_datablocks` in linear time (validate(); same messages, same order).
+
+    One pre-order walk finds, for every ``Property``, its deepest ``result``/``Result``
+    ancestor, and lists every ``dataBlock`` under each enclosing ``measurement``; one
+    post-order sum then gives each measurement the number of Properties below a result
+    inside it (what the legacy XPath counted, which rescanned every nested
+    measurement's subtree). The pairs (block, enclosing measurement) are bounded by
+    MAX_DATABLOCK_PAIRS; past it the check stops and says so.
+    """
+    walk = _DataBlockWalk(root)
+    if walk.over_limit:
+        result.limits_hit.append(
+            "dataBlocks inside nested measurements needed more than "
+            f"{MAX_DATABLOCK_PAIRS:,} comparisons"
+        )
+        return
+    shapes: dict[etree._Element, tuple[int, int, int] | None] = {}
+    for measurement in walk.measurements:  # document order, as //measurement
+        n_props = walk.properties_below(measurement)
+        if not n_props or not walk.blocks[measurement]:
+            continue
+        for block in walk.blocks[measurement]:
+            result.work += 1
+            if block not in shapes:
+                counts = _tuple_lengths(block)
+                result.work += len(counts)
+                shapes[block] = _block_shape(counts)
+            bad = _first_mismatch(shapes[block], n_props)
+            if bad is not None:
+                result.add(
+                    "ERROR",
+                    result.path(block),
+                    (
+                        f"dataBlock tuple {bad[0]} has {bad[1]} value(s) but "
+                        f"{n_props} Property declaration(s) were found."
+                    ),
+                    103,
+                    node=block,
+                )
+
+
+class _DataBlockWalk:
+    """The measurements, their dataBlocks and Property counts of one document.
+
+    Memory grows with the number of measurements and (dataBlock, measurement) pairs,
+    not with the size of the document.
+    """
+
+    def __init__(self, root: etree._Element) -> None:
+        self.measurements: list[etree._Element] = []
+        self.blocks: dict[etree._Element, list[etree._Element]] = {}
+        self.over_limit = False
+        own: dict[etree._Element, int] = {}  # Properties whose deepest result it encloses
+        parent: dict[etree._Element, etree._Element | None] = {}
+        pairs = 0
+        # One frame per open element: (enclosing measurements, the measurement a
+        # Property there is counted for). iterwalk keeps no list of pending children,
+        # so memory does not grow with a wide element.
+        frames: list[tuple[tuple[etree._Element, ...], etree._Element | None]] = []
+        for event, el in etree.iterwalk(root, events=("start", "end")):
+            if not isinstance(el.tag, str):
+                continue
+            if event == "end":
+                frames.pop()
+                continue
+            inside, counted = frames[-1] if frames else ((), None)
+            local = _local(el)
+            if local == "Property" and counted is not None:
+                own[counted] += 1
+            if local == "dataBlock" and inside:
+                pairs += len(inside)
+                if pairs > MAX_DATABLOCK_PAIRS:
+                    self.over_limit = True
+                    return
+                for measurement in inside:
+                    self.blocks[measurement].append(el)
+            if local == "measurement":
+                self.measurements.append(el)
+                self.blocks[el] = []
+                own[el] = 0
+                parent[el] = inside[-1] if inside else None
+                inside = (*inside, el)
+            elif local in ("result", "Result"):
+                # A Property below this result counts for every measurement around it.
+                counted = inside[-1] if inside else None
+            frames.append((inside, counted))
+        self._totals: dict[etree._Element, int] = dict(own)
+        for measurement in reversed(self.measurements):  # inner measurements first
+            up = parent[measurement]
+            if up is not None:
+                self._totals[up] += self._totals[measurement]
+
+    def properties_below(self, measurement: etree._Element) -> int:
+        """Properties below a result strictly inside ``measurement``."""
+        return self._totals[measurement]

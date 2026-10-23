@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Same-local-name siblings in two namespaces: lxml's SVRL location counts positions by
+     local name only, so it selects nothing and pydiggs falls back to document order. -->
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:o="urn:other" xmlns:gml="http://www.opengis.net/gml/3.2">
+  <samplingFeature>
+    <o:Borehole><o:totalMeasuredDepth>9</o:totalMeasuredDepth></o:Borehole>
+    <Borehole gml:id="BH-X">
+      <totalMeasuredDepth uom="ft">-2</totalMeasuredDepth>
+    </Borehole>
+  </samplingFeature>
+</Diggs>
