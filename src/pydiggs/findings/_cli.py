@@ -15,7 +15,6 @@ import os
 import pickle
 import stat
 import sys
-import unicodedata
 import urllib.parse
 from collections.abc import Iterator, Sequence
 from multiprocessing.connection import Connection
@@ -32,6 +31,7 @@ from pydiggs.findings.run import (
     DEFAULT_MAX_BYTES,
     DEFAULT_MAX_FINDINGS,
     NATIVE_STEPS,
+    _escape_controls,
     display_paths,
     reference_data,
     selected_steps,
@@ -160,23 +160,13 @@ def expand_inputs(paths: Sequence[str]) -> list[Path]:
     return out
 
 
-_ONE_BYTE = 0x100
-
-
 def _safe(text: str) -> str:
     """Escape control, format and line/paragraph separators (Cc, Cf, Zl, Zp; not tab).
 
     Paths and messages come from the instance; raw escape sequences or bidi overrides
     could rewrite what the reader sees.
     """
-    out = []
-    for ch in text:
-        if ch != "\t" and unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp"):
-            code = ord(ch)
-            out.append(f"\\x{code:02x}" if code < _ONE_BYTE else f"\\u{code:04x}")
-        else:
-            out.append(ch)
-    return "".join(out)
+    return _escape_controls(text, keep="\t")
 
 
 def _text(reports: Sequence[Report], unreadable: Sequence[UnreadableFile], out: TextIO) -> None:

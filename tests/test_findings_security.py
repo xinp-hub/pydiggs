@@ -262,3 +262,72 @@ def test_a_long_unused_namespace_cannot_evade_schematron(tmp_path, capsys, monke
     report = validate(path, checks=["schematron"])
     assert report.ok is False
     assert [f.rule_id for f in report.findings] == ["schematron.Borehole.totalMeasuredDepth"]
+
+
+def _href(tmp_path: Path, href: str, name: str = "href.xml") -> Path:
+    path = tmp_path / name
+    path.write_text(
+        '<?xml version="1.0"?>\n'
+        '<Diggs xmlns="http://diggsml.org/schemas/2.6"'
+        ' xmlns:xlink="http://www.w3.org/1999/xlink">'
+        f'<a xlink:href="{href}"/></Diggs>\n',
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_sarif_messages_cannot_carry_embedded_links(tmp_path):
+    # SARIF 2.1.0 §3.11.6: [text](uri) in message text is a link; literal brackets are escaped.
+    from pydiggs.findings import _sarif
+    from pydiggs.findings.model import UnreadableFile
+
+    report = validate(_href(tmp_path, "#[Fix here](https://evil.example)\\x"), checks=["context"])
+    unreadable = UnreadableFile(path="[a](https://evil.example).xml", error="gone")
+    log = _sarif.sarif_log([report], [unreadable], tool_version="1.2.0")
+    (run_,) = log["runs"]
+    (result,) = run_["results"]
+    text = result["message"]["text"]
+    assert "\\[Fix here\\](https://evil.example)\\\\x" in text
+    assert "[Fix here]" not in text.replace("\\[", "").replace("\\]", "")
+    note = run_["invocations"][0]["toolExecutionNotifications"][0]["message"]["text"]
+    assert note.startswith("could not read \\[a\\](https://evil.example).xml")
+
+
+@pytest.mark.parametrize("char", ["\u202e", "\u2028", "\x85"])  # \x85: a Cc legal in XML 1.0
+def test_findings_escape_bidi_and_control_characters(tmp_path, char):
+    report = validate(_href(tmp_path, f"#a{char}b"), checks=["context"])
+    (finding,) = report.findings
+    assert char not in finding.message
+    assert f"\\u{ord(char):04x}" in finding.message or f"\\x{ord(char):02x}" in finding.message
+
+
+def test_reported_path_escapes_bidi_characters(tmp_path):
+    report = validate(_href(tmp_path, "#x", name="gpj.\u202exml"), base_dir=tmp_path)
+    assert "\u202e" not in report.path
+    assert report.path == "gpj.\\u202exml"
+
+
+def test_findings_replace_the_home_folder(tmp_path, monkeypatch):
+    from pydiggs.findings import run
+
+    home = tmp_path / "home" / "someone"
+    home.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    run._home_spellings.cache_clear()
+    try:
+        report = validate(_href(tmp_path, f"#{home}/dict.xml"), checks=["context"])
+    finally:
+        run._home_spellings.cache_clear()
+    (finding,) = report.findings
+    assert str(home) not in finding.message
+    assert '"#~/dict.xml"' in finding.message
+
+
+def test_console_script_supports_frozen_executables(monkeypatch):
+    import multiprocessing
+
+    calls = []
+    monkeypatch.setattr(multiprocessing, "freeze_support", lambda: calls.append(1))
+    with pytest.raises(SystemExit):
+        main(["--help"])
+    assert calls == [1]

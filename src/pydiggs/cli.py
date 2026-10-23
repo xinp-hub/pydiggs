@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import multiprocessing
 import sys
 
 from pydiggs import validator
@@ -11,6 +12,8 @@ from pydiggs.findings import _cli
 
 def main(argv: list[str] | None = None) -> int:
     """Console script for pydiggs."""
+    # --timeout spawns workers; a frozen (PyInstaller) build must dispatch them here.
+    multiprocessing.freeze_support()
     args_in = sys.argv[1:] if argv is None else argv
     if args_in[:1] == ["validate"]:
         return _cli.main(args_in[1:])

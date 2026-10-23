@@ -181,8 +181,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repositories, reading files from the pinned commit's git objects rather than the
   working tree, refuses unsafe or non-portable file names, and verifies the digests
   (`check`, run by the test suite).
+- `validate()` escapes control, bidi-override and line-separator characters from the
+  instance in every finding's message and in the reported path (as `\u202e`, `\x85`),
+  so no output format can show reordered or hidden text, and replaces the home folder
+  with `~` in messages. SARIF messages escape `[`, `]` and `\`, so text from a file can
+  never become a link in a code-scanning viewer.
+- `pydiggs` calls `multiprocessing.freeze_support()`, so `--timeout` works when pyDIGGS
+  is frozen into an executable (PyInstaller), as in a desktop app.
 - The DIGGS deprecation registry (`deprecation/DeprecationRegistry.xml`) is bundled for
-  a forthcoming deprecation check. It lists 94 deprecated items (25 from DIGGS 3.0.0, 69
+  the deprecation check above. It lists 94 deprecated items (25 from DIGGS 3.0.0, 69
   from 3.1.0) and 56 items removed in 3.1.0.
 - The DIGGS schemas' MPL-2.0 license ships at `schemas/LICENSE`, and
   `dictionaries/NOTICE` records the licence terms for the DIGGSml/def dictionaries. The

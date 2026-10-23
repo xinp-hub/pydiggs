@@ -14,6 +14,7 @@ import os
 import re
 import threading
 import tomllib
+import unicodedata
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import cache
@@ -180,7 +181,39 @@ def display_paths(
             shown = ""
     if shown in ("", "."):
         shown = absolute.name
-    return _printable(shown), _printable(absolute.as_posix())
+    return _escape_controls(_printable(shown)), _printable(absolute.as_posix())
+
+
+_ONE_BYTE = 0x100
+
+
+def _escape_controls(text: str, keep: str = "") -> str:
+    """Escape control, format and line/paragraph separators (Cc, Cf, Zl, Zp) not in ``keep``.
+
+    Instance text with bidi overrides or terminal escapes could rewrite what a reader
+    of any output format sees (Trojan Source).
+    """
+    out = []
+    for ch in text:
+        if ch not in keep and unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp"):
+            code = ord(ch)
+            out.append(f"\\x{code:02x}" if code < _ONE_BYTE else f"\\u{code:04x}")
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+@cache
+def _home_spellings() -> tuple[str, ...]:
+    """Spellings of the home folder, longest first; none when unknown or the root."""
+    try:
+        home = Path.home()
+    except (KeyError, RuntimeError, OSError):
+        return ()
+    if home == Path(home.anchor):
+        return ()
+    forms = {str(home), home.as_posix(), str(home.resolve()), home.resolve().as_posix()}
+    return tuple(sorted(forms, key=len, reverse=True))
 
 
 def _printable(name: str) -> str:
@@ -292,6 +325,9 @@ class _Builder:
             return
         absolute, shown = self.scrub
         text = message.replace(absolute, shown) if absolute else message
+        for home in _home_spellings():
+            text = text.replace(home, "~")
+        text = _escape_controls(text, keep="\t\n")
         if len(text) > MAX_MESSAGE_CHARS:
             text = text[: MAX_MESSAGE_CHARS - 1] + "\u2026"
         xpath = gml_id = snippet = None

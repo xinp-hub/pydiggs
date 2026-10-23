@@ -67,6 +67,11 @@ def _logical_location(xpath: str) -> dict[str, str]:
     return {"fullyQualifiedName": xpath, "kind": "attribute" if last.startswith("@") else "element"}
 
 
+def _plain(text: str) -> str:
+    """Escape SARIF embedded-link syntax (§3.11.6) so instance text is never a link."""
+    return text.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+
+
 def _result(finding: Finding, rule_index: int, artifact: dict[str, Any]) -> dict[str, Any]:
     location: dict[str, Any] = {"physicalLocation": {"artifactLocation": dict(artifact)}}
     if finding.line is not None:
@@ -83,7 +88,7 @@ def _result(finding: Finding, rule_index: int, artifact: dict[str, Any]) -> dict
         "ruleId": finding.rule_id,
         "ruleIndex": rule_index,
         "level": rules.SARIF_LEVEL[finding.severity],
-        "message": {"text": finding.message or rules.describe(finding.rule_id)},
+        "message": {"text": _plain(finding.message or rules.describe(finding.rule_id))},
         "locations": [location],
         "partialFingerprints": {FINGERPRINT: "|".join(finding.conformance_key())},
         "properties": properties,
@@ -137,7 +142,7 @@ def _run(
         notifications.append(
             {
                 "level": "error",
-                "message": {"text": f"could not read {item.path}: {item.error}"},
+                "message": {"text": _plain(f"could not read {item.path}: {item.error}")},
                 "locations": [{"physicalLocation": {"artifactLocation": {**loc, "index": index_}}}],
             }
         )
