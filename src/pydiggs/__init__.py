@@ -18,7 +18,7 @@ from .pydiggs import validator
 
 __author__ = """Xin Peng"""
 __email__ = "xin_peng@outlook.com"
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 
 __all__ = [
     "Finding",
