@@ -556,17 +556,18 @@ def _self_dictionary(tmp_path: Path, elements: int, paths: int, terminal: str = 
     return path
 
 
-def test_definition_paths_are_matched_by_their_last_step(tmp_path):
-    """Paths whose last step cannot name the element are never tried: linear time."""
+def test_definition_paths_are_matched_by_their_last_step(tmp_path, monkeypatch):
+    """Paths whose last step cannot name the element are never tried: linear work."""
+    from pydiggs import dictionary
+
     path = _self_dictionary(tmp_path, elements=10_000, paths=900)
-    start = time.process_time()
+    # Unfiltered, this is 9 million path tests; filtered it needs about 1,800 units.
+    monkeypatch.setattr(dictionary, "MAX_PATH_MATCH_WORK", 10_000)
     report = validate(path, checks=["dictionary"], max_findings=None)
-    elapsed = time.process_time() - start
     assert report.steps["dictionary"] == "failed"
     assert {f.rule_id for f in report.findings} == {"dictionary.6"}
     message = report.findings[0].message
     assert message.count("//diggs:n") == 20 and "... and 880 more" in message
-    assert elapsed < 4, elapsed  # 9 million path tests: minutes before, ~10 s unfiltered
 
 
 def test_too_many_paths_or_too_much_work_fail_closed(tmp_path, monkeypatch):
