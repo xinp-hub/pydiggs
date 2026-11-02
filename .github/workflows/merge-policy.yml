@@ -36,6 +36,10 @@ concurrency:
 
 env:
   STATUS_CONTEXT: merge policy
+# The policy, the scripts and the base of every diff are github.sha: under pull_request_target
+# that is the base branch's tip, the very commit this workflow file was loaded from. The
+# payload's pull_request.base.sha is only the base recorded at the PR's last push, and can
+# predate the policy itself.
 
 jobs:
   classify:
@@ -60,7 +64,7 @@ jobs:
       - name: Check out the base branch (the policy)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.sha }}
           path: base
           persist-credentials: false
       - name: Check out the pull request (data only, never executed)
@@ -109,7 +113,7 @@ jobs:
         if: github.event.pull_request.user.login != 'dependabot[bot]'
         working-directory: head
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.sha }}
         run: |
           # Compare with the merge base, the same point the policy diffs against.
           against=$(git merge-base "$BASE_SHA" HEAD)
@@ -124,7 +128,7 @@ jobs:
         id: tier
         working-directory: head
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           API_BREAK: ${{ steps.api.outputs.break }}
           AUTOMERGE_AUTHORS: ${{ vars.AUTOMERGE_AUTHORS }}
@@ -149,7 +153,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.sha }}
           path: base
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
@@ -167,7 +171,7 @@ jobs:
         id: review
         working-directory: head
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           AGENT_REVIEW_COMMAND: ${{ vars.AGENT_REVIEW_COMMAND }}
           AGENT_REVIEW_KEY_ENV: ${{ vars.AGENT_REVIEW_KEY_ENV }}
