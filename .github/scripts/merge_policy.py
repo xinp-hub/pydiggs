@@ -5,8 +5,9 @@
             `uv.lock` and requirement strings in `pyproject.toml`, from PyPI. Auto-merges
             when CI is green.
     Tier 1  Small same-repository PR whose opener and every pusher of its branch (from
-            GitHub's activity log, not from forgeable commit emails) are allowlisted, touching only Python under src/ and tests/ and Markdown
-            docs, that breaks no public API, deletes no tests and weakens no check.
+            GitHub's activity log, not from forgeable commit emails) are allowlisted,
+            touching only Python under src/ and tests/ and Markdown docs, that breaks no
+            public API, deletes no tests and weakens no check.
             Auto-merges when CI is green and an independent agent review approves.
     Tier 2  Everything else -- including every GitHub Actions bump. A human reviews and
             merges it (FORGE gate HG4).
@@ -79,6 +80,7 @@ PYPI_FILES = "https://files.pythonhosted.org/"
 
 HOLD_LABELS = frozenset({"hold", "do-not-merge", "needs-human"})
 MAX_LINES = 400
+HUMAN_TIER = 2
 MAX_FILES = 20
 REGULAR_FILE = "100644"
 
@@ -101,6 +103,8 @@ WEAKENING = re.compile(
 
 @dataclass
 class FileChange:
+    """One changed file: its git status, modes, and the lines it adds and removes."""
+
     path: str
     status: str  # A, M, D, T (git --raw status letters; renames are off)
     added: list[str] = field(default_factory=list)
@@ -111,6 +115,8 @@ class FileChange:
 
 @dataclass
 class PullRequest:
+    """What the policy knows about a pull request besides its diff."""
+
     author: str
     is_fork: bool = False
     draft: bool = False
@@ -124,12 +130,10 @@ class PullRequest:
 
 @dataclass
 class Decision:
+    """A tier and the reasons for it, in the order they were found."""
+
     tier: int
     reasons: list[str]
-
-    @property
-    def needs_review(self) -> bool:
-        return self.tier == 1
 
 
 def version_parts(version: str | None) -> tuple[int, ...] | None:
@@ -139,7 +143,9 @@ def version_parts(version: str | None) -> tuple[int, ...] | None:
 
 
 def update_kind(dep: dict) -> str:
-    """patch | minor | major | downgrade | unknown, from the versions where they are given.
+    """Classify an update as patch, minor, major, downgrade or unknown.
+
+    The versions themselves are used where Dependabot gives them.
 
     For a 0.x package a minor bump is a breaking one, as semver allows, so it counts as major.
     """
@@ -192,6 +198,7 @@ def dependency_file_reasons(f: FileChange) -> list[str]:
 
 
 def classify_dependabot(pr: PullRequest, files: list[FileChange], deps: list[dict]) -> Decision:
+    """Tier 0, or Tier 2 with the reasons, for a pull request opened by Dependabot."""
     reasons: list[str] = []
     if not deps:
         reasons.append("Dependabot metadata is missing or unverified, so the update is unknown")
@@ -219,6 +226,7 @@ def classify_dependabot(pr: PullRequest, files: list[FileChange], deps: list[dic
 
 
 def in_tier1_paths(path: str) -> bool:
+    """Whether Tier 1 may touch this path at all."""
     name = PurePosixPath(path).name.lower()
     if name in NEVER_TIER1_NAMES or name.endswith(NEVER_TIER1_SUFFIXES):
         return False
@@ -255,8 +263,9 @@ def identity_reasons(pr: PullRequest, authors: frozenset[str]) -> list[str]:
 
 
 def classify_change(
-    pr: PullRequest, files: list[FileChange], api_break: bool, authors: frozenset[str]
+    pr: PullRequest, files: list[FileChange], *, api_break: bool, authors: frozenset[str]
 ) -> list[str]:
+    """Every reason an allowlisted author's pull request is not Tier 1; empty if it is."""
     reasons = identity_reasons(pr, authors)
     lines = sum(len(f.added) + len(f.removed) for f in files)
     if len(files) > MAX_FILES:
@@ -288,6 +297,7 @@ def classify(
     api_break: bool = False,
     authors: frozenset[str] = frozenset(),
 ) -> Decision:
+    """The tier of a pull request, with the reasons that put it there."""
     held = sorted({label.lower() for label in pr.labels} & HOLD_LABELS)
     blockers = [
         reason
@@ -305,13 +315,14 @@ def classify(
         return classify_dependabot(pr, files, deps or [])
     if pr.author not in authors:
         return Decision(2, [f"{pr.author} is not in AUTOMERGE_AUTHORS"])
-    reasons = classify_change(pr, files, api_break, authors)
+    reasons = classify_change(pr, files, api_break=api_break, authors=authors)
     if reasons:
         return Decision(2, reasons)
     return Decision(1, ["small change to source, tests or docs; needs an agent review"])
 
 
 def git(*args: str) -> str:
+    """Run git and return its standard output."""
     # A fixed argv list for git, resolved from PATH like every FORGE hook; no shell.
     return subprocess.run(  # noqa: S603
         ["git", *args],  # noqa: S607
@@ -357,9 +368,11 @@ def changed_files(base: str, head: str) -> list[FileChange]:
                 if current is None:
                     # Lines we cannot attribute are lines we cannot judge (a name git still
                     # quotes, say): stop, and the pull request falls back to a human.
-                    raise SystemExit(f"merge policy: cannot place diff lines for {name!r}")
+                    msg = f"merge policy: cannot place diff lines for {name!r}"
+                    raise SystemExit(msg)
         elif in_header and line.startswith("Binary files "):
-            raise SystemExit(f"merge policy: git still reports a binary diff: {line!r}")
+            msg = f"merge policy: git still reports a binary diff: {line!r}"
+            raise SystemExit(msg)
         elif current is not None and line.startswith("+"):
             current.added.append(line[1:])
         elif current is not None and line.startswith("-"):
@@ -368,6 +381,7 @@ def changed_files(base: str, head: str) -> list[FileChange]:
 
 
 def load_json(path: str | None) -> list:
+    """A JSON list from a file the workflow wrote; empty when absent or not a list."""
     if not path or not Path(path).is_file():
         return []
     text = Path(path).read_text(encoding="utf-8").strip()
@@ -376,6 +390,7 @@ def load_json(path: str | None) -> list:
 
 
 def pull_request_from_event(commits: list, pushers: list) -> PullRequest:
+    """Build the PullRequest from the Actions event payload plus the listed commits/pushers."""
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text(encoding="utf-8"))
     pr = event["pull_request"]
     head_repo = (pr["head"].get("repo") or {}).get("full_name")
@@ -395,11 +410,14 @@ def pull_request_from_event(commits: list, pushers: list) -> PullRequest:
 
 
 def write_outputs(decision: Decision) -> None:
+    """Report the decision to the log, the job summary and the step outputs."""
     summary = [f"### Merge policy: Tier {decision.tier}", ""]
     summary += [f"- {r}" for r in decision.reasons]
-    if decision.tier == 2:
+    if decision.tier == HUMAN_TIER:
         summary += ["", "A human reviews and merges this pull request (HG4)."]
-    print("\n".join(summary))
+    # Plain stream writes rather than print(): this file is copied into generated packages,
+    # whose lint rules forbid print.
+    sys.stdout.write("\n".join(summary) + "\n")
     append_env_file("GITHUB_STEP_SUMMARY", "\n".join(summary) + "\n")
     append_env_file("GITHUB_OUTPUT", f"tier={decision.tier}\n")
 
@@ -412,6 +430,7 @@ def append_env_file(name: str, text: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Command-line entry point."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("classify")
