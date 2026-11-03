@@ -106,6 +106,7 @@ class Server:
     ) -> None:
         self.options = options
         self.roots = roots
+        self._spellings = _paths.root_spellings(options.allow_paths, roots)
         self.max_line_bytes = _protocol.max_line_bytes(options.max_bytes)
         self._reader = reader
         self._writer = writer
@@ -463,7 +464,7 @@ class Server:
         """Vet, open, verify and read a by-path document."""
         try:
             _paths.vet_request_path(path)
-            fd = _paths.open_verified(path, self.roots)
+            fd = _paths.open_verified(path, self.roots, spellings=self._spellings)
         except _paths.NotPermittedError:
             raise ProtocolError(ErrorCode.PATH_NOT_PERMITTED) from None
         try:

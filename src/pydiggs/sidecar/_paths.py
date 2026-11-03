@@ -3,11 +3,13 @@
 By-path validation is off unless the host passes ``--allow-path DIR`` at launch.
 Roots are canonicalised once; a filesystem root, a drive or share root, the home
 folder or one of its ancestors is refused. A request path must be a plain absolute
-path (no URI, no ``..``, no UNC or device name). The file is **opened first**,
-without following a final symlink, and only then is the opened descriptor's real
-location checked against the roots, so a symlink or a swap between check and use
-cannot escape. Every refusal looks the same to the caller (``path-not-permitted``),
-whether the file is outside the roots, missing or not a regular file.
+path (no URI, no ``..``, no UNC or device name) that, as spelled, lies under a root
+(in its given or canonical spelling); anything else is refused without being
+opened. The file is then **opened**, without following a final symlink, and the
+opened descriptor's real location is checked against the canonical roots, so a
+symlink or a swap between check and use cannot escape. Every refusal looks the same
+to the caller (``path-not-permitted``), whether the file is outside the roots,
+missing or not a regular file.
 """
 
 from __future__ import annotations
@@ -19,7 +21,13 @@ import sys
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Final
 
-__all__ = ["NotPermittedError", "canonical_roots", "open_verified", "vet_request_path"]
+__all__ = [
+    "NotPermittedError",
+    "canonical_roots",
+    "open_verified",
+    "root_spellings",
+    "vet_request_path",
+]
 
 #: Windows reserved device names (any extension, any case), refused in every component.
 _DEVICE_RE: Final = re.compile(
@@ -94,6 +102,34 @@ def canonical_roots(raw: tuple[str, ...], *, home: Path | None = None) -> tuple[
     return tuple(roots)
 
 
+def root_spellings(raw: tuple[str, ...], roots: tuple[Path, ...]) -> tuple[Path, ...]:
+    """Every spelling a request path may start with: canonical and as given.
+
+    On macOS ``--allow-path /tmp`` canonicalises to ``/private/tmp``; a host may
+    spell request paths either way. Given roots are made absolute but not resolved.
+
+    Args:
+        raw: The roots exactly as given at launch.
+        roots: Their canonical forms, from :func:`canonical_roots`.
+
+    Returns:
+        The canonical roots, then each given root not already among them.
+
+    Example:
+        >>> from pathlib import Path
+        >>> canonical = Path("/private/tmp")
+        >>> spellings = root_spellings(("/tmp", "/private/tmp"), (canonical,))
+        >>> spellings[0] == canonical, len(spellings)
+        (True, 2)
+    """
+    spellings = list(roots)
+    for given in raw:
+        spelled = Path(os.path.abspath(given))  # noqa: PTH100  # lexical: resolve() would canonicalise
+        if spelled not in spellings:
+            spellings.append(spelled)
+    return tuple(spellings)
+
+
 def _real_dir(given: str) -> str:
     """The real location of an existing directory, spelled as the OS reports it."""
     if _WINDOWS:  # pragma: no cover - Windows only
@@ -160,10 +196,12 @@ _OPEN_FLAGS: Final = (
 )
 
 
-def open_verified(path: str, roots: tuple[Path, ...]) -> int:
+def open_verified(path: str, roots: tuple[Path, ...], *, spellings: tuple[Path, ...] = ()) -> int:
     """Open ``path`` read-only, then prove the opened file is a regular file in a root.
 
-    POSIX opens with ``O_NOFOLLOW | O_NONBLOCK`` (a FIFO cannot block the open), then
+    A path that, as spelled, is not under one of ``roots`` or ``spellings`` is
+    refused before anything is opened, so no outside file is ever touched. POSIX
+    opens with ``O_NOFOLLOW | O_NONBLOCK`` (a FIFO cannot block the open), then
     checks ``fstat`` and the descriptor's own path: ``/proc/self/fd`` on Linux,
     ``F_GETPATH`` on macOS, and elsewhere the resolved path, accepted only if it is
     the same file (device and inode) as the descriptor. Windows asks the opened
@@ -171,7 +209,9 @@ def open_verified(path: str, roots: tuple[Path, ...]) -> int:
 
     Args:
         path: A path already passed by :func:`vet_request_path`.
-        roots: From :func:`canonical_roots`.
+        roots: From :func:`canonical_roots`; the opened file must be in one.
+        spellings: More accepted spellings of the roots for the check before
+            opening (from :func:`root_spellings`); ``roots`` are always accepted.
 
     Returns:
         An open descriptor the caller must close.
@@ -180,6 +220,9 @@ def open_verified(path: str, roots: tuple[Path, ...]) -> int:
         NotPermittedError: Missing, unreadable, not regular, or outside every root.
     """
     if not roots:
+        raise NotPermittedError
+    spelled = Path(path)
+    if not any(_within(spelled, root) for root in (*roots, *spellings)):
         raise NotPermittedError
     try:
         fd = os.open(path, _OPEN_FLAGS)

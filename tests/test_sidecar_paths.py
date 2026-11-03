@@ -233,3 +233,49 @@ def test_the_generic_fallback_contains_too(monkeypatch, tree):
     assert _read(root / "doc.xml", (root,)) == b"<Diggs/>"
     with pytest.raises(NotPermittedError):
         open_verified(str(outside / "secret.xml"), (root,))
+
+
+# --- the check before opening ------------------------------------------------------------------
+
+
+def test_an_outside_path_is_never_opened(tree, monkeypatch):
+    root, outside = tree
+    opened = []
+    real_open = os.open
+
+    def recording_open(path, *args, **kwargs):
+        opened.append(str(path))
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(_paths.os, "open", recording_open)
+    for path in (outside / "secret.xml", outside / "missing.xml", root.parent / "rootless.xml"):
+        with pytest.raises(NotPermittedError):
+            open_verified(str(path), (root,))
+    assert opened == []
+    assert _read(root / "doc.xml", (root,)) == b"<Diggs/>"
+    assert opened == [str(root / "doc.xml")]
+
+
+@POSIX
+def test_a_root_may_be_spelled_as_given_or_canonically(tree, tmp_path):
+    root, outside = tree
+    alias = Path(os.path.realpath(tmp_path)) / "alias"
+    alias.symlink_to(root, target_is_directory=True)  # like /tmp -> /private/tmp on macOS
+    roots = canonical_roots((str(alias),), home=Path("/nonexistent-home"))
+    assert roots == (root,)
+    spellings = _paths.root_spellings((str(alias),), roots)
+    assert spellings == (root, alias)
+    for spelled in (alias / "doc.xml", root / "doc.xml"):
+        fd = open_verified(str(spelled), roots, spellings=spellings)
+        os.close(fd)
+    with pytest.raises(NotPermittedError):  # the alias spelling is not accepted unless given
+        open_verified(str(alias / "doc.xml"), roots)
+    with pytest.raises(NotPermittedError):
+        open_verified(str(outside / "secret.xml"), roots, spellings=spellings)
+
+
+def test_relative_given_roots_are_spelled_absolutely(tree, monkeypatch):
+    root, _ = tree
+    monkeypatch.chdir(root.parent)
+    assert _paths.root_spellings(("root",), (root,)) == (root,)
+    assert _paths.root_spellings((), ()) == ()
