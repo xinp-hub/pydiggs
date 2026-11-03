@@ -113,6 +113,25 @@ Before you submit a pull request, check that it meets these guidelines:
 3. The pull request should work for Python 3.11 and above.
 4. Check that all tests pass in the GitHub Actions CI pipeline.
 
+## How Pull Requests Are Merged
+
+Every pull request gets a `merge policy` check that puts it in one of three risk tiers.
+The tier is worked out from the change itself — who made it, which files it touches and
+what the diff contains — never from an automated reviewer's opinion.
+
+* **Tier 0** — Dependabot updates that change only dependency versions: patch and minor
+  updates, plus 0.x minor updates of development-only dependencies. These merge on their
+  own once CI passes.
+* **Tier 1** — small changes by the maintainers to source code, tests or documentation.
+  An automated reviewer reads the change, and if it approves and CI passes, the pull
+  request merges on its own.
+* **Tier 2** — everything else: changes to CI workflows, packaging or dependencies by
+  hand, GitHub Actions updates, larger changes, and every pull request from a fork. A
+  maintainer reviews and merges these.
+
+Merging never releases the package: release tags and PyPI uploads always need a
+maintainer. A merge to `master` does rebuild and redeploy this documentation site.
+
 ## Documentation
 
 To build and view the documentation locally:
