@@ -1,8 +1,17 @@
 # History
 
-## Unreleased
+## 1.3.0 (2026-11-03)
 
-No user-facing changes yet.
+New ways to use pyDIGGS from other software, all additive:
+
+- `validate_bytes()` for in-memory documents, a soft `time_budget`, `warm_up()`, and
+  public helpers for findings documents, the findings schema, version information and
+  the rule catalogue.
+- An HTTP API (the `server` extra, `pydiggs serve --http`); see [HTTP API](http-api.md).
+- A stdio JSON-RPC sidecar for desktop and native apps (`pydiggs serve --stdio`); see
+  [Stdio sidecar](sidecar.md) and [Host integration](sidecar-hosts.md).
+
+See the CHANGELOG for the full list.
 
 ## 1.1.1 (2026-10-14)
 

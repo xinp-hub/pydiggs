@@ -8,11 +8,12 @@ carries no home directory by default.
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Iterable, Sequence
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Any, Final
-from urllib.parse import quote
+from urllib.parse import quote, quote_from_bytes
 
 from pydiggs.findings import rules
 from pydiggs.findings.model import Finding, Report, Severity, UnreadableFile
@@ -57,9 +58,35 @@ def file_uri(absolute_path: str) -> str:
         absolute_path = "//" + absolute_path[len("//?/UNC/") :]
     elif absolute_path.startswith("//?/"):  # Windows extended-length path
         absolute_path = absolute_path[len("//?/") :]
-    if _WINDOWS_ABSOLUTE.match(absolute_path):
-        return PureWindowsPath(absolute_path).as_uri()
-    return PurePosixPath(absolute_path).as_uri()
+    pure = (
+        PureWindowsPath(absolute_path)
+        if _WINDOWS_ABSOLUTE.match(absolute_path)
+        else PurePosixPath(absolute_path)
+    )
+    return _as_uri(pure)
+
+
+def _as_uri(path: PurePosixPath | PureWindowsPath) -> str:
+    """``PurePath.as_uri()`` as Python 3.12 and 3.13 spell it, byte for byte.
+
+    ``PurePath.as_uri()`` is deprecated from Python 3.14 (only the concrete ``Path``
+    keeps it, and that cannot build a Windows URI on POSIX or the reverse), so the
+    same steps are taken here: the path's own normalisation, then a percent-encoded
+    ``file:`` URI.
+
+    Raises:
+        ValueError: ``path`` is relative.
+    """
+    if not path.is_absolute():
+        raise ValueError("relative path can't be expressed as a file URI")
+    drive = path.drive
+    if len(drive) == 2 and drive[1] == ":":  # noqa: PLR2004  # a drive letter: "C:"
+        prefix, rest = "file:///" + drive, path.as_posix()[2:]
+    elif drive:  # a UNC share
+        prefix, rest = "file:", path.as_posix()
+    else:
+        prefix, rest = "file://", str(path)
+    return prefix + quote_from_bytes(os.fsencode(rest))
 
 
 def _logical_location(xpath: str) -> dict[str, str]:

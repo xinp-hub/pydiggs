@@ -10,22 +10,22 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
-import multiprocessing
+import json
 import os
-import pickle
 import stat
 import sys
 import urllib.parse
-from collections.abc import Iterator, Sequence
-from multiprocessing.connection import Connection
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import fields
 from pathlib import Path
 from typing import Any, TextIO
 
 import pydiggs
 from pydiggs import _xml
+from pydiggs._pool import JobTimeoutError, PoolError, WorkerPool
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.errors import InstanceReadError, ResourceError
-from pydiggs.findings import _json, _sarif, rules
+from pydiggs.findings import _json, _sarif, export, rules
 from pydiggs.findings.model import Finding, Report, Severity, Step, UnreadableFile
 from pydiggs.findings.run import (
     DEFAULT_MAX_BYTES,
@@ -250,16 +250,78 @@ def _validate_kwargs(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def _worker(conn: Connection, path: str, kwargs: dict[str, Any]) -> None:
-    """Validate one file in a child process and send back the report or the error."""
+def _isolated_job(path: str, kwargs: dict[str, Any]) -> bytes:
+    """Validate one file in a worker process; the answer is JSON bytes, never a pickle."""
+    reply: dict[str, Any]
     try:
-        conn.send(("report", validate(path, **kwargs)))
-    except (InstanceReadError, ResourceError) as exc:
-        conn.send(("error", exc))
+        reply = {"kind": "report", "report": _report_to_wire(validate(path, **kwargs))}
+    except InstanceReadError as exc:
+        reply = {
+            "kind": "unreadable",
+            "errno": exc.errno if type(exc.errno) is int else None,
+            "strerror": exc.strerror,
+            "filename": exc.filename if isinstance(exc.filename, str) else None,
+            "text": str(exc),
+        }
+    except ResourceError as exc:
+        reply = {"kind": "resource-error", "text": str(exc)}
     except Exception as exc:  # becomes an ERROR report in the parent
-        conn.send(("crash", _describe(exc, Path(path), kwargs)))
-    finally:
-        conn.close()
+        reply = {"kind": "crash", "text": _describe(exc, Path(path), kwargs)}
+    # ASCII escapes keep any lone surrogate in a path or message intact across the pipe.
+    return json.dumps(reply, ensure_ascii=True, allow_nan=False).encode("ascii")
+
+
+def _report_to_wire(report: Report) -> dict[str, Any]:
+    """Every field of ``report`` as plain JSON data (lossless, unlike the findings format)."""
+    values: dict[str, Any] = {}
+    for item in fields(report):
+        value = getattr(report, item.name)
+        if item.name == "steps":
+            value = {step.value: status for step, status in value.items()}
+        elif item.name == "findings":
+            value = [{f.name: _plain(getattr(x, f.name)) for f in fields(x)} for x in value]
+        elif isinstance(value, Mapping):
+            value = dict(value)
+        values[item.name] = value
+    return values
+
+
+def _plain(value: object) -> object:
+    return value.value if isinstance(value, Severity | Step) else value
+
+
+def _report_from_wire(data: object) -> Report:
+    """Rebuild a :class:`Report` from :func:`_report_to_wire`; malformed data raises."""
+    if not isinstance(data, dict) or not isinstance(data.get("findings"), list):
+        raise TypeError("malformed report")
+    findings = []
+    for item in data["findings"]:
+        if not isinstance(item, dict):
+            raise TypeError("malformed finding")
+        findings.append(Finding(**item))
+    return Report(**{**data, "findings": tuple(findings)})
+
+
+def _answer(raw: bytes) -> tuple[str, Any]:
+    """Decode a worker's answer into ``(kind, value)``; malformed answers raise."""
+    reply = json.loads(raw)
+    if not isinstance(reply, dict) or not isinstance(reply.get("kind"), str):
+        raise TypeError("malformed answer")
+    kind = reply["kind"]
+    if kind == "report":
+        return kind, _report_from_wire(reply.get("report"))
+    if kind == "unreadable":
+        code, strerror, filename = reply.get("errno"), reply.get("strerror"), reply.get("filename")
+        if isinstance(strerror, str):
+            error = InstanceReadError(code if type(code) is int else 0, strerror, filename)
+        else:
+            error = InstanceReadError(str(reply.get("text", "")))
+        return "error", error
+    if kind == "resource-error":
+        return "error", ResourceError(str(reply.get("text", "")))
+    if kind == "crash" and isinstance(reply.get("text"), str):
+        return kind, reply["text"]
+    raise TypeError("malformed answer")
 
 
 def _describe(exc: BaseException, path: Path, kwargs: dict[str, Any]) -> str:
@@ -313,35 +375,34 @@ def _home() -> Path | None:
     return None if home == Path(home.anchor) else home
 
 
-def _validate_isolated(path: Path, kwargs: dict[str, Any], timeout: float) -> Report:
-    """Run validate() in a spawned process; past ``timeout`` seconds, stop it.
+def _validate_isolated(
+    path: Path, kwargs: dict[str, Any], timeout: float, pool: WorkerPool | None = None
+) -> Report:
+    """Run validate() in a worker process; past ``timeout`` seconds, stop it.
 
     A file that times out gets a report with one structure.timeout ERROR and every
     requested step incomplete (fail closed). Works the same on Windows, macOS and
-    Linux: no signals, a fresh interpreter per file.
+    Linux: no signals, spawned interpreters. The worker is killed and replaced after
+    a timeout or a crash, and answers in JSON only (never a pickle). ``pool`` is
+    reused across files; without one a single-use pool is made.
     """
-    context = multiprocessing.get_context("spawn")
-    receive, send = context.Pipe(duplex=False)
-    worker = context.Process(target=_worker, args=(send, str(path), kwargs), daemon=True)
-    worker.start()
-    send.close()
+    if pool is None:
+        with WorkerPool(1) as own:
+            return _validate_isolated(path, kwargs, timeout, own)
     answer: tuple[str, Any] | None = None
-    died = False
+    timed_out = False
     try:
-        if receive.poll(timeout):
-            answer = receive.recv()
-    except (EOFError, OSError, pickle.UnpicklingError):  # died without a usable answer
-        died = True
-    finally:
-        if worker.is_alive():
-            worker.terminate()
-            worker.join(5)
-            if worker.is_alive():
-                worker.kill()
-        worker.join()
-        receive.close()
+        answer = _answer(pool.run(_isolated_job, str(path), kwargs, timeout=timeout))
+    except JobTimeoutError:
+        timed_out = True
+    except (PoolError, ValueError, TypeError):  # died, or no usable answer
+        answer = None
     if answer is None:
-        why = "stopped unexpectedly" if died else f"did not finish within {timeout:g} s (--timeout)"
+        why = (
+            f"did not finish within {timeout:g} s (--timeout)"
+            if timed_out
+            else "stopped unexpectedly"
+        )
         return _failed(path, kwargs, rules.TIMEOUT, f"Validation {why}")
     kind, value = answer
     if kind == "error":
@@ -388,12 +449,24 @@ def _run(
     Any other unexpected error for one file becomes an ERROR report for that file
     (``structure.internal-error``) and the batch goes on.
     """
+    kwargs = _validate_kwargs(args)
+    if args.timeout is None:
+        return _run_files(args, inputs, kwargs, None)
+    with WorkerPool(1) as pool:  # one worker, replaced after a timeout or a crash
+        return _run_files(args, inputs, kwargs, pool)
+
+
+def _run_files(
+    args: argparse.Namespace,
+    inputs: Sequence[Path],
+    kwargs: dict[str, Any],
+    pool: WorkerPool | None,
+) -> tuple[list[Report], list[UnreadableFile]]:
     reports: list[Report] = []
     unreadable: list[UnreadableFile] = []
-    kwargs = _validate_kwargs(args)
     for path in inputs:
         try:
-            if args.timeout is None:
+            if pool is None:
                 try:
                     reports.append(validate(path, **kwargs))
                 except (InstanceReadError, ResourceError):
@@ -402,7 +475,7 @@ def _run(
                     why = f"Validation failed ({_describe(exc, path, kwargs)})"
                     reports.append(_failed(path, kwargs, rules.INTERNAL_ERROR, why))
             else:
-                reports.append(_validate_isolated(path, kwargs, args.timeout))
+                reports.append(_validate_isolated(path, kwargs, args.timeout, pool))
         except InstanceReadError as exc:
             shown, absolute = display_paths(path, args.base_dir)
             unreadable.append(
@@ -425,11 +498,7 @@ def _render(
         entries += [
             _json.unreadable_entry(u, absolute_paths=args.absolute_paths) for u in unreadable
         ]
-        entries.sort(key=lambda e: str(e["path"]))
-        doc = _json.document(
-            entries, tool_version=pydiggs.__version__, reference_data=reference_data()
-        )
-        return _json.dumps(doc) + "\n"
+        return _json.dumps(export._document(entries)) + "\n"
     log = _sarif.sarif_log(
         reports, unreadable, tool_version=pydiggs.__version__, absolute_paths=args.absolute_paths
     )

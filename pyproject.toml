@@ -35,6 +35,17 @@ dependencies = [
   "rich>=13.9.4",
 ]
 
+[project.optional-dependencies]
+# Floors: the lowest release that provides what pydiggs uses, outside the 14-day cooldown
+# and with no open advisory. The newest tested versions live in uv.lock only.
+server = [
+  "fastapi>=0.146.0",
+  "starlette>=1.6.0",
+  "pydantic>=2.12.0",
+  "python-multipart>=0.0.31",
+  "uvicorn>=0.54.0",
+]
+
 [project.scripts]
 pydiggs = "pydiggs.cli:main"
 
@@ -63,6 +74,8 @@ docs = [
   "myst-parser>=4.0.0",
 ]
 audit = ["pip-audit>=2.7", "check-wheel-contents>=0.6", "twine>=6.0"]
+server-test = ["httpx2>=2.14.0", "schemathesis>=4.32.0"]
+freeze = ["pyinstaller>=6.22.3"]
 
 [tool.hatch.version]
 path = "src/pydiggs/__init__.py"
@@ -129,12 +142,34 @@ disallow_incomplete_defs = false
 
 # New modules are fully typed; keep them that way.
 [[tool.mypy.overrides]]
-module = ["pydiggs.errors", "pydiggs.findings", "pydiggs.findings.*"]
+module = [
+  "pydiggs.__main__",
+  "pydiggs._bundled",
+  "pydiggs._compat",
+  "pydiggs._pool",
+  "pydiggs._serve_cli",
+  "pydiggs._service",
+  "pydiggs._versions",
+  "pydiggs.errors",
+  "pydiggs.findings",
+  "pydiggs.findings.*",
+  "pydiggs.mcp_server",
+  "pydiggs.mcp_server.*",
+  "pydiggs.server",
+  "pydiggs.server.*",
+  "pydiggs.sidecar",
+  "pydiggs.sidecar.*",
+]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 module = ["lxml", "lxml.*"]
+ignore_missing_imports = true
+
+# The MCP SDK is not a dependency of this release; the mcp_server stub only probes for it.
+[[tool.mypy.overrides]]
+module = ["mcp", "mcp.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

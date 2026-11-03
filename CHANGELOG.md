@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-03
+
+Everything here is additive: 1.2.0 code, CLI output and exit codes are unchanged.
+
+### Added
+- **`validate_bytes()`** checks a DIGGS document held in memory: `bytes`,
+  `bytearray`, `memoryview` or a binary stream. It applies the same checks and safety
+  limits as `validate()`, never reads local dictionaries, and takes a display `name`.
+- **`time_budget=`** on `validate()` and `validate_bytes()`: a soft time limit checked
+  between steps. A report that runs out of time has one `structure.timeout` error and
+  its unfinished steps are `incomplete`, the same shape as `pydiggs validate --timeout`.
+- **`warm_up()`** compiles the bundled validators ahead of the first call.
+- **Findings documents and schema:** `Report.to_document()`, `findings_document()`,
+  `findings_json()`, `findings_schema()`, `FINDINGS_SCHEMA_VERSION` and
+  `FINDINGS_SCHEMA_URL`.
+- **`version_info()`** (`VersionInfo`): package version, findings schema, DIGGS
+  versions and reference-data commits.
+- **`rule_catalogue()`** and **`explain_rule()`** (`RuleInfo`): every rule id pyDIGGS
+  can emit, with its step, severities and description.
+- **HTTP API, `pydiggs[server]`.** `create_app()` / `create_router()` for FastAPI and
+  `pydiggs serve --http`: `POST /v1/validate` (raw XML or multipart), `GET /v1/versions`,
+  `GET /v1/rules[/{id}]`, health probes, RFC 9457 problem details and a committed
+  OpenAPI 3.1 document. By default, validation runs in isolated worker processes with
+  hard timeouts. Request size, admission, Host and cross-site checks are enforced
+  inside the route. See [HTTP API](docs/http-api.md).
+  - A request body must arrive within `body_timeout_s` (`PYDIGGS_BODY_TIMEOUT_S`,
+    default 30 s) of admission; otherwise the answer is 408 `request-timeout` and the
+    admission slot is freed.
+  - `checks` must match the documented `step(,step)*` pattern of at most 512
+    characters; blanks, empty items and longer values are 422 `invalid-parameter`.
+  - On SIGTERM or SIGINT, `serve --http` waits at most `timeout_s` plus 5 s for
+    requests in flight, then cancels them and exits.
+  - Worker processes write no core file (POSIX), and `create_router()` logs the same
+    thread-isolation warning as `create_app()`.
+  - uvicorn does not time out slow request headers: put any non-loopback deployment
+    behind a reverse proxy with client header and body timeouts.
+- **Stdio sidecar for native apps, `pydiggs serve --stdio`.** A JSON-RPC 2.0 protocol
+  over newline-delimited JSON on stdin and stdout, with an OpenRPC description. Any
+  desktop or native host (Tauri, Electron, Qt, .NET, Java, Swift…) can drive pyDIGGS as
+  a child process. Files are sent as content by default; reading by path works only
+  inside folders the host grants with `--allow-path`. Uses the standard library only.
+  See [Stdio sidecar](docs/sidecar.md) and [Host integration](docs/sidecar-hosts.md).
+  - A path that, as spelled, is not under a root (given or canonical spelling) is
+    refused before it is opened. Hard links into a root are not contained.
+  - `--max-bytes`, when given, is also the by-path limit (100 MiB otherwise).
+  - JSON nested deeper than 64 levels is a parse error on every Python version.
+- `pydiggs serve --mcp` is reserved for the MCP server planned for 1.4.0: it is hidden
+  from `--help` and exits 2. There is no `[mcp]` extra in this release.
+- `python -m pydiggs` runs the CLI.
+
+### Changed
+- `import pydiggs` no longer imports rich; the CLI loads it when it prints. rich is
+  still a dependency.
+- `pydiggs validate --timeout` runs files on a supervised worker process, which is
+  replaced after a timeout or crash. Output and exit codes are unchanged.
+- The SARIF short description of `structure.timeout` is now "Validation did not
+  finish within its time limit".
+
+### Fixed
+- SARIF `file:` URIs (`--absolute-paths`) no longer use `PurePath.as_uri()`, which is
+  deprecated in Python 3.14; the URIs are unchanged.
+
 ## [1.2.0] - 2026-10-23
 
 **Upgrade note:** some files that passed under 1.1.1 now fail, and the reverse.
@@ -369,7 +431,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/xinp-hub/pydiggs/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/xinp-hub/pydiggs/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/xinp-hub/pydiggs/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/xinp-hub/pydiggs/compare/v1.0.0...v1.1.0

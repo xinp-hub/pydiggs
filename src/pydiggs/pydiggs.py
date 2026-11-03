@@ -17,21 +17,48 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 from lxml import etree, isoschematron
-from rich import print as rprint
 
 from pydiggs import _xml
+from pydiggs._bundled import (  # re-exported: older code imports them from here
+    _DEFAULT_DICTIONARY,
+    _DEFAULT_SCHEMATRON,
+    _PACKAGE_DIR,  # noqa: F401  # a 1.2.0 module-level name
+    _casing_diameter_problems,
+)
 from pydiggs.detect import DEFAULT_PROFILE, detect_diggs_version, schema_path_for
 from pydiggs.dictionary import DictionarySemanticValidator
 from pydiggs.semantic import validate_context
-from pydiggs.units import UnitConverter, casing_outside_gt_inside
+from pydiggs.units import UnitConverter, casing_outside_gt_inside  # noqa: F401  # 1.2.0 names
 
-_PACKAGE_DIR = Path(__file__).resolve().parent
-_DEFAULT_DICTIONARY = _PACKAGE_DIR / "dictionaries" / "properties.xml"
-_DEFAULT_SCHEMATRON = _PACKAGE_DIR / "schematron" / "diggs_schematron_rules_2.6.sch"
+# rich's markup tag grammar (rich.markup.RE_TAGS), for the fallback below.
+_MARKUP = re.compile(r"((\\*)\[([a-z#/@][^[]*?)])")
+
+
+def rprint(*objects: Any, **kwargs: Any) -> None:
+    """Print like ``rich.print``, importing rich only on first use.
+
+    ``import pydiggs`` must not pay for rich (most of its import time), and only these
+    legacy checks print. Without rich (a Pyodide install with ``deps=False``) the
+    markup is stripped and the text printed plainly. Tests may monkeypatch this name.
+    """
+    try:
+        from rich import print as rich_print  # noqa: PLC0415  # lazy on purpose
+    except ModuleNotFoundError:
+        print(*(_MARKUP.sub(_plain, str(o)) for o in objects), **kwargs)
+        return
+    rich_print(*objects, **kwargs)
+
+
+def _plain(match: re.Match[str]) -> str:
+    """What rich prints for one markup tag: nothing, or the tag itself when escaped."""
+    whole, escapes, _ = match.groups()
+    pairs, escaped = divmod(len(escapes), 2)
+    return "\\" * pairs + (whole[len(escapes) :] if escaped else "")
 
 
 def _open_log(name: str) -> TextIO:
@@ -325,46 +352,3 @@ class validator:
         """Apply DiggsUomDictionary-backed outside > inside casing rule."""
         messages = [msg for _, msg in _casing_diameter_problems(instance_doc)]
         return (len(messages) == 0), messages
-
-
-def _casing_diameter_problems(
-    instance_doc: etree._ElementTree,
-) -> list[tuple[etree._Element, str]]:
-    """Return ``(Casing element, message)`` for every casing whose diameters fail."""
-    converter = UnitConverter()
-    problems: list[tuple[etree._Element, str]] = []
-    for casing in instance_doc.xpath("//*[local-name()='Casing']"):
-        outside_el = next(
-            (
-                c
-                for c in casing
-                if isinstance(c.tag, str) and etree.QName(c).localname == "casingOutsideDiameter"
-            ),
-            None,
-        )
-        inside_el = next(
-            (
-                c
-                for c in casing
-                if isinstance(c.tag, str) and etree.QName(c).localname == "casingInsideDiameter"
-            ),
-            None,
-        )
-        if outside_el is None or inside_el is None:
-            continue
-        try:
-            outside = float((outside_el.text or "").strip())
-            inside = float((inside_el.text or "").strip())
-        except ValueError:
-            problems.append((casing, "Casing diameter values must be numeric."))
-            continue
-        ok, msg = casing_outside_gt_inside(
-            outside,
-            outside_el.get("uom") or "",
-            inside,
-            inside_el.get("uom") or "",
-            converter,
-        )
-        if not ok:
-            problems.append((casing, msg))
-    return problems

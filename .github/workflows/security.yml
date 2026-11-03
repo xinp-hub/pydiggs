@@ -37,7 +37,7 @@ jobs:
       # not on PyPI yet would otherwise fail --strict ("could not be audited").
       - name: pip-audit
         run: |
-          uv export --frozen --all-groups --no-emit-project -o audit-requirements.txt
+          uv export --frozen --all-groups --all-extras --no-emit-project -o audit-requirements.txt
           uv run --group audit pip-audit --strict --progress-spinner=off --disable-pip -r audit-requirements.txt
 
   dependency-review:

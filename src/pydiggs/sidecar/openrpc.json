@@ -1,0 +1,627 @@
+{
+  "openrpc": "1.3.2",
+  "info": {
+    "title": "pydiggs stdio sidecar",
+    "version": "1.0",
+    "description": "JSON-RPC 2.0 over NDJSON on stdin/stdout (pydiggs serve --stdio). The -32000..-32099 error band is pydiggs-defined; switch on error.data.code."
+  },
+  "methods": [
+    {
+      "name": "initialize",
+      "summary": "Negotiate the protocol version, warm the validators and report limits.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "protocol_version",
+          "schema": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+$"
+          },
+          "required": true
+        },
+        {
+          "name": "client_info",
+          "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "version": {
+                "type": "string",
+                "maxLength": 64
+              }
+            }
+          },
+          "required": false
+        },
+        {
+          "name": "capabilities",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "progress": {
+                "type": "boolean"
+              }
+            }
+          },
+          "required": false
+        },
+        {
+          "name": "diggs_versions",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "required": false
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "protocol_version",
+            "pydiggs_version",
+            "findings_schema_version",
+            "findings_schema_url",
+            "diggs_versions",
+            "reference_data",
+            "capabilities",
+            "limits"
+          ],
+          "properties": {
+            "protocol_version": {
+              "type": "string"
+            },
+            "pydiggs_version": {
+              "type": "string"
+            },
+            "findings_schema_version": {
+              "type": "string"
+            },
+            "findings_schema_url": {
+              "type": "string"
+            },
+            "diggs_versions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reference_data": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "capabilities": {
+              "$ref": "#/components/schemas/ServerCapabilities"
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "max_bytes": {
+                  "type": "integer"
+                },
+                "max_path_bytes": {
+                  "type": "integer"
+                },
+                "max_line_bytes": {
+                  "type": "integer"
+                },
+                "max_findings": {
+                  "type": "integer"
+                },
+                "max_response_bytes_estimate": {
+                  "type": "integer"
+                },
+                "time_budget_s": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/unsupported-protocol-version"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        }
+      ]
+    },
+    {
+      "name": "validate",
+      "summary": "Validate one document, given as base64 content or (if enabled) an absolute path.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "content_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "required": false
+        },
+        {
+          "name": "path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "checks",
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "required": false
+        },
+        {
+          "name": "diggs_version",
+          "schema": {
+            "type": "string"
+          },
+          "required": false
+        },
+        {
+          "name": "time_budget_s",
+          "schema": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "required": false
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/busy"
+        },
+        {
+          "$ref": "#/components/errors/input-too-large"
+        },
+        {
+          "$ref": "#/components/errors/compressed-input"
+        },
+        {
+          "$ref": "#/components/errors/path-not-permitted"
+        },
+        {
+          "$ref": "#/components/errors/input-unreadable"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/cancelled"
+        },
+        {
+          "$ref": "#/components/errors/internal"
+        }
+      ]
+    },
+    {
+      "name": "ping",
+      "summary": "Liveness check.",
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": false
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        }
+      ]
+    },
+    {
+      "name": "versions",
+      "summary": "Package, schema and reference-data versions.",
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        }
+      ]
+    },
+    {
+      "name": "rules.list",
+      "summary": "The rule catalogue, optionally for one step.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "step",
+          "schema": {
+            "type": "string"
+          },
+          "required": false
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RuleInfo"
+          }
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        }
+      ]
+    },
+    {
+      "name": "rules.explain",
+      "summary": "Describe one rule id.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "rule_id",
+          "schema": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "required": true
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/RuleInfo"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        }
+      ]
+    },
+    {
+      "name": "shutdown",
+      "summary": "Finish the running validation, refuse new work, then answer null.",
+      "paramStructure": "by-name",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        }
+      ]
+    }
+  ],
+  "components": {
+    "errors": {
+      "parse-error": {
+        "code": -32700,
+        "message": "Parse error",
+        "data": {
+          "code": "parse-error"
+        }
+      },
+      "invalid-request": {
+        "code": -32600,
+        "message": "Invalid request",
+        "data": {
+          "code": "invalid-request"
+        }
+      },
+      "method-not-found": {
+        "code": -32601,
+        "message": "Method not found",
+        "data": {
+          "code": "method-not-found"
+        }
+      },
+      "invalid-params": {
+        "code": -32602,
+        "message": "Invalid params",
+        "data": {
+          "code": "invalid-params"
+        }
+      },
+      "internal": {
+        "code": -32603,
+        "message": "An internal error occurred.",
+        "data": {
+          "code": "internal"
+        }
+      },
+      "busy": {
+        "code": -32000,
+        "message": "A validation is already running and another is queued.",
+        "data": {
+          "code": "busy"
+        }
+      },
+      "not-initialized": {
+        "code": -32001,
+        "message": "The first request must be initialize.",
+        "data": {
+          "code": "not-initialized"
+        }
+      },
+      "shutting-down": {
+        "code": -32002,
+        "message": "The server is shutting down.",
+        "data": {
+          "code": "shutting-down"
+        }
+      },
+      "input-too-large": {
+        "code": -32003,
+        "message": "The document is larger than allowed.",
+        "data": {
+          "code": "input-too-large"
+        }
+      },
+      "compressed-input": {
+        "code": -32004,
+        "message": "Compressed documents are not accepted.",
+        "data": {
+          "code": "compressed-input"
+        }
+      },
+      "path-not-permitted": {
+        "code": -32005,
+        "message": "The path is not permitted.",
+        "data": {
+          "code": "path-not-permitted"
+        }
+      },
+      "input-unreadable": {
+        "code": -32006,
+        "message": "The document could not be read.",
+        "data": {
+          "code": "input-unreadable"
+        }
+      },
+      "resource-error": {
+        "code": -32007,
+        "message": "pydiggs's bundled reference data could not be loaded.",
+        "data": {
+          "code": "resource-error"
+        }
+      },
+      "cancelled": {
+        "code": -32008,
+        "message": "The request was cancelled.",
+        "data": {
+          "code": "cancelled"
+        }
+      },
+      "unsupported-protocol-version": {
+        "code": -32009,
+        "message": "Unsupported protocol version.",
+        "data": {
+          "code": "unsupported-protocol-version"
+        }
+      }
+    },
+    "schemas": {
+      "RuleInfo": {
+        "type": "object",
+        "required": [
+          "id",
+          "step",
+          "description",
+          "known"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "step": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "severities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "help_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "known": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ServerCapabilities": {
+        "type": "object",
+        "properties": {
+          "validate": {
+            "type": "object",
+            "properties": {
+              "content": {
+                "type": "boolean"
+              },
+              "path": {
+                "type": "boolean"
+              }
+            }
+          },
+          "cancel": {
+            "type": "boolean"
+          },
+          "progress": {
+            "type": "boolean"
+          },
+          "rules": {
+            "type": "boolean"
+          },
+          "ping": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  },
+  "x-notifications": [
+    {
+      "name": "exit",
+      "direction": "host-to-server",
+      "params": []
+    },
+    {
+      "name": "$/cancelRequest",
+      "direction": "host-to-server",
+      "params": [
+        {
+          "name": "id",
+          "schema": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "$/progress",
+      "direction": "server-to-host",
+      "params": [
+        {
+          "name": "request_id",
+          "schema": {
+            "type": [
+              "string",
+              "integer"
+            ]
+          },
+          "required": true
+        },
+        {
+          "name": "step",
+          "schema": {
+            "type": "string"
+          },
+          "required": true
+        },
+        {
+          "name": "status",
+          "schema": {
+            "type": "string"
+          },
+          "required": true
+        }
+      ]
+    }
+  ]
+}

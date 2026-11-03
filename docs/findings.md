@@ -21,9 +21,31 @@ report.steps  # {Step.SCHEMA: "failed", Step.DICTIONARY: "passed", ...}
 for f in report.findings:
     print(f.step, f.rule_id, f.severity, f.line, f.xpath, f.gml_id, f.message)
 report.to_dict()  # this file's entry of the JSON document
-report.to_json(indent=2)  # a whole diggs-findings document
+report.to_document()  # a whole diggs-findings document, as a dict
+report.to_json(indent=2)  # the same document as text
 report.to_sarif()  # a SARIF 2.1.0 log, as a dict
 ```
+
+A document you received (an upload, a database blob) is checked with
+`validate_bytes()`, which takes `bytes`, a `bytearray`, a `memoryview` or a binary
+stream. It applies every limit `validate()` applies, never touches the filesystem for the
+instance, never reads local dictionaries, and uses only the bundled schema, dictionaries
+and Schematron rules. `name` is reported as `path`, reduced to its last component
+(`"input.xml"` when missing); `absolute_path` is `None`.
+
+```python
+from pydiggs import findings_document, findings_json, validate_bytes
+
+report = validate_bytes(upload, name="BH-01.xml", max_bytes=25 * 2**20, time_budget=30)
+findings_document([report, other])  # one document for several reports, sorted by path
+findings_json([report, other], indent=None)  # the same, on one line (safe for NDJSON)
+```
+
+`validate()` and `validate_bytes()` are safe to call from several threads at once;
+compiled validators are kept per thread, so call `warm_up()` in each new thread (a
+thread pool's initialiser) to keep the first file fast. `time_budget` is a soft limit,
+checked between steps (see [Fail closed](#fail-closed)); a hard limit needs a separate
+process, like `pydiggs validate --timeout`.
 
 `validate()` runs every native step by default, even after an earlier one fails, and
 records what happened to each in `report.steps`: `passed`, `partial` (no error, but part
@@ -147,7 +169,11 @@ says why, so `report.ok` is False and the CLI exits 1:
 * `structure.timeout`: `pydiggs validate --timeout SECONDS` validates each file in its
   own process and stops it after SECONDS (start-up included); that file's requested
   steps are `incomplete` and the batch goes on. A worker that dies (killed, out of
-  memory) is reported the same way.
+  memory) is reported the same way. The `time_budget` of `validate()` and
+  `validate_bytes()` gives the same shape without a process: it is checked between
+  steps, the steps that had not started are `incomplete`, the steps that finished keep
+  their findings, and one `structure.timeout` error names the steps that did not run.
+  It cannot stop a step that is running.
 * `structure.internal-error`: `pydiggs validate` caught an unexpected exception for one
   file (a bug, or `MemoryError`); that file's requested steps are `incomplete` and the
   batch goes on. Only a broken resource you passed (`ResourceError`) stops the batch.
@@ -174,9 +200,12 @@ and `counts` include it.
 Only regular files are read: a FIFO, socket or device fails at once with "not a
 regular file" instead of blocking.
 
-It raises only `InstanceReadError` (the file cannot be read; also an `OSError`),
+It raises only `InstanceReadError` (the file cannot be read; also an `OSError`;
+for `validate_bytes()`, the data is too large or compressed or the stream failed),
 `ResourceError` (a schema, dictionary or Schematron file you passed, or pydiggs's bundled
-data, is missing or broken) and `ValueError` (an unknown `diggs_version` or check name).
+data, is missing or broken), `ValueError` (an unknown `diggs_version` or check name) and,
+for `validate_bytes()`, `TypeError` (text instead of bytes, a non-contiguous view or a
+non-string `name`).
 XML that is not well-formed is a finding, `structure.well-formed`, not an exception.
 
 ## Command line
@@ -309,9 +338,9 @@ Rule ids are part of the stable contract.
 | `structure.markup-entity` | error | The internal DTD declares an entity whose value contains markup; no other check ran (see [Fail closed](#fail-closed)) |
 | `structure.entity-expansion` | error | The internal DTD's entities or ATTLIST defaults make the parsed text more than twice the file's raw size; no other check ran |
 | `structure.namespace-too-long` | error | A namespace URI is longer than 1,024 characters; no other check ran |
-| `structure.timeout` | error | `pydiggs validate --timeout` stopped the file, or its worker died; the requested steps are `incomplete` |
+| `structure.timeout` | error | Validation did not finish within its time limit: `pydiggs validate --timeout` stopped the file or its worker died, or the `time_budget` ran out; the unfinished steps are `incomplete` |
 | `structure.internal-error` | error | `pydiggs validate` caught an unexpected error for this file; the requested steps are `incomplete` |
-| `dictionary.1` ... `dictionary.12` | as the legacy check | The legacy dictionary checks, numbered as in their messages (1 uncontrolled codeSpace, 2 not whitelisted, 3 not accessible, 4 not a dictionary, 5 code not found, 6 wrong context, 7 name mismatch, 8 wrong measurement, 9 data type, 10 unitless with uom, 11 missing uom, 12 invalid uom) |
+| `dictionary.1` ... `dictionary.12` | see [below](#dictionary-check-severities) | The legacy dictionary checks, numbered as in their messages (1 uncontrolled codeSpace, 2 not whitelisted, 3 not accessible, 4 not a dictionary, 5 code not found, 6 wrong context, 7 name mismatch, 8 wrong measurement, 9 data type, 10 unitless with uom, 11 missing uom, 12 invalid uom) |
 | `dictionary.13` | error / warning | Result values (in the property's `dataValues` column) are not terms of the code list its definition names in `valueCodeSpace` |
 | `dictionary.offline` | info | A whitelisted remote (http/https) code list that pydiggs does not bundle was not fetched because network access is off. This replaces the `dictionary.3` (or `dictionary.13`) "could not be accessed" warning in `validate()` when `allow_network=False`; with network access on, a failed fetch is still `dictionary.3` at warning. |
 | `structure.findings-truncated` | as the worst dropped finding | `max_findings` or the 16 MiB report budget was reached; the rest were counted, not reported |
@@ -323,6 +352,28 @@ Rule ids are part of the stable contract.
 | `deprecation.removed` | error | Uses something the DIGGS schema has removed |
 | `context.xlink-href-resolves` | warning | A local `xlink:href="#id"` matches no `gml:id` |
 | `context.datablock-arity` | error | A `dataBlock` tuple has a different number of values than `Property` declarations |
+
+`rule_catalogue()` returns this table as data (`RuleInfo` objects: fixed ids, then the
+open families with a `pattern`), and `explain_rule(rule_id)` describes one id; a
+well-formed id pydiggs never emits gets `known=False`. A test keeps the severities here
+and in the catalogue the same.
+
+#### Dictionary check severities
+
+| Rule id | Severity |
+|---|---|
+| `dictionary.1` | info |
+| `dictionary.2` | warning |
+| `dictionary.3` | warning |
+| `dictionary.4` | error |
+| `dictionary.5` | error |
+| `dictionary.6` | error |
+| `dictionary.7` | info |
+| `dictionary.8` | error |
+| `dictionary.9` | error |
+| `dictionary.10` | error |
+| `dictionary.11` | error / warning (warning for a dimensionless quantity) |
+| `dictionary.12` | error / warning |
 
 ### Differences from the legacy checks
 

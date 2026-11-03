@@ -327,23 +327,51 @@ class Report:
         return counts
 
     def to_dict(self, *, absolute_paths: bool = False) -> dict[str, Any]:
-        """This file's entry of the ``diggs-findings`` JSON document (``files[]`` item)."""
+        """This file's entry of the ``diggs-findings`` JSON document (``files[]`` item).
+
+        Only the entry: for the whole one-file document (``$schema``, ``tool``,
+        ``files``), use :meth:`to_document`.
+        """
         from pydiggs.findings import _json  # noqa: PLC0415  # _json imports this module
 
         return _json.file_entry(self, absolute_paths=absolute_paths)
 
-    def to_json(self, indent: int | None = 2, *, absolute_paths: bool = False) -> str:
-        """A complete ``diggs-findings`` 1.0 JSON document for this one file."""
+    def to_document(self, *, absolute_paths: bool = False) -> dict[str, Any]:
+        """Return this report as a whole one-file ``diggs-findings`` 1.0 document.
+
+        The dict form of :meth:`to_json`: dumping it with :func:`pydiggs.findings_json`'s
+        settings gives the same bytes. :meth:`to_dict` is just its ``files[0]`` entry.
+        ``tool`` names the version that produced the report; for several reports in
+        one document, use :func:`pydiggs.findings_document`.
+
+        Args:
+            absolute_paths: Write ``absolute_path`` (when known) instead of ``path``.
+
+        Returns:
+            A JSON-serialisable dict that validates against :func:`pydiggs.findings_schema`.
+
+        Example:
+            >>> from pydiggs import validate_bytes
+            >>> doc = validate_bytes(b"<Diggs/>", name="a.xml").to_document()
+            >>> doc["format"], doc["schema_version"], doc["files"][0]["path"]
+            ('diggs-findings', '1.0', 'a.xml')
+        """
         from pydiggs.findings import _json  # noqa: PLC0415  # _json imports this module
 
-        return _json.dumps(
-            _json.document(
-                [self.to_dict(absolute_paths=absolute_paths)],
-                tool_version=self.tool_version,
-                reference_data=self.reference_data,
-            ),
-            indent=indent,
+        return _json.document(
+            [self.to_dict(absolute_paths=absolute_paths)],
+            tool_version=self.tool_version,
+            reference_data=self.reference_data,
         )
+
+    def to_json(self, indent: int | None = 2, *, absolute_paths: bool = False) -> str:
+        """A complete ``diggs-findings`` 1.0 JSON document for this one file.
+
+        The text form of :meth:`to_document`.
+        """
+        from pydiggs.findings import _json  # noqa: PLC0415  # _json imports this module
+
+        return _json.dumps(self.to_document(absolute_paths=absolute_paths), indent=indent)
 
     def to_sarif(self, *, absolute_paths: bool = False) -> dict[str, Any]:
         """A SARIF 2.1.0 log (as a JSON-serialisable dict) for this one file."""

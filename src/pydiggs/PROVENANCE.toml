@@ -1015,3 +1015,13 @@ sha256 = "d7e918871bd16cb816dc64918f3047f4fdbc53926ac9604ee1ebe00627d57df6"
 source = "local"
 note = "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); see the file header for the changes."
 sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
+
+[files."server/openapi.json"]
+source = "local"
+note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
+sha256 = "695e5b10584a17dbf3a0da8562b5c7ab3b081c3d3b42dd2f4d7caed1ce754ddd"
+
+[files."sidecar/openrpc.json"]
+source = "local"
+note = "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, generated from pydiggs.sidecar._protocol and drift-tested."
+sha256 = "4b6cadabecb91f387140da29c80048f871a638f11a54d127028f440389c9ef82"
