@@ -940,7 +940,7 @@ class DictionarySemanticValidator:
     def validate_tree(
         self,
         doc: etree._ElementTree,
-        instance_path: str | os.PathLike[str],
+        instance_path: str | os.PathLike[str] | None,
         *,
         max_messages: int | None = None,
         max_bytes: int | None = None,
@@ -948,12 +948,14 @@ class DictionarySemanticValidator:
     ) -> DictionaryValidationResult:
         """Validate an already-parsed instance; ``instance_path`` anchors relative URLs.
 
-        With ``max_messages``, messages past that number are only counted.
-        ``max_bytes`` limits each local dictionary read in ``instance-dir`` mode.
+        ``None`` (an instance held in memory) means there is no instance folder, so no
+        relative or ``file:`` codeSpace is read. With ``max_messages``, messages past
+        that number are only counted. ``max_bytes`` limits each local dictionary read
+        in ``instance-dir`` mode.
         """
         result = DictionaryValidationResult(limit=max_messages, classify=classify)
         self._result = result
-        self._instance_dir = Path(instance_path).resolve().parent
+        self._instance_dir = None if instance_path is None else Path(instance_path).resolve().parent
         root = doc.getroot()
         self._positions = _sibling_positions(root) if self.legacy_paths else {}
         self._check13 = None

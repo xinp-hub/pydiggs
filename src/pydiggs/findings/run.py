@@ -13,6 +13,7 @@ import itertools
 import os
 import re
 import threading
+import time
 import tomllib
 import unicodedata
 from collections.abc import Callable, Iterable
@@ -20,12 +21,13 @@ from dataclasses import dataclass
 from functools import cache
 from importlib import resources
 from pathlib import Path
-from typing import Final, Literal
+from typing import BinaryIO, Final, Literal
 
 from lxml import etree, isoschematron
 
 import pydiggs
 from pydiggs import _xml, deprecations
+from pydiggs._bundled import _DEFAULT_DICTIONARY, _DEFAULT_SCHEMATRON, _casing_diameter_problems
 from pydiggs.detect import SCHEMA_PATHS, detect_diggs_version, schema_path_for
 from pydiggs.dictionary import (
     MAX_LOCAL_DICTIONARIES,
@@ -43,10 +45,10 @@ from pydiggs.findings._schematron import (
 )
 from pydiggs.findings.locate import Locator
 from pydiggs.findings.model import FileStatus, Finding, Report, Severity, Step, StepStatus
-from pydiggs.pydiggs import _DEFAULT_DICTIONARY, _DEFAULT_SCHEMATRON, _casing_diameter_problems
 from pydiggs.semantic import validate_context_tree
 
 __all__ = [
+    "DEFAULT_INPUT_NAME",
     "DEFAULT_MAX_BYTES",
     "DEFAULT_MAX_FINDINGS",
     "MAX_ELEMENTS",
@@ -54,6 +56,7 @@ __all__ = [
     "MAX_LOCAL_DICTIONARY_BYTES",
     "MAX_MESSAGE_CHARS",
     "MAX_NAMESPACE_CHARS",
+    "MAX_NAME_CHARS",
     "MAX_REPORT_BYTES",
     "MAX_SCHEMATRON_FIRED",
     "MAX_SCHEMATRON_SIBLINGS",
@@ -63,6 +66,8 @@ __all__ = [
     "reference_data",
     "selected_steps",
     "validate",
+    "validate_bytes",
+    "warm_up",
 ]
 
 #: Steps the native layer implements, in pipeline order. ``checks`` selects from these.
@@ -110,14 +115,18 @@ MAX_CACHED_VALIDATORS: Final = 8
 LocalDictionaries = Literal["instance-dir", "off"]
 #: Default ``max_findings`` of :func:`validate`.
 DEFAULT_MAX_FINDINGS: Final = 10_000
-#: Default ``max_bytes`` of :func:`validate`: 100 MiB.
+#: Default ``max_bytes`` of :func:`validate` and :func:`validate_bytes`: 100 MiB.
 DEFAULT_MAX_BYTES: Final = 100 * 1024 * 1024
+#: ``Report.path`` of :func:`validate_bytes` when ``name`` is missing or names no file.
+DEFAULT_INPUT_NAME: Final = "input.xml"
+#: Longest ``Report.path`` :func:`validate_bytes` reports, in characters.
+MAX_NAME_CHARS: Final = 255
 _CONTEXT_STEPS: Final = frozenset({Step.STRUCTURE, Step.GEOMETRY, Step.CONTEXT})
 _SEVERITY: Final = {"ERROR": Severity.ERROR, "WARNING": Severity.WARNING, "INFO": Severity.INFO}
 #: libxml2 appends the position to syntax errors; it is in line/column already.
 _POSITION_SUFFIX: Final = re.compile(r", line \d+, column \d+$")
 _CHECK_PREFIX: Final = re.compile(r"^Check \d+:\n")
-_NO_ERRORS: Final = etree.XPath("/..")
+_NAME_SEPARATORS: Final = re.compile(r"[/\\]")
 
 _NOT_FIRED: Final = FiredPattern(None, [])
 _LOG_LEVELS: Final = {
@@ -467,7 +476,8 @@ def _schematron(
                 store_report=True,
                 # validate() reads the SVRL report itself; an error finder that selects
                 # nothing stops lxml serialising every failed assert into its error log.
-                error_finder=_NO_ERRORS,
+                # Compiled per build: an XPath object is not shared between threads.
+                error_finder=etree.XPath("/.."),
                 # No @location strings: they cost memory per failure and time per
                 # sibling; findings are located by RuleContexts instead.
                 compile_params={"generate-paths": "false"},
@@ -747,7 +757,7 @@ def _dictionary_validator(
 def _run_dictionary(
     doc: etree._ElementTree,
     builder: _Builder,
-    instance: Path,
+    instance: Path | None,
     dictionary_path: str | os.PathLike[str] | None,
     *,
     allow_network: bool,
@@ -948,7 +958,8 @@ def _run_context(root: etree._Element, builder: _Builder, wanted: frozenset[Step
 @dataclass(frozen=True, slots=True)
 class _StepOptions:
     profile: str
-    instance: Path
+    #: The instance file (anchors local dictionaries), or None for one held in memory.
+    instance: Path | None
     schema_path: str | os.PathLike[str] | None
     dictionary_path: str | os.PathLike[str] | None
     schematron_path: str | os.PathLike[str] | None
@@ -956,6 +967,35 @@ class _StepOptions:
     local_dictionaries: LocalDictionaries
     max_bytes: int
     instance_bytes: int
+
+
+class _Cancelled(Exception):  # noqa: N818  # a signal, not an error condition
+    """Raised at a step boundary when the caller's ``should_stop`` hook returns True.
+
+    Private: adapters that can cancel a running validation (the stdio sidecar) catch
+    it; :func:`validate` and :func:`validate_bytes` never raise it.
+    """
+
+
+class _Clock:
+    """The cooperative time budget and the cancellation hook, checked between steps."""
+
+    def __init__(self, budget: float | None, should_stop: Callable[[], bool] | None) -> None:
+        if budget is not None and (
+            isinstance(budget, bool) or not isinstance(budget, int | float) or not budget > 0
+        ):
+            raise ValueError(f"time_budget must be a positive number of seconds, got {budget!r}")
+        if budget is not None and budget == float("inf"):
+            budget = None  # an infinite budget is no budget
+        self.budget = budget
+        self.deadline = None if budget is None else time.monotonic() + budget
+        self.should_stop = should_stop
+
+    def expired(self) -> bool:
+        """True once the budget is spent; raises :class:`_Cancelled` when asked to stop."""
+        if self.should_stop is not None and self.should_stop():
+            raise _Cancelled
+        return self.deadline is not None and time.monotonic() >= self.deadline
 
 
 def _gate_element_count(
@@ -984,38 +1024,49 @@ def _run_steps(
     steps: dict[Step, StepStatus],
     wanted: frozenset[Step],
     o: _StepOptions,
-) -> None:
+    *,
+    clock: _Clock | None = None,
+) -> list[Step]:
+    """Run the wanted steps in pipeline order; return those the time budget left unrun.
+
+    The budget (and the cancellation hook) is checked before each step, never inside
+    one: a running libxml2 or libxslt call cannot be interrupted.
+    """
+    plan: list[tuple[list[Step], Callable[[], StepStatus | None]]] = []
     if Step.SCHEMA in wanted:
-        steps[Step.SCHEMA] = _guarded(
-            builder, [Step.SCHEMA], lambda: _run_schema(doc, builder, o.profile, o.schema_path)
-        )
+        plan.append(([Step.SCHEMA], lambda: _run_schema(doc, builder, o.profile, o.schema_path)))
     if Step.DICTIONARY in wanted:
-        steps[Step.DICTIONARY] = _guarded(
-            builder,
-            [Step.DICTIONARY],
-            lambda: _run_dictionary(
-                doc,
-                builder,
-                o.instance,
-                o.dictionary_path,
-                allow_network=o.allow_network,
-                local_dictionaries=o.local_dictionaries,
-                max_bytes=min(MAX_LOCAL_DICTIONARY_BYTES, o.max_bytes - o.instance_bytes),
-            ),
+        plan.append(
+            (
+                [Step.DICTIONARY],
+                lambda: _run_dictionary(
+                    doc,
+                    builder,
+                    o.instance,
+                    o.dictionary_path,
+                    allow_network=o.allow_network,
+                    local_dictionaries=o.local_dictionaries,
+                    max_bytes=min(MAX_LOCAL_DICTIONARY_BYTES, o.max_bytes - o.instance_bytes),
+                ),
+            )
         )
     if Step.SCHEMATRON in wanted:
-        steps[Step.SCHEMATRON] = _guarded(
-            builder, [Step.SCHEMATRON], lambda: _run_schematron(doc, builder, o.schematron_path)
-        )
+        plan.append(([Step.SCHEMATRON], lambda: _run_schematron(doc, builder, o.schematron_path)))
     if Step.DEPRECATION in wanted:
-        steps[Step.DEPRECATION] = _guarded(
-            builder, [Step.DEPRECATION], lambda: _run_deprecation(doc, builder, o.profile)
-        )
+        plan.append(([Step.DEPRECATION], lambda: _run_deprecation(doc, builder, o.profile)))
     if wanted & _CONTEXT_STEPS:
         context_steps = sorted(_CONTEXT_STEPS & wanted, key=lambda s: s.order)
-        _guarded(builder, context_steps, lambda: _run_context(doc.getroot(), builder, wanted))
-        for step in _CONTEXT_STEPS & wanted:
-            steps[step] = builder.status(step)
+        plan.append((context_steps, lambda: _run_context(doc.getroot(), builder, wanted)))
+    for index, (group, run) in enumerate(plan):
+        if clock is not None and clock.expired():
+            return [step for later, _ in plan[index:] for step in later]
+        status = _guarded(builder, group, run)
+        if len(group) == 1 and group[0] not in _CONTEXT_STEPS:
+            steps[group[0]] = status
+        else:  # the context checks report into several steps at once
+            for step in group:
+                steps[step] = builder.status(step)
+    return []
 
 
 def _guarded(
@@ -1039,106 +1090,71 @@ def _guarded(
     return status if status is not None else builder.status(steps[0])
 
 
-def validate(
-    path: str | os.PathLike[str],
-    *,
-    diggs_version: str | None = None,
-    checks: Iterable[str | Step] | None = None,
-    schema_path: str | os.PathLike[str] | None = None,
-    dictionary_path: str | os.PathLike[str] | None = None,
-    schematron_path: str | os.PathLike[str] | None = None,
-    allow_network: bool = False,
-    include_snippets: bool = False,
-    max_findings: int | None = DEFAULT_MAX_FINDINGS,
-    max_bytes: int = DEFAULT_MAX_BYTES,
-    base_dir: str | os.PathLike[str] | None = None,
-    local_dictionaries: LocalDictionaries = "instance-dir",
-) -> Report:
-    """Validate one DIGGS instance with every native check and return the findings.
+def _timeout_finding(budget: float, unfinished: list[Step]) -> Finding:
+    """The ``structure.timeout`` error of a report whose time budget ran out."""
+    names = ", ".join(step.value for step in unfinished)
+    return Finding(
+        step=Step.STRUCTURE,
+        rule_id=rules.TIMEOUT,
+        severity=Severity.ERROR,
+        message=(
+            f"Validation did not finish within its time budget of {budget:g} s"
+            f" (time_budget; not run: {names}); the file is not reported as passing."
+        ),
+    )
 
-    Nothing is printed and no file is written. Problems in the instance, including XML
-    that is not well-formed, are findings in the report; only an unreadable instance,
-    a broken trusted input, or a bad argument raises.
 
-    Args:
-        path: The instance file.
-        diggs_version: ``"2.5.a"``, ``"2.6"`` or ``"3.0.0"``; detected from the root
-            namespace when omitted (``3.0.0`` when unknown).
-        checks: Step names to run, from ``structure``, ``schema``, ``dictionary``,
-            ``schematron``, ``geometry``, ``deprecation``, ``context``. Default: all
-            of them. Every selected step runs even when an earlier one fails.
-        schema_path: XSD to use instead of the bundled one (trusted input).
-        dictionary_path: Primary property dictionary instead of the bundled one.
-        schematron_path: Schematron rules instead of the bundled ones (trusted input:
-            Schematron compiles to XSLT, which can read local files).
-        allow_network: Fetch whitelisted remote code lists that are not bundled.
-        include_snippets: Attach each finding's element XML (up to 1 KiB). Off by
-            default because snippets carry the file's data.
-        max_findings: Keep at most this many findings (default 10,000; None for no
-            limit). When it is reached, one ``structure.findings-truncated`` finding,
-            as severe as the worst one left out, says how many were dropped, and the
-            steps that lost findings are ``incomplete``.
-        max_bytes: Largest instance accepted, in bytes (default
-            :data:`DEFAULT_MAX_BYTES`, 100 MiB). The legacy ``validator`` keeps 1 GiB.
-        local_dictionaries: ``"instance-dir"`` (default): a relative or ``file:``
-            codeSpace is read only if it names a file inside the instance's folder
-            (no working-directory fallback, no escape through ``..`` or symlinks);
-            anything else is reported as not accessible (``dictionary.3``). ``"off"``:
-            no local dictionary is read. The legacy ``dictionary_check()`` keeps its
-            1.1 behaviour.
-        base_dir: Report the path relative to this folder (the bare file name when
-            the file is outside it). Default: the working directory, unless that is
-            ``/`` or an ancestor of the home directory, when the bare name is used.
-
-    Returns:
-        A :class:`~pydiggs.Report`; ``report.ok`` is True when no finding is an error.
-
-    Raises:
-        InstanceReadError: The instance cannot be read (also an ``OSError``).
-        ResourceError: A schema, dictionary or Schematron file, or bundled data, is
-            missing or broken.
-        ValueError: ``diggs_version`` or ``checks`` names something unknown, or a
-            limit is not positive.
-
-    Example:
-        >>> from pydiggs import validate
-        >>> report = validate("tests/test_files/2.6/Schema_Error_1-2_6.xml")
-        >>> report.ok, report.diggs_version, report.steps["schema"]
-        (False, '2.6', 'failed')
-        >>> first = report.findings[0]
-        >>> first.rule_id, first.line
-        ('schema.cvc-complex-type.2.4', 12)
-        >>> first.xpath.rsplit("/", 1)[-1]
-        'businessAssociate[1]'
-    """
+def _check_version(diggs_version: str | None) -> None:
     if diggs_version is not None and diggs_version not in SCHEMA_PATHS:
         raise ValueError(
             f"unknown DIGGS version {diggs_version!r}; expected one of {sorted(SCHEMA_PATHS)}"
         )
-    limit = _limits(max_findings, max_bytes)
-    if local_dictionaries not in ("instance-dir", "off"):
-        raise ValueError(
-            f"local_dictionaries must be 'instance-dir' or 'off', got {local_dictionaries!r}"
-        )
-    wanted = selected_steps(checks)
-    shown, absolute = display_paths(path, base_dir)
-    instance = Path(path)
-    try:
-        data, _ = _xml.read_limited(instance, limit, regular_only=True)
-    except OSError as exc:
-        raise InstanceReadError(exc.errno or 0, _reason(exc), shown) from exc
+
+
+@dataclass(frozen=True, slots=True)
+class _Input:
+    """One instance's bytes and how to report it, from a file or from memory."""
+
+    data: bytes
+    #: ``Report.path``.
+    shown: str
+    #: ``Report.absolute_path``; None for an instance held in memory.
+    absolute: str | None
+    #: The file, for libxml2's base URL, path scrubbing and local dictionaries; None for
+    #: an instance held in memory (no fabricated ``file:`` URL, no folder to read).
+    instance: Path | None
+
+
+def _validate_input(
+    source: _Input,
+    *,
+    diggs_version: str | None,
+    wanted: frozenset[Step],
+    schema_path: str | os.PathLike[str] | None,
+    dictionary_path: str | os.PathLike[str] | None,
+    schematron_path: str | os.PathLike[str] | None,
+    allow_network: bool,
+    include_snippets: bool,
+    max_findings: int | None,
+    limit: int,
+    local_dictionaries: LocalDictionaries,
+    clock: _Clock,
+) -> Report:
+    """Check bytes already read and limit-checked; the shared core of both entry points."""
+    data, shown, instance = source.data, source.shown, source.instance
     sha256 = hashlib.sha256(data).hexdigest()
     steps: dict[Step, StepStatus] = dict.fromkeys(NATIVE_STEPS, "skipped")
-    scrub = (str(instance.resolve()), shown)
+    scrub = (str(instance.resolve()), shown) if instance is not None else ("", shown)
+    timeout: list[Finding] = []
 
     def report(builder: _Builder, version: str | None, status: FileStatus = "checked") -> Report:
         return Report(
             path=shown,
-            absolute_path=absolute,
+            absolute_path=source.absolute,
             sha256=sha256,
             diggs_version=version,
             steps=steps,
-            findings=(*builder.findings, *filter(None, [builder.truncation()])),
+            findings=(*builder.findings, *filter(None, [builder.truncation()]), *timeout),
             tool_version=pydiggs.__version__,
             reference_data=reference_data(),
             status=status,
@@ -1162,7 +1178,7 @@ def validate(
     if entity is not None:
         return refuse(entity)
     try:
-        doc = _xml.parse_bytes(data, _base_url(instance))
+        doc = _xml.parse_bytes(data, _base_url(instance) if instance is not None else None)
     except etree.XMLSyntaxError as exc:
         builder = _Builder(None, snippets=False, scrub=scrub)
         line, column = exc.position
@@ -1198,7 +1214,7 @@ def validate(
     builder = _Builder(
         Locator(doc), snippets=include_snippets, scrub=scrub, max_findings=max_findings
     )
-    _run_steps(
+    unfinished = _run_steps(
         doc,
         builder,
         steps,
@@ -1214,6 +1230,7 @@ def validate(
             max_bytes=limit,
             instance_bytes=len(data),
         ),
+        clock=clock,
     )
     # Well-formedness is always checked (nothing else can run without it), but an
     # unrequested structure step stays "skipped" unless the file is not well-formed.
@@ -1224,4 +1241,332 @@ def validate(
     offline = any(f.rule_id == rules.DICTIONARY_OFFLINE for f in builder.findings)
     if offline and steps.get(Step.DICTIONARY) == "passed":
         steps[Step.DICTIONARY] = "partial"
+    if unfinished and clock.budget is not None:
+        # Out of time: fail closed, in the shape ``pydiggs validate --timeout`` gives.
+        for step in unfinished:
+            steps[step] = "incomplete"
+        timeout.append(_timeout_finding(clock.budget, unfinished))
     return report(builder, profile)
+
+
+def validate(
+    path: str | os.PathLike[str],
+    *,
+    diggs_version: str | None = None,
+    checks: Iterable[str | Step] | None = None,
+    schema_path: str | os.PathLike[str] | None = None,
+    dictionary_path: str | os.PathLike[str] | None = None,
+    schematron_path: str | os.PathLike[str] | None = None,
+    allow_network: bool = False,
+    include_snippets: bool = False,
+    max_findings: int | None = DEFAULT_MAX_FINDINGS,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    base_dir: str | os.PathLike[str] | None = None,
+    local_dictionaries: LocalDictionaries = "instance-dir",
+    time_budget: float | None = None,
+) -> Report:
+    """Validate one DIGGS instance with every native check and return the findings.
+
+    Nothing is printed and no file is written. Problems in the instance, including XML
+    that is not well-formed, are findings in the report; only an unreadable instance,
+    a broken trusted input, or a bad argument raises.
+
+    Safe to call from several threads at once: compiled validators are kept per
+    thread, so a new thread pays one cold compile (see :func:`warm_up`). To validate
+    bytes you received (an upload), use :func:`validate_bytes` instead.
+
+    Args:
+        path: The instance file.
+        diggs_version: ``"2.5.a"``, ``"2.6"`` or ``"3.0.0"``; detected from the root
+            namespace when omitted (``3.0.0`` when unknown).
+        checks: Step names to run, from ``structure``, ``schema``, ``dictionary``,
+            ``schematron``, ``geometry``, ``deprecation``, ``context``. Default: all
+            of them. Every selected step runs even when an earlier one fails.
+        schema_path: XSD to use instead of the bundled one (trusted input).
+        dictionary_path: Primary property dictionary instead of the bundled one.
+        schematron_path: Schematron rules instead of the bundled ones (trusted input:
+            Schematron compiles to XSLT, which can read local files).
+        allow_network: Fetch whitelisted remote code lists that are not bundled.
+        include_snippets: Attach each finding's element XML (up to 1 KiB). Off by
+            default because snippets carry the file's data.
+        max_findings: Keep at most this many findings (default 10,000; None for no
+            limit). When it is reached, one ``structure.findings-truncated`` finding,
+            as severe as the worst one left out, says how many were dropped, and the
+            steps that lost findings are ``incomplete``.
+        max_bytes: Largest instance accepted, in bytes (default
+            :data:`DEFAULT_MAX_BYTES`, 100 MiB). The legacy ``validator`` keeps 1 GiB.
+        local_dictionaries: ``"instance-dir"`` (default): a relative or ``file:``
+            codeSpace is read only if it names a file inside the instance's folder
+            (no working-directory fallback, no escape through ``..`` or symlinks);
+            anything else is reported as not accessible (``dictionary.3``). ``"off"``:
+            no local dictionary is read. The legacy ``dictionary_check()`` keeps its
+            1.1 behaviour.
+        base_dir: Report the path relative to this folder (the bare file name when
+            the file is outside it). Default: the working directory, unless that is
+            ``/`` or an ancestor of the home directory, when the bare name is used.
+        time_budget: Cooperative time budget in seconds, counted from the call and
+            checked between steps (default None: no budget). When it runs out, the
+            steps not yet run are ``incomplete`` and the report gets one
+            ``structure.timeout`` error (fail closed), as ``pydiggs validate --timeout``
+            reports. It does not interrupt a running libxml2/libxslt call, so a step
+            can overrun it; for a hard limit, use process isolation (the CLI's
+            ``--timeout``, which stops the process).
+
+    Returns:
+        A :class:`~pydiggs.Report`; ``report.ok`` is True when no finding is an error.
+
+    Raises:
+        InstanceReadError: The instance cannot be read (also an ``OSError``).
+        ResourceError: A schema, dictionary or Schematron file, or bundled data, is
+            missing or broken.
+        ValueError: ``diggs_version`` or ``checks`` names something unknown, or a
+            limit or the time budget is not positive.
+
+    Example:
+        >>> from pydiggs import validate
+        >>> report = validate("tests/test_files/2.6/Schema_Error_1-2_6.xml")
+        >>> report.ok, report.diggs_version, report.steps["schema"]
+        (False, '2.6', 'failed')
+        >>> first = report.findings[0]
+        >>> first.rule_id, first.line
+        ('schema.cvc-complex-type.2.4', 12)
+        >>> first.xpath.rsplit("/", 1)[-1]
+        'businessAssociate[1]'
+    """
+    clock = _Clock(time_budget, None)
+    _check_version(diggs_version)
+    limit = _limits(max_findings, max_bytes)
+    if local_dictionaries not in ("instance-dir", "off"):
+        raise ValueError(
+            f"local_dictionaries must be 'instance-dir' or 'off', got {local_dictionaries!r}"
+        )
+    wanted = selected_steps(checks)
+    shown, absolute = display_paths(path, base_dir)
+    instance = Path(path)
+    try:
+        data, _ = _xml.read_limited(instance, limit, regular_only=True)
+    except OSError as exc:
+        raise InstanceReadError(exc.errno or 0, _reason(exc), shown) from exc
+    return _validate_input(
+        _Input(data, shown, absolute, instance),
+        diggs_version=diggs_version,
+        wanted=wanted,
+        schema_path=schema_path,
+        dictionary_path=dictionary_path,
+        schematron_path=schematron_path,
+        allow_network=allow_network,
+        include_snippets=include_snippets,
+        max_findings=max_findings,
+        limit=limit,
+        local_dictionaries=local_dictionaries,
+        clock=clock,
+    )
+
+
+def _input_name(name: str | None) -> str:
+    """``name`` as ``Report.path``: its last path component, escaped and capped.
+
+    Splits on both ``/`` and backslash (a browser may send a Windows path), so no folder
+    of the sender's ever appears. Nothing is resolved or opened.
+    """
+    if name is None:
+        return DEFAULT_INPUT_NAME
+    if not isinstance(name, str):
+        raise TypeError(f"name must be str or None, got {type(name).__name__}")
+    base = _NAME_SEPARATORS.split(name)[-1]
+    if base in ("", ".", ".."):
+        return DEFAULT_INPUT_NAME
+    try:
+        printable = _printable(base)
+    except UnicodeEncodeError:  # a lone surrogate that is not a surrogate escape
+        printable = base.encode("utf-8", "backslashreplace").decode("utf-8")
+    return _escape_controls(printable)[:MAX_NAME_CHARS]
+
+
+def _payload(data: object, limit: int, shown: str) -> bytes:
+    """Immutable bytes of ``data``, read and limit-checked as :func:`validate` would.
+
+    A ``bytearray`` or ``memoryview`` is copied first (then checked), so another
+    thread cannot change it mid-run. A stream is read until EOF or one byte past the
+    limit; it is neither closed nor asked for its name.
+    """
+    try:
+        if isinstance(data, str):
+            raise TypeError(
+                "validate_bytes() takes bytes, not str; to validate a file, use validate(path)"
+            )
+        if isinstance(data, bytes | bytearray | memoryview):
+            if isinstance(data, memoryview):
+                if not data.contiguous:
+                    raise TypeError(
+                        "a non-contiguous memoryview cannot be validated; copy it first"
+                    )
+                data = data.cast("B")
+            if len(data) > limit:  # refuse before copying an oversized buffer
+                _xml._check_bytes(data, limit)  # the shared limit check
+            payload = data if type(data) is bytes else bytes(data)
+            _xml._check_bytes(payload, limit)
+            return payload
+        read = getattr(data, "read", None)
+        if not callable(read):
+            raise TypeError(
+                "data must be bytes, bytearray, memoryview or a binary stream,"
+                f" not {type(data).__name__}"
+            )
+        return _xml.read_chunks(read, limit)
+    except OSError as exc:
+        raise InstanceReadError(exc.errno or 0, _reason(exc), shown) from exc
+
+
+def _validate_bytes(
+    data: bytes | bytearray | memoryview | BinaryIO,
+    *,
+    name: str | None = None,
+    diggs_version: str | None = None,
+    checks: Iterable[str | Step] | None = None,
+    allow_network: bool = False,
+    include_snippets: bool = False,
+    max_findings: int | None = DEFAULT_MAX_FINDINGS,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    time_budget: float | None = None,
+    should_stop: Callable[[], bool] | None = None,
+) -> Report:
+    """:func:`validate_bytes` plus a cancellation hook for adapters.
+
+    ``should_stop`` is called before each step; when it returns True,
+    :class:`_Cancelled` is raised (no report is built).
+    """
+    clock = _Clock(time_budget, should_stop)
+    _check_version(diggs_version)
+    limit = _limits(max_findings, max_bytes)
+    wanted = selected_steps(checks)
+    shown = _input_name(name)
+    payload = _payload(data, limit, shown)
+    return _validate_input(
+        _Input(payload, shown, None, None),
+        diggs_version=diggs_version,
+        wanted=wanted,
+        schema_path=None,
+        dictionary_path=None,
+        schematron_path=None,
+        allow_network=allow_network,
+        include_snippets=include_snippets,
+        max_findings=max_findings,
+        limit=limit,
+        local_dictionaries="off",
+        clock=clock,
+    )
+
+
+def validate_bytes(
+    data: bytes | bytearray | memoryview | BinaryIO,
+    *,
+    name: str | None = None,
+    diggs_version: str | None = None,
+    checks: Iterable[str | Step] | None = None,
+    allow_network: bool = False,
+    include_snippets: bool = False,
+    max_findings: int | None = DEFAULT_MAX_FINDINGS,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    time_budget: float | None = None,
+) -> Report:
+    r"""Validate a DIGGS document held in memory, such as an upload.
+
+    Applies every safety limit :func:`validate` applies and returns the same report,
+    but never touches the filesystem for the instance: there is no path to resolve,
+    local dictionaries are always off (a relative codeSpace is ``dictionary.3``), and
+    only the bundled schema, dictionaries and Schematron rules are used. Safe to call
+    from several threads at once (see :func:`warm_up`).
+
+    ``allow_network`` and ``include_snippets`` exist for library callers. Never set
+    them from request data: one makes pydiggs fetch URLs the document names, the
+    other copies document content into the report.
+
+    Args:
+        data: The document: ``bytes``, a ``bytearray`` or contiguous ``memoryview``
+            (copied first), or a binary stream, read until EOF or one byte past
+            ``max_bytes`` and left open.
+        name: The file name to report (``Report.path``). Only its last component is
+            kept, splitting on ``/`` and ``\``; control characters are escaped and it
+            is cut to 255 characters. Missing, empty, ``.`` or ``..``:
+            ``"input.xml"``.
+        diggs_version: As for :func:`validate`.
+        checks: As for :func:`validate`.
+        allow_network: Fetch whitelisted remote code lists that are not bundled.
+        include_snippets: Attach each finding's element XML (up to 1 KiB).
+        max_findings: As for :func:`validate`.
+        max_bytes: Largest document accepted, in bytes (default 100 MiB).
+        time_budget: Cooperative time budget in seconds, as for :func:`validate`;
+            running out gives a ``structure.timeout`` report, never an exception. It
+            cannot interrupt a running libxml2/libxslt call; for a hard limit
+            (``timeout``), run validation in a separate process and stop it.
+
+    Returns:
+        A :class:`~pydiggs.Report` whose ``absolute_path`` is None.
+
+    Raises:
+        InstanceReadError: ``data`` is larger than ``max_bytes`` (``EFBIG``),
+            gzip-compressed (``EINVAL``), or the stream could not be read. The message
+            names only ``Report.path``.
+        ResourceError: pydiggs's bundled data is missing or broken.
+        ValueError: ``diggs_version`` or ``checks`` names something unknown, or a
+            limit or the time budget is not positive.
+        TypeError: ``data`` is ``str``, a text stream, a non-contiguous memoryview
+            or another unsupported type, or ``name`` is not a string.
+
+    Example:
+        >>> from pydiggs import validate_bytes
+        >>> upload = b'<Diggs xmlns="http://diggsml.org/schemas/2.6"><oops/></Diggs>'
+        >>> report = validate_bytes(upload, name="C:\\uploads\\BH-01.xml")
+        >>> report.path, report.absolute_path, report.ok
+        ('BH-01.xml', None, False)
+        >>> report.steps["schema"]
+        'failed'
+        >>> validate_bytes(b"<Diggs", checks=["structure"]).findings[0].rule_id
+        'structure.well-formed'
+    """
+    return _validate_bytes(
+        data,
+        name=name,
+        diggs_version=diggs_version,
+        checks=checks,
+        allow_network=allow_network,
+        include_snippets=include_snippets,
+        max_findings=max_findings,
+        max_bytes=max_bytes,
+        time_budget=time_budget,
+    )
+
+
+def warm_up(diggs_version: str | None = None) -> None:
+    """Compile the bundled validators for the calling thread, ahead of the first file.
+
+    Compiled schemas, Schematron rules and dictionary data are kept per thread, so
+    the first :func:`validate` or :func:`validate_bytes` call on a new thread pays
+    for compiling them. Call this from a thread pool's initialiser (or once at start)
+    so no request does. Repeated calls cost almost nothing.
+
+    Args:
+        diggs_version: Warm only this DIGGS version's schema; None (default) warms
+            every bundled version (about a second in all on a cold start).
+
+    Raises:
+        ValueError: ``diggs_version`` is not a bundled DIGGS version.
+        ResourceError: pydiggs's bundled data is missing or broken.
+
+    Example:
+        >>> from concurrent.futures import ThreadPoolExecutor
+        >>> from pydiggs import validate_bytes, warm_up
+        >>> with ThreadPoolExecutor(2, initializer=warm_up, initargs=("2.6",)) as pool:
+        ...     report = pool.submit(validate_bytes, b"<Diggs/>").result()
+        >>> report.verdict
+        'not-valid'
+    """
+    _check_version(diggs_version)
+    reference_data()
+    deprecations.load_registry()
+    for version in sorted(SCHEMA_PATHS) if diggs_version is None else [diggs_version]:
+        _schema(version, None)
+    _schematron(None)
+    for local in ("off", "instance-dir"):  # validate_bytes() uses one, validate() the other
+        _dictionary_validator(None, allow_network=False, local_dictionaries=local)

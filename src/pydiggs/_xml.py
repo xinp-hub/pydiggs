@@ -17,7 +17,7 @@ import stat
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import IO, Final, cast
 from urllib.parse import urlsplit
@@ -117,15 +117,77 @@ def read_limited(
         else:
             with Path(path).open("rb") as fh:
                 data = _read(fh, os.fstat(fh.fileno()), limit)
-    if len(data) > limit:
-        if regular_only:  # validate(): no file name; it reports the path in its own form
-            raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
+    if regular_only:  # validate(): no file name; it reports the path in its own form
+        _check_bytes(data, limit)
+    elif len(data) > limit:
         raise OSError(f"XML file exceeds {limit} bytes: {name}")  # 1.1 text, unchanged
-    if data[:2] == _GZIP_MAGIC:
-        if regular_only:
-            raise OSError(errno.EINVAL, "compressed XML is not accepted")
+    elif data[:2] == _GZIP_MAGIC:
         raise OSError(f"compressed XML is not accepted: {name}")
     return data, name
+
+
+def _check_bytes(data: bytes | bytearray | memoryview, limit: int) -> None:
+    """Refuse instance bytes over ``limit`` or gzip-compressed, with errno and no name.
+
+    The one check behind :func:`pydiggs.validate` (``regular_only``),
+    :func:`pydiggs.validate_bytes` and :func:`read_fd`, so they cannot drift apart.
+    ``data`` may be up to ``limit + 1`` bytes long (the reader's one-byte overshoot).
+
+    Raises:
+        OSError: ``EFBIG`` past the limit, ``EINVAL`` for gzip magic.
+    """
+    if len(data) > limit:
+        raise OSError(errno.EFBIG, f"XML file exceeds {limit} bytes")
+    if data[:2] == _GZIP_MAGIC:
+        raise OSError(errno.EINVAL, "compressed XML is not accepted")
+
+
+#: Most bytes asked of a stream or descriptor in one read.
+_STREAM_CHUNK: Final = 1024 * 1024
+
+
+def read_chunks(read: Callable[[int], object], limit: int) -> bytes:
+    """Read with ``read(n)`` until EOF or ``limit + 1`` bytes, then apply :func:`_check_bytes`.
+
+    ``read`` is a binary stream's ``read`` (or a descriptor reader). Nothing is
+    allocated past what arrives, so a short stream costs only its size.
+
+    Raises:
+        TypeError: ``read`` returned text (a text stream) or something not bytes-like.
+        OSError: as :func:`_check_bytes`; ``EAGAIN`` when a non-blocking stream has no
+            data (``read`` returned None); any error ``read`` raises.
+    """
+    buffer = bytearray()
+    while len(buffer) <= limit:
+        chunk = read(min(_STREAM_CHUNK, limit + 1 - len(buffer)))
+        if chunk is None:
+            raise OSError(errno.EAGAIN, "the stream has no data available (non-blocking)")
+        if isinstance(chunk, str):
+            raise TypeError("expected a binary stream, got a text stream (read() returned str)")
+        if not isinstance(chunk, bytes | bytearray | memoryview):
+            raise TypeError(f"read() returned {type(chunk).__name__}, not bytes")
+        if not chunk:
+            break
+        buffer += chunk
+    data = bytes(buffer)
+    _check_bytes(data, limit)
+    return data
+
+
+def read_fd(fd: int, limit: int) -> bytes:
+    """Read an already opened, already verified descriptor, enforcing the instance limits.
+
+    For callers that open a file themselves and check *that* descriptor (open first,
+    then verify). Unlike :func:`read_limited` no path string is involved, so nothing
+    is URI-decoded. The descriptor must be a regular file; it is not closed.
+
+    Raises:
+        OSError: ``EINVAL`` when it is not a regular file, as :func:`_check_bytes`, or
+            any read error.
+    """
+    if not stat.S_ISREG(os.fstat(fd).st_mode):
+        raise OSError(errno.EINVAL, "not a regular file")
+    return read_chunks(lambda n: os.read(fd, n), limit)
 
 
 def _read(fh: IO[bytes], info: os.stat_result, limit: int) -> bytes:
