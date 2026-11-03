@@ -223,7 +223,6 @@ def test_any_other_import_error_propagates(monkeypatch, target, package, mode):
 @pytest.mark.parametrize(
     ("argv", "text"),
     [
-        (["--stdio"], "--stdio: not implemented"),
         (["--mcp"], "--mcp: not implemented"),
         # The real server refuses a public bind without allowed hosts, before binding.
         (["--http", "--host", ANY_ADDRESS], "PYDIGGS_ALLOWED_HOSTS"),
@@ -406,7 +405,6 @@ def test_the_stub_entry_points_have_the_frozen_signatures():
     assert str(inspect.signature(serve_http)) == (
         "(settings: 'ServerSettings', host: 'str', port: 'int') -> 'int'"
     )
-    assert serve_stdio(ServeOptions()) == 2
     assert serve_mcp(ServeOptions()) == 2
     assert serve_http(ServerSettings(), ANY_ADDRESS, 8000) == 2  # no allowed hosts: refused
 
@@ -431,10 +429,12 @@ def test_the_core_sidecar_imports_no_extra_and_no_multiprocessing():
 def test_python_dash_m_pydiggs_serve(tmp_path):
     out = subprocess.run(  # fixed argv
         [sys.executable, "-m", "pydiggs", "serve", "--stdio"],
+        input='{"jsonrpc":"2.0","id":1,"method":"ping"}\n',
         capture_output=True,
         text=True,
         cwd=tmp_path,
         check=False,
+        timeout=60,
     )
-    assert out.returncode == 2 and out.stdout == ""
-    assert "not implemented" in out.stderr
+    assert out.returncode == 0  # stdin EOF ends the sidecar cleanly
+    assert json.loads(out.stdout)["error"]["data"]["code"] == "not-initialized"

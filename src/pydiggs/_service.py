@@ -382,11 +382,24 @@ def read_fd(fd: int, *, max_bytes: int, name: str | None) -> bytes | Outcome:
 # --- process isolation ------------------------------------------------------------------
 
 
-def warm_worker() -> None:
-    """Pool initialiser: compile every bundled validator in the new worker."""
+def warm_worker(diggs_versions: Sequence[str] | None = None) -> None:
+    """Compile the bundled validators for the calling thread (a pool initialiser).
+
+    Args:
+        diggs_versions: Warm only these DIGGS versions' schemas; None warms every
+            bundled version. The dictionaries and Schematron rules are always warmed.
+
+    Raises:
+        ValueError: A version is not bundled.
+        ResourceError: pydiggs's bundled data is missing or broken.
+    """
     from pydiggs.findings.run import warm_up  # noqa: PLC0415  # the worker's own import
 
-    warm_up()
+    if diggs_versions is None:
+        warm_up()
+        return
+    for version in diggs_versions:
+        warm_up(version)
 
 
 def make_pool(workers: int, *, timeout: float, memory_mb: int | None = 2048) -> WorkerPool:

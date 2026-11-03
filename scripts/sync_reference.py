@@ -117,6 +117,10 @@ PACKAGE_LOCAL = {
     "findings/diggs-findings-1.0.schema.json": (
         "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
     ),
+    "sidecar/openrpc.json": (
+        "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, "
+        "generated from pydiggs.sidecar._protocol and drift-tested."
+    ),
     "dictionaries/whiteList.xml": (
         "Network and local-path allow-list for codeSpace URLs. Security policy, so it is "
         "reviewed here rather than synced (DIGGSml/def docs/validation/whiteList.xml is "
