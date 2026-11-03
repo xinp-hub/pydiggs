@@ -1,7 +1,7 @@
-"""The MCP server (``pip install 'pydiggs[mcp]'``), run by ``pydiggs serve --mcp``.
+"""The MCP server, run by ``pydiggs serve --mcp``: not available in this release.
 
-Importing this package without the ``mcp`` extra raises :class:`ImportError` naming
-the extra; any other import error propagates unchanged.
+This release ships no ``mcp`` extra. Importing this package without the MCP SDK
+raises :class:`ImportError` saying so; any other import error propagates unchanged.
 """
 
 from __future__ import annotations
@@ -14,7 +14,8 @@ except ModuleNotFoundError as exc:
     if (exc.name or "").partition(".")[0] != "mcp":
         raise
     raise ImportError(
-        "pydiggs.mcp_server requires the 'mcp' extra: pip install 'pydiggs[mcp]'",
+        "pydiggs.mcp_server is not available in this release (it needs the MCP SDK,"
+        " which no pydiggs extra installs yet)",
         name=exc.name,
     ) from exc
 

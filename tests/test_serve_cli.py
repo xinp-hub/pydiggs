@@ -402,6 +402,14 @@ def test_bad_environment_values_name_the_variable(name, value):
         ServerSettings.from_env({name: value})
 
 
+def test_the_mcp_stub_names_no_extra_that_does_not_exist(monkeypatch):
+    monkeypatch.setitem(sys.modules, "mcp", None)
+    monkeypatch.delitem(sys.modules, "pydiggs.mcp_server", raising=False)
+    with pytest.raises(ImportError, match="not available in this release") as info:
+        import pydiggs.mcp_server  # noqa: F401
+    assert "pydiggs[mcp]" not in str(info.value)
+
+
 def test_the_stub_entry_points_have_the_frozen_signatures(monkeypatch):
     import inspect
     import types
