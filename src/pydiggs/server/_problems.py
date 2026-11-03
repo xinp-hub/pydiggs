@@ -54,6 +54,7 @@ PROBLEMS: Final[Mapping[str, tuple[int, str]]] = {
     "not-found": (404, "Not found"),
     "method-not-allowed": (405, "Method not allowed"),
     "not-acceptable": (406, "Not acceptable"),
+    "request-timeout": (408, "Request body too slow"),
     "input-too-large": (413, "Input too large"),
     "compressed-input": (415, "Compressed input refused"),
     "unsupported-media-type": (415, "Unsupported media type"),

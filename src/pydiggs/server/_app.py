@@ -4,9 +4,10 @@ Every limit that protects the server is enforced *inside the routes*, so it hold
 when a host app mounts only :func:`create_router`: cross-site refusal, content
 negotiation, the media-type and ``Content-Encoding`` checks, ``Content-Length``,
 a non-blocking admission slot taken before the body is read, a streamed body read
-with a running byte count, and bounded multipart parsing. :func:`create_app` adds
-the app-level layers on top: a ``Host`` check, CORS for listed
-origins only, problem responses for unknown paths, and ``/livez`` and ``/readyz``.
+with a running byte count and a deadline (``body_timeout_s``), and bounded
+multipart parsing. :func:`create_app` adds the app-level layers on top: a ``Host``
+check, CORS for listed origins only, problem responses for unknown paths, and
+``/livez`` and ``/readyz``.
 """
 
 from __future__ import annotations
@@ -479,7 +480,15 @@ def _build_router(state: _State) -> APIRouter:
                 headers={**_RETRY_AFTER, "Connection": "close"},
             )
         try:
-            job = await _read_input(request, settings, fmt=fmt, multipart=multipart)
+            try:
+                with anyio.fail_after(settings.body_timeout_s):
+                    job = await _read_input(request, settings, fmt=fmt, multipart=multipart)
+            except TimeoutError:
+                return problem(
+                    "request-timeout",
+                    "The request body did not arrive in time.",
+                    headers={"Connection": "close"},
+                )
             if isinstance(job, Response):
                 return job
             if state.isolation == "thread":

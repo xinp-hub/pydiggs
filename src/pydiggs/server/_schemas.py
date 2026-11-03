@@ -254,6 +254,7 @@ _STATUS_TEXT: Final = {
     400: "Missing or malformed input",
     403: "Cross-site request refused",
     406: "Accept allows neither JSON nor SARIF",
+    408: "The body did not arrive within the body timeout",
     413: "Body larger than the limit",
     415: "Unsupported media type, or compressed input",
     422: "Invalid parameter, or unreadable input",
@@ -349,7 +350,7 @@ def validate_responses() -> dict[int | str, dict[str, Any]]:
                 SARIF_MEDIA_TYPE: {"schema": _SARIF},
             },
         },
-        **error_responses(400, 403, 406, 413, 415, 422, 500, 503, 504),
+        **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
     }
 
 

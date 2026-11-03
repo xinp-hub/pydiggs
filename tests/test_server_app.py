@@ -84,8 +84,13 @@ def _cli_document(tmp_path: Path, monkeypatch, capsys, fixture: Path) -> dict:
 # --- a tiny ASGI driver: chunked bodies, disconnects, and how much of a body was read ---------
 
 
-async def _asgi(app, *, headers=(), chunks=(), path="/v1/validate", query=b"", disconnect=False):
-    """Send one request; return ``(status, headers, body, bytes_pulled)``."""
+async def _asgi(
+    app, *, headers=(), chunks=(), path="/v1/validate", query=b"", disconnect=False, stall=False
+):
+    """Send one request; return ``(status, headers, body, bytes_pulled)``.
+
+    ``stall`` announces more body after the last chunk and then sends nothing.
+    """
     pending = list(chunks)
     pulled = 0
     sent: list[dict] = []
@@ -97,8 +102,8 @@ async def _asgi(app, *, headers=(), chunks=(), path="/v1/validate", query=b"", d
         if pending:
             chunk = pending.pop(0)
             pulled += len(chunk)
-            return {"type": "http.request", "body": chunk, "more_body": bool(pending)}
-        await anyio.sleep(3600)  # pragma: no cover - the app never asks again
+            return {"type": "http.request", "body": chunk, "more_body": stall or bool(pending)}
+        await anyio.sleep(3600)  # only a stalled body is asked again
         return {"type": "http.disconnect"}  # pragma: no cover
 
     async def send(message):
@@ -477,6 +482,31 @@ def test_admission_full_is_503_before_the_body_is_read(monkeypatch):
     assert json.loads(body)["code"] == "busy"
     assert results["first"][0] == 200
     # The slot was given back: the next request is admitted.
+    assert anyio.run(lambda: _asgi(app, headers=xml, chunks=[b"<Diggs/>"]))[0] == 200
+
+
+def test_a_stalled_body_is_408_and_frees_its_slot():
+    app = _router_app(workers=1, queue_depth=0, body_timeout_s=0.2)
+    xml = [("content-type", "application/xml"), ("content-length", "1000")]
+    status, headers, body, pulled = anyio.run(
+        lambda: _asgi(app, headers=xml, chunks=[b"<", b"Di"], stall=True)
+    )
+    assert (status, pulled) == (408, 3)
+    assert headers["connection"] == "close"
+    assert headers["content-type"] == "application/problem+json"
+    assert json.loads(body)["code"] == "request-timeout"
+    # The only slot was given back: the next request is admitted, not 503 busy.
+    xml = [("content-type", "application/xml")]
+    assert anyio.run(lambda: _asgi(app, headers=xml, chunks=[b"<Diggs/>"]))[0] == 200
+
+
+def test_a_stalled_multipart_body_is_408_too():
+    app = _router_app(workers=1, queue_depth=0, body_timeout_s=0.2)
+    headers = [("content-type", "multipart/form-data; boundary=b")]
+    head = b'--b\r\nContent-Disposition: form-data; name="file"; filename="a.xml"\r\n\r\n<Di'
+    status, _, body, _ = anyio.run(lambda: _asgi(app, headers=headers, chunks=[head], stall=True))
+    assert status == 408 and json.loads(body)["code"] == "request-timeout"
+    xml = [("content-type", "application/xml")]
     assert anyio.run(lambda: _asgi(app, headers=xml, chunks=[b"<Diggs/>"]))[0] == 200
 
 

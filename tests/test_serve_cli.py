@@ -330,6 +330,9 @@ def test_server_settings_defaults_and_hosts():
         {"timeout_s": 0},
         {"timeout_s": float("nan")},
         {"timeout_s": True},
+        {"body_timeout_s": 0},
+        {"body_timeout_s": float("inf")},
+        {"body_timeout_s": 86_401},
         {"isolation": "fork"},
         {"cors_origins": ["https://a"]},
         {"cors_origins": ("*",)},
@@ -352,6 +355,7 @@ def test_server_settings_from_env():
         "PYDIGGS_MAX_BODY_BYTES": "1000",
         "PYDIGGS_MAX_FINDINGS": " 20 ",
         "PYDIGGS_TIMEOUT_S": "2.5",
+        "PYDIGGS_BODY_TIMEOUT_S": " 7.5 ",
         "PYDIGGS_WORKERS": "2",
         "PYDIGGS_QUEUE_DEPTH": "0",
         "PYDIGGS_ISOLATION": "thread",
@@ -371,6 +375,8 @@ def test_server_settings_from_env():
         0,
     )
     assert (s.isolation, s.worker_memory_mb, s.allowed_hosts) == ("thread", 512, ("a.example",))
+    assert s.body_timeout_s == 7.5
+    assert ServerSettings().body_timeout_s == 30
     assert s.cors_origins == ("https://a.example", "https://b.example")
     assert (s.reject_cross_site, s.docs_enabled, s.versions_enabled) == (False, True, False)
     assert ServerSettings.from_env({}, isolation="process").isolation == "process"
@@ -381,6 +387,8 @@ def test_server_settings_from_env():
     ("name", "value"),
     [
         ("PYDIGGS_TIMEOUT_S", "soon"),
+        ("PYDIGGS_BODY_TIMEOUT_S", "soon"),
+        ("PYDIGGS_BODY_TIMEOUT_S", "-1"),
         ("PYDIGGS_DOCS_ENABLED", "maybe"),
         ("PYDIGGS_ISOLATION", "fork"),
         ("PYDIGGS_CORS_ORIGINS", "*"),

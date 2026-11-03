@@ -59,6 +59,16 @@
               }
             }
           },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "413": {
             "description": "Body larger than the limit",
             "content": {
@@ -916,6 +926,7 @@
               "not-acceptable",
               "not-found",
               "not-ready",
+              "request-timeout",
               "resource-error",
               "timeout",
               "unsupported-media-type"

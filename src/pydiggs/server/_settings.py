@@ -39,7 +39,8 @@ class ServerSettings:
     --http``, ``"thread"`` for ``create_router``. Thread isolation has no hard timeout
     and is unsafe for untrusted input. ``allowed_hosts`` None means the loopback names
     when bound to a loopback address, and must be set otherwise (see
-    :meth:`hosts_for`). ``"*"`` is refused in ``cors_origins``.
+    :meth:`hosts_for`). ``"*"`` is refused in ``cors_origins``. ``body_timeout_s``
+    bounds reading one request body, after its admission slot is taken (``408``).
 
     Example:
         >>> s = ServerSettings(workers=2)
@@ -54,6 +55,7 @@ class ServerSettings:
     max_body_bytes: int = 25 * 2**20
     max_findings: int = 10_000
     timeout_s: float = 60.0
+    body_timeout_s: float = 30.0
     workers: int = field(default_factory=_default_workers)
     queue_depth: int | None = None
     isolation: Isolation | None = None
@@ -71,14 +73,15 @@ class ServerSettings:
             type(self.queue_depth) is not int or self.queue_depth < 0
         ):
             raise ValueError(f"queue_depth must be 0 or more, got {self.queue_depth!r}")
-        timeout = self.timeout_s
-        if (
-            isinstance(timeout, bool)
-            or not isinstance(timeout, int | float)
-            or not 0 < timeout <= _MAX_TIMEOUT
-            or not math.isfinite(timeout)
-        ):
-            raise ValueError(f"timeout_s must be positive seconds, at most {_MAX_TIMEOUT:,}")
+        for name in ("timeout_s", "body_timeout_s"):
+            timeout = getattr(self, name)
+            if (
+                isinstance(timeout, bool)
+                or not isinstance(timeout, int | float)
+                or not 0 < timeout <= _MAX_TIMEOUT
+                or not math.isfinite(timeout)
+            ):
+                raise ValueError(f"{name} must be positive seconds, at most {_MAX_TIMEOUT:,}")
         if self.isolation not in (None, "process", "thread"):
             raise ValueError(f"isolation must be 'process' or 'thread', got {self.isolation!r}")
         for name in ("cors_origins", "allowed_hosts"):
@@ -133,10 +136,11 @@ class ServerSettings:
         """Settings from ``PYDIGGS_*`` variables; unset ones keep their defaults.
 
         Variables: ``PYDIGGS_MAX_BODY_BYTES``, ``PYDIGGS_MAX_FINDINGS``,
-        ``PYDIGGS_TIMEOUT_S``, ``PYDIGGS_WORKERS``, ``PYDIGGS_QUEUE_DEPTH``,
-        ``PYDIGGS_ISOLATION``, ``PYDIGGS_WORKER_MEMORY_MB``, ``PYDIGGS_CORS_ORIGINS``
-        and ``PYDIGGS_ALLOWED_HOSTS`` (comma-separated), ``PYDIGGS_REJECT_CROSS_SITE``,
-        ``PYDIGGS_DOCS_ENABLED`` and ``PYDIGGS_VERSIONS_ENABLED`` (true/false).
+        ``PYDIGGS_TIMEOUT_S``, ``PYDIGGS_BODY_TIMEOUT_S``, ``PYDIGGS_WORKERS``,
+        ``PYDIGGS_QUEUE_DEPTH``, ``PYDIGGS_ISOLATION``, ``PYDIGGS_WORKER_MEMORY_MB``,
+        ``PYDIGGS_CORS_ORIGINS`` and ``PYDIGGS_ALLOWED_HOSTS`` (comma-separated),
+        ``PYDIGGS_REJECT_CROSS_SITE``, ``PYDIGGS_DOCS_ENABLED`` and
+        ``PYDIGGS_VERSIONS_ENABLED`` (true/false).
 
         Args:
             environ: Where to read; default :data:`os.environ`.
@@ -168,12 +172,15 @@ class ServerSettings:
                     values[name] = int(raw.strip())
                 except ValueError:
                     raise ValueError(f"PYDIGGS_{name.upper()}: expected an integer") from None
-        raw = env.get("PYDIGGS_TIMEOUT_S")
-        if raw is not None:
-            try:
-                values["timeout_s"] = float(raw.strip())
-            except ValueError:
-                raise ValueError("PYDIGGS_TIMEOUT_S: expected a number of seconds") from None
+        for name in ("timeout_s", "body_timeout_s"):
+            raw = env.get(f"PYDIGGS_{name.upper()}")
+            if raw is not None:
+                try:
+                    values[name] = float(raw.strip())
+                except ValueError:
+                    raise ValueError(
+                        f"PYDIGGS_{name.upper()}: expected a number of seconds"
+                    ) from None
         values["isolation"] = env.get("PYDIGGS_ISOLATION", isolation)
         for name in ("cors_origins", "allowed_hosts"):
             raw = env.get(f"PYDIGGS_{name.upper()}")

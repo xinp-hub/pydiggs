@@ -107,6 +107,8 @@ Checks run in this order, before the body is read where possible:
 5. The body is streamed with a running byte count and abandoned at the limit (413), so
    chunked bodies are bounded too. Multipart allows one file and at most 8 fields of
    64 KiB; the file counts against `max_body_bytes`; spooled parts are deleted.
+6. The whole body must arrive within `body_timeout_s` (30 s) of admission; otherwise the
+   answer is 408 `request-timeout` with `Connection: close`, and the slot is freed.
 
 Gzip-compressed documents are refused (415 `compressed-input`).
 
@@ -152,6 +154,7 @@ Size the host for *ASGI server processes × pydiggs workers × about 2 GiB*.
 | `max_body_bytes` | `PYDIGGS_MAX_BODY_BYTES` | 26214400 (25 MiB) |
 | `max_findings` | `PYDIGGS_MAX_FINDINGS` | 10000 |
 | `timeout_s` | `PYDIGGS_TIMEOUT_S` | 60 |
+| `body_timeout_s` | `PYDIGGS_BODY_TIMEOUT_S` | 30 |
 | `workers` | `PYDIGGS_WORKERS` | CPUs − 1, from 1 to 4 |
 | `queue_depth` | `PYDIGGS_QUEUE_DEPTH` | 2 × `workers` |
 | `isolation` | `PYDIGGS_ISOLATION` | per factory (see above) |
@@ -183,6 +186,7 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 | 404 | <span id="problem-not-found"></span>`not-found` | unknown path (app only) |
 | 405 | <span id="problem-method-not-allowed"></span>`method-not-allowed` | wrong method; see `Allow` (app only) |
 | 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF |
+| 408 | <span id="problem-request-timeout"></span>`request-timeout` | the body did not arrive within `body_timeout_s` |
 | 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes` |
 | 415 | <span id="problem-compressed-input"></span>`compressed-input` | gzip document, or `Content-Encoding` other than `identity` |
 | 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart |
