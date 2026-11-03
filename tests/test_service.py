@@ -341,7 +341,9 @@ def test_adapters_reach_pydiggs_only_through_the_service(package):
                 module = node.module
                 if module == "pydiggs":
                     names = {a.name for a in node.names}
-                    assert names <= {"__version__"}, (path, names)
+                    # ``from pydiggs import _service`` is ``import pydiggs._service``.
+                    allowed = {"__version__"} | {m.rpartition(".")[2] for m in _ALLOWED}
+                    assert names <= allowed, (path, names)
                 elif module.startswith("pydiggs"):
                     assert module in _ALLOWED or module.startswith(own), (path, module)
                 assert not {a.name for a in node.names} & _FORBIDDEN_NAMES, (path, module)
@@ -350,4 +352,6 @@ def test_adapters_reach_pydiggs_only_through_the_service(package):
                     if alias.name.startswith("pydiggs"):
                         assert alias.name in _ALLOWED or alias.name.startswith(own), (path, alias)
             elif isinstance(node, ast.Attribute):
-                assert node.attr not in _FORBIDDEN_NAMES, (path, node.attr)
+                # ``_service.validate`` is the sanctioned route; any other owner is not.
+                via_service = isinstance(node.value, ast.Name) and node.value.id == "_service"
+                assert via_service or node.attr not in _FORBIDDEN_NAMES, (path, node.attr)
