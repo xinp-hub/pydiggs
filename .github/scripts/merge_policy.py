@@ -86,6 +86,7 @@ HOLD_LABELS = frozenset({"hold", "do-not-merge", "needs-human"})
 MAX_LINES = 400
 HUMAN_TIER = 2
 MAX_FILES = 20
+MAX_LISTED = 5  # commit SHAs named in a reason
 REGULAR_FILE = "100644"
 
 _OP = r"(?:==|>=|<=|~=|!=|<|>)\s*[0-9][0-9A-Za-z.*+!-]*"
@@ -130,6 +131,10 @@ class PullRequest:
     # Who actually pushed to the head branch, from the activity log. Commit logins come
     # from commit emails, which anyone can set; a push is attributed by GitHub itself.
     pushers: tuple[str, ...] = ()
+    # Short SHAs of commits GitHub could not verify (unsigned, or a bad signature). A
+    # signature is the one identity claim on a commit that cannot be typed in; and a
+    # branch that requires signed commits would refuse to merge these anyway.
+    unverified: tuple[str, ...] = ()
 
 
 @dataclass
@@ -320,6 +325,10 @@ def classify(
     ]
     if blockers:
         return Decision(2, blockers)
+    if pr.unverified:
+        listed = pr.unverified[:MAX_LISTED]
+        shas = ", ".join(listed) + (" ..." if len(pr.unverified) > MAX_LISTED else "")
+        return Decision(2, [f"commits not verified by GitHub (unsigned or bad signature): {shas}"])
     if pr.author == DEPENDABOT:
         return classify_dependabot(pr, files, deps or [])
     if pr.author not in authors:
@@ -415,6 +424,12 @@ def pull_request_from_event(commits: list, pushers: list) -> PullRequest:
             if isinstance(c, dict)
         ),
         pushers=tuple(str(p) for p in pushers if p),
+        # A commit without a verification record counts as unverified: fail closed.
+        unverified=tuple(
+            str(c.get("sha") or "?")
+            for c in commits
+            if isinstance(c, dict) and c.get("verified") is not True
+        ),
     )
 
 
