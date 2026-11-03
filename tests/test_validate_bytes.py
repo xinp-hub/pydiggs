@@ -6,6 +6,7 @@ import dataclasses
 import errno
 import gzip
 import io
+import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -176,6 +177,38 @@ def test_the_name_is_reduced_to_a_safe_basename(name, shown):
 
 def test_a_long_name_is_capped():
     assert len(validate_bytes(DIGGS_26, name="x" * 1000 + ".xml").path) == MAX_NAME_CHARS
+
+
+def test_a_long_name_is_never_cut_inside_an_escape():
+    shown = validate_bytes(DIGGS_26, name="a" * 252 + "\u202e.xml", checks=["structure"]).path
+    assert shown == "a" * 252  # "\u202e" (6 characters) does not fit, so it is left out whole
+
+
+def test_the_name_does_not_depend_on_the_host_os(monkeypatch):
+    # os.fsencode uses surrogatepass on Windows; a wire name must not go through it.
+    def windows_fsencode(name):
+        return name.encode("utf-8", "surrogatepass")
+
+    monkeypatch.setattr(os, "fsencode", windows_fsencode)
+    assert validate_bytes(DIGGS_26, name="esc\udcff.xml", checks=["structure"]).path == (
+        "esc\\xff.xml"
+    )
+    assert validate_bytes(DIGGS_26, name="lone\ud800.xml", checks=["structure"]).path == (
+        "lone\\ud800.xml"
+    )
+
+
+def test_a_closed_stream_is_unreadable_input():
+    stream = io.BytesIO(DIGGS_26)
+    stream.close()
+    with pytest.raises(InstanceReadError) as refused:
+        validate_bytes(stream)
+    assert refused.value.errno == errno.EBADF
+
+
+def test_a_budget_past_float_range_is_no_budget():
+    report = validate_bytes(DIGGS_26, checks=["structure"], time_budget=10**400)
+    assert report == validate_bytes(DIGGS_26, checks=["structure"])
 
 
 def test_a_non_string_name_is_a_type_error():

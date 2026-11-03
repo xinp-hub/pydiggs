@@ -203,7 +203,9 @@ regular file" instead of blocking.
 It raises only `InstanceReadError` (the file cannot be read; also an `OSError`;
 for `validate_bytes()`, the data is too large or compressed or the stream failed),
 `ResourceError` (a schema, dictionary or Schematron file you passed, or pydiggs's bundled
-data, is missing or broken) and `ValueError` (an unknown `diggs_version` or check name).
+data, is missing or broken), `ValueError` (an unknown `diggs_version` or check name) and,
+for `validate_bytes()`, `TypeError` (text instead of bytes, a non-contiguous view or a
+non-string `name`).
 XML that is not well-formed is a finding, `structure.well-formed`, not an exception.
 
 ## Command line

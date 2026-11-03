@@ -11,7 +11,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from pydiggs import RuleInfo, Severity, Step, explain_rule, rule_catalogue, validate
-from pydiggs.findings import rules
+from pydiggs.findings import rules, run
 from pydiggs.findings.model import is_valid_rule_id
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -116,7 +116,6 @@ def test_every_finding_on_the_corpus_is_explained_with_its_severity():
         ),
         ("dictionary.incomplete", "<step>.incomplete", "The step could not finish"),
         ("schema.incomplete", "<step>.incomplete", "Schema validation could not complete"),
-        ("crs.incomplete", "<step>.incomplete", "The step could not finish"),
         ("schematron.user-45b6d8b8510e", "schematron.user-<hash>", "Schematron rule user-"),
         ("schematron.borehole-depth", "schematron.<id>", "Schematron rule borehole-depth"),
     ],
@@ -145,6 +144,11 @@ def test_a_valid_unknown_id_is_known_false():
         known=False,
     )
     assert not explain_rule("dictionary.99").known
+    assert not explain_rule("crs.incomplete").known  # pydiggs never runs a crs step
+
+
+def test_the_incomplete_family_names_exactly_the_native_steps():
+    assert tuple(s.value for s in run.NATIVE_STEPS) == rules._NATIVE_STEP_VALUES
 
 
 @pytest.mark.parametrize(

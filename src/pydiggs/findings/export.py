@@ -56,7 +56,7 @@ def findings_document(reports: Iterable[Report], *, absolute_paths: bool = False
 
     Returns:
         A JSON-serialisable dict that validates against :func:`findings_schema`. For one
-        report it equals ``report.to_document()``.
+        report made by this pydiggs it equals ``report.to_document()``.
 
     Example:
         >>> from pydiggs import findings_document, validate_bytes

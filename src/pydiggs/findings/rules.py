@@ -398,7 +398,18 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     "context.xlink-href-resolves": _WARNING,
     "context.datablock-arity": _ERROR,
 }
-_STEPS_ALTERNATION: Final = "|".join(re.escape(s.value) for s in Step)
+#: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
+#: keeps them equal): only they can be ``incomplete``.
+_NATIVE_STEP_VALUES: Final = (
+    "structure",
+    "schema",
+    "dictionary",
+    "schematron",
+    "geometry",
+    "deprecation",
+    "context",
+)
+_STEPS_ALTERNATION: Final = "|".join(re.escape(s) for s in _NATIVE_STEP_VALUES)
 _NAME: Final = r"[A-Za-z0-9][A-Za-z0-9._-]*"
 #: Open families, in matching order: (template, regex, severities, description). The
 #: Schematron catch-all comes last, so the bundled rules and hashed ids match first.

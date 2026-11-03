@@ -27,11 +27,13 @@ from pydiggs import _xml
 from pydiggs._bundled import (  # re-exported: older code imports them from here
     _DEFAULT_DICTIONARY,
     _DEFAULT_SCHEMATRON,
+    _PACKAGE_DIR,  # noqa: F401  # a 1.2.0 module-level name
     _casing_diameter_problems,
 )
 from pydiggs.detect import DEFAULT_PROFILE, detect_diggs_version, schema_path_for
 from pydiggs.dictionary import DictionarySemanticValidator
 from pydiggs.semantic import validate_context
+from pydiggs.units import UnitConverter, casing_outside_gt_inside  # noqa: F401  # 1.2.0 names
 
 # rich's markup tag grammar (rich.markup.RE_TAGS), for the fallback below.
 _MARKUP = re.compile(r"((\\*)\[([a-z#/@][^[]*?)])")

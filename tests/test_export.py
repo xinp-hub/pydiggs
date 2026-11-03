@@ -220,3 +220,12 @@ def test_version_info_is_immutable_and_comparable():
         info.reference_data["x"] = "y"  # type: ignore[index]
     copy = VersionInfo(**{**info.to_dict(), "diggs_versions": ["2.6"]})
     assert copy.diggs_versions == ("2.6",)
+
+
+def test_version_info_pickles_and_deep_copies():
+    import copy
+    import pickle
+
+    info = pydiggs.version_info()
+    assert pickle.loads(pickle.dumps(info)) == info  # noqa: S301  # our own bytes
+    assert copy.deepcopy(info) == info

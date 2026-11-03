@@ -42,6 +42,10 @@ class VersionInfo:
         frozen = MappingProxyType(dict(sorted(self.reference_data.items())))
         object.__setattr__(self, "reference_data", frozen)
 
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Pickle and deep-copy through a plain dict; a mappingproxy cannot be pickled."""
+        return (_rebuild, (self.to_dict(),))
+
     def to_dict(self) -> dict[str, Any]:
         """A JSON-serialisable dict, in field order."""
         return {
@@ -51,6 +55,11 @@ class VersionInfo:
             "diggs_versions": list(self.diggs_versions),
             "reference_data": dict(self.reference_data),
         }
+
+
+def _rebuild(fields: dict[str, Any]) -> VersionInfo:
+    """Inverse of :meth:`VersionInfo.to_dict`, for pickling."""
+    return VersionInfo(**fields)
 
 
 def version_info() -> VersionInfo:
@@ -82,6 +91,6 @@ def version_info() -> VersionInfo:
         pydiggs_version=pydiggs.__version__,
         findings_schema_version=FINDINGS_SCHEMA_VERSION,
         findings_schema_url=FINDINGS_SCHEMA_URL,
-        diggs_versions=tuple(sorted(SCHEMA_PATHS)),
+        diggs_versions=tuple(SCHEMA_PATHS),  # defined oldest first
         reference_data=reference_data(),
     )

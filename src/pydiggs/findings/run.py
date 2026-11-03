@@ -8,6 +8,7 @@ writes no files.
 from __future__ import annotations
 
 import contextlib
+import errno
 import hashlib
 import itertools
 import os
@@ -990,6 +991,11 @@ class _Clock:
             isinstance(budget, bool) or not isinstance(budget, int | float) or not budget > 0
         ):
             raise ValueError(f"time_budget must be a positive number of seconds, got {budget!r}")
+        if budget is not None:
+            try:
+                budget = float(budget)
+            except OverflowError:  # an int past float range: no budget, like infinity
+                budget = None
         if budget is not None and budget == float("inf"):
             budget = None  # an infinite budget is no budget
         self.budget = budget
@@ -1381,11 +1387,21 @@ def _input_name(name: str | None) -> str:
     base = _NAME_SEPARATORS.split(name)[-1]
     if base in ("", ".", ".."):
         return DEFAULT_INPUT_NAME
-    try:
-        printable = _printable(base)
-    except UnicodeEncodeError:  # a lone surrogate that is not a surrogate escape
-        printable = base.encode("utf-8", "backslashreplace").decode("utf-8")
-    return _escape_controls(printable)[:MAX_NAME_CHARS]
+    # The name comes off the wire, not from a filesystem, so it is escaped with a fixed
+    # codec (not os.fsencode, which differs on Windows) and capped on an escape boundary.
+    out: list[str] = []
+    length = 0
+    for ch in base:
+        try:
+            piece = ch.encode("utf-8", "surrogateescape").decode("utf-8", "backslashreplace")
+        except UnicodeEncodeError:  # a lone surrogate that is not a surrogate escape
+            piece = ch.encode("utf-8", "backslashreplace").decode("utf-8")
+        piece = _escape_controls(piece)
+        if length + len(piece) > MAX_NAME_CHARS:
+            break
+        out.append(piece)
+        length += len(piece)
+    return "".join(out)
 
 
 def _payload(data: object, limit: int, shown: str) -> bytes:
@@ -1418,7 +1434,10 @@ def _payload(data: object, limit: int, shown: str) -> bytes:
                 "data must be bytes, bytearray, memoryview or a binary stream,"
                 f" not {type(data).__name__}"
             )
-        return _xml.read_chunks(read, limit)
+        try:
+            return _xml.read_chunks(read, limit)
+        except ValueError as exc:  # a closed stream: unreadable input, not a bad argument
+            raise OSError(errno.EBADF, str(exc)) from exc
     except OSError as exc:
         raise InstanceReadError(exc.errno or 0, _reason(exc), shown) from exc
 
