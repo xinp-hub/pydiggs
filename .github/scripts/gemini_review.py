@@ -6,7 +6,7 @@ nothing in the pull request can make it act. agent_review.py hands it the prompt
 and the verdict's JSON Schema in $AGENT_REVIEW_SCHEMA; Gemini is asked to answer in that
 schema, and agent_review.py validates the answer again regardless.
 
-    python3 gemini_review.py --model gemini-3.6-flash
+    python3 gemini_review.py --model gemini-3.6-flash --model gemini-3.5-flash-lite
 
 Reads the key from $GEMINI_API_KEY and sends it in the x-goog-api-key header, never in
 the URL, so it cannot end up in a log line. Exits non-zero on any failure (quota exhausted,
@@ -120,6 +120,25 @@ def call_with_retry(
     raise AssertionError(msg)
 
 
+def first_answer(models: list[str], key: str, body: dict) -> dict:
+    """Ask each model in turn; move on only when one is overloaded or rate-limited.
+
+    Each model has its own capacity, so a 503 on one says nothing about the next. Any
+    other error -- a bad request, a refused key -- is ours and would repeat, so it stops.
+    """
+    for i, model in enumerate(models):
+        try:
+            return call_with_retry(model, key, body)
+        except HTTPError as err:
+            if err.status not in RETRYABLE or i == len(models) - 1:
+                raise
+            sys.stderr.write(
+                f"gemini_review: {model} unavailable (HTTP {err.status}); trying next\n"
+            )
+    msg = "no models given"
+    raise ValueError(msg)
+
+
 def fail(message: str, code: int) -> int:
     """Report a failure on stderr, never echoing the key, and return the exit status."""
     sys.stderr.write(f"gemini_review: {message}\n")
@@ -129,7 +148,12 @@ def fail(message: str, code: int) -> int:
 def main(argv: list[str] | None = None) -> int:
     """Command-line entry point."""
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
-    parser.add_argument("--model", required=True, help="a specific stable model ID")
+    parser.add_argument(
+        "--model",
+        action="append",
+        required=True,
+        help="a specific stable model ID; repeat it to name fallbacks, tried in order",
+    )
     args = parser.parse_args(argv)
 
     key = os.environ.get("GEMINI_API_KEY", "")
@@ -140,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         return fail("AGENT_REVIEW_SCHEMA is not set", EXIT_FAILED)
     try:
         body = request_body(sys.stdin.read(), json.loads(schema_text))
-        response = call_with_retry(args.model, key, body)
+        response = first_answer(args.model, key, body)
     except HTTPError as err:
         limited = err.status in RETRYABLE
         status = "unavailable" if limited else "failed"
