@@ -254,12 +254,17 @@ def _too_large() -> Response:
 def _checks(values: Sequence[str]) -> list[str] | None:
     """``checks`` given as repeated and/or comma-separated values, each step once.
 
-    None when absent; an empty list (refused as ``invalid-parameter``) when given empty.
+    Each value must match the documented ``^step(,step)*$`` of at most
+    :data:`~pydiggs.server._schemas.MAX_CHECKS_CHARS` characters: no blanks, no empty
+    items. A repeated step runs once. None when absent; an empty list (refused as
+    ``invalid-parameter``) when a value is too long; an unknown, blank or empty item is
+    kept, so it is refused as ``invalid-parameter`` too.
     """
     if not values:
         return None
-    parts = (part.strip() for value in values for part in value.split(","))
-    return list(dict.fromkeys(p for p in parts if p))
+    if any(len(value) > _schemas.MAX_CHECKS_CHARS for value in values):
+        return []
+    return list(dict.fromkeys(part for value in values for part in value.split(",")))
 
 
 def _precheck(request: Request, settings: ServerSettings) -> tuple[Format, bool] | Response:

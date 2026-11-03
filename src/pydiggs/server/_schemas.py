@@ -21,6 +21,7 @@ from pydiggs.server._problems import PROBLEM_MEDIA_TYPE, PROBLEMS
 
 __all__ = [
     "FINDINGS_MEDIA_TYPE",
+    "MAX_CHECKS_CHARS",
     "SARIF_MEDIA_TYPE",
     "XML_MEDIA_TYPES",
     "components",
@@ -40,6 +41,8 @@ __all__ = [
 FINDINGS_MEDIA_TYPE: Final = "application/json"
 SARIF_MEDIA_TYPE: Final = "application/sarif+json"
 XML_MEDIA_TYPES: Final = ("application/xml", "text/xml")
+#: Longest ``checks`` value, as documented in OpenAPI (``maxLength``).
+MAX_CHECKS_CHARS: Final = 512
 _SCHEMA_FILE: Final = "diggs-findings-1.0.schema.json"
 _PREFIX: Final = "DiggsFindings"
 _COMPONENTS: Final = "#/components/schemas/"
@@ -294,7 +297,7 @@ def _query(name: str, schema: _JsonSchema, description: str) -> dict[str, Any]:
 
 def _checks_schema() -> _JsonSchema:
     step = "(" + "|".join(sorted(_service._STEP_VALUES)) + ")"
-    return {"type": "string", "pattern": f"^{step}(,{step})*$", "maxLength": 512}
+    return {"type": "string", "pattern": f"^{step}(,{step})*$", "maxLength": MAX_CHECKS_CHARS}
 
 
 def _diggs_version_schema() -> _JsonSchema:

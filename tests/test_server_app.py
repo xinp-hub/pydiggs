@@ -215,7 +215,36 @@ def test_checks_repeat_and_split_and_each_step_runs_once(client):
     steps = [s["step"] for s in response.json()["files"][0]["steps"] if s["status"] != "skipped"]
     assert steps == ["structure", "schema"]
     assert _app._checks([]) is None
-    assert _app._checks(["a, b", "a"]) == ["a", "b"]
+    assert _app._checks(["a,b", "a"]) == ["a", "b"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        *("schema,", ",schema", " schema", "schema ", "schema, structure", "schema,,structure"),
+        "",
+        ",".join(["schema"] * 80),  # matches the pattern, but longer than maxLength 512
+    ],
+)
+def test_checks_off_the_documented_pattern_are_refused(client, value):
+    response = client.post(
+        "/v1/validate", params={"checks": value}, content=b"<Diggs/>", headers=XML
+    )
+    body = _problem(response, 422, "invalid-parameter")
+    assert [e["parameter"] for e in body["errors"]] == ["checks"]
+    form = client.post(
+        "/v1/validate", files={"file": ("a.xml", b"<Diggs/>")}, data={"checks": value}
+    )
+    _problem(form, 422, "invalid-parameter")
+
+
+def test_checks_at_the_length_limit_and_with_repeats_are_accepted(client):
+    value = ",".join(["schema"] * 73)  # 73 * 7 - 1 = 510 characters
+    assert len(value) <= _schemas.MAX_CHECKS_CHARS
+    response = client.post(
+        "/v1/validate", params={"checks": value}, content=b"<Diggs/>", headers=XML
+    )
+    assert response.status_code == 200
 
 
 def test_malformed_xml_is_a_200_with_findings(client):
