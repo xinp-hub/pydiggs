@@ -219,7 +219,7 @@ it with LSP or MCP meanings.
 
 | code | `data.code` | when | extra `data` |
 |---|---|---|---|
-| -32700 | `parse-error` | invalid UTF-8, byte-order mark, invalid JSON (NaN/Infinity included), nesting too deep, integer too long | |
+| -32700 | `parse-error` | invalid UTF-8, byte-order mark, invalid JSON (NaN/Infinity included), nesting deeper than 64 levels, integer too long | |
 | -32600 | `invalid-request` | not a request object, batch, missing/null/invalid id, line too long, duplicate in-flight id, second `initialize` | `max_line_bytes` (line too long) |
 | -32601 | `method-not-found` | unknown method | |
 | -32602 | `invalid-params` | missing, unknown or malformed parameters | `errors: [{param, problem}]` |

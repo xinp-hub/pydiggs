@@ -66,6 +66,9 @@ def test_every_service_code_maps_and_shared_slugs_agree():
         (b'{"a": NaN}', "parse-error"),
         (b'{"a": Infinity}', "parse-error"),
         (b"[" * 100_000 + b"]" * 100_000, "parse-error"),  # deeper than the interpreter allows
+        (b"[" * 65 + b"]" * 65, "parse-error"),  # deeper than MAX_JSON_DEPTH, on every Python
+        (b'{"a":' * 65 + b"1" + b"}" * 65, "parse-error"),
+        (b"[" * 64 + b"]" * 64, "invalid-request"),  # at the limit: parsed, then refused
         (b'{"id": ' + b"9" * 5000 + b"}", "parse-error"),  # longer than int conversion allows
         (b"[]", "invalid-request"),
         (b'[{"jsonrpc":"2.0","id":1,"method":"ping"}]', "invalid-request"),

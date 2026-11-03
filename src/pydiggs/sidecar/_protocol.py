@@ -58,6 +58,8 @@ MAX_CLIENT_NAME: Final = 128
 MAX_CLIENT_VERSION: Final = 64
 #: Longest ``path`` accepted (before any checks).
 MAX_PATH_CHARS: Final = 4096
+#: Deepest JSON nesting accepted in a line (deeper is a parse error on every Python).
+MAX_JSON_DEPTH: Final = 64
 #: Longest ``rule_id``; the service applies the same cap.
 MAX_RULE_ID_CHARS: Final = 256
 #: Room for the JSON-RPC envelope and parameters around the base64 content.
@@ -233,8 +235,8 @@ def parse_line(line: bytes) -> Message | Invalid | None:
     r"""Parse one line (without its terminator) into a message, an error, or nothing.
 
     Blank lines give None. Invalid UTF-8, a byte-order mark, invalid JSON (NaN and
-    Infinity included), nesting deeper than the interpreter allows and integers
-    longer than it converts are parse errors with ``id: null``. A batch (array), a
+    Infinity included), nesting deeper than :data:`MAX_JSON_DEPTH` and integers
+    longer than the interpreter converts are parse errors with ``id: null``. A batch (array), a
     null or malformed id and a non-object are invalid requests.
 
     Args:
@@ -260,7 +262,27 @@ def parse_line(line: bytes) -> Message | Invalid | None:
         value = json.loads(text, parse_constant=_reject_constant)
     except (UnicodeDecodeError, ValueError, RecursionError):
         return Invalid(ProtocolError(ErrorCode.PARSE_ERROR))
+    if _too_deep(value):
+        return Invalid(ProtocolError(ErrorCode.PARSE_ERROR))
     return _message(value)
+
+
+def _too_deep(value: object) -> bool:
+    """Nesting deeper than :data:`MAX_JSON_DEPTH`, checked without recursion.
+
+    Before Python 3.14 ``json.loads`` raises ``RecursionError`` near the recursion
+    limit; 3.14 parses far deeper. One explicit limit gives the same answer everywhere.
+    """
+    stack: list[tuple[object, int]] = [(value, 1)]
+    while stack:
+        node, depth = stack.pop()
+        if isinstance(node, dict):
+            node = list(node.values())
+        if isinstance(node, list):
+            if depth > MAX_JSON_DEPTH:
+                return True
+            stack.extend((child, depth + 1) for child in node)
+    return False
 
 
 def _message(value: object) -> Message | Invalid:
