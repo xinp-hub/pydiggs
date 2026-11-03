@@ -59,7 +59,17 @@ def test_bytes_equal_path_on_mutations(tmp_path, source, cut, insert):
     at = int(len(data) * cut)
     path = tmp_path / "mutant.xml"
     path.write_bytes(data[:at] + insert + data[at:])
-    by_path, by_bytes = _same_as_validate(path)
+    try:
+        by_path, by_bytes = _same_as_validate(path)
+    except InstanceReadError as refused:
+        # A mutation can start the file with the gzip magic: both inputs refuse it alike.
+        with pytest.raises(InstanceReadError) as by_path_refused:
+            validate(path, local_dictionaries="off", base_dir=path.parent)
+        assert (refused.errno, refused.strerror) == (
+            by_path_refused.value.errno,
+            by_path_refused.value.strerror,
+        )
+        return
     assert by_bytes == by_path
 
 
