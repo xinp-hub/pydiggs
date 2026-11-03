@@ -111,6 +111,7 @@ _SCHEMA.app = _APP
 
 def _starts_gzipped(body) -> bool:
     raw = body.get("file") if isinstance(body, dict) else body
+    raw = getattr(raw, "data", raw)  # a schemathesis ``Binary`` goes out as its bytes
     if isinstance(raw, str):
         raw = raw.encode("utf-8", "surrogatepass")
     return isinstance(raw, bytes | bytearray) and bytes(raw[:2]) == b"\x1f\x8b"
