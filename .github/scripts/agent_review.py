@@ -41,6 +41,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 MAX_DIFF_BYTES = 200_000
@@ -229,24 +230,52 @@ def judge(verdict: dict | None) -> tuple[bool, list[str]]:
     return True, notes
 
 
-def reviewer_env(schema_file: Path) -> dict[str, str]:
-    """The minimal environment the reviewer process gets, with its key under its own name."""
+@dataclass(frozen=True)
+class Reviewer:
+    """One configured reviewer: its command, and the key it gets under its own name."""
+
+    label: str
+    command: str
+    key_env: str = ""
+    key: str = ""
+
+
+def configured_reviewers() -> list[Reviewer]:
+    """The primary reviewer, then the fallback, as the repository configured them."""
+    reviewers = []
+    for label, prefix in (("primary", "AGENT_REVIEW"), ("fallback", "AGENT_REVIEW_FALLBACK")):
+        command = os.environ.get(f"{prefix}_COMMAND", "").strip()
+        if command:
+            reviewers.append(
+                Reviewer(
+                    label,
+                    command,
+                    os.environ.get(f"{prefix}_KEY_ENV", ""),
+                    os.environ.get(f"{prefix}_API_KEY", ""),
+                )
+            )
+    return reviewers
+
+
+def reviewer_env(schema_file: Path, reviewer: Reviewer) -> dict[str, str]:
+    """The minimal environment a reviewer gets: its own key only, never the other's."""
     env = {k: os.environ[k] for k in PASSTHROUGH if k in os.environ}
     env["AGENT_REVIEW_SCHEMA"] = json.dumps(VERDICT_JSON_SCHEMA, separators=(",", ":"))
     env["AGENT_REVIEW_SCHEMA_FILE"] = str(schema_file)
-    key_env = os.environ.get("AGENT_REVIEW_KEY_ENV", "")
-    key = os.environ.get("AGENT_REVIEW_API_KEY", "")
-    if re.fullmatch(r"[A-Z_][A-Z0-9_]*", key_env) and key:
-        env[key_env] = key
+    # The base branch's copy of the scripts, so a command can name a bundled reviewer
+    # (gemini_review.py) by absolute path from its empty working directory.
+    env["AGENT_REVIEW_SCRIPTS"] = str(Path(__file__).resolve().parent)
+    if re.fullmatch(r"[A-Z_][A-Z0-9_]*", reviewer.key_env) and reviewer.key:
+        env[reviewer.key_env] = reviewer.key
     return env
 
 
-def run_reviewer(command: str, prompt: str) -> tuple[int, str]:
-    """Run the configured reviewer on the prompt; return its exit status and stdout."""
+def run_reviewer(reviewer: Reviewer, prompt: str) -> tuple[int, str]:
+    """Run one reviewer on the prompt; return its exit status and stdout."""
     # The command is repository configuration (a variable only admins can set), not input
     # from the pull request; the shell is what lets it carry the agent's own flags. It runs
     # in an empty directory, so an agent that reads project config from its working
-    # directory never sees the pull request's files -- the diff in the prompt is all it gets.
+    # directory never sees the pull request's files -- the prompt is all it gets.
     with (
         tempfile.TemporaryDirectory(prefix="agent-review-") as empty,
         tempfile.TemporaryDirectory(prefix="agent-review-schema-") as schema_dir,
@@ -254,7 +283,7 @@ def run_reviewer(command: str, prompt: str) -> tuple[int, str]:
         schema_file = Path(schema_dir) / "verdict.schema.json"
         schema_file.write_text(json.dumps(VERDICT_JSON_SCHEMA), encoding="utf-8")
         proc = subprocess.run(  # noqa: S602
-            command,
+            reviewer.command,
             shell=True,
             input=prompt,
             capture_output=True,
@@ -262,11 +291,39 @@ def run_reviewer(command: str, prompt: str) -> tuple[int, str]:
             encoding="utf-8",
             errors="replace",
             timeout=TIMEOUT_S,
-            env=reviewer_env(schema_file),
+            env=reviewer_env(schema_file, reviewer),
             cwd=empty,
             check=False,
         )
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr[-2000:])
     return proc.returncode, proc.stdout
+
+
+def first_verdict(reviewers: list[Reviewer], prompt: str) -> tuple[dict | None, list[str]]:
+    """Ask each reviewer in turn until one gives a verdict; return it and what happened.
+
+    Only an *unavailable* reviewer -- a timeout, a non-zero exit, no parseable verdict --
+    hands over to the next. A verdict of either kind ends the search: falling back after
+    "request changes" would let a pull request shop for the reviewer that says yes.
+    """
+    log: list[str] = []
+    for reviewer in reviewers:
+        try:
+            code, output = run_reviewer(reviewer, prompt)
+        except subprocess.TimeoutExpired:
+            log.append(f"{reviewer.label} reviewer did not answer within {TIMEOUT_S} s")
+            continue
+        if code != 0:
+            log.append(f"{reviewer.label} reviewer exited with status {code}")
+            continue
+        verdict = extract_verdict(output)
+        if verdict is None:
+            log.append(f"{reviewer.label} reviewer returned no single, final verdict")
+            continue
+        log.append(f"verdict from the {reviewer.label} reviewer")
+        return verdict, log
+    return None, log
 
 
 def echo_untrusted(text: str) -> None:
@@ -300,8 +357,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rubric", required=True, type=Path)
     args = parser.parse_args(argv)
 
-    command = os.environ.get("AGENT_REVIEW_COMMAND", "").strip()
-    if not command:
+    reviewers = configured_reviewers()
+    if not reviewers:
         sys.stdout.write("::notice::AGENT_REVIEW_COMMAND is unset; Tier 1 goes to a human\n")
         report(["no reviewer is configured for this repository"])
         return 0
@@ -311,17 +368,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     context = changed_files_at_head(args.base, args.head)
     prompt = build_prompt(args.rubric.read_text(encoding="utf-8"), patch, context)
-    try:
-        code, output = run_reviewer(command, prompt)
-    except subprocess.TimeoutExpired:
-        report([f"the reviewer did not answer within {TIMEOUT_S} s"])
-        return 0
-    if code != 0:
-        report([f"the reviewer exited with status {code}"])
-        return 0
-    verdict = extract_verdict(output)
+    verdict, log = first_verdict(reviewers, prompt)
     approved, notes = judge(verdict)
-    report(notes, str((verdict or {}).get("summary", "")), approved=approved)
+    report(log + notes, str((verdict or {}).get("summary", "")), approved=approved)
     # A request for changes is a red check the author sees; anything else that withheld
     # approval is a reviewer problem, not a defect in the pull request.
     return 1 if verdict is not None and not approved else 0

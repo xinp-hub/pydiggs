@@ -176,6 +176,11 @@ jobs:
           AGENT_REVIEW_COMMAND: ${{ vars.AGENT_REVIEW_COMMAND }}
           AGENT_REVIEW_KEY_ENV: ${{ vars.AGENT_REVIEW_KEY_ENV }}
           AGENT_REVIEW_API_KEY: ${{ secrets.AGENT_REVIEW_API_KEY }}
+          # Used only when the primary reviewer is unavailable (quota, outage, no verdict),
+          # never to overrule its verdict. Each reviewer sees only its own key.
+          AGENT_REVIEW_FALLBACK_COMMAND: ${{ vars.AGENT_REVIEW_FALLBACK_COMMAND }}
+          AGENT_REVIEW_FALLBACK_KEY_ENV: ${{ vars.AGENT_REVIEW_FALLBACK_KEY_ENV }}
+          AGENT_REVIEW_FALLBACK_API_KEY: ${{ secrets.AGENT_REVIEW_FALLBACK_API_KEY }}
         run: >-
           python3 ../base/.github/scripts/agent_review.py
           --base "$BASE_SHA" --head "$HEAD_SHA" --rubric ../base/.github/agent-review.md
