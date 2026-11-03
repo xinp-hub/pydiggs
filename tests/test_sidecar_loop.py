@@ -28,7 +28,7 @@ from pydiggs._serve_cli import ServeOptions
 from pydiggs._service import Code, Outcome
 from pydiggs.cli import main as cli_main
 from pydiggs.errors import ResourceError
-from pydiggs.sidecar import _loop
+from pydiggs.sidecar import _loop, _protocol
 from pydiggs.sidecar._loop import Server
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -523,6 +523,33 @@ def test_one_running_one_queued_then_busy(session, gate):
     assert dup["id"] == "b" and _slug(dup) == "invalid-request"
     assert notes[0]["params"] == {"request_id": "a", "step": "validate", "status": "started"}
     assert {"request_id": "b", "step": "queue", "status": "waiting"} in [n["params"] for n in notes]
+    gate.release.set()
+    replies, _ = s.replies(2)
+    assert [r["id"] for r in replies] == ["a", "b"]
+
+
+def test_busy_and_duplicate_ids_are_refused_before_the_content_is_decoded(
+    session, gate, monkeypatch
+):
+    decoded = []
+    real = _protocol.check_validate
+
+    def counting(params, **kwargs):
+        decoded.append(params.get("name"))
+        return real(params, **kwargs)
+
+    monkeypatch.setattr(_protocol, "check_validate", counting)
+    s = session()
+    s.initialize()
+    s.send("validate", {"content_base64": _content(), "name": "a"}, id="a")
+    gate.wait_started("a")
+    s.send("validate", {"content_base64": _content(), "name": "b"}, id="b")
+    # Not even valid base64: a decode would answer invalid-params instead.
+    s.send("validate", {"content_base64": "%%%", "name": "dup"}, id="a")
+    s.send("validate", {"content_base64": "%%%", "name": "c"}, id="c")
+    replies, _ = s.replies(2)
+    assert [(r["id"], _slug(r)) for r in replies] == [("a", "invalid-request"), ("c", "busy")]
+    assert decoded == ["a", "b"]
     gate.release.set()
     replies, _ = s.replies(2)
     assert [r["id"] for r in replies] == ["a", "b"]

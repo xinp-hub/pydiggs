@@ -334,18 +334,25 @@ class Server:
                 self._cv.wait()
 
     def _submit_validate(self, request_id: RequestId, params: dict[str, Any]) -> None:
-        """Queue a validation: at most one running (or about to run) and one waiting."""
+        """Queue a validation: at most one running (or about to run) and one waiting.
+
+        The duplicate-id and busy checks come first, so a refused request never has
+        its content decoded. Only this (reader) thread adds jobs, so the queue can
+        only shrink between the checks and the append.
+        """
+        key = _key(request_id)
+        with self._cv:
+            jobs = [j for j in (self._running, *self._queue) if j is not None]
+            if any(j.key == key for j in jobs):
+                raise ProtocolError(ErrorCode.INVALID_REQUEST, "Duplicate id")
+            if len(jobs) >= 2:  # noqa: PLR2004  # one running plus one waiting
+                raise ProtocolError(ErrorCode.BUSY)
         checked = _protocol.check_validate(
             params, max_bytes=self.options.max_bytes, time_limit=self.options.timeout
         )
         job = _Job("validate", request_id, checked)
         with self._cv:
-            jobs = [j for j in (self._running, *self._queue) if j is not None]
-            if any(j.key == job.key for j in jobs):
-                raise ProtocolError(ErrorCode.INVALID_REQUEST, "Duplicate id")
-            if len(jobs) >= 2:  # noqa: PLR2004  # one running plus one waiting
-                raise ProtocolError(ErrorCode.BUSY)
-            waiting = bool(jobs)
+            waiting = any(j is not None for j in (self._running, *self._queue))
             self._queue.append(job)
             self._cv.notify_all()
         if waiting:
