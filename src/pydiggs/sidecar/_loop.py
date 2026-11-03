@@ -8,7 +8,8 @@ Three threads share one :class:`Server`:
 * the **executor** runs one queued job at a time (validators are compiled per
   thread, so warm-up and validation share this thread);
 * the **main** thread waits for the end (``exit``, EOF, a broken pipe or a signal)
-  and returns the exit status.
+  and returns the exit status. A signal handler only sets a flag, which this thread
+  sees within :data:`_WAIT_SECONDS`.
 
 Every frame goes through :meth:`Server.send`: one lock, one write and one flush per
 frame, so frames never interleave.
@@ -43,7 +44,8 @@ _log = logging.getLogger("pydiggs.sidecar")
 
 #: Bytes the reader asks for at a time while discarding an over-long line.
 _DISCARD_CHUNK: Final = 1 << 20
-#: How often the main thread wakes while waiting (lets Windows see Ctrl+Break).
+#: How often the main thread wakes while waiting (to act on a signal; lets Windows see
+#: Ctrl+Break).
 _WAIT_SECONDS: Final = 0.5
 #: Requests answered without the executor.
 _CHEAP: Final = frozenset({"ping", "versions", "rules.list", "rules.explain"})
@@ -119,6 +121,7 @@ class Server:
         self._done = threading.Event()
         self._exit_code = 0
         self._broken = False
+        self._signalled = False
 
     # --- lifecycle --------------------------------------------------------------------
 
@@ -135,8 +138,17 @@ class Server:
         for thread in threads:
             thread.start()
         while not self._done.wait(_WAIT_SECONDS):
-            pass
+            if self._signalled:
+                self.finish(0)
         return self._exit_code
+
+    def signal_stop(self) -> None:
+        """Ask :meth:`run` to end the session with status 0; safe in a signal handler.
+
+        It only sets a flag: taking a lock here could deadlock against the main thread,
+        which the handler interrupts, while it holds that lock in ``Event.wait``.
+        """
+        self._signalled = True
 
     def finish(self, code: int) -> None:
         """End the session with ``code`` (the first call wins); running work is abandoned."""
@@ -556,7 +568,10 @@ def _claimed_stdout() -> Iterator[int]:
 
 @contextlib.contextmanager
 def _signals(server: Server) -> Iterator[None]:
-    """SIGTERM, SIGINT (and SIGBREAK on Windows) end the session with status 0."""
+    """SIGTERM, SIGINT (and SIGBREAK on Windows) end the session with status 0.
+
+    The handler takes no lock; :meth:`Server.run` notices the flag and finishes.
+    """
     if threading.current_thread() is not threading.main_thread():
         yield
         return
@@ -565,7 +580,7 @@ def _signals(server: Server) -> Iterator[None]:
 
     def handler(signum: int, frame: FrameType | None) -> None:
         del signum, frame
-        server.finish(0)
+        server.signal_stop()  # a flag only: run() calls finish() outside the handler
 
     previous = {n: signal.signal(n, handler) for n in numbers}
     try:

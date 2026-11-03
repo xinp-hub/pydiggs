@@ -798,6 +798,22 @@ def test_claimed_stdout_gives_back_fd_1_when_dup2_fails(monkeypatch):
         pass
 
 
+def test_the_signal_handler_only_sets_a_flag_and_run_finishes(no_warm):
+    read_end, write_end = os.pipe()  # a reader that blocks: only the signal can end it
+    reader = os.fdopen(read_end, "rb")
+    server = Server(ServeOptions(), (), reader, io.BytesIO())
+    try:
+        with _loop._signals(server):
+            handler = signal.getsignal(signal.SIGTERM)
+            assert callable(handler)
+            handler(signal.SIGTERM, None)
+            assert server._signalled and not server._done.is_set()  # no lock taken
+            assert server.run() == 0
+    finally:
+        os.close(write_end)
+        reader.close()
+
+
 def test_signals_are_left_alone_off_the_main_thread(no_warm):
     seen = []
 
