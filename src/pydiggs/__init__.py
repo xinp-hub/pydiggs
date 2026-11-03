@@ -21,6 +21,7 @@ from .findings.export import (
     findings_schema,
 )
 from .findings.model import Finding, Report, Severity, Step
+from .findings.rules import RuleInfo, explain_rule, rule_catalogue
 from .findings.run import validate, validate_bytes, warm_up
 from .pydiggs import validator
 
@@ -38,13 +39,16 @@ __all__ = [
     "PydiggsError",
     "Report",
     "ResourceError",
+    "RuleInfo",
     "Severity",
     "Step",
     "VersionInfo",
     "detect_diggs_version",
+    "explain_rule",
     "findings_document",
     "findings_json",
     "findings_schema",
+    "rule_catalogue",
     "validate",
     "validate_bytes",
     "validator",

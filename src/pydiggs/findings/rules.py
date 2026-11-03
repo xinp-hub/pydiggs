@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Final
+from dataclasses import dataclass
+from functools import cache
+from typing import Any, Final
 
 from pydiggs.findings.keys import TRUNCATED_RULE
 from pydiggs.findings.model import RULE_ID_PATTERN, Severity, Step, is_valid_rule_id
@@ -27,6 +29,7 @@ __all__ = [
     "HELP_URI",
     "INTERNAL_ERROR",
     "MARKUP_ENTITY",
+    "MAX_RULE_ID_CHARS",
     "MAX_USER_ID_CHARS",
     "NAMESPACE_TOO_LONG",
     "REMOVED",
@@ -39,10 +42,13 @@ __all__ = [
     "SCHEMA_INCOMPLETE",
     "TIMEOUT",
     "WELL_FORMED",
+    "RuleInfo",
     "describe",
     "dictionary_rule",
+    "explain_rule",
     "incomplete",
     "is_valid_rule_id",
+    "rule_catalogue",
     "schema_rule",
     "schematron_bundled_rule",
     "schematron_user_rule",
@@ -67,7 +73,8 @@ ENTITY_EXPANSION: Final = "structure.entity-expansion"
 #: A namespace URI longer than 1,024 characters; nothing else ran.
 NAMESPACE_TOO_LONG: Final = "structure.namespace-too-long"
 FINDINGS_TRUNCATED: Final = TRUNCATED_RULE
-#: pydiggs validate --timeout stopped the file's validation.
+#: Validation ran out of time: ``pydiggs validate --timeout`` stopped the file's worker,
+#: or the ``time_budget`` of validate() / validate_bytes() ran out.
 TIMEOUT: Final = "structure.timeout"
 #: pydiggs validate caught an unexpected error for one file (the batch went on).
 INTERNAL_ERROR: Final = "structure.internal-error"
@@ -236,7 +243,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     ENTITY_EXPANSION: "Entities expand the file to more than twice its size",
     NAMESPACE_TOO_LONG: "A namespace URI is longer than 1,024 characters",
     FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
-    TIMEOUT: "Validation did not finish within --timeout",
+    TIMEOUT: "Validation did not finish within its time limit",
     INTERNAL_ERROR: "Validation failed with an unexpected error",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
     DICTIONARY_OFFLINE: "A whitelisted remote code list is not bundled and network access is off",
@@ -345,3 +352,244 @@ SARIF_LEVEL: Final[dict[Severity, str]] = {
     Severity.WARNING: "warning",
     Severity.INFO: "note",
 }
+
+
+#: Longest rule id :func:`explain_rule` accepts.
+MAX_RULE_ID_CHARS: Final = 256
+
+_ERROR: Final = (Severity.ERROR,)
+_WARNING: Final = (Severity.WARNING,)
+_INFO: Final = (Severity.INFO,)
+_ERROR_OR_WARNING: Final = (Severity.ERROR, Severity.WARNING)
+_ANY: Final = (Severity.ERROR, Severity.WARNING, Severity.INFO)
+
+#: Severities each fixed rule id is reported at (the "Severity" column of the rule-id
+#: table in docs/findings.md; a test keeps the two in step). A finding's severity is
+#: always one of these.
+_SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
+    WELL_FORMED: _ERROR,
+    DIGGS_ROOT: _ERROR,
+    MARKUP_ENTITY: _ERROR,
+    ENTITY_EXPANSION: _ERROR,
+    NAMESPACE_TOO_LONG: _ERROR,
+    TIMEOUT: _ERROR,
+    INTERNAL_ERROR: _ERROR,
+    FINDINGS_TRUNCATED: _ANY,  # as severe as the worst finding it stands for
+    "dictionary.1": _INFO,
+    "dictionary.2": _WARNING,
+    "dictionary.3": _WARNING,
+    "dictionary.4": _ERROR,
+    "dictionary.5": _ERROR,
+    "dictionary.6": _ERROR,
+    "dictionary.7": _INFO,
+    "dictionary.8": _ERROR,
+    "dictionary.9": _ERROR,
+    "dictionary.10": _ERROR,
+    "dictionary.11": _ERROR_OR_WARNING,  # warning for dimensionless quantities
+    "dictionary.12": _ERROR_OR_WARNING,
+    DICTIONARY_13: _ERROR_OR_WARNING,
+    DICTIONARY_OFFLINE: _INFO,
+    **dict.fromkeys(SCHEMATRON_BUNDLED.values(), _ERROR),
+    SCHEMATRON_CASING_UNITS: _ERROR,
+    SCHEMATRON_CASING_NUMERIC: _ERROR,
+    "geometry.srs-attributes": _WARNING,
+    DEPRECATED: _WARNING,
+    REMOVED: _ERROR,
+    "context.xlink-href-resolves": _WARNING,
+    "context.datablock-arity": _ERROR,
+}
+_STEPS_ALTERNATION: Final = "|".join(re.escape(s.value) for s in Step)
+_NAME: Final = r"[A-Za-z0-9][A-Za-z0-9._-]*"
+#: Open families, in matching order: (template, regex, severities, description). The
+#: Schematron catch-all comes last, so the bundled rules and hashed ids match first.
+_FAMILIES: Final[tuple[tuple[str, str, tuple[Severity, ...], str], ...]] = (
+    (
+        "schema.cvc-<rule>",
+        rf"schema\.cvc-{_NAME}",
+        _ERROR_OR_WARNING,
+        "An XML Schema validation rule, named from libxml2's error type",
+    ),
+    (
+        "schema.libxml2.<TYPE>",
+        rf"schema\.libxml2\.{_NAME}",
+        _ERROR_OR_WARNING,
+        "A libxml2 schema-validation error type that names no XML Schema rule",
+    ),
+    (
+        "<step>.incomplete",
+        rf"(?:{_STEPS_ALTERNATION})\.incomplete",
+        _ERROR,
+        "The step could not finish; its results are partial (fail closed)",
+    ),
+    (
+        "schematron.user-<hash>",
+        r"schematron\.user-[0-9a-f]{12}",
+        _ERROR,
+        "A rule from your own Schematron file with no usable @id (hash of context and test)",
+    ),
+    (
+        "schematron.<id>",
+        rf"schematron\.{_NAME}",
+        _ERROR,
+        "A rule from your own Schematron file, named by its @id",
+    ),
+)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RuleInfo:
+    """What one rule id (or one open family of them) means.
+
+    ``id`` is the rule id. For an open family in :func:`rule_catalogue` it is the
+    family's template (``"schema.cvc-<rule>"``) and ``pattern`` is the regular
+    expression its ids match in full; for a fixed id ``pattern`` is None.
+    :func:`explain_rule` returns the id asked about, with its family's ``pattern``
+    when it belongs to one. ``severities`` lists what a finding with this id can be,
+    most serious first; ``known`` is False for a well-formed id pydiggs never emits.
+
+    Example:
+        >>> from pydiggs import explain_rule
+        >>> info = explain_rule("dictionary.5")
+        >>> info.step, info.severities, info.known
+        (<Step.DICTIONARY: 'dictionary'>, (<Severity.ERROR: 'error'>,), True)
+        >>> info.to_dict()["description"]
+        'Code is not found in the code list dictionary'
+    """
+
+    id: str
+    pattern: str | None
+    step: Step
+    description: str
+    severities: tuple[Severity, ...]
+    help_uri: str
+    known: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        """A JSON-serialisable dict (enums as their string values), in field order."""
+        return {
+            "id": self.id,
+            "pattern": self.pattern,
+            "step": self.step.value,
+            "description": self.description,
+            "severities": [s.value for s in self.severities],
+            "help_uri": self.help_uri,
+            "known": self.known,
+        }
+
+
+def _fixed(rule_id: str) -> RuleInfo:
+    return RuleInfo(
+        id=rule_id,
+        pattern=None,
+        step=Step(rule_id.partition(".")[0]),
+        description=describe(rule_id),
+        severities=_SEVERITIES[rule_id],
+        help_uri=HELP_URI,
+        known=True,
+    )
+
+
+@cache
+def _catalogue() -> tuple[RuleInfo, ...]:
+    fixed = [_fixed(rule_id) for rule_id in _SEVERITIES]
+    families = [
+        RuleInfo(
+            id=template,
+            pattern=f"^{regex}$",
+            step=Step(template.partition(".")[0])
+            if not template.startswith("<")
+            else Step.STRUCTURE,
+            description=description,
+            severities=severities,
+            help_uri=HELP_URI,
+            known=True,
+        )
+        for template, regex, severities, description in _FAMILIES
+    ]
+    fixed.sort(key=lambda r: (r.step.order, r.id))
+    return (*fixed, *families)
+
+
+def rule_catalogue() -> tuple[RuleInfo, ...]:
+    """Every rule id pydiggs can emit: fixed ids, then open families as patterns.
+
+    Fixed ids come in pipeline (step) order, then alphabetically; the open families
+    (``schema.cvc-*``, ``schema.libxml2.*``, ``<step>.incomplete``,
+    ``schematron.user-*`` and user Schematron ``@id`` rules) follow, each with a
+    ``pattern``. The ``<step>.incomplete`` family is listed under ``structure`` but
+    covers every step. A new entry may be added in a minor release.
+
+    Returns:
+        The catalogue, the same tuple on every call.
+
+    Example:
+        >>> from pydiggs import rule_catalogue
+        >>> rules = rule_catalogue()
+        >>> rules[0].id
+        'structure.diggs-root'
+        >>> [r.id for r in rules if r.pattern][:2]
+        ['schema.cvc-<rule>', 'schema.libxml2.<TYPE>']
+    """
+    return _catalogue()
+
+
+def explain_rule(rule_id: str) -> RuleInfo:
+    r"""Describe one rule id, such as a finding's ``rule_id``.
+
+    A well-formed id that pydiggs never emits (``"crs.unknown"``) is not an error:
+    it gets ``known=False``, no severities and a generic description.
+
+    Args:
+        rule_id: ``<step>.<name>``, at most 256 characters.
+
+    Returns:
+        The :class:`RuleInfo` for exactly this id.
+
+    Raises:
+        ValueError: ``rule_id`` does not follow the rule-id grammar, names no step,
+            or is longer than 256 characters.
+        TypeError: ``rule_id`` is not a string.
+
+    Example:
+        >>> from pydiggs import explain_rule
+        >>> explain_rule("schematron.Borehole.totalMeasuredDepth").description
+        'Schematron rule Borehole.totalMeasuredDepth'
+        >>> explain_rule("schema.cvc-elt.1").pattern
+        '^schema\\.cvc-[A-Za-z0-9][A-Za-z0-9._-]*$'
+        >>> explain_rule("crs.unknown").known
+        False
+        >>> explain_rule("not a rule")
+        Traceback (most recent call last):
+        ...
+        ValueError: 'not a rule' is not a valid rule id (<step>.<name>)
+    """
+    if not isinstance(rule_id, str):
+        raise TypeError(f"rule_id must be str, got {type(rule_id).__name__}")
+    if len(rule_id) > MAX_RULE_ID_CHARS:
+        raise ValueError(f"rule id is longer than {MAX_RULE_ID_CHARS} characters")
+    if not is_valid_rule_id(rule_id):
+        raise ValueError(f"{rule_id[:80]!r} is not a valid rule id (<step>.<name>)")
+    step = Step(rule_id.partition(".")[0])
+    if rule_id in _SEVERITIES:
+        return _fixed(rule_id)
+    for _template, regex, severities, family in _FAMILIES:
+        if re.fullmatch(regex, rule_id):
+            text = describe(rule_id)
+            return RuleInfo(
+                id=rule_id,
+                pattern=f"^{regex}$",
+                step=step,
+                description=text if text != rule_id else family,
+                severities=severities,
+                help_uri=HELP_URI,
+                known=True,
+            )
+    return RuleInfo(
+        id=rule_id,
+        pattern=None,
+        step=step,
+        description="Not a rule id this version of pydiggs emits",
+        severities=(),
+        help_uri=HELP_URI,
+        known=False,
+    )
