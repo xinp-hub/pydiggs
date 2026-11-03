@@ -1,6 +1,6 @@
 # History
 
-## Unreleased
+## 1.3.0 (2026-11-03)
 
 New ways to use pyDIGGS from other software, all additive:
 
