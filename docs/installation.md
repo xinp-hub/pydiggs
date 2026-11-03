@@ -17,6 +17,15 @@ pip install pydiggs
 
 This installs the latest release from PyPI with its runtime dependencies.
 
+Optional extras (for example `uv add "pydiggs[server]"`):
+
+| Extra | Adds | For |
+|---|---|---|
+| `server` | FastAPI, Starlette, uvicorn, python-multipart | the HTTP API (`pydiggs serve --http`) |
+| `mcp` | the MCP Python SDK | reserved for the MCP server in a later release |
+
+The stdio sidecar (`pydiggs serve --stdio`) needs no extra.
+
 ## Development install
 
 Clone the repository and sync with [uv](https://docs.astral.sh/uv/):

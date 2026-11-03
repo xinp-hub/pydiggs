@@ -24,6 +24,12 @@ first. Credit is given unless you prefer otherwise.
   loading and network access refused, and compressed input is rejected. A report that a
   crafted instance file can read local files, reach the network (with the default
   `allow_network=False`), exhaust memory or crash a check is in scope.
+- **Requests to `pydiggs serve` are untrusted.** The HTTP API and the stdio sidecar
+  use only the bundled schemas, dictionaries and Schematron rules. Network access,
+  snippets and local dictionaries are always off, and request size, time and
+  concurrency are bounded. A sidecar reads a file by path only inside folders the host
+  granted with `--allow-path`. A report that a request can escape these limits is in
+  scope.
 - **Schema and Schematron files are trusted code.** A custom `schema_path` or
   `schematron_path` runs with your permissions; reports that require a malicious one
   are out of scope.

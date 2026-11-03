@@ -35,6 +35,13 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
     * Write validation errors to log files
     * Print validation errors directly to console
 * Command-line interface (CLI) for easy integration
+* Use it from any application:
+    * Python: `validate()` for files, `validate_bytes()` for uploads and other
+      in-memory data
+    * Web apps: an HTTP API with OpenAPI 3.1 (the `server` extra, then
+      `pydiggs serve --http`, or mount `pydiggs.server.create_router()` in FastAPI)
+    * Desktop and native apps: a stdio JSON-RPC 2.0 sidecar (`pydiggs serve --stdio`)
+      that any host language can drive
 
 ## Security
 

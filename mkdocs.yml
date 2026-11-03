@@ -130,6 +130,10 @@ nav:
     - Installation: installation.md
     - Usage: usage.md
     - Findings (JSON / SARIF): findings.md
+  - Integrations:
+    - HTTP API: http-api.md
+    - Stdio sidecar (native apps): sidecar.md
+    - Host integration: sidecar-hosts.md
   - Development:
     - Contributing: contributing.md
     - Authors: authors.md
