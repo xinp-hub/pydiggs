@@ -78,6 +78,10 @@ TIER0_PATHS = frozenset({"uv.lock", "pyproject.toml"})
 PYPI_SIMPLE = 'registry = "https://pypi.org/simple"'
 PYPI_FILES = "https://files.pythonhosted.org/"
 
+ZERO_MINOR = "0.x minor"
+# fetch-metadata's dependency-type for a direct development dependency (a dev group in uv).
+DEV_DEPENDENCY = "direct:development"
+
 HOLD_LABELS = frozenset({"hold", "do-not-merge", "needs-human"})
 MAX_LINES = 400
 HUMAN_TIER = 2
@@ -143,18 +147,20 @@ def version_parts(version: str | None) -> tuple[int, ...] | None:
 
 
 def update_kind(dep: dict) -> str:
-    """Classify an update as patch, minor, major, downgrade or unknown.
+    """Classify an update as patch, minor, 0.x minor, major, downgrade or unknown.
 
-    The versions themselves are used where Dependabot gives them.
-
-    For a 0.x package a minor bump is a breaking one, as semver allows, so it counts as major.
+    The versions themselves are used where Dependabot gives them. A 0.x minor bump is kept
+    apart from a 1.x+ minor: semver lets it break, so it is Tier 0 only for a development
+    dependency, where a break shows up in this repository's CI rather than in users' hands.
     """
     old, new = version_parts(dep.get("prevVersion")), version_parts(dep.get("newVersion"))
     if old and new:
         if new < old:
             return "downgrade"
-        if new[0] != old[0] or (old[0] == 0 and new[1] != old[1]):
+        if new[0] != old[0]:
             return "major"
+        if old[0] == 0 and new[1] != old[1]:
+            return ZERO_MINOR
         return "minor" if new[1] != old[1] else "patch"
     return {
         "version-update:semver-patch": "patch",
@@ -205,7 +211,10 @@ def classify_dependabot(pr: PullRequest, files: list[FileChange], deps: list[dic
     for dep in deps:
         name = dep.get("dependencyName", "?")
         kind = update_kind(dep)
-        if kind not in ("patch", "minor"):
+        dev = dep.get("dependencyType") == DEV_DEPENDENCY
+        if kind == ZERO_MINOR and not dev:
+            reasons.append(f"{name}: 0.x minor update of a runtime dependency (may break users)")
+        elif kind not in ("patch", "minor", ZERO_MINOR):
             reasons.append(f"{name}: {kind} update")
         if dep.get("maintainerChanges"):
             reasons.append(f"{name}: the package's maintainers changed in this release")
