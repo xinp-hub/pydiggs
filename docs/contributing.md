@@ -155,3 +155,5 @@ A reminder for the maintainers on how to deploy:
 1. Update `CHANGELOG.md` and bump `version` in `pyproject.toml`.
 2. Tag a release (`vX.Y.Z`) and push the tag (HG3 / HG4 in the FORGE process).
 3. GitHub Actions `publish.yml` builds with a fixed `SOURCE_DATE_EPOCH` and publishes to PyPI via Trusted Publishing (OIDC; no API token). The `pypi` environment requires a human reviewer.
+
+<!-- merge-policy smoke test: this PR is closed, never merged -->
