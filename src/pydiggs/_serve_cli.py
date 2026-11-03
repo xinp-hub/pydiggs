@@ -158,7 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help=(
             f"largest document in bytes (default {DEFAULT_MAX_BYTES:,};"
-            f" --mcp {DEFAULT_MCP_MAX_BYTES:,})"
+            f" --stdio by path {DEFAULT_MAX_PATH_BYTES:,})"
         ),
     )
     parser.add_argument(
@@ -224,7 +224,7 @@ def _options(args: argparse.Namespace) -> ServeOptions:
     max_bytes = args.max_bytes or (DEFAULT_MCP_MAX_BYTES if mcp else DEFAULT_MAX_BYTES)
     return ServeOptions(
         max_bytes=max_bytes,
-        max_path_bytes=max(DEFAULT_MAX_PATH_BYTES, max_bytes),
+        max_path_bytes=DEFAULT_MAX_PATH_BYTES if args.max_bytes is None else args.max_bytes,
         max_findings=args.max_findings
         or (DEFAULT_MCP_MAX_FINDINGS if mcp else DEFAULT_MAX_FINDINGS),
         timeout=DEFAULT_TIMEOUT if args.timeout is None else args.timeout,

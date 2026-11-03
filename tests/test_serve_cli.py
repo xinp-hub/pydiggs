@@ -95,9 +95,13 @@ def test_stdio_gets_its_options(monkeypatch):
     monkeypatch.setattr(pydiggs.sidecar, "serve_stdio", lambda options: seen.append(options) or 0)
     assert main(["serve", "--stdio", "--allow-path", "/a", "--allow-path", "/b"]) == 0
     assert main(["serve", "--stdio", "--max-bytes", "200000000", "--timeout", "5"]) == 0
-    default, custom = seen
+    assert main(["serve", "--stdio", "--max-bytes", "1000"]) == 0
+    default, custom, small = seen
     assert default == ServeOptions(allow_paths=("/a", "/b"))
+    assert default.max_path_bytes == 100 * 2**20
     assert (custom.max_bytes, custom.max_path_bytes, custom.timeout) == (200_000_000,) * 2 + (5.0,)
+    # --max-bytes, when given, is the path-mode limit too, smaller or larger.
+    assert (small.max_bytes, small.max_path_bytes) == (1000, 1000)
 
 
 def test_mcp_gets_its_own_defaults(monkeypatch):

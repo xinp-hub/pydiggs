@@ -25,14 +25,14 @@ pydiggs serve --stdio [--max-bytes N] [--max-findings N] [--timeout S]
 
 | option | default | meaning |
 |---|---|---|
-| `--max-bytes` | 26,214,400 (25 MiB) | largest decoded document sent as content |
+| `--max-bytes` | 26,214,400 (25 MiB) | largest decoded document sent as content, and by path when given |
 | `--max-findings` | 10,000 | findings kept per document (a truncation finding marks the cut) |
 | `--timeout` | 60 | default and largest per-request **time budget**, in seconds |
 | `--allow-path DIR` | none | enables by-path requests for files under `DIR` (repeatable) |
 | `--log-level` | `warning` | `debug`, `info`, `warning`, `error`, `critical` |
 | `--log-format` | `text` | `json` writes one object per line with `ts`, `level`, `msg`, `request_id` |
 
-By-path documents may be up to 100 MiB (or `--max-bytes`, if larger).
+By-path documents may be up to 100 MiB, or `--max-bytes` when it is given.
 `python -m pydiggs serve --stdio` is equivalent. The sidecar only ever uses pydiggs's
 bundled schemas, dictionaries and Schematron rules; it never reaches the network and never
 reads local dictionaries next to a document.
