@@ -152,7 +152,9 @@ def test_expand_inputs_recurses_sorted_without_symlinks_or_duplicates(tmp_path):
 def test_help_mentions_validate_and_legacy_commands_still_work(capsys):
     with pytest.raises(SystemExit):
         main(["--help"])
-    assert "pydiggs validate --help" in " ".join(capsys.readouterr().out.split())
+    top_help = " ".join(capsys.readouterr().out.split())
+    assert "pydiggs validate --help" in top_help
+    assert "pydiggs serve --help" in top_help
     with pytest.raises(SystemExit):
         main(["validate", "--help"])
     help_text = capsys.readouterr().out
@@ -163,6 +165,18 @@ def test_help_mentions_validate_and_legacy_commands_still_work(capsys):
 def test_console_script_entry_point(tmp_path):
     out = subprocess.run(  # noqa: S603  # fixed argv
         [sys.executable, "-m", "pydiggs.cli", "validate", "--format", "json", str(NO_ERROR)],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert out.returncode == 0
+    assert json.loads(out.stdout)["files"][0]["path"] == "No_Error_2_6.xml"
+
+
+def test_python_dash_m_pydiggs_is_the_command(tmp_path):
+    out = subprocess.run(  # noqa: S603  # fixed argv
+        [sys.executable, "-m", "pydiggs", "validate", "--format", "json", str(NO_ERROR)],
         capture_output=True,
         text=True,
         cwd=tmp_path,
@@ -206,3 +220,35 @@ def test_output_file_bytes_are_the_same_on_every_os(work, capsys):
         data = (work / f"out.{fmt}").read_bytes()
         assert b"\r\n" not in data
         assert data == out.replace("\r\n", "\n").encode("utf-8")
+
+
+def test_the_isolated_answer_is_lossless_json(work, monkeypatch):
+    import dataclasses
+
+    from pydiggs import validate
+    from pydiggs.findings import _cli
+
+    report = validate(work / "bad.xml", checks=["schema"])
+    odd = dataclasses.replace(
+        report,
+        path="b\udcffad.xml",
+        absolute_path="/x/b\udcffad.xml",
+        findings=(dataclasses.replace(report.findings[0], message="café \udcff"),),
+    )
+    monkeypatch.setattr(_cli, "validate", lambda path, **kwargs: odd)
+    raw = _cli._isolated_job("bad.xml", {})
+    assert raw.isascii()
+    kind, again = _cli._answer(raw)
+    assert kind == "report" and again == odd
+    for field in dataclasses.fields(odd):
+        assert getattr(again, field.name) == getattr(odd, field.name), field.name
+
+
+def test_dunder_main_runs_the_cli(monkeypatch, capsys):
+    import runpy
+
+    monkeypatch.setattr(sys, "argv", ["pydiggs", "validate", "--format", "json", str(NO_ERROR)])
+    with pytest.raises(SystemExit) as exit_info:
+        runpy.run_module("pydiggs", run_name="__main__")
+    assert exit_info.value.code == 0
+    assert json.loads(capsys.readouterr().out)["files"][0]["verdict"]

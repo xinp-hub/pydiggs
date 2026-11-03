@@ -6,7 +6,7 @@ import argparse
 import multiprocessing
 import sys
 
-from pydiggs import validator
+from pydiggs import _serve_cli, validator
 from pydiggs.findings import _cli
 
 
@@ -17,6 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     args_in = sys.argv[1:] if argv is None else argv
     if args_in[:1] == ["validate"]:
         return _cli.main(args_in[1:])
+    if args_in[:1] == ["serve"]:
+        return _serve_cli.main(args_in[1:])
 
     parser = argparse.ArgumentParser(
         description=(
@@ -24,7 +26,9 @@ def main(argv: list[str] | None = None) -> int:
             "and Geoenvironmental Specialists (DIGGS)."
         ),
         epilog=(
-            "Machine-readable findings (JSON, SARIF) for one or many files: pydiggs validate --help"
+            "Machine-readable findings (JSON, SARIF) for one or many files:"
+            " pydiggs validate --help. Validation for other programs"
+            " (stdio sidecar, HTTP, MCP): pydiggs serve --help."
         ),
     )
     parser.add_argument(
