@@ -129,7 +129,8 @@ what the diff contains — never from an automated reviewer's opinion.
   hand, GitHub Actions updates, larger changes, and every pull request from a fork. A
   maintainer reviews and merges these.
 
-Merging never publishes anything. Release tags and PyPI uploads always need a maintainer.
+Merging never releases the package: release tags and PyPI uploads always need a
+maintainer. A merge to `master` does rebuild and redeploy this documentation site.
 
 ## Documentation
 
