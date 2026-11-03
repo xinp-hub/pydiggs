@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import pickle
 import shutil
@@ -13,6 +14,7 @@ import pytest
 from lxml import etree
 
 from pydiggs import _xml, validate
+from pydiggs._pool import JobFailedError, JobTimeoutError, WorkerCrashedError
 from pydiggs.dictionary import DictionarySemanticValidator
 from pydiggs.findings import _cli, run
 from pydiggs.findings._schematron import FiredPattern, RuleContexts, fired_patterns
@@ -172,60 +174,40 @@ def test_timeout_must_be_finite_and_at_most_a_day(work, value):
         _cli.main(["--timeout", value, "ok.xml"])
 
 
-class _Conn:
+class _Pool:
+    """Stands in for the worker pool: returns the given bytes or raises the given error."""
+
     def __init__(self, answer):
         self.answer = answer
 
-    def poll(self, timeout):
-        return True
-
-    def recv(self):
+    def run(self, function, *args, timeout):
         if isinstance(self.answer, BaseException):
             raise self.answer
         return self.answer
 
-    def close(self):
-        pass
 
-
-class _Process:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def start(self):
-        pass
-
-    def is_alive(self):
-        return False
-
-    def join(self, timeout=None):
-        pass
-
-
-class _Context:
-    def __init__(self, answer):
-        self.answer = answer
-
-    def Pipe(self, duplex):  # noqa: N802 - multiprocessing's name
-        return _Conn(self.answer), _Conn(None)
-
-    def Process(self, *args, **kwargs):  # noqa: N802 - multiprocessing's name
-        return _Process()
+def _reply(**body):
+    return json.dumps(body).encode("utf-8")
 
 
 @pytest.mark.parametrize(
     ("answer", "rule", "text"),
     [
-        (EOFError(), "structure.timeout", "stopped unexpectedly"),
-        (OSError("reset"), "structure.timeout", "stopped unexpectedly"),
-        (pickle.UnpicklingError("bad"), "structure.timeout", "stopped unexpectedly"),
-        (("crash", "MemoryError: "), "structure.internal-error", "MemoryError"),
+        (WorkerCrashedError("died"), "structure.timeout", "stopped unexpectedly"),
+        (
+            JobFailedError("job", "MemoryError", "", None),
+            "structure.timeout",
+            "stopped unexpectedly",
+        ),
+        (b"\x80\x04not json", "structure.timeout", "stopped unexpectedly"),
+        (_reply(kind="report", report={"path": 1}), "structure.timeout", "stopped unexpectedly"),
+        (JobTimeoutError("late"), "structure.timeout", "did not finish within 5 s (--timeout)"),
+        (_reply(kind="crash", text="MemoryError: "), "structure.internal-error", "MemoryError"),
     ],
 )
-def test_a_worker_that_dies_fails_closed(work, monkeypatch, answer, rule, text):
-    monkeypatch.setattr(_cli.multiprocessing, "get_context", lambda method: _Context(answer))
+def test_a_worker_that_dies_fails_closed(work, answer, rule, text):
     kwargs = {"checks": ["schema", "dictionary"], "max_bytes": 10**8, "base_dir": None}
-    report = _cli._validate_isolated(work / "ok.xml", kwargs, 5.0)
+    report = _cli._validate_isolated(work / "ok.xml", kwargs, 5.0, _Pool(answer))
     (finding,) = report.findings
     assert (finding.rule_id, finding.severity.value) == (rule, "error")
     assert text in finding.message
@@ -239,13 +221,21 @@ def test_a_worker_that_dies_fails_closed(work, monkeypatch, answer, rule, text):
     }
 
 
-def test_worker_errors_still_propagate(work, monkeypatch):
-    error = _cli.InstanceReadError(2, "gone", "ok.xml")
-    monkeypatch.setattr(
-        _cli.multiprocessing, "get_context", lambda method: _Context(("error", error))
+def test_worker_errors_still_propagate(work):
+    gone = _reply(kind="unreadable", errno=2, strerror="gone", filename="ok.xml", text="x")
+    with pytest.raises(_cli.InstanceReadError) as caught:
+        _cli._validate_isolated(work / "ok.xml", {"max_bytes": 10**8}, 5.0, _Pool(gone))
+    assert (caught.value.errno, caught.value.strerror, caught.value.filename) == (
+        2,
+        "gone",
+        "ok.xml",
     )
-    with pytest.raises(_cli.InstanceReadError):
-        _cli._validate_isolated(work / "ok.xml", {"max_bytes": 10**8}, 5.0)
+    bare = _reply(kind="unreadable", errno=None, strerror=None, filename=None, text="odd")
+    with pytest.raises(_cli.InstanceReadError, match="odd"):
+        _cli._validate_isolated(work / "ok.xml", {"max_bytes": 10**8}, 5.0, _Pool(bare))
+    broken = _reply(kind="resource-error", text="schema is broken")
+    with pytest.raises(_cli.ResourceError, match="schema is broken"):
+        _cli._validate_isolated(work / "ok.xml", {"max_bytes": 10**8}, 5.0, _Pool(broken))
 
 
 @pytest.mark.timeout(30)
@@ -674,24 +664,14 @@ def test_reports_pickle_with_every_field():
 
 
 def test_the_real_worker_reports_a_crash(work, monkeypatch):
-    sent = []
-
-    class Conn:
-        def send(self, value):
-            sent.append(value)
-
-        def close(self):
-            pass
-
     def boom(path, **kwargs):
         raise RuntimeError(f"boom in {Path(path).resolve()}")
 
     monkeypatch.setattr(_cli, "validate", boom)
-    _cli._worker(Conn(), str(work / "ok.xml"), {})
-    ((kind, text),) = sent
-    assert kind == "crash" and text.startswith("RuntimeError: boom in ")
-    monkeypatch.setattr(_cli.multiprocessing, "get_context", lambda method: _Context(sent[0]))
-    report = _cli._validate_isolated(work / "ok.xml", {"max_bytes": 10**8}, 5.0)
+    raw = _cli._isolated_job(str(work / "ok.xml"), {})
+    reply = json.loads(raw)
+    assert reply["kind"] == "crash" and reply["text"].startswith("RuntimeError: boom in ")
+    report = _cli._validate_isolated(work / "ok.xml", {"max_bytes": 10**8}, 5.0, _Pool(raw))
     (finding,) = report.findings
     assert finding.rule_id == "structure.internal-error"
     assert str(work) not in finding.message  # scrubbed to the shown path
