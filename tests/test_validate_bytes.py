@@ -294,9 +294,14 @@ def test_local_dictionaries_are_never_read_even_from_the_working_directory(tmp_p
 # --- time budget ---------------------------------------------------------------------
 
 
+def _ticks(*values: float):
+    clock = iter(values)
+    return lambda: next(clock, values[-1])
+
+
 def test_an_exhausted_budget_fails_closed_in_the_cli_timeout_shape(monkeypatch):
     clock = iter([0.0, 0.0, 100.0])  # start, before schema, before dictionary
-    monkeypatch.setattr(run.time, "monotonic", lambda: next(clock, 100.0))
+    monkeypatch.setattr(run, "_now", lambda: next(clock, 100.0))
     report = validate_bytes(SCHEMA_ERROR.read_bytes(), time_budget=30)
     assert report.steps[Step.SCHEMA] == "failed"  # ran before the budget ran out
     unfinished = [s for s in NATIVE_STEPS if s is not Step.SCHEMA]
@@ -313,7 +318,7 @@ def test_an_exhausted_budget_fails_closed_in_the_cli_timeout_shape(monkeypatch):
 
 
 def test_the_budget_report_has_the_cli_timeout_shape_for_unrequested_steps(monkeypatch):
-    monkeypatch.setattr(run.time, "monotonic", iter([0.0, 5.0]).__next__)
+    monkeypatch.setattr(run, "_now", _ticks(0.0, 5.0))
     report = validate_bytes(NO_ERROR.read_bytes(), checks=["schema"], time_budget=1)
     assert report.steps == {
         s: "incomplete" if s is Step.SCHEMA else "skipped" for s in NATIVE_STEPS
@@ -323,7 +328,7 @@ def test_the_budget_report_has_the_cli_timeout_shape_for_unrequested_steps(monke
 
 def test_the_timeout_finding_survives_a_full_report(monkeypatch):
     clock = iter([0.0, 0.0, 100.0])
-    monkeypatch.setattr(run.time, "monotonic", lambda: next(clock, 100.0))
+    monkeypatch.setattr(run, "_now", lambda: next(clock, 100.0))
     report = validate_bytes(SCHEMA_ERROR.read_bytes(), time_budget=1, max_findings=1)
     ids = [f.rule_id for f in report.findings]
     assert rules.TIMEOUT in ids
@@ -331,7 +336,7 @@ def test_the_timeout_finding_survives_a_full_report(monkeypatch):
 
 
 def test_validate_takes_the_same_budget(monkeypatch):
-    monkeypatch.setattr(run.time, "monotonic", iter([0.0, 5.0]).__next__)
+    monkeypatch.setattr(run, "_now", _ticks(0.0, 5.0))
     report = validate(NO_ERROR, checks=["schema", "dictionary"], time_budget=1)
     assert [f.rule_id for f in report.findings] == [rules.TIMEOUT]
 

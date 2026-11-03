@@ -977,6 +977,11 @@ class _Cancelled(Exception):  # noqa: N818  # a signal, not an error condition
     """
 
 
+#: The clock time budgets are measured with (a module name, so tests can replace it
+#: without touching :func:`time.monotonic` for every other thread).
+_now = time.monotonic
+
+
 class _Clock:
     """The cooperative time budget and the cancellation hook, checked between steps."""
 
@@ -988,14 +993,14 @@ class _Clock:
         if budget is not None and budget == float("inf"):
             budget = None  # an infinite budget is no budget
         self.budget = budget
-        self.deadline = None if budget is None else time.monotonic() + budget
+        self.deadline = None if budget is None else _now() + budget
         self.should_stop = should_stop
 
     def expired(self) -> bool:
         """True once the budget is spent; raises :class:`_Cancelled` when asked to stop."""
         if self.should_stop is not None and self.should_stop():
             raise _Cancelled
-        return self.deadline is not None and time.monotonic() >= self.deadline
+        return self.deadline is not None and _now() >= self.deadline
 
 
 def _gate_element_count(
