@@ -81,7 +81,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: >-
           gh api --paginate "repos/$GH_REPO/pulls/$PR/commits"
-          --jq '[.[] | {author: (.author.login // ""), committer: (.committer.login // "")}]'
+          --jq '[.[] | {sha: .sha[0:7], author: (.author.login // ""), committer: (.committer.login // ""), verified: (.commit.verification.verified // false)}]'
           | jq -s 'add' > "$RUNNER_TEMP/commits.json"
       # Commit logins come from commit emails, which anyone can set. The activity log
       # records who GitHub authenticated for every push, force-push and branch creation.
