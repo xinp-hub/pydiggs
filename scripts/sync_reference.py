@@ -122,6 +122,9 @@ PACKAGE_LOCAL = {
         "reviewed here rather than synced (DIGGSml/def docs/validation/whiteList.xml is "
         "the upstream starting point)."
     ),
+    "server/openapi.json": (
+        "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
+    ),
     "schematron/diggs_schematron_rules_2.6.sch": (
         "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); "
         "see the file header for the changes."

@@ -1015,3 +1015,8 @@ sha256 = "d7e918871bd16cb816dc64918f3047f4fdbc53926ac9604ee1ebe00627d57df6"
 source = "local"
 note = "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); see the file header for the changes."
 sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
+
+[files."server/openapi.json"]
+source = "local"
+note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
+sha256 = "66ef70803ea4fb6465008eb647cd30762bee93f11b8b5ccad01859c2f5f5b5be"

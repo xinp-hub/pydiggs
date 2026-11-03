@@ -1,0 +1,720 @@
+"""The router, its admission and body limits, and the app factory.
+
+Every limit that protects the server is enforced *inside the routes*, so it holds
+when a host app mounts only :func:`create_router`: cross-site refusal, content
+negotiation, the media-type and ``Content-Encoding`` checks, ``Content-Length``,
+a non-blocking admission slot taken before the body is read, a streamed body read
+with a running byte count, and bounded multipart parsing. :func:`create_app` adds
+the app-level layers on top: a ``Host`` check, CORS for listed
+origins only, problem responses for unknown paths, and ``/livez`` and ``/readyz``.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import dataclasses
+import functools
+import json
+import logging
+import math
+import threading
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Sequence
+from typing import TYPE_CHECKING, Any, Final, Literal
+from urllib.parse import urlsplit
+
+import anyio
+import anyio.to_thread
+from anyio.lowlevel import RunVar
+from fastapi import APIRouter, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import Headers, UploadFile
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.formparsers import MultiPartException, MultiPartParser
+from starlette.requests import ClientDisconnect, Request
+from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+from pydiggs import _service
+from pydiggs._service import Outcome
+from pydiggs._service import Request as ValidationRequest
+from pydiggs.server import _schemas
+from pydiggs.server._problems import (
+    SECURITY_HEADERS,
+    from_outcome,
+    http_exception_handler,
+    internal_error,
+    problem,
+    unhandled_exception_handler,
+)
+from pydiggs.server._settings import LOOPBACK_HOSTS, ServerSettings
+
+if TYPE_CHECKING:
+    from pydiggs._pool import WorkerPool
+
+__all__ = ["create_app", "create_router", "openapi_text"]
+
+#: Multipart limits: one file, a few short fields.
+MAX_FILES: Final = 1
+MAX_FIELDS: Final = 8
+MAX_PART_SIZE: Final = 64 * 2**10
+#: Multipart framing and fields allowed on top of ``max_body_bytes``.
+MULTIPART_SLACK: Final = MAX_FIELDS * MAX_PART_SIZE + 64 * 2**10
+#: Most ``Accept`` items considered (the rest are ignored).
+_MAX_ACCEPT_ITEMS: Final = 32
+_RETRY_AFTER: Final = {"Retry-After": "1"}
+_FORM_FIELDS: Final = frozenset({"name", "checks", "diggs_version"})
+
+Format = Literal["findings", "sarif"]
+_MEDIA: Final[dict[Format, str]] = {
+    "findings": _schemas.FINDINGS_MEDIA_TYPE,
+    "sarif": _schemas.SARIF_MEDIA_TYPE,
+}
+
+_log = logging.getLogger("pydiggs.server")
+
+
+class _TooLargeError(Exception):
+    """The body passed its limit while it was being read."""
+
+
+# --- request inspection ------------------------------------------------------------------
+
+
+_CANDIDATES: Final[tuple[tuple[Format, str], ...]] = (
+    ("findings", _schemas.FINDINGS_MEDIA_TYPE),
+    ("sarif", _schemas.SARIF_MEDIA_TYPE),
+)
+_SPECIFICITY: Final = {" exact": 2, "application/*": 1, "*/*": 0}
+
+
+def _quality(params: str) -> float:
+    """The ``q`` of one ``Accept`` item: 1 when absent, 0 when malformed, clamped to 0..1."""
+    for param in params.split(";"):
+        key, _, value = param.partition("=")
+        if key.strip().lower() == "q":
+            try:
+                quality = float(value.strip())
+            except ValueError:
+                return 0.0
+            return min(1.0, max(0.0, quality)) if math.isfinite(quality) else 0.0
+    return 1.0
+
+
+def negotiate(accept: str | None) -> Format | None:
+    """Choose ``findings`` (``application/json``) or ``sarif`` from an ``Accept`` header.
+
+    The most specific matching range sets each candidate's quality; the higher quality
+    wins, then the more specific match, then ``findings``. None means neither is
+    acceptable (406).
+
+    Example:
+        >>> negotiate(None), negotiate("application/sarif+json"), negotiate("*/*")
+        ('findings', 'sarif', 'findings')
+        >>> negotiate("application/xml") is None
+        True
+    """
+    if accept is None or not accept.strip():
+        return "findings"
+    best: dict[Format, tuple[int, float]] = {"findings": (-1, 0.0), "sarif": (-1, 0.0)}
+    for item in accept.split(",")[:_MAX_ACCEPT_ITEMS]:
+        media, _, params = item.partition(";")
+        media = media.strip().lower()
+        quality = _quality(params)
+        for fmt, exact in _CANDIDATES:
+            specificity = _SPECIFICITY.get(media if media != exact else " exact", -1)
+            if specificity > best[fmt][0]:
+                best[fmt] = (specificity, quality)
+    (spec_f, q_f), (spec_s, q_s) = best["findings"], best["sarif"]
+    if q_f <= 0 and q_s <= 0:
+        return None
+    if q_s > q_f or (q_s == q_f and spec_s > spec_f):
+        return "sarif"
+    return "findings"
+
+
+def _media_type(request: Request) -> str:
+    return request.headers.get("content-type", "").partition(";")[0].strip().lower()
+
+
+def _content_length(request: Request) -> int | None:
+    raw = request.headers.get("content-length")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
+def is_cross_site(headers: Headers, settings: ServerSettings) -> bool:
+    """True when the request must be refused as cross-site.
+
+    A listed ``cors_origins`` origin is always allowed. Otherwise a request is
+    cross-site when ``Sec-Fetch-Site`` says so, or when it carries an ``Origin`` that
+    is not the server's own (its host differs from ``Host``; ``null`` never matches).
+
+    Example:
+        >>> from starlette.datastructures import Headers
+        >>> s = ServerSettings()
+        >>> is_cross_site(Headers({"origin": "https://evil.example", "host": "a"}), s)
+        True
+        >>> is_cross_site(Headers({"origin": "http://a:8000", "host": "a:8000"}), s)
+        False
+    """
+    if not settings.reject_cross_site:
+        return False
+    origin = headers.get("origin")
+    if origin is not None and origin in settings.cors_origins:
+        return False
+    if headers.get("sec-fetch-site", "").strip().lower() == "cross-site":
+        return True
+    if origin is None:
+        return False
+    host = headers.get("host", "").strip().lower()
+    try:
+        netloc = urlsplit(origin.strip()).netloc.lower()
+    except ValueError:
+        return True
+    return not host or netloc != host
+
+
+# --- body reading ------------------------------------------------------------------------
+
+
+async def _counted(request: Request, limit: int) -> AsyncGenerator[bytes, None]:
+    """``request.stream()`` with a running byte count; past ``limit`` it stops reading."""
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > limit:
+            raise _TooLargeError
+        yield chunk
+
+
+async def _read_raw(request: Request, limit: int) -> bytes:
+    chunks = [chunk async for chunk in _counted(request, limit)]
+    return b"".join(chunks)
+
+
+@dataclasses.dataclass(slots=True)
+class _Upload:
+    content: bytes
+    filename: str | None
+    fields: dict[str, list[str]]
+
+
+async def _read_multipart(request: Request, limit: int, file_limit: int) -> _Upload | Response:
+    """Parse one ``file`` part and up to :data:`MAX_FIELDS` short fields.
+
+    The whole body counts against ``limit`` while it streams; the file part against
+    ``file_limit``. Spooled parts are closed (and so deleted) before returning.
+    """
+    parser = MultiPartParser(
+        request.headers,
+        _counted(request, limit),
+        max_files=MAX_FILES,
+        max_fields=MAX_FIELDS,
+        max_part_size=MAX_PART_SIZE,
+    )
+    try:
+        form = await parser.parse()
+    except MultiPartException:
+        return problem("invalid-multipart", "The multipart body could not be parsed.")
+    try:
+        upload = form.get("file")
+        if not isinstance(upload, UploadFile):
+            return problem("missing-input", "Send the document in a multipart part named 'file'.")
+        content = await upload.read(file_limit + 1)
+        if len(content) > file_limit:
+            return _too_large()
+        fields: dict[str, list[str]] = {}
+        for key, value in form.multi_items():
+            if key == "file":
+                continue
+            if key not in _FORM_FIELDS or not isinstance(value, str):
+                return problem(
+                    "invalid-multipart",
+                    "Only the fields file, name, checks and diggs_version are accepted.",
+                )
+            fields.setdefault(key, []).append(value)
+        return _Upload(content=content, filename=upload.filename, fields=fields)
+    finally:
+        await form.close()
+
+
+def _too_large() -> Response:
+    return problem(
+        "input-too-large",
+        "The body is larger than this server accepts.",
+        headers={"Connection": "close"},
+    )
+
+
+def _checks(values: Sequence[str]) -> list[str] | None:
+    """``checks`` given as repeated and/or comma-separated values, each step once.
+
+    None when absent; an empty list (refused as ``invalid-parameter``) when given empty.
+    """
+    if not values:
+        return None
+    parts = (part.strip() for value in values for part in value.split(","))
+    return list(dict.fromkeys(p for p in parts if p))
+
+
+def _precheck(request: Request, settings: ServerSettings) -> tuple[Format, bool] | Response:
+    """Checks that need only the headers: Accept, media type, encoding, Content-Length.
+
+    Returns the chosen format and whether the body is multipart, or the refusal.
+    """
+    fmt = negotiate(request.headers.get("accept"))
+    if fmt is None:
+        return problem(
+            "not-acceptable",
+            "Accept application/json (diggs-findings) or application/sarif+json.",
+        )
+    media = _media_type(request)
+    multipart = media == "multipart/form-data"
+    if not multipart and media not in _schemas.XML_MEDIA_TYPES:
+        return problem(
+            "unsupported-media-type", "Send application/xml, text/xml or multipart/form-data."
+        )
+    encoding = request.headers.get("content-encoding", "").strip().lower()
+    if encoding not in ("", "identity"):
+        return problem("compressed-input", "Compressed request bodies are not accepted.")
+    length = _content_length(request)
+    if length is not None and length > _body_limit(settings, multipart=multipart):
+        return _too_large()
+    return fmt, multipart
+
+
+def _body_limit(settings: ServerSettings, *, multipart: bool) -> int:
+    return settings.max_body_bytes + (MULTIPART_SLACK if multipart else 0)
+
+
+def _parameters(
+    content: bytes, params: dict[str, list[str]], filename: str | None, fmt: Format
+) -> ValidationRequest:
+    names, versions = params.get("name", []), params.get("diggs_version", [])
+    return ValidationRequest(
+        content=content,
+        name=names[-1] if names else filename,
+        checks=_checks(params.get("checks", [])),
+        diggs_version=versions[-1] if versions else None,
+        format=fmt,
+    )
+
+
+async def _read_input(
+    request: Request, settings: ServerSettings, *, fmt: Format, multipart: bool
+) -> ValidationRequest | Response:
+    """Read the body (streamed, counted) and the parameters into a validation request.
+
+    A multipart request may give each parameter in the query or in the form; the
+    form wins, but both must be valid (``invalid-parameter``). The ``name`` parameter
+    wins over the part's file name. Repeated values: the last ``name`` and
+    ``diggs_version`` count; ``checks`` values are joined.
+    """
+    params = {key: request.query_params.getlist(key) for key in _FORM_FIELDS}
+    filename: str | None = None
+    limit = _body_limit(settings, multipart=multipart)
+    try:
+        if multipart:
+            upload = await _read_multipart(request, limit, settings.max_body_bytes)
+            if isinstance(upload, Response):
+                return upload
+            content, filename = upload.content, upload.filename
+            overridden = {k: v for k, v in params.items() if k in upload.fields and v}
+            if overridden:
+                errors = _service._parameter_errors(_parameters(b"", overridden, None, fmt))
+                if errors:
+                    return problem("invalid-parameter", "invalid parameters", errors=errors)
+            params.update(upload.fields)
+        else:
+            content = await _read_raw(request, limit)
+    except _TooLargeError:
+        return _too_large()
+    return dataclasses.replace(
+        _parameters(content, params, filename, fmt),
+        max_bytes=settings.max_body_bytes,
+        max_findings=settings.max_findings,
+    )
+
+
+# --- per-router state --------------------------------------------------------------------
+
+
+class _Admission:
+    """A non-blocking counter of requests in flight (running plus queued)."""
+
+    def __init__(self, slots: int) -> None:
+        self.slots = slots
+        self._used = 0
+        self._lock = threading.Lock()
+
+    def try_enter(self) -> bool:
+        with self._lock:
+            if self._used >= self.slots:
+                return False
+            self._used += 1
+            return True
+
+    def leave(self) -> None:
+        with self._lock:
+            self._used -= 1
+
+
+class _State:
+    """What one router owns: settings, admission, the run limiter and the pool."""
+
+    def __init__(self, settings: ServerSettings, isolation: Literal["process", "thread"]) -> None:
+        self.settings = settings
+        self.isolation = isolation
+        self.admission = _Admission(settings.admission_slots)
+        self._limiter: RunVar[anyio.CapacityLimiter] = RunVar("pydiggs_server_limiter")
+        self._pool: WorkerPool | None = None
+        self._pool_lock = threading.Lock()
+
+    def limiter(self) -> anyio.CapacityLimiter:
+        """The per-event-loop limiter: at most ``workers`` validations run at once."""
+        try:
+            return self._limiter.get()
+        except LookupError:
+            limiter = anyio.CapacityLimiter(self.settings.workers)
+            self._limiter.set(limiter)
+            return limiter
+
+    def pool(self) -> WorkerPool:
+        """The worker pool, created on first use (its workers start lazily)."""
+        with self._pool_lock:
+            if self._pool is None:
+                self._pool = _service.make_pool(
+                    self.settings.workers,
+                    timeout=self.settings.timeout_s,
+                    memory_mb=self.settings.worker_memory_mb,
+                )
+            return self._pool
+
+    async def start(self) -> None:
+        """Start (and so begin warming) every worker; a no-op for thread isolation."""
+        if self.isolation == "process":
+            await anyio.to_thread.run_sync(self.pool().start)
+
+    async def close(self) -> None:
+        """Stop the workers; a later request starts a new pool."""
+        with self._pool_lock:
+            pool, self._pool = self._pool, None
+        if pool is not None:
+            await anyio.to_thread.run_sync(pool.close)
+
+    async def ready(self) -> bool:
+        if self.isolation == "thread":
+            return True
+        await self.start()  # idempotent; a lazily created pool begins warming here
+        return self.pool().ready()
+
+    async def run(self, request: ValidationRequest) -> Outcome:
+        if self.isolation == "process":
+            pool = self.pool()
+            job = functools.partial(
+                _service.validate_in_pool, pool, request, timeout=self.settings.timeout_s
+            )
+            return await anyio.to_thread.run_sync(job, limiter=self.limiter())
+        return await anyio.to_thread.run_sync(_service.validate, request, limiter=self.limiter())
+
+
+# --- routes ------------------------------------------------------------------------------
+
+_Endpoint = Callable[[Request], Awaitable[Response]]
+
+
+def _guarded(state: _State, endpoint: _Endpoint) -> _Endpoint:
+    """Refuse cross-site requests and turn any escaping exception into a 500 problem."""
+
+    @functools.wraps(endpoint)
+    async def wrapper(request: Request) -> Response:
+        if is_cross_site(request.headers, state.settings):
+            return problem("cross-site", "Cross-site requests are not accepted.")
+        try:
+            response = await endpoint(request)
+        except ClientDisconnect:
+            return problem("missing-input", "The request body was not received completely.")
+        except Exception as exc:  # fail closed: no traceback or path reaches the client
+            return internal_error(exc)
+        response.headers.update(SECURITY_HEADERS)
+        return response
+
+    return wrapper
+
+
+def _json(body: Any, status: int = 200) -> Response:
+    return Response(
+        json.dumps(body, ensure_ascii=False, allow_nan=False).encode("utf-8"),
+        status_code=status,
+        media_type=_schemas.FINDINGS_MEDIA_TYPE,
+    )
+
+
+def _build_router(state: _State) -> APIRouter:
+    settings = state.settings
+
+    @contextlib.asynccontextmanager
+    async def lifespan(_app: Any) -> AsyncIterator[None]:
+        await state.start()
+        try:
+            yield
+        finally:
+            await state.close()
+
+    router = APIRouter(prefix="/v1", lifespan=lifespan, tags=["pydiggs"])
+
+    async def validate(request: Request) -> Response:
+        checked = _precheck(request, settings)
+        if isinstance(checked, Response):
+            return checked
+        fmt, multipart = checked
+        if not state.admission.try_enter():
+            return problem(
+                "busy",
+                "Too many requests are in progress; try again shortly.",
+                headers={**_RETRY_AFTER, "Connection": "close"},
+            )
+        try:
+            job = await _read_input(request, settings, fmt=fmt, multipart=multipart)
+            if isinstance(job, Response):
+                return job
+            if state.isolation == "thread":
+                job = dataclasses.replace(job, time_budget=settings.timeout_s)
+            outcome = await state.run(job)
+        finally:
+            state.admission.leave()
+        if not outcome.ok or outcome.document is None:
+            return from_outcome(outcome)
+        return Response(outcome.document, media_type=_MEDIA[fmt], headers={"Vary": "Accept"})
+
+    async def versions(request: Request) -> Response:
+        del request
+        return _json({"api_version": "1", **_service.versions()})
+
+    async def rules(request: Request) -> Response:
+        answer = _service.rules(request.query_params.get("step"))
+        if isinstance(answer, Outcome):
+            return from_outcome(answer)
+        return _json(answer)
+
+    async def rule(request: Request) -> Response:
+        answer = _service.explain(str(request.path_params["rule_id"]))
+        if isinstance(answer, Outcome):
+            return from_outcome(answer)
+        return _json(answer)
+
+    async def readyz(request: Request) -> Response:
+        del request
+        return await _readiness(state)
+
+    router.add_api_route(
+        "/validate",
+        _guarded(state, validate),
+        methods=["POST"],
+        summary="Validate one DIGGS document",
+        operation_id="validate",
+        responses=_schemas.validate_responses(),
+        openapi_extra={
+            "parameters": _schemas.validate_parameters(),
+            "requestBody": _schemas.validate_request_body(),
+        },
+    )
+    if settings.versions_enabled:
+        router.add_api_route(
+            "/versions",
+            _guarded(state, versions),
+            methods=["GET"],
+            summary="Versions of pydiggs, the findings schema and the bundled data",
+            operation_id="versions",
+            responses=_schemas.versions_responses(),
+        )
+    router.add_api_route(
+        "/rules",
+        _guarded(state, rules),
+        methods=["GET"],
+        summary="The rule catalogue",
+        operation_id="listRules",
+        responses=_schemas.rules_responses(),
+        openapi_extra={"parameters": _schemas.rules_parameters()},
+    )
+    router.add_api_route(
+        "/rules/{rule_id}",
+        _guarded(state, rule),
+        methods=["GET"],
+        summary="Explain one rule id",
+        operation_id="explainRule",
+        responses=_schemas.rule_responses(),
+        openapi_extra={"parameters": _schemas.rule_id_parameter()},
+    )
+    router.add_api_route(
+        "/readyz",
+        _guarded(state, readyz),
+        methods=["GET"],
+        summary="Readiness: 200 once the workers are warm",
+        operation_id="readyzV1",
+        responses=_schemas.readyz_responses(),
+    )
+    return router
+
+
+async def _readiness(state: _State) -> Response:
+    if await state.ready():
+        return _json({"status": "ready"})
+    return problem("not-ready", "The validation workers are still starting.", headers=_RETRY_AFTER)
+
+
+def create_router(settings: ServerSettings | None = None) -> APIRouter:
+    """An :class:`~fastapi.APIRouter` (prefix ``/v1``) to mount in your own FastAPI app.
+
+    The routes enforce every limit themselves (body size, admission, multipart,
+    cross-site refusal), so they hold without :func:`create_app`'s middleware; they do
+    not check ``Host`` or add CORS headers: that is the host app's job. ``isolation``
+    None means ``"thread"`` here: no hard timeout, unsafe for untrusted input; pass
+    ``ServerSettings(isolation="process")`` for worker processes. The router's
+    lifespan starts and stops the pool when the host app runs lifespans; otherwise
+    the pool starts on the first request or ``/v1/readyz`` probe.
+
+    Args:
+        settings: Limits and switches; default ``ServerSettings()``.
+
+    Returns:
+        The router: ``POST /v1/validate``, ``GET /v1/versions`` (if enabled),
+        ``GET /v1/rules``, ``GET /v1/rules/{rule_id}`` and ``GET /v1/readyz``.
+
+    Example:
+        >>> from fastapi import FastAPI
+        >>> from pydiggs.server import ServerSettings, create_router
+        >>> app = FastAPI()
+        >>> app.include_router(create_router(ServerSettings(workers=1)))
+        >>> sorted(app.openapi()["paths"])[:2]
+        ['/v1/readyz', '/v1/rules']
+    """
+    settings = settings if settings is not None else ServerSettings()
+    return _build_router(_State(settings, settings.isolation or "thread"))
+
+
+class _HostCheck:
+    """Refuse a ``Host`` header that is not listed (DNS rebinding), as a problem."""
+
+    def __init__(self, app: ASGIApp, allowed_hosts: Sequence[str]) -> None:
+        self.app = app
+        self.allowed = frozenset(h.lower() for h in allowed_hosts)
+
+    @staticmethod
+    def host_name(header: str) -> str:
+        """``Host`` without its port; IPv6 literals keep their brackets."""
+        header = header.strip().lower()
+        if header.startswith("["):
+            end = header.find("]")
+            return header[: end + 1] if end != -1 else ""
+        return header.partition(":")[0]
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] in ("http", "websocket"):
+            host = Headers(scope=scope).get("host")
+            if host is None or self.host_name(host) not in self.allowed:
+                response = problem("invalid-host", "The Host header is not one this server serves.")
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
+def create_app(settings: ServerSettings | None = None) -> FastAPI:
+    """The complete HTTP API: :func:`create_router` plus app-level protection.
+
+    ``isolation`` None means ``"process"`` (spawned workers, hard timeout). The app
+    adds a ``Host`` check against ``allowed_hosts`` (the loopback names when unset),
+    CORS for the listed ``cors_origins`` only, problem responses
+    for unknown paths and methods, and the root probes ``GET /livez`` (200 while
+    serving) and ``GET /readyz``. ``/docs``, ``/redoc`` and ``/openapi.json`` are
+    served only when ``docs_enabled``.
+
+    Args:
+        settings: Limits and switches; default ``ServerSettings()``.
+
+    Returns:
+        A FastAPI application; run it with ``pydiggs serve --http`` or any ASGI server.
+
+    Example:
+        >>> from pydiggs.server import ServerSettings, create_app
+        >>> app = create_app(ServerSettings(workers=1))
+        >>> app.docs_url is None, "/livez" in app.openapi()["paths"]
+        (True, True)
+    """
+    settings = settings if settings is not None else ServerSettings()
+    isolation = settings.isolation or "process"
+    if isolation == "thread":
+        _log.warning(
+            "isolation='thread' has no hard timeout and is unsafe for untrusted input;"
+            " use isolation='process'"
+        )
+    state = _State(dataclasses.replace(settings, isolation=isolation), isolation)
+    docs = settings.docs_enabled
+    app = FastAPI(
+        title="pydiggs HTTP API",
+        version="1",
+        summary="Validate DIGGS documents (XSD, dictionaries, Schematron).",
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
+        exception_handlers={
+            StarletteHTTPException: http_exception_handler,
+            Exception: unhandled_exception_handler,
+        },
+    )
+    app.include_router(_build_router(state))
+
+    async def livez(request: Request) -> Response:
+        del request
+        return _json({"status": "ready"})
+
+    async def readyz(request: Request) -> Response:
+        del request
+        return await _readiness(state)
+
+    app.add_api_route(
+        "/livez",
+        livez,
+        methods=["GET"],
+        summary="Liveness: 200 while the server runs",
+        operation_id="livez",
+        responses={200: _schemas.readyz_responses()[200]},
+    )
+    app.add_api_route(
+        "/readyz",
+        readyz,
+        methods=["GET"],
+        summary="Readiness: 200 once the workers are warm",
+        operation_id="readyz",
+        responses={k: v for k, v in _schemas.readyz_responses().items() if k != 403},  # noqa: PLR2004
+    )
+    if settings.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=list(settings.cors_origins),
+            allow_methods=["GET", "POST"],
+            allow_headers=["Accept", "Content-Type"],
+            max_age=600,
+        )
+    hosts = settings.allowed_hosts if settings.allowed_hosts is not None else LOOPBACK_HOSTS
+    app.add_middleware(_HostCheck, allowed_hosts=hosts)
+    app.openapi_schema = _schemas.lift_components(app.openapi())
+    return app
+
+
+def openapi_text() -> str:
+    """The OpenAPI document of :func:`create_app` with default settings, as committed.
+
+    ``src/pydiggs/server/openapi.json`` holds this text; a test fails when they drift.
+
+    Example:
+        >>> import json
+        >>> json.loads(openapi_text())["openapi"].startswith("3.1")
+        True
+    """
+    document = create_app(ServerSettings(workers=1, isolation="process")).openapi()
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"

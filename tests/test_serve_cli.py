@@ -224,8 +224,9 @@ def test_any_other_import_error_propagates(monkeypatch, target, package, mode):
     ("argv", "text"),
     [
         (["--stdio"], "--stdio: not implemented"),
-        (["--http"], "--http: not implemented"),
         (["--mcp"], "--mcp: not implemented"),
+        # The real server refuses a public bind without allowed hosts, before binding.
+        (["--http", "--host", ANY_ADDRESS], "PYDIGGS_ALLOWED_HOSTS"),
     ],
 )
 def test_the_stubs_report_and_exit_2(capsys, argv, text):
@@ -407,7 +408,7 @@ def test_the_stub_entry_points_have_the_frozen_signatures():
     )
     assert serve_stdio(ServeOptions()) == 2
     assert serve_mcp(ServeOptions()) == 2
-    assert serve_http(ServerSettings(), "127.0.0.1", 8000) == 2
+    assert serve_http(ServerSettings(), ANY_ADDRESS, 8000) == 2  # no allowed hosts: refused
 
 
 def test_the_core_sidecar_imports_no_extra_and_no_multiprocessing():
