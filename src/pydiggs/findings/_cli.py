@@ -25,7 +25,7 @@ import pydiggs
 from pydiggs import _xml
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.errors import InstanceReadError, ResourceError
-from pydiggs.findings import _json, _sarif, rules
+from pydiggs.findings import _json, _sarif, export, rules
 from pydiggs.findings.model import Finding, Report, Severity, Step, UnreadableFile
 from pydiggs.findings.run import (
     DEFAULT_MAX_BYTES,
@@ -425,11 +425,7 @@ def _render(
         entries += [
             _json.unreadable_entry(u, absolute_paths=args.absolute_paths) for u in unreadable
         ]
-        entries.sort(key=lambda e: str(e["path"]))
-        doc = _json.document(
-            entries, tool_version=pydiggs.__version__, reference_data=reference_data()
-        )
-        return _json.dumps(doc) + "\n"
+        return _json.dumps(export._document(entries)) + "\n"
     log = _sarif.sarif_log(
         reports, unreadable, tool_version=pydiggs.__version__, absolute_paths=args.absolute_paths
     )
