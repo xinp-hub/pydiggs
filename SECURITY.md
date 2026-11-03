@@ -26,10 +26,14 @@ first. Credit is given unless you prefer otherwise.
   `allow_network=False`), exhaust memory or crash a check is in scope.
 - **Requests to `pydiggs serve` are untrusted.** The HTTP API and the stdio sidecar
   use only the bundled schemas, dictionaries and Schematron rules. Network access,
-  snippets and local dictionaries are always off, and request size, time and
-  concurrency are bounded. A sidecar reads a file by path only inside folders the host
-  granted with `--allow-path`. A report that a request can escape these limits is in
-  scope.
+  snippets and local dictionaries are always off. Request bodies are bounded in size,
+  validation in time, and admitted requests in number; the HTTP server also bounds how
+  long a body may take to arrive. uvicorn has no timeout for reading request headers, so
+  a client that sends partial headers can hold connections until `limit_concurrency` is
+  reached: a non-loopback deployment must sit behind a reverse proxy with client header
+  and body timeouts. A sidecar reads a file by path only inside folders the host granted
+  with `--allow-path` (hard links into such a folder are not contained). A report that a
+  request can escape these limits is in scope.
 - **Schema and Schematron files are trusted code.** A custom `schema_path` or
   `schematron_path` runs with your permissions; reports that require a malicious one
   are out of scope.

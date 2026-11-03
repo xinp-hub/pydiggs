@@ -30,12 +30,29 @@ Everything here is additive: 1.2.0 code, CLI output and exit codes are unchanged
   OpenAPI 3.1 document. By default, validation runs in isolated worker processes with
   hard timeouts. Request size, admission, Host and cross-site checks are enforced
   inside the route. See [HTTP API](docs/http-api.md).
+  - A request body must arrive within `body_timeout_s` (`PYDIGGS_BODY_TIMEOUT_S`,
+    default 30 s) of admission; otherwise the answer is 408 `request-timeout` and the
+    admission slot is freed.
+  - `checks` must match the documented `step(,step)*` pattern of at most 512
+    characters; blanks, empty items and longer values are 422 `invalid-parameter`.
+  - On SIGTERM or SIGINT, `serve --http` waits at most `timeout_s` plus 5 s for
+    requests in flight, then cancels them and exits.
+  - Worker processes write no core file (POSIX), and `create_router()` logs the same
+    thread-isolation warning as `create_app()`.
+  - uvicorn does not time out slow request headers: put any non-loopback deployment
+    behind a reverse proxy with client header and body timeouts.
 - **Stdio sidecar for native apps, `pydiggs serve --stdio`.** A JSON-RPC 2.0 protocol
   over newline-delimited JSON on stdin and stdout, with an OpenRPC description. Any
   desktop or native host (Tauri, Electron, Qt, .NET, Java, Swift…) can drive pyDIGGS as
   a child process. Files are sent as content by default; reading by path works only
   inside folders the host grants with `--allow-path`. Uses the standard library only.
   See [Stdio sidecar](docs/sidecar.md) and [Host integration](docs/sidecar-hosts.md).
+  - A path that, as spelled, is not under a root (given or canonical spelling) is
+    refused before it is opened. Hard links into a root are not contained.
+  - `--max-bytes`, when given, is also the by-path limit (100 MiB otherwise).
+  - JSON nested deeper than 64 levels is a parse error on every Python version.
+- `pydiggs serve --mcp` is reserved for the MCP server planned for 1.4.0: it is hidden
+  from `--help` and exits 2. There is no `[mcp]` extra in this release.
 - `python -m pydiggs` runs the CLI.
 
 ### Changed
@@ -45,6 +62,10 @@ Everything here is additive: 1.2.0 code, CLI output and exit codes are unchanged
   replaced after a timeout or crash. Output and exit codes are unchanged.
 - The SARIF short description of `structure.timeout` is now "Validation did not
   finish within its time limit".
+
+### Fixed
+- SARIF `file:` URIs (`--absolute-paths`) no longer use `PurePath.as_uri()`, which is
+  deprecated in Python 3.14; the URIs are unchanged.
 
 ## [1.2.0] - 2026-10-23
 

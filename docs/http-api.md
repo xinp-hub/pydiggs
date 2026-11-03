@@ -18,6 +18,15 @@ curl -s -H 'Content-Type: application/xml' --data-binary @BH-01.xml \
 pydiggs adds no authentication, rate limiting per client or TLS. Put it behind your own
 app, a reverse proxy or an API gateway for that.
 
+!!! warning "Behind a reverse proxy when not on loopback"
+    Any deployment reachable from other machines must sit behind a reverse proxy (nginx,
+    Caddy, HAProxy, a cloud load balancer) with **client header and body timeouts**.
+    uvicorn has no timeout for reading request headers: a client that opens connections
+    and sends partial headers holds them, and enough of them exhaust uvicorn's
+    `limit_concurrency` (the admission slots plus 4), so the server stops accepting
+    work. pydiggs bounds only what happens after the headers: the body must arrive
+    within `body_timeout_s` (408), and validation within `timeout_s` (504).
+
 ## Running it
 
 === "Command line"

@@ -249,15 +249,23 @@ large local files but are **off** unless the host starts the sidecar with one or
 - A request `path` must be a plain absolute path. Refused: any URI (`file:` included),
   relative paths, `..` components, UNC paths, `\\?\` and `\\.\` prefixes, and Windows
   device names (`CON`, `NUL`, `COM1`, …) in any component, on every OS.
-- The sidecar **opens first, then verifies**: it opens the file without following a final
+- A path that, **as spelled**, is not under a root is refused without being opened. A
+  root may be spelled as given at launch or in its canonical form, so with
+  `--allow-path /tmp` on macOS both `/tmp/a.xml` and `/private/tmp/a.xml` are accepted.
+- The sidecar then **opens, then verifies**: it opens the file without following a final
   symlink (and without blocking on a FIFO), checks that the descriptor is a regular file,
   asks the operating system for the descriptor's real path (`/proc/self/fd` on Linux,
   `F_GETPATH` on macOS, `GetFinalPathNameByHandleW` on Windows) and accepts it only if that
   path lies inside a root. A symlink, or a file swapped between requests, cannot lead
   outside the roots.
 - Every refusal is the same `-32005`, so a caller cannot probe which files exist.
-- A hard link inside a root to a file elsewhere is treated as inside the root: do not give
-  untrusted parties write access to a root.
+
+!!! warning "Hard links are not contained"
+    A hard link is not a pointer to another path: it *is* the file, under a second name.
+    A hard link inside a root to a file elsewhere therefore has a real path inside the
+    root, and the sidecar reads it. Anyone who can create files in a root can link any
+    file they can reach on the same volume into it. Do not give untrusted parties write
+    access to a root; point `--allow-path` at a folder only the host writes to.
 
 ## Memory and size
 
