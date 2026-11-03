@@ -58,6 +58,29 @@ def test_metadata_is_complete():
     assert any("Source" in u for u in urls), "declare a Source URL"
 
 
+def test_requires_dist_keeps_the_core_small_and_declares_the_extras():
+    requires = metadata.requires(DIST) or []
+    core = sorted(r for r in requires if "extra ==" not in r)
+    assert core == ["lxml>=6.1.3", "rich>=13.9.4"]
+    by_extra: dict[str, set[str]] = {}
+    for line in requires:
+        if "extra ==" in line:
+            spec, _, marker = line.partition(";")
+            extra = marker.split("extra ==")[1].strip().strip("'\"")
+            by_extra.setdefault(extra, set()).add(spec.strip())
+    assert by_extra == {
+        "server": {
+            "fastapi>=0.146.0",
+            "starlette>=1.6.0",
+            "pydantic>=2.12.0",
+            "python-multipart>=0.0.31",
+            "uvicorn>=0.54.0",
+        },
+        "mcp": {"mcp>=2.3.0", "python-multipart>=0.0.31"},
+    }
+    assert set(metadata.metadata(DIST).get_all("Provides-Extra") or []) == {"server", "mcp"}
+
+
 def test_ships_bundled_schema_profiles():
     root = resources.files(pkg)
     assert root.joinpath("schemas/diggs-schema-2.5.a/Complete.xsd").is_file()
