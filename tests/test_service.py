@@ -147,7 +147,7 @@ def test_internal_errors_carry_generic_text_and_a_correlation_id(monkeypatch, ca
 
 def test_finding_text_is_scrubbed_of_install_temp_and_home_folders(monkeypatch):
     tmp = tempfile.gettempdir()
-    sites = [*site.getsitepackages(), site.getusersitepackages()]
+    sites = [d for d in site.getsitepackages() if Path(d).name == "site-packages"]
     message = f"failed at {tmp}/spool/x.xsd and {sites[0]}/lxml/y and {Path.home()}/z"
     report = validate_bytes(b"<Diggs/>", name="a.xml")
     extra = Finding(

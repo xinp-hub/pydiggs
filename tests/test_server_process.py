@@ -253,7 +253,8 @@ def test_pydiggs_serve_http_in_a_subprocess():
         else:
             server.send_signal(signal.SIGINT)
         out, err = server.communicate(timeout=60)
-    assert server.returncode in (0, -signal.SIGINT)
+    # TerminateProcess ends the server with exit code 1 on Windows
+    assert server.returncode in ((1,) if sys.platform == "win32" else (0, -signal.SIGINT))
     assert out == b""
     assert b"secret-name" not in err  # no access log
 

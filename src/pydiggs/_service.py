@@ -229,7 +229,7 @@ def _replacements() -> tuple[tuple[str, str], ...]:
     pairs = {
         (spelling, label) for folder, label in folders for spelling in _spellings(Path(folder))
     }
-    return tuple(sorted(pairs, key=lambda p: (-len(p[0]), p[0])))
+    return tuple(sorted(pairs, key=lambda p: (-len(p[0]), p[0], p[1])))
 
 
 def _scrub(text: str) -> str:

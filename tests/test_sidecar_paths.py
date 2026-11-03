@@ -117,9 +117,22 @@ def test_refused_path_forms(path):
         _paths.vet_request_path(path)
 
 
-@pytest.mark.parametrize("path", ["/data/a.xml", "/data/console.xml", "/data/com10.xml"])
+ABSOLUTE = (
+    ["C:\\data\\a.xml", "C:/data/console.xml", "C:\\data\\com10.xml"]
+    if sys.platform == "win32"
+    else ["/data/a.xml", "/data/console.xml", "/data/com10.xml"]
+)
+
+
+@pytest.mark.parametrize("path", ABSOLUTE)
 def test_plain_absolute_paths_pass_the_form_check(path):
     assert _paths.vet_request_path(path) == path
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="drive-relative paths are Windows only")
+def test_a_drive_relative_path_is_refused_on_windows():  # pragma: no cover - Windows only
+    with pytest.raises(NotPermittedError):
+        _paths.vet_request_path("/data/a.xml")
 
 
 # --- open then verify --------------------------------------------------------------------------

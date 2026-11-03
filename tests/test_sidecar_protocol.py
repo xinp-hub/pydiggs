@@ -87,6 +87,7 @@ def test_every_service_code_maps_and_shared_slugs_agree():
         (b'{"jsonrpc":"2.0","id":1,"method":"ping","params":[1]}', "invalid-params"),
         (b'{"jsonrpc":"2.0","id":1,"result":{}}', "invalid-request"),  # hosts send no responses
     ],
+    ids=lambda v: f"{v[:16]!r}...{len(v)}" if isinstance(v, bytes) and len(v) > 64 else None,
 )
 def test_malformed_lines_are_clean_errors(line, slug):
     assert _slug(_protocol.parse_line(line)) == slug

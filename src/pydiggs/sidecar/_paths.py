@@ -116,8 +116,9 @@ def root_spellings(raw: tuple[str, ...], roots: tuple[Path, ...]) -> tuple[Path,
         The canonical roots, then each given root not already among them.
 
     Example:
+        >>> import os
         >>> from pathlib import Path
-        >>> canonical = Path("/private/tmp")
+        >>> canonical = Path(os.path.abspath("/private/tmp"))
         >>> spellings = root_spellings(("/tmp", "/private/tmp"), (canonical,))
         >>> spellings[0] == canonical, len(spellings)
         (True, 2)
@@ -166,8 +167,10 @@ def vet_request_path(path: str) -> str:
         NotPermittedError: For any refused form.
 
     Example:
-        >>> vet_request_path("/data/BH-01.xml")
-        '/data/BH-01.xml'
+        >>> import os
+        >>> path = os.path.abspath("BH-01.xml")
+        >>> vet_request_path(path) == path
+        True
         >>> vet_request_path("file:///data/BH-01.xml")
         Traceback (most recent call last):
         ...
