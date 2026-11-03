@@ -45,11 +45,6 @@ server = [
   "python-multipart>=0.0.31",
   "uvicorn>=0.54.0",
 ]
-mcp = [
-  "mcp>=2.3.0",
-  # A security floor: mcp itself allows python-multipart>=0.0.9.
-  "python-multipart>=0.0.31",
-]
 
 [project.scripts]
 pydiggs = "pydiggs.cli:main"
@@ -170,6 +165,11 @@ disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 module = ["lxml", "lxml.*"]
+ignore_missing_imports = true
+
+# The MCP SDK is not a dependency of this release; the mcp_server stub only probes for it.
+[[tool.mypy.overrides]]
+module = ["mcp", "mcp.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

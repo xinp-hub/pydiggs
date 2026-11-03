@@ -44,9 +44,12 @@ def test_help_lists_the_modes_and_none_of_the_trusted_resource_options(capsys):
         main(["serve", "--help"])
     assert exit_info.value.code == 0
     text = " ".join(capsys.readouterr().out.split())
-    for option in ("--stdio", "--http", "--mcp", "--max-bytes", "--timeout", "--allow-path"):
+    for option in ("--stdio", "--http", "--max-bytes", "--timeout", "--allow-path"):
         assert option in text
     for forbidden in (
+        "--mcp",  # reserved for a later release: hidden
+        "MCP",
+        "pydiggs[mcp]",
         "--schema-path",
         "--dictionary-path",
         "--schematron-path",
@@ -104,15 +107,14 @@ def test_stdio_gets_its_options(monkeypatch):
     assert (small.max_bytes, small.max_path_bytes) == (1000, 1000)
 
 
-def test_mcp_gets_its_own_defaults(monkeypatch):
-    import pydiggs.mcp_server
-
-    seen = []
-    monkeypatch.setattr(pydiggs.mcp_server, "serve_mcp", lambda options: seen.append(options) or 0)
-    assert main(["serve", "--mcp", "--log-format", "json"]) == 0
-    (options,) = seen
-    assert (options.max_bytes, options.max_findings, options.workers) == (10 * 2**20, 200, 1)
-    assert options.log_format == "json"
+def test_mcp_is_reserved_exits_2_and_imports_nothing(monkeypatch, capsys):
+    monkeypatch.delitem(sys.modules, "pydiggs.mcp_server", raising=False)
+    monkeypatch.setitem(sys.modules, "mcp", None)  # an import would fail loudly
+    code, out, err = _serve(capsys, "--mcp", "--log-format", "json")
+    assert (code, out) == (2, "")
+    assert "--mcp is not available in this release" in err
+    assert "pydiggs[mcp]" not in err
+    assert "pydiggs.mcp_server" not in sys.modules
 
 
 def test_http_settings_come_from_the_environment_then_the_flags(monkeypatch):
@@ -167,7 +169,6 @@ def test_bad_environment_exits_2(monkeypatch, capsys):
     [
         ("--http", "fastapi", "pydiggs.server", "server"),
         ("--http", "uvicorn", "pydiggs.server", "server"),
-        ("--mcp", "mcp", "pydiggs.mcp_server", "mcp"),
     ],
 )
 def test_a_missing_extra_exits_2_naming_it(monkeypatch, capsys, case):
@@ -183,11 +184,10 @@ def test_a_missing_extra_exits_2_naming_it(monkeypatch, capsys, case):
 
 
 def test_the_extra_message_is_rebuilt_for_a_bare_import_error():
-    exc = ImportError("No module named 'mcp'", name="mcp")
-    assert _serve_cli._extra_message("mcp", exc) == (
-        "pydiggs.mcp_server requires the 'mcp' extra: pip install 'pydiggs[mcp]'"
+    exc = ImportError("No module named 'uvicorn'", name="uvicorn")
+    assert _serve_cli._extra_message("server", exc) == (
+        "pydiggs.server requires the 'server' extra: pip install 'pydiggs[server]'"
     )
-    assert "pydiggs.server" in _serve_cli._extra_message("server", exc)
 
 
 class _Broken(importlib.abc.MetaPathFinder, importlib.abc.Loader):
@@ -208,10 +208,7 @@ class _Broken(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         raise ModuleNotFoundError("No module named 'unrelated'", name="unrelated")
 
 
-@pytest.mark.parametrize(
-    ("target", "package", "mode"),
-    [("fastapi", "pydiggs.server", "--http"), ("mcp", "pydiggs.mcp_server", "--mcp")],
-)
+@pytest.mark.parametrize(("target", "package", "mode"), [("fastapi", "pydiggs.server", "--http")])
 def test_any_other_import_error_propagates(monkeypatch, target, package, mode):
     monkeypatch.delitem(sys.modules, target, raising=False)
     monkeypatch.delitem(sys.modules, package, raising=False)
@@ -227,7 +224,7 @@ def test_any_other_import_error_propagates(monkeypatch, target, package, mode):
 @pytest.mark.parametrize(
     ("argv", "text"),
     [
-        (["--mcp"], "--mcp: not implemented"),
+        (["--mcp"], "--mcp is not available in this release"),
         # The real server refuses a public bind without allowed hosts, before binding.
         (["--http", "--host", ANY_ADDRESS], "PYDIGGS_ALLOWED_HOSTS"),
     ],
@@ -405,9 +402,13 @@ def test_bad_environment_values_name_the_variable(name, value):
         ServerSettings.from_env({name: value})
 
 
-def test_the_stub_entry_points_have_the_frozen_signatures():
+def test_the_stub_entry_points_have_the_frozen_signatures(monkeypatch):
     import inspect
+    import types
 
+    # The MCP SDK is not a dependency of this release; the kept stub only probes for it.
+    monkeypatch.setitem(sys.modules, "mcp", types.ModuleType("mcp"))
+    monkeypatch.delitem(sys.modules, "pydiggs.mcp_server", raising=False)
     from pydiggs.mcp_server import serve_mcp
     from pydiggs.server import ServerSettings, serve_http
     from pydiggs.sidecar import serve_stdio

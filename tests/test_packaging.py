@@ -76,9 +76,8 @@ def test_requires_dist_keeps_the_core_small_and_declares_the_extras():
             "python-multipart>=0.0.31",
             "uvicorn>=0.54.0",
         },
-        "mcp": {"mcp>=2.3.0", "python-multipart>=0.0.31"},
     }
-    assert set(metadata.metadata(DIST).get_all("Provides-Extra") or []) == {"server", "mcp"}
+    assert set(metadata.metadata(DIST).get_all("Provides-Extra") or []) == {"server"}
 
 
 def test_ships_bundled_schema_profiles():
