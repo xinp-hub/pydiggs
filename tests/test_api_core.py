@@ -6,6 +6,7 @@ import doctest
 import errno
 import inspect
 import os
+import re
 import subprocess
 import sys
 import warnings
@@ -125,7 +126,7 @@ def test_the_legacy_checks_still_import_rich_when_they_print():
 )
 def test_rprint_falls_back_to_what_rich_prints_without_rich(monkeypatch, capsys, text):
     legacy.rprint(text)
-    with_rich = capsys.readouterr().out
+    with_rich = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)  # FORCE_COLOR in CI
     monkeypatch.setitem(sys.modules, "rich", None)  # import rich -> ModuleNotFoundError
     legacy.rprint(text)
     assert capsys.readouterr().out == with_rich
@@ -133,7 +134,8 @@ def test_rprint_falls_back_to_what_rich_prints_without_rich(monkeypatch, capsys,
 
 def test_rprint_uses_rich_when_present(capsys):
     legacy.rprint("[green]No syntax error is detected.[/green]")
-    assert capsys.readouterr().out == "No syntax error is detected.\n"
+    out = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)  # FORCE_COLOR in CI
+    assert out == "No syntax error is detected.\n"
 
 
 def test_rprint_can_still_be_monkeypatched(monkeypatch):

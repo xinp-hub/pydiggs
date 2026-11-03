@@ -53,7 +53,7 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.11"
-      - run: uv sync --all-groups
+      - run: uv sync --all-groups --all-extras
       - name: ruff check
         run: uv run ruff check --output-format=github .
       - name: ruff format
@@ -68,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -77,7 +77,7 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --all-groups
+      - run: uv sync --all-groups --all-extras
       - name: pytest
         run: uv run pytest --cov --cov-report=term-missing -p no:randomly
 
@@ -99,9 +99,43 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.13"
-      - run: uv sync --all-groups
+      - run: uv sync --all-groups --all-extras
       - name: pytest (fast suite)
         run: uv run pytest -q -m "not slow and not scaling" -p no:randomly --durations=25
+
+  # The extras are optional: the core must import and validate without any of them,
+  # and must not pull in rich, multiprocessing or an adapter on import.
+  core-only:
+    name: core without extras
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.11"
+      - run: uv sync --no-dev
+      - name: Import and validate with no extras installed
+        run: |
+          uv run --no-sync python - <<'PY'
+          import sys
+          import pydiggs
+          report = pydiggs.validate_bytes(b'<Diggs xmlns="http://diggsml.org/schemas/2.6"/>')
+          assert report.verdict, report
+          loaded = {"rich", "multiprocessing", "fastapi", "mcp"} & set(sys.modules)
+          assert not loaded, loaded
+          print(pydiggs.__version__, report.verdict)
+          PY
+      - name: A missing extra exits 2 and names it
+        run: |
+          set +e
+          uv run --no-sync pydiggs serve --http 2> err.txt
+          code=$?
+          cat err.txt
+          test "$code" -eq 2 && grep -q "pydiggs\[server\]" err.txt
 
   build:
     name: build & inspect
@@ -133,7 +167,7 @@ jobs:
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, build]
+    needs: [lint, test, test-os, core-only, build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
