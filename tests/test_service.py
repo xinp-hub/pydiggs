@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import site
+import sys
 import tempfile
 from pathlib import Path
 
@@ -209,12 +210,19 @@ def test_read_fd(tmp_path):
         assert _service.read_fd(fh.fileno(), max_bytes=100, name=None).code is (
             Code.COMPRESSED_INPUT
         )
-    fd = os.open(tmp_path, os.O_RDONLY)
-    try:
-        outcome = _service.read_fd(fd, max_bytes=100, name="dir")
-    finally:
-        os.close(fd)
-    assert outcome.code is Code.INPUT_UNREADABLE and outcome.detail == "dir could not be read"
+    # A descriptor that cannot be read: write-only everywhere, and a directory on POSIX
+    # (Windows refuses to open a directory with os.open at all).
+    unreadable = [(tmp_path / "w.xml", os.O_WRONLY | os.O_CREAT, "w.xml")]
+    if sys.platform != "win32":
+        unreadable.append((tmp_path, os.O_RDONLY, "dir"))
+    for path, flags, name in unreadable:
+        fd = os.open(path, flags)
+        try:
+            outcome = _service.read_fd(fd, max_bytes=100, name=name)
+        finally:
+            os.close(fd)
+        assert outcome.code is Code.INPUT_UNREADABLE
+        assert outcome.detail == f"{name} could not be read"
 
 
 # --- process isolation ------------------------------------------------------------------------
