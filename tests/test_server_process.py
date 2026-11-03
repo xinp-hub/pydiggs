@@ -131,6 +131,9 @@ def test_uvicorn_gets_explicit_limits():
     assert config.access_log is False and config.server_header is False
     assert config.timeout_keep_alive == 5 and config.h11_max_incomplete_event_size == 16 * 2**10
     assert config.log_config is None and config.proxy_headers is False
+    assert config.timeout_graceful_shutdown == 65
+    config = _run.uvicorn_config(ServerSettings(workers=1, timeout_s=0.5), "127.0.0.1", 8123)
+    assert config.timeout_graceful_shutdown == 6
 
 
 def test_serve_http_refuses_a_public_bind_without_hosts(capsys):
@@ -232,3 +235,41 @@ def test_pydiggs_serve_http_in_a_subprocess():
     assert server.returncode in (0, -signal.SIGINT)
     assert out == b""
     assert b"secret-name" not in err  # no access log
+
+
+@pytest.mark.timeout(120)
+@pytest.mark.skipif(sys.platform == "win32", reason="SIGTERM is TerminateProcess on Windows")
+def test_sigterm_stops_serve_http_while_a_body_is_stalled():
+    port = _free_port()
+    env = {
+        **os.environ,
+        "PYDIGGS_WORKERS": "1",
+        "PYDIGGS_ISOLATION": "thread",
+        "PYDIGGS_TIMEOUT_S": "1",
+        "PYDIGGS_BODY_TIMEOUT_S": "600",  # only the graceful-shutdown limit can end it
+    }
+    env.pop("PYDIGGS_ALLOWED_HOSTS", None)
+    server = subprocess.Popen(  # noqa: S603  # fixed argv
+        [sys.executable, "-m", "pydiggs", "serve", "--http", "--port", str(port)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=env,
+    )
+    try:
+        _wait_for(f"http://127.0.0.1:{port}/livez", 200, time.monotonic() + 60)
+        with socket.create_connection(("127.0.0.1", port), timeout=30) as stalled:
+            stalled.sendall(
+                b"POST /v1/validate HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+                b"Content-Type: application/xml\r\nContent-Length: 1000\r\n\r\n<"
+            )
+            time.sleep(0.5)
+            started = time.monotonic()
+            server.send_signal(signal.SIGTERM)
+            returncode = server.wait(timeout=60)
+            elapsed = time.monotonic() - started
+    finally:
+        if server.poll() is None:  # pragma: no cover - only when the test fails
+            server.kill()
+            server.wait()
+    assert returncode in (0, -signal.SIGTERM)  # uvicorn re-raises the signal it handled
+    assert elapsed < 30  # timeout_s + 5 s of grace, not body_timeout_s

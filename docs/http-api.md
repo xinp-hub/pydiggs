@@ -142,7 +142,8 @@ Size the host for *ASGI server processes × pydiggs workers × about 2 GiB*.
   JavaScript from a CDN).
 - uvicorn runs with HTTP/1.1 only, no access log (query strings carry file names), no
   `Server` header, a 16 KiB header limit, a 5 s keep-alive and a connection limit of the
-  admission slots plus 4.
+  admission slots plus 4. On SIGTERM or SIGINT it stops accepting connections and waits
+  at most `timeout_s` plus 5 s for requests in flight, then cancels them and exits.
 - `/v1/versions` and the probes reveal versions to unauthenticated callers.
 
 ## Settings

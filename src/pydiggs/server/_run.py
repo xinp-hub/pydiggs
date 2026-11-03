@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import math
 import sys
 from typing import Final
 
@@ -19,6 +20,8 @@ _SPARE_CONNECTIONS: Final = 4
 #: Largest request line plus headers, in bytes.
 _MAX_HEADER_BYTES: Final = 16 * 2**10
 _KEEP_ALIVE_S: Final = 5
+#: Seconds beyond ``timeout_s`` that a shutdown waits for requests in flight.
+_SHUTDOWN_GRACE_S: Final = 5
 
 _log = logging.getLogger("pydiggs.server")
 
@@ -56,6 +59,7 @@ def uvicorn_config(settings: ServerSettings, host: str, port: int) -> uvicorn.Co
         limit_concurrency=settings.admission_slots + _SPARE_CONNECTIONS,
         timeout_keep_alive=_KEEP_ALIVE_S,
         h11_max_incomplete_event_size=_MAX_HEADER_BYTES,
+        timeout_graceful_shutdown=math.ceil(settings.timeout_s) + _SHUTDOWN_GRACE_S,
     )
 
 
@@ -63,8 +67,9 @@ def serve_http(settings: ServerSettings, host: str, port: int) -> int:
     """Serve the HTTP API on ``host:port`` until stopped; return the exit status.
 
     Runs :func:`~pydiggs.server.create_app` under uvicorn with HTTP/1.1 only, no
-    access log, no ``Server`` header, a 16 KiB header limit, a 5 s keep-alive and a
-    connection limit of the admission slots plus 4.
+    access log, no ``Server`` header, a 16 KiB header limit, a 5 s keep-alive, a
+    connection limit of the admission slots plus 4, and a graceful shutdown that waits
+    at most ``timeout_s`` plus 5 s for requests in flight before cancelling them.
 
     Args:
         settings: Limits and switches (``isolation`` None means ``"process"``).
