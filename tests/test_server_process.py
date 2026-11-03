@@ -9,6 +9,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -41,6 +42,7 @@ class FakePool:
         self.probes = 0
         self.closed = False
         self.fail: BaseException | None = None
+        self.probe_threads: list[threading.Thread] = []
         FakePool.instances.append(self)
 
     def start(self):
@@ -48,6 +50,7 @@ class FakePool:
 
     def ready(self):
         self.probes += 1
+        self.probe_threads.append(threading.current_thread())
         return self.probes > 1
 
     def close(self):
@@ -81,6 +84,24 @@ def test_the_lifespan_starts_and_closes_the_pool(fake_pool):
         expected = _service.validate(Request(content=data, name="a.xml"))
         assert response.content == expected.document
     assert pool.closed
+
+
+def test_readiness_runs_off_the_event_loop_and_never_restarts_a_closed_pool(fake_pool):
+    app = create_app(PROCESS)
+    with TestClient(app) as client:
+        client.get("/readyz")
+        (pool,) = fake_pool.instances
+        assert pool.probe_threads and threading.main_thread() not in pool.probe_threads
+        loop_thread = client.portal.call(threading.current_thread)  # type: ignore[union-attr]
+        assert loop_thread not in pool.probe_threads
+    assert pool.closed
+    # After shutdown a probe answers not-ready and starts no new pool.
+    response = TestClient(app).get("/readyz")
+    assert response.status_code == 503 and response.json()["code"] == "not-ready"
+    assert fake_pool.instances == [pool]
+    # A new lifespan serves again.
+    with TestClient(app) as client:
+        assert len(fake_pool.instances) == 2
 
 
 def test_without_a_lifespan_the_first_probe_starts_the_pool(fake_pool):

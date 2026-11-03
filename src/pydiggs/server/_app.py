@@ -379,6 +379,7 @@ class _State:
         self._limiter: RunVar[anyio.CapacityLimiter] = RunVar("pydiggs_server_limiter")
         self._pool: WorkerPool | None = None
         self._pool_lock = threading.Lock()
+        self._closed = False
 
     def limiter(self) -> anyio.CapacityLimiter:
         """The per-event-loop limiter: at most ``workers`` validations run at once."""
@@ -389,9 +390,15 @@ class _State:
             self._limiter.set(limiter)
             return limiter
 
-    def pool(self) -> WorkerPool:
-        """The worker pool, created on first use (its workers start lazily)."""
+    def pool(self, *, probe: bool = False) -> WorkerPool | None:
+        """The worker pool, created on first use (its workers start lazily).
+
+        None only for a ``probe`` after :meth:`close`: a readiness probe during
+        shutdown must not start workers that nothing would stop.
+        """
         with self._pool_lock:
+            if probe and self._closed:
+                return None
             if self._pool is None:
                 self._pool = _service.make_pool(
                     self.settings.workers,
@@ -400,14 +407,25 @@ class _State:
                 )
             return self._pool
 
+    def _job_pool(self) -> WorkerPool:
+        pool = self.pool()
+        assert pool is not None  # noqa: S101  # only a probe gets None
+        return pool
+
     async def start(self) -> None:
         """Start (and so begin warming) every worker; a no-op for thread isolation."""
         if self.isolation == "process":
-            await anyio.to_thread.run_sync(self.pool().start)
+            await anyio.to_thread.run_sync(self._job_pool().start)
+
+    async def open(self) -> None:
+        """The lifespan's start: probes may start a pool again, then start it."""
+        self._closed = False
+        await self.start()
 
     async def close(self) -> None:
-        """Stop the workers; a later request starts a new pool."""
+        """Stop the workers; a later request starts a new pool, a readiness probe not."""
         with self._pool_lock:
+            self._closed = True
             pool, self._pool = self._pool, None
         if pool is not None:
             await anyio.to_thread.run_sync(pool.close)
@@ -415,12 +433,15 @@ class _State:
     async def ready(self) -> bool:
         if self.isolation == "thread":
             return True
-        await self.start()  # idempotent; a lazily created pool begins warming here
-        return self.pool().ready()
+        pool = self.pool(probe=True)
+        if pool is None:  # shut down: never create a pool just to report on it
+            return False
+        await anyio.to_thread.run_sync(pool.start)  # idempotent; a new pool begins warming
+        return await anyio.to_thread.run_sync(pool.ready)  # ready() may block briefly
 
     async def run(self, request: ValidationRequest) -> Outcome:
         if self.isolation == "process":
-            pool = self.pool()
+            pool = self._job_pool()
             job = functools.partial(
                 _service.validate_in_pool, pool, request, timeout=self.settings.timeout_s
             )
@@ -465,7 +486,7 @@ def _build_router(state: _State) -> APIRouter:
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: Any) -> AsyncIterator[None]:
-        await state.start()
+        await state.open()
         try:
             yield
         finally:
