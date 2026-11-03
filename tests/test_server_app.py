@@ -715,6 +715,17 @@ def test_create_app_warns_about_thread_isolation(caplog):
     assert caplog.text == ""
 
 
+@pytest.mark.parametrize("isolation", ["thread", None])  # None means "thread" for the router
+def test_create_router_warns_about_thread_isolation_too(caplog, isolation):
+    with caplog.at_level(logging.WARNING, logger="pydiggs.server"):
+        create_router(_settings(isolation=isolation))
+    assert "unsafe for untrusted input" in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="pydiggs.server"):
+        create_router(_settings(isolation="process"))
+    assert caplog.text == ""
+
+
 # --- errors and disclosure --------------------------------------------------------------------
 
 

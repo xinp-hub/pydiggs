@@ -608,7 +608,8 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
     The routes enforce every limit themselves (body size, admission, multipart,
     cross-site refusal), so they hold without :func:`create_app`'s middleware; they do
     not check ``Host`` or add CORS headers: that is the host app's job. ``isolation``
-    None means ``"thread"`` here: no hard timeout, unsafe for untrusted input; pass
+    None means ``"thread"`` here: no hard timeout, unsafe for untrusted input (a
+    warning is logged, as by :func:`create_app`); pass
     ``ServerSettings(isolation="process")`` for worker processes. The router's
     lifespan starts and stops the pool when the host app runs lifespans; otherwise
     the pool starts on the first request or ``/v1/readyz`` probe.
@@ -629,7 +630,17 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
         ['/v1/readyz', '/v1/rules']
     """
     settings = settings if settings is not None else ServerSettings()
-    return _build_router(_State(settings, settings.isolation or "thread"))
+    isolation = settings.isolation or "thread"
+    if isolation == "thread":
+        _warn_thread_isolation()
+    return _build_router(_State(settings, isolation))
+
+
+def _warn_thread_isolation() -> None:
+    _log.warning(
+        "isolation='thread' has no hard timeout and is unsafe for untrusted input;"
+        " use isolation='process'"
+    )
 
 
 class _HostCheck:
@@ -683,10 +694,7 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
     settings = settings if settings is not None else ServerSettings()
     isolation = settings.isolation or "process"
     if isolation == "thread":
-        _log.warning(
-            "isolation='thread' has no hard timeout and is unsafe for untrusted input;"
-            " use isolation='process'"
-        )
+        _warn_thread_isolation()
     state = _State(dataclasses.replace(settings, isolation=isolation), isolation)
     docs = settings.docs_enabled
     app = FastAPI(
