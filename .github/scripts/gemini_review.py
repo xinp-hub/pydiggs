@@ -22,15 +22,21 @@ import http.client
 import json
 import os
 import sys
+import time
 import urllib.parse
+from collections.abc import Callable
 
 HOST = "generativelanguage.googleapis.com"
 PATH = "/v1beta/models/{model}:generateContent"
 TIMEOUT_S = 600
-# A distinct status for "unavailable" (quota, rate limit), so the log says why.
+# A distinct status for "unavailable" (quota, rate limit, overload), so the log says why.
 EXIT_UNAVAILABLE = 75
 EXIT_FAILED = 1
 HTTP_TOO_MANY_REQUESTS = 429
+# Transient answers Google asks clients to retry: rate limit, internal error, overload.
+RETRYABLE = frozenset({HTTP_TOO_MANY_REQUESTS, 500, 503})
+BACKOFF_S = (5, 20, 45)  # waits before attempts 2-4: about a minute and a quarter at most
+MAX_WAIT_S = 60  # never honour a Retry-After longer than this; hand over to the fallback
 
 
 def request_body(prompt: str, schema: dict) -> dict:
@@ -61,11 +67,12 @@ def answer_text(response: dict) -> str | None:
 class HTTPError(Exception):
     """A non-2xx answer from the API."""
 
-    def __init__(self, status: int, body: str) -> None:
-        """Keep the status and the response body for the error message."""
+    def __init__(self, status: int, body: str, retry_after: str | None = None) -> None:
+        """Keep the status, the response body and any Retry-After for the caller."""
         super().__init__(f"HTTP {status}")
         self.status = status
         self.body = body
+        self.retry_after = retry_after
 
 
 def call(model: str, key: str, body: dict) -> dict:
@@ -80,11 +87,37 @@ def call(model: str, key: str, body: dict) -> dict:
         )
         resp = conn.getresponse()
         data = resp.read().decode("utf-8", "replace")
+        retry_after = resp.getheader("Retry-After")
     finally:
         conn.close()
     if resp.status not in range(200, 300):
-        raise HTTPError(resp.status, data)
+        raise HTTPError(resp.status, data, retry_after)
     return json.loads(data)
+
+
+def call_with_retry(
+    model: str, key: str, body: dict, sleep: Callable[[float], None] = time.sleep
+) -> dict:
+    """Call, retrying the transient answers Google asks clients to retry, with backoff.
+
+    A Retry-After header is honoured up to MAX_WAIT_S; past that, or after the last
+    attempt, the error goes to the caller and agent_review.py tries its fallback reviewer.
+    """
+    for wait in (*BACKOFF_S, None):
+        try:
+            return call(model, key, body)
+        except HTTPError as err:
+            if err.status not in RETRYABLE or wait is None:
+                raise
+            delay = wait
+            if err.retry_after and err.retry_after.isdigit():
+                delay = int(err.retry_after)
+            if delay > MAX_WAIT_S:
+                raise
+            sys.stderr.write(f"gemini_review: HTTP {err.status}, retrying in {delay} s\n")
+            sleep(delay)
+    msg = "unreachable: the loop returns or raises"
+    raise AssertionError(msg)
 
 
 def fail(message: str, code: int) -> int:
@@ -106,9 +139,10 @@ def main(argv: list[str] | None = None) -> int:
     if not schema_text:
         return fail("AGENT_REVIEW_SCHEMA is not set", EXIT_FAILED)
     try:
-        response = call(args.model, key, request_body(sys.stdin.read(), json.loads(schema_text)))
+        body = request_body(sys.stdin.read(), json.loads(schema_text))
+        response = call_with_retry(args.model, key, body)
     except HTTPError as err:
-        limited = err.status == HTTP_TOO_MANY_REQUESTS
+        limited = err.status in RETRYABLE
         status = "unavailable" if limited else "failed"
         code = EXIT_UNAVAILABLE if limited else EXIT_FAILED
         return fail(f"HTTP {err.status} ({status}): {err.body[:500]}", code)

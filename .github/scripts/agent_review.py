@@ -270,8 +270,8 @@ def reviewer_env(schema_file: Path, reviewer: Reviewer) -> dict[str, str]:
     return env
 
 
-def run_reviewer(reviewer: Reviewer, prompt: str) -> tuple[int, str]:
-    """Run one reviewer on the prompt; return its exit status and stdout."""
+def run_reviewer(reviewer: Reviewer, prompt: str) -> tuple[int, str, str]:
+    """Run one reviewer on the prompt; return its exit status, stdout and stderr."""
     # The command is repository configuration (a variable only admins can set), not input
     # from the pull request; the shell is what lets it carry the agent's own flags. It runs
     # in an empty directory, so an agent that reads project config from its working
@@ -295,9 +295,29 @@ def run_reviewer(reviewer: Reviewer, prompt: str) -> tuple[int, str]:
             cwd=empty,
             check=False,
         )
-    if proc.returncode != 0:
-        sys.stderr.write(proc.stderr[-2000:])
-    return proc.returncode, proc.stdout
+    return proc.returncode, proc.stdout, proc.stderr
+
+
+def failure_detail(stdout: str, stderr: str) -> str:
+    """A short, single-line reason a reviewer failed, from its stderr and any JSON envelope.
+
+    It ends up in the review log, which is echoed with workflow commands stopped; it is
+    never written to the job log raw, because reviewer output is untrusted.
+    """
+    parts: list[str] = []
+    try:
+        envelope = json.loads(stdout.strip())
+    except json.JSONDecodeError:
+        envelope = None
+    if isinstance(envelope, dict):
+        fields = ("subtype", "api_error_status", "terminal_reason", "stop_reason")
+        parts.extend(f"{f}={envelope[f]}" for f in fields if envelope.get(f) not in (None, ""))
+        if isinstance(envelope.get("result"), str) and envelope["result"].strip():
+            parts.append(f"result={envelope['result'].strip()[:200]!r}")
+    lines = [ln.strip() for ln in stderr.splitlines() if ln.strip()]
+    if lines:
+        parts.append(f"stderr={' | '.join(lines[-3:])[:300]!r}")
+    return "; ".join(parts) or "no output"
 
 
 def first_verdict(reviewers: list[Reviewer], prompt: str) -> tuple[dict | None, list[str]]:
@@ -310,12 +330,13 @@ def first_verdict(reviewers: list[Reviewer], prompt: str) -> tuple[dict | None, 
     log: list[str] = []
     for reviewer in reviewers:
         try:
-            code, output = run_reviewer(reviewer, prompt)
+            code, output, errors = run_reviewer(reviewer, prompt)
         except subprocess.TimeoutExpired:
             log.append(f"{reviewer.label} reviewer did not answer within {TIMEOUT_S} s")
             continue
         if code != 0:
-            log.append(f"{reviewer.label} reviewer exited with status {code}")
+            detail = failure_detail(output, errors)
+            log.append(f"{reviewer.label} reviewer exited with status {code} ({detail})")
             continue
         verdict = extract_verdict(output)
         if verdict is None:
