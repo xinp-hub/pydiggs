@@ -10,6 +10,7 @@ import functools
 import inspect
 import json
 import os
+import subprocess
 import threading
 import time
 from multiprocessing import reduction
@@ -300,13 +301,16 @@ class _Conn:
         self.sent.append(data)
 
 
-def test_the_worker_loop_in_process():
+def test_the_worker_loop_in_process(monkeypatch):
+    disabled = []
+    monkeypatch.setattr(_pool, "_no_core_files", lambda: disabled.append(True))  # not pytest's
     requests = _Conn([(bytes.upper, (b"a",)), (len, (b"ab",))])
     replies = _Conn()
     _pool._worker_main(requests, replies, None, None, None)
     assert replies.sent[0] == b"I"
     assert replies.sent[1] == b"RA"
     assert replies.sent[2][:1] == b"E" and b"must return bytes" in replies.sent[2]
+    assert disabled == [True]  # before the initialiser and any job
     replies = _Conn()
     _pool._worker_main(_Conn([None]), replies, None, None, None)
     assert replies.sent == [b"I"]
@@ -346,7 +350,21 @@ def test_limits_use_setrlimit(monkeypatch):
     _pool._limit_cpu(None)
     monkeypatch.setattr(_pool, "_HAS_RLIMIT_CPU", False)
     _pool._limit_cpu(5)
+    _pool._no_core_files()
     assert calls == []
+    monkeypatch.setattr(_pool, "_HAS_RLIMIT_CPU", True)
+    _pool._no_core_files()
+    assert calls == [(resource.RLIMIT_CORE, (0, 0))]
+
+
+@pytest.mark.skipif(not _pool._HAS_RLIMIT_CPU, reason="no resource module on Windows")
+def test_a_real_worker_writes_no_core_file():
+    resource = pytest.importorskip("resource")
+    before = resource.getrlimit(resource.RLIMIT_CORE)
+    with WorkerPool(1) as pool:  # a shell started by the worker inherits its limits
+        limit = pool.run(subprocess.check_output, ["sh", "-c", "ulimit -c"], timeout=60)
+    assert limit.strip() == b"0"
+    assert resource.getrlimit(resource.RLIMIT_CORE) == before  # the parent is untouched
 
 
 @pytest.mark.skipif(not _pool._HAS_RLIMIT_CPU, reason="no RLIMIT_CPU on Windows")

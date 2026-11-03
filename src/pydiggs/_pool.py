@@ -18,7 +18,9 @@ Per-worker limits are set before the initialiser runs: on Linux an address-space
 (``RLIMIT_AS``, ``memory_mb``); on Linux and macOS a CPU-seconds backstop per job
 (``RLIMIT_CPU``, raised before each job), in case the parent's own kill is late. macOS
 does not enforce ``RLIMIT_AS`` and Windows has neither, so there the timeout is the
-only limit (use a container or a Job Object at the host).
+only limit (use a container or a Job Object at the host). On POSIX a worker also
+writes no core file (``RLIMIT_CORE`` 0), so a crash on hostile input leaves no
+memory image of it behind.
 """
 
 from __future__ import annotations
@@ -142,6 +144,15 @@ def _limit_memory(memory_mb: int | None) -> None:
     resource.setrlimit(resource.RLIMIT_AS, (cap, cap))
 
 
+def _no_core_files() -> None:
+    """Forbid core dumps on POSIX (``RLIMIT_CORE`` 0): a crash leaves no memory image."""
+    if not _HAS_RLIMIT_CPU:  # the same platforms: POSIX has resource, Windows not
+        return
+    import resource  # noqa: PLC0415  # POSIX only
+
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+
+
 def _limit_cpu(cpu_seconds: float | None) -> None:
     """Allow ``cpu_seconds`` more CPU time from now (soft limit; SIGXCPU kills)."""
     if cpu_seconds is None or not _HAS_RLIMIT_CPU:
@@ -166,6 +177,7 @@ def _worker_main(
 ) -> None:
     """The worker's loop: limits, initialiser, then one job at a time until told to stop."""
     try:
+        _no_core_files()
         _limit_memory(memory_mb)
         if initializer is not None:
             initializer()
