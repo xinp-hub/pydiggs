@@ -136,6 +136,30 @@ jobs:
           code=$?
           cat err.txt
           test "$code" -eq 2 && grep -q "pydiggs\[server\]" err.txt
+      - name: A stdio session needs no extra (initialize, shutdown, exit)
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json, subprocess, sys
+          proc = subprocess.Popen(
+              [sys.executable, "-m", "pydiggs", "serve", "--stdio"],
+              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+          )
+          def call(request):
+              proc.stdin.write(json.dumps(request).encode() + b"\n")
+              proc.stdin.flush()
+              if "id" not in request:
+                  return None
+              reply = json.loads(proc.stdout.readline())
+              print(reply)
+              assert reply["id"] == request["id"] and "result" in reply, reply
+              return reply["result"]
+          init = {"protocol_version": "1.0"}
+          result = call({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": init})
+          assert result["protocol_version"] == "1.0"
+          assert call({"jsonrpc": "2.0", "id": 2, "method": "shutdown"}) is None
+          call({"jsonrpc": "2.0", "method": "exit"})
+          assert proc.wait(timeout=60) == 0, proc.returncode
+          PY
 
   build:
     name: build & inspect
