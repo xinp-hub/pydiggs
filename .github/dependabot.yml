@@ -7,10 +7,11 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    # Wait a week before proposing a new release. A compromised version is usually yanked
-    # within days — that is the window where a mechanical bump is most dangerous.
+    # Wait the FORGE-standard 14 days before proposing a new release. A compromised
+    # version is usually yanked within days — that is the window where a mechanical bump
+    # is most dangerous.
     cooldown:
-      default-days: 7
+      default-days: 14
     open-pull-requests-limit: 5
     commit-message:
       prefix: "ci"
@@ -35,13 +36,30 @@ updates:
       pyodide:
         patterns: ["*"]
 
+  # The container image's two bases (Dockerfile), pinned by digest: the uv builder and
+  # the python:3.14-slim-trixie runtime. They must move to the same Python patch release,
+  # so they share one group and one PR.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "build"
+    groups:
+      container-bases:
+        patterns: ["*"]
+
   - package-ecosystem: uv
     directory: /
     schedule:
       interval: weekly
       day: monday
     cooldown:
-      default-days: 7
+      default-days: 14
     open-pull-requests-limit: 5
     commit-message:
       prefix: "build"
