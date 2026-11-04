@@ -32,7 +32,8 @@ works the same way.
 
 To try an unreleased pydiggs, build a wheel and hand it to the server; it serves the
 wheel at `/wheels/` and prints a URL with `?wheel=` that makes the worker install it
-instead of the PyPI release:
+instead of the PyPI release. The worker honours `?wheel=` only on `localhost`,
+`127.0.0.1` or `[::1]`, so a link cannot swap the wheel on a deployed site:
 
 ```bash
 uv build --wheel
@@ -103,8 +104,8 @@ curl -sSf https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs \
 serve it from your own origin, and set
 `PYODIDE_BASE = new URL("./pyodide/", import.meta.url).href`. The integrity hash stays
 valid (the file is the same) and every file now comes from servers you control. Serve
-the pydiggs wheel yourself too (the `?wheel=` mechanism, or change the install line to
-its URL), and the CSP can drop every third-party origin.
+the pydiggs wheel yourself too (change the worker's install line to its URL; `?wheel=`
+works only on localhost), and the CSP can drop every third-party origin.
 
 ## Content Security Policy
 

@@ -20,14 +20,17 @@ const PYODIDE_SRI = "sha384-Lp79fMwxa4n2BLtugpUAoQMlbxIdg8iCUiP1r3h7nJLkQjwlXT1J
 // The CDN, or a self-hosted copy of the Pyodide "full" distribution, for example
 // new URL("./pyodide/", import.meta.url).href. The SRI check above applies either way.
 const PYODIDE_BASE = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-const PYDIGGS_VERSION = "1.3.0";
+const PYDIGGS_VERSION = "1.4.0";
 const MAX_BYTES = 25 * 1024 * 1024; // brief D8: the browser example's limit
 
 // While developing, ?wheel=/wheels/pydiggs-X.Y.Z-py3-none-any.whl on the page installs a
 // same-origin wheel instead of the PyPI release (serve.py --wheel serves one there).
+// Honoured on localhost only: on a deployed site that also serves uploads, a link could
+// otherwise install any same-origin wheel and run its code next to the user's file.
+const LOCAL_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
 function wheelOverride() {
   const value = new URL(self.location.href).searchParams.get("wheel");
-  if (!value) return null;
+  if (!value || !LOCAL_HOSTS.includes(self.location.hostname)) return null;
   const url = new URL(value, self.location.href);
   if (url.origin !== self.location.origin || !/\/pydiggs-[^/]+-py3-none-any\.whl$/.test(url.pathname)) {
     throw new Error("wheel= must be a same-origin pure pydiggs wheel");

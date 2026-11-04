@@ -1,5 +1,19 @@
 # History
 
+## 1.4.0 (2026-11-04)
+
+More ways to run pyDIGGS, all additive:
+
+- An MCP server for AI assistants (the `mcp` extra, `pydiggs serve --mcp`); see
+  [MCP server](mcp.md).
+- Tested browser support with Pyodide, and an example that validates in a Web Worker
+  without the file leaving the user's machine; see [Browser (Pyodide)](browser.md).
+- A container image of the HTTP API on GHCR, with provenance, an SBOM and a build
+  attestation; see [Container image](container.md).
+- `pydiggs --version`, and a `constraints-X.Y.Z.txt` file on every GitHub release.
+
+See the CHANGELOG for the full list.
+
 ## 1.3.0 (2026-11-03)
 
 New ways to use pyDIGGS from other software, all additive:

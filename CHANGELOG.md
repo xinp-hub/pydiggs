@@ -7,13 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-04
+
 ### Added
 - `pydiggs --version` (or `-V`) prints the installed version.
 - **MCP server** (`pip install 'pydiggs[mcp]'`, then `pydiggs serve --mcp`): AI
   assistants and other MCP clients can validate a DIGGS document and look up rules
   over stdio. Four read-only tools: `validate_diggs` (a base64 document in, a whole
   diggs-findings document out, equal to `pydiggs validate --format json` apart from
-  the path), `explain_rule`, `list_rules` and `supported_versions`. The text the model
+  the path and the limits below), `explain_rule`, `list_rules` and
+  `supported_versions`. The text the model
   reads is a fixed-template summary that never contains text from the file. Limits:
   10 MiB, 200 findings, 512-character messages, one validation at a time with a hard
   60-second timeout. No path, network access or local dictionary is ever used. See
@@ -34,8 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `python:3.14-slim-trixie`, running as uid 10001 with no package installer inside and
   a `/livez` health check. Set `PYDIGGS_ALLOWED_HOSTS` to the names clients use. Each
   image has a GitHub build provenance attestation (`gh attestation verify`), BuildKit
-  provenance and an SBOM, and is scanned for vulnerabilities before and after it is
-  pushed. See the new "Container image" page for the hardened run line, a compose
+  provenance and an SBOM. A release image is pushed by digest and scanned for
+  vulnerabilities before its tags point at it; the image built from every pull request
+  is scanned too. See the new "Container image" page for the hardened run line, a compose
   example and memory sizing.
 - **`constraints-X.Y.Z.txt`** on every GitHub release: the dependency versions the
   release was tested with, to pass to pip with `-c`.
@@ -51,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - The documentation's release history now has its 1.2.0 entry.
+- The documentation site's "Edit this page" links point at the `master` branch.
 
 ## [1.3.0] - 2026-11-03
 
@@ -477,6 +482,7 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 - License Apache-2.0; optional log output CLI control; docs updates.
 
 [Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.3.0...HEAD
+[1.4.0]: https://github.com/xinp-hub/pydiggs/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/xinp-hub/pydiggs/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/xinp-hub/pydiggs/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/xinp-hub/pydiggs/compare/v1.1.0...v1.1.1

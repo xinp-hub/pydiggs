@@ -140,7 +140,7 @@ Result:
 ```json
 {
   "protocol_version": "1.0",
-  "pydiggs_version": "1.3.0",
+  "pydiggs_version": "1.4.0",
   "findings_schema_version": "1.0",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json",
   "diggs_versions": ["2.5.a", "2.6", "3.0.0"],
@@ -279,7 +279,7 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 
 ```text
 → {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.0","client_info":{"name":"example-host","version":"0.1"}}}
-← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.0","pydiggs_version":"1.3.0",…}}
+← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.0","pydiggs_version":"1.4.0",…}}
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}
