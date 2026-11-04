@@ -9,7 +9,8 @@ packaging and example clients.
 
 The sidecar is part of the core package: it needs no extra and uses only the Python
 standard library on top of pydiggs itself. A machine-readable description of the methods
-ships with the package as `pydiggs/sidecar/openrpc.json` (OpenRPC 1.3).
+ships with the package as `pydiggs/sidecar/openrpc.json` (OpenRPC 1.3) and is published as
+[schemas/openrpc.json](https://xinp-hub.github.io/pydiggs/schemas/openrpc.json).
 
 !!! warning "Findings are untrusted text"
     Every string field in a findings document (messages, paths, element names, values)

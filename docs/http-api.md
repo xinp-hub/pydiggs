@@ -210,7 +210,9 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 
 ## OpenAPI and versioning
 
-The OpenAPI 3.1 document is committed as `pydiggs/server/openapi.json` and tested
-against the code. Its `DiggsFindings*` components are derived from the packaged findings
-JSON Schema. A breaking wire change would be served as `/v2` beside `/v1`; within `/v1`,
-validate documents against their own `$schema` and ignore unknown fields.
+The OpenAPI 3.1 document is committed as `pydiggs/server/openapi.json`, tested
+against the code and published as
+[schemas/openapi.json](https://xinp-hub.github.io/pydiggs/schemas/openapi.json). Its
+`DiggsFindings*` components are derived from the packaged findings JSON Schema. A
+breaking wire change would be served as `/v2` beside `/v1`; within `/v1`, validate
+documents against their own `$schema` and ignore unknown fields.
