@@ -1,0 +1,8 @@
+# The image needs only the lock, the project metadata it belongs to, and the wheel.
+# Everything else stays out of the build context (no .git, .venv, tests or secrets).
+*
+!pyproject.toml
+!uv.lock
+!dist/
+dist/*
+!dist/pydiggs-*-py3-none-any.whl
