@@ -4,6 +4,11 @@ The same descriptor rule as the stdio sidecar: protocol frames go to a private c
 of fd 1, and fd 1 itself (with ``sys.stdout``) points at stderr before anything else
 starts, so a stray ``print``, a C-level write or a worker process can never write
 into the frame stream. Logs go to stderr.
+
+mcp's ``stdio_server()`` makes a similar claim of its own, but only when it is not
+given ``stdout``; passing ours skips it, so the two never stack. Ours is kept for the
+LF line endings on Windows and for failing closed (exit 2) when stdin or stdout is
+not usable.
 """
 
 from __future__ import annotations
@@ -36,8 +41,11 @@ def _claimed_stdout() -> Iterator[int]:
     """Move frames to a private copy of fd 1 and point fd 1 (and ``sys.stdout``) at stderr.
 
     Restored on exit. Raises ``OSError`` (or ``ValueError``/``AttributeError`` for a
-    closed or missing stream) when stdout cannot be claimed.
+    closed or missing stream) when stdin or stdout cannot be used.
     """
+    os.fstat(0)  # a closed stdin: refuse now (and os.dup(1) below would land on fd 0)
+    if sys.stdin is None:
+        raise ValueError("stdin is not available")
     sys.stdout.flush()
     frames_fd = os.dup(1)  # non-inheritable (PEP 446): worker processes never get it
     try:

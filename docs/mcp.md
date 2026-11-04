@@ -83,7 +83,8 @@ bytes, encoding declaration and SHA-256 are exactly those of the file. `name` is
 for display: it is reduced to a basename and becomes `files[].path`. `checks` runs only
 the listed steps (`structure`, `schema`, `dictionary`, `schematron`, `geometry`,
 `deprecation`, `context`). The result equals `pydiggs validate --format json` on the
-same file, apart from `path`.
+same file, apart from `path` and the [limits](#limits) below: at most 200 findings and
+512-character messages, where the CLI keeps 10,000 findings and 4,096 characters.
 
 A malformed or invalid document is a normal result with findings, never an error.
 
@@ -112,11 +113,12 @@ copies document snippets into a result.
 
 ## Errors
 
-A problem with the request or the document is a tool result with `isError: true`. Its
-`structuredContent` is `{"error": {"code": ..., "message": ...}}`, with `errors` (a
-list of `parameter` and `problem`) for bad arguments and `correlation_id` for internal
-errors; the text block says the same. Messages are fixed texts: they never repeat a
-value the caller sent.
+A problem with the request or the document is a tool result with `isError: true` and
+one text block, `pydiggs error <code>: <message>`. For bad arguments the message ends
+with `parameter: problem` pairs separated by `; `, and for internal errors with
+`(correlation id <hex>)`. Messages are fixed texts: they never repeat a value the
+caller sent. An error result has no `structuredContent`, because that must match the
+tool's `outputSchema`.
 
 | `code` | When |
 |---|---|

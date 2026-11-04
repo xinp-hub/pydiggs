@@ -303,6 +303,27 @@ jobs:
           uv run --no-sync python .github/scripts/frozen_sidecar_smoke.py "$exe" \
             tests/test_files/2.6/Schema_Error_1-2_6.xml
 
+  # The mcp extra has no upper bound and the server uses one private SDK attribute,
+  # so this runs the MCP tests against the newest mcp new installs would get. Not in
+  # all-green: a new mcp release should not block unrelated pull requests.
+  mcp-newest:
+    name: MCP tests on the newest mcp
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      UV_FROZEN: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - run: uv sync --all-groups --all-extras --upgrade-package mcp --upgrade-package mcp-types
+      - run: uv pip list | grep -E '^mcp'
+      - run: uv run --no-sync pytest -q -p no:randomly --no-cov tests/test_mcp_server.py
+
   all-green:
     name: all green
     if: always()

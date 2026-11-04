@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Final, Literal
 import anyio
 import anyio.to_thread
 from mcp.server.mcpserver import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
 from mcp.server.mcpserver.tools import Tool
 from mcp.shared.exceptions import MCPError
 from mcp_types import (
@@ -284,20 +284,19 @@ def summary(document: dict[str, Any]) -> str:
 
 
 def _error(outcome: Outcome) -> CallToolResult:
-    """An ``isError`` result: the code and a fixed text, never a caller or file value."""
+    """An ``isError`` result: the code and a fixed text, never a caller or file value.
+
+    It has no ``structuredContent``: that must match the tool's ``outputSchema``, and
+    some clients (the TypeScript SDK) check it even on an error.
+    """
     code = outcome.code or Code.INTERNAL
     text = _FIXED_TEXT[code]
-    error: dict[str, Any] = {"code": code.value, "message": text}
     if outcome.errors:
-        error["errors"] = [{"parameter": p, "problem": m} for p, m in outcome.errors]
         text += " " + "; ".join(f"{p}: {m}" for p, m in outcome.errors)
     if outcome.correlation_id is not None:
-        error["correlation_id"] = outcome.correlation_id
         text += f" (correlation id {outcome.correlation_id})"
     return CallToolResult(
-        content=[TextContent(text=f"pydiggs error {code.value}: {text}")],
-        structured_content={"error": error},
-        is_error=True,
+        content=[TextContent(text=f"pydiggs error {code.value}: {text}")], is_error=True
     )
 
 
@@ -333,6 +332,9 @@ class _Runtime:
         self.limits = limits
         self._pool: WorkerPool | None = None
         self._lock = threading.Lock()
+        # Held from decoding to the result: a waiting call keeps only its argument,
+        # a cancelled one leaves the queue at once, and shutdown waits for one call.
+        self._turn = anyio.Lock()
 
     def pool(self) -> WorkerPool:
         with self._lock:
@@ -361,19 +363,21 @@ class _Runtime:
         checks: Sequence[str] | None,
         diggs_version: str | None,
     ) -> CallToolResult:
-        content = _decode(content_base64, self.limits)
-        if isinstance(content, CallToolResult):
-            return content
-        request = Request(
-            content=content,
-            name=name,
-            checks=checks,
-            diggs_version=diggs_version,
-            max_bytes=self.limits.max_bytes,
-            max_findings=self.limits.max_findings,
-        )
-        # The pool has one worker: a second call waits for it, so one runs at a time.
-        outcome = await anyio.to_thread.run_sync(self.run, request)
+        if len(content_base64) > self.limits.max_encoded_chars:  # refused before queueing
+            return _error(Outcome(code=Code.INPUT_TOO_LARGE, detail="too large"))
+        async with self._turn:  # one call at a time, matching the single worker
+            content = _decode(content_base64, self.limits)
+            if isinstance(content, CallToolResult):
+                return content
+            request = Request(
+                content=content,
+                name=name,
+                checks=checks,
+                diggs_version=diggs_version,
+                max_bytes=self.limits.max_bytes,
+                max_findings=self.limits.max_findings,
+            )
+            outcome = await anyio.to_thread.run_sync(self.run, request)
         if not outcome.ok or outcome.document is None:
             return _error(outcome)
         document: dict[str, Any] = json.loads(outcome.document)
@@ -409,7 +413,8 @@ class _Server(MCPServer[Any]):
             return await super().call_tool(name, arguments, context)
         except ToolError as exc:
             cause = exc.__cause__
-            if not isinstance(cause, ValidationError):
+            # A crash in the tool body is not an argument error, whatever its cause.
+            if isinstance(exc, UnexpectedToolError) or not isinstance(cause, ValidationError):
                 raise
             # Our own parameter names only: never a value, never a caller's key.
             fields = sorted({str(e["loc"][0]) for e in cause.errors() if e["loc"]} & _PARAMS)

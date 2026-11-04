@@ -6,13 +6,16 @@ import base64
 import doctest
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import textwrap
+import threading
 from pathlib import Path
 
 import anyio
+import anyio.to_thread
 import jsonschema
 import pytest
 from mcp import Client, StdioServerParameters
@@ -53,6 +56,15 @@ def _session(server, body):
 
 def _call(server, name, arguments):
     return _session(server, lambda c: c.call_tool(name, arguments))
+
+
+def _error_code(result) -> str:
+    """The code of an ``isError`` result, which carries no ``structuredContent``."""
+    assert result.is_error
+    assert result.structured_content is None  # it would have to match the outputSchema
+    match = re.match(r"pydiggs error ([a-z-]+): ", result.content[0].text)
+    assert match, result.content[0].text
+    return match.group(1)
 
 
 def _cli_document(tmp_path: Path, monkeypatch, capsys, fixture: Path) -> dict:
@@ -207,29 +219,24 @@ def test_oversized_base64_is_refused_before_decoding(monkeypatch):
     monkeypatch.setattr(_tools.base64, "b64decode", no_decode)
     small = create_server(max_bytes=1000)
     result = _call(small, "validate_diggs", {"content_base64": "A" * 1340})
-    assert result.is_error
-    assert result.structured_content["error"]["code"] == "input-too-large"
-    assert "input-too-large" in result.content[0].text
+    assert _error_code(result) == "input-too-large"
 
 
 def test_decoded_length_is_checked_too():
     limits = Limits(max_bytes=4)
     assert len("QUFBQUE=") <= limits.max_encoded_chars
     result = _tools._decode("QUFBQUE=", limits)  # five bytes
-    assert result.is_error and result.structured_content["error"]["code"] == "input-too-large"
+    assert _error_code(result) == "input-too-large"
     assert _tools._decode("QUFBQQ==", limits) == b"AAAA"
 
 
 @pytest.mark.parametrize("bad", ["not base64!", "QUFBQ", "QUFB\nQUFB", "Zm9vé"])
 def test_invalid_base64_is_an_invalid_parameter(bad):
     result = _tools._decode(bad, Limits())
-    assert result.is_error
-    error = result.structured_content["error"]
-    assert error["code"] == "invalid-parameter"
-    assert error["errors"] == [
-        {"parameter": "content_base64", "problem": "must be standard, padded base64"}
-    ]
-    assert bad not in result.content[0].text
+    assert _error_code(result) == "invalid-parameter"
+    text = result.content[0].text
+    assert text.endswith(" content_base64: must be standard, padded base64")
+    assert bad not in text
 
 
 def test_argument_errors_are_fixed_texts_that_never_echo_values(server):
@@ -261,11 +268,10 @@ def test_argument_errors_are_fixed_texts_that_never_echo_values(server):
         ["step"],
     ]
     for result, fields in zip(results, expected, strict=True):
-        assert result.is_error
-        error = result.structured_content["error"]
-        assert error["code"] == "invalid-parameter"
-        assert [e["parameter"] for e in error["errors"]] == fields
+        assert _error_code(result) == "invalid-parameter"
         text = result.content[0].text
+        problems = text.removeprefix("pydiggs error invalid-parameter: Invalid parameters. ")
+        assert [p.partition(":")[0] for p in problems.split("; ")] == fields
         assert marker not in text and "xxxx" not in text
         assert text.startswith("pydiggs error invalid-parameter:")
 
@@ -290,7 +296,8 @@ def test_tool_errors_that_are_not_argument_errors_pass_through(monkeypatch):
     monkeypatch.setattr(MCPServer, "call_tool", fail)
     server = create_server()
     result = anyio.run(server.call_tool, "list_rules", {"step": "x"})
-    assert [e["parameter"] for e in result.structured_content["error"]["errors"]] == ["arguments"]
+    assert _error_code(result) == "invalid-parameter"
+    assert result.content[0].text.endswith(" arguments: missing or not valid")
     with pytest.raises(ToolError):
         anyio.run(server.call_tool, "list_rules", {})
 
@@ -349,22 +356,19 @@ def test_explain_list_and_versions(server):
 def test_service_errors_are_is_error_results_with_fixed_texts(monkeypatch, outcome, code):
     monkeypatch.setattr(_tools._Runtime, "run", lambda self, request: outcome)
     result = _call(create_server(), "validate_diggs", {"content_base64": _b64(b"<Diggs/>")})
-    assert result.is_error
-    error = result.structured_content["error"]
-    assert error["code"] == code
-    assert error["message"] == _tools._FIXED_TEXT[Code(code)]
-    assert outcome.detail not in result.content[0].text
+    assert _error_code(result) == code
+    text = result.content[0].text
+    assert text.startswith(f"pydiggs error {code}: {_tools._FIXED_TEXT[Code(code)]}")
+    assert outcome.detail not in text
     if outcome.correlation_id:
-        assert error["correlation_id"] == outcome.correlation_id
-        assert outcome.correlation_id in result.content[0].text
+        assert text.endswith(f" (correlation id {outcome.correlation_id})")
 
 
 def test_compressed_input_is_refused_by_the_worker(server):
     import gzip
 
     result = _call(server, "validate_diggs", {"content_base64": _b64(gzip.compress(b"<D/>"))})
-    assert result.is_error
-    assert result.structured_content["error"]["code"] == "compressed-input"
+    assert _error_code(result) == "compressed-input"
 
 
 # --- the worker: one at a time, hard timeout ------------------------------------------------
@@ -395,9 +399,7 @@ def test_a_timeout_is_an_is_error_result():
     result = _call(
         create_server(timeout=0.01), "validate_diggs", {"content_base64": _b64(b"<Diggs/>")}
     )
-    assert result.is_error
-    error = result.structured_content["error"]
-    assert error["code"] == "timeout"
+    assert _error_code(result) == "timeout"
     assert "not checked" in result.content[0].text
 
 
@@ -446,6 +448,69 @@ def test_claimed_stdout_gives_back_fd_1_when_dup2_fails(monkeypatch):
     monkeypatch.setattr(_run, "os", NoDup2())  # only the MCP module sees it, not pytest
     with pytest.raises(OSError, match="no"), _run._claimed_stdout():
         pass
+
+
+def test_serve_mcp_exits_2_without_sys_stdin(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "stdin", None)
+    assert _run.serve_mcp(ServeOptions()) == 2
+    assert "stdin and stdout" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="closes fd 0 in the child")
+def test_serve_mcp_exits_2_when_stdin_is_closed():
+    proc = subprocess.run(  # our own interpreter, fixed arguments
+        [sys.executable, "-m", "pydiggs.cli", "serve", "--mcp"],
+        preexec_fn=lambda: os.close(0),  # POSIX only, no threads involved
+        capture_output=True,
+        text=True,
+        timeout=TIMEOUT,
+        check=False,
+    )
+    assert proc.returncode == 2
+    assert "stdin and stdout" in proc.stderr
+    assert "Traceback" not in proc.stderr
+
+
+def test_a_queued_call_waits_before_decoding_and_can_be_cancelled(monkeypatch):
+    started, release = threading.Event(), threading.Event()
+    decoded = []
+    real_decode = _tools._decode
+
+    def decode(encoded, limits):
+        decoded.append(encoded)
+        return real_decode(encoded, limits)
+
+    def run(self, request):
+        started.set()
+        release.wait(TIMEOUT)
+        return Outcome(code=Code.TIMEOUT, detail="x")
+
+    monkeypatch.setattr(_tools, "_decode", decode)
+    monkeypatch.setattr(_tools._Runtime, "run", run)
+    runtime = _tools._Runtime(Limits())
+    first, second = _b64(b"<A/>"), _b64(b"<B/>")
+
+    async def body():
+        results = []
+
+        async def call():
+            results.append(await runtime.check(first, None, None, None))
+
+        async with anyio.create_task_group() as tg:
+            tg.start_soon(call)
+            await anyio.to_thread.run_sync(started.wait, TIMEOUT)
+            with anyio.move_on_after(0.2) as waiting:
+                await runtime.check(second, None, None, None)
+            assert waiting.cancelled_caught  # left the queue at once
+            assert decoded == [first]  # and never decoded its document
+            with anyio.fail_after(5):  # an oversized document is refused without queueing
+                big = await runtime.check("A" * (Limits().max_encoded_chars + 4), None, None, None)
+            assert _error_code(big) == "input-too-large"
+            release.set()
+        return results
+
+    (result,) = anyio.run(body)
+    assert _error_code(result) == "timeout"
 
 
 @pytest.mark.parametrize(
