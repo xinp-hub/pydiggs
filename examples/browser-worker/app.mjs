@@ -16,8 +16,14 @@ const worker = new Worker(workerUrl, { type: "module" });
 
 const pending = new Map();
 let nextId = 1;
+// The worker's limit too (it checks again): refused here before the file is read, so
+// choosing a huge file cannot exhaust the tab's memory first.
+const MAX_BYTES = 25 * 1024 * 1024;
 
 function validate(file) {
+  if (file.size > MAX_BYTES) {
+    return Promise.reject(new Error(`the document is larger than ${MAX_BYTES} bytes`));
+  }
   return file.arrayBuffer().then(
     (data) =>
       new Promise((resolve, reject) => {
@@ -86,6 +92,9 @@ function render(doc) {
 fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   if (!file) return;
+  // One file at a time: a later choice could otherwise finish first and then be
+  // overwritten by the earlier file's report.
+  fileInput.disabled = true;
   statusLine.className = "";
   statusLine.textContent = "Validating…";
   try {
@@ -96,5 +105,7 @@ fileInput.addEventListener("change", async () => {
     reportSection.replaceChildren();
     statusLine.className = "error";
     statusLine.textContent = `Not validated: ${error.message}`;
+  } finally {
+    fileInput.disabled = false;
   }
 });
