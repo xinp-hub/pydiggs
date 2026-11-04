@@ -219,10 +219,94 @@ jobs:
       - name: Smoke the wheel in Pyodide
         run: node tests/pyodide/smoke.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json"
 
+  # The container image (docs/container.md), built from this checkout's wheel and uv.lock
+  # for amd64 and loaded locally; nothing is pushed. It is run with the documented
+  # hardened line and smoke-tested, then scanned: a fixable HIGH or CRITICAL fails.
+  container-build:
+    name: container build, smoke & scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      IMAGE: pydiggs:ci
+      # Trivy is installed from its release, checked against the sha256 below (taken
+      # from trivy_0.76.0_checksums.txt, whose Sigstore bundle verifies against the
+      # aquasecurity/trivy reusable-release workflow). Bump both together.
+      TRIVY_VERSION: "0.76.0"
+      TRIVY_SHA256: e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - name: Build the wheel
+        run: uv build --wheel
+      - name: Build the image (linux/amd64, loaded, not pushed)
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          docker buildx build --platform linux/amd64 --load \
+            --build-arg "REVISION=$REVISION" \
+            --tag "$IMAGE" .
+          docker image inspect "$IMAGE" --format 'user={{.Config.User}} size={{.Size}}'
+      - name: Smoke-test with the hardened run line
+        run: python3 .github/scripts/container_smoke.py "$IMAGE"
+      - name: Install Trivy (checksum-verified)
+        run: |
+          set -euo pipefail
+          archive="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${archive}"
+          echo "${TRIVY_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" trivy
+          "$RUNNER_TEMP/trivy" --version
+      - name: Scan the image (fail on fixable HIGH/CRITICAL)
+        run: |
+          "$RUNNER_TEMP/trivy" image --scanners vuln --severity HIGH,CRITICAL \
+            --ignore-unfixed --exit-code 1 --no-progress "$IMAGE"
+
+  # The frozen-sidecar guidance in docs/sidecar-hosts.md (brief D15): a PyInstaller
+  # --onedir console build of tests/frozen/sidecar_main.py must serve a complete stdio
+  # session on Linux and on Windows.
+  sidecar-frozen:
+    name: frozen sidecar (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - run: uv sync --no-dev --group freeze
+      - name: Freeze the sidecar (PyInstaller --onedir --console)
+        run: |
+          uv run --no-sync pyinstaller --onedir --console --noconfirm --name pydiggs \
+            --collect-data pydiggs \
+            --distpath "$RUNNER_TEMP/frozen/dist" --workpath "$RUNNER_TEMP/frozen/build" \
+            --specpath "$RUNNER_TEMP/frozen" tests/frozen/sidecar_main.py
+      - name: Drive initialize, validate, shutdown and exit
+        run: |
+          exe="$RUNNER_TEMP/frozen/dist/pydiggs/pydiggs"
+          if [ "$RUNNER_OS" = "Windows" ]; then exe="$exe.exe"; fi
+          uv run --no-sync python .github/scripts/frozen_sidecar_smoke.py "$exe" \
+            tests/test_files/2.6/Schema_Error_1-2_6.xml
+
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, core-only, build, pyodide]
+    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
