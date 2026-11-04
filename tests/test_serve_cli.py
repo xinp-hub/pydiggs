@@ -44,12 +44,10 @@ def test_help_lists_the_modes_and_none_of_the_trusted_resource_options(capsys):
         main(["serve", "--help"])
     assert exit_info.value.code == 0
     text = " ".join(capsys.readouterr().out.split())
-    for option in ("--stdio", "--http", "--max-bytes", "--timeout", "--allow-path"):
+    for option in ("--stdio", "--http", "--mcp", "pydiggs[mcp]", "--max-bytes", "--timeout"):
         assert option in text
+    assert "--allow-path" in text
     for forbidden in (
-        "--mcp",  # reserved for a later release: hidden
-        "MCP",
-        "pydiggs[mcp]",
         "--schema-path",
         "--dictionary-path",
         "--schematron-path",
@@ -107,14 +105,28 @@ def test_stdio_gets_its_options(monkeypatch):
     assert (small.max_bytes, small.max_path_bytes) == (1000, 1000)
 
 
-def test_mcp_is_reserved_exits_2_and_imports_nothing(monkeypatch, capsys):
-    monkeypatch.delitem(sys.modules, "pydiggs.mcp_server", raising=False)
-    monkeypatch.setitem(sys.modules, "mcp", None)  # an import would fail loudly
-    code, out, err = _serve(capsys, "--mcp", "--log-format", "json")
-    assert (code, out) == (2, "")
-    assert "--mcp is not available in this release" in err
-    assert "pydiggs[mcp]" not in err
-    assert "pydiggs.mcp_server" not in sys.modules
+def test_mcp_gets_its_options(monkeypatch):
+    import pydiggs.mcp_server
+
+    seen = []
+    monkeypatch.setattr(pydiggs.mcp_server, "serve_mcp", lambda options: seen.append(options) or 0)
+    assert main(["serve", "--mcp"]) == 0
+    assert (
+        main(["serve", "--mcp", "--max-bytes", "1000", "--max-findings", "5", "--timeout", "9"])
+        == 0
+    )
+    default, custom = seen
+    assert (default.max_bytes, default.max_findings, default.timeout) == (10 * 2**20, 200, 60.0)
+    assert (custom.max_bytes, custom.max_findings, custom.timeout) == (1000, 5, 9.0)
+    assert default.allow_paths == ()
+
+
+def test_mcp_options_belong_to_mcp(capsys):
+    for argv in (["--mcp", "--allow-path", "/data"], ["--mcp", "--workers", "2"]):
+        with pytest.raises(SystemExit) as exit_info:
+            main(["serve", *argv])
+        assert exit_info.value.code == 2
+    assert "only for" in capsys.readouterr().err
 
 
 def test_http_settings_come_from_the_environment_then_the_flags(monkeypatch):
@@ -169,6 +181,7 @@ def test_bad_environment_exits_2(monkeypatch, capsys):
     [
         ("--http", "fastapi", "pydiggs.server", "server"),
         ("--http", "uvicorn", "pydiggs.server", "server"),
+        ("--mcp", "mcp", "pydiggs.mcp_server", "mcp"),
     ],
 )
 def test_a_missing_extra_exits_2_naming_it(monkeypatch, capsys, case):
@@ -208,7 +221,10 @@ class _Broken(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         raise ModuleNotFoundError("No module named 'unrelated'", name="unrelated")
 
 
-@pytest.mark.parametrize(("target", "package", "mode"), [("fastapi", "pydiggs.server", "--http")])
+@pytest.mark.parametrize(
+    ("target", "package", "mode"),
+    [("fastapi", "pydiggs.server", "--http"), ("mcp", "pydiggs.mcp_server", "--mcp")],
+)
 def test_any_other_import_error_propagates(monkeypatch, target, package, mode):
     monkeypatch.delitem(sys.modules, target, raising=False)
     monkeypatch.delitem(sys.modules, package, raising=False)
@@ -224,7 +240,6 @@ def test_any_other_import_error_propagates(monkeypatch, target, package, mode):
 @pytest.mark.parametrize(
     ("argv", "text"),
     [
-        (["--mcp"], "--mcp is not available in this release"),
         # The real server refuses a public bind without allowed hosts, before binding.
         (["--http", "--host", ANY_ADDRESS], "PYDIGGS_ALLOWED_HOSTS"),
     ],
@@ -402,21 +417,17 @@ def test_bad_environment_values_name_the_variable(name, value):
         ServerSettings.from_env({name: value})
 
 
-def test_the_mcp_stub_names_no_extra_that_does_not_exist(monkeypatch):
+def test_the_mcp_package_names_its_extra(monkeypatch):
     monkeypatch.setitem(sys.modules, "mcp", None)
     monkeypatch.delitem(sys.modules, "pydiggs.mcp_server", raising=False)
-    with pytest.raises(ImportError, match="not available in this release") as info:
+    with pytest.raises(ImportError, match=r"requires the 'mcp' extra") as info:
         import pydiggs.mcp_server  # noqa: F401
-    assert "pydiggs[mcp]" not in str(info.value)
+    assert "pydiggs[mcp]" in str(info.value)
 
 
 def test_the_stub_entry_points_have_the_frozen_signatures(monkeypatch):
     import inspect
-    import types
 
-    # The MCP SDK is not a dependency of this release; the kept stub only probes for it.
-    monkeypatch.setitem(sys.modules, "mcp", types.ModuleType("mcp"))
-    monkeypatch.delitem(sys.modules, "pydiggs.mcp_server", raising=False)
     from pydiggs.mcp_server import serve_mcp
     from pydiggs.server import ServerSettings, serve_http
     from pydiggs.sidecar import serve_stdio
@@ -426,7 +437,6 @@ def test_the_stub_entry_points_have_the_frozen_signatures(monkeypatch):
     assert str(inspect.signature(serve_http)) == (
         "(settings: 'ServerSettings', host: 'str', port: 'int') -> 'int'"
     )
-    assert serve_mcp(ServeOptions()) == 2
     assert serve_http(ServerSettings(), ANY_ADDRESS, 8000) == 2  # no allowed hosts: refused
 
 
