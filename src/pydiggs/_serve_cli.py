@@ -1,9 +1,8 @@
-"""``pydiggs serve``: run pydiggs as a stdio sidecar or an HTTP server.
+"""``pydiggs serve``: run pydiggs as a stdio sidecar, an HTTP server or an MCP server.
 
 Stdlib only. The adapters are imported only for the mode asked for, so ``serve
---stdio`` needs no extra and a missing ``[server]`` extra is reported (exit 2) only
-when ``--http`` is chosen. ``--mcp`` is reserved for the MCP server of a later
-release: it is hidden from ``--help`` and exits 2 without importing anything.
+--stdio`` needs no extra, and a missing ``[server]`` or ``[mcp]`` extra is reported
+(exit 2) only when ``--http`` or ``--mcp`` is chosen.
 
 The three entry points have fixed signatures:
 
@@ -53,11 +52,11 @@ DEFAULT_MAX_BYTES: Final = 25 * 2**20
 DEFAULT_MAX_PATH_BYTES: Final = 100 * 2**20
 #: Findings kept per document for ``--stdio`` and ``--http``.
 DEFAULT_MAX_FINDINGS: Final = 10_000
-#: Decoded content limit for the MCP server of a later release (bytes).
+#: Decoded content limit for ``--mcp`` (bytes).
 DEFAULT_MCP_MAX_BYTES: Final = 10 * 2**20
-#: Findings kept per document for the MCP server of a later release.
+#: Findings kept per document for ``--mcp``.
 DEFAULT_MCP_MAX_FINDINGS: Final = 200
-#: Seconds: hard limit for ``--http``, default time budget for ``--stdio``.
+#: Seconds: hard limit for ``--http`` and ``--mcp``, default time budget for ``--stdio``.
 DEFAULT_TIMEOUT: Final = 60.0
 #: Largest ``--timeout``: one day (as ``validate --timeout``).
 MAX_TIMEOUT: Final = 86_400
@@ -67,9 +66,10 @@ LOG_LEVELS: Final = ("debug", "info", "warning", "error", "critical")
 #: The modules each extra provides (import names), to recognise a missing extra.
 _EXTRA_MODULES: Final = {
     "server": frozenset({"fastapi", "starlette", "uvicorn", "multipart", "python_multipart"}),
+    "mcp": frozenset({"mcp", "mcp_types", "pydantic", "anyio", "multipart", "python_multipart"}),
 }
-#: What ``--mcp`` says in this release.
-_MCP_UNAVAILABLE: Final = "--mcp is not available in this release"
+#: The adapter package each extra enables.
+_EXTRA_PACKAGES: Final = {"server": "pydiggs.server", "mcp": "pydiggs.mcp_server"}
 
 
 def default_workers() -> int:
@@ -140,34 +140,37 @@ def build_parser() -> argparse.ArgumentParser:
         prog="pydiggs serve",
         description=(
             "Serve DIGGS validation to other programs: a JSON-RPC sidecar on stdin/stdout"
-            " (--stdio) or an HTTP API (--http, needs pydiggs[server]). Only the bundled"
-            " schema, dictionaries and Schematron rules are used."
+            " (--stdio), an HTTP API (--http, needs pydiggs[server]) or an MCP server on"
+            " stdin/stdout (--mcp, needs pydiggs[mcp]). Only the bundled schema,"
+            " dictionaries and Schematron rules are used."
         ),
         epilog=(
             "Exit status: 0 after a clean shutdown; 2 for bad arguments or a missing extra."
-            " --timeout is a hard limit (process kill) for --http, and the default"
+            " --timeout is a hard limit (process kill) for --http and --mcp, and the default"
             " per-request time budget for --stdio, where the host owns hard limits."
         ),
     )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--stdio", action="store_true", help="JSON-RPC 2.0 over NDJSON on stdio")
     mode.add_argument("--http", action="store_true", help="HTTP API (pydiggs[server])")
-    # Reserved for the MCP server of a later release: hidden, and it exits 2.
-    mode.add_argument("--mcp", action="store_true", help=argparse.SUPPRESS)
+    mode.add_argument("--mcp", action="store_true", help="MCP server on stdio (pydiggs[mcp])")
     parser.add_argument(
         "--max-bytes",
         type=int,
         metavar="N",
         help=(
             f"largest document in bytes (default {DEFAULT_MAX_BYTES:,};"
-            f" --stdio by path {DEFAULT_MAX_PATH_BYTES:,})"
+            f" --stdio by path {DEFAULT_MAX_PATH_BYTES:,}; --mcp {DEFAULT_MCP_MAX_BYTES:,})"
         ),
     )
     parser.add_argument(
         "--max-findings",
         type=int,
         metavar="N",
-        help=f"findings kept per document (default {DEFAULT_MAX_FINDINGS:,})",
+        help=(
+            f"findings kept per document (default {DEFAULT_MAX_FINDINGS:,};"
+            f" --mcp {DEFAULT_MCP_MAX_FINDINGS})"
+        ),
     )
     parser.add_argument(
         "--timeout",
@@ -231,6 +234,20 @@ def _options(args: argparse.Namespace) -> ServeOptions:
     )
 
 
+def _mcp_options(args: argparse.Namespace) -> ServeOptions:
+    """``ServeOptions`` for ``--mcp``, with that mode's defaults."""
+    max_bytes = args.max_bytes or DEFAULT_MCP_MAX_BYTES
+    return ServeOptions(
+        max_bytes=max_bytes,
+        max_path_bytes=max_bytes,  # unused: MCP never accepts a path
+        max_findings=args.max_findings or DEFAULT_MCP_MAX_FINDINGS,
+        timeout=DEFAULT_TIMEOUT if args.timeout is None else args.timeout,
+        workers=1,
+        log_level=args.log_level,
+        log_format=args.log_format,
+    )
+
+
 def _server_settings(cls: type[ServerSettings], args: argparse.Namespace) -> ServerSettings:
     """``ServerSettings.from_env()`` (``PYDIGGS_*``), overridden by the flags given."""
     settings = cls.from_env(isolation="process")
@@ -257,7 +274,8 @@ def _extra_message(extra: str, exc: ImportError) -> str:
     text = str(exc)
     if f"'{extra}' extra" in text:
         return text
-    return f"pydiggs.{extra} requires the '{extra}' extra: pip install 'pydiggs[{extra}]'"
+    package = _EXTRA_PACKAGES[extra]
+    return f"{package} requires the '{extra}' extra: pip install 'pydiggs[{extra}]'"
 
 
 def _escape(text: str) -> str:
@@ -328,14 +346,20 @@ def main(argv: Sequence[str]) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv))
     _check_args(parser, args)
-    if args.mcp:
-        print(f"pydiggs serve: {_MCP_UNAVAILABLE}", file=sys.stderr)
-        return 2
     configure_logging(args.log_level, args.log_format)
     if args.stdio:
         from pydiggs.sidecar import serve_stdio  # noqa: PLC0415  # only for this mode
 
         return serve_stdio(_options(args))
+    if args.mcp:
+        try:
+            from pydiggs.mcp_server import serve_mcp  # noqa: PLC0415  # [mcp]
+        except ImportError as exc:
+            if not _missing_extra(exc, "mcp"):
+                raise
+            print(f"pydiggs serve: {_extra_message('mcp', exc)}", file=sys.stderr)
+            return 2
+        return serve_mcp(_mcp_options(args))
     extra = "server"
     try:
         from pydiggs.server import ServerSettings, serve_http  # noqa: PLC0415  # [server]

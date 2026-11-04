@@ -1,0 +1,6 @@
+{
+  "comment": "What the pinned Pyodide ships, read from its pyodide-lock.json. smoke.mjs checks every value against the running Pyodide and tests/test_pyodide_facts.py keeps pyproject's lxml floor at or below 'lxml'. Change these only together with package.json.",
+  "pyodide": "314.0.7",
+  "python": "3.14.2",
+  "lxml": "6.1.3"
+}

@@ -22,6 +22,7 @@ Optional extras (for example `uv add "pydiggs[server]"`):
 | Extra | Adds | For |
 |---|---|---|
 | `server` | FastAPI, Starlette, uvicorn, python-multipart | the HTTP API (`pydiggs serve --http`) |
+| `mcp` | the official MCP Python SDK (`mcp` 2.x), python-multipart | the [MCP server](mcp.md) (`pydiggs serve --mcp`) |
 
 The stdio sidecar (`pydiggs serve --stdio`) needs no extra.
 

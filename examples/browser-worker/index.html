@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The page itself runs only its own files; Pyodide runs in the worker, whose policy
+       comes from the worker script's own response headers (see serve.py). -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>pydiggs in the browser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>pydiggs in the browser</h1>
+    <p>Validate a DIGGS file without uploading it: pydiggs runs in this tab with
+      <a href="https://pyodide.org/" rel="noreferrer">Pyodide</a>.</p>
+    <p id="status" role="status">Loading Pyodide and pydiggs…</p>
+    <label>DIGGS file (up to 25 MiB)
+      <input id="file" type="file" accept=".xml,application/xml,text/xml" disabled>
+    </label>
+    <section id="report" aria-live="polite"></section>
+  </main>
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>

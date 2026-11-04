@@ -114,3 +114,6 @@ dist/
 coverage.xml
 *.pem
 .pypirc
+
+# Pyodide smoke (npm ci in tests/pyodide)
+node_modules/

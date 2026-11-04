@@ -2,7 +2,7 @@ site_name: pyDIGGS
 site_description: A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)
 repo_url: https://github.com/xinp-hub/pydiggs
 repo_name: xinp-hub/pydiggs
-edit_uri: edit/main/docs/
+edit_uri: edit/master/docs/
 
 theme:
   name: material
@@ -132,8 +132,11 @@ nav:
     - Findings (JSON / SARIF): findings.md
   - Integrations:
     - HTTP API: http-api.md
+    - Container image: container.md
     - Stdio sidecar (native apps): sidecar.md
     - Host integration: sidecar-hosts.md
+    - MCP server (AI assistants): mcp.md
+    - Browser (Pyodide): browser.md
   - Development:
     - Contributing: contributing.md
     - Authors: authors.md

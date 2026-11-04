@@ -106,6 +106,18 @@ def test_import_and_validate_bytes_do_not_import_rich_or_the_adapters():
     assert _fresh(code) == "[]"
 
 
+def test_validation_loads_no_networking_modules():
+    # Only an allow_network download needs them; the browser build relies on this.
+    code = (
+        "import sys, pydiggs\n"
+        f"pydiggs.validate_bytes(open({str(NO_ERROR)!r}, 'rb').read())\n"
+        f"pydiggs.validate({str(NO_ERROR)!r})\n"
+        "net = ['socket', 'ssl', 'http.client', 'urllib.request']\n"
+        "print(sorted(m for m in net if m in sys.modules))\n"
+    )
+    assert _fresh(code) == "[]"
+
+
 def test_the_legacy_checks_still_import_rich_when_they_print():
     code = (
         "import sys\nfrom pydiggs import validator\n"

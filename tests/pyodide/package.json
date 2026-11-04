@@ -1,0 +1,15 @@
+{
+  "name": "pydiggs-pyodide-smoke",
+  "private": true,
+  "description": "Installs the locally built pydiggs wheel into Pyodide under Node and compares its reports with CPython's.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "dependencies": {
+    "pyodide": "314.0.7"
+  }
+}

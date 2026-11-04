@@ -252,3 +252,12 @@ def test_dunder_main_runs_the_cli(monkeypatch, capsys):
         runpy.run_module("pydiggs", run_name="__main__")
     assert exit_info.value.code == 0
     assert json.loads(capsys.readouterr().out)["files"][0]["verdict"]
+
+
+@pytest.mark.parametrize("flag", ["--version", "-V"])
+def test_version_flag_prints_the_installed_version(flag, capsys):
+    import pydiggs
+
+    assert main([flag]) == 0
+    out, err = capsys.readouterr()
+    assert out == f"pydiggs {pydiggs.__version__}\n" and err == ""
