@@ -5,6 +5,8 @@
 # Add required reviewers on the GitHub `pypi` Environment (optional on `testpypi`).
 #
 # Release path (FORGE): guard → build → TestPyPI → smoke → PyPI → Sigstore + GitHub Release.
+# After PyPI, `container` builds the image from the published wheel and pushes it to
+# ghcr.io/xinp-hub/pydiggs (tags X.Y.Z and X.Y, never latest), attested and scanned.
 # `setup-uv` uses enable-cache: false on purpose (cache poisoning ↔ publish path).
 #
 # If the tag version is already on PyPI (e.g. tag retarget / re-run), guard sets
@@ -214,10 +216,23 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: distributions
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          python-version: "3.11"
+          enable-cache: false
+      # The tested dependency set for pip users (pass it with -c): the runtime and every
+      # extra from uv.lock, without dev groups or hashes.
+      - name: Export constraints-X.Y.Z.txt from uv.lock
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          uv export --frozen --all-extras --no-dev --no-hashes --no-emit-project \
+            --output-file "dist/constraints-${VERSION}.txt"
+          cat "dist/constraints-${VERSION}.txt"
       - name: Sign the distributions with Sigstore
         uses: sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9  # v3.5.0
         with:
-          inputs: ./dist/*.tar.gz ./dist/*.whl
+          inputs: ./dist/*.tar.gz ./dist/*.whl ./dist/constraints-*.txt
       - name: Create the release from the changelog section
         env:
           GH_TOKEN: ${{ github.token }}
@@ -240,3 +255,113 @@ jobs:
               --verify-tag \
               dist/* dist-digests.txt
           fi
+
+  # The container image (docs/container.md, brief D13), built only from the wheel this
+  # run published: downloaded from PyPI and checked against both the PyPI JSON API and
+  # this run's dist-digests.txt before it enters the build. Pushed as a multi-arch index
+  # with SLSA provenance (mode=max) and an SBOM, attested to the registry, then the
+  # pushed digest is scanned. No registry token: github.token only.
+  container:
+    name: container image (GHCR)
+    needs: [guard, build, pypi]
+    if: needs.guard.outputs.already_published != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE: ghcr.io/xinp-hub/pydiggs
+      # As in ci.yml's container-build job; bump both together.
+      TRIVY_VERSION: "0.76.0"
+      TRIVY_SHA256: e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: distributions
+          path: ${{ runner.temp }}/built
+      - name: Download the release wheel from PyPI and verify its sha256
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          python3 .github/scripts/fetch_release_wheel.py "$VERSION" \
+            "$RUNNER_TEMP/built/dist-digests.txt" dist
+          ls -l dist
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1  # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+        with:
+          images: ${{ env.IMAGE }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.guard.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.guard.outputs.version }}
+          labels: |
+            org.opencontainers.image.licenses=Apache-2.0 AND MPL-2.0 AND MIT
+            org.opencontainers.image.documentation=https://xinp-hub.github.io/pydiggs/container/
+          annotations: |
+            org.opencontainers.image.licenses=Apache-2.0 AND MPL-2.0 AND MIT
+      - name: Build and push (linux/amd64, linux/arm64)
+        id: push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          build-args: |
+            VERSION=${{ needs.guard.outputs.version }}
+            REVISION=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+      - name: Attest the pushed image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+          # Storage records exist only for organisation-owned repositories.
+          create-storage-record: false
+      - name: Install Trivy (checksum-verified)
+        run: |
+          set -euo pipefail
+          archive="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${archive}"
+          echo "${TRIVY_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" trivy
+          "$RUNNER_TEMP/trivy" --version
+      - name: Scan the pushed digest on both platforms (fail on fixable HIGH/CRITICAL)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          for platform in linux/amd64 linux/arm64; do
+            echo "::group::$IMAGE@$DIGEST ($platform)"
+            "$RUNNER_TEMP/trivy" image --platform "$platform" --scanners vuln \
+              --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress \
+              "$IMAGE@$DIGEST"
+            echo "::endgroup::"
+          done
+          {
+            echo "### Container image"
+            echo
+            echo "$IMAGE@$DIGEST"
+            echo
+            echo "Verify: gh attestation verify oci://$IMAGE@$DIGEST --owner xinp-hub"
+          } >> "$GITHUB_STEP_SUMMARY"
