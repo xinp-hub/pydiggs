@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `pydiggs --version` (or `-V`) prints the installed version.
+- **MCP server** (`pip install 'pydiggs[mcp]'`, then `pydiggs serve --mcp`): AI
+  assistants and other MCP clients can validate a DIGGS document and look up rules
+  over stdio. Four read-only tools: `validate_diggs` (a base64 document in, a whole
+  diggs-findings document out, equal to `pydiggs validate --format json` apart from
+  the path), `explain_rule`, `list_rules` and `supported_versions`. The text the model
+  reads is a fixed-template summary that never contains text from the file. Limits:
+  10 MiB, 200 findings, 512-character messages, one validation at a time with a hard
+  60-second timeout. No path, network access or local dictionary is ever used. See
+  the new "MCP server" page.
+- **`pydiggs.mcp_server.create_server()`** returns that server (the official MCP
+  Python SDK's `MCPServer`) for embedding and tests.
+- **The `mcp` extra**: `mcp>=2.3.0` and `python-multipart>=0.0.31`.
+
+### Changed
+- `pydiggs serve --mcp` is listed in `--help`. Without the `mcp` extra it exits 2 and
+  names `pydiggs[mcp]`, as `--http` does for `pydiggs[server]`.
 
 ### Fixed
 - The documentation's release history now has its 1.2.0 entry.

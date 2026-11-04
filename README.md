@@ -42,6 +42,8 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
       `pydiggs serve --http`, or mount `pydiggs.server.create_router()` in FastAPI)
     * Desktop and native apps: a stdio JSON-RPC 2.0 sidecar (`pydiggs serve --stdio`)
       that any host language can drive
+    * AI assistants: an MCP server with read-only validation and rule tools (the `mcp`
+      extra, then `pydiggs serve --mcp`)
 
 ## Security
 

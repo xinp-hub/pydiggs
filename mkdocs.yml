@@ -134,6 +134,7 @@ nav:
     - HTTP API: http-api.md
     - Stdio sidecar (native apps): sidecar.md
     - Host integration: sidecar-hosts.md
+    - MCP server (AI assistants): mcp.md
   - Development:
     - Contributing: contributing.md
     - Authors: authors.md
