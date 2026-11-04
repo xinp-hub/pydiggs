@@ -135,6 +135,7 @@ nav:
     - Stdio sidecar (native apps): sidecar.md
     - Host integration: sidecar-hosts.md
     - MCP server (AI assistants): mcp.md
+    - Browser (Pyodide): browser.md
   - Development:
     - Contributing: contributing.md
     - Authors: authors.md

@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`pydiggs.mcp_server.create_server()`** returns that server (the official MCP
   Python SDK's `MCPServer`) for embedding and tests.
 - **The `mcp` extra**: `mcp>=2.3.0` and `python-multipart>=0.0.31`.
+- **Browser support, tested**: pydiggs runs in a web page with Pyodide 314.0.7, so a
+  DIGGS file can be checked without leaving the user's machine. A new example,
+  `examples/browser-worker`, validates in a module Web Worker (Pyodide loaded once
+  with an integrity hash or self-hosted, pydiggs installed with `deps=False`, 25 MiB
+  limit, findings rendered as text only, a strict Content-Security-Policy). CI now
+  installs every build into that Pyodide and checks its reports are byte-identical to
+  CPython's. See the new "Browser (Pyodide)" page.
 
 ### Changed
 - `pydiggs serve --mcp` is listed in `--help`. Without the `mcp` extra it exits 2 and

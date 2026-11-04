@@ -44,6 +44,8 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
       that any host language can drive
     * AI assistants: an MCP server with read-only validation and rule tools (the `mcp`
       extra, then `pydiggs serve --mcp`)
+    * Browsers: in a web page with Pyodide, so the file never leaves the user's machine
+      (a dependency-free Web Worker example is in `examples/browser-worker`)
 
 ## Security
 
