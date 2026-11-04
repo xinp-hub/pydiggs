@@ -112,6 +112,11 @@ Before you submit a pull request, check that it meets these guidelines:
    * Add the feature to the list in README.md
 3. The pull request should work for Python 3.11 and above.
 4. Check that all tests pass in the GitHub Actions CI pipeline.
+5. Sign your commits. `master` only accepts commits that GitHub shows as **Verified**,
+   so an unsigned pull request cannot be merged even when it is approved and green. SSH
+   signing is the simplest setup: register an SSH key on GitHub as a *signing* key, then
+   run `git config --global gpg.format ssh`, point `user.signingkey` at the public key,
+   and set `commit.gpgsign` to `true`.
 
 ## How Pull Requests Are Merged
 
