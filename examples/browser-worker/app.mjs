@@ -1,0 +1,100 @@
+// The page side: hands a chosen file to the worker and renders the findings.
+//
+// Every string in a findings document is untrusted: messages quote element values and
+// the path is the file's name. They are written with textContent / DOM nodes only,
+// never innerHTML, so markup in a DIGGS file shows up as text.
+
+const statusLine = document.getElementById("status");
+const fileInput = document.getElementById("file");
+const reportSection = document.getElementById("report");
+
+// Pass ?wheel=... through to the worker (development only; the worker checks it).
+const workerUrl = new URL("./worker.mjs", import.meta.url);
+const wheel = new URL(location.href).searchParams.get("wheel");
+if (wheel) workerUrl.searchParams.set("wheel", wheel);
+const worker = new Worker(workerUrl, { type: "module" });
+
+const pending = new Map();
+let nextId = 1;
+
+function validate(file) {
+  return file.arrayBuffer().then(
+    (data) =>
+      new Promise((resolve, reject) => {
+        const id = nextId++;
+        pending.set(id, { resolve, reject });
+        worker.postMessage({ id, type: "validate", name: file.name, data }, [data]);
+      }),
+  );
+}
+
+worker.addEventListener("message", (event) => {
+  const message = event.data;
+  if (message.type === "ready") {
+    const v = message.versions;
+    statusLine.textContent = `Ready: pydiggs ${v.pydiggs}, Pyodide ${v.pyodide}, lxml ${v.lxml}.`;
+    fileInput.disabled = false;
+    return;
+  }
+  if (message.type === "failed") {
+    statusLine.textContent = `Could not load pydiggs: ${message.message}`;
+    statusLine.className = "error";
+    return;
+  }
+  const request = pending.get(message.id);
+  if (!request) return;
+  pending.delete(message.id);
+  if (message.type === "result") request.resolve(message.document);
+  else request.reject(new Error(message.message));
+});
+
+function el(tag, text, className) {
+  const node = document.createElement(tag);
+  if (text !== undefined && text !== null) node.textContent = String(text);
+  if (className) node.className = className;
+  return node;
+}
+
+function render(doc) {
+  reportSection.replaceChildren();
+  for (const file of doc.files) {
+    const c = file.counts;
+    reportSection.append(
+      el("h2", file.path),
+      el("p", `${file.verdict} (DIGGS ${file.diggs_version ?? "?"}): ` +
+        `${c.error} errors, ${c.warning} warnings, ${c.info} notes`, "verdict"),
+    );
+    if (file.findings.length === 0) continue;
+    const table = el("table");
+    const head = el("tr");
+    for (const title of ["Severity", "Rule", "Line", "Message"]) head.append(el("th", title));
+    table.append(head);
+    for (const f of file.findings) {
+      const row = el("tr");
+      row.append(
+        el("td", f.severity),
+        el("td", f.rule_id),
+        el("td", f.location?.line ?? ""),
+        el("td", f.message, "message"),
+      );
+      table.append(row);
+    }
+    reportSection.append(table);
+  }
+}
+
+fileInput.addEventListener("change", async () => {
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  statusLine.className = "";
+  statusLine.textContent = "Validating…";
+  try {
+    const started = performance.now();
+    render(await validate(file));
+    statusLine.textContent = `Validated in ${((performance.now() - started) / 1000).toFixed(2)} s.`;
+  } catch (error) {
+    reportSection.replaceChildren();
+    statusLine.className = "error";
+    statusLine.textContent = `Not validated: ${error.message}`;
+  }
+});
