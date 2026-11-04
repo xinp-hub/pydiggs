@@ -6,7 +6,7 @@ import argparse
 import multiprocessing
 import sys
 
-from pydiggs import _serve_cli, validator
+from pydiggs import __version__, _serve_cli, validator
 from pydiggs.findings import _cli
 
 
@@ -15,6 +15,10 @@ def main(argv: list[str] | None = None) -> int:
     # --timeout spawns workers; a frozen (PyInstaller) build must dispatch them here.
     multiprocessing.freeze_support()
     args_in = sys.argv[1:] if argv is None else argv
+    # Dispatched here so the legacy parser's usage text stays byte-identical.
+    if args_in in (["--version"], ["-V"]):
+        print(f"pydiggs {__version__}")
+        return 0
     if args_in[:1] == ["validate"]:
         return _cli.main(args_in[1:])
     if args_in[:1] == ["serve"]:
@@ -29,6 +33,7 @@ def main(argv: list[str] | None = None) -> int:
             "Machine-readable findings (JSON, SARIF) for one or many files:"
             " pydiggs validate --help. Validation for other programs"
             " (stdio sidecar, HTTP, MCP): pydiggs serve --help."
+            " Installed version: pydiggs --version."
         ),
     )
     parser.add_argument(

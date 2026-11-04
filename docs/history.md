@@ -13,6 +13,24 @@ New ways to use pyDIGGS from other software, all additive:
 
 See the CHANGELOG for the full list.
 
+## 1.2.0 (2026-10-23)
+
+Machine-readable findings. Full details are in the
+[changelog](https://github.com/xinp-hub/pydiggs/blob/master/CHANGELOG.md).
+
+- **Upgrade note:** the bundled dictionaries are now exact copies of diggsml.org/def,
+  so files using eight codes that only pyDIGGS's copies defined now fail dictionary
+  check 5. 2.6 files that spell `samplingFeatiureRef` the old way now fail
+  `schema_check()`.
+- `pydiggs.validate(path)` runs every check on one file and returns a `Report` of
+  findings with stable rule ids, lines, XPaths and `gml:id`s; see
+  [Findings](findings.md).
+- `pydiggs validate PATH...` writes text, diggs-findings 1.0 JSON or SARIF 2.1.0, with
+  deterministic output and no snippets or absolute paths by default.
+- Size and findings limits, and local dictionaries read only from the instance's
+  folder.
+- Reference data re-synced to DIGGSml/schemas `15ce278` and DIGGSml/def `2d76ba6`.
+
 ## 1.1.1 (2026-10-14)
 
 First published release of 1.1: it contains everything listed under 1.1.0, which

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `pydiggs --version` (or `-V`) prints the installed version.
+
+### Fixed
+- The documentation's release history now has its 1.2.0 entry.
+
 ## [1.3.0] - 2026-11-03
 
 Everything here is additive: 1.2.0 code, CLI output and exit codes are unchanged.
