@@ -1,0 +1,46 @@
+// Open with GitHub Codespaces (https://codespaces.new/xinp-hub/pydiggs) or "Dev Containers:
+// Reopen in Container". Nothing is installed on the host, so switching machines costs nothing.
+{
+  "name": "pydiggs",
+  "build": { "dockerfile": "Dockerfile" },
+  // Versions resolved to digests in devcontainer-lock.json; Dependabot (`devcontainers`)
+  // updates both files.
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    // Node only runs Claude Code, which needs Node >= 22.
+    "ghcr.io/devcontainers/features/node:2": { "version": "lts" }
+  },
+  "containerEnv": {
+    // /workspaces and the uv cache are different file systems, so hard links cannot work.
+    "UV_LINK_MODE": "copy",
+    // Only uv's own interpreters: the image's system Python is not one CI tests.
+    "UV_PYTHON_PREFERENCE": "only-managed"
+  },
+  "remoteEnv": {
+    "PATH": "${containerEnv:PATH}:${containerWorkspaceFolder}/.devcontainer/tools/node_modules/.bin"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "hostRequirements": { "cpus": 2, "memory": "8gb" },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "anthropic.claude-code",
+        "github.vscode-github-actions"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.testing.pytestEnabled": true,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true
+        }
+      }
+    },
+    "codespaces": {
+      "openFiles": ["docs/contributing.md"]
+    }
+  }
+}

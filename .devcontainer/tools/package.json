@@ -1,0 +1,8 @@
+{
+  "name": "pydiggs-devcontainer-tools",
+  "private": true,
+  "description": "Command-line tools for the pydiggs dev container, pinned and locked so Dependabot can update them with a cooldown.",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.307"
+  }
+}

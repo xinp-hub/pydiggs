@@ -40,6 +40,24 @@ If you are proposing a feature:
 
 ## Development Setup
 
+### In a dev container (recommended)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/xinp-hub/pydiggs?quickstart=1)
+
+The repository ships a dev container (`.devcontainer/`) with uv, Python 3.11–3.14, the
+GitHub CLI and Claude Code, all pinned. Open it in GitHub Codespaces from the badge, or
+locally with *Dev Containers: Reopen in Container*. Nothing is installed on your machine,
+so any computer with a browser gives you the same environment, and `uv sync` has already
+run when it opens.
+
+Commit signing in Codespaces: open
+[github.com/settings/codespaces](https://github.com/settings/codespaces), turn on **GPG
+verification** and add this repository. GitHub then signs commits made in your codespaces
+and shows them as **Verified**; no signing key is copied into the container. To run the
+same checks as CI inside it: `uv run ruff check .`, `uv run mypy`, `uv run pytest`.
+
+### On your own machine
+
 Ready to contribute? Here's how to set up `pydiggs` for local development.
 
 1. Fork the `pydiggs` repo on GitHub.
