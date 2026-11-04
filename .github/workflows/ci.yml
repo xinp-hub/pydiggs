@@ -188,10 +188,41 @@ jobs:
           uv pip install --python /tmp/smoke/bin/python dist/*.whl
           /tmp/smoke/bin/python -c "import pydiggs; print(pydiggs.__version__)"
 
+  # The browser contract (brief D10): the built wheel installs into the pinned Pyodide
+  # with deps=False and gives CPython's bytes. Goldens come from CPython in this job, from
+  # the same checkout, so they never need committing or refreshing.
+  pyodide:
+    name: pyodide smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tests/pyodide/package-lock.json
+      - name: Install the pinned Pyodide (no install scripts)
+        working-directory: tests/pyodide
+        run: npm ci --ignore-scripts
+      - name: Build the wheel and the CPython goldens
+        run: |
+          uv build --wheel
+          uv sync --no-dev
+          uv run --no-sync python tests/pyodide/cases.py "$RUNNER_TEMP/goldens.json"
+      - name: Smoke the wheel in Pyodide
+        run: node tests/pyodide/smoke.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json"
+
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, core-only, build]
+    needs: [lint, test, test-os, core-only, build, pyodide]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

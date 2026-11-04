@@ -18,6 +18,23 @@ updates:
       actions:
         patterns: ["*"]
 
+  # The Pyodide the browser smoke tests against (tests/pyodide). A bump must move
+  # pyodide-facts.json and the browser example with it, so it gets its own PR and the
+  # FORGE-standard 14-day cooldown.
+  - package-ecosystem: npm
+    directory: /tests/pyodide
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "test"
+    groups:
+      pyodide:
+        patterns: ["*"]
+
   - package-ecosystem: uv
     directory: /
     schedule:
