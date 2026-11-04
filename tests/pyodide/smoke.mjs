@@ -110,9 +110,7 @@ assert.ok(p.uom_units > 100, `UoM dictionary loaded only ${p.uom_units} units`);
 assert.ok(Math.abs(p.inch_in_mm - 25.4) < 1e-9, `1 in = ${p.inch_in_mm} mm`);
 assert.equal(out.refused, "InstanceReadError", "a document over 25 MiB was not refused");
 console.log(`ok  CPython ${p.python}, lxml ${p.lxml}, pydiggs ${p.pydiggs}`);
-console.log("ok  no import of rich, multiprocessing, fastapi, mcp or subprocess; 1 thread");
-// Known and tolerated (see cases.REPORTED): printed so a change is visible in the log.
-console.log(`note imported, no connection made: ${JSON.stringify(p.reported_imported)}`);
+console.log("ok  no import of rich, multiprocessing, fastapi, mcp, subprocess or networking; 1 thread");
 console.log(`ok  UoM dictionary: ${p.uom_units} units from ${p.uom_path}`);
 console.log("ok  a document over 25 MiB is refused (InstanceReadError)");
 console.log(`pyodide smoke passed (${elapsed()})`);

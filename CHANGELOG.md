@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `pydiggs serve --mcp` is listed in `--help`. Without the `mcp` extra it exits 2 and
   names `pydiggs[mcp]`, as `--http` does for `pydiggs[server]`.
+- `import pydiggs` and validation no longer load `urllib.request`, `http.client`,
+  `socket` or `ssl`; they are imported only for an `allow_network=True` download.
 
 ### Fixed
 - The documentation's release history now has its 1.2.0 entry.

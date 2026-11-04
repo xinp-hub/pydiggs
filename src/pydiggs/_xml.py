@@ -11,19 +11,24 @@ limits. Remote dictionaries (``allow_network=True`` only) are fetched by
 from __future__ import annotations
 
 import errno
-import http.client
+import functools
 import os
 import stat
 import time
-import urllib.error
-import urllib.request
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import IO, Final, cast
+from typing import IO, TYPE_CHECKING, Final, cast
 from urllib.parse import urlsplit
-from urllib.request import url2pathname
 
 from lxml import etree
+
+if TYPE_CHECKING:
+    import http.client
+    import urllib.request
+
+# urllib.request pulls in http.client, socket and ssl. Only an allow_network download
+# needs them, so they are imported there: a plain ``import pydiggs`` (and the browser
+# build) loads no networking modules.
 
 #: Upper bound on a local XML file; far above any real DIGGS file.
 MAX_LOCAL_BYTES = 1024 * 1024 * 1024
@@ -104,6 +109,8 @@ def read_limited(
     else:
         path = os.fsdecode(os.fspath(source))
         if path.startswith("file:"):
+            from urllib.request import url2pathname  # noqa: PLC0415  # see the note on imports
+
             path = url2pathname(urlsplit(path).path)
         name = path
         if regular_only:
@@ -336,25 +343,33 @@ def url_allowed(url: str, patterns: Iterable[str]) -> bool:
     return False
 
 
-class _WhitelistRedirectHandler(urllib.request.HTTPRedirectHandler):
-    def __init__(self, patterns: tuple[str, ...]) -> None:
-        super().__init__()
-        self._patterns = patterns
+@functools.cache
+def _redirect_handler_class() -> Callable[[tuple[str, ...]], urllib.request.HTTPRedirectHandler]:
+    """The whitelist-enforcing redirect handler, defined on first use (see imports)."""
+    import urllib.error  # noqa: PLC0415  # see the note on imports
+    import urllib.request  # noqa: PLC0415
 
-    def redirect_request(  # noqa: PLR0917  # signature fixed by the stdlib base class
-        self,
-        req: urllib.request.Request,
-        fp: IO[bytes],
-        code: int,
-        msg: str,
-        headers: http.client.HTTPMessage,
-        newurl: str,
-    ) -> urllib.request.Request | None:
-        if not url_allowed(newurl, self._patterns):
-            raise urllib.error.HTTPError(
-                newurl, code, f"redirect outside the whitelist: {newurl}", headers, fp
-            )
-        return super().redirect_request(req, fp, code, msg, headers, newurl)
+    class _WhitelistRedirectHandler(urllib.request.HTTPRedirectHandler):
+        def __init__(self, patterns: tuple[str, ...]) -> None:
+            super().__init__()
+            self._patterns = patterns
+
+        def redirect_request(  # noqa: PLR0917  # signature fixed by the stdlib base class
+            self,
+            req: urllib.request.Request,
+            fp: IO[bytes],
+            code: int,
+            msg: str,
+            headers: http.client.HTTPMessage,
+            newurl: str,
+        ) -> urllib.request.Request | None:
+            if not url_allowed(newurl, self._patterns):
+                raise urllib.error.HTTPError(
+                    newurl, code, f"redirect outside the whitelist: {newurl}", headers, fp
+                )
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+    return _WhitelistRedirectHandler
 
 
 def fetch_and_parse(url: str, patterns: Iterable[str]) -> etree._ElementTree:
@@ -371,7 +386,11 @@ def fetch_and_parse(url: str, patterns: Iterable[str]) -> etree._ElementTree:
     allowed = tuple(patterns)
     if not url_allowed(url, allowed):
         raise OSError(f"refusing to fetch a URL outside the whitelist: {url}")
-    opener = urllib.request.build_opener(_WhitelistRedirectHandler(allowed))
+    import http.client  # noqa: PLC0415  # see the note on imports
+    import urllib.request  # noqa: PLC0415
+
+    handler = _redirect_handler_class()(allowed)
+    opener = urllib.request.build_opener(handler)
     deadline = time.monotonic() + REMOTE_DEADLINE
     try:
         with opener.open(url, timeout=REMOTE_TIMEOUT) as response:

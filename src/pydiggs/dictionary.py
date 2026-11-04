@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 from urllib.parse import unquote, urlparse, urlsplit
-from urllib.request import url2pathname
 
 from lxml import etree
 
@@ -403,6 +402,8 @@ class DictionarySemanticValidator:
             return []
         try:
             if base_url.startswith("file:"):
+                from urllib.request import url2pathname  # noqa: PLC0415  # networking stays unloaded
+
                 path = Path(url2pathname(urlsplit(base_url).path))
             else:
                 path = Path(base_url)

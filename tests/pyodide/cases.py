@@ -27,22 +27,18 @@ FIXTURES = ("casing_units.xml", "markup_in_value.xml")
 # The browser example's limit (brief D8).
 MAX_BYTES = 25 * 1024 * 1024
 # Never imported on the core path: rich (Pyodide installs pydiggs with deps=False),
-# process pools, the adapters' frameworks, subprocesses.
-FORBIDDEN = ("rich", "multiprocessing", "fastapi", "mcp", "subprocess")
+# process pools, the adapters' frameworks, subprocesses, and networking (only an
+# allow_network download imports urllib.request, http.client, socket and ssl).
+FORBIDDEN = ("rich", "multiprocessing", "fastapi", "mcp", "subprocess", "socket", "ssl", "http")
 # Of those, the ones Pyodide does not load itself: these must also be absent from sys.modules.
 NOT_LOADED = ("rich", "multiprocessing", "fastapi", "mcp")
-# Imported today, and reported rather than refused: pydiggs._xml imports urllib.request
-# (for allow_network), which imports http.client, socket and ssl. No connection is made
-# unless allow_network=True.
-REPORTED = ("socket", "ssl", "http")
-
 _attempts: dict[str, str] = {}
 
 
 def watch_imports() -> None:
     """Record, from now on, which module first imports each watched top-level name."""
     original: Callable[..., Any] = builtins.__import__
-    watched = set(FORBIDDEN + REPORTED)
+    watched = set(FORBIDDEN)
 
     def hook(
         name: str,
@@ -89,7 +85,6 @@ def probe() -> dict[str, object]:
         "pydiggs": pydiggs.__version__,
         "forbidden_imported": {m: _attempts[m] for m in FORBIDDEN if m in _attempts},
         "forbidden_loaded": sorted(m for m in NOT_LOADED if m in sys.modules),
-        "reported_imported": {m: _attempts[m] for m in REPORTED if m in _attempts},
         "threads": threading.active_count(),
         "uom_path": str(default_uom),
         "uom_present": default_uom.is_file(),
