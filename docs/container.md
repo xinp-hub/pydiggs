@@ -9,8 +9,10 @@ ghcr.io/xinp-hub/pydiggs:X.Y      # the newest patch of a minor release
 ```
 
 There is **no `latest` tag**, on purpose: an upgrade should be a decision, not a side
-effect of a restart. In production, pin the digest the release notes and the run summary
-give (`ghcr.io/xinp-hub/pydiggs@sha256:…`) and let your own tooling propose updates.
+effect of a restart. In production, pin the digest (`ghcr.io/xinp-hub/pydiggs@sha256:…`)
+and let your own tooling propose updates. `docker buildx imagetools inspect
+ghcr.io/xinp-hub/pydiggs:X.Y.Z` prints it, and the release workflow's run summary
+records it.
 
 The image is the one **tested deployment** of pydiggs: it is built from `uv.lock`, so it
 runs exactly the dependency versions CI tested. (Installing with pip resolves your own
@@ -148,8 +150,12 @@ release workflow's GitHub identity (Sigstore), stored in the registry next to th
 image, plus BuildKit's own provenance (`mode=max`) and an SPDX **SBOM**.
 
 ```bash
-# Built by this repository's release workflow, from which commit:
-gh attestation verify oci://ghcr.io/xinp-hub/pydiggs:X.Y.Z --owner xinp-hub
+# Built by this repository's release workflow, for tag vX.Y.Z, on GitHub's runners
+# (DIGEST from `docker buildx imagetools inspect ghcr.io/xinp-hub/pydiggs:X.Y.Z`):
+gh attestation verify oci://ghcr.io/xinp-hub/pydiggs@sha256:DIGEST \
+  --repo xinp-hub/pydiggs \
+  --signer-workflow xinp-hub/pydiggs/.github/workflows/publish.yml \
+  --source-ref refs/tags/vX.Y.Z --deny-self-hosted-runners
 
 # The SBOM and the BuildKit provenance, per platform:
 docker buildx imagetools inspect ghcr.io/xinp-hub/pydiggs:X.Y.Z --format '{{ json .SBOM }}'
@@ -162,6 +168,8 @@ with `--new-bundle-format`) can check the same attestation: the certificate iden
 the issuer `https://token.actions.githubusercontent.com`.
 
 Every pull request builds the image, runs it with the options above, checks `/livez`,
-`/v1/versions` and one validation, and scans it; every release scans the pushed digest
-on both platforms. A HIGH or CRITICAL vulnerability with a fix available fails either.
+`/v1/versions` and one validation, and scans it. A release builds its image from the
+PyPI wheel, pushes it by digest, scans that digest on both platforms, and only then
+points the `X.Y.Z` and `X.Y` tags at it. A HIGH or CRITICAL vulnerability with a fix
+available fails either job, and a release image that fails gets no tags.
 The base images are updated through Dependabot after a 14-day cooldown.

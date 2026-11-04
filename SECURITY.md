@@ -74,5 +74,8 @@ sha256sum pydiggs-*.whl   # compare against the release's dist-digests.txt
 uvx pypi-attestations verify pypi --repository https://github.com/xinp-hub/pydiggs pypi:pydiggs-<version>-py3-none-any.whl
 
 # Verify the container image was built by the release workflow
-gh attestation verify oci://ghcr.io/xinp-hub/pydiggs:<version> --owner xinp-hub
+gh attestation verify oci://ghcr.io/xinp-hub/pydiggs@sha256:DIGEST \
+  --repo xinp-hub/pydiggs \
+  --signer-workflow xinp-hub/pydiggs/.github/workflows/publish.yml \
+  --source-ref refs/tags/v<version> --deny-self-hosted-runners
 ```

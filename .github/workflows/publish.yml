@@ -113,12 +113,24 @@ jobs:
           uv run --group audit twine check --strict dist/*
           uv run --group audit check-wheel-contents dist/*.whl
           sha256sum dist/* | tee dist-digests.txt
+      # The tested dependency set for pip users (pass it with -c): the runtime and every
+      # extra from uv.lock, without dev groups or hashes. Outside dist/, so the PyPI
+      # upload never sees it; github-release signs and attaches it.
+      - name: Export constraints-X.Y.Z.txt from uv.lock
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          mkdir constraints
+          uv export --frozen --all-extras --no-dev --no-hashes --no-emit-project \
+            --output-file "constraints/constraints-${VERSION}.txt"
+          cat "constraints/constraints-${VERSION}.txt"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: distributions
           path: |
             dist/
             dist-digests.txt
+            constraints/
           if-no-files-found: error
 
   testpypi:
@@ -216,23 +228,10 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: distributions
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
-        with:
-          python-version: "3.11"
-          enable-cache: false
-      # The tested dependency set for pip users (pass it with -c): the runtime and every
-      # extra from uv.lock, without dev groups or hashes.
-      - name: Export constraints-X.Y.Z.txt from uv.lock
-        env:
-          VERSION: ${{ needs.guard.outputs.version }}
-        run: |
-          uv export --frozen --all-extras --no-dev --no-hashes --no-emit-project \
-            --output-file "dist/constraints-${VERSION}.txt"
-          cat "dist/constraints-${VERSION}.txt"
       - name: Sign the distributions with Sigstore
         uses: sigstore/gh-action-sigstore-python@790bc6befb9d733738f18d8f895854b453640ec9  # v3.5.0
         with:
-          inputs: ./dist/*.tar.gz ./dist/*.whl ./dist/constraints-*.txt
+          inputs: ./dist/*.tar.gz ./dist/*.whl ./constraints/constraints-*.txt
       - name: Create the release from the changelog section
         env:
           GH_TOKEN: ${{ github.token }}
@@ -247,24 +246,28 @@ jobs:
           printf '\n---\nPyPI: https://pypi.org/project/pydiggs/%s/\n' "$VERSION" >> notes.md
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "Release $GITHUB_REF_NAME already exists; uploading assets only"
-            gh release upload "$GITHUB_REF_NAME" dist/* dist-digests.txt --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/* constraints/* dist-digests.txt --clobber
           else
             gh release create "$GITHUB_REF_NAME" \
               --title "pydiggs $VERSION" \
               --notes-file notes.md \
               --verify-tag \
-              dist/* dist-digests.txt
+              dist/* constraints/* dist-digests.txt
           fi
 
   # The container image (docs/container.md, brief D13), built only from the wheel this
   # run published: downloaded from PyPI and checked against both the PyPI JSON API and
-  # this run's dist-digests.txt before it enters the build. Pushed as a multi-arch index
-  # with SLSA provenance (mode=max) and an SBOM, attested to the registry, then the
-  # pushed digest is scanned. No registry token: github.token only.
+  # this run's dist-digests.txt before it enters the build. Pushed by digest only as a
+  # multi-arch index with SLSA provenance (mode=max) and an SBOM, attested to the
+  # registry and scanned; only then do the X.Y.Z and X.Y tags point at it. No registry
+  # token: github.token only. Tag pushes only, so the signing identity is always
+  # publish.yml@refs/tags/vX.Y.Z.
+  # Recovering a failed image push: use "Re-run failed jobs". A full re-run finds the
+  # release on PyPI (already_published=true) and skips this job.
   container:
     name: container image (GHCR)
     needs: [guard, build, pypi]
-    if: needs.guard.outputs.already_published != 'true'
+    if: needs.guard.outputs.already_published != 'true' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -286,14 +289,29 @@ jobs:
           name: distributions
           path: ${{ runner.temp }}/built
       - name: Download the release wheel from PyPI and verify its sha256
+        id: wheel
         env:
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
+          set -euo pipefail
           python3 .github/scripts/fetch_release_wheel.py "$VERSION" \
             "$RUNNER_TEMP/built/dist-digests.txt" dist
           ls -l dist
+          sha="$(awk -v f="dist/pydiggs-${VERSION}-py3-none-any.whl" '$2 == f {print $1}' \
+            "$RUNNER_TEMP/built/dist-digests.txt")"
+          [[ "$sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+      # The images these actions and BuildKit run are pinned by index digest too (they
+      # build and attest the image) and bumped by hand under the 14-day rule:
+      # binfmt qemu-v10.2.3 (2026-06-08), BuildKit v0.34.1 (2026-10-20),
+      # buildkit-syft-scanner 1.12.0 (2026-08-13). No binfmt image cache on this path.
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1  # v4.4.0
+        with:
+          image: docker.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          cache-image: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
+        with:
+          driver-opts: image=moby/buildkit:v0.34.1@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: ghcr.io
@@ -314,21 +332,21 @@ jobs:
             org.opencontainers.image.documentation=https://xinp-hub.github.io/pydiggs/container/
           annotations: |
             org.opencontainers.image.licenses=Apache-2.0 AND MPL-2.0 AND MIT
-      - name: Build and push (linux/amd64, linux/arm64)
+      - name: Build and push by digest, untagged (linux/amd64, linux/arm64)
         id: push
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           build-args: |
             VERSION=${{ needs.guard.outputs.version }}
             REVISION=${{ github.sha }}
+            WHEEL_SHA256=${{ steps.wheel.outputs.sha256 }}
           provenance: mode=max
-          sbom: true
+          attests: type=sbom,generator=docker/buildkit-syft-scanner:1.12.0@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9
       - name: Attest the pushed image
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
         with:
@@ -358,10 +376,25 @@ jobs:
               "$IMAGE@$DIGEST"
             echo "::endgroup::"
           done
+      - name: Tag the scanned digest X.Y.Z and X.Y
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            docker buildx imagetools create --tag "$tag" "$IMAGE@$DIGEST"
+            got="$(docker buildx imagetools inspect "$tag" --format '{{json .Manifest.Digest}}')"
+            [ "$got" = "\"$DIGEST\"" ] || { echo "$tag is $got, expected $DIGEST" >&2; exit 1; }
+          done <<< "$TAGS"
           {
             echo "### Container image"
             echo
             echo "$IMAGE@$DIGEST"
             echo
-            echo "Verify: gh attestation verify oci://$IMAGE@$DIGEST --owner xinp-hub"
+            echo "Verify: gh attestation verify oci://$IMAGE@$DIGEST --repo xinp-hub/pydiggs" \
+              "--signer-workflow xinp-hub/pydiggs/.github/workflows/publish.yml" \
+              "--source-ref refs/tags/v$VERSION --deny-self-hosted-runners"
           } >> "$GITHUB_STEP_SUMMARY"

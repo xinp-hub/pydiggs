@@ -25,6 +25,9 @@ COPY pyproject.toml uv.lock ./
 COPY dist/ ./dist/
 
 ARG VERSION=""
+# The release job passes the wheel's sha256 from its dist-digests.txt, so the build
+# checks the wheel again and the provenance (mode=max) records which wheel it was.
+ARG WHEEL_SHA256=""
 
 # 1. The locked [server] dependency set, every file checked against its lock hash.
 # 2. The one pydiggs wheel, without dependencies (they are all in step 1).
@@ -39,6 +42,7 @@ RUN set -eu; \
     if [ -n "$VERSION" ] && [ "$1" != "dist/pydiggs-${VERSION}-py3-none-any.whl" ]; then \
         echo "wheel $1 is not version $VERSION" >&2; exit 1; \
     fi; \
+    if [ -n "$WHEEL_SHA256" ]; then echo "$WHEEL_SHA256  $1" | sha256sum -c -; fi; \
     uv venv /opt/venv; \
     uv pip install --python /opt/venv/bin/python --require-hashes --no-deps \
         -r /build/requirements.txt; \
