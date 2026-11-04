@@ -40,6 +40,8 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
       in-memory data
     * Web apps: an HTTP API with OpenAPI 3.1 (the `server` extra, then
       `pydiggs serve --http`, or mount `pydiggs.server.create_router()` in FastAPI)
+    * Containers: that HTTP API as a non-root, attested image for amd64 and arm64,
+      `ghcr.io/xinp-hub/pydiggs:X.Y.Z` (no `latest` tag)
     * Desktop and native apps: a stdio JSON-RPC 2.0 sidecar (`pydiggs serve --stdio`)
       that any host language can drive
     * AI assistants: an MCP server with read-only validation and rule tools (the `mcp`

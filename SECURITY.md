@@ -51,6 +51,14 @@ first. Credit is given unless you prefer otherwise.
 - Release artifacts attached to GitHub releases are **Sigstore-signed**, and their
   sha256 digests are recorded in `dist-digests.txt` on each release.
 - Workflows run with least-privilege `permissions:` and actions are pinned to commit SHAs.
+- The **container image** (`ghcr.io/xinp-hub/pydiggs`, from 1.4.0) is built in the
+  release workflow from the wheel published to PyPI, after checking its sha256 against
+  PyPI and the release build, and from the locked dependency set. It runs as uid 10001
+  with no package installer, is documented to run read-only with no capabilities and
+  `no-new-privileges`, and carries a SLSA provenance attestation and an SBOM. Trivy
+  scans it on every pull request and scans the pushed digest at release; a HIGH or
+  CRITICAL vulnerability with a fix available fails the build. There is no `latest`
+  tag; pin a digest.
 - Dependencies are audited on every push and weekly (`pip-audit`), code is scanned with
   CodeQL, secrets with gitleaks and GitHub secret scanning with push protection. A
   failed weekly scan opens an issue.
@@ -64,4 +72,7 @@ sha256sum pydiggs-*.whl   # compare against the release's dist-digests.txt
 
 # Verify the PyPI attestation (provenance) for a release
 uvx pypi-attestations verify pypi --repository https://github.com/xinp-hub/pydiggs pypi:pydiggs-<version>-py3-none-any.whl
+
+# Verify the container image was built by the release workflow
+gh attestation verify oci://ghcr.io/xinp-hub/pydiggs:<version> --owner xinp-hub
 ```

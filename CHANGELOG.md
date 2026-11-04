@@ -28,6 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   limit, findings rendered as text only, a strict Content-Security-Policy). CI now
   installs every build into that Pyodide and checks its reports are byte-identical to
   CPython's. See the new "Browser (Pyodide)" page.
+- **Container image** `ghcr.io/xinp-hub/pydiggs:X.Y.Z` (also `:X.Y`; there is no
+  `latest`) for `linux/amd64` and `linux/arm64`: the HTTP API on port 8000, built from
+  the exact wheel published to PyPI and the locked `[server]` dependencies, on
+  `python:3.14-slim-trixie`, running as uid 10001 with no package installer inside and
+  a `/livez` health check. Set `PYDIGGS_ALLOWED_HOSTS` to the names clients use. Each
+  image has a GitHub build provenance attestation (`gh attestation verify`), BuildKit
+  provenance and an SBOM, and is scanned for vulnerabilities before and after it is
+  pushed. See the new "Container image" page for the hardened run line, a compose
+  example and memory sizing.
+- **`constraints-X.Y.Z.txt`** on every GitHub release: the dependency versions the
+  release was tested with, to pass to pip with `-c`.
+- The OpenAPI document (`openapi.json`) and the sidecar's OpenRPC document
+  (`openrpc.json`) are published on the documentation site under `schemas/`, and CI
+  checks both against their official meta-schemas.
 
 ### Changed
 - `pydiggs serve --mcp` is listed in `--help`. Without the `mcp` extra it exits 2 and
