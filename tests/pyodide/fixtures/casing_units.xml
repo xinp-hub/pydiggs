@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- pydiggs Pyodide smoke fixture: a casing rule that needs the bundled UoM dictionary
+     (mm against in) next to a positive-depth rule. Without DiggsUomDictionary.xml the
+     converted-casing message changes, so the byte comparison with CPython catches it. -->
+<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2">
+  <samplingFeature>
+    <Borehole gml:id="BH-1">
+      <totalMeasuredDepth uom="ft">-1</totalMeasuredDepth>
+    </Borehole>
+  </samplingFeature>
+  <samplingFeature>
+    <Casing gml:id="C-1">
+      <casingOutsideDiameter uom="mm">50</casingOutsideDiameter>
+      <casingInsideDiameter uom="in">3</casingInsideDiameter>
+    </Casing>
+  </samplingFeature>
+</Diggs>

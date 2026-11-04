@@ -13,3 +13,4 @@ tests/fixtures/** -text
 tests/test_files/** -text
 tests/test_schematron_schema/** -text
 tests/legacy_goldens/** -text
+tests/pyodide/fixtures/** -text
