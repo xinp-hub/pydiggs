@@ -301,17 +301,27 @@ jobs:
             "$RUNNER_TEMP/built/dist-digests.txt")"
           [[ "$sha" =~ ^[0-9a-f]{64}$ ]]
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
-      # The images these actions and BuildKit run are pinned by index digest too (they
-      # build and attest the image) and bumped by hand under the 14-day rule:
-      # binfmt qemu-v10.2.3 (2026-06-08), BuildKit v0.34.1 (2026-10-20),
-      # buildkit-syft-scanner 1.12.0 (2026-08-13). No binfmt image cache on this path.
+      # The images these actions and BuildKit run (they build and attest the image) are
+      # pinned by index digest in .github/builder-images/Dockerfile, which Dependabot
+      # bumps under the 14-day rule. No binfmt image cache on this path.
+      - name: Read the builder image pins
+        id: builders
+        run: |
+          set -euo pipefail
+          for stage in binfmt buildkit sbom; do
+            ref="$(awk -v s="$stage" '$1 == "FROM" && $3 == "AS" && $4 == s {print $2}' \
+              .github/builder-images/Dockerfile)"
+            [[ "$ref" =~ ^[a-z0-9./-]+:[A-Za-z0-9._-]+@sha256:[0-9a-f]{64}$ ]] \
+              || { echo "::error::no digest-pinned '$stage' image: '$ref'"; exit 1; }
+            echo "$stage=$ref" >> "$GITHUB_OUTPUT"
+          done
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1  # v4.4.0
         with:
-          image: docker.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          image: ${{ steps.builders.outputs.binfmt }}
           cache-image: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
         with:
-          driver-opts: image=moby/buildkit:v0.34.1@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c
+          driver-opts: image=${{ steps.builders.outputs.buildkit }}
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: ghcr.io
@@ -346,7 +356,7 @@ jobs:
             REVISION=${{ github.sha }}
             WHEEL_SHA256=${{ steps.wheel.outputs.sha256 }}
           provenance: mode=max
-          attests: type=sbom,generator=docker/buildkit-syft-scanner:1.12.0@sha256:ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9
+          attests: type=sbom,generator=${{ steps.builders.outputs.sbom }}
       - name: Attest the pushed image
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
         with:
