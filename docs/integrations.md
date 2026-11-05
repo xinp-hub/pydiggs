@@ -20,7 +20,7 @@ another later. Pick by where your code runs:
 |---|---|---|---|---|---|---|
 | Runs | in your process | as a server | as a server | as a child process | as a child process | in the page |
 | Talks | Python calls | HTTP + JSON | HTTP + JSON | JSON-RPC 2.0 over stdio | MCP over stdio | JS ↔ Python |
-| Isolation and time limits | your choice | worker processes | worker processes | worker processes | one worker | a Web Worker |
+| Isolation and time limits | your choice | worker processes | worker processes | one process; the host kills it on timeout | one worker | a Web Worker |
 | Opens a network port | no | yes | yes | no | no | no |
 | Contract | [API reference](reference.md) | OpenAPI 3.1 | OpenAPI 3.1 | OpenRPC | MCP tool schemas | [example](browser.md) |
 

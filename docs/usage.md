@@ -183,8 +183,10 @@ Cross-unit casing diameter comparison uses the bundled DIGGS units dictionary.
   [DIGGSml/def](https://github.com/DIGGSml/def) at the commits recorded in
   `PROVENANCE.toml` inside the installed `pydiggs` package, with a sha256 for every
   file. A file whose codes appear in a newer upstream dictionary is validated against
-  the bundled copy until pyDIGGS re-syncs; pass `extra_dictionaries` (or
-  `allow_network=True`) to use newer ones.
+  the bundled copy until pyDIGGS re-syncs. To use a newer property dictionary, download
+  it and pass `dictionary_path=` (command line `--dictionary-path`).
+  `allow_network=True` (`--allow-network`) only fetches whitelisted dictionaries that
+  are not bundled; it never replaces a bundled one.
 - Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files under
   `tests/fixtures/official/known_invalid/` fail schema validation against the bundled
   XSDs; they are pinned so we never silently accept them. `PileDrivingExample.xml` is

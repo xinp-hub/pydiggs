@@ -8,7 +8,7 @@ documentation for the endpoints, problem codes and deployment notes.
 Importing this package without the ``server`` extra raises :class:`ImportError`
 naming the extra; any other import error propagates unchanged.
 
-Example:
+Examples:
     >>> from pydiggs.server import ServerSettings, create_app
     >>> app = create_app(ServerSettings(workers=1))
 """

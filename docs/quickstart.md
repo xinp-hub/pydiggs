@@ -84,7 +84,7 @@ Then:
 import pydiggs
 
 report = pydiggs.validate("BH-01.xml")  # prints nothing, writes no files
-print(report.ok, report.counts)  # True {'error': 0, 'warning': 29, 'info': 20}
+print(report.ok, report.counts)  # False {'error': 2, 'warning': 29, 'info': 20}
 
 for finding in report.findings:
     print(finding.line, finding.severity, finding.rule_id, finding.message)

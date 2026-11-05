@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-05
+
 ### Added
 - Documentation site: a Quickstart (install, validate a file, read the findings, use
   them from Python and CI), an integration chooser that compares the Python API,
@@ -21,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Package metadata names the author and maintainer as "Xin Peng" (was "xin.peng").
   The README and the Authors page list Xin Peng as project lead and Asitha Senanayake
   as contributor.
+- Container image: built on Python 3.14.10 (was 3.14.8), with uv 0.13.7 in the build
+  stage; the build and runtime stages carry the same Python patch release. The image's
+  locked FastAPI is 0.159.1 and Pydantic 2.14.1.
 
 ### Fixed
 - Code blocks on the documentation site no longer show a second, unstyled "Copy"
@@ -504,7 +509,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/xinp-hub/pydiggs/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/xinp-hub/pydiggs/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/xinp-hub/pydiggs/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/xinp-hub/pydiggs/compare/v1.1.1...v1.2.0
