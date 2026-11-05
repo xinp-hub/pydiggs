@@ -12,7 +12,7 @@
 # must carry the same Python patch release (3.14.8 here): the venv links to it.
 
 # ghcr.io/astral-sh/uv 0.13.4 (2026-10-20), Python 3.14.8 on Debian trixie.
-FROM ghcr.io/astral-sh/uv:0.13.4-python3.14-trixie-slim@sha256:db955a4c5fd85c9e08ae2c02f3fcedf76765aebc7c9bc10c55a6bbcc1b0510be AS builder
+FROM ghcr.io/astral-sh/uv:0.13.7-python3.14-trixie-slim@sha256:e80c05a310400cfc90af00b5b7271ef9ad24816e3265e1162af8a678e1aad099 AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
