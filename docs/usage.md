@@ -1,155 +1,190 @@
-# Usage
-
-## DIGGS `validator`
+# Validation checks
 
 pyDIGGS validates DIGGS instance files offline against:
 
-1. **XSD schema** — bundled DIGGS **2.5.a**, **2.6**, or **3.0.0**, selected by
-   namespace auto-detect (`detect_diggs_version`). Unknown namespaces default to
-   **3.0.0**. Override with `diggs_version=` or `schema_path=`.
-2. **Dictionary / codeSpace semantics** — progressive checks aligned with
-   [DIGGSml/validation](https://github.com/DIGGSml/validation) (steps 1–13), using
-   bundled DIGGS Standard dictionaries from [diggsml.org/def](https://diggsml.org/def/)
-3. **Schematron** — bundled lxml-adapted DIGGS rules by default (from DIGGSml/validation,
-   with online Geosetta unit API replaced by offline DiggsUomDictionary conversion for
-   casing diameters)
-4. **Context** — lightweight ports of DIGGSml/validation structure, geometry SRS,
-   in-document `xlink:href`, and dataBlock arity checks
+1. **XSD schema**: the bundled DIGGS **2.5.a**, **2.6** or **3.0.0** schema, chosen from
+   the file's namespace (`detect_diggs_version`). Unknown namespaces use **3.0.0**.
+2. **Dictionary and codeSpace semantics**: progressive checks aligned with
+   [DIGGSml/validation](https://github.com/DIGGSml/validation) (steps 1–13), against
+   the bundled DIGGS Standard dictionaries from [diggsml.org/def](https://diggsml.org/def/).
+3. **Schematron**: the bundled DIGGS business rules, adapted for lxml. The online
+   Geosetta unit API is replaced by an offline conversion for casing diameters.
+4. **Context**: document structure, geometry SRS attributes, in-document `xlink:href`
+   targets and dataBlock arity.
 
-All four methods return `True` on success (dictionary: no `ERROR` severity findings).
+## Two ways to run them
 
-```python
-from pydiggs import detect_diggs_version, validator
+!!! tip "Recommended: every check at once, as findings"
+    `pydiggs validate` (command line) and `pydiggs.validate()` (Python) run every check
+    and return [findings](findings.md) with stable rule ids, lines and XPaths. The
+    command prints the verdict and findings to standard output (or to `--output`);
+    the Python function prints nothing. Neither writes log files. Start with the
+    [Quickstart](quickstart.md).
 
-# Write logs to the CWD (default), or print to the console:
-validation = validator("DIGGS_Instance_File_Path", output_log=True)
-validation = validator("DIGGS_Instance_File_Path", output_log=False)
+The `validator` class and the `schema_check`, `dictionary_check`, `schematron_check`
+and `context_check` commands run **one check at a time** and print their results or
+write log files. They are kept for existing scripts and are shown on the rest of this
+page.
 
-print(detect_diggs_version("DIGGS_Instance_File_Path"))  # "2.5.a", "2.6", or "3.0.0"
-```
+=== "Python"
 
-### 1. Schema Validation
+    ```python
+    import pydiggs
 
-#### Using Python
+    report = pydiggs.validate("BH-01.xml", checks=["schema", "dictionary"])
+    print(report.ok, report.counts)
+    ```
 
-```python
-from pydiggs import validator
+=== "Command line"
 
-# Auto-detect profile from instance namespace (unknown → 3.0.0)
-validation = validator("DIGGS_Instance_File_Path", output_log=False)
-assert validation.schema_check() is True
-print(validation.diggs_version)
+    ```bash
+    pydiggs validate --checks schema,dictionary BH-01.xml
+    ```
 
-# Pin a profile explicitly
-validation = validator("DIGGS_Instance_File_Path", diggs_version="2.5.a", output_log=False)
-validation.schema_check()
+## Pin a DIGGS version
 
-# Or pass a custom XSD
-validation = validator(
-    "DIGGS_Instance_File_Path",
-    schema_path="path/to/Diggs.xsd",
-    output_log=False,
-)
-validation.schema_check()
+Detection follows the file's namespace. To validate against a specific version instead:
 
-print(validation.syntax_error_log)  # XML syntax errors
-print(validation.schema_validation_log)  # XSD validation errors
-print(validation.schema_error_log)  # schema parse errors
-```
+=== "Python"
 
-#### Using Command Line Interface
+    ```python
+    import pydiggs
 
-The CLI auto-detects the DIGGS profile from the instance namespace (unknown → 3.0.0).
-There is no `--diggs_version` flag; pin a profile in Python with `diggs_version=`, or pass
-`--schema_path` to a specific XSD.
+    print(pydiggs.detect_diggs_version("BH-01.xml"))  # "2.5.a", "2.6" or "3.0.0"
+    report = pydiggs.validate("BH-01.xml", diggs_version="2.6")
+    ```
 
-```bash
-pydiggs schema_check "DIGGS_Instance_File_Path"
-pydiggs schema_check "DIGGS_Instance_File_Path" --schema_path "DIGGS_Schema_File_Path"
-pydiggs schema_check "DIGGS_Instance_File_Path" --no-output_log
-```
+=== "Command line"
 
-### 2. Dictionary Validation
+    ```bash
+    pydiggs validate --diggs-version 2.6 BH-01.xml
+    ```
 
-Dictionary validation implements DIGGS codeSpace semantics:
+## One check at a time
 
-- Preferred (wiki guidance): `codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#liquid_limit"`
-- Legacy: `codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml"` with element text equal to a `gml:id` or `gml:name`
-- Offline resolution of bundled dictionaries under `pydiggs/dictionaries/codes/`
-- Offline UOM membership checks via `DiggsUomDictionary.xml`
+All four `validator` methods return `True` on success (for the dictionary check: no
+`ERROR` findings). Logs go to the working directory by default; pass
+`output_log=False` (Python) or `--no-output_log` (command line) to print to the
+console instead.
 
-#### Using Python
+### 1. Schema
 
-```python
-from pydiggs import validator
+=== "Python"
 
-validation = validator("DIGGS_Instance_File_Path", output_log=False)
-ok = validation.dictionary_check()
-print(validation.dictionary_validation_log)  # INFO / WARNING / ERROR messages
-```
+    ```python
+    from pydiggs import validator
 
-#### Using Command Line Interface
+    # Profile detected from the namespace (unknown → 3.0.0)
+    validation = validator("BH-01.xml", output_log=False)
+    assert validation.schema_check() is True
+    print(validation.diggs_version)
 
-```bash
-pydiggs dictionary_check "DIGGS_Instance_File_Path"
-pydiggs dictionary_check "DIGGS_Instance_File_Path" --dictionary_path "path/to/properties.xml"
-```
+    # Pin a profile, or pass your own XSD
+    validator("BH-01.xml", diggs_version="2.5.a", output_log=False).schema_check()
+    validator("BH-01.xml", schema_path="path/to/Diggs.xsd", output_log=False).schema_check()
 
-### 3. Schematron Validation
+    print(validation.syntax_error_log)  # XML syntax errors
+    print(validation.schema_validation_log)  # XSD validation errors
+    print(validation.schema_error_log)  # schema parse errors
+    ```
 
-By default, `schematron_check()` uses the bundled
-`pydiggs/schematron/diggs_schematron_rules_2.6.sch` (ISO Schematron / `xslt1` for lxml).
-You may still supply a custom `.sch`. Cross-unit casing diameter comparison uses the
-bundled Diggs UOM dictionary (not the online Geosetta API).
+=== "Command line"
 
-#### Using Python
+    ```bash
+    pydiggs schema_check BH-01.xml
+    pydiggs schema_check BH-01.xml --schema_path path/to/Diggs.xsd
+    pydiggs schema_check BH-01.xml --no-output_log
+    ```
 
-```python
-from pydiggs import validator
+    The legacy commands have no version flag: they always detect the version. Use
+    `pydiggs validate --diggs-version` or `--schema_path` to choose.
 
-# Bundled DIGGS Schematron rules
-validation = validator("DIGGS_Instance_File_Path", output_log=False)
-assert validation.schematron_check() is True
+### 2. Dictionary
 
-# Custom Schematron
-validation = validator(
-    "DIGGS_Instance_File_Path",
-    schematron_path="path/to/rules.sch",
-    output_log=False,
-)
-validation.schematron_check()
+The dictionary check implements DIGGS codeSpace semantics:
 
-print(validation.schematron_validation_log)
-print(validation.schematron_error_log)
-```
+- Preferred: `codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#liquid_limit"`
+- Legacy: `codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml"` with the
+  element text equal to a `gml:id` or `gml:name`
+- Bundled dictionaries under `pydiggs/dictionaries/codes/` are resolved offline
+- Units are checked offline against `DiggsUomDictionary.xml`
 
-#### Using Command Line Interface
+=== "Python"
 
-```bash
-pydiggs schematron_check "DIGGS_Instance_File_Path"
-pydiggs schematron_check "DIGGS_Instance_File_Path" --schematron_path "path/to/rules.sch"
-```
+    ```python
+    from pydiggs import validator
 
-### 4. Context Validation
+    validation = validator("BH-01.xml", output_log=False)
+    ok = validation.dictionary_check()
+    print(validation.dictionary_validation_log)  # INFO / WARNING / ERROR messages
+    ```
 
-```python
-validation = validator("DIGGS_Instance_File_Path", output_log=False)
-validation.context_check()
-print(validation.context_validation_log)
-```
+=== "Command line"
 
-```bash
-pydiggs context_check "DIGGS_Instance_File_Path" --no-output_log
-```
+    ```bash
+    pydiggs dictionary_check BH-01.xml
+    pydiggs dictionary_check BH-01.xml --dictionary_path path/to/properties.xml
+    ```
 
-### Known limits
+### 3. Schematron
+
+By default the check uses the bundled
+`pydiggs/schematron/diggs_schematron_rules_2.6.sch` (ISO Schematron, `xslt1` for lxml).
+Cross-unit casing diameter comparison uses the bundled DIGGS units dictionary.
+
+!!! warning "Only use Schematron and XSD files you trust"
+    A custom schema or Schematron file is code, not data: Schematron compiles to XSLT,
+    which can read local files. The bundled rules make no file or network access.
+
+=== "Python"
+
+    ```python
+    from pydiggs import validator
+
+    validation = validator("BH-01.xml", output_log=False)
+    assert validation.schematron_check() is True
+
+    # Your own rules
+    validator("BH-01.xml", schematron_path="path/to/rules.sch", output_log=False).schematron_check()
+
+    print(validation.schematron_validation_log)
+    print(validation.schematron_error_log)
+    ```
+
+=== "Command line"
+
+    ```bash
+    pydiggs schematron_check BH-01.xml
+    pydiggs schematron_check BH-01.xml --schematron_path path/to/rules.sch
+    ```
+
+### 4. Context
+
+=== "Python"
+
+    ```python
+    from pydiggs import validator
+
+    validation = validator("BH-01.xml", output_log=False)
+    validation.context_check()
+    print(validation.context_validation_log)
+    ```
+
+=== "Command line"
+
+    ```bash
+    pydiggs context_check BH-01.xml --no-output_log
+    ```
+
+## Known limits
 
 - The bundled schemas, dictionaries and deprecation registry are copies of
   [DIGGSml/schemas](https://github.com/DIGGSml/schemas) and
   [DIGGSml/def](https://github.com/DIGGSml/def) at the commits recorded in
-  `PROVENANCE.toml` inside the installed `pydiggs` package, with a sha256 for every file. A file whose codes appear
-  in a newer upstream dictionary is validated against the bundled copy until pyDIGGS
-  re-syncs; pass `extra_dictionaries` (or `allow_network=True`) to use newer ones.
+  `PROVENANCE.toml` inside the installed `pydiggs` package, with a sha256 for every
+  file. A file whose codes appear in a newer upstream dictionary is validated against
+  the bundled copy until pyDIGGS re-syncs; pass `extra_dictionaries` (or
+  `allow_network=True`) to use newer ones.
 - Official [diggs-examples](https://github.com/DIGGSml/diggs-examples) files under
   `tests/fixtures/official/known_invalid/` fail schema validation against the bundled
   XSDs; they are pinned so we never silently accept them. `PileDrivingExample.xml` is
@@ -164,9 +199,10 @@ pydiggs context_check "DIGGS_Instance_File_Path" --no-output_log
 - DIGGS 3.x MWD and pile-driving property codes live in the specialised dictionaries
   `mwd_properties.xml` and `pil_properties.xml`, now published on diggsml.org/def and
   bundled from there. The golden code inventory is `pydiggs.dictionaries.supplements`.
-- Legacy `http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#…` codeSpaces are
-  resolved against the modern `def/codes/DIGGS/0.1/properties.xml` definitions when present.
-- Upstream Schematron `queryBinding="xslt3"` rules that call remote APIs are not executed by
-  lxml; pyDIGGS ships an adapted subset plus offline casing UOM checks.
-- Full DIGGSml/validation XSLT modules for CRS / xlink / dataBlock structure remain out of
-  scope for this release train; see that repository for the Saxon pipeline.
+- Legacy `http://diggsml.org/dictionaries/DIGGSTestPropertyDefinitions.xml#…`
+  codeSpaces are resolved against the modern `def/codes/DIGGS/0.1/properties.xml`
+  definitions when present.
+- Upstream Schematron `queryBinding="xslt3"` rules that call remote APIs are not
+  executed by lxml; pyDIGGS ships an adapted subset plus offline casing unit checks.
+- The full DIGGSml/validation XSLT modules for CRS, xlink and dataBlock structure
+  remain out of scope; see that repository for the Saxon pipeline.

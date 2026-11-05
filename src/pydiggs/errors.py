@@ -13,7 +13,7 @@ __all__ = ["InstanceReadError", "PydiggsError", "ResourceError"]
 class PydiggsError(Exception):
     """Base class for every exception pydiggs raises on purpose.
 
-    Example:
+    Examples:
         >>> issubclass(InstanceReadError, PydiggsError)
         True
     """
@@ -24,7 +24,7 @@ class InstanceReadError(PydiggsError, OSError):
 
     It is also an :class:`OSError`, so ``except OSError`` keeps working.
 
-    Example:
+    Examples:
         >>> from pydiggs import validate
         >>> try:
         ...     validate("no-such-file.xml")
@@ -39,7 +39,7 @@ class ResourceError(PydiggsError):
 
     Raised for files given by path and for pydiggs's own bundled reference data.
 
-    Example:
+    Examples:
         >>> from pydiggs import validate
         >>> try:
         ...     validate("tests/test_files/2.6/No_Error_2_6.xml", schema_path="missing.xsd")

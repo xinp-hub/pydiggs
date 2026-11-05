@@ -209,7 +209,7 @@ def _named() -> dict[str, _JsonSchema]:
 def components() -> dict[str, _JsonSchema]:
     """Every component :func:`lift_components` refers to, sorted by name.
 
-    Example:
+    Examples:
         >>> sorted(components())[:3]
         ['DiggsFindingsCommit', 'DiggsFindingsCounts', 'DiggsFindingsDocument']
     """
@@ -270,7 +270,7 @@ _STATUS_TEXT: Final = {
 def error_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
     """Problem responses for ``statuses``.
 
-    Example:
+    Examples:
         >>> sorted(error_responses(503, 413))
         [413, 503]
     """

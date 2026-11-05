@@ -15,8 +15,8 @@ license-files = [
   "src/pydiggs/schemas/LICENSE",
   "src/pydiggs/dictionaries/NOTICE",
 ]
-authors = [{ name = "xin.peng", email = "xin_peng@outlook.com" }]
-maintainers = [{ name = "xin.peng", email = "xin_peng@outlook.com" }]
+authors = [{ name = "Xin Peng", email = "xin_peng@outlook.com" }]
+maintainers = [{ name = "Xin Peng", email = "xin_peng@outlook.com" }]
 keywords = ["DIGGS", "geotechnical", "XML", "validation", "schema"]
 classifiers = [
   "Development Status :: 4 - Beta",

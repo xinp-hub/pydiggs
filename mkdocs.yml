@@ -1,20 +1,29 @@
 site_name: pyDIGGS
-site_description: A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS)
+site_description: Offline validation for DIGGS geotechnical and geoenvironmental XML, from the command line, Python, web, desktop, AI assistants and the browser.
+site_author: Xin Peng
+site_url: https://xinp-hub.github.io/pydiggs/
 repo_url: https://github.com/xinp-hub/pydiggs
 repo_name: xinp-hub/pydiggs
 edit_uri: edit/master/docs/
+copyright: >-
+  Copyright &copy; 2021&ndash;2026 Xin Peng (project lead) &middot; Contributor: Asitha
+  Senanayake &middot; Apache-2.0
 
 theme:
   name: material
-  # logo: assets/logo.svg
-  # favicon: assets/favicon.png
   icon:
     repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
   font:
     text: Roboto
     code: Roboto Mono
   palette:
-    # Light mode
+    # Follows the operating system until the reader picks a scheme.
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: indigo
@@ -22,68 +31,77 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to dark mode
-    # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: indigo
       accent: blue
       toggle:
         icon: material/weather-night
-        name: Switch to light mode
+        name: Switch to system preference
   features:
     - navigation.instant
+    - navigation.instant.progress
     - navigation.tracking
+    - navigation.tabs
     - navigation.sections
-    - navigation.expand
+    - navigation.path
+    - navigation.indexes
     - navigation.top
     - navigation.footer
-    - navigation.indexes
     - toc.follow
     - search.highlight
     - search.share
     - search.suggest
+    - content.action.edit
+    - content.action.view
     - content.code.copy
     - content.code.annotate
+    - content.tabs.link
     - content.tooltips
-    - announce.dismiss
 
 hooks:
   - scripts/mkdocs_hooks.py
 
 plugins:
   - search
-  - tags
   - mkdocstrings:
       default_handler: python
       handlers:
         python:
+          paths: [src]
           options:
-            show_source: true
+            docstring_style: google
+            show_source: false
             show_root_heading: true
-            show_category_heading: true
-            show_bases: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_signature_annotations: true
+            separate_signature: true
+            signature_crossrefs: true
+            members_order: source
+            merge_init_into_class: true
+            show_if_no_docstring: false
   - autorefs
 
 markdown_extensions:
-  # Python Markdown
   - abbr
   - admonition
   - attr_list
   - def_list
   - footnotes
   - md_in_html
+  - tables
   - toc:
       permalink: true
       title: On this page
-  
-  # Python Markdown Extensions
-  - pymdownx.arithmatex:
-      generic: true
   - pymdownx.betterem:
       smart_enable: all
   - pymdownx.caret
   - pymdownx.details
-  - pymdownx.emoji
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -95,6 +113,9 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
@@ -103,41 +124,35 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/xinp-hub/pydiggs
+      name: pyDIGGS on GitHub
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/pydiggs/
+      name: pyDIGGS on PyPI
   generator: false
-  consent:
-    title: Cookie consent
-    description: >- 
-      We use cookies to recognize your repeated visits and preferences, as well
-      as to measure the effectiveness of our documentation and whether users
-      find what they're searching for. With your consent, you're helping us to
-      make our documentation better.
-    actions:
-      - accept
-      - reject
-      - manage
 
 extra_css:
   - assets/stylesheets/extra.css
 
-extra_javascript:
-  - assets/javascripts/extra.js
-
 nav:
   - Home: index.md
-  - Getting Started:
+  - Get started:
     - Installation: installation.md
-    - Usage: usage.md
+    - Quickstart: quickstart.md
+  - Guides:
+    - Validation checks: usage.md
     - Findings (JSON / SARIF): findings.md
-  - Integrations:
+  - Integrate:
+    - integrations.md
     - HTTP API: http-api.md
     - Container image: container.md
     - Stdio sidecar (native apps): sidecar.md
     - Host integration: sidecar-hosts.md
     - MCP server (AI assistants): mcp.md
     - Browser (Pyodide): browser.md
-  - Development:
+  - Reference:
+    - Python API: reference.md
+  - Project:
     - Contributing: contributing.md
     - Authors: authors.md
-    - History: history.md 
+    - History: history.md
+    - Security policy: https://github.com/xinp-hub/pydiggs/security/policy

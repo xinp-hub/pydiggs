@@ -280,5 +280,5 @@ def test_docstring_examples_run(module, monkeypatch):
 def test_every_new_public_name_has_a_runnable_example():
     for name in NEW_NAMES - {"FINDINGS_SCHEMA_URL", "FINDINGS_SCHEMA_VERSION"}:
         doc = inspect.getdoc(getattr(pydiggs, name)) or ""
-        assert "Example:" in doc and ">>>" in doc, name
+        assert "Examples:" in doc and ">>>" in doc, name
     assert ">>>" in (inspect.getdoc(pydiggs.Report.to_document) or "")

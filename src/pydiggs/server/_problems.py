@@ -88,7 +88,7 @@ _log = logging.getLogger("pydiggs.server")
 def type_uri(code: str) -> str:
     """The ``type`` URI of the problem ``code``: its anchor in the HTTP API page.
 
-    Example:
+    Examples:
         >>> type_uri("busy")
         'https://xinp-hub.github.io/pydiggs/http-api/#problem-busy'
     """
@@ -115,7 +115,7 @@ def problem(
     Returns:
         The response, with ``Cache-Control: no-store`` and ``nosniff``.
 
-    Example:
+    Examples:
         >>> response = problem("busy", "Try again shortly.", headers={"Retry-After": "1"})
         >>> response.status_code, response.media_type, response.headers["retry-after"]
         (503, 'application/problem+json', '1')
@@ -143,7 +143,7 @@ def problem(
 def from_outcome(outcome: Outcome) -> Response:
     """The problem response for a validation that produced no document.
 
-    Example:
+    Examples:
         >>> from pydiggs._service import Code, Outcome
         >>> from_outcome(Outcome(code=Code.TIMEOUT, detail="slow")).status_code
         504
@@ -163,7 +163,7 @@ def from_outcome(outcome: Outcome) -> Response:
 def internal_error(exc: BaseException) -> Response:
     """A 500 ``internal`` problem; the real text goes to the ``pydiggs.server`` log only.
 
-    Example:
+    Examples:
         >>> internal_error(RuntimeError("/secret/path")).body.find(b"secret")
         -1
     """

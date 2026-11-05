@@ -16,10 +16,10 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 * GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
 * PyPI: [https://pypi.org/project/pydiggs](https://pypi.org/project/pydiggs)
 
-## Project Lead
+## Authors
 
-    * Xin Peng (<xin_peng@outlook.com>)
-    * Asitha Senanayake (<asitha.senanayake@utexas.edu>)
+* **Project lead:** Xin Peng (<xin_peng@outlook.com>)
+* **Contributor:** Asitha Senanayake (<asitha.senanayake@utexas.edu>)
 
 ## Features
 
@@ -80,10 +80,11 @@ Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web a
 
 ## Quick Start
 
-Install pydiggs (requires Python 3.11+):
+Install pydiggs (requires Python 3.11+), then validate a file. The
+[Quickstart](https://xinp-hub.github.io/pydiggs/quickstart/) walks through it:
 ```bash
-uv pip install pydiggs
-# or: pip install pydiggs
+uv tool install pydiggs   # or: python -m pip install pydiggs
+pydiggs validate BH-01.xml
 ```
 
 Basic usage with Python:

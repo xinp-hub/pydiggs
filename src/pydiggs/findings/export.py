@@ -58,7 +58,7 @@ def findings_document(reports: Iterable[Report], *, absolute_paths: bool = False
         A JSON-serialisable dict that validates against :func:`findings_schema`. For one
         report made by this pydiggs it equals ``report.to_document()``.
 
-    Example:
+    Examples:
         >>> from pydiggs import findings_document, validate_bytes
         >>> b = validate_bytes(b"<Diggs/>", name="b.xml")
         >>> a = validate_bytes(b"<x/>", name="a.xml")
@@ -88,7 +88,7 @@ def findings_json(
     Returns:
         The JSON text, without a trailing newline.
 
-    Example:
+    Examples:
         >>> from pydiggs import findings_json, validate_bytes
         >>> text = findings_json([validate_bytes(b"<Diggs/>")], indent=None)
         >>> "\n" in text, text.startswith('{"$schema": "https://')
@@ -119,7 +119,7 @@ def findings_schema() -> dict[str, Any]:
     Raises:
         ResourceError: The packaged schema is missing or broken.
 
-    Example:
+    Examples:
         >>> from pydiggs import FINDINGS_SCHEMA_URL, findings_schema
         >>> schema = findings_schema()
         >>> schema["$id"] == FINDINGS_SCHEMA_URL

@@ -1,71 +1,100 @@
+---
+hide:
+  - navigation
+  - toc
+---
+
+<div class="pd-hero" markdown>
+
 # pyDIGGS
 
-[![PyPI version](https://img.shields.io/pypi/v/pydiggs.svg)](https://pypi.python.org/pypi/pydiggs)
-[![Python Versions](https://img.shields.io/pypi/pyversions/pydiggs)](https://pypi.org/project/pydiggs)
-[![Downloads](https://static.pepy.tech/badge/pydiggs)](https://pepy.tech/project/pydiggs)
-[![Downloads/Month](https://static.pepy.tech/badge/pydiggs/month)](https://pepy.tech/project/pydiggs)
-[![Build Status](https://github.com/xinp-hub/pydiggs/actions/workflows/ci.yml/badge.svg)](https://github.com/xinp-hub/pydiggs/actions/workflows/ci.yml)
-[![Documentation Status](https://github.com/xinp-hub/pydiggs/actions/workflows/docs.yml/badge.svg)](https://xinp-hub.github.io/pydiggs/)
-[![Updates](https://pyup.io/repos/github/xinp-hub/pydiggs/shield.svg)](https://pyup.io/account/repos/github/xinp-hub/pydiggs/)
-[![GitHub Issues](https://img.shields.io/github/issues/xinp-hub/pydiggs.svg)](https://github.com/xinp-hub/pydiggs/issues)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+<p class="pd-tagline">Validate DIGGS geotechnical and geoenvironmental XML offline:
+schema, dictionaries, Schematron business rules and context checks, with findings you
+can read, script against or feed to code-scanning tools.</p>
 
-A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
+[Get started](quickstart.md){ .md-button .md-button--primary }
+[Install](installation.md){ .md-button }
 
-* Licensed under the Apache License 2.0
-* Documentation: [https://xinp-hub.github.io/pydiggs](https://xinp-hub.github.io/pydiggs)
-* GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
+</div>
 
-## Features
-
-* Validate DIGGS instance files against:
-    * DIGGS XSD Schema (**2.5.a**, **2.6**, **3.0.0**) with namespace auto-detect
-      (default profile **3.0.0** when the namespace is unknown)
-    * DIGGS Standard dictionaries / codeSpace semantics (offline)
-    * Schematron business rules (bundled DIGGS lxml-adapted rules by default)
-    * Lightweight context checks
-* Flexible validation output (log files or console)
-* Command-line interface (CLI)
-
-## Web Application
-
-Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web application? Check out:
-
-* [DXplorer](https://www.dx-plorer.com)
-
-## Quick Start
-
-Install pydiggs (requires Python 3.11+):
 ```bash
-uv pip install pydiggs
-# or: pip install pydiggs
+pip install pydiggs
+pydiggs validate BH-01.xml
 ```
 
-Basic usage with Python:
-```python
-from pydiggs import detect_diggs_version, validator
+## Choose your path
 
-# Profile auto-detected from namespace (unknown → 3.0.0)
-validation = validator("path/to/your/diggs_file.xml")
-print(detect_diggs_version("path/to/your/diggs_file.xml"))  # "2.5.a", "2.6", or "3.0.0"
+<div class="grid cards" markdown>
 
-# Pin a profile (Python API only)
-validation = validator("path/to/your/diggs_file.xml", diggs_version="2.6")
+-   :material-console:{ .lg .middle } __Check files from the command line__
 
-validation.schema_check()
-validation.dictionary_check()
-validation.schematron_check()
-validation.context_check()
-```
+    ---
 
-Basic usage with CLI:
-```bash
-pydiggs schema_check "path/to/your/diggs_file.xml"
-pydiggs dictionary_check "path/to/your/diggs_file.xml"
-pydiggs schematron_check "path/to/your/diggs_file.xml"
-pydiggs context_check "path/to/your/diggs_file.xml"
-```
+    One command runs every check on a file or a whole folder, as text, JSON or SARIF.
 
-See [Usage](usage.md) for overrides, log options, and [known limits](usage.md#known-limits).
+    [Quickstart](quickstart.md){ .pd-card-link }
 
-For more detailed information and advanced usage, please see the [Usage guide](usage.md).
+-   :material-language-python:{ .lg .middle } __Validate in Python__
+
+    ---
+
+    `validate()` for files and `validate_bytes()` for uploads return a `Report` of
+    findings with stable rule ids, lines and XPaths.
+
+    [Findings](findings.md){ .pd-card-link }
+
+-   :material-web:{ .lg .middle } __Run it as a web service__
+
+    ---
+
+    An HTTP API with OpenAPI 3.1, or a hardened, attested container image.
+
+    [HTTP API](http-api.md){ .pd-card-link }
+
+-   :material-application-cog-outline:{ .lg .middle } __Embed it in a desktop app__
+
+    ---
+
+    A stdio JSON-RPC sidecar any host language can drive: Electron, Tauri, .NET, Java,
+    Rust and more.
+
+    [Stdio sidecar](sidecar.md){ .pd-card-link }
+
+-   :material-robot-outline:{ .lg .middle } __Connect an AI assistant__
+
+    ---
+
+    An MCP server with read-only validation and rule tools.
+
+    [MCP server](mcp.md){ .pd-card-link }
+
+-   :material-shield-lock-outline:{ .lg .middle } __Keep files on the user's machine__
+
+    ---
+
+    Run pyDIGGS in a web page with Pyodide: the document never leaves the browser.
+
+    [Browser](browser.md){ .pd-card-link }
+
+</div>
+
+Not sure which fits? [Compare the integrations](integrations.md).
+
+## What gets checked
+
+| Step | What it checks |
+|---|---|
+| Schema | The bundled DIGGS XSD for **2.5.a**, **2.6** or **3.0.0**, picked from the file's namespace (unknown namespaces use 3.0.0) |
+| Dictionary | `codeSpace` values and units against the DIGGS Standard dictionaries from [diggsml.org/def](https://diggsml.org/def/), offline |
+| Schematron | DIGGS business rules from [DIGGSml/validation](https://github.com/DIGGSml/validation), adapted to run offline |
+| Context | Document structure, geometry SRS, in-document `xlink:href` targets and dataBlock arity |
+
+Everything runs offline by default: no file leaves your machine and pyDIGGS never
+contacts a server. The only other files a DIGGS file can make it read are local
+dictionaries its `codeSpace` values name inside the file's own folder; turn that off
+with `--local-dictionaries off` or `validate(..., local_dictionaries="off")`. See
+[Validation checks](usage.md) for each step and its known limits.
+
+!!! tip "Prefer a web application?"
+    [DXplorer](https://www.dx-plorer.com) brings pyDIGGS validation to the browser
+    without any Python.

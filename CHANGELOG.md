@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Documentation site: a Quickstart (install, validate a file, read the findings, use
+  them from Python and CI), an integration chooser that compares the Python API,
+  command line, HTTP API, container, stdio sidecar, MCP server and browser build, and a
+  Python API reference generated from the docstrings.
+
+### Changed
+- Documentation site navigation follows the reader's journey: Get started, Guides,
+  Integrate, Reference and Project tabs, with breadcrumbs, a home page that routes each
+  kind of user to their path, linked Python and command-line tabs, an automatic light
+  or dark theme, and "Edit this page" links.
+- Package metadata names the author and maintainer as "Xin Peng" (was "xin.peng").
+  The README and the Authors page list Xin Peng as project lead and Asitha Senanayake
+  as contributor.
+
+### Fixed
+- Code blocks on the documentation site no longer show a second, unstyled "Copy"
+  label under the theme's own copy button, and links inside a page work normally again.
+- The documentation site no longer shows a cookie consent banner: it sets no cookies
+  that need consent.
+- Docstring examples render as highlighted code in the API reference (their headings
+  are now `Examples:`).
+
 ## [1.4.0] - 2026-11-04
 
 ### Added

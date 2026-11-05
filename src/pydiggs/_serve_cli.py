@@ -75,7 +75,7 @@ _EXTRA_PACKAGES: Final = {"server": "pydiggs.server", "mcp": "pydiggs.mcp_server
 def default_workers() -> int:
     """``clamp(cpu_count - 1, 1, 4)``: worker processes for ``--http`` by default.
 
-    Example:
+    Examples:
         >>> 1 <= default_workers() <= 4
         True
     """
@@ -96,7 +96,7 @@ class ServeOptions:
     ``allow_paths`` are the ``--allow-path`` roots exactly as given; the sidecar
     canonicalises and vets them. Every field is validated here.
 
-    Example:
+    Examples:
         >>> ServeOptions().max_bytes == 25 * 2**20
         True
         >>> ServeOptions(timeout=0)
@@ -323,7 +323,7 @@ def configure_logging(level: str, fmt: Literal["text", "json"]) -> logging.Handl
     Returns:
         The installed handler (replacing one installed earlier by this function).
 
-    Example:
+    Examples:
         >>> import logging
         >>> handler = configure_logging("error", "json")
         >>> logging.getLogger("pydiggs").level == logging.ERROR

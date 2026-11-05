@@ -18,7 +18,7 @@ class VersionInfo:
     ``reference_data`` maps each vendored reference-data source (schemas, dictionaries,
     Schematron) to the upstream commit it was taken from.
 
-    Example:
+    Examples:
         >>> from pydiggs import VersionInfo
         >>> info = VersionInfo(
         ...     pydiggs_version="1.3.0",
@@ -71,7 +71,7 @@ def version_info() -> VersionInfo:
     Raises:
         ResourceError: The bundled ``PROVENANCE.toml`` is missing or broken.
 
-    Example:
+    Examples:
         >>> import pydiggs
         >>> info = pydiggs.version_info()
         >>> info.pydiggs_version == pydiggs.__version__, info.diggs_versions

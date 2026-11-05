@@ -76,7 +76,7 @@ class ErrorCode(Enum):
     The ``-32000..-32099`` band is pydiggs-defined: never read it with LSP or MCP
     meanings. Hosts switch on the slug (``error.data.code``), which is stable.
 
-    Example:
+    Examples:
         >>> ErrorCode.BUSY.code, ErrorCode.BUSY.slug
         (-32000, 'busy')
     """
@@ -145,7 +145,7 @@ RequestId = str | int
 class ProtocolError(Exception):
     """A JSON-RPC error to send back.
 
-    Example:
+    Examples:
         >>> err = ProtocolError(ErrorCode.INVALID_PARAMS, errors=(("x", "unknown"),))
         >>> err.data()
         {'code': 'invalid-params', 'errors': [{'param': 'x', 'problem': 'unknown'}]}
@@ -172,7 +172,7 @@ class ProtocolError(Exception):
 def service_error(code: Code, detail: str = "", **extra: Any) -> ProtocolError:
     """Map a service :class:`~pydiggs._service.Code` to its protocol error.
 
-    Example:
+    Examples:
         >>> service_error(Code.CANCELLED).error
         <ErrorCode.CANCELLED: (-32008, 'cancelled')>
     """
@@ -183,7 +183,7 @@ def service_error(code: Code, detail: str = "", **extra: Any) -> ProtocolError:
 class Message:
     """One parsed request (``id`` set) or notification (``is_notification``).
 
-    Example:
+    Examples:
         >>> msg = parse_line(b'{"jsonrpc":"2.0","id":1,"method":"ping"}')
         >>> (msg.id, msg.method, msg.params, msg.is_notification)
         (1, 'ping', {}, False)
@@ -212,7 +212,7 @@ class Invalid:
 def max_line_bytes(max_bytes: int) -> int:
     """The longest line accepted: base64 of ``max_bytes`` plus 64 KiB of envelope.
 
-    Example:
+    Examples:
         >>> max_line_bytes(3)
         65540
     """
@@ -245,7 +245,7 @@ def parse_line(line: bytes) -> Message | Invalid | None:
     Returns:
         A :class:`Message`, an :class:`Invalid`, or None for a blank line.
 
-    Example:
+    Examples:
         >>> parse_line(b"   ") is None
         True
         >>> parse_line(b"[1]").error.error.slug
@@ -336,7 +336,7 @@ def result_frame(
 ) -> bytes:
     """A success response line. ``raw`` is a result already encoded as JSON bytes.
 
-    Example:
+    Examples:
         >>> print(result_frame(1, {}).decode().strip())
         {"jsonrpc":"2.0","id":1,"result":{}}
         >>> print(result_frame("a", raw=b'{"x":1}').decode().strip())
@@ -349,7 +349,7 @@ def result_frame(
 def error_frame(request_id: RequestId | None, error: ProtocolError) -> bytes:
     """An error response line (``id: null`` when the request's id is unknown).
 
-    Example:
+    Examples:
         >>> import json
         >>> json.loads(error_frame(None, ProtocolError(ErrorCode.PARSE_ERROR)))["error"]
         {'code': -32700, 'message': 'Parse error', 'data': {'code': 'parse-error'}}
@@ -361,7 +361,7 @@ def error_frame(request_id: RequestId | None, error: ProtocolError) -> bytes:
 def notification_frame(method: str, params: dict[str, Any]) -> bytes:
     """A server-to-host notification line (``$/progress``).
 
-    Example:
+    Examples:
         >>> print(notification_frame("$/progress", {"request_id": 1}).decode().strip())
         {"jsonrpc":"2.0","method":"$/progress","params":{"request_id":1}}
     """
@@ -401,7 +401,7 @@ def _optional_str(params: dict[str, Any], name: str, limit: int) -> str | None:
 def check_empty(params: dict[str, Any]) -> None:
     """``ping``, ``versions``, ``shutdown``: no parameters at all.
 
-    Example:
+    Examples:
         >>> check_empty({"x": 1})
         Traceback (most recent call last):
         ...
@@ -426,7 +426,7 @@ def check_initialize(params: dict[str, Any], known_versions: tuple[str, ...]) ->
     Unknown keys inside ``capabilities`` are ignored (hosts may advertise features
     of newer minors); unknown top-level parameters are refused.
 
-    Example:
+    Examples:
         >>> check_initialize({"protocol_version": "1.0"}, ("2.6",)).progress
         False
     """
@@ -475,7 +475,7 @@ def negotiate(requested: str) -> str:
     Raises:
         ProtocolError: ``unsupported-protocol-version`` with ``data.supported``.
 
-    Example:
+    Examples:
         >>> negotiate("1.0"), negotiate("1.7")
         ('1.0', '1.0')
         >>> try:
@@ -528,7 +528,7 @@ def check_validate(params: dict[str, Any], *, max_bytes: int, time_limit: float)
     Raises:
         ProtocolError: ``invalid-params`` or ``input-too-large``.
 
-    Example:
+    Examples:
         >>> p = check_validate({"content_base64": "PERpZ2dzLz4="}, max_bytes=100, time_limit=60)
         >>> p.content, p.time_budget
         (b'<Diggs/>', 60)
@@ -584,7 +584,7 @@ def check_validate(params: dict[str, Any], *, max_bytes: int, time_limit: float)
 def check_rules_list(params: dict[str, Any]) -> str | None:
     """``rules.list``: the optional ``step`` (its value is checked by the service).
 
-    Example:
+    Examples:
         >>> check_rules_list({"step": "schema"})
         'schema'
     """
@@ -595,7 +595,7 @@ def check_rules_list(params: dict[str, Any]) -> str | None:
 def check_explain(params: dict[str, Any]) -> str:
     """``rules.explain``: the required ``rule_id`` (grammar checked by the service).
 
-    Example:
+    Examples:
         >>> check_explain({"rule_id": "dictionary.5"})
         'dictionary.5'
     """
@@ -609,7 +609,7 @@ def check_explain(params: dict[str, Any]) -> str:
 def check_cancel(params: dict[str, Any]) -> RequestId | None:
     """``$/cancelRequest``: the id to cancel, or None when the params are unusable.
 
-    Example:
+    Examples:
         >>> check_cancel({"id": 3}), check_cancel({"id": True})
         (3, None)
     """
@@ -655,7 +655,7 @@ def openrpc_document(findings_schema_url: str) -> dict[str, Any]:
     Notifications (``exit``, ``$/cancelRequest``, ``$/progress``) are described in
     ``x-notifications``, since OpenRPC has no notification object.
 
-    Example:
+    Examples:
         >>> doc = openrpc_document("https://example.invalid/s.json")
         >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:2]
         ('1.0', ['initialize', 'validate'])

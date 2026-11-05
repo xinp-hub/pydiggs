@@ -35,7 +35,7 @@ def uvicorn_config(settings: ServerSettings, host: str, port: int) -> uvicorn.Co
     Raises:
         ValueError: ``host`` is not loopback and ``allowed_hosts`` is unset.
 
-    Example:
+    Examples:
         >>> from pydiggs.server import ServerSettings
         >>> config = uvicorn_config(ServerSettings(workers=1), "127.0.0.1", 8000)
         >>> config.limit_concurrency, config.access_log, config.server_header
@@ -79,7 +79,7 @@ def serve_http(settings: ServerSettings, host: str, port: int) -> int:
     Returns:
         0 after a clean shutdown; 2 when it cannot start (bad settings, port in use).
 
-    Example:
+    Examples:
         >>> from pydiggs.server import ServerSettings, serve_http
         >>> serve_http(ServerSettings(), "0.0.0.0", 8000)  # doctest: +SKIP
         2

@@ -36,7 +36,7 @@ def normalise_xpath(xpath: str) -> str:
     ``/Diggs[1]/Borehole[2]`` normalise to the same string. A path that is not a
     simple location path is returned with surrounding whitespace removed.
 
-    Example:
+    Examples:
         >>> normalise_xpath("/diggs:Diggs[1]/diggs:Borehole[2]/@gml:id")
         '/Diggs[1]/Borehole[2]/@id'
         >>> normalise_xpath(" /Diggs/samplingFeature ")
@@ -60,7 +60,7 @@ def normalise_xpath(xpath: str) -> str:
 def location_key(xpath: str | None, line: int | None) -> str:
     """The location part of a conformance key: xpath if known, else line, else file.
 
-    Example:
+    Examples:
         >>> location_key("/Diggs[1]", 3)
         'xpath:/Diggs[1]'
         >>> location_key(None, 3)
@@ -84,7 +84,7 @@ def compare(
 
     The ``structure.findings-truncated`` marker is never compared.
 
-    Example:
+    Examples:
         >>> a = [("schema", "error", "line:3", "schema.cvc-elt.1")] * 2
         >>> b = [("schema", "error", "line:3", "schema.cvc-elt.1")]
         >>> only_a, only_b = compare(a, b, ["schema"])

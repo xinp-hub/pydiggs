@@ -88,7 +88,7 @@ class Server:
     needs ``write`` and ``flush``. :func:`serve` passes stdin and the saved stdout
     descriptor; tests pass pipes.
 
-    Example:
+    Examples:
         >>> import io, json
         >>> from pydiggs._serve_cli import ServeOptions
         >>> line = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + chr(10)

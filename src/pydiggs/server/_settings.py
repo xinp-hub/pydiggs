@@ -42,7 +42,7 @@ class ServerSettings:
     :meth:`hosts_for`). ``"*"`` is refused in ``cors_origins``. ``body_timeout_s``
     bounds reading one request body, after its admission slot is taken (``408``).
 
-    Example:
+    Examples:
         >>> s = ServerSettings(workers=2)
         >>> s.queue_limit, s.admission_slots, s.max_body_bytes == 25 * 2**20
         (4, 6, True)
@@ -114,7 +114,7 @@ class ServerSettings:
         Raises:
             ValueError: ``allowed_hosts`` is unset and ``bind_host`` is not loopback.
 
-        Example:
+        Examples:
             >>> ServerSettings().hosts_for("127.0.0.1")
             ('127.0.0.1', 'localhost', '[::1]')
             >>> ServerSettings(allowed_hosts=("diggs.example",)).hosts_for("0.0.0.0")
@@ -149,7 +149,7 @@ class ServerSettings:
         Raises:
             ValueError: A variable is malformed (the message names it).
 
-        Example:
+        Examples:
             >>> ServerSettings.from_env({"PYDIGGS_WORKERS": "3"}).workers
             3
             >>> ServerSettings.from_env({"PYDIGGS_WORKERS": "many"})

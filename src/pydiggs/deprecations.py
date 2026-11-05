@@ -96,7 +96,7 @@ class Match:
 def version_key(version: str) -> tuple[int, ...]:
     """Order DIGGS versions: ``2.5.a`` < ``2.6`` < ``3.0.0`` < ``3.1.0``.
 
-    Example:
+    Examples:
         >>> sorted(["3.1.0", "2.6", "3.0.0", "2.5.a"], key=version_key)
         ['2.5.a', '2.6', '3.0.0', '3.1.0']
         >>> version_key("3") == version_key("3.0.0")
@@ -111,7 +111,7 @@ def version_key(version: str) -> tuple[int, ...]:
 def applies(entry: DeprecationEntry, diggs_version: str) -> bool:
     """True when ``entry`` concerns an instance of ``diggs_version``.
 
-    Example:
+    Examples:
         >>> e = DeprecationEntry(
         ...     "k", "deprecated", "element", "diggs:x", "", "3.1.0", "", "", "", "//diggs:x", True
         ... )

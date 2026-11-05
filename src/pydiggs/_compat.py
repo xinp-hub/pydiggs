@@ -20,7 +20,7 @@ def _deprecated(msg: str, since: str, removal: str, *, stacklevel: int = 3) -> N
         removal: The release that will remove it.
         stacklevel: As for :func:`warnings.warn`, counted from this function.
 
-    Example:
+    Examples:
         >>> import warnings
         >>> with warnings.catch_warnings(record=True) as caught:
         ...     warnings.simplefilter("always")

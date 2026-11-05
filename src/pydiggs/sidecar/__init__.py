@@ -33,7 +33,7 @@ def serve_stdio(options: ServeOptions) -> int:
         1 for ``exit`` without ``shutdown``; 2 for bad launch arguments (such as a
         refused ``--allow-path`` root); 3 when the bundled data cannot be loaded.
 
-    Example:
+    Examples:
         A whole session from a shell, one request per line and one response per
         line (``initialize``, ``shutdown``, then the ``exit`` notification)::
 

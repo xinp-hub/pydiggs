@@ -78,7 +78,7 @@ class Locator:
         The walk stops as soon as the path would exceed ``max_chars``, so a deep tree
         with long names costs at most that much per finding.
 
-        Example:
+        Examples:
             >>> doc = etree.ElementTree(
             ...     etree.fromstring(b'<d:Diggs xmlns:d="urn:d"><d:a/><d:b/><d:a/></d:Diggs>')
             ... )

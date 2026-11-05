@@ -90,7 +90,7 @@ _log = logging.getLogger("pydiggs.service")
 class Code(StrEnum):
     """Why a request produced no document. Adapters map each to their own protocol.
 
-    Example:
+    Examples:
         >>> Code.INPUT_TOO_LARGE.value
         'input-too-large'
     """
@@ -120,7 +120,7 @@ class Request:
     checked by :func:`validate`, which answers ``invalid-parameter`` rather than
     raising. The limits are the adapter's own and are checked here.
 
-    Example:
+    Examples:
         >>> Request(content=b"<Diggs/>", name="a.xml", max_bytes=1024).format
         'findings'
         >>> Request(content=b"", max_bytes=0)
@@ -167,7 +167,7 @@ class Outcome:
     problem)`` pairs for ``invalid-parameter``. ``correlation_id`` ties a
     ``resource-error`` or ``internal`` answer to the log line with the real text.
 
-    Example:
+    Examples:
         >>> Outcome(document=b"{}").ok
         True
         >>> Outcome(code=Code.TIMEOUT, detail="slow").ok
@@ -235,7 +235,7 @@ def _replacements() -> tuple[tuple[str, str], ...]:
 def _scrub(text: str) -> str:
     """Replace install, environment, temp and home folders in ``text`` with placeholders.
 
-    Example:
+    Examples:
         >>> import tempfile
         >>> _scrub(tempfile.gettempdir() + "/x.xsd")
         '<tmp>/x.xsd'
@@ -308,7 +308,7 @@ def validate(request: Request, *, should_stop: Callable[[], bool] | None = None)
     Returns:
         The document, or an error :class:`Code`. Never raises for bad input.
 
-    Example:
+    Examples:
         >>> from pydiggs._service import Request, validate
         >>> outcome = validate(Request(content=b"<Diggs", name="x/a.xml", checks=["structure"]))
         >>> outcome.ok, b'"path": "a.xml"' in outcome.document
@@ -364,7 +364,7 @@ def read_fd(fd: int, *, max_bytes: int, name: str | None) -> bytes | Outcome:
         The bytes, or an ``input-too-large``, ``compressed-input`` or
         ``input-unreadable`` :class:`Outcome`.
 
-    Example:
+    Examples:
         >>> import os, tempfile
         >>> with tempfile.TemporaryFile() as fh:
         ...     _ = fh.write(b"<Diggs/>")
@@ -503,7 +503,7 @@ def validate_in_pool(pool: WorkerPool, request: Request, *, timeout: float) -> O
 def versions() -> dict[str, Any]:
     """:func:`pydiggs.version_info` as a dict, for ``versions`` endpoints.
 
-    Example:
+    Examples:
         >>> versions()["findings_schema_version"]
         '1.0'
     """
@@ -519,7 +519,7 @@ def rules(step: str | None = None) -> list[dict[str, Any]] | Outcome:
     Returns:
         The entries, or an ``invalid-parameter`` :class:`Outcome` for an unknown step.
 
-    Example:
+    Examples:
         >>> {r["step"] for r in rules("schema")}
         {'schema'}
         >>> rules("nope").code
@@ -537,7 +537,7 @@ def rules(step: str | None = None) -> list[dict[str, Any]] | Outcome:
 def explain(rule_id: str) -> dict[str, Any] | Outcome:
     """:func:`pydiggs.explain_rule` as a dict; bad grammar is ``invalid-parameter``.
 
-    Example:
+    Examples:
         >>> explain("dictionary.5")["known"], explain("crs.unknown")["known"]
         (True, False)
         >>> explain("no dots").code

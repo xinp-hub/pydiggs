@@ -44,7 +44,7 @@ _WINDOWS_ABSOLUTE: Final = re.compile(r"^(?:[A-Za-z]:/|//[^/]+/[^/]+)")
 def file_uri(absolute_path: str) -> str:
     """A ``file:`` URI for a forward-slash absolute path, POSIX or Windows.
 
-    Example:
+    Examples:
         >>> file_uri("/home/me/a b.xml")
         'file:///home/me/a%20b.xml'
         >>> file_uri("C:/Users/me/a b.xml")
