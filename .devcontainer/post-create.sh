@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Runs once when the container is created. Everything comes from lockfiles: uv.lock for
-# Python, tools/package-lock.json for Claude Code.
+# Runs once when the container is created. Everything comes from uv.lock.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 uv python install 3.11 3.12 3.13 3.14
 # 3.11 is the floor, and what CI's lint job uses.
 uv sync --locked --all-groups --all-extras --python 3.11
-npm ci --prefix .devcontainer/tools --no-audit --no-fund
 
 # master accepts only verified commits. In Codespaces, GitHub signs them for you once
 # "GPG verification" is on for this repository (github.com/settings/codespaces); it then

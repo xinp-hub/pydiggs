@@ -44,8 +44,8 @@ If you are proposing a feature:
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/xinp-hub/pydiggs?quickstart=1)
 
-The repository ships a dev container (`.devcontainer/`) with uv, Python 3.11–3.14, the
-GitHub CLI and Claude Code, all pinned. Open it in GitHub Codespaces from the badge, or
+The repository ships a dev container (`.devcontainer/`) with uv, Python 3.11–3.14 and the
+GitHub CLI, all pinned. Open it in GitHub Codespaces from the badge, or
 locally with *Dev Containers: Reopen in Container*. Nothing is installed on your machine,
 so any computer with a browser gives you the same environment, and `uv sync` has already
 run when it opens.

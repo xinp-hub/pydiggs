@@ -7,7 +7,7 @@
   // updates both files.
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
-    // Node only runs Claude Code, which needs Node >= 22.
+    // Node runs the Pyodide smoke test (tests/pyodide) and editor tooling.
     "ghcr.io/devcontainers/features/node:2": { "version": "lts" }
   },
   "containerEnv": {
@@ -15,9 +15,6 @@
     "UV_LINK_MODE": "copy",
     // Only uv's own interpreters: the image's system Python is not one CI tests.
     "UV_PYTHON_PREFERENCE": "only-managed"
-  },
-  "remoteEnv": {
-    "PATH": "${containerEnv:PATH}:${containerWorkspaceFolder}/.devcontainer/tools/node_modules/.bin"
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "hostRequirements": { "cpus": 2, "memory": "8gb" },
@@ -27,7 +24,6 @@
         "ms-python.python",
         "charliermarsh.ruff",
         "ms-python.mypy-type-checker",
-        "anthropic.claude-code",
         "github.vscode-github-actions"
       ],
       "settings": {

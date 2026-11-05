@@ -73,8 +73,8 @@ updates:
     # Runtime majors get their own PR: they may require a compatibility change.
 
   # The dev container (.devcontainer/): its two images, pinned by digest, its features
-  # (devcontainer-lock.json) and the tools it installs (Claude Code, tools/package-lock.json).
-  # Code and agents run in it with your GitHub token, so it gets the same 14-day cooldown.
+  # (devcontainer-lock.json). Code runs in it with your GitHub token, so it gets the same
+  # 14-day cooldown.
   - package-ecosystem: docker
     directory: /.devcontainer
     schedule:
@@ -103,16 +103,3 @@ updates:
       devcontainer-features:
         patterns: ["*"]
 
-  - package-ecosystem: npm
-    directory: /.devcontainer/tools
-    schedule:
-      interval: weekly
-      day: monday
-    cooldown:
-      default-days: 14
-    open-pull-requests-limit: 2
-    commit-message:
-      prefix: "build"
-    groups:
-      devcontainer-tools:
-        patterns: ["*"]
