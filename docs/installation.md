@@ -9,24 +9,21 @@ dependencies are [lxml](https://lxml.de/) (XML parsing and validation) and
 === "uv"
 
     ```bash
-    # In a project
-    uv add pydiggs
-
-    # Or just the command line tool, in its own environment
+    # Just the command line tool, in its own environment
     uv tool install pydiggs
+    pydiggs --version
+
+    # Or as a dependency of your project (import it from your code)
+    uv add pydiggs
+    uv run pydiggs --version    # project commands run through uv run
     ```
 
 === "pip"
 
     ```bash
-    python -m pip install pydiggs
+    python -m pip install pydiggs    # into the active environment
+    pydiggs --version
     ```
-
-Then check it:
-
-```bash
-pydiggs --version
-```
 
 !!! tip "Use the published wheels"
     The PyPI wheels of lxml bundle a current libxml2. Building lxml against an older

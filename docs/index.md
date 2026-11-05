@@ -89,8 +89,10 @@ Not sure which fits? [Compare the integrations](integrations.md).
 | Schematron | DIGGS business rules from [DIGGSml/validation](https://github.com/DIGGSml/validation), adapted to run offline |
 | Context | Document structure, geometry SRS, in-document `xlink:href` targets and dataBlock arity |
 
-Everything runs offline by default: no file leaves your machine, and a DIGGS file
-cannot make pyDIGGS read other files or contact a server. See
+Everything runs offline by default: no file leaves your machine and pyDIGGS never
+contacts a server. The only other files a DIGGS file can make it read are local
+dictionaries its `codeSpace` values name inside the file's own folder; turn that off
+with `--local-dictionaries off` or `validate(..., local_dictionaries="off")`. See
 [Validation checks](usage.md) for each step and its known limits.
 
 !!! tip "Prefer a web application?"

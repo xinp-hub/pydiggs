@@ -16,8 +16,9 @@ pyDIGGS validates DIGGS instance files offline against:
 
 !!! tip "Recommended: every check at once, as findings"
     `pydiggs validate` (command line) and `pydiggs.validate()` (Python) run every check
-    and return [findings](findings.md) with stable rule ids, lines and XPaths. They
-    print nothing and write no files unless you ask. Start with the
+    and return [findings](findings.md) with stable rule ids, lines and XPaths. The
+    command prints the verdict and findings to standard output (or to `--output`);
+    the Python function prints nothing. Neither writes log files. Start with the
     [Quickstart](quickstart.md).
 
 The `validator` class and the `schema_check`, `dictionary_check`, `schematron_check`

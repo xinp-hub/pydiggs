@@ -63,6 +63,23 @@ filter or suppress them reliably.
 
 ## 4. Use it from Python
 
+`uv tool install` keeps pyDIGGS in its own environment, so your Python cannot import
+it. Add it to the environment your code runs in first:
+
+=== "uv"
+
+    ```bash
+    uv add pydiggs        # in your project; run scripts with: uv run python script.py
+    ```
+
+=== "pip"
+
+    ```bash
+    python -m pip install pydiggs
+    ```
+
+Then:
+
 ```python
 import pydiggs
 

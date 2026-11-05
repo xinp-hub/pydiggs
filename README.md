@@ -83,7 +83,7 @@ Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web a
 Install pydiggs (requires Python 3.11+), then validate a file. The
 [Quickstart](https://xinp-hub.github.io/pydiggs/quickstart/) walks through it:
 ```bash
-uv add pydiggs            # or: python -m pip install pydiggs
+uv tool install pydiggs   # or: python -m pip install pydiggs
 pydiggs validate BH-01.xml
 ```
 
