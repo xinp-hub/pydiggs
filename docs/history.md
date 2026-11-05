@@ -1,5 +1,15 @@
 # History
 
+## 1.4.1 (2026-11-05)
+
+A documentation and maintenance release with no API changes:
+
+- A rebuilt documentation site with a [Quickstart](quickstart.md), an
+  [integration chooser](integrations.md) and a [Python API reference](reference.md).
+- The container image moves to Python 3.14.10 and current FastAPI and Pydantic.
+
+See the CHANGELOG for the full list.
+
 ## 1.4.0 (2026-11-04)
 
 More ways to run pyDIGGS, all additive:

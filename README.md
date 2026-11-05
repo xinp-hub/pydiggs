@@ -87,7 +87,8 @@ uv tool install pydiggs   # or: python -m pip install pydiggs
 pydiggs validate BH-01.xml
 ```
 
-Basic usage with Python:
+Basic usage with Python. `uv tool install` keeps pydiggs in its own environment, so to
+import it, add it to your project with `uv add pydiggs` (or pip) first:
 ```python
 from pydiggs import detect_diggs_version, validator
 

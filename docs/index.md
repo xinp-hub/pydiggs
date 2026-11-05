@@ -84,10 +84,13 @@ Not sure which fits? [Compare the integrations](integrations.md).
 
 | Step | What it checks |
 |---|---|
+| Structure | Well-formed XML with a `Diggs` root and one `DocumentInformation` |
 | Schema | The bundled DIGGS XSD for **2.5.a**, **2.6** or **3.0.0**, picked from the file's namespace (unknown namespaces use 3.0.0) |
 | Dictionary | `codeSpace` values and units against the DIGGS Standard dictionaries from [diggsml.org/def](https://diggsml.org/def/), offline |
 | Schematron | DIGGS business rules from [DIGGSml/validation](https://github.com/DIGGSml/validation), adapted to run offline |
-| Context | Document structure, geometry SRS, in-document `xlink:href` targets and dataBlock arity |
+| Geometry | `srsName` and `srsDimension` on each geometry object |
+| Deprecation | Anything the DIGGS schema marks as deprecated |
+| Context | In-document `xlink:href` targets and dataBlock arity |
 
 Everything runs offline by default: no file leaves your machine and pyDIGGS never
 contacts a server. The only other files a DIGGS file can make it read are local

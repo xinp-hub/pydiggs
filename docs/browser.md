@@ -37,7 +37,7 @@ instead of the PyPI release. The worker honours `?wheel=` only on `localhost`,
 
 ```bash
 uv build --wheel
-python3 examples/browser-worker/serve.py --wheel dist/pydiggs-1.4.0-py3-none-any.whl
+python3 examples/browser-worker/serve.py --wheel dist/pydiggs-1.4.1-py3-none-any.whl
 ```
 
 The worker accepts only a same-origin URL to a pure pydiggs wheel there.

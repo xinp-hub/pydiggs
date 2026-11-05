@@ -35,7 +35,7 @@ Install an extra only for the integration you use:
 
 | Extra | Adds | For |
 |---|---|---|
-| `server` | FastAPI, Starlette, uvicorn, python-multipart | the [HTTP API](http-api.md) (`pydiggs serve --http`) |
+| `server` | FastAPI, Starlette, Pydantic, uvicorn, python-multipart | the [HTTP API](http-api.md) (`pydiggs serve --http`) |
 | `mcp` | the official MCP Python SDK (`mcp` 2.x), python-multipart | the [MCP server](mcp.md) (`pydiggs serve --mcp`) |
 
 === "uv"
