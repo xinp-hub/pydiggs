@@ -128,7 +128,7 @@ _RuleId = Annotated[str, Field(max_length=MAX_RULE_ID_CHARS)]
 class Limits:
     """The server's limits, fixed when it is created.
 
-    Example:
+    Examples:
         >>> Limits().max_bytes == 10 * 2**20, Limits().max_findings
         (True, 200)
         >>> Limits(timeout=0)
@@ -240,7 +240,7 @@ def summary(document: dict[str, Any]) -> str:
     severities, DIGGS version) and rule ids, each checked to be a plain identifier.
     Messages, XPaths, ``gml:id`` values and the file name never appear.
 
-    Example:
+    Examples:
         >>> doc = {
         ...     "files": [
         ...         {
@@ -517,7 +517,7 @@ def create_server(
     Raises:
         ValueError: A limit is out of range.
 
-    Example:
+    Examples:
         >>> server = create_server(max_findings=50)
         >>> server.name
         'pydiggs'

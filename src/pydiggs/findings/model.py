@@ -33,7 +33,7 @@ __all__ = [
 class Severity(StrEnum):
     """How serious a finding is: the official validator's ERROR, WARNING and INFO.
 
-    Example:
+    Examples:
         >>> Severity("warning").rank > Severity.INFO.rank
         True
         >>> max(Severity, key=lambda s: s.rank)
@@ -60,7 +60,7 @@ class Step(StrEnum):
     Location``, ``CodeType Validation`` ...), plus ``context`` for pydiggs's
     cross-reference checks. New steps may be added in a minor release.
 
-    Example:
+    Examples:
         >>> [s.value for s in Step][:4]
         ['structure', 'schema', 'codeType', 'dictionary']
         >>> Step.SCHEMA.order < Step.DICTIONARY.order
@@ -110,7 +110,7 @@ RULE_ID_PATTERN: Final = re.compile(r"^(?P<step>[A-Za-z]+)\.[A-Za-z0-9][A-Za-z0-
 def is_valid_rule_id(rule_id: str, step: Step | str | None = None) -> bool:
     """Return True if ``rule_id`` follows the grammar (and belongs to ``step``, if given).
 
-    Example:
+    Examples:
         >>> is_valid_rule_id("dictionary.12", "dictionary")
         True
         >>> is_valid_rule_id("dictionary..12"), is_valid_rule_id("bogus.1")
@@ -137,7 +137,7 @@ class Finding:
     the nearest element at or above the problem. ``source_snippet`` is the offending
     element's XML, only when snippets were asked for.
 
-    Example:
+    Examples:
         >>> f = Finding(
         ...     step=Step.DICTIONARY,
         ...     rule_id="dictionary.5",
@@ -234,7 +234,7 @@ class Report:
     asked for (``absolute_paths=True``). ``steps`` says what happened to each native
     step, in pipeline order; ``findings`` are sorted deterministically.
 
-    Example:
+    Examples:
         >>> r = Report(
         ...     path="site/BH-01.xml",
         ...     sha256="0" * 64,
@@ -350,7 +350,7 @@ class Report:
         Returns:
             A JSON-serialisable dict that validates against :func:`pydiggs.findings_schema`.
 
-        Example:
+        Examples:
             >>> from pydiggs import validate_bytes
             >>> doc = validate_bytes(b"<Diggs/>", name="a.xml").to_document()
             >>> doc["format"], doc["schema_version"], doc["files"][0]["path"]

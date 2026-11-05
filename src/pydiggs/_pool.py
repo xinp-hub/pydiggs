@@ -90,7 +90,7 @@ class JobFailedError(PoolError):
     characters) and its ``errno`` when it had an integer one. ``phase`` is ``"init"``
     when the initialiser failed, else ``"job"``.
 
-    Example:
+    Examples:
         >>> exc = JobFailedError("job", "ValueError", "bad", None)
         >>> exc.type_name, str(exc)
         ('ValueError', 'ValueError: bad')
@@ -266,7 +266,7 @@ class WorkerPool:
             (Linux and macOS): a backstop behind the timeout, not a replacement.
         max_reply_bytes: Largest result frame accepted; larger is a crash.
 
-    Example:
+    Examples:
         >>> from pydiggs._pool import WorkerPool
         >>> with WorkerPool(1) as pool:
         ...     pool.run(bytes.upper, b"ok", timeout=60)

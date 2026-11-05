@@ -108,7 +108,7 @@ def negotiate(accept: str | None) -> Format | None:
     wins, then the more specific match, then ``findings``. None means neither is
     acceptable (406).
 
-    Example:
+    Examples:
         >>> negotiate(None), negotiate("application/sarif+json"), negotiate("*/*")
         ('findings', 'sarif', 'findings')
         >>> negotiate("application/xml") is None
@@ -154,7 +154,7 @@ def is_cross_site(headers: Headers, settings: ServerSettings) -> bool:
     cross-site when ``Sec-Fetch-Site`` says so, or when it carries an ``Origin`` that
     is not the server's own (its host differs from ``Host``; ``null`` never matches).
 
-    Example:
+    Examples:
         >>> from starlette.datastructures import Headers
         >>> s = ServerSettings()
         >>> is_cross_site(Headers({"origin": "https://evil.example", "host": "a"}), s)
@@ -621,7 +621,7 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
         The router: ``POST /v1/validate``, ``GET /v1/versions`` (if enabled),
         ``GET /v1/rules``, ``GET /v1/rules/{rule_id}`` and ``GET /v1/readyz``.
 
-    Example:
+    Examples:
         >>> from fastapi import FastAPI
         >>> from pydiggs.server import ServerSettings, create_router
         >>> app = FastAPI()
@@ -685,7 +685,7 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
     Returns:
         A FastAPI application; run it with ``pydiggs serve --http`` or any ASGI server.
 
-    Example:
+    Examples:
         >>> from pydiggs.server import ServerSettings, create_app
         >>> app = create_app(ServerSettings(workers=1))
         >>> app.docs_url is None, "/livez" in app.openapi()["paths"]
@@ -754,7 +754,7 @@ def openapi_text() -> str:
 
     ``src/pydiggs/server/openapi.json`` holds this text; a test fails when they drift.
 
-    Example:
+    Examples:
         >>> import json
         >>> json.loads(openapi_text())["openapi"].startswith("3.1")
         True

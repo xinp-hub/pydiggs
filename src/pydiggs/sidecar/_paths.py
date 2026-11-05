@@ -69,7 +69,7 @@ def canonical_roots(raw: tuple[str, ...], *, home: Path | None = None) -> tuple[
             root, or the home folder or one of its ancestors. The message names the
             root as given (it comes from the host, not a remote caller).
 
-    Example:
+    Examples:
         >>> import tempfile
         >>> with tempfile.TemporaryDirectory() as d:
         ...     roots = canonical_roots((d, d))
@@ -115,7 +115,7 @@ def root_spellings(raw: tuple[str, ...], roots: tuple[Path, ...]) -> tuple[Path,
     Returns:
         The canonical roots, then each given root not already among them.
 
-    Example:
+    Examples:
         >>> import os
         >>> from pathlib import Path
         >>> canonical = Path(os.path.abspath("/private/tmp"))
@@ -166,7 +166,7 @@ def vet_request_path(path: str) -> str:
     Raises:
         NotPermittedError: For any refused form.
 
-    Example:
+    Examples:
         >>> import os
         >>> path = os.path.abspath("BH-01.xml")
         >>> vet_request_path(path) == path

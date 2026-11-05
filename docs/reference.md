@@ -1,0 +1,76 @@
+# Python API reference
+
+Everything below is importable from `pydiggs` and follows
+[Semantic Versioning](https://semver.org/): names are only removed or changed in a
+major release, after a deprecation warning.
+
+!!! tip "Where to start"
+    Most programs need only `validate()` for files or `validate_bytes()` for data
+    already in memory. Both return a `Report`; see [Findings](findings.md) for its
+    JSON form.
+
+## Validate
+
+::: pydiggs.validate
+
+::: pydiggs.validate_bytes
+
+::: pydiggs.detect_diggs_version
+
+::: pydiggs.warm_up
+
+## Results
+
+::: pydiggs.Report
+
+::: pydiggs.Finding
+
+::: pydiggs.Severity
+
+::: pydiggs.Step
+
+## Findings documents
+
+::: pydiggs.findings_document
+
+::: pydiggs.findings_json
+
+::: pydiggs.findings_schema
+
+::: pydiggs.FINDINGS_SCHEMA_VERSION
+
+::: pydiggs.FINDINGS_SCHEMA_URL
+
+## Rules and versions
+
+::: pydiggs.explain_rule
+
+::: pydiggs.rule_catalogue
+
+::: pydiggs.RuleInfo
+
+::: pydiggs.version_info
+
+::: pydiggs.VersionInfo
+
+## Errors
+
+::: pydiggs.PydiggsError
+
+::: pydiggs.InstanceReadError
+
+::: pydiggs.ResourceError
+
+## Legacy checks
+
+The `validator` class runs one check at a time and prints or logs its results. New code
+should prefer `validate()`; `validator` stays for existing scripts. See
+[Validation checks](usage.md) for examples.
+
+::: pydiggs.validator
+    options:
+      members:
+        - schema_check
+        - dictionary_check
+        - schematron_check
+        - context_check

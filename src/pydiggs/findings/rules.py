@@ -261,7 +261,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
 def incomplete(step: Step | str) -> str:
     """Rule id of a step that could not finish (fail closed: always an error).
 
-    Example:
+    Examples:
         >>> incomplete("schematron")
         'schematron.incomplete'
     """
@@ -271,7 +271,7 @@ def incomplete(step: Step | str) -> str:
 def dictionary_rule(check: int) -> str:
     """Rule id of a numbered dictionary check.
 
-    Example:
+    Examples:
         >>> dictionary_rule(5)
         'dictionary.5'
     """
@@ -284,7 +284,7 @@ def schema_rule(type_name: str | None) -> str:
     ``SCHEMAV_CVC_*`` names become the XSD validation rule they report
     (``schema.cvc-elt.1``); anything else keeps libxml2's own name.
 
-    Example:
+    Examples:
         >>> schema_rule("SCHEMAV_CVC_COMPLEX_TYPE_2_4")
         'schema.cvc-complex-type.2.4'
         >>> schema_rule("SCHEMAV_CVC_MININCLUSIVE_VALID")
@@ -311,7 +311,7 @@ def schematron_user_rule(assert_id: str | None, context: str, test: str) -> str:
     The assert's ``@id`` when it has one that fits the grammar and is at most
     :data:`MAX_USER_ID_CHARS` long; otherwise a stable hash of its rule context and test.
 
-    Example:
+    Examples:
         >>> schematron_user_rule("borehole-depth", "//Borehole", "@depth > 0")
         'schematron.borehole-depth'
         >>> schematron_user_rule(None, "/*", "name()='Diggs'")
@@ -326,7 +326,7 @@ def schematron_user_rule(assert_id: str | None, context: str, test: str) -> str:
 def describe(rule_id: str) -> str:
     """A one-line description of ``rule_id``, for SARIF ``shortDescription``.
 
-    Example:
+    Examples:
         >>> describe("dictionary.5")
         'Code is not found in the code list dictionary'
         >>> describe("schema.cvc-elt.1")
@@ -458,7 +458,7 @@ class RuleInfo:
     when it belongs to one. ``severities`` lists what a finding with this id can be,
     most serious first; ``known`` is False for a well-formed id pydiggs never emits.
 
-    Example:
+    Examples:
         >>> from pydiggs import explain_rule
         >>> info = explain_rule("dictionary.5")
         >>> info.step, info.severities, info.known
@@ -533,7 +533,7 @@ def rule_catalogue() -> tuple[RuleInfo, ...]:
     Returns:
         The catalogue, the same tuple on every call.
 
-    Example:
+    Examples:
         >>> from pydiggs import rule_catalogue
         >>> rules = rule_catalogue()
         >>> rules[0].id
@@ -561,7 +561,7 @@ def explain_rule(rule_id: str) -> RuleInfo:
             or is longer than 256 characters.
         TypeError: ``rule_id`` is not a string.
 
-    Example:
+    Examples:
         >>> from pydiggs import explain_rule
         >>> explain_rule("schematron.Borehole.totalMeasuredDepth").description
         'Schematron rule Borehole.totalMeasuredDepth'

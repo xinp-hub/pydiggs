@@ -1333,7 +1333,7 @@ def validate(
         ValueError: ``diggs_version`` or ``checks`` names something unknown, or a
             limit or the time budget is not positive.
 
-    Example:
+    Examples:
         >>> from pydiggs import validate
         >>> report = validate("tests/test_files/2.6/Schema_Error_1-2_6.xml")
         >>> report.ok, report.diggs_version, report.steps["schema"]
@@ -1538,7 +1538,7 @@ def validate_bytes(
         TypeError: ``data`` is ``str``, a text stream, a non-contiguous memoryview
             or another unsupported type, or ``name`` is not a string.
 
-    Example:
+    Examples:
         >>> from pydiggs import validate_bytes
         >>> upload = b'<Diggs xmlns="http://diggsml.org/schemas/2.6"><oops/></Diggs>'
         >>> report = validate_bytes(upload, name="C:\\uploads\\BH-01.xml")
@@ -1578,7 +1578,7 @@ def warm_up(diggs_version: str | None = None) -> None:
         ValueError: ``diggs_version`` is not a bundled DIGGS version.
         ResourceError: pydiggs's bundled data is missing or broken.
 
-    Example:
+    Examples:
         >>> from concurrent.futures import ThreadPoolExecutor
         >>> from pydiggs import validate_bytes, warm_up
         >>> with ThreadPoolExecutor(2, initializer=warm_up, initargs=("2.6",)) as pool:
