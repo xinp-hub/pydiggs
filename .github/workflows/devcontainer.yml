@@ -1,0 +1,37 @@
+# Builds the dev container and runs .devcontainer/smoke.sh inside it, so a broken image,
+# feature or lockfile is caught here rather than when someone opens a codespace.
+name: Dev container
+
+on:
+  pull_request:
+    paths:
+      - ".devcontainer/**"
+      - ".github/workflows/devcontainer.yml"
+  push:
+    branches: [master]
+    paths:
+      - ".devcontainer/**"
+      - ".github/workflows/devcontainer.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devcontainer-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: build & smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      # Build only: the image is never pushed, so this job needs no write token.
+      - uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca  # v0.3.1900000450
+        with:
+          push: never
+          runCmd: bash .devcontainer/smoke.sh
