@@ -9,10 +9,10 @@
 # Dependencies come from uv.lock (hashes required); the pydiggs wheel goes in with no
 # dependencies of its own. Base images are pinned by multi-arch index digest; Dependabot
 # (docker ecosystem, 14-day cooldown) proposes the bumps. The builder and runtime bases
-# must carry the same Python patch release (3.14.8 here): the venv links to it.
+# must carry the same Python patch release (3.14.10 here): the venv links to it.
 
-# ghcr.io/astral-sh/uv 0.13.4 (2026-10-20), Python 3.14.8 on Debian trixie.
-FROM ghcr.io/astral-sh/uv:0.13.4-python3.14-trixie-slim@sha256:db955a4c5fd85c9e08ae2c02f3fcedf76765aebc7c9bc10c55a6bbcc1b0510be AS builder
+# ghcr.io/astral-sh/uv 0.13.7 (2026-11-03), Python 3.14.10 on Debian trixie.
+FROM ghcr.io/astral-sh/uv:0.13.7-python3.14-trixie-slim@sha256:e80c05a310400cfc90af00b5b7271ef9ad24816e3265e1162af8a678e1aad099 AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
@@ -56,8 +56,8 @@ RUN set -eu; \
     /opt/venv/bin/pydiggs --version
 
 
-# python:3.14-slim-trixie, Python 3.14.8 (index digest published 2026-10-06).
-FROM python:3.14-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS runtime
+# python:3.14-slim-trixie, Python 3.14.10 (index digest published 2026-11-05).
+FROM python:3.14-slim-trixie@sha256:f1b121a95d6295f7291a0fda8280f747efd657bd055e7c1f156936ed2dc5a112 AS runtime
 
 ARG VERSION=""
 ARG REVISION=""
