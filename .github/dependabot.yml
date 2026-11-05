@@ -53,6 +53,20 @@ updates:
       container-bases:
         patterns: ["*"]
 
+  # The images that build the release container (.github/builder-images/Dockerfile,
+  # read by publish.yml): binfmt, BuildKit and the SBOM scanner. They build and attest
+  # what ships, so each bump waits out the cooldown and gets its own reviewed PR.
+  - package-ecosystem: docker
+    directory: /.github/builder-images
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"
+
   - package-ecosystem: uv
     directory: /
     schedule:

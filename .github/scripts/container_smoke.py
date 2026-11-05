@@ -6,6 +6,8 @@ Runs IMAGE read-only, with a noexec tmpfs, no capabilities, no-new-privileges an
 memory cap (docs/container.md), then checks that it
 
 - runs as uid 10001,
+- runs its venv (made in the builder stage) on the same Python patch release as the
+  runtime base, which the venv links to,
 - answers ``GET /livez`` and ``GET /v1/versions``,
 - turns one ``POST /v1/validate`` of FIXTURE into a diggs-findings 1.0 document,
 - reports healthy through its own HEALTHCHECK,
@@ -140,6 +142,25 @@ def main(argv: list[str]) -> int:
         uid = docker("exec", NAME, "id", "-u")
         check(uid == "10001", f"runs as uid {uid}, not 10001")
         print(f"uid: {uid}")
+
+        cfg = docker("exec", NAME, "cat", "/opt/venv/pyvenv.cfg")
+        built = {
+            key.strip(): value.strip()
+            for key, _, value in (line.partition("=") for line in cfg.splitlines())
+        }.get("version_info", "")
+        runtime = docker(
+            "exec",
+            NAME,
+            "/usr/local/bin/python3",
+            "-c",
+            "import platform; print(platform.python_version())",
+        )
+        check(
+            built == runtime,
+            f"venv built with Python {built!r}, runtime base has {runtime!r}:"
+            " move the Dockerfile's builder and runtime bases together",
+        )
+        print(f"Python: {runtime} in both stages")
 
         status, live = request("/livez")
         check(status == 200, (status, live))  # noqa: PLR2004
