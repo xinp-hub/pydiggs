@@ -22,7 +22,7 @@ env:
 
 jobs:
   # GitHub lists every commit author, committer and Co-authored-by identity as a
-  # contributor, and removing one later needs a history rewrite (Cursor Agent: #224, #227).
+  # contributor, and removing one later needs a history rewrite (#224, #227).
   # Local FORGE git hooks strip AI-agent attribution; this is the server-side backstop for
   # commits that skipped them. The rules are FORGE's adapters/ai_attribution.py, copied.
   ai-attribution:
