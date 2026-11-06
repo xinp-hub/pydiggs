@@ -229,10 +229,10 @@ jobs:
     env:
       IMAGE: pydiggs:ci
       # Trivy is installed from its release, checked against the sha256 below (taken
-      # from trivy_0.76.0_checksums.txt, whose Sigstore bundle verifies against the
+      # from trivy_0.76.1_checksums.txt, whose Sigstore bundle verifies against the
       # aquasecurity/trivy reusable-release workflow). Bump both together.
-      TRIVY_VERSION: "0.76.0"
-      TRIVY_SHA256: e24b1c51293c1b15e4ba8d45bbc7891ba053f90278ec2698f3562c993e145fe7
+      TRIVY_VERSION: "0.76.1"
+      TRIVY_SHA256: c7cbe3137fb8a48a17574bede3dd6beb16742d1e9772929940fc90082c39d9c0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
