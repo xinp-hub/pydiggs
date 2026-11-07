@@ -86,6 +86,19 @@ RUN set -eu; \
         fi; \
     done
 
+# Debian security fixes newer than the pinned base: CVE-2026-76844 and CVE-2026-85091 in
+# zlib1g, fixed in 1:1.3.dfsg+really1.3.1-1+deb13u1. Only the listed packages are
+# upgraded, and the build fails unless each reaches its fixed version. Drop an entry once
+# a base digest that already carries it lands (Dependabot, docker ecosystem).
+RUN set -eu; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends --only-upgrade zlib1g; \
+    rm -rf /var/lib/apt/lists/*; \
+    installed="$(dpkg-query -W -f '${Version}' zlib1g)"; \
+    if ! dpkg --compare-versions "$installed" ge "1:1.3.dfsg+really1.3.1-1+deb13u1"; then \
+        echo "zlib1g $installed is older than the fixed release" >&2; exit 1; \
+    fi
+
 COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}" \
