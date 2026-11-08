@@ -4,11 +4,12 @@
 #   Tier 1  small allowlisted change, agent review approves     -> App approves + auto-merge
 #   Tier 2  everything else, every Actions bump included        -> a human approves and merges
 #
-# The tier is computed by .github/scripts/merge_policy.py from the diff, never by an agent.
-# What makes it binding:
-#   1. pull_request_target runs this file and both scripts from the base branch, so a pull
-#      request cannot rewrite the policy that judges it. The PR's files are checked out as
-#      data and never installed, imported, built or run.
+# The tier is computed from the diff by the repo-policy `classify` action, never by an
+# agent. What makes it binding:
+#   1. pull_request_target runs this file from the base branch, and with it the commit SHA
+#      each repo-policy action is pinned to, so a pull request cannot rewrite the policy
+#      that judges it: a PR that changes a pin touches .github/, which is always Tier 2.
+#      The PR's files are checked out as data and never installed, imported, built or run.
 #   2. The merge App's private key lives in the `automerge` environment, whose deployment
 #      branch policy admits only the default branch. A workflow pushed to any other branch
 #      cannot read it.
@@ -36,10 +37,10 @@ concurrency:
 
 env:
   STATUS_CONTEXT: merge policy
-# The policy, the scripts and the base of every diff are github.sha: under pull_request_target
-# that is the base branch's tip, the very commit this workflow file was loaded from. The
-# payload's pull_request.base.sha is only the base recorded at the PR's last push, and can
-# predate the policy itself.
+# The policy pins, the rubric and the base of every diff are github.sha: under
+# pull_request_target that is the base branch's tip, the very commit this workflow file was
+# loaded from. The payload's pull_request.base.sha is only the base recorded at the PR's
+# last push, and can predate the policy itself.
 
 jobs:
   classify:
@@ -47,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: read # check out base and head
+      contents: read # check out the pull request
       pull-requests: read # list commits; Dependabot metadata
       statuses: write # mark `merge policy` pending on the head until a decision lands
     outputs:
@@ -61,12 +62,6 @@ jobs:
         run: >-
           gh api "repos/$GH_REPO/statuses/$HEAD_SHA" -f state=pending
           -f context="$STATUS_CONTEXT" -f description="Deciding the risk tier"
-      - name: Check out the base branch (the policy)
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
-        with:
-          ref: ${{ github.sha }}
-          path: base
-          persist-credentials: false
       - name: Check out the pull request (data only, never executed)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
         with:
@@ -126,18 +121,16 @@ jobs:
           fi
       - name: Classify
         id: tier
-        working-directory: head
-        env:
-          BASE_SHA: ${{ github.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          API_BREAK: ${{ steps.api.outputs.break }}
-          AUTOMERGE_AUTHORS: ${{ vars.AUTOMERGE_AUTHORS }}
-        run: |
-          args=(classify --base "$BASE_SHA" --head "$HEAD_SHA"
-                --commits-json "$RUNNER_TEMP/commits.json" --pushers-json "$RUNNER_TEMP/pushers.json")
-          if [ -f "$RUNNER_TEMP/deps.json" ]; then args+=(--deps-json "$RUNNER_TEMP/deps.json"); fi
-          if [ "$API_BREAK" = "true" ]; then args+=(--api-break); fi
-          python3 ../base/.github/scripts/merge_policy.py "${args[@]}"
+        uses: xinp-hub/repo-policy/classify@4e160963e51156d1d70b90b45fa211f05a8bbe08 # v1.0.0
+        with:
+          working-directory: head
+          base: ${{ github.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          commits-json: ${{ runner.temp }}/commits.json
+          pushers-json: ${{ runner.temp }}/pushers.json
+          deps-json: ${{ runner.temp }}/deps.json
+          api-break: ${{ steps.api.outputs.break }}
+          authors: ${{ vars.AUTOMERGE_AUTHORS }}
 
   review:
     name: agent review
@@ -147,7 +140,7 @@ jobs:
     timeout-minutes: 20
     environment: automerge
     permissions:
-      contents: read # check out base and head
+      contents: read # check out base (the rubric) and head
     outputs:
       approved: ${{ steps.review.outputs.approved }}
     steps:
@@ -169,10 +162,13 @@ jobs:
         run: bash -c "$INSTALL"
       - name: Review
         id: review
-        working-directory: head
+        uses: xinp-hub/repo-policy/review@4e160963e51156d1d70b90b45fa211f05a8bbe08 # v1.0.0
+        with:
+          working-directory: head
+          base: ${{ github.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          rubric: base/.github/agent-review.md
         env:
-          BASE_SHA: ${{ github.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           AGENT_REVIEW_COMMAND: ${{ vars.AGENT_REVIEW_COMMAND }}
           AGENT_REVIEW_KEY_ENV: ${{ vars.AGENT_REVIEW_KEY_ENV }}
           AGENT_REVIEW_API_KEY: ${{ secrets.AGENT_REVIEW_API_KEY }}
@@ -181,9 +177,6 @@ jobs:
           AGENT_REVIEW_FALLBACK_COMMAND: ${{ vars.AGENT_REVIEW_FALLBACK_COMMAND }}
           AGENT_REVIEW_FALLBACK_KEY_ENV: ${{ vars.AGENT_REVIEW_FALLBACK_KEY_ENV }}
           AGENT_REVIEW_FALLBACK_API_KEY: ${{ secrets.AGENT_REVIEW_FALLBACK_API_KEY }}
-        run: >-
-          python3 ../base/.github/scripts/agent_review.py
-          --base "$BASE_SHA" --head "$HEAD_SHA" --rubric ../base/.github/agent-review.md
 
   decide:
     name: merge decision

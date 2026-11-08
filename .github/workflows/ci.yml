@@ -24,7 +24,7 @@ jobs:
   # GitHub lists every commit author, committer and Co-authored-by identity as a
   # contributor, and removing one later needs a history rewrite (#224, #227).
   # Local FORGE git hooks strip AI-agent attribution; this is the server-side backstop for
-  # commits that skipped them. The rules are FORGE's adapters/ai_attribution.py, copied.
+  # commits that skipped them. The rules live in the repo-policy `attribution` action.
   ai-attribution:
     name: no AI contributors
     if: github.event_name == 'pull_request'
@@ -36,10 +36,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Reject commits that credit an AI agent
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 .github/scripts/ai_attribution.py check "$BASE_SHA..$HEAD_SHA"
+        uses: xinp-hub/repo-policy/attribution@4e160963e51156d1d70b90b45fa211f05a8bbe08 # v1.0.0
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
 
   lint:
     name: lint & types
