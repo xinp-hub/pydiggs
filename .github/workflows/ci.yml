@@ -324,10 +324,31 @@ jobs:
       - run: uv pip list | grep -E '^mcp'
       - run: uv run --no-sync pytest -q -p no:randomly --no-cov tests/test_mcp_server.py
 
+  # The conformance corpus (conformance/README.md): the vendored DIGGSml examples plus
+  # external real-world files pinned by commit and sha256, each with an expected outcome.
+  # The test jobs check the vendored files; this job also fetches and checks the others.
+  conformance:
+    name: conformance corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.11"
+      - run: uv sync --no-dev
+      - name: Fetch the external files (pinned commit, size and sha256 checked)
+        run: uv run --no-sync python scripts/conformance.py fetch
+      - name: Compare every corpus file with conformance/expected.toml
+        run: uv run --no-sync python scripts/conformance.py check
+
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen]
+    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

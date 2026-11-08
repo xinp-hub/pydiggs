@@ -1,0 +1,35 @@
+# External files in the pyDIGGS conformance corpus.
+#
+# Each file is pinned by commit and sha256 (after CRLF -> LF normalisation) and fetched
+# on demand by `python scripts/conformance.py fetch` into .cache/conformance/. External
+# files are never committed and never packaged. The vendored DIGGSml examples in
+# tests/fixtures/official/ are part of the corpus too; their provenance is in that
+# folder's PROVENANCE.toml.
+#
+# To add a file: declare its source (full 40-character commit, licence), add a
+# [files."<source>/<name>"] entry with the upstream path, sha256 and size, then run
+# `fetch`, `record`, and review the change to conformance/expected.toml.
+
+[sources.inspector]
+repo = "https://github.com/DIGGSml/diggs_file_inspector"
+commit = "c9b1d08580a951707fc8e3ac4397d64cedba59fc"
+license = "MIT"
+note = "DIGGS File Inspector test files: large, real-world-shaped DIGGS 3.x documents"
+
+[files."inspector/InspectorTestFile.xml"]
+path = "InspectorTestFile.xml"
+sha256 = "f0d78a57fba96a5306f2d2ad02a853d9a9ec244f56b3d842a5211b77d21636bd"
+size = 6574505
+note = "Full-coverage Inspector test document; targets the 3.1-dev schema"
+
+[files."inspector/SF_Project_Lith_Test.xml"]
+path = "SF_Project_Lith_Test.xml"
+sha256 = "fb852385fc55df73addb22b4b7d9707ecb58a48ea40851a2472c01f86a512b83"
+size = 1324822
+note = "Sampling features, projects and lithology; targets the 3.1-dev schema"
+
+[files."inspector/SeismicConeExample.xml"]
+path = "SeismicConeExample.xml"
+sha256 = "1337f0fa4ed2dc1a1dc64df1c310b09de9057e4024dcbc4b1e8a3fe805fc5878"
+size = 24590
+note = "Seismic cone (shear wave velocity); also a DXplorer e2e fixture"
