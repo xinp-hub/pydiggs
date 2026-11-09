@@ -1,5 +1,20 @@
 # History
 
+## 1.5.0 (2026-11-09)
+
+New checks and a look ahead, all additive:
+
+- Four checks adapted from the DIGGS File Inspector: a reported depth that does not
+  match the borehole's centreline, coordinates written longitude first, coordinate
+  reference systems that cannot be resolved, and links into other files. See
+  [Findings](findings.md).
+- An experimental `3.1-dev` profile for files written against the unreleased DIGGS 3.1
+  draft. It is never detected automatically; see [Validation checks](usage.md).
+- A draft of diggs-model, the data model the read API will return from 1.6.0; see
+  [Reading files (draft)](model.md).
+
+See the CHANGELOG for the full list.
+
 ## 1.4.1 (2026-11-05)
 
 A documentation and maintenance release with no API changes:

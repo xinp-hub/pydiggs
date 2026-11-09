@@ -135,6 +135,8 @@ def test_tolerance_boundary_matches_the_inspector(reported, ratio):
         ("urn:ogc:def:crs:EPSG::4326", "30.4291 -91.2129", False),
         ("urn:ogc:def:crs:EPSG::4326", "-33.86 151.21", False),  # Sydney, correct order
         ("urn:ogc:def:crs:EPSG::4326", "-33.86 -70.65", False),  # Santiago: S and W is fine
+        ("urn:ogc:def:crs:EPSG:4326", "-91.2129 30.4291", True),  # no version field
+        ("urn:ogc:def:crs:OGC:1.3:CRS84", "-91.2129 30.4291", False),  # CRS84 is lon first
         ("http://www.opengis.net/def/crs/EPSG/0/32611", "500000 4000000", False),  # projected
         (
             "https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/"
@@ -147,6 +149,18 @@ def test_tolerance_boundary_matches_the_inspector(reported, ratio):
 def test_axis_order_only_flags_impossible_latitudes(srs, pos, flagged):
     body = f'<gml:Point gml:id="p1" srsName="{srs}"><gml:pos>{pos}</gml:pos></gml:Point>'
     assert bool(_found(_doc(body), AXIS)) is flagged
+
+
+def test_axis_order_reports_once_per_srs_name_with_a_count():
+    points = "".join(
+        f'<gml:Point gml:id="p{i}" srsName="EPSG:4326"><gml:pos>-91.{i} 30.4</gml:pos></gml:Point>'
+        for i in range(5)
+    )
+    other = '<gml:Point gml:id="q" srsName="EPSG:4269"><gml:pos>-91 30</gml:pos></gml:Point>'
+    found = _found(_doc(points + other), AXIS)
+    assert [f.gml_id for f in found] == ["p0", "q"]
+    assert "5 coordinate elements in EPSG:4326" in found[0].message
+    assert "coordinate elements" not in found[1].message
 
 
 def test_axis_order_reports_a_poslist_once():
@@ -165,6 +179,10 @@ def test_axis_order_reports_a_poslist_once():
     [
         "urn:ogc:def:crs:EPSG::4326",
         "urn:ogc:def:crs:EPSG:6.6:4326",
+        "urn:ogc:def:crs:EPSG:4326",  # no version field
+        "urn:x-ogc:def:crs:EPSG:4326",
+        "urn:ogc:def:crs:OGC:1.3:CRS84",
+        "http://www.opengis.net/def/crs/OGC/1.3/CRS84",
         "urn:ogc:def:crs,crs:EPSG::9357,crs:EPSG::5773",
         "http://www.opengis.net/def/crs/EPSG/0/26911",
         "https://www.opengis.net/def/crs-compound?1=http://www.opengis.net/def/crs/EPSG/0/4326"

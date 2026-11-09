@@ -1306,7 +1306,8 @@ def validate(
         diggs_version: ``"2.5.a"``, ``"2.6"`` or ``"3.0.0"``; detected from the root
             namespace when omitted (``3.0.0`` when unknown). ``"3.1-dev"`` (the
             unreleased DIGGS 3.1 draft, experimental) is used only when passed here,
-            and adds a ``schema.unreleased-profile`` warning.
+            and adds a ``schema.unreleased-profile`` warning when the schema step runs
+            against it.
         checks: Step names to run, from ``structure``, ``schema``, ``dictionary``,
             ``schematron``, ``geometry``, ``deprecation``, ``context``. Default: all
             of them. Every selected step runs even when an earlier one fails.

@@ -920,3 +920,26 @@ def test_check13_doubling_attributes_before_an_id(semantic, tmp_path):
     # Each attribute is charged where it is looked at (about 2 x 500 x 50 more).
     assert large - small >= 50 * 500 * dictionary._CHECK13_ATTR
     assert _ratio(small, large, "check 13 attributes before an id (work)") <= LINEAR
+
+
+def _geo_work(features: int, center_lines: int) -> int:
+    from pydiggs._geo_checks import run_geo_checks
+
+    feature = (
+        "<Borehole>"
+        + "<centerLine/>" * center_lines
+        + '<totalMeasuredDepth uom="m">1</totalMeasuredDepth></Borehole>'
+    )
+    root = etree.fromstring(f'<Diggs xmlns="{NS}">' + feature * features + "</Diggs>")
+    result = ContextValidationResult(legacy_paths=False)
+    run_geo_checks(root, result)
+    return result.work
+
+
+def test_geo_checks_many_center_lines_in_one_feature():
+    # The 1.5.0 pre-release review's shape: N centerLine siblings before the depth.
+    assert _ratio(_geo_work(1, 10_000), _geo_work(1, 20_000), "centerLine siblings") <= LINEAR
+
+
+def test_geo_checks_many_features():
+    assert _ratio(_geo_work(5_000, 2), _geo_work(10_000, 2), "features") <= LINEAR

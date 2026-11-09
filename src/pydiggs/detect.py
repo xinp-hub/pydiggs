@@ -21,8 +21,9 @@ DEFAULT_PROFILE = "3.0.0"
 
 #: Profiles for unreleased DIGGS schemas. They are used only when asked for by name
 #: (``diggs_version="3.1-dev"``): never detected, never the default, not warmed by
-#: default, and every report checked against one carries a ``schema.unreleased-profile``
-#: warning. The 3.1 draft shares the 3.0 namespace, so it could not be detected anyway.
+#: default, and a report whose schema step checks against one carries a
+#: ``schema.unreleased-profile`` warning. The 3.1 draft shares the 3.0 namespace, so it
+#: could not be detected anyway.
 EXPERIMENTAL_PROFILES: frozenset[str] = frozenset({"3.1-dev"})
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
