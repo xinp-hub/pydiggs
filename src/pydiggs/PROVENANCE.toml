@@ -16,6 +16,11 @@ repo = "https://github.com/DIGGSml/schema-dev"
 commit = "cf7f358ed7e28bf4e51d0b96fccd79c66f723385"
 date = "2026-11-05T00:22:15-08:00"
 
+[files."_reader/aliases.toml"]
+source = "local"
+note = "Element renames between DIGGS versions for the diggs-model reader, beyond the deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
+sha256 = "bb908f53cd8dc4c122a2c77a23450c0c3c509c0439508441af032ad0ab8a95bb"
+
 [files."deprecation/DeprecationRegistry.xml"]
 source = "schemas"
 path = "deprecation/DeprecationRegistry.xml"

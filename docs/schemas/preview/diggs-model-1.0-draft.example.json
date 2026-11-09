@@ -1,0 +1,143 @@
+{
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-draft.schema.json",
+  "schema_version": "1.0-draft",
+  "tool": { "name": "pydiggs", "version": "1.6.0" },
+  "source": {
+    "name": "BH-01.xml",
+    "sha256": "9f2b6c1d4e5a7b8c9d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e",
+    "size": 4182,
+    "diggs_version": "2.6",
+    "namespace": "http://diggsml.org/schemas/2.6",
+    "detected": true
+  },
+  "complete": true,
+  "limits_hit": [],
+  "document": null,
+  "projects": [
+    {
+      "key": "PRJ-1",
+      "gml_id": "PRJ-1",
+      "element": "Project",
+      "kind": "project",
+      "name": "Main Street Bridge",
+      "names": ["Main Street Bridge"],
+      "description": null,
+      "remarks": [],
+      "provenance": { "xpath": "/diggs:Diggs[1]/diggs:project[1]/diggs:Project[1]", "line": 9 },
+      "extra": [],
+      "client": null,
+      "locality": "Columbus, Ohio"
+    }
+  ],
+  "associates": [],
+  "features": [
+    {
+      "key": "BH-01",
+      "gml_id": "BH-01",
+      "element": "Borehole",
+      "kind": "borehole",
+      "name": "BH-01",
+      "names": ["BH-01"],
+      "description": null,
+      "remarks": ["Drilled with hollow-stem augers"],
+      "provenance": { "xpath": "/diggs:Diggs[1]/diggs:samplingFeature[1]/diggs:Borehole[1]", "line": 15 },
+      "extra": [
+        {
+          "qname": "diggs:whenConstructed",
+          "ns": "http://diggsml.org/schemas/2.6",
+          "attrs": {},
+          "text": null,
+          "children": [],
+          "line": 30
+        }
+      ],
+      "location": {
+        "coordinates": [39.9612, -82.9988, 231.6],
+        "dim": 3,
+        "crs": "urn:ogc:def:crs,crs:EPSG::4326,crs:EPSG::5703",
+        "geographic": { "lon": -82.9988, "lat": 39.9612, "h": 231.6, "datum": "WGS 84" },
+        "transformed_by": null
+      },
+      "centerline": null,
+      "total_depth": { "text": "15.2", "value": 15.2, "uom": "m", "si": { "value": 15.2, "uom": "m" } },
+      "lrs": null,
+      "construction": [],
+      "water_strikes": [],
+      "parent": null
+    }
+  ],
+  "sampling_activities": [],
+  "samples": [],
+  "observations": [],
+  "measurements": [
+    {
+      "key": "SPT-1",
+      "gml_id": "SPT-1",
+      "element": "Test",
+      "kind": "test",
+      "name": null,
+      "names": [],
+      "description": null,
+      "remarks": [],
+      "provenance": { "xpath": "/diggs:Diggs[1]/diggs:measurement[1]/diggs:Test[1]", "line": 41 },
+      "extra": [],
+      "feature": "BH-01",
+      "samples": [],
+      "specimen": null,
+      "result_time": null,
+      "procedure": {
+        "type": "DrivenPenetrationTest",
+        "params": { "hammer_type": "automatic", "hammer_efficiency": 0.82 },
+        "extra": []
+      },
+      "results": [
+        {
+          "domain": { "shape": "interval", "index": ["top", "base"] },
+          "columns": [
+            { "name": "top", "key": "top", "definition": null, "uom": "ft", "type": "number",
+              "null_value": null, "values": [5.0, 10.0], "si_uom": "m", "si_factor": 0.3048, "si_offset": 0.0 },
+            { "name": "base", "key": "base", "definition": null, "uom": "ft", "type": "number",
+              "null_value": null, "values": [6.5, 11.5], "si_uom": "m", "si_factor": 0.3048, "si_offset": 0.0 },
+            { "name": "N", "key": "spt_n_value",
+              "definition": "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#spt_n_value",
+              "uom": null, "type": "number", "null_value": null, "values": [12, null],
+              "si_uom": null, "si_factor": null, "si_offset": null }
+          ],
+          "row_count": 2,
+          "location": null
+        }
+      ]
+    }
+  ],
+  "others": [],
+  "crs": {
+    "urn:ogc:def:crs,crs:EPSG::4326,crs:EPSG::5703": {
+      "srs_name": "urn:ogc:def:crs,crs:EPSG::4326,crs:EPSG::5703",
+      "form": "compound",
+      "horizontal": { "epsg": 4326, "name": "WGS 84", "type": "geographic", "unit": "degree" },
+      "vertical": { "epsg": 5703, "name": "NAVD88 height", "type": "vertical", "unit": "metre" },
+      "axis_order": "lat,lon",
+      "known": true,
+      "local": null
+    }
+  },
+  "links": [
+    { "source": "BH-01", "relation": "project", "target": "PRJ-1", "href": "#PRJ-1", "resolved": true },
+    { "source": "SPT-1", "relation": "samplingFeature", "target": "BH-01", "href": "#BH-01", "resolved": true }
+  ],
+  "notes": [
+    {
+      "layer": "native",
+      "step": "structure",
+      "rule_id": "structure.value-unparsed",
+      "severity": "info",
+      "message": "N value \"R\" (refusal) is not a number; kept as text and read as null.",
+      "location": {
+        "line": 58,
+        "column": null,
+        "xpath": "/diggs:Diggs[1]/diggs:measurement[1]/diggs:Test[1]",
+        "gml_id": "SPT-1"
+      }
+    }
+  ]
+}

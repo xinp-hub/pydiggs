@@ -344,6 +344,8 @@ jobs:
         run: uv run --no-sync python scripts/conformance.py fetch
       - name: Compare every corpus file with conformance/expected.toml
         run: uv run --no-sync python scripts/conformance.py check
+      - name: Compare every corpus file with the reader census in conformance/model.toml
+        run: uv run --no-sync python scripts/conformance.py check --model
 
   all-green:
     name: all green

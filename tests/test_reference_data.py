@@ -62,6 +62,7 @@ def test_provenance_pins_full_commits(provenance: Path, sources: set[str]):
         "diggs-schema-2.6/a\\..\\..\\evil.xsd",  # backslashes: pip normalises on Windows
         "diggs-schema-2.6/../evil.xsd",
         "diggs-schema-2.6/.hidden.xsd",
+        "_reader/../evil.toml",
         "diggs-schema-2.6/stream.xsd:evil",
         "diggs-schema-2.6/CON.xsd",
         "diggs-schema-2.6/trailing.",
@@ -75,7 +76,11 @@ def test_unsafe_vendored_names_are_refused(rel: str):
 @pytest.mark.skipif(not _SCRIPT.is_file(), reason="scripts/ is not in this tree")
 def test_safe_vendored_names_are_accepted():
     sync = _load_sync_module()
-    for rel in ("schemas/diggs-schema-2.6/witsml/2.0/data/x.xsd", "2.6/Piezometer Example.xml"):
+    for rel in (
+        "schemas/diggs-schema-2.6/witsml/2.0/data/x.xsd",
+        "2.6/Piezometer Example.xml",
+        "_reader/aliases.toml",  # a private package directory
+    ):
         assert sync._unsafe_reason(rel) is None
 
 
