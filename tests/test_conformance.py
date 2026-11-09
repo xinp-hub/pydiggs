@@ -184,7 +184,7 @@ def test_fetch_downloads_in_short_reads_then_skips(conf, tmp_path):
 
 def test_fetch_refuses_oversize(conf, tmp_path):
     entry = _entry(conf, tmp_path)
-    with pytest.raises(conf.CorpusError, match="larger"):
+    with pytest.raises(conf.CorpusError, match="more than 5 bytes"):
         conf.fetch([entry], _opener(b"<a/>\n" * 10))
     assert not entry.path.exists()
 
@@ -210,6 +210,71 @@ def test_fetch_refuses_disallowed_urls(conf, tmp_path, url):
 def test_fetch_refuses_redirect_off_the_allowed_host(conf, tmp_path):
     with pytest.raises(conf.ManifestError):
         conf.fetch([_entry(conf, tmp_path)], _opener(b"<a/>\n", "https://evil.example/a"))
+
+
+def test_fetch_refuses_short_download_even_if_digest_matches(conf, tmp_path):
+    # b"<a/>\n" has the normalised digest of b"<a/>\r\n" but one byte fewer.
+    entry = _entry(conf, tmp_path, size=6)
+    opener = _opener(b"<a/>\n")
+    sleeps: list[float] = []
+    with pytest.raises(conf.CorpusError, match=r"is 5 bytes, .*\(after 3 attempts\)"):
+        conf.fetch([entry], opener, sleep=sleeps.append)
+    assert not entry.path.exists()
+    assert len(opener.calls) == 3
+    assert sleeps == [2.0, 4.0]
+
+
+def test_fetch_retries_a_truncated_download_then_succeeds(conf, tmp_path):
+    entry = _entry(conf, tmp_path)
+    bodies = [b"<a", b"<a/>\n"]
+
+    def opener(url, timeout):
+        return FakeResponse(bodies.pop(0), url)
+
+    assert conf.fetch([entry], opener, sleep=lambda s: None) == ["demo/a.xml"]
+    assert entry.path.read_bytes() == b"<a/>\n"
+
+
+def test_fetch_retries_network_errors(conf, tmp_path):
+    entry = _entry(conf, tmp_path)
+    calls = []
+
+    def opener(url, timeout):
+        calls.append(url)
+        if len(calls) < 3:
+            raise TimeoutError("timed out")
+        return FakeResponse(b"<a/>\n", url)
+
+    assert conf.fetch([entry], opener, sleep=lambda s: None) == ["demo/a.xml"]
+    assert len(calls) == 3
+
+
+def test_fetch_does_not_retry_a_wrong_digest(conf, tmp_path):
+    opener = _opener(b"<b/>\n")
+    with pytest.raises(conf.CorpusError, match="sha256"):
+        conf.fetch([_entry(conf, tmp_path)], opener, sleep=lambda s: None)
+    assert len(opener.calls) == 1
+
+
+@pytest.mark.parametrize("target", ["https://evil.example/a", "http://raw.githubusercontent.com/a"])
+def test_redirects_are_checked_before_they_are_followed(conf, target):
+    import urllib.request
+
+    handler = conf._CheckedRedirectHandler()
+    req = urllib.request.Request("https://raw.githubusercontent.com/example/demo/x/a.xml")
+    with pytest.raises(conf.ManifestError):
+        handler.redirect_request(req, None, 302, "Found", {}, target)
+
+
+def test_redirect_within_the_allowed_host_is_followed(conf):
+    import urllib.request
+
+    handler = conf._CheckedRedirectHandler()
+    req = urllib.request.Request("https://raw.githubusercontent.com/example/demo/x/a.xml")
+    new = handler.redirect_request(
+        req, None, 302, "Found", {}, "https://raw.githubusercontent.com/example/demo/y/a.xml"
+    )
+    assert new.full_url.endswith("/y/a.xml")
 
 
 # --- record and check -------------------------------------------------------------------
@@ -254,6 +319,24 @@ def test_check_missing_external_file(conf, tmp_path):
     assert conf.check([entry], expected, allow_missing=True) == []
 
 
+def test_allow_missing_does_not_hide_a_corrupt_external_file(conf, tmp_path):
+    entry = _entry(conf, tmp_path)
+    entry.path.parent.mkdir(parents=True)
+    entry.path.write_bytes(b"<tampered/>\n")
+    expected = tmp_path / "expected.toml"
+    expected.write_text("", encoding="utf-8")
+    with pytest.raises(conf.CorpusError, match="missing or corrupt"):
+        conf.check([entry], expected, allow_missing=True)
+
+
+def test_allow_missing_does_not_hide_a_missing_vendored_file(conf, tmp_path):
+    entry = conf.Entry("official/gone.xml", tmp_path / "gone.xml", SHA_A)
+    expected = tmp_path / "expected.toml"
+    expected.write_text("", encoding="utf-8")
+    with pytest.raises(conf.CorpusError, match="missing or corrupt"):
+        conf.check([entry], expected, allow_missing=True)
+
+
 # --- command line -----------------------------------------------------------------------
 
 
@@ -266,3 +349,15 @@ def test_main_exit_codes(conf, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(conf, "CACHE", tmp_path / "cache")
     assert conf.main(["check"]) == 1  # demo/a.xml has not been fetched
     assert "missing or corrupt: demo/a.xml" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("which", ["CORPUS", "EXPECTED"])
+def test_main_malformed_toml_exits_2(conf, tmp_path, monkeypatch, capsys, which):
+    broken = tmp_path / "broken.toml"
+    broken.write_text("[sources.demo\n", encoding="utf-8")
+    monkeypatch.setattr(conf, which, broken)
+    monkeypatch.setattr(conf, "CACHE", tmp_path / "cache")
+    if which == "EXPECTED":
+        monkeypatch.setattr(conf, "CORPUS", _manifest(tmp_path, ""))
+    assert conf.main(["check"]) == 2
+    assert "broken.toml" in capsys.readouterr().err

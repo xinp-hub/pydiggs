@@ -34,10 +34,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import os
 import re
 import sys
 import tempfile
+import time
 import tomllib
 import urllib.parse
 import urllib.request
@@ -138,9 +140,18 @@ def _require(table: dict[str, Any], key: str, where: str) -> Any:
     return table[key]
 
 
+def _load_toml(path: Path) -> dict[str, Any]:
+    """Parse a manifest; an unreadable or malformed file is a :class:`ManifestError`."""
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        msg = f"{path.name}: {exc}"
+        raise ManifestError(msg) from exc
+
+
 def load_vendored(provenance: Path = VENDORED_PROVENANCE) -> list[Entry]:
     """Return the vendored official examples as corpus entries."""
-    data = tomllib.loads(provenance.read_text(encoding="utf-8"))
+    data = _load_toml(provenance)
     base = provenance.parent
     entries = []
     for rel, meta in sorted(data.get("files", {}).items()):
@@ -155,7 +166,7 @@ def load_vendored(provenance: Path = VENDORED_PROVENANCE) -> list[Entry]:
 
 def load_external(corpus: Path = CORPUS, cache: Path = CACHE) -> list[Entry]:
     """Return the external files listed in ``corpus`` as corpus entries."""
-    data = tomllib.loads(corpus.read_text(encoding="utf-8"))
+    data = _load_toml(corpus)
     sources: dict[str, tuple[str, str, str]] = {}
     for name, meta in data.get("sources", {}).items():
         where = f"{corpus.name} [sources.{name}]"
@@ -203,15 +214,32 @@ def load_external(corpus: Path = CORPUS, cache: Path = CACHE) -> list[Entry]:
     return entries
 
 
-def _default_opener(url: str, timeout: float) -> _Response:
-    return urllib.request.urlopen(url, timeout=timeout)  # type: ignore[no-any-return]  # noqa: S310 - host and scheme checked by the caller
-
-
 def _check_url(url: str) -> None:
     parts = urllib.parse.urlsplit(url)
     if parts.scheme != "https" or parts.hostname not in ALLOWED_HOSTS:
         msg = f"refusing to download from {url!r}: only https://{sorted(ALLOWED_HOSTS)}"
         raise ManifestError(msg)
+
+
+class _CheckedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Check every redirect target before it is contacted, not after."""
+
+    def redirect_request(  # noqa: PLR0917 - signature fixed by urllib
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        _check_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _default_opener(url: str, timeout: float) -> _Response:
+    opener = urllib.request.build_opener(_CheckedRedirectHandler())
+    return opener.open(url, timeout=timeout)  # type: ignore[no-any-return]
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
@@ -244,23 +272,58 @@ def is_present(entry: Entry) -> bool:
     return entry.path.is_file() and digest(entry.path.read_bytes()) == entry.sha256
 
 
-def fetch(entries: Iterable[Entry], opener: Opener = _default_opener) -> list[str]:
+class _TransientError(CorpusError):
+    """A download that may succeed if tried again (cut short, or a network error)."""
+
+
+def _download(entry: Entry, url: str, size: int, opener: Opener) -> bytes:
+    try:
+        with opener(url, TIMEOUT_S) as response:
+            _check_url(response.geturl())
+            data = _read_at_most(response, size + 1)
+    except (OSError, http.client.HTTPException) as exc:
+        msg = f"{entry.key}: download failed: {exc}"
+        raise _TransientError(msg) from exc
+    if len(data) < size:
+        msg = f"{entry.key}: download is {len(data)} bytes, recorded size is {size}"
+        raise _TransientError(msg)
+    if len(data) > size:
+        msg = f"{entry.key}: download is more than {size} bytes, recorded size is {size}"
+        raise CorpusError(msg)
+    return data
+
+
+def fetch(
+    entries: Iterable[Entry],
+    opener: Opener = _default_opener,
+    *,
+    attempts: int = 3,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[str]:
     """Download every external entry that is missing or stale; return what was fetched.
 
+    A download cut short, or a network error, is retried up to ``attempts`` times with
+    exponential backoff. A disallowed URL, an oversize file or a wrong digest is not.
+
     Raises:
-        CorpusError: A URL is not allowed, a download is too large, or a digest differs.
+        ManifestError: A URL or redirect target is not an allowed HTTPS host.
+        CorpusError: A download's size or digest differs from the manifest, or every
+            attempt failed.
     """
     fetched = []
     for entry in entries:
         if entry.url is None or entry.size is None or is_present(entry):
             continue
         _check_url(entry.url)
-        with opener(entry.url, TIMEOUT_S) as response:
-            _check_url(response.geturl())
-            data = _read_at_most(response, entry.size + 1)
-        if len(data) > entry.size:
-            msg = f"{entry.key}: download is larger than the recorded {entry.size} bytes"
-            raise CorpusError(msg)
+        for attempt in range(1, attempts + 1):
+            try:
+                data = _download(entry, entry.url, entry.size, opener)
+                break
+            except _TransientError as exc:
+                if attempt == attempts:
+                    raise CorpusError(f"{exc} (after {attempts} attempts)") from exc
+                print(f"{exc}; retrying", file=sys.stderr)
+                sleep(2.0**attempt)
         if digest(data) != entry.sha256:
             msg = f"{entry.key}: downloaded file does not match its recorded sha256"
             raise CorpusError(msg)
@@ -309,15 +372,25 @@ def render_expected(outcomes: dict[str, dict[str, Any]]) -> str:
 
 
 def _require_present(entries: Sequence[Entry], *, allow_missing: bool) -> list[Entry]:
+    """Return the entries on disk with their recorded digest.
+
+    ``allow_missing`` skips only external files that have not been fetched. A corrupt
+    file, or a missing vendored file, always fails.
+    """
     ready: list[Entry] = []
-    missing: list[Entry] = []
+    bad: list[Entry] = []
     for entry in entries:
-        (ready if is_present(entry) else missing).append(entry)
-    for entry in missing:
+        if is_present(entry):
+            ready.append(entry)
+        elif allow_missing and entry.url is not None and not entry.path.exists():
+            print(f"not fetched, skipped: {entry.key}", file=sys.stderr)
+        else:
+            bad.append(entry)
+    for entry in bad:
         hint = " (run: python scripts/conformance.py fetch)" if entry.url else ""
         print(f"missing or corrupt: {entry.key}{hint}", file=sys.stderr)
-    if missing and not allow_missing:
-        msg = f"{len(missing)} corpus file(s) missing or corrupt"
+    if bad:
+        msg = f"{len(bad)} corpus file(s) missing or corrupt"
         raise CorpusError(msg)
     return ready
 
@@ -333,7 +406,7 @@ def check(
     entries: Sequence[Entry], expected: Path = EXPECTED, *, allow_missing: bool = False
 ) -> list[str]:
     """Compare pyDIGGS's outcomes with ``expected``; return one line per difference."""
-    want = tomllib.loads(expected.read_text(encoding="utf-8"))
+    want = _load_toml(expected)
     ready = _require_present(entries, allow_missing=allow_missing)
     problems = [
         f"{key}: in expected.toml but not in the corpus"
