@@ -1,0 +1,36 @@
+# Element aliases for the pyDIGGS reader (diggs-model). Data; review changes like a golden
+# file.
+#
+# The reader matches DIGGS elements by local name within the namespace family of the
+# document's version. When an element was renamed between DIGGS versions, the reader maps
+# the old name to the new one listed here, so that one mapper serves every version and the
+# model reports the current name in `element` (the name as written stays in `provenance`).
+#
+# Renames the DIGGS deprecation registry already records (deprecation/
+# DeprecationRegistry.xml, `replacedBy`) are read from the registry and are not repeated
+# here. This file holds only renames the registry does not record.
+#
+# Each [[alias]]:
+#   from      the element name as older files write it
+#   to        the name the reader reports
+#   versions  the DIGGS profiles whose bundled XSDs declare `from`
+#   since     the first profile whose bundled XSDs declare `to` instead
+#   evidence  why this is a rename and not a new element
+#
+# tests/test_aliases.py checks every entry against the bundled XSDs.
+
+format = 1
+
+[[alias]]
+from = "VolumeSpace"
+to = "VolumetricSamplingFeature"
+versions = ["2.6"]
+since = "3.0.0"
+evidence = "Same definition: a generic DIGGS 3D sampling feature that represents a volume (2.6 Geophysics.xsd, 3.0.0 extended/ExtSamplingFeatures.xsd)"
+
+[[alias]]
+from = "SurfaceSpace"
+to = "PlanarSamplingFeature"
+versions = ["2.6"]
+since = "3.0.0"
+evidence = "Same definition: a generic DIGGS 2D sampling feature over PlanarSurface or MultiPlanarSurface (2.6 Geophysics.xsd, 3.0.0 extended/ExtSamplingFeatures.xsd)"

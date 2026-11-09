@@ -404,3 +404,107 @@ def test_main_malformed_toml_exits_2(conf, tmp_path, monkeypatch, capsys, which)
         monkeypatch.setattr(conf, "CORPUS", _manifest(tmp_path, ""))
     assert conf.main(["check"]) == 2
     assert "broken.toml" in capsys.readouterr().err
+
+
+# --- the reader census (record/check --model) -------------------------------------------
+
+_CENSUS_DOC = """<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2"
+ xmlns:xlink="http://www.w3.org/1999/xlink" gml:id="d">
+  <project><Project gml:id="p1"/></project>
+  <project xlink:href="other.xml#p9"/>
+  <samplingFeature><Borehole gml:id="b1"><projectRef xlink:href="#p1"/></Borehole></samplingFeature>
+  <samplingFeature><Borehole gml:id="b1"/></samplingFeature>
+  <!-- a comment is not an element -->
+  <measurement><Test gml:id="t1">
+    <samplingFeatureRef xlink:href="#missing"/>
+    <procedure><AtterbergLimitsTest gml:id="a1"/></procedure>
+    <outcome><TestResult gml:id="r1"><results><ResultSet>
+      <parameters/>
+      <dataValues cs=";" ts="|">1;2;3|4;;6</dataValues>
+    </ResultSet></results></TestResult></outcome></Test>
+  </measurement>
+</Diggs>
+"""
+
+
+def _census_of(conf, tmp_path, text: str) -> dict:
+    path = tmp_path / "doc.xml"
+    path.write_text(text, encoding="utf-8")
+    return conf.census(conf.Entry("demo/doc.xml", path, SHA_A))
+
+
+def test_census_counts_members_links_and_tables(conf, tmp_path):
+    got = _census_of(conf, tmp_path, _CENSUS_DOC)
+    assert got["readable"] is True
+    assert got["diggs_version"] == "3.0.0"
+    assert got["members"] == {
+        "measurement/Test": 1,
+        "project/-": 1,
+        "project/Project": 1,
+        "samplingFeature/Borehole": 2,
+    }
+    assert got["procedures"] == {"AtterbergLimitsTest": 1}
+    assert got["links"] == {"project": 2, "samplingFeature": 1}
+    assert (got["links_unresolved"], got["links_remote"]) == (1, 1)
+    assert (got["gml_ids"], got["duplicate_gml_ids"]) == (6, 1)
+    assert (got["result_tables"], got["result_rows"], got["result_cells"]) == (1, 2, 6)
+    assert got["elements"] == 20  # the comment is not counted
+
+
+@pytest.mark.parametrize(
+    ("text", "kind"),
+    [("not xml", "malformed"), ("<html/>", "not-diggs")],
+)
+def test_census_records_what_a_reader_must_refuse(conf, tmp_path, text, kind):
+    assert _census_of(conf, tmp_path, text) == {"readable": False, "document_error": kind}
+
+
+@pytest.mark.parametrize(
+    ("text", "ts", "cs", "shape"),
+    [
+        ("1,2,3 4,5,6", " ", ",", (2, 6)),
+        ("\n  1,,3\n\t4,5\n", " ", ",", (2, 5)),
+        ("a;b|c;d|", "|", ";", (2, 4)),
+        (None, " ", ",", (0, 0)),
+        ("  ", " ", ",", (0, 0)),
+    ],
+)
+def test_table_shape(conf, text, ts, cs, shape):
+    assert conf.table_shape(text, ts, cs) == shape
+
+
+def test_model_covers_exactly_the_corpus_without_profiles(conf):
+    keys = {e.key for e in [*conf.load_vendored(), *conf.load_external()]}
+    model = tomllib.loads(conf.MODEL.read_text(encoding="utf-8"))
+    assert set(model) == keys
+
+
+def test_vendored_census_matches_model(conf):
+    entries = [*conf.load_vendored(), *conf.load_external()]
+    problems = conf.check(entries, conf.MODEL, allow_missing=True, measure=conf.census)
+    assert problems == [], "\n".join(problems)
+
+
+def test_census_record_then_check_round_trips(conf, tmp_path):
+    entries = _small_corpus(conf)
+    model = tmp_path / "model.toml"
+    assert conf.record(entries, model, conf.census) == 2
+    text = model.read_text(encoding="utf-8")
+    assert text.startswith("# What a reader must produce")
+    assert conf.check(entries, model, measure=conf.census) == []
+    data = tomllib.loads(text)
+    first = entries[0].key
+    data[first]["members"]["samplingFeature/Borehole"] = 99
+    model.write_text(conf.render_expected(data), encoding="utf-8")
+    problems = conf.check(entries, model, measure=conf.census)
+    assert [p.split(":")[0] for p in problems] == [first]
+    assert "members expected" in problems[0]
+
+
+def test_main_model_flag_uses_model_toml(conf, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(conf, "CORPUS", _manifest(tmp_path, ""))
+    monkeypatch.setattr(conf, "MODEL", tmp_path / "model.toml")
+    assert conf.main(["record", "--model"]) == 0
+    assert "model.toml" in capsys.readouterr().out
+    assert conf.main(["check", "--model"]) == 0
+    assert "0 difference(s)" in capsys.readouterr().out

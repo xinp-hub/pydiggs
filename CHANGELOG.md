@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DIGGS reference nor an element in the file) and `context.xlink-remote-unresolved`
   (info: a link into another document, which pyDIGGS does not fetch). The legacy
   `context_check` output does not change.
+- Documentation: a draft of **diggs-model**, the data model the read API will return from
+  1.6.0, with its JSON Schema and an example under `schemas/preview/` on the docs site
+  ("Reading files (draft)"). Nothing in this release reads files into it yet; comments
+  are welcome before it is frozen in 1.7.0.
+- The conformance corpus records what a reader must produce for each file (members,
+  procedures, links, result tables, rows and cells) in `conformance/model.toml`, checked
+  with `scripts/conformance.py check --model`.
 
 ### Changed
 - `version_info().diggs_versions` and the `diggs_version` choices on every surface

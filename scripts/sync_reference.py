@@ -59,7 +59,7 @@ _PKG_SOURCES = ("schemas", "def", "schema-dev")
 
 # Every component of a vendored path must match this. It keeps out names that a wheel
 # installer could reinterpret (backslashes, "..", ":" streams, control characters).
-_SAFE_COMPONENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._ +-]*")
+_SAFE_COMPONENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._ +-]*")
 # Windows refuses these as file names, whatever the extension.
 _RESERVED = re.compile(r"(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(\..*)?", re.IGNORECASE)
 
@@ -148,6 +148,10 @@ PACKAGE_LOCAL = {
     ),
     "server/openapi.json": (
         "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
+    ),
+    "_reader/aliases.toml": (
+        "Element renames between DIGGS versions for the diggs-model reader, beyond the "
+        "deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
     ),
     "schematron/diggs_schematron_rules_2.6.sch": (
         "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); "
