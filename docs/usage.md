@@ -39,9 +39,9 @@ The profile is experimental:
 
 * It is used **only when you name it**. The 3.1 draft uses the same namespace as 3.0, so
   a file is never detected as 3.1-dev, and the default stays 3.0.0.
-* Every report checked against it carries a `schema.unreleased-profile` warning, so a
-  pass reads `valid-with-warnings`: passing a draft schema is not conformance to a
-  released DIGGS version.
+* When the schema step checks a file against it, the report carries a
+  `schema.unreleased-profile` warning, so a pass reads `valid-with-warnings`: passing a
+  draft schema is not conformance to a released DIGGS version.
 * The draft changes upstream. pyDIGGS updates its pinned copy in minor releases, so the
   same file can get different findings after an upgrade. When DIGGS 3.1 is released,
   it becomes a normal, detected profile and `3.1-dev` is deprecated.

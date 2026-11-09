@@ -7,14 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-09
+
 ### Added
 - Experimental `3.1-dev` profile: the unreleased DIGGS 3.1 draft schema from
   DIGGSml/schema-dev (branch `3.1-dev`, pinned by commit). Use it with
   `diggs_version="3.1-dev"` or `--diggs-version 3.1-dev`; it is never auto-detected and
-  never the default, so results for existing files do not change. Reports checked
-  against it carry a new `schema.unreleased-profile` warning.
-- The conformance corpus checks the DIGGS File Inspector's 3.1 draft file against the
-  `3.1-dev` profile.
+  never the default, so results for existing files do not change. When the schema
+  step checks a file against it, the report carries a new `schema.unreleased-profile`
+  warning.
 - Four checks adapted from the DIGGS File Inspector, in `validate()` findings:
   `geometry.reported-depth-mismatch` (a `totalMeasuredDepth` more than 2 % off its
   `centerLine` length, when the file states its axis units),
@@ -27,9 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1.6.0, with its JSON Schema and an example under `schemas/preview/` on the docs site
   ("Reading files (draft)"). Nothing in this release reads files into it yet; comments
   are welcome before it is frozen in 1.7.0.
-- The conformance corpus records what a reader must produce for each file (members,
-  procedures, links, result tables, rows and cells) in `conformance/model.toml`, checked
-  with `scripts/conformance.py check --model`.
+- A conformance corpus in the repository (`conformance/`): the DIGGSml examples plus
+  real-world files from the DIGGS File Inspector, pinned by commit and sha256, each with
+  the outcome pyDIGGS gives (`expected.toml`) and what a reader must produce from it
+  (`model.toml`). Other DIGGS tools can be checked against the same files with
+  `scripts/conformance.py`.
 
 ### Changed
 - `version_info().diggs_versions` and the `diggs_version` choices on every surface
@@ -40,6 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Deprecations introduced in DIGGS 3.1 now apply to the 3.1 profile; a version with a
   pre-release suffix such as `3.1-dev` was ordered as 3.0.
+
+### Security
+- The container image upgrades zlib1g to the Debian fix for CVE-2026-76844 and
+  CVE-2026-85091; the image build fails if the fixed version is not installed.
 
 ## [1.4.1] - 2026-11-05
 
@@ -543,7 +550,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/xinp-hub/pydiggs/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/xinp-hub/pydiggs/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/xinp-hub/pydiggs/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/xinp-hub/pydiggs/compare/v1.2.0...v1.3.0

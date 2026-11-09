@@ -18,8 +18,8 @@ limits and locations as the other context checks:
   document. pyDIGGS never fetches it, so what it points at was not checked. DIGGS code
   lists (``diggsml.org/def/codes/``) are left to the dictionary step.
 
-Reported once per distinct ``srsName`` or remote document, at its first occurrence,
-and once per position element or feature otherwise.
+Reported once per distinct ``srsName`` (axis order and unresolvable) or remote
+document, at its first occurrence, with a count; the depth check once per feature.
 """
 
 from __future__ import annotations
@@ -69,7 +69,15 @@ _GEOGRAPHIC_3D: Final = frozenset({4979, 4937})
 _UNIT_ALIASES: Final = {"ftUS": "ft[US]", "usft": "ft[US]", "us-ft": "ft[US]", "metre": "m"}
 
 _EPSG_CODE: Final = r"(\d{1,9})"
-_URN_EPSG: Final = re.compile(rf"urn:ogc:def:crs:EPSG:[\d.]*:{_EPSG_CODE}", re.IGNORECASE)
+_URN_EPSG: Final = re.compile(
+    rf"urn:(?:x-)?ogc:def:crs:EPSG:(?:[\d.]*:)?{_EPSG_CODE}", re.IGNORECASE
+)
+#: OGC's own CRSs (CRS84 is WGS 84 longitude, latitude): recognised, never axis-checked.
+_OGC_CRS: Final = re.compile(
+    r"(?:urn:(?:x-)?ogc:def:crs:OGC:[\d.]*:|https?://www\.opengis\.net/def/crs/OGC/[\d.]+/)"
+    r"CRS(?:84|83|27)",
+    re.IGNORECASE,
+)
 _URN_COMPOUND: Final = re.compile(
     rf"urn:ogc:def:crs,crs:EPSG:[\d.]*:{_EPSG_CODE},crs:EPSG:[\d.]*:{_EPSG_CODE}", re.IGNORECASE
 )
@@ -96,7 +104,8 @@ class SrsRef:
     """What an ``srsName`` refers to.
 
     ``kind`` is ``"epsg"`` (``horizontal`` and maybe ``vertical`` EPSG codes),
-    ``"diggs"`` (a DIGGS CRS registry entry), ``"local"`` (``local_id``, a ``gml:id``
+    ``"diggs"`` (a DIGGS CRS registry entry), ``"ogc"`` (OGC CRS84, CRS83 or CRS27,
+    longitude first), ``"local"`` (``local_id``, a ``gml:id``
     that must exist in the file) or ``"unknown"``.
     """
 
@@ -131,6 +140,8 @@ def parse_srs_name(value: str) -> SrsRef:
         return epsg
     if _DIGGS_REGISTRY.match(text):
         return SrsRef("diggs")
+    if _OGC_CRS.fullmatch(text):
+        return SrsRef("ogc")
     if text.startswith("#") and len(text) > 1:
         return SrsRef("local", local_id=text[1:])
     if text and not any(c in text for c in ":/#?") and not text[0].isdigit():
@@ -235,9 +246,16 @@ class _Scan:
     features: list[tuple[etree._Element, etree._Element, etree._Element]]
 
 
-def _scan(root: etree._Element) -> _Scan:
+def _scan(root: etree._Element, result: ContextValidationResult) -> _Scan:
+    """Collect what the checks need in one pass over the document.
+
+    Every element and sibling visited is charged to ``result.work``; the scaling tests
+    check that it grows linearly.
+    """
     scan = _Scan({}, {}, {}, [], [])
+    seen_features: set[etree._Element] = set()
     for el in root.iter(etree.Element):
+        result.work += 1
         gid = el.get(_GML_ID)
         if gid:
             scan.ids.setdefault(gid, el)
@@ -255,15 +273,21 @@ def _scan(root: etree._Element) -> _Scan:
             scan.positions.append(el)
         elif isinstance(tag, str) and tag.endswith("}centerLine"):
             feature = el.getparent()
+            # One sibling scan per feature, at its first centerLine: scanning again for
+            # every centerLine would be quadratic in a crafted file.
+            if feature is None or feature in seen_features:
+                continue
+            seen_features.add(feature)
+            result.work += len(feature)
             depth = next(
                 (
                     c
-                    for c in (feature if feature is not None else ())
+                    for c in feature
                     if isinstance(c.tag, str) and c.tag.endswith("}totalMeasuredDepth")
                 ),
                 None,
             )
-            if feature is not None and depth is not None:
+            if depth is not None:
                 scan.features.append((feature, el, depth))
     return scan
 
@@ -271,7 +295,9 @@ def _scan(root: etree._Element) -> _Scan:
 def _check_unresolvable(scan: _Scan, result: ContextValidationResult) -> None:
     for value, (el, count) in scan.srs_first.items():
         ref = _resolve(parse_srs_name(value), scan.ids)
-        if ref.kind in ("epsg", "diggs") or (ref.kind == "local" and ref.local_id in scan.ids):
+        if ref.kind in ("epsg", "diggs", "ogc") or (
+            ref.kind == "local" and ref.local_id in scan.ids
+        ):
             continue
         times = f" ({count} uses)" if count > 1 else ""
         if ref.kind == "local":
@@ -290,6 +316,8 @@ def _check_unresolvable(scan: _Scan, result: ContextValidationResult) -> None:
 
 def _check_axis_order(scan: _Scan, result: ContextValidationResult) -> None:
     refs: dict[str, SrsRef] = {}
+    # Per srsName: the first suspect element, its suspect pair, and how many elements.
+    suspects: dict[str, tuple[etree._Element, float, float, int]] = {}
     for el in scan.positions:
         srs = _inherited(el, "srsName")
         if not srs:
@@ -305,19 +333,29 @@ def _check_axis_order(scan: _Scan, result: ContextValidationResult) -> None:
         dim = _dimension(el, ref)
         if dim < 2 or len(values) % dim:  # noqa: PLR2004 - a position needs two values
             continue
-        for i in range(0, len(values), dim):
-            first, second = values[i], values[i + 1]
-            if abs(first) > 90 >= abs(second):  # noqa: PLR2004 - latitude bound
-                result.add(
-                    "WARNING",
-                    result.path(el),
-                    f"Coordinates ({_fmt(first)}, {_fmt(second)}) look like longitude,"
-                    f" latitude, but EPSG:{ref.horizontal} orders latitude first and"
-                    f" {_fmt(first)} cannot be a latitude. The axes are probably swapped.",
-                    AXIS_ORDER_SUSPECT,
-                    node=el,
-                )
-                break
+        pair = next(
+            (
+                (values[i], values[i + 1])
+                for i in range(0, len(values), dim)
+                if abs(values[i]) > 90 >= abs(values[i + 1])  # noqa: PLR2004 - latitude bound
+            ),
+            None,
+        )
+        if pair is not None:
+            first_el, first, second, count = suspects.get(srs, (el, *pair, 0))
+            suspects[srs] = (first_el, first, second, count + 1)
+    for srs, (el, first, second, count) in suspects.items():
+        code = refs[srs].horizontal
+        more = f" {count} coordinate elements in EPSG:{code} look the same." if count > 1 else ""
+        result.add(
+            "WARNING",
+            result.path(el),
+            f"Coordinates ({_fmt(first)}, {_fmt(second)}) look like longitude, latitude,"
+            f" but EPSG:{code} orders latitude first and {_fmt(first)} cannot be a"
+            f" latitude. The axes are probably swapped.{more}",
+            AXIS_ORDER_SUSPECT,
+            node=el,
+        )
 
 
 def _axis_metres(
@@ -399,7 +437,7 @@ def run_geo_checks(root: etree._Element, result: ContextValidationResult) -> Non
         {DEPTH_MISMATCH, AXIS_ORDER_SUSPECT, CRS_UNRESOLVABLE, XLINK_REMOTE}
     ):
         return
-    scan = _scan(root)
+    scan = _scan(root, result)
     _check_depths(scan, result)
     _check_axis_order(scan, result)
     _check_unresolvable(scan, result)
