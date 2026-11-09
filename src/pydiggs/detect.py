@@ -19,6 +19,12 @@ NAMESPACE_PROFILES: dict[str, str] = {
 
 DEFAULT_PROFILE = "3.0.0"
 
+#: Profiles for unreleased DIGGS schemas. They are used only when asked for by name
+#: (``diggs_version="3.1-dev"``): never detected, never the default, not warmed by
+#: default, and every report checked against one carries a ``schema.unreleased-profile``
+#: warning. The 3.1 draft shares the 3.0 namespace, so it could not be detected anyway.
+EXPERIMENTAL_PROFILES: frozenset[str] = frozenset({"3.1-dev"})
+
 _PACKAGE_DIR = Path(__file__).resolve().parent
 
 SCHEMA_PATHS: dict[str, Path] = {
@@ -26,6 +32,8 @@ SCHEMA_PATHS: dict[str, Path] = {
     "2.5.a": _PACKAGE_DIR / "schemas" / "diggs-schema-2.5.a" / "Complete.xsd",
     "2.6": _PACKAGE_DIR / "schemas" / "diggs-schema-2.6" / "Diggs.xsd",
     "3.0.0": _PACKAGE_DIR / "schemas" / "diggs-schema-3.0.0" / "Diggs.xsd",
+    # Unreleased: DIGGSml/schema-dev branch 3.1-dev, pinned in PROVENANCE.toml.
+    "3.1-dev": _PACKAGE_DIR / "schemas" / "diggs-schema-3.1-dev" / "Diggs.xsd",
 }
 
 
@@ -47,7 +55,9 @@ def detect_diggs_version(
 ) -> str:
     """Detect a DIGGS profile key from an instance path or parsed document.
 
-    Unknown or missing namespaces fall back to ``default`` (3.0.0 per HG1/HG2).
+    Unknown or missing namespaces fall back to ``default`` (3.0.0 per HG1/HG2). An
+    experimental profile (:data:`EXPERIMENTAL_PROFILES`) is never returned unless it is
+    passed as ``default``.
     """
     if isinstance(source, (str, Path)):
         doc = _xml.parse(str(source))

@@ -15,7 +15,7 @@ from pydiggs import validate
 
 report = validate("site/BH-01.xml")
 report.ok  # False if any finding is an error
-report.diggs_version  # "2.5.a", "2.6" or "3.0.0"
+report.diggs_version  # "2.5.a", "2.6" or "3.0.0" ("3.1-dev" only when asked for)
 report.counts  # {"error": 2, "warning": 31, "info": 20}
 report.steps  # {Step.SCHEMA: "failed", Step.DICTIONARY: "passed", ...}
 for f in report.findings:
@@ -212,7 +212,7 @@ XML that is not well-formed is a finding, `structure.well-formed`, not an except
 
 ```text
 pydiggs validate PATH... [--format text|json|sarif] [--output FILE]
-                 [--checks STEP[,STEP...]] [--diggs-version 2.5.a|2.6|3.0.0]
+                 [--checks STEP[,STEP...]] [--diggs-version 2.5.a|2.6|3.0.0|3.1-dev]
                  [--schema-path P] [--dictionary-path P] [--schematron-path P]
                  [--fail-on error|warning] [--max-findings N] [--max-bytes N]
                  [--timeout SECONDS] [--snippets] [--absolute-paths] [--base-dir DIR]
@@ -334,6 +334,7 @@ Rule ids are part of the stable contract.
 | `structure.diggs-root` | error | Root is not `Diggs` (then the file is `not-diggs` and nothing else runs), or `documentInformation` is missing or holds more than one `DocumentInformation` |
 | `schema.cvc-<rule>` | error / warning | An XML Schema validation rule, e.g. `schema.cvc-complex-type.2.4`, `schema.cvc-datatype-valid.1.2.1`, `schema.cvc-minInclusive-valid`, named from libxml2's error type |
 | `schema.libxml2.<TYPE>` | error / warning | A libxml2 error type that names no XSD rule, e.g. `schema.libxml2.SCHEMAV_DOCUMENT_ELEMENT_MISSING` |
+| `schema.unreleased-profile` | warning | The file was checked against an unreleased DIGGS schema, because the experimental `3.1-dev` profile was asked for by name; passing it is not conformance to a released DIGGS version (see [Experimental: DIGGS 3.1-dev](usage.md#experimental-diggs-31-dev)) |
 | `<step>.incomplete` | error | The step could not finish: libxml2 could not finish schema validation, a libxml2/libxslt limit stopped an XPath or the bundled Schematron, the file has more than 9,900,000 elements, an element has more than 50,000 children or the rules would fire on more than 100,000 elements (Schematron), a local dictionary was refused by a safety limit, or dictionary path matching passed its limits (see [Fail closed](#fail-closed)); the step is `incomplete` |
 | `structure.markup-entity` | error | The internal DTD declares an entity whose value contains markup; no other check ran (see [Fail closed](#fail-closed)) |
 | `structure.entity-expansion` | error | The internal DTD's entities or ATTLIST defaults make the parsed text more than twice the file's raw size; no other check ran |

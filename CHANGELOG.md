@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Experimental `3.1-dev` profile: the unreleased DIGGS 3.1 draft schema from
+  DIGGSml/schema-dev (branch `3.1-dev`, pinned by commit). Use it with
+  `diggs_version="3.1-dev"` or `--diggs-version 3.1-dev`; it is never auto-detected and
+  never the default, so results for existing files do not change. Reports checked
+  against it carry a new `schema.unreleased-profile` warning.
+- The conformance corpus checks the DIGGS File Inspector's 3.1 draft file against the
+  `3.1-dev` profile.
+
+### Changed
+- `version_info().diggs_versions` and the `diggs_version` choices on every surface
+  (Python, command line, HTTP, sidecar, MCP) include `3.1-dev`. `warm_up()` with no
+  argument still warms only the released versions.
+- Each report's `reference_data` also names the pinned DIGGSml/schema-dev commit.
+
+### Fixed
+- Deprecations introduced in DIGGS 3.1 now apply to the 3.1 profile; a version with a
+  pre-release suffix such as `3.1-dev` was ordered as 3.0.
+
 ## [1.4.1] - 2026-11-05
 
 ### Added

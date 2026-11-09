@@ -89,7 +89,7 @@ Send the document either way:
 |---|---|
 | `name` | File name to report; reduced to a basename, `input.xml` when empty |
 | `checks` | Comma-separated steps (repeatable): `structure`, `schema`, `dictionary`, `schematron`, `geometry`, `deprecation`, `context`; default all |
-| `diggs_version` | `2.5.a`, `2.6` or `3.0.0`; default detected |
+| `diggs_version` | `2.5.a`, `2.6` or `3.0.0`; default detected. `3.1-dev` selects the unreleased DIGGS 3.1 draft ([experimental](usage.md#experimental-diggs-31-dev)) |
 
 ```bash
 curl -s -F file=@BH-01.xml -F checks=structure,schema \

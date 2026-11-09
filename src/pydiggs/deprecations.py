@@ -96,13 +96,20 @@ class Match:
 def version_key(version: str) -> tuple[int, ...]:
     """Order DIGGS versions: ``2.5.a`` < ``2.6`` < ``3.0.0`` < ``3.1.0``.
 
+    A pre-release suffix is ignored, so the ``3.1-dev`` profile orders as ``3.1``.
+
     Examples:
         >>> sorted(["3.1.0", "2.6", "3.0.0", "2.5.a"], key=version_key)
         ['2.5.a', '2.6', '3.0.0', '3.1.0']
         >>> version_key("3") == version_key("3.0.0")
         True
+        >>> version_key("3.1-dev") == version_key("3.1.0")
+        True
     """
-    parts = [int(p) if p.isdigit() else 0 for p in re.split(r"[.]", version.strip())]
+    parts = [
+        int(m.group()) if (m := re.match(r"\d+", p)) else 0
+        for p in re.split(r"[.]", version.strip())
+    ]
     while len(parts) > 1 and parts[-1] == 0:
         parts.pop()
     return tuple(parts)

@@ -7,16 +7,20 @@ commit and recorded with a sha256 per file:
 * ``src/pydiggs/PROVENANCE.toml`` — package data (ships in the wheel)
 * ``tests/fixtures/official/PROVENANCE.toml`` — the official example corpus
 
+The unreleased DIGGS 3.1 draft comes from DIGGSml/schema-dev, branch ``3.1-dev``. It is
+vendored as the opt-in ``3.1-dev`` profile, which is never auto-detected.
+
 Usage (from the repository root)::
 
     # Verify every vendored file against its recorded digest (offline; CI runs this).
     python scripts/sync_reference.py check
 
-    # Re-sync from local clones of DIGGSml/schemas, DIGGSml/def and
-    # DIGGSml/diggs-examples. Files are read from each clone's HEAD commit (git objects,
-    # never the working tree), so check out the commit you intend to pin.
+    # Re-sync from local clones of DIGGSml/schemas, DIGGSml/def, DIGGSml/diggs-examples
+    # and DIGGSml/schema-dev (branch 3.1-dev). Files are read from each clone's HEAD
+    # commit (git objects, never the working tree), so check out the commit you intend
+    # to pin.
     python scripts/sync_reference.py sync --schemas ../schemas --def ../def \
-        --examples ../diggs-examples
+        --examples ../diggs-examples --schema-dev ../schema-dev
 
 The script never downloads anything: clone the upstream repositories yourself and review
 the resulting diff like a dependency bump.
@@ -47,7 +51,11 @@ REPOS = {
     "schemas": "https://github.com/DIGGSml/schemas",
     "def": "https://github.com/DIGGSml/def",
     "examples": "https://github.com/DIGGSml/diggs-examples",
+    "schema-dev": "https://github.com/DIGGSml/schema-dev",
 }
+
+#: Sources recorded in the package PROVENANCE.toml, in order.
+_PKG_SOURCES = ("schemas", "def", "schema-dev")
 
 # Every component of a vendored path must match this. It keeps out names that a wheel
 # installer could reinterpret (backslashes, "..", ":" streams, control characters).
@@ -68,7 +76,9 @@ _PKG_NON_DATA_SUFFIXES = (".py", ".pyc", ".typed")
 class TreeRule:
     """Mirror ``source:src_dir`` into ``dest``, relative to the package.
 
-    Files under ``dest`` that upstream no longer has are deleted.
+    Files under ``dest`` that upstream no longer has are deleted. ``src_dir`` ``""`` is
+    the repository root; ``exclude`` lists top-level directories under ``src_dir`` to
+    leave behind.
     """
 
     source: str
@@ -76,6 +86,7 @@ class TreeRule:
     dest: str
     suffixes: tuple[str, ...]
     names: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -91,6 +102,15 @@ PACKAGE_TREES = (
     TreeRule("schemas", "2.5.a", "schemas/diggs-schema-2.5.a", _SCHEMA_SUFFIXES, _SCHEMA_NAMES),
     TreeRule("schemas", "2.6", "schemas/diggs-schema-2.6", _SCHEMA_SUFFIXES, _SCHEMA_NAMES),
     TreeRule("schemas", "3.0.0", "schemas/diggs-schema-3.0.0", _SCHEMA_SUFFIXES, _SCHEMA_NAMES),
+    # The schema-dev repository root is the schema tree; tools/ holds generator scripts.
+    TreeRule(
+        "schema-dev",
+        "",
+        "schemas/diggs-schema-3.1-dev",
+        _SCHEMA_SUFFIXES,
+        _SCHEMA_NAMES,
+        exclude=("tools",),
+    ),
     # diggsml.org/def is published from def/docs, so that tree is the canonical one.
     TreeRule("def", "docs/codes/DIGGS/0.1", "dictionaries/codes", (".xml",)),
 )
@@ -335,7 +355,7 @@ class Upstream:
 
     def tree(self, rule: TreeRule) -> list[str]:
         """Paths under ``rule.src_dir`` (relative to it) that the rule vendors."""
-        prefix = rule.src_dir.rstrip("/") + "/"
+        prefix = rule.src_dir.rstrip("/") + "/" if rule.src_dir else ""
         found = []
         for path in sorted(self._blobs):
             if not path.startswith(prefix):
@@ -344,10 +364,13 @@ class Upstream:
             name = rel.rsplit("/", 1)[-1]
             if any(part.startswith(".") for part in rel.split("/")):
                 continue
+            if rel.split("/", 1)[0] in rule.exclude:
+                continue
             if name.endswith(rule.suffixes) or name in rule.names:
                 found.append(rel)
         if not found:
-            raise SyncError(f"{self.key}@{self.commit[:7]}: nothing to vendor in {rule.src_dir}")
+            where = rule.src_dir or "the repository root"
+            raise SyncError(f"{self.key}@{self.commit[:7]}: nothing to vendor in {where}")
         return found
 
 
@@ -420,7 +443,7 @@ def _plan(upstreams: dict[str, Upstream]) -> tuple[dict[Path, bytes], set[Path]]
     for rule in PACKAGE_TREES:
         up = upstreams[rule.source]
         for rel in up.tree(rule):
-            src = f"{rule.src_dir}/{rel}"
+            src = f"{rule.src_dir}/{rel}" if rule.src_dir else rel
             entry = {"source": rule.source, "path": src}
             add(f"{rule.dest}/{rel}", PKG, up.read(src), entry)
             pkg_files[f"{rule.dest}/{rel}"] = entry
@@ -451,7 +474,7 @@ def _plan(upstreams: dict[str, Upstream]) -> tuple[dict[Path, bytes], set[Path]]
 
     writes[PKG_PROVENANCE] = _render_provenance(
         "DIGGS reference data vendored into pyDIGGS.",
-        {k: upstreams[k].info() for k in ("schemas", "def")},
+        {k: upstreams[k].info() for k in _PKG_SOURCES},
         pkg_files,
     )
     writes[FIXTURE_PROVENANCE] = _render_provenance(
@@ -463,12 +486,13 @@ def _plan(upstreams: dict[str, Upstream]) -> tuple[dict[Path, bytes], set[Path]]
     return writes, mirrored
 
 
-def sync(schemas: Path, defs: Path, examples: Path) -> list[str]:
+def sync(schemas: Path, defs: Path, examples: Path, schema_dev: Path) -> list[str]:
     """Re-vendor from upstream clones; return a summary of what changed."""
     upstreams = {
         "schemas": Upstream("schemas", schemas),
         "def": Upstream("def", defs),
         "examples": Upstream("examples", examples),
+        "schema-dev": Upstream("schema-dev", schema_dev),
     }
     writes, mirrored = _plan(upstreams)
     changes: list[str] = []
@@ -545,10 +569,11 @@ def main(argv: list[str] | None = None) -> int:
     sync_p.add_argument("--schemas", type=Path, required=True)
     sync_p.add_argument("--def", dest="defs", type=Path, required=True)
     sync_p.add_argument("--examples", type=Path, required=True)
+    sync_p.add_argument("--schema-dev", dest="schema_dev", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         if args.command == "sync":
-            for change in sync(args.schemas, args.defs, args.examples):
+            for change in sync(args.schemas, args.defs, args.examples, args.schema_dev):
                 print(change)
         problems = check()
     except (SyncError, subprocess.CalledProcessError, OSError, UnicodeDecodeError) as err:

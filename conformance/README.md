@@ -6,7 +6,7 @@ pipeline) can be compared against the same files and the same expected outcomes.
 
 | File | What it is | Edited by |
 | --- | --- | --- |
-| `corpus.toml` | External files: source repository, pinned commit, licence, path, sha256, size | Hand, in review |
+| `corpus.toml` | External files: source repository, pinned commit, licence, path, sha256, size; `[profiles]`: files also checked under another DIGGS profile | Hand, in review |
 | `expected.toml` | For every corpus file: verdict, error and warning counts, distinct error and warning rule ids | `scripts/conformance.py record` only |
 
 The corpus also includes the vendored DIGGSml examples in `tests/fixtures/official/`
@@ -32,6 +32,20 @@ python scripts/conformance.py record
   change in what pyDIGGS reports for real files.
 
 Exit codes: 0 success, 1 a difference or a missing or corrupt file, 2 a malformed manifest.
+
+## Other profiles
+
+A file can also be checked under a DIGGS profile other than the detected one, such as
+the experimental `3.1-dev` (the unreleased DIGGS 3.1 draft, which is never detected).
+List it in `corpus.toml`:
+
+```toml
+[profiles]
+"inspector/SF_Project_Lith_Test.xml" = ["3.1-dev"]
+```
+
+`expected.toml` then has a second entry, `"inspector/SF_Project_Lith_Test.xml@3.1-dev"`,
+next to the outcome under the detected profile.
 
 ## Adding a file
 

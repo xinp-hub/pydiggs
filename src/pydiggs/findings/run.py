@@ -29,7 +29,12 @@ from lxml import etree, isoschematron
 import pydiggs
 from pydiggs import _xml, deprecations
 from pydiggs._bundled import _DEFAULT_DICTIONARY, _DEFAULT_SCHEMATRON, _casing_diameter_problems
-from pydiggs.detect import SCHEMA_PATHS, detect_diggs_version, schema_path_for
+from pydiggs.detect import (
+    EXPERIMENTAL_PROFILES,
+    SCHEMA_PATHS,
+    detect_diggs_version,
+    schema_path_for,
+)
 from pydiggs.dictionary import (
     MAX_LOCAL_DICTIONARIES,
     DictionarySemanticValidator,
@@ -435,6 +440,16 @@ def _run_schema(
 ) -> StepStatus:
     schema = _schema(profile, schema_path)
     locator = builder.locator
+    if schema_path is None and profile in EXPERIMENTAL_PROFILES:
+        builder.add(
+            Step.SCHEMA,
+            rules.UNRELEASED_PROFILE,
+            Severity.WARNING,
+            f"Checked against the unreleased DIGGS {profile} draft schema (experimental"
+            " profile): passing it does not mean the file conforms to a released DIGGS"
+            " version, and the draft may change.",
+            node=doc.getroot(),
+        )
     try:
         schema.validate(doc)
     except etree.XMLSchemaValidateError as exc:
@@ -1289,7 +1304,9 @@ def validate(
     Args:
         path: The instance file.
         diggs_version: ``"2.5.a"``, ``"2.6"`` or ``"3.0.0"``; detected from the root
-            namespace when omitted (``3.0.0`` when unknown).
+            namespace when omitted (``3.0.0`` when unknown). ``"3.1-dev"`` (the
+            unreleased DIGGS 3.1 draft, experimental) is used only when passed here,
+            and adds a ``schema.unreleased-profile`` warning.
         checks: Step names to run, from ``structure``, ``schema``, ``dictionary``,
             ``schematron``, ``geometry``, ``deprecation``, ``context``. Default: all
             of them. Every selected step runs even when an earlier one fails.
@@ -1572,7 +1589,8 @@ def warm_up(diggs_version: str | None = None) -> None:
 
     Args:
         diggs_version: Warm only this DIGGS version's schema; None (default) warms
-            every bundled version (about a second in all on a cold start).
+            every released bundled version (about a second in all on a cold start), not
+            the experimental ``3.1-dev``.
 
     Raises:
         ValueError: ``diggs_version`` is not a bundled DIGGS version.
@@ -1589,7 +1607,8 @@ def warm_up(diggs_version: str | None = None) -> None:
     _check_version(diggs_version)
     reference_data()
     deprecations.load_registry()
-    for version in sorted(SCHEMA_PATHS) if diggs_version is None else [diggs_version]:
+    stable = sorted(SCHEMA_PATHS.keys() - EXPERIMENTAL_PROFILES)
+    for version in stable if diggs_version is None else [diggs_version]:
         _schema(version, None)
     _schematron(None)
     for local in ("off", "instance-dir"):  # validate_bytes() uses one, validate() the other

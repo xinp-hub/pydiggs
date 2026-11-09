@@ -133,7 +133,7 @@ ends it with status 1. `exit` is honoured at any time and abandons any running w
 | `protocol_version` | string, required | `"1.0"` |
 | `client_info` | object | `{name ≤ 128 chars, version ≤ 64 chars}`, logged at `info` |
 | `capabilities` | object | `{progress: bool}` asks for `$/progress` notifications |
-| `diggs_versions` | string[] | DIGGS versions to warm up (default: all bundled) |
+| `diggs_versions` | string[] | DIGGS versions to warm up (default: every released bundled version, not the experimental `3.1-dev`) |
 
 Result:
 
@@ -143,8 +143,8 @@ Result:
   "pydiggs_version": "1.4.1",
   "findings_schema_version": "1.0",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json",
-  "diggs_versions": ["2.5.a", "2.6", "3.0.0"],
-  "reference_data": {"def": "…", "schemas": "…"},
+  "diggs_versions": ["2.5.a", "2.6", "3.0.0", "3.1-dev"],
+  "reference_data": {"def": "…", "schema-dev": "…", "schemas": "…"},
   "capabilities": {
     "validate": {"content": true, "path": false},
     "cancel": true, "progress": false, "rules": true, "ping": true

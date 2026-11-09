@@ -40,7 +40,7 @@ def test_vendored_files_match_provenance():
 @pytest.mark.parametrize(
     ("provenance", "sources"),
     [
-        (_PKG / "PROVENANCE.toml", {"schemas", "def"}),
+        (_PKG / "PROVENANCE.toml", {"schemas", "def", "schema-dev"}),
         (ROOT / "tests" / "fixtures" / "official" / "PROVENANCE.toml", {"examples"}),
     ],
     ids=["package", "fixtures"],
@@ -93,3 +93,27 @@ def test_bundle_has_no_directory_listings():
     """Upstream index.html pages are not schema content and must not ship."""
     assert not list((_PKG / "schemas").rglob("*.html"))
     assert not list((_PKG / "dictionaries").rglob("*.html"))
+
+
+@pytest.mark.skipif(not _SCRIPT.is_file(), reason="scripts/ is not in this tree")
+def test_root_tree_rule_skips_excluded_dirs_and_listings():
+    sync = _load_sync_module()
+    upstream = object.__new__(sync.Upstream)
+    upstream.key = "schema-dev"
+    upstream.commit = "0" * 40
+    upstream._blobs = dict.fromkeys(
+        [
+            "Diggs.xsd",
+            "LICENSE",
+            "README.md",
+            "index.html",
+            ".gitignore",
+            "core/Core.xsd",
+            "Instances/LabTest.xml",
+            "tools/deprecation/README.md",
+        ],
+        "100644",
+    )
+    rule = next(r for r in sync.PACKAGE_TREES if r.source == "schema-dev")
+    assert rule.src_dir == ""
+    assert upstream.tree(rule) == ["Diggs.xsd", "LICENSE", "README.md", "core/Core.xsd"]
