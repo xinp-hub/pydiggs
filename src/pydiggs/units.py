@@ -69,6 +69,11 @@ class UnitConverter:
                 # Base / SI unit with identity conversion.
                 self._factors[symbol] = (0.0, 1.0, 1.0, 0.0, symbol)
 
+    def base_unit(self, symbol: str) -> str | None:
+        """The base (SI) unit ``symbol`` converts to, or None for an unknown symbol."""
+        factors = self._factors.get(symbol)
+        return None if factors is None else factors[4]
+
     def to_base(self, value: float, symbol: str) -> float | None:
         factors = self._factors.get(symbol)
         if factors is None:

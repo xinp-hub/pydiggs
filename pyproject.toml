@@ -152,6 +152,7 @@ disallow_incomplete_defs = false
 module = [
   "pydiggs.__main__",
   "pydiggs._bundled",
+  "pydiggs._geo_checks",
   "pydiggs._compat",
   "pydiggs._pool",
   "pydiggs._serve_cli",
