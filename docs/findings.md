@@ -339,6 +339,7 @@ Rule ids are part of the stable contract.
 | `structure.markup-entity` | error | The internal DTD declares an entity whose value contains markup; no other check ran (see [Fail closed](#fail-closed)) |
 | `structure.entity-expansion` | error | The internal DTD's entities or ATTLIST defaults make the parsed text more than twice the file's raw size; no other check ran |
 | `structure.namespace-too-long` | error | A namespace URI is longer than 1,024 characters; no other check ran |
+| `structure.value-unparsed` | info | Reading only (`pydiggs.preview.read`): a result value or quantity that should be a number is not one; the model keeps the text and reads the value as null |
 | `structure.timeout` | error | Validation did not finish within its time limit: `pydiggs validate --timeout` stopped the file or its worker died, or the `time_budget` ran out; the unfinished steps are `incomplete` |
 | `structure.internal-error` | error | `pydiggs validate` caught an unexpected error for this file; the requested steps are `incomplete` |
 | `dictionary.1` ... `dictionary.12` | see [below](#dictionary-check-severities) | The legacy dictionary checks, numbered as in their messages (1 uncontrolled codeSpace, 2 not whitelisted, 3 not accessible, 4 not a dictionary, 5 code not found, 6 wrong context, 7 name mismatch, 8 wrong measurement, 9 data type, 10 unitless with uom, 11 missing uom, 12 invalid uom) |

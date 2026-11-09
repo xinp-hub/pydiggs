@@ -65,7 +65,7 @@ def test_aliases_do_not_repeat_the_deprecation_registry():
     assert not replaced & {a["from"] for a in ALIASES}
 
 
-def test_reader_package_is_data_only_for_now():
+def test_reader_package_exports_only_read():
     import pydiggs._reader
 
-    assert not [n for n in vars(pydiggs._reader) if not n.startswith("__")]
+    assert pydiggs._reader.__all__ == ["read", "read_bytes"]

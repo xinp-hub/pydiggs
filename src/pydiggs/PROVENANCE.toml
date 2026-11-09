@@ -476,6 +476,11 @@ source = "local"
 note = "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
 sha256 = "8442ad9b40d927b9dcba6dccd70bff8da96b7c13c13cf7c9fc093f92fcb31246"
 
+[files."model/diggs-model-1.0-beta.1.schema.json"]
+source = "local"
+note = "The diggs-model JSON Schema (read API, preview): pyDIGGS's own output contract, kept equal to the model classes by tests/test_read_preview.py."
+sha256 = "da3eb498ee18cca6aff084668e6350f6b55d3d524f284c988f28c62696a96894"
+
 [files."schemas/LICENSE"]
 source = "schemas"
 path = "LICENSE"
