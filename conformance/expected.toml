@@ -15,6 +15,13 @@ warnings = 96
 error_rules = ["schema.cvc-complex-type.2.4", "schema.cvc-datatype-valid.1.2.3"]
 warning_rules = ["context.xlink-href-resolves", "deprecation.deprecated"]
 
+["inspector/SF_Project_Lith_Test.xml@3.1-dev"]
+ok = false
+errors = 7
+warnings = 144
+error_rules = ["schema.cvc-complex-type.2.4", "schema.cvc-complex-type.3.2.1"]
+warning_rules = ["context.xlink-href-resolves", "deprecation.deprecated", "schema.unreleased-profile"]
+
 ["inspector/SeismicConeExample.xml"]
 ok = true
 errors = 0
@@ -301,6 +308,13 @@ errors = 6
 warnings = 0
 error_rules = ["schema.cvc-complex-type.2.2", "schema.cvc-datatype-valid.1.2.1"]
 warning_rules = []
+
+["official/known_invalid/3.0_PileDrivingExample_schema-dev.xml@3.1-dev"]
+ok = true
+errors = 0
+warnings = 3
+error_rules = []
+warning_rules = ["deprecation.deprecated", "schema.unreleased-profile"]
 
 ["official/known_invalid/PlanarReference_3ns.xml"]
 ok = false

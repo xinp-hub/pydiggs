@@ -73,7 +73,7 @@ them accepts a file path or a URL.
 
 | Tool | Arguments | Result (`structuredContent`) |
 |---|---|---|
-| `validate_diggs` | `content_base64` (string, required), `name` (string, at most 255 characters), `checks` (array of step names), `diggs_version` (`2.5.a`, `2.6` or `3.0.0`) | a whole one-file [diggs-findings 1.0](findings.md) document; the tool's `outputSchema` is the packaged findings schema |
+| `validate_diggs` | `content_base64` (string, required), `name` (string, at most 255 characters), `checks` (array of step names), `diggs_version` (`2.5.a`, `2.6`, `3.0.0`, or the experimental `3.1-dev`) | a whole one-file [diggs-findings 1.0](findings.md) document; the tool's `outputSchema` is the packaged findings schema |
 | `explain_rule` | `rule_id` (string, at most 256 characters) | one `RuleInfo`: `id`, `pattern`, `step`, `description`, `severities`, `help_uri`, `known` |
 | `list_rules` | `step` (optional step name) | `{"rules": [RuleInfo, ...]}` |
 | `supported_versions` | none | `pydiggs_version`, `findings_schema_version`, `findings_schema_url`, `diggs_versions`, `reference_data` |

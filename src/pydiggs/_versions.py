@@ -75,7 +75,7 @@ def version_info() -> VersionInfo:
         >>> import pydiggs
         >>> info = pydiggs.version_info()
         >>> info.pydiggs_version == pydiggs.__version__, info.diggs_versions
-        (True, ('2.5.a', '2.6', '3.0.0'))
+        (True, ('2.5.a', '2.6', '3.0.0', '3.1-dev'))
         >>> info.findings_schema_version
         '1.0'
     """

@@ -198,7 +198,7 @@ def test_version_info_describes_the_running_package():
     assert info.pydiggs_version == pydiggs.__version__ == metadata.version("pydiggs")
     assert info.findings_schema_version == FINDINGS_SCHEMA_VERSION
     assert info.findings_schema_url == FINDINGS_SCHEMA_URL
-    assert info.diggs_versions == ("2.5.a", "2.6", "3.0.0")
+    assert info.diggs_versions == ("2.5.a", "2.6", "3.0.0", "3.1-dev")
     assert dict(info.reference_data) == reference_data()
     data = info.to_dict()
     assert json.loads(json.dumps(data)) == data

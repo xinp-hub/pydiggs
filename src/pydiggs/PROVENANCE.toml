@@ -11,6 +11,11 @@ repo = "https://github.com/DIGGSml/def"
 commit = "2d76ba6c7affc94183659e21e4e2e90da5c84f2d"
 date = "2026-10-08T00:08:40-07:00"
 
+[sources.schema-dev]
+repo = "https://github.com/DIGGSml/schema-dev"
+commit = "cf7f358ed7e28bf4e51d0b96fccd79c66f723385"
+date = "2026-11-05T00:22:15-08:00"
+
 [files."deprecation/DeprecationRegistry.xml"]
 source = "schemas"
 path = "deprecation/DeprecationRegistry.xml"
@@ -1011,6 +1016,166 @@ source = "schemas"
 path = "3.0.0/specialty/Grouting.xsd"
 sha256 = "d7e918871bd16cb816dc64918f3047f4fdbc53926ac9604ee1ebe00627d57df6"
 
+[files."schemas/diggs-schema-3.1-dev/Dictionary_diggs.xsd"]
+source = "schema-dev"
+path = "Dictionary_diggs.xsd"
+sha256 = "3801aaea9bddbdb76f030d5e68f39040dad46335338a0003aaf0cd1cf273d797"
+
+[files."schemas/diggs-schema-3.1-dev/Diggs.xsd"]
+source = "schema-dev"
+path = "Diggs.xsd"
+sha256 = "c6d9f8bc7ab0407e8bb30fa7ec4e404c902f340f7bb682d5ec1055bcf074f2fe"
+
+[files."schemas/diggs-schema-3.1-dev/DiggsCore.xsd"]
+source = "schema-dev"
+path = "DiggsCore.xsd"
+sha256 = "b3da744dc3fb8131b97159067d8f526ef8cf69c7db785e87e73713e723c20dd2"
+
+[files."schemas/diggs-schema-3.1-dev/LICENSE"]
+source = "schema-dev"
+path = "LICENSE"
+sha256 = "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+
+[files."schemas/diggs-schema-3.1-dev/README.md"]
+source = "schema-dev"
+path = "README.md"
+sha256 = "e7de042f16d5d64097640c8de24f20d08679ec8eede89bfae1e8fe063f700bbf"
+
+[files."schemas/diggs-schema-3.1-dev/ReleaseNotes.md"]
+source = "schema-dev"
+path = "ReleaseNotes.md"
+sha256 = "45e56c62a8cad988908cdf7328498124cb9ab53a5ecaf09cbc81324b2bcb251e"
+
+[files."schemas/diggs-schema-3.1-dev/SpecificationRegistry.xsd"]
+source = "schema-dev"
+path = "SpecificationRegistry.xsd"
+sha256 = "c5db42781a33a0d73cba4101afaaa8d377b27d93252599c740ad5efac7300ffe"
+
+[files."schemas/diggs-schema-3.1-dev/core/AbstractTypes.xsd"]
+source = "schema-dev"
+path = "core/AbstractTypes.xsd"
+sha256 = "6a36aebe61e152d56cf8c3034fe92e525b770af8a5242cb6eecbffb45a498211"
+
+[files."schemas/diggs-schema-3.1-dev/core/Common.xsd"]
+source = "schema-dev"
+path = "core/Common.xsd"
+sha256 = "97a6409515af9f34b6ab88942cbe935dbd5b7e65ea0bc07c4a34c01d82d539ca"
+
+[files."schemas/diggs-schema-3.1-dev/core/Core.xsd"]
+source = "schema-dev"
+path = "core/Core.xsd"
+sha256 = "d06e4cf48f9f01e724469b3ce9464ad61e6c2068a2aaac6895a1581427a90441"
+
+[files."schemas/diggs-schema-3.1-dev/core/CoreProcedures.xsd"]
+source = "schema-dev"
+path = "core/CoreProcedures.xsd"
+sha256 = "f62e9376f1a1fd322c841ed052c9ab35d743b4e9ad30b0bd269d71d77ed0ef21"
+
+[files."schemas/diggs-schema-3.1-dev/core/LinearReferencing.xsd"]
+source = "schema-dev"
+path = "core/LinearReferencing.xsd"
+sha256 = "59589cf41c8102d359fee9d0529ce296321fe302c237af97231104f420395480"
+
+[files."schemas/diggs-schema-3.1-dev/core/LocalReferencing.xsd"]
+source = "schema-dev"
+path = "core/LocalReferencing.xsd"
+sha256 = "65435b5c0fad3375693fc4ae01509778d153698badb6e6e53d657e691e68be37"
+
+[files."schemas/diggs-schema-3.1-dev/core/MeasureTypes.xsd"]
+source = "schema-dev"
+path = "core/MeasureTypes.xsd"
+sha256 = "7ca26a24de09681c19f28e75d7c79ac9eb2180f8bbf5e5a656b9c2ab9a30c248"
+
+[files."schemas/diggs-schema-3.1-dev/core/glrProfile_diggs.xsd"]
+source = "schema-dev"
+path = "core/glrProfile_diggs.xsd"
+sha256 = "3f8eb3fa4af20371791204cb4cd95dbbfbeb615f68ae8dc08bb1e75f183a5ba9"
+
+[files."schemas/diggs-schema-3.1-dev/core/glrovProfile_diggs.xsd"]
+source = "schema-dev"
+path = "core/glrovProfile_diggs.xsd"
+sha256 = "49965912214333ec13549873df3b4d6a9fb10a7770b660c371878e2126eb1e5a"
+
+[files."schemas/diggs-schema-3.1-dev/core/gml3.2Profile_diggs.xsd"]
+source = "schema-dev"
+path = "core/gml3.2Profile_diggs.xsd"
+sha256 = "e99d3714290eee7ca25e389fcee96243757d3c5850bbd7131c0e047e29af4380"
+
+[files."schemas/diggs-schema-3.1-dev/core/xlinks.xsd"]
+source = "schema-dev"
+path = "core/xlinks.xsd"
+sha256 = "cf7f327e8b1f22546a42f2e997f69f22120632a694c3e17df0a756084cd6e069"
+
+[files."schemas/diggs-schema-3.1-dev/core/xml.xsd"]
+source = "schema-dev"
+path = "core/xml.xsd"
+sha256 = "61960fb3131e38022caad5360e2f33a3382578ab3c80cd58bd74320ede61b20c"
+
+[files."schemas/diggs-schema-3.1-dev/deprecated/DeprecationRegistry.xsd"]
+source = "schema-dev"
+path = "deprecated/DeprecationRegistry.xsd"
+sha256 = "b38d877d987aa6da45c4257f3be3fc96f29ffcf29c9f8e1fcf7e00b5577aaace"
+
+[files."schemas/diggs-schema-3.1-dev/deprecated/Diggs_geo_deprecated.xsd"]
+source = "schema-dev"
+path = "deprecated/Diggs_geo_deprecated.xsd"
+sha256 = "115ecbc335e39ce38eed225b4d3ecfcc44d8ed51fcb11d2230525164de6a4397"
+
+[files."schemas/diggs-schema-3.1-dev/energistics/2.0/data/common/v2.1/xsd_schemas/EmlAllObjects.xsd"]
+source = "schema-dev"
+path = "energistics/2.0/data/common/v2.1/xsd_schemas/EmlAllObjects.xsd"
+sha256 = "8787b1b8240038b7f423993587eef9776623c8a3378ad4a3cc5f42057f0a51a4"
+
+[files."schemas/diggs-schema-3.1-dev/energistics/2.0/data/common/v2.1/xsd_schemas/QuantityClass.xsd"]
+source = "schema-dev"
+path = "energistics/2.0/data/common/v2.1/xsd_schemas/QuantityClass.xsd"
+sha256 = "f4453801b869de1d3c9553adb8b1236d2e03302f07980002a8683e6816185a1f"
+
+[files."schemas/diggs-schema-3.1-dev/energistics/EnergisticsUnitOfMeasureDictionary_V1.0.xsd"]
+source = "schema-dev"
+path = "energistics/EnergisticsUnitOfMeasureDictionary_V1.0.xsd"
+sha256 = "00883dfe1efe1e8335d553d3f28b4304a60fcf0fbcabb1f4891f7403201421b2"
+
+[files."schemas/diggs-schema-3.1-dev/extended/ExtGroup.xsd"]
+source = "schema-dev"
+path = "extended/ExtGroup.xsd"
+sha256 = "da10a01a5a599520f1a3bd71df029328ac8c0d7305bf56747a89456c2e6ed3c2"
+
+[files."schemas/diggs-schema-3.1-dev/extended/ExtObservation.xsd"]
+source = "schema-dev"
+path = "extended/ExtObservation.xsd"
+sha256 = "4154942afc7df4a1487559c6a1da78f099f664f2f1b2910c5fee945a3af49823"
+
+[files."schemas/diggs-schema-3.1-dev/extended/ExtProcedures.xsd"]
+source = "schema-dev"
+path = "extended/ExtProcedures.xsd"
+sha256 = "f469aa5871c70ac9ad661fed11ee009023208a9a2cc93863fc74a5169bc90dc0"
+
+[files."schemas/diggs-schema-3.1-dev/extended/ExtSamplingFeatures.xsd"]
+source = "schema-dev"
+path = "extended/ExtSamplingFeatures.xsd"
+sha256 = "502548468398a7161308b1d4fe20a42211aa0c7a19addeb1d90a9bb4390ff9a8"
+
+[files."schemas/diggs-schema-3.1-dev/specialty/DeepFoundation.xsd"]
+source = "schema-dev"
+path = "specialty/DeepFoundation.xsd"
+sha256 = "aea181c8879e5c2e4eb77a1fe3ef5a26c2d67d05182945ed9ba7d93ec4892952"
+
+[files."schemas/diggs-schema-3.1-dev/specialty/Geophysics.xsd"]
+source = "schema-dev"
+path = "specialty/Geophysics.xsd"
+sha256 = "c2a7ad2c46213b95d8ad2be0311d2d7b03a3514ad027566fcb2812dddd7b9f81"
+
+[files."schemas/diggs-schema-3.1-dev/specialty/Grouting.xsd"]
+source = "schema-dev"
+path = "specialty/Grouting.xsd"
+sha256 = "cd6f31d62a510dd7e4176924158e3fb2e8500d5e84daccd127fbbe1384867c38"
+
+[files."schemas/diggs-schema-3.1-dev/specialty/RigidInclusions.xsd"]
+source = "schema-dev"
+path = "specialty/RigidInclusions.xsd"
+sha256 = "0aa5b43e96eecced2914eee5493093f5b1378bef141c172b1cd5110852dbf34d"
+
 [files."schematron/diggs_schematron_rules_2.6.sch"]
 source = "local"
 note = "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); see the file header for the changes."
@@ -1019,7 +1184,7 @@ sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "695e5b10584a17dbf3a0da8562b5c7ab3b081c3d3b42dd2f4d7caed1ce754ddd"
+sha256 = "3cf51e36db06124c6678a62cd07e1bf884983d07e4ae6468519eb2e6d0ba4d27"
 
 [files."sidecar/openrpc.json"]
 source = "local"

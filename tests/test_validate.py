@@ -159,7 +159,7 @@ def test_clean_file_passes_every_step():
     assert report.path == NO_ERROR
     assert report.tool_version == pydiggs.__version__
     assert report.reference_data == reference_data()
-    assert set(report.reference_data) == {"schemas", "def"}
+    assert set(report.reference_data) == {"schemas", "def", "schema-dev"}
 
 
 def test_checks_select_steps():

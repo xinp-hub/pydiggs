@@ -387,7 +387,8 @@ def warm_worker(diggs_versions: Sequence[str] | None = None) -> None:
 
     Args:
         diggs_versions: Warm only these DIGGS versions' schemas; None warms every
-            bundled version. The dictionaries and Schematron rules are always warmed.
+            released bundled version (not the experimental ``3.1-dev``). The
+            dictionaries and Schematron rules are always warmed.
 
     Raises:
         ValueError: A version is not bundled.

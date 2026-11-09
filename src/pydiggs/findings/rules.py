@@ -41,6 +41,7 @@ __all__ = [
     "SCHEMATRON_CASING_UNITS",
     "SCHEMA_INCOMPLETE",
     "TIMEOUT",
+    "UNRELEASED_PROFILE",
     "WELL_FORMED",
     "RuleInfo",
     "describe",
@@ -79,6 +80,9 @@ TIMEOUT: Final = "structure.timeout"
 #: pydiggs validate caught an unexpected error for one file (the batch went on).
 INTERNAL_ERROR: Final = "structure.internal-error"
 SCHEMA_INCOMPLETE: Final = "schema.incomplete"
+#: The file was checked against an unreleased DIGGS schema (an experimental profile such
+#: as ``3.1-dev``, chosen explicitly); a pass is not conformance to a released DIGGS.
+UNRELEASED_PROFILE: Final = "schema.unreleased-profile"
 DICTIONARY_13: Final = "dictionary.13"
 DICTIONARY_OFFLINE: Final = "dictionary.offline"
 DEPRECATED: Final = "deprecation.deprecated"
@@ -246,6 +250,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     TIMEOUT: "Validation did not finish within its time limit",
     INTERNAL_ERROR: "Validation failed with an unexpected error",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
+    UNRELEASED_PROFILE: "Checked against an unreleased DIGGS schema (experimental profile)",
     DICTIONARY_OFFLINE: "A whitelisted remote code list is not bundled and network access is off",
     DEPRECATED: "Uses something the DIGGS schema deprecates",
     REMOVED: "Uses something the DIGGS schema has removed",
@@ -374,6 +379,7 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     NAMESPACE_TOO_LONG: _ERROR,
     TIMEOUT: _ERROR,
     INTERNAL_ERROR: _ERROR,
+    UNRELEASED_PROFILE: _WARNING,
     FINDINGS_TRUNCATED: _ANY,  # as severe as the worst finding it stands for
     "dictionary.1": _INFO,
     "dictionary.2": _WARNING,

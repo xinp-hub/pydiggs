@@ -101,7 +101,7 @@ def test_committed_manifest_is_valid(conf):
 
 
 def test_expected_covers_exactly_the_corpus(conf):
-    keys = {e.key for e in [*conf.load_vendored(), *conf.load_external()]}
+    keys = {e.key for e in conf.with_profiles([*conf.load_vendored(), *conf.load_external()])}
     expected = tomllib.loads(conf.EXPECTED.read_text(encoding="utf-8"))
     assert set(expected) == keys
 
@@ -111,12 +111,55 @@ def test_vendored_outcomes_match_expected(conf):
 
     External files are checked only if fetched; the CI conformance job fetches them.
     """
-    entries = [*conf.load_vendored(), *conf.load_external()]
+    entries = conf.with_profiles([*conf.load_vendored(), *conf.load_external()])
     problems = conf.check(entries, conf.EXPECTED, allow_missing=True)
     assert problems == [], "\n".join(problems)
 
 
+def test_committed_profiles_name_corpus_files(conf):
+    base = [*conf.load_vendored(), *conf.load_external()]
+    extra = conf.with_profiles(base)[len(base) :]
+    assert extra, "corpus.toml [profiles] is empty"
+    for entry in extra:
+        key, _, profile = entry.key.rpartition("@")
+        assert entry.diggs_version == profile
+        assert entry.path == next(e.path for e in base if e.key == key)
+
+
 # --- manifest validation ----------------------------------------------------------------
+
+
+def test_with_profiles_adds_one_entry_per_profile(conf, tmp_path):
+    base = _small_corpus(conf)
+    key = base[0].key
+    corpus = _manifest(tmp_path, f'[profiles]\n"{key}" = ["3.1-dev", "2.6"]\n')
+    entries = conf.with_profiles(base, corpus)
+    assert entries[: len(base)] == base
+    extra = entries[len(base) :]
+    assert [(e.key, e.diggs_version) for e in extra] == [
+        (f"{key}@3.1-dev", "3.1-dev"),
+        (f"{key}@2.6", "2.6"),
+    ]
+    assert {e.path for e in extra} == {base[0].path}
+    assert conf.with_profiles(base, _manifest(tmp_path, "")) == base
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        '[profiles]\n"official/nope.xml" = ["3.1-dev"]\n',  # not a corpus file
+        '[profiles]\n"{key}" = []\n',
+        '[profiles]\n"{key}" = "3.1-dev"\n',
+        '[profiles]\n"{key}" = ["../x"]\n',
+        '[profiles]\n"{key}" = [3]\n',
+        'profiles = "3.1-dev"\n',
+    ],
+)
+def test_with_profiles_rejects_bad_tables(conf, tmp_path, body):
+    base = _small_corpus(conf)
+    corpus = _manifest(tmp_path, body.replace("{key}", base[0].key))
+    with pytest.raises(conf.ManifestError):
+        conf.with_profiles(base, corpus)
 
 
 def test_load_external_builds_pinned_url(conf, tmp_path):

@@ -4,6 +4,8 @@ pyDIGGS validates DIGGS instance files offline against:
 
 1. **XSD schema**: the bundled DIGGS **2.5.a**, **2.6** or **3.0.0** schema, chosen from
    the file's namespace (`detect_diggs_version`). Unknown namespaces use **3.0.0**.
+   The unreleased DIGGS 3.1 draft is available as the
+   [experimental `3.1-dev` profile](#experimental-diggs-31-dev), only when asked for.
 2. **Dictionary and codeSpace semantics**: progressive checks aligned with
    [DIGGSml/validation](https://github.com/DIGGSml/validation) (steps 1–13), against
    the bundled DIGGS Standard dictionaries from [diggsml.org/def](https://diggsml.org/def/).
@@ -11,6 +13,40 @@ pyDIGGS validates DIGGS instance files offline against:
    Geosetta unit API is replaced by an offline conversion for casing diameters.
 4. **Context**: document structure, geometry SRS attributes, in-document `xlink:href`
    targets and dataBlock arity.
+
+## Experimental: DIGGS 3.1-dev
+
+pyDIGGS also bundles the **unreleased** DIGGS 3.1 draft schema, from
+[DIGGSml/schema-dev](https://github.com/DIGGSml/schema-dev) branch `3.1-dev`, pinned to
+one commit (see `PROVENANCE.toml`). Use it to check files written against the draft,
+such as the DIGGS File Inspector's test files:
+
+=== "Python"
+
+    ```python
+    import pydiggs
+
+    report = pydiggs.validate("SF_Project_Lith_Test.xml", diggs_version="3.1-dev")
+    ```
+
+=== "Command line"
+
+    ```bash
+    pydiggs validate SF_Project_Lith_Test.xml --diggs-version 3.1-dev
+    ```
+
+The profile is experimental:
+
+* It is used **only when you name it**. The 3.1 draft uses the same namespace as 3.0, so
+  a file is never detected as 3.1-dev, and the default stays 3.0.0.
+* Every report checked against it carries a `schema.unreleased-profile` warning, so a
+  pass reads `valid-with-warnings`: passing a draft schema is not conformance to a
+  released DIGGS version.
+* The draft changes upstream. pyDIGGS updates its pinned copy in minor releases, so the
+  same file can get different findings after an upgrade. When DIGGS 3.1 is released,
+  it becomes a normal, detected profile and `3.1-dev` is deprecated.
+* Dictionary, Schematron and context checks are the same as for 3.0.0; only the schema
+  (and which deprecations apply) differ.
 
 ## Two ways to run them
 

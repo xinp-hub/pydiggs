@@ -188,7 +188,7 @@ def test_multipart_names_and_parameters(client):
     refused = post(params={"diggs_version": "9.9"}, data_fields={"diggs_version": "2.6"})
     body = _problem(refused, 422, "invalid-parameter")
     assert body["errors"] == [
-        {"parameter": "diggs_version", "problem": "expected one of 2.5.a, 2.6, 3.0.0"}
+        {"parameter": "diggs_version", "problem": "expected one of 2.5.a, 2.6, 3.0.0, 3.1-dev"}
     ]
 
 

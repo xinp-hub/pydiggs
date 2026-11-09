@@ -20,16 +20,24 @@ note = "DIGGS File Inspector test files: large, real-world-shaped DIGGS 3.x docu
 path = "InspectorTestFile.xml"
 sha256 = "f0d78a57fba96a5306f2d2ad02a853d9a9ec244f56b3d842a5211b77d21636bd"
 size = 6574505
-note = "Full-coverage Inspector test document; targets the 3.1-dev schema"
+note = "Full-coverage Inspector test document; declares the 3.0.0 schema"
 
 [files."inspector/SF_Project_Lith_Test.xml"]
 path = "SF_Project_Lith_Test.xml"
 sha256 = "fb852385fc55df73addb22b4b7d9707ecb58a48ea40851a2472c01f86a512b83"
 size = 1324822
-note = "Sampling features, projects and lithology; targets the 3.1-dev schema"
+note = "Sampling features, projects and lithology; declares the 3.1-dev (schema-dev) schema"
 
 [files."inspector/SeismicConeExample.xml"]
 path = "SeismicConeExample.xml"
 sha256 = "1337f0fa4ed2dc1a1dc64df1c310b09de9057e4024dcbc4b1e8a3fe805fc5878"
 size = 24590
 note = "Seismic cone (shear wave velocity); also a DXplorer e2e fixture"
+
+# Corpus files also checked under another DIGGS profile. Each is recorded in
+# expected.toml as "<key>@<profile>", next to the outcome under the detected profile.
+# 3.1-dev is experimental and never detected: these are the files written against the
+# DIGGS 3.1 draft (DIGGSml/schema-dev branch 3.1-dev).
+[profiles]
+"inspector/SF_Project_Lith_Test.xml" = ["3.1-dev"]
+"official/known_invalid/3.0_PileDrivingExample_schema-dev.xml" = ["3.1-dev"]
