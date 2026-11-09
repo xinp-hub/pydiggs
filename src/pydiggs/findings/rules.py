@@ -94,6 +94,11 @@ CONTEXT_RULES: Final[dict[int, tuple[Step, str]]] = {
     101: (Step.GEOMETRY, "geometry.srs-attributes"),
     102: (Step.CONTEXT, "context.xlink-href-resolves"),
     103: (Step.CONTEXT, "context.datablock-arity"),
+    # Adapted from the DIGGS File Inspector (pydiggs._geo_checks); validate() only.
+    104: (Step.GEOMETRY, "geometry.reported-depth-mismatch"),
+    105: (Step.GEOMETRY, "geometry.crs-axis-order-suspect"),
+    106: (Step.GEOMETRY, "geometry.crs-unresolvable"),
+    107: (Step.CONTEXT, "context.xlink-remote-unresolved"),
 }
 
 
@@ -258,6 +263,14 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     "geometry.srs-attributes": "Geometry should declare srsName and srsDimension",
     "context.xlink-href-resolves": "Local xlink:href does not resolve to a gml:id",
     "context.datablock-arity": "dataBlock tuple size does not match the Property count",
+    "geometry.reported-depth-mismatch": (
+        "Reported totalMeasuredDepth and centerLine length differ by more than 2 %"
+    ),
+    "geometry.crs-axis-order-suspect": (
+        "Geographic coordinates look like longitude, latitude (axes swapped)"
+    ),
+    "geometry.crs-unresolvable": "srsName names no recognised or in-file coordinate system",
+    "context.xlink-remote-unresolved": "xlink:href into another document, not fetched or checked",
     SCHEMATRON_CASING_UNITS: "Casing outside diameter must exceed inside diameter (any unit)",
     SCHEMATRON_CASING_NUMERIC: "Casing diameters must be numeric",
 }
@@ -403,6 +416,10 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     REMOVED: _ERROR,
     "context.xlink-href-resolves": _WARNING,
     "context.datablock-arity": _ERROR,
+    "geometry.reported-depth-mismatch": _WARNING,
+    "geometry.crs-axis-order-suspect": _WARNING,
+    "geometry.crs-unresolvable": _WARNING,
+    "context.xlink-remote-unresolved": _INFO,
 }
 #: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
 #: keeps them equal): only they can be ``incomplete``.

@@ -4,9 +4,9 @@
 ["inspector/InspectorTestFile.xml"]
 ok = false
 errors = 15
-warnings = 27
+warnings = 31
 error_rules = ["dictionary.5", "dictionary.6", "schema.cvc-datatype-valid.1.2.3"]
-warning_rules = ["context.xlink-href-resolves", "deprecation.deprecated", "dictionary.2", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "deprecation.deprecated", "dictionary.2", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["inspector/SF_Project_Lith_Test.xml"]
 ok = false
@@ -25,16 +25,16 @@ warning_rules = ["context.xlink-href-resolves", "deprecation.deprecated", "schem
 ["inspector/SeismicConeExample.xml"]
 ok = true
 errors = 0
-warnings = 2
+warnings = 5
 error_rules = []
-warning_rules = ["context.xlink-href-resolves"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-axis-order-suspect"]
 
 ["official/2.5.a/AtterbergExample.xml"]
 ok = true
 errors = 0
-warnings = 6
+warnings = 7
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "dictionary.2"]
+warning_rules = ["context.xlink-href-resolves", "dictionary.2", "geometry.crs-unresolvable"]
 
 ["official/2.5.a/LithoGrading.xml"]
 ok = true
@@ -46,23 +46,23 @@ warning_rules = ["geometry.srs-attributes"]
 ["official/2.5.a/ODOT_600304_20180702.xml"]
 ok = true
 errors = 0
-warnings = 44
+warnings = 70
 error_rules = []
-warning_rules = ["geometry.srs-attributes"]
+warning_rules = ["geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.5.a/ODOT_600339_20180702.xml"]
 ok = true
 errors = 0
-warnings = 82
+warnings = 113
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.5.a/ODOT_Example_2_20180702.xml"]
 ok = true
 errors = 0
-warnings = 157
+warnings = 234
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.5.a/PorePressureDissipation.xml"]
 ok = true
@@ -102,9 +102,9 @@ warning_rules = ["geometry.srs-attributes"]
 ["official/2.6/AtterbergExample-from25.xml"]
 ok = false
 errors = 2
-warnings = 1
+warnings = 2
 error_rules = ["dictionary.8"]
-warning_rules = ["context.xlink-href-resolves"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable"]
 
 ["official/2.6/CPT_and_PorePressureDissipation.xml"]
 ok = true
@@ -130,16 +130,16 @@ warning_rules = ["context.xlink-href-resolves", "dictionary.2", "geometry.srs-at
 ["official/2.6/DocumentationExample.xml"]
 ok = true
 errors = 0
-warnings = 36
+warnings = 38
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "dictionary.2", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "dictionary.2", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.6/FieldSurveyExample.xml"]
 ok = true
 errors = 0
-warnings = 18
+warnings = 19
 error_rules = []
-warning_rules = ["context.xlink-href-resolves"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable"]
 
 ["official/2.6/JetGroutingExample.xml"]
 ok = true
@@ -151,9 +151,9 @@ warning_rules = ["dictionary.2", "geometry.srs-attributes"]
 ["official/2.6/LabCompaction.xml"]
 ok = true
 errors = 0
-warnings = 3
+warnings = 4
 error_rules = []
-warning_rules = ["context.xlink-href-resolves"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable"]
 
 ["official/2.6/LithoGrading-from25.xml"]
 ok = true
@@ -165,30 +165,30 @@ warning_rules = ["geometry.srs-attributes"]
 ["official/2.6/LugeonTestExample.xml"]
 ok = true
 errors = 0
-warnings = 2
+warnings = 3
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.6/ODOT_600304_20180702-from25.xml"]
 ok = true
 errors = 0
-warnings = 44
+warnings = 70
 error_rules = []
-warning_rules = ["geometry.srs-attributes"]
+warning_rules = ["geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.6/ODOT_600339_20180702-from25.xml"]
 ok = true
 errors = 0
-warnings = 82
+warnings = 113
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.6/ODOT_Example_2_20180702-from25.xml"]
 ok = true
 errors = 0
-warnings = 157
+warnings = 234
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.6/PermeationGroutingExample.xml"]
 ok = true
@@ -207,9 +207,9 @@ warning_rules = ["geometry.srs-attributes"]
 ["official/2.6/PorePressureDissipationOnly.xml"]
 ok = true
 errors = 0
-warnings = 3
+warnings = 4
 error_rules = []
-warning_rules = ["context.xlink-href-resolves", "geometry.srs-attributes"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable", "geometry.srs-attributes"]
 
 ["official/2.6/RockGroutingExample.xml"]
 ok = true
@@ -249,16 +249,16 @@ warning_rules = ["geometry.srs-attributes"]
 ["official/3.0/Borehole-CPT_Example_Annotated.xml"]
 ok = true
 errors = 0
-warnings = 0
+warnings = 4
 error_rules = []
-warning_rules = []
+warning_rules = ["geometry.crs-axis-order-suspect"]
 
 ["official/3.0/GeophysicalFieldSurveyExamples.xml"]
 ok = true
 errors = 0
-warnings = 19
+warnings = 20
 error_rules = []
-warning_rules = ["context.xlink-href-resolves"]
+warning_rules = ["context.xlink-href-resolves", "geometry.crs-unresolvable"]
 
 ["official/3.0/MWDExample.xml"]
 ok = true
@@ -270,9 +270,9 @@ warning_rules = []
 ["official/3.0/Piezometer_Example.xml"]
 ok = true
 errors = 0
-warnings = 0
+warnings = 2
 error_rules = []
-warning_rules = []
+warning_rules = ["geometry.crs-unresolvable"]
 
 ["official/3.0/PorePressureDissipation_Example.xml"]
 ok = false

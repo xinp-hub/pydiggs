@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   against it carry a new `schema.unreleased-profile` warning.
 - The conformance corpus checks the DIGGS File Inspector's 3.1 draft file against the
   `3.1-dev` profile.
+- Four checks adapted from the DIGGS File Inspector, in `validate()` findings:
+  `geometry.reported-depth-mismatch` (a `totalMeasuredDepth` more than 2 % off its
+  `centerLine` length, when the file states its axis units),
+  `geometry.crs-axis-order-suspect` (geographic coordinates that look like longitude,
+  latitude), `geometry.crs-unresolvable` (an `srsName` that is not a recognised EPSG or
+  DIGGS reference nor an element in the file) and `context.xlink-remote-unresolved`
+  (info: a link into another document, which pyDIGGS does not fetch). The legacy
+  `context_check` output does not change.
 
 ### Changed
 - `version_info().diggs_versions` and the `diggs_version` choices on every surface

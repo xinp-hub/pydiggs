@@ -103,6 +103,10 @@ def validate_context_tree(
         _check_datablocks(root, result)
     else:
         _check_datablocks_linear(root, result)
+        # Inspector-derived checks: validate() findings only; legacy output is unchanged.
+        from pydiggs._geo_checks import run_geo_checks  # noqa: PLC0415 - keeps import light
+
+        run_geo_checks(root, result)
     result._positions = None  # do not keep a map of the whole tree in the result
     return result
 

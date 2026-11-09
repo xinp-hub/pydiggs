@@ -353,6 +353,10 @@ Rule ids are part of the stable contract.
 | `deprecation.removed` | error | Uses something the DIGGS schema has removed |
 | `context.xlink-href-resolves` | warning | A local `xlink:href="#id"` matches no `gml:id` |
 | `context.datablock-arity` | error | A `dataBlock` tuple has a different number of values than `Property` declarations |
+| `geometry.reported-depth-mismatch` | warning | A feature's `totalMeasuredDepth` and the length of its `centerLine` differ by more than 2 % (and more than 5 cm), the DIGGS File Inspector's tolerance. Checked only when the file states the axis units itself (`uomLabels`, or the axes of a `LocalCartesianCRS` it defines); otherwise skipped |
+| `geometry.crs-axis-order-suspect` | warning | Coordinates in a geographic CRS (EPSG:4326, 4269, 4979 and other common ones) whose first value cannot be a latitude (absolute value over 90): the axes look swapped to longitude, latitude. A negative first value alone is not flagged, so southern- and western-hemisphere sites are fine |
+| `geometry.crs-unresolvable` | warning | An `srsName` that is neither a recognised EPSG or DIGGS CRS reference (the forms the Inspector recognises: `urn:ogc:def:crs:EPSG::4326`, compound URNs and `crs-compound` URLs, `opengis.net/def/crs/EPSG/0/…`, `epsg.xml#…`, `#4326`, `urn:diggs:def:crs:DIGGS:0.1:…`, `diggsml.org/def/crs/…`) nor the `gml:id` of an element in the file. Once per distinct value, with its number of uses |
+| `context.xlink-remote-unresolved` | info | An `xlink:href` into another document. pyDIGGS never fetches it, so what it points at was not checked. Once per document; links to DIGGS code lists (`diggsml.org/def/codes/`) are left to the dictionary step |
 
 `rule_catalogue()` returns this table as data (`RuleInfo` objects: fixed ids, then the
 open families with a `pattern`), and `explain_rule(rule_id)` describes one id; a
