@@ -47,6 +47,25 @@ jobs:
         with:
           python-version: "3.11"
           enable-cache: false
+      # A release tag must be annotated and signed (git tag -s) by a key listed in
+      # .github/release-signers, which changes only through a reviewed PR. A lightweight,
+      # unsigned or unknown-key tag stops the release before anything is built.
+      - name: Verify the tag is signed by a release key
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "+refs/tags/${TAG}:refs/tags/${TAG}"
+          if [ "$(git cat-file -t "refs/tags/${TAG}")" != "tag" ]; then
+            echo "::error::${TAG} is a lightweight tag; release tags must be signed (git tag -s)"
+            exit 1
+          fi
+          if ! git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=.github/release-signers \
+              verify-tag "${TAG}"; then
+            echo "::error::${TAG} is not signed by a key in .github/release-signers (git tag -s)"
+            exit 1
+          fi
       - id: check
         name: Tag, __init__, CHANGELOG, and PyPI presence
         run: |
