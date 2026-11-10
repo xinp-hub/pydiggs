@@ -44,8 +44,18 @@ jobs:
     timeout-minutes: 5
     environment: newsletter
     steps:
+      # The script runs from the default branch (trusted code)...
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          persist-credentials: false
+      # ...and reads the changelog exactly as it was at the release, as data only: the
+      # commit the Release run built, or the tag for a manual run.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || format('refs/tags/{0}', inputs.tag) }}
+          path: release
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
           persist-credentials: false
       - name: Create the draft
         env:
@@ -58,4 +68,4 @@ jobs:
             echo "::notice::BUTTONDOWN_API_KEY is not set in the newsletter environment; no draft created"
             exit 0
           fi
-          python3 .github/scripts/newsletter_draft.py "$TAG" $FORCE
+          python3 .github/scripts/newsletter_draft.py "$TAG" $FORCE --changelog release/CHANGELOG.md

@@ -59,12 +59,44 @@ def release_notes(changelog: str, version: str) -> str:
     raise LookupError(msg)
 
 
+#: A Markdown inline link or image: ``[text](target)`` or ``[text](target "title")``.
+_LINK = re.compile(r"(!?\[[^\]]*\]\()([^)\s]+)((?:\s+\"[^\"]*\")?\))")
+_ABSOLUTE = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*:|#|//")
+
+
+def absolute_url(target: str, version: str) -> str:
+    """Return ``target`` from the changelog as a URL that works in an email.
+
+    ``docs/<page>.md`` becomes the page on the documentation site; any other relative
+    path becomes the file in the repository at the release tag. URLs, anchors and
+    protocol-relative links are returned unchanged.
+    """
+    if _ABSOLUTE.match(target):
+        return target
+    path, _, anchor = target.partition("#")
+    path = path.removeprefix("./")
+    fragment = f"#{anchor}" if anchor else ""
+    if path.startswith("docs/") and path.endswith(".md"):
+        page = path.removeprefix("docs/").removesuffix(".md")
+        page = "" if page == "index" else f"{page.removesuffix('/index')}/"
+        return f"{DOCS}{page}{fragment}"
+    return f"{REPO}/blob/v{version}/{path}{fragment}"
+
+
+def absolute_links(notes: str, version: str) -> str:
+    """Rewrite every relative Markdown link in ``notes`` with :func:`absolute_url`."""
+    return _LINK.sub(
+        lambda m: f"{m[1]}{absolute_url(m[2], version)}{m[3]}",
+        notes,
+    )
+
+
 def build_email(version: str, notes: str) -> dict[str, str]:
     """Return the Buttondown request body for a draft announcing ``version``."""
     body = (
         f"pyDIGGS {version} is on PyPI. Upgrade with "
         f"`pip install --upgrade pydiggs=={version}`.\n\n"
-        f"{notes}\n\n"
+        f"{absolute_links(notes, version)}\n\n"
         "---\n\n"
         f"Release notes: {REPO}/releases/tag/v{version}  \n"
         f"Documentation: {DOCS}  \n"

@@ -133,6 +133,39 @@ def test_email_is_always_a_draft(draft: ModuleType) -> None:
     assert "releases/tag/v1.6.0" in email["body"]
 
 
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        ("docs/http-api.md", "https://xinp-hub.github.io/pydiggs/http-api/"),
+        ("docs/usage.md#schema", "https://xinp-hub.github.io/pydiggs/usage/#schema"),
+        ("docs/index.md", "https://xinp-hub.github.io/pydiggs/"),
+        ("./SECURITY.md", "https://github.com/xinp-hub/pydiggs/blob/v1.6.0/SECURITY.md"),
+        (
+            "examples/browser-worker",
+            "https://github.com/xinp-hub/pydiggs/blob/v1.6.0/examples/browser-worker",
+        ),
+        ("https://pypi.org/project/pydiggs/", "https://pypi.org/project/pydiggs/"),
+        ("mailto:a@example.org", "mailto:a@example.org"),
+        ("#added", "#added"),
+    ],
+)
+def test_absolute_url(draft: ModuleType, target: str, expected: str) -> None:
+    assert draft.absolute_url(target, "1.6.0") == expected
+
+
+def test_email_has_no_relative_links(draft: ModuleType) -> None:
+    notes = (
+        "- See [HTTP API](docs/http-api.md) and [Stdio sidecar](docs/sidecar.md).\n"
+        '- The [policy](SECURITY.md "Security") and [PyPI](https://pypi.org/).'
+    )
+    body = draft.build_email("1.6.0", notes)["body"]
+    assert "[HTTP API](https://xinp-hub.github.io/pydiggs/http-api/)" in body
+    assert "[Stdio sidecar](https://xinp-hub.github.io/pydiggs/sidecar/)" in body
+    assert '(https://github.com/xinp-hub/pydiggs/blob/v1.6.0/SECURITY.md "Security")' in body
+    assert "[PyPI](https://pypi.org/)" in body
+    assert "](docs/" not in body
+
+
 def test_patch_and_pre_releases_are_skipped(
     draft: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -172,3 +205,6 @@ def test_workflow_never_sends_and_keeps_the_secret_in_an_environment() -> None:
     assert "persist-credentials: false" in text
     assert "--dry-run" not in text
     assert "send-draft" not in text
+    # The changelog comes from the release commit, not the default branch.
+    assert "github.event.workflow_run.head_sha" in text
+    assert "--changelog release/CHANGELOG.md" in text
