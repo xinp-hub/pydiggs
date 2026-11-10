@@ -173,8 +173,10 @@ directly:
 ```python
 from pydiggs import crs
 
-crs.epsg(2272)  # CrsComponent(name='NAD83 / Pennsylvania South (ftUS)', type='projected',
-                #              unit='US survey foot', axis_order='east,north', …)
+projected = crs.epsg(2272)
+projected.name  # 'NAD83 / Pennsylvania South (ftUS)'
+projected.unit  # 'US survey foot'
+projected.axis_order  # 'east,north'
 crs.parse("urn:ogc:def:crs:EPSG::5498").vertical.name  # 'NAVD88 height'
 ```
 
