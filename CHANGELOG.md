@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Read API (preview):** `pydiggs.preview.read(path)` and `read_bytes(data)` read a
+  DIGGS 2.5.a, 2.6 or 3.x file into a `Model` (diggs-model 1.0-beta.1): features,
+  sampling activities, samples, lithology layers, measurements with every result table
+  as typed columns, links between them, a CRS table, and notes on what reading had to
+  work around. Files are parsed one top-level member at a time, nothing is fetched, and
+  `Model.to_json()` is deterministic and round-trips through `Model.from_json()`. The
+  node and value classes are in `pydiggs.model`, the schema in
+  `pydiggs.model.model_schema()` and on the docs site. Preview: names may change before
+  1.7.0 freezes diggs-model 1.0.
+- `pydiggs.errors.DocumentError` (a `ValueError`): raised by the read API when the bytes
+  are not a DIGGS document at all.
+- Rule `structure.value-unparsed` (info), used by read notes.
+
 ## [1.5.0] - 2026-11-09
 
 ### Added

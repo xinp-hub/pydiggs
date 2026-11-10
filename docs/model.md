@@ -1,46 +1,57 @@
-# Reading DIGGS files (draft)
+# Reading DIGGS files (preview)
 
-!!! warning "Draft: not in any release yet"
-    This page describes **diggs-model**, the data model the pyDIGGS read API will return.
-    It is published early so that people who build on DIGGS files can review it before
-    it is frozen. Nothing on this page works yet:
+!!! warning "Preview: may change before 1.7.0"
+    The read API is in **pyDIGGS 1.6** as `pydiggs.preview`, outside the stability
+    promise. It returns **diggs-model 1.0-beta.1**; field names may still change.
 
-    - **1.6.0** adds the read API as `pydiggs.preview`, outside the stability promise,
-      with the schema at `1.0-beta.N`.
     - **1.7.0** freezes **diggs-model 1.0** and adds `pydiggs.read()`, HTTP and sidecar
-      `read`.
+      `read`, and the `[frames]`, `[polars]` and `[gis]` extras.
     - **1.8.0** adds MCP read tools.
 
-    Field names may change until 1.7.0. Comments are welcome as
-    [GitHub issues](https://github.com/xinp-hub/pydiggs/issues).
+    Comments are welcome as [GitHub issues](https://github.com/xinp-hub/pydiggs/issues).
 
-`pydiggs.validate()` tells you whether a file is correct. The read API will give you
-what is *in* the file: boreholes, samples, tests and their result tables. It will return
-the same shape for DIGGS 2.5.a, 2.6 and 3.x, as Python objects and as JSON.
+`pydiggs.validate()` tells you whether a file is correct. The read API gives you what is
+*in* the file: boreholes, samples, tests and their result tables, in the same shape for
+DIGGS 2.5.a, 2.6 and 3.x, as Python objects and as JSON.
 
-- **Draft JSON Schema:**
-  [`schemas/preview/diggs-model-1.0-draft.schema.json`](schemas/preview/diggs-model-1.0-draft.schema.json)
-- **Example document:**
+- **JSON Schema:**
+  [`schemas/preview/diggs-model-1.0-beta.1.schema.json`](schemas/preview/diggs-model-1.0-beta.1.schema.json)
+  (also `pydiggs.model.model_schema()`)
+- **Example document** (from the draft):
   [`schemas/preview/diggs-model-1.0-draft.example.json`](schemas/preview/diggs-model-1.0-draft.example.json)
-  (one borehole, one SPT, a link and a note)
 
-## What reading will look like
+## Reading a file
 
 ```python
-import pydiggs.preview as pd  # 1.6.0; pydiggs.read from 1.7.0
+from pydiggs import preview
 
-m = pd.read("site.xml")
+m = preview.read("site.xml")  # or preview.read_bytes(data, name="site.xml")
 for f in m.features:
-    print(f.key, f.kind, f.name, f.total_depth)  # BH-01 borehole BH-01 15.2 m
+    print(f.key, f.kind, f.name, f.total_depth)  # B-01 borehole B-01 Quantity(text='160.00', …)
 
-bh = m.get("BH-01")
+bh = m.get("Location_B-01")
 for test in m.related(bh, relation="samplingFeature", direction="in"):
-    table = test.results[0]
-    n = table.column("spt_n_value")  # find columns by dictionary key
-    print(test.procedure.type, n.values)
+    for table in getattr(test, "results", ()):
+        n = table.column("n_value")  # find columns by dictionary key
+        if n is not None:
+            print(test.procedure.type, n.values)
 
-text = m.to_json()  # a diggs-model document; the same bytes on every surface
+text = m.to_json()  # a diggs-model document; the same model always gives the same bytes
+again = preview.Model.from_json(text)  # == m
 ```
+
+`read(path, *, diggs_version=None, results=True, max_bytes=100 MiB, time_budget=None)`:
+
+- **`results=False`** keeps every table's columns and `row_count` but no values: a quick
+  inventory of a large file.
+- **`time_budget`** (seconds) returns what was read so far, with `complete=False`, when
+  time runs out.
+- **Errors:** `InstanceReadError` when the file cannot be read (as for `validate`);
+  `DocumentError` (a `ValueError`) when the bytes are not a DIGGS document at all, with
+  `kind` `malformed`, `not-diggs` or `unsafe-entity` and the matching `structure.*`
+  finding. Everything else becomes a note.
+- Nothing is fetched from the network, and the file is parsed one top-level member at a
+  time, so memory stays close to the file's size.
 
 ## Principles
 
@@ -65,7 +76,7 @@ A diggs-model document is one JSON object:
 
 | Field | What it holds |
 | --- | --- |
-| `schema_version` | `1.0-draft` now, `1.0-beta.N` in 1.6.x, `1.0` from 1.7.0 |
+| `schema_version` | `1.0-beta.1` in 1.6.0, `1.0` from 1.7.0 (the R0 draft was `1.0-draft`) |
 | `tool`, `source` | pyDIGGS version; file name, sha256, size, DIGGS version and namespace |
 | `complete`, `limits_hit` | `false` and the limit's name when a limit stopped reading |
 | `document`, `projects`, `associates` | Document information, projects, business associates |
@@ -102,7 +113,7 @@ Notes use rule ids that `validate()` already reports, so one explanation covers 
 | An `srsName` that is not a known CRS or an id in the file | `geometry.crs-unresolvable` |
 | Coordinates that look like longitude first | `geometry.crs-axis-order-suspect` |
 | A link into another file | `context.xlink-remote-unresolved` |
-| A value that is not a number where one is expected | `structure.value-unparsed` (new) |
+| A value that is not a number where one is expected | `structure.value-unparsed` |
 | A result row longer or shorter than its columns | `context.datablock-arity` |
 | A time limit stopped reading | `structure.timeout` |
 
@@ -136,6 +147,26 @@ means header, links, location and result tables, with the rest in `extra`.
 | Sampling activities and samples | Typed |
 | SPT, CPT, Atterberg limits, particle size, water level | Typed parameters and tables |
 | Every other test | Generic table, parameters in `extra` |
+
+### What 1.0-beta.1 (pyDIGGS 1.6.0) reads today
+
+- Every top-level member, with its header, links and `extra`; nothing is dropped.
+- Features: `location`, `centerline`, `total_depth` (with SI value) and `lrs`.
+- Sampling activities and samples: their depth `interval`.
+- Lithology systems: one layer per `LithologyObservation`, with `interval`,
+  description and classification codes.
+- Measurements: the procedure's type and its simple parameters (the rest in the
+  procedure's `extra`), and **every result table**, for every procedure, with typed
+  columns, dictionary keys and SI factors. Construction activities keep their result
+  tables too (in `others`).
+- Links, resolved to the node that holds the referenced element, and the `feature`,
+  `samples`, `sampling_activity` and `specimen` shortcuts built from them.
+- A CRS table (`crs`): each `srsName`, its form and EPSG codes, and `geographic`
+  latitude and longitude for the common geographic CRSs.
+
+Coming in the 1.6.x betas: typed construction and water strikes, a well's parent hole,
+typed parameters for SPT, CPT, Atterberg and particle-size tests, CRS names, units and
+datums from a bundled EPSG subset, and table index columns.
 
 ## Checking a reader
 

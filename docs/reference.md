@@ -19,6 +19,19 @@ major release, after a deprecation warning.
 
 ::: pydiggs.warm_up
 
+## Read (preview)
+
+The read API is a preview in 1.6: import it from `pydiggs.preview`; it is outside the
+stability promise until 1.7.0 (see [Reading files](model.md)).
+
+::: pydiggs.preview.read
+
+::: pydiggs.preview.read_bytes
+
+::: pydiggs.model.Model
+
+::: pydiggs.errors.DocumentError
+
 ## Results
 
 ::: pydiggs.Report

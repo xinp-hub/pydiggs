@@ -7,7 +7,7 @@ exception means the check could not be run at all.
 
 from __future__ import annotations
 
-__all__ = ["InstanceReadError", "PydiggsError", "ResourceError"]
+__all__ = ["DocumentError", "InstanceReadError", "PydiggsError", "ResourceError"]
 
 
 class PydiggsError(Exception):
@@ -47,3 +47,19 @@ class ResourceError(PydiggsError):
         ...     print("schema" in str(exc))
         True
     """
+
+
+class DocumentError(PydiggsError, ValueError):
+    """The bytes are not a readable DIGGS document (raised by the read API only).
+
+    ``kind`` says why: ``malformed`` (not well-formed XML), ``not-diggs`` (the root is
+    not a DIGGS ``Diggs`` element) or ``unsafe-entity`` (the internal DTD declares an
+    entity whose value contains markup). ``finding`` is the same ``structure.*`` finding
+    :func:`pydiggs.validate` reports for that file. It is also a :class:`ValueError`.
+    """
+
+    def __init__(self, kind: str, message: str, finding: object = None) -> None:
+        """Record ``kind`` and the matching ``finding``."""
+        super().__init__(message)
+        self.kind = kind
+        self.finding = finding

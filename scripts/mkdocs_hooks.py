@@ -2,7 +2,8 @@
 
 - the diggs-findings JSON Schema, at the path its ``$id`` names;
 - the HTTP API's OpenAPI 3.1 document (``pydiggs/server/openapi.json``);
-- the stdio sidecar's OpenRPC 1.3 document (``pydiggs/sidecar/openrpc.json``).
+- the stdio sidecar's OpenRPC 1.3 document (``pydiggs/sidecar/openrpc.json``);
+- the diggs-model (read API) JSON Schema, at the path its ``$id`` names.
 
 Each is copied byte for byte from the package at build time, so the published file can
 never drift from the one in the wheel (``tests/test_docs_schema.py``).
@@ -21,11 +22,13 @@ SCHEMA = PACKAGE / "findings" / "diggs-findings-1.0.schema.json"
 PUBLISHED = Path("schemas") / SCHEMA.name
 OPENAPI = PACKAGE / "server" / "openapi.json"
 OPENRPC = PACKAGE / "sidecar" / "openrpc.json"
+MODEL = PACKAGE / "model" / "diggs-model-1.0-beta.1.schema.json"
 #: Every published document: packaged source -> path under the site root.
 DOCUMENTS: dict[Path, Path] = {
     SCHEMA: PUBLISHED,
     OPENAPI: Path("schemas") / "openapi.json",
     OPENRPC: Path("schemas") / "openrpc.json",
+    MODEL: Path("schemas") / "preview" / MODEL.name,
 }
 
 

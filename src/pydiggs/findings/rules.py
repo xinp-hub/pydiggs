@@ -42,6 +42,7 @@ __all__ = [
     "SCHEMA_INCOMPLETE",
     "TIMEOUT",
     "UNRELEASED_PROFILE",
+    "VALUE_UNPARSED",
     "WELL_FORMED",
     "RuleInfo",
     "describe",
@@ -77,6 +78,9 @@ FINDINGS_TRUNCATED: Final = TRUNCATED_RULE
 #: Validation ran out of time: ``pydiggs validate --timeout`` stopped the file's worker,
 #: or the ``time_budget`` of validate() / validate_bytes() ran out.
 TIMEOUT: Final = "structure.timeout"
+#: Reading (pydiggs.preview.read): a value that should be a number is not one; it is kept
+#: as text and read as null.
+VALUE_UNPARSED: Final = "structure.value-unparsed"
 #: pydiggs validate caught an unexpected error for one file (the batch went on).
 INTERNAL_ERROR: Final = "structure.internal-error"
 SCHEMA_INCOMPLETE: Final = "schema.incomplete"
@@ -253,6 +257,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     NAMESPACE_TOO_LONG: "A namespace URI is longer than 1,024 characters",
     FINDINGS_TRUNCATED: "More findings than max_findings; the rest were not reported",
     TIMEOUT: "Validation did not finish within its time limit",
+    VALUE_UNPARSED: "A value that should be a number is not one (read API note)",
     INTERNAL_ERROR: "Validation failed with an unexpected error",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
     UNRELEASED_PROFILE: "Checked against an unreleased DIGGS schema (experimental profile)",
@@ -391,6 +396,7 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     ENTITY_EXPANSION: _ERROR,
     NAMESPACE_TOO_LONG: _ERROR,
     TIMEOUT: _ERROR,
+    VALUE_UNPARSED: _INFO,
     INTERNAL_ERROR: _ERROR,
     UNRELEASED_PROFILE: _WARNING,
     FINDINGS_TRUNCATED: _ANY,  # as severe as the worst finding it stands for

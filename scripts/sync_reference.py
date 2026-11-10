@@ -146,6 +146,10 @@ PACKAGE_LOCAL = {
         "reviewed here rather than synced (DIGGSml/def docs/validation/whiteList.xml is "
         "the upstream starting point)."
     ),
+    "model/diggs-model-1.0-beta.1.schema.json": (
+        "The diggs-model JSON Schema (read API, preview): pyDIGGS's own output contract, "
+        "kept equal to the model classes by tests/test_read_preview.py."
+    ),
     "server/openapi.json": (
         "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
     ),
