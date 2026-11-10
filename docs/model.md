@@ -1,12 +1,10 @@
-# Reading DIGGS files (preview)
+# Reading DIGGS files
 
-!!! warning "Preview: may change before 1.7.0"
-    The read API is in **pyDIGGS 1.6** as `pydiggs.preview`, outside the stability
-    promise. It returns **diggs-model 1.0-beta.2**; field names may still change.
-
-    - **1.7.0** freezes **diggs-model 1.0** and adds `pydiggs.read()`, HTTP and sidecar
-      `read`, and the `[frames]`, `[polars]` and `[gis]` extras.
-    - **1.8.0** adds MCP read tools.
+!!! info "Stable from pyDIGGS 1.7.0"
+    `pydiggs.read()` returns **diggs-model 1.0**, which changes only as described under
+    [Versioning](#versioning). pyDIGGS 1.6 had the same API as a preview in
+    `pydiggs.preview`; that module still works, with a `DeprecationWarning`, until 2.0.
+    MCP read tools follow in 1.8.0.
 
     Comments are welcome as [GitHub issues](https://github.com/xinp-hub/pydiggs/issues).
 
@@ -15,19 +13,19 @@
 DIGGS 2.5.a, 2.6 and 3.x, as Python objects and as JSON.
 
 - **JSON Schema:**
-  [`schemas/preview/diggs-model-1.0-beta.2.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.2.schema.json)
-  (also `pydiggs.model.model_schema()`). The first beta,
-  [`1.0-beta.1`](schemas/preview/diggs-model-1.0-beta.1.schema.json), stays published but
-  is no longer written.
+  [`schemas/diggs-model-1.0.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json)
+  (also `pydiggs.model_schema()`). The betas pyDIGGS 1.6 wrote,
+  [`1.0-beta.1`](schemas/preview/diggs-model-1.0-beta.1.schema.json) and
+  [`1.0-beta.2`](schemas/preview/diggs-model-1.0-beta.2.schema.json), stay published.
 - **Example document** (from the draft):
   [`schemas/preview/diggs-model-1.0-draft.example.json`](schemas/preview/diggs-model-1.0-draft.example.json)
 
 ## Reading a file
 
 ```python
-from pydiggs import preview
+import pydiggs
 
-m = preview.read("site.xml")  # or preview.read_bytes(data, name="site.xml")
+m = pydiggs.read("site.xml")  # or pydiggs.read_bytes(data, name="site.xml")
 for f in m.features:
     print(f.key, f.kind, f.name, f.total_depth)  # B-01 borehole B-01 Quantity(text='160.00', …)
 
@@ -44,13 +42,18 @@ for test in m.related(bh, relation="samplingFeature", direction="in"):
             print(n.values)
 
 text = m.to_json()  # a diggs-model document; the same model always gives the same bytes
-again = preview.Model.from_json(text)  # == m
+again = pydiggs.Model.from_json(text)  # == m
 ```
 
-`read(path, *, diggs_version=None, results=True, max_bytes=100 MiB, time_budget=None)`:
+`read(path, *, diggs_version=None, results=True, provenance="object", max_bytes=100 MiB,
+time_budget=None)`:
 
 - **`results=False`** keeps every table's columns and `row_count` but no values: a quick
   inventory of a large file.
+- **`provenance="field"`** also records where each value came from: every node's
+  `provenance.fields` maps the element a value was read from (its local name, `name[2]`
+  for a second one) to its xpath relative to the node and its line. It makes the JSON
+  larger, so it is off by default; every node always has its own `xpath` and `line`.
 - **`time_budget`** (seconds) returns what was read so far, with `complete=False`, when
   time runs out.
 - **Errors:** `InstanceReadError` when the file cannot be read (as for `validate`);
@@ -83,7 +86,7 @@ A diggs-model document is one JSON object:
 
 | Field | What it holds |
 | --- | --- |
-| `schema_version` | `1.0-beta.2` in 1.6.0, `1.0` from 1.7.0 (the R0 draft was `1.0-draft`) |
+| `schema_version` | `1.0` (pyDIGGS 1.7 and later; 1.6.0 wrote `1.0-beta.2`) |
 | `tool`, `source` | pyDIGGS version; file name, sha256, size, DIGGS version and namespace |
 | `complete`, `limits_hit` | `false` and the limit's name when a limit stopped reading |
 | `document`, `projects`, `associates` | Document information, projects, business associates |
@@ -160,6 +163,7 @@ Notes use rule ids that `validate()` already reports, so one explanation covers 
 | Coordinates that look like longitude first | `geometry.crs-axis-order-suspect` |
 | A link into another file | `context.xlink-remote-unresolved` |
 | A value that is not a number where one is expected | `structure.value-unparsed` |
+| Two or more elements with the same `gml:id` | `structure.duplicate-gml-id` |
 | A result row longer or shorter than its columns | `context.datablock-arity` |
 | A time limit stopped reading | `structure.timeout` |
 
@@ -191,9 +195,9 @@ crs.parse("urn:ogc:def:crs:EPSG::5498").vertical.name  # 'NAVD88 height'
   where latitude should be is read the other way round, with a note.
 - **Depths.** A borehole's depths are written as bare numbers along its linear
   referencing system (`srsName="#lsr-…"`). When that system states its `units` in the
-  file, intervals and index columns get that unit (and an SI value). Systems that refer
-  to the DIGGS registry for their method (`lrm.xml#md_ft`) are not looked up, so their
-  depths keep no unit.
+  file, or refers to a method in the DIGGS registry (`lrm.xml#md_ft`, `#md_m`,
+  `#core_top_down_cm` …, packaged with pyDIGGS), intervals and index columns get that
+  unit (and an SI value).
 - Nothing is transformed or fetched; use pyproj for that.
 
 The EPSG Dataset is owned by the International Association of Oil & Gas Producers
@@ -213,8 +217,8 @@ The EPSG Dataset is owned by the International Association of Oil & Gas Producer
 - **The published schema is open.** Objects accept unknown fields and vocabularies are
   listed as `examples`, not `enum`, so a consumer written for 1.0 accepts any 1.x
   document. pyDIGGS's own tests check its output against a closed variant.
-- Pre-release schemas live under `schemas/preview/` and may change between betas. The
-  frozen 1.0 schema will never be edited; fixes become 1.1.
+- The 1.0 schema is frozen and will never be edited; fixes become 1.1. The betas
+  remain under `schemas/preview/`.
 
 ## Coverage in 1.0
 
@@ -232,7 +236,7 @@ means header, links, location and result tables, with the rest in `extra`.
 | SPT, CPT, Atterberg limits, particle size, water level | Typed parameters and tables |
 | Every other test | Typed `params` and components, generic tables |
 
-### What 1.0-beta.2 (pyDIGGS 1.6.0) reads
+### What 1.0 reads
 
 - Every top-level member, with its header, `params`, links and `extra`; nothing is
   dropped.
@@ -254,10 +258,9 @@ means header, links, location and result tables, with the rest in `extra`.
   the id is inside one), and the `feature`, `samples`, `sampling_activity`, `specimen`
   and `parent` shortcuts built from them.
 - **CRS:** names, types, units, axis orders and datums from the EPSG subset; units of
-  in-file linear referencing systems.
-
-Planned before 1.7.0 freezes 1.0: units of depth systems that refer to the DIGGS
-registry, and field-level provenance (`provenance="field"`).
+  linear referencing systems, stated in the file or taken from the DIGGS registry.
+- **Provenance:** every node's `xpath` and line, and with `provenance="field"` where
+  each of its values was read.
 
 ## Checking a reader
 

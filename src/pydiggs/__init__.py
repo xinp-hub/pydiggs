@@ -10,9 +10,10 @@ For more information about DIGGS, visit: http://www.diggsml.org/
 
 from __future__ import annotations
 
+from ._reader import read, read_bytes
 from ._versions import VersionInfo, version_info
 from .detect import detect_diggs_version
-from .errors import InstanceReadError, PydiggsError, ResourceError
+from .errors import DocumentError, InstanceReadError, PydiggsError, ResourceError
 from .findings.export import (
     FINDINGS_SCHEMA_URL,
     FINDINGS_SCHEMA_VERSION,
@@ -23,6 +24,7 @@ from .findings.export import (
 from .findings.model import Finding, Report, Severity, Step
 from .findings.rules import RuleInfo, explain_rule, rule_catalogue
 from .findings.run import validate, validate_bytes, warm_up
+from .model import MODEL_SCHEMA_URL, MODEL_SCHEMA_VERSION, Model, model_schema
 from .pydiggs import validator
 
 __author__ = """Xin Peng"""
@@ -34,8 +36,12 @@ __version__ = "1.6.0"
 __all__ = [
     "FINDINGS_SCHEMA_URL",
     "FINDINGS_SCHEMA_VERSION",
+    "MODEL_SCHEMA_URL",
+    "MODEL_SCHEMA_VERSION",
+    "DocumentError",
     "Finding",
     "InstanceReadError",
+    "Model",
     "PydiggsError",
     "Report",
     "ResourceError",
@@ -48,6 +54,9 @@ __all__ = [
     "findings_document",
     "findings_json",
     "findings_schema",
+    "model_schema",
+    "read",
+    "read_bytes",
     "rule_catalogue",
     "validate",
     "validate_bytes",

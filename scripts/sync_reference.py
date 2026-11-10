@@ -125,6 +125,7 @@ PACKAGE_FILES = (
     ),
     FileRule("def", "docs/codes/DIGGS/0.1/properties.xml", "dictionaries/properties.xml"),
     FileRule("def", "docs/units/DiggsUomDictionary.xml", "dictionaries/DiggsUomDictionary.xml"),
+    FileRule("def", "docs/crs/DIGGS/0.1/lrm.xml", "crs/lrm.xml"),
 )
 
 # Package files maintained in this repository rather than synced. They are still
@@ -146,9 +147,9 @@ PACKAGE_LOCAL = {
         "reviewed here rather than synced (DIGGSml/def docs/validation/whiteList.xml is "
         "the upstream starting point)."
     ),
-    "model/diggs-model-1.0-beta.2.schema.json": (
-        "The diggs-model JSON Schema (read API, preview): pyDIGGS's own output contract, "
-        "kept equal to the model classes by tests/test_read_preview.py."
+    "model/diggs-model-1.0.schema.json": (
+        "The diggs-model JSON Schema (read API): pyDIGGS's own output contract, kept "
+        "equal to the model classes by tests/test_read_preview.py."
     ),
     "crs/epsg-subset.json": (
         "Facts about EPSG coordinate reference systems (name, type, axis order, unit, datum), "

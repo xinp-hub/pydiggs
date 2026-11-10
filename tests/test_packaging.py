@@ -31,8 +31,15 @@ def test_ships_py_typed_marker():
     assert resources.files(pkg).joinpath("py.typed").is_file()
 
 
+def _ruff_order(name: str) -> tuple[int, str]:
+    """ruff's RUF022 order: CONSTANTS, then Classes, then everything else."""
+    if name.isupper():
+        return (0, name)
+    return (1, name) if name[:1].isupper() else (2, name)
+
+
 def test_public_api_is_declared_and_importable():
-    assert pkg.__all__ == sorted(pkg.__all__), "__all__ should be sorted"
+    assert pkg.__all__ == sorted(pkg.__all__, key=_ruff_order), "__all__ should be sorted"
     for name in pkg.__all__:
         assert hasattr(pkg, name), f"{name} is exported but missing"
 

@@ -1,4 +1,4 @@
-"""Read DIGGS bytes into a :class:`~pydiggs.model.Model` (the preview read API).
+"""Read DIGGS bytes into a :class:`~pydiggs.model.Model` (the read API).
 
 The document is parsed with a pull parser, one top-level member at a time: when a
 member's end tag arrives its subtree is mapped to JSON-shaped dicts, then cleared and
@@ -123,6 +123,8 @@ _NUMBER_TYPES: Final = frozenset(
 _BOOLEAN_TYPES: Final = frozenset({"boolean", "bool"})
 _DATETIME_TYPES: Final = frozenset({"datetime", "date", "time", "gyear"})
 _CAMEL: Final = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+#: Duplicated gml:ids noted one by one before the rest are summarised.
+_MAX_ID_NOTES: Final = 100
 _FLOAT: Final = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 
 
@@ -319,9 +321,16 @@ class _Reader:
     """One read: the streaming pass, the per-member mappers and the final resolution."""
 
     def __init__(
-        self, data: bytes, *, name: str | None, diggs_version: str | None, results: bool
+        self,
+        data: bytes,
+        *,
+        name: str | None,
+        diggs_version: str | None,
+        results: bool,
+        field_provenance: bool = False,
     ) -> None:
         self.data = data
+        self.field_provenance = field_provenance
         self.name = name
         self.requested = diggs_version
         self.results = results
@@ -337,6 +346,7 @@ class _Reader:
         self.local_crs: dict[str, tuple[str | None, str | None]] = {}
         self.id_owner: dict[str, str] = {}
         self.id_count: Counter[str] = Counter()
+        self.id_repeat: dict[str, int | None] = {}  # duplicated id -> line of its 2nd use
         self.raw_links: list[tuple[str, str, str, int | None, str]] = []
         self.srs_first: dict[str, tuple[str, int | None]] = {}
         self.axis: dict[str, list[Any]] = {}
@@ -496,6 +506,8 @@ class _Reader:
         if gml_id:
             self.id_owner.setdefault(gml_id, owner)
             self.id_count[gml_id] += 1
+            if self.id_count[gml_id] == 2:  # noqa: PLR2004 - the first repeat
+                self.id_repeat[gml_id] = el.sourceline
         href = el.get(_XLINK_HREF)
         if href is not None:
             relation = _local(el.tag)
@@ -554,7 +566,11 @@ class _Reader:
             "description": _text(_child(el, "description")),
             "remarks": remarks,
             "params": params,
-            "provenance": {"xpath": xpath, "line": el.sourceline},
+            "provenance": {
+                "xpath": xpath,
+                "line": el.sourceline,
+                "fields": _field_locations(el, rest) if self.field_provenance else None,
+            },
             "extra": [self._extra(c) for c in rest],
         }
 
@@ -1196,6 +1212,7 @@ class _Reader:
         links = self._links(rename)
         self._typed_refs(links)
         crs_table = self._crs()
+        self._duplicate_ids()
         for name in ("document", *self.collections):
             self._fill_units(
                 self.document if name == "document" else self.collections[name], crs_table
@@ -1333,6 +1350,25 @@ class _Reader:
             if sample["feature"] is None:
                 sample["feature"] = activity["feature"]
 
+    def _duplicate_ids(self) -> None:
+        """One note per duplicated gml:id (at most ``_MAX_ID_NOTES``, then a summary)."""
+        repeated = list(self.id_repeat.items())
+        for gml_id, line in repeated[:_MAX_ID_NOTES]:
+            self.note(
+                rules.DUPLICATE_GML_ID,
+                f'gml:id "{gml_id[:120]}" is used by {self.id_count[gml_id]} elements; each'
+                " is keyed by its xpath, and a link to it resolves to the first.",
+                line=line,
+                xpath=None,
+            )
+        if len(repeated) > _MAX_ID_NOTES:
+            self.note(
+                rules.DUPLICATE_GML_ID,
+                f"{len(repeated) - _MAX_ID_NOTES} more gml:ids are used more than once.",
+                line=None,
+                xpath=None,
+            )
+
     def _crs(self) -> dict[str, Any]:
         table: dict[str, Any] = {}
         ids = frozenset(self.id_count)
@@ -1397,6 +1433,24 @@ def _crs_of(srs: str) -> CrsRef:
     return crs.parse(srs)
 
 
+def _field_locations(el: etree._Element, rest: list[etree._Element]) -> dict[str, dict[str, Any]]:
+    """Where each child ``el`` read a value from: every child not kept in ``extra``."""
+    kept = set(rest)
+    steps: Counter[str] = Counter()
+    names: Counter[str] = Counter()
+    fields: dict[str, dict[str, Any]] = {}
+    for child in _elements(el):
+        step = _qname(child)
+        steps[step] += 1
+        if child in kept:
+            continue
+        local = _local(child.tag)
+        names[local] += 1
+        key = local if names[local] == 1 else f"{local}[{names[local]}]"
+        fields[key] = {"xpath": f"{step}[{steps[step]}]", "line": child.sourceline}
+    return fields
+
+
 def _local_crs(el: etree._Element) -> tuple[str | None, str | None]:
     """A CRS defined in the file: its name and the units it states."""
     name = _text(next((e for e in _elements(el) if _local(e.tag) == "name"), None))
@@ -1404,6 +1458,10 @@ def _local_crs(el: etree._Element) -> tuple[str | None, str | None]:
         (e for e in el.iter(etree.Element) if _local(e.tag) == "LinearReferencingMethod"), None
     )
     units = None if method is None else _text(_child(method, "units"))
+    if units is None:  # a method from the DIGGS registry: <lrm xlink:href="…lrm.xml#md_ft"/>
+        lrm = next((e for e in el.iter(etree.Element) if _local(e.tag) == "lrm"), None)
+        href = None if lrm is None else lrm.get(_XLINK_HREF)
+        units = None if href is None else crs._lrm_units(href)
     if name is None and method is not None:
         name = _text(_child(method, "name"))
     return name, units
@@ -1440,8 +1498,15 @@ def read_document(
     diggs_version: str | None,
     results: bool,
     time_budget: float | None,
+    field_provenance: bool = False,
 ) -> Model:
     """Read checked bytes into a model (the shared core of ``read`` and ``read_bytes``)."""
     deadline = None if time_budget is None else time.monotonic() + time_budget
-    reader = _Reader(data, name=name, diggs_version=diggs_version, results=results)
+    reader = _Reader(
+        data,
+        name=name,
+        diggs_version=diggs_version,
+        results=results,
+        field_provenance=field_provenance,
+    )
     return reader.run(deadline)

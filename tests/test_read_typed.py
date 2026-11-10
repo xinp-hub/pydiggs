@@ -13,7 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from pydiggs import crs, model, preview
+import pydiggs
+from pydiggs import crs, model
 from pydiggs.errors import ResourceError
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,17 +23,17 @@ OFFICIAL = ROOT / "tests" / "fixtures" / "official"
 
 @pytest.fixture(scope="module")
 def annotated():
-    return preview.read(OFFICIAL / "3.0" / "Borehole-CPT_Example_Annotated.xml")
+    return pydiggs.read(OFFICIAL / "3.0" / "Borehole-CPT_Example_Annotated.xml")
 
 
 @pytest.fixture(scope="module")
 def documentation():
-    return preview.read(OFFICIAL / "2.6" / "DocumentationExample.xml")
+    return pydiggs.read(OFFICIAL / "2.6" / "DocumentationExample.xml")
 
 
 @pytest.fixture(scope="module")
 def cpt():
-    return preview.read(OFFICIAL / "2.6" / "CPT_and_PorePressureDissipation.xml")
+    return pydiggs.read(OFFICIAL / "2.6" / "CPT_and_PorePressureDissipation.xml")
 
 
 _MINIMAL = """<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2"
@@ -80,7 +81,7 @@ _MINIMAL = """<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.
 
 @pytest.fixture(scope="module")
 def minimal():
-    return preview.read_bytes(_MINIMAL.encode(), name="minimal.xml")
+    return pydiggs.read_bytes(_MINIMAL.encode(), name="minimal.xml")
 
 
 # --- params: simple values -----------------------------------------------------------
@@ -191,7 +192,7 @@ def test_borehole_construction_methods_have_intervals(documentation):
 
 
 def test_samples_carry_their_activitys_depth_method_and_recovery():
-    m = preview.read(OFFICIAL / "2.6" / "LithoGrading-from25.xml")
+    m = pydiggs.read(OFFICIAL / "2.6" / "LithoGrading-from25.xml")
     sample = m.samples[0]
     activity = m.get(sample.sampling_activity or "")
     assert isinstance(activity, model.SamplingActivity)
@@ -208,7 +209,7 @@ def test_samples_carry_their_activitys_depth_method_and_recovery():
 
 
 def test_lithology_layers_type_their_primary_lithology():
-    m = preview.read(OFFICIAL / "2.6" / "LithoGrading-from25.xml")
+    m = pydiggs.read(OFFICIAL / "2.6" / "LithoGrading-from25.xml")
     layers = [layer for o in m.observations for layer in o.layers]
     layer = next(layer for layer in layers if layer.colour is not None)
     assert layer.colour is not None
@@ -258,21 +259,21 @@ def test_cpt_parameters_cone_and_depth_index(cpt):
 
 
 def test_atterberg_and_particle_size_tables_by_key():
-    m = preview.read(OFFICIAL / "2.6" / "AtterbergExample-from25.xml")
+    m = pydiggs.read(OFFICIAL / "2.6" / "AtterbergExample-from25.xml")
     atterberg = [
         t for t in m.measurements if t.procedure and t.procedure.type == "AtterbergLimitsTest"
     ]
     assert atterberg
     keys = {c.key for t in atterberg for r in t.results for c in r.columns}
     assert {"liquid_limit", "plastic_limit"} <= keys
-    m = preview.read(OFFICIAL / "2.6" / "LithoGrading-from25.xml")
+    m = pydiggs.read(OFFICIAL / "2.6" / "LithoGrading-from25.xml")
     psd = next(t for t in m.measurements if t.procedure and t.procedure.type == "ParticleSizeTest")
     assert psd.procedure is not None
     assert any(c.role == "sieveAnalysis" for c in psd.procedure.components)
 
 
 def test_water_level_monitoring_is_a_time_series():
-    m = preview.read(OFFICIAL / "3.0" / "Piezometer_Example.xml")
+    m = pydiggs.read(OFFICIAL / "3.0" / "Piezometer_Example.xml")
     monitor = next(
         t for t in m.measurements if t.procedure and t.procedure.type == "WaterLevelMonitoring"
     )
@@ -285,14 +286,14 @@ def test_water_level_monitoring_is_a_time_series():
 
 
 def test_elapsed_time_index_has_a_unit():
-    m = preview.read(OFFICIAL / "2.6" / "PorePressureDissipationOnly.xml")
+    m = pydiggs.read(OFFICIAL / "2.6" / "PorePressureDissipationOnly.xml")
     tables = [t for meas in m.measurements for t in meas.results if t.domain.shape == "temporal"]
     (elapsed,) = tables[0].domain.index
     assert (elapsed.name, elapsed.uom, elapsed.values[:2]) == ("elapsed_time", "s", (0.0, 5.0))
 
 
 def test_result_sets_are_not_kept_twice():
-    m = preview.read(OFFICIAL / "2.6" / "PorePressureDissipationOnly.xml")
+    m = pydiggs.read(OFFICIAL / "2.6" / "PorePressureDissipationOnly.xml")
     text = m.to_json()
     data = json.loads(text)
 
@@ -311,7 +312,7 @@ def test_result_sets_are_not_kept_twice():
 
 
 def test_inventory_mode_empties_index_values_too(cpt):
-    m = preview.read(OFFICIAL / "2.6" / "CPT_and_PorePressureDissipation.xml", results=False)
+    m = pydiggs.read(OFFICIAL / "2.6" / "CPT_and_PorePressureDissipation.xml", results=False)
     table = m.measurements[0].results[0]
     assert table.row_count == 1400
     assert table.domain.index[0].values == ()
@@ -319,7 +320,7 @@ def test_inventory_mode_empties_index_values_too(cpt):
 
 
 def test_result_time_is_a_time_span():
-    m = preview.read(OFFICIAL / "2.6" / "LabCompaction.xml")
+    m = pydiggs.read(OFFICIAL / "2.6" / "LabCompaction.xml")
     times = [t.result_time for t in m.measurements if t.result_time is not None]
     for time in times:
         assert isinstance(time, model.TimeSpan)

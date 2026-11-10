@@ -1,9 +1,8 @@
-"""diggs-model: the normalised, version-agnostic model of one DIGGS file (preview).
+"""diggs-model: the normalised, version-agnostic model of one DIGGS file.
 
-The read API (:func:`pydiggs.preview.read`) returns a :class:`Model`. This module holds
-its node and value classes. It is pure: no I/O and no XML. Until pyDIGGS 1.7.0 freezes
-diggs-model 1.0, it is a preview outside the stability promise; see
-https://xinp-hub.github.io/pydiggs/model/.
+:func:`pydiggs.read` returns a :class:`Model`. This module holds its node and value
+classes. It is pure: no I/O and no XML. diggs-model 1.0 is stable from pyDIGGS 1.7.0
+and changes only as https://xinp-hub.github.io/pydiggs/model/#versioning describes.
 """
 
 from pydiggs.model._model import MODEL_SCHEMA_URL, MODEL_SCHEMA_VERSION, Model, model_schema
@@ -29,6 +28,7 @@ from pydiggs.model._values import (
     CrsRef,
     Domain,
     ExtraNode,
+    FieldLocation,
     Geographic,
     Interval,
     Link,
@@ -55,6 +55,7 @@ __all__ = [
     "Domain",
     "ExtraNode",
     "Feature",
+    "FieldLocation",
     "Geographic",
     "Interval",
     "Link",

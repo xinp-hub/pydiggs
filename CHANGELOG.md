@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **The read API is stable.** `pydiggs.read()`, `pydiggs.read_bytes()`, `pydiggs.Model`,
+  `pydiggs.model_schema()`, `pydiggs.MODEL_SCHEMA_VERSION`, `pydiggs.MODEL_SCHEMA_URL`
+  and `pydiggs.DocumentError` are top-level, and `pydiggs.model` and `pydiggs.crs` are
+  public modules covered by Semantic Versioning. The model is **diggs-model 1.0**
+  (`schemas/diggs-model-1.0.schema.json` on the docs site), frozen: from here it changes
+  only by minor versions that add, as the docs' Versioning section describes.
+- `read(..., provenance="field")`: every node's `provenance.fields` says where each of
+  its values was read (the element's xpath relative to the node, and its line).
+- Depths along a linear referencing system that names a method in the DIGGS registry
+  (`lrm.xml#md_ft`, `#md_m` …) get that method's unit. The registry's methods are
+  packaged with pyDIGGS (from DIGGSml/def), so nothing is fetched.
+- Read note `structure.duplicate-gml-id` (warning): two or more elements share one
+  `gml:id`. Each copy is keyed by its xpath, and a link to the id resolves to the first.
+- `pydiggs.crs.SUPPORTED_SRS_FORMS`.
+
+### Changed
+- diggs-model documents say `"schema_version": "1.0"` (1.6.0 wrote `1.0-beta.2`; the
+  betas stay published under `schemas/preview/`). Every node's `provenance` has a
+  `fields` member, `null` unless `provenance="field"` was asked for.
+
+### Deprecated
+- `pydiggs.preview`: importing it warns. Use the same names from `pydiggs`. It will be
+  removed in 2.0.
+
+### Fixed
+- `read()` rejects a `time_budget` that is not a finite number (NaN or infinity) with
+  `ValueError`, instead of reading with no limit.
+
 ## [1.6.0] - 2026-11-10
 
 ### Added
