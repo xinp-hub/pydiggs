@@ -134,7 +134,7 @@ extra:
   generator: false
   # Buttondown username for the "Stay updated" sign-up form; empty shows a note instead.
   newsletter:
-    buttondown: ""
+    buttondown: "pydiggs"
 
 extra_css:
   - assets/stylesheets/extra.css
