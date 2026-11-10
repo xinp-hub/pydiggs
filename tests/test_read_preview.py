@@ -1,4 +1,4 @@
-"""The preview read API (work package R1): pydiggs.preview.read and diggs-model 1.0-beta."""
+"""The preview read API (work package R1): pydiggs.pydiggs.read and diggs-model 1.0-beta."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from hypothesis import strategies as st
 from lxml import etree
 
 import pydiggs
-from pydiggs import model, preview
+from pydiggs import model
 from pydiggs._reader import _read
 from pydiggs.errors import DocumentError, InstanceReadError
 from pydiggs.findings.locate import Locator
@@ -89,7 +89,7 @@ def _close(node, name=""):
 
 @pytest.fixture(scope="module")
 def annotated() -> model.Model:
-    return preview.read(ANNOTATED)
+    return pydiggs.read(ANNOTATED)
 
 
 # --- the corpus ---------------------------------------------------------------------
@@ -99,10 +99,10 @@ def annotated() -> model.Model:
 def test_corpus_reads_and_matches_the_census(path, want):
     if not want["readable"]:
         with pytest.raises(DocumentError) as info:
-            preview.read(path)
+            pydiggs.read(path)
         assert info.value.kind == want["document_error"]
         return
-    m = preview.read(path)
+    m = pydiggs.read(path)
     errors = [
         f"{e.json_path}: {e.message}" for e in _validator(closed=True).iter_errors(m.to_dict())
     ]
@@ -124,13 +124,13 @@ def test_corpus_reads_and_matches_the_census(path, want):
     assert unresolved == want["links_unresolved"]
     procedures = Counter(x.procedure.type for x in m.measurements if x.procedure)
     assert not procedures - Counter(want["procedures"])
-    assert preview.Model.from_json(m.to_json()) == m
+    assert pydiggs.Model.from_json(m.to_json()) == m
 
 
 def test_output_is_deterministic(annotated):
-    again = preview.read(ANNOTATED)
+    again = pydiggs.read(ANNOTATED)
     assert again.to_json() == annotated.to_json()
-    assert preview.read_bytes(ANNOTATED.read_bytes(), name=ANNOTATED.name).to_json() == (
+    assert pydiggs.read_bytes(ANNOTATED.read_bytes(), name=ANNOTATED.name).to_json() == (
         annotated.to_json()
     )
 
@@ -138,11 +138,11 @@ def test_output_is_deterministic(annotated):
 @settings(max_examples=15, deadline=None)
 @given(chunk=st.integers(min_value=1, max_value=4096))
 def test_streaming_does_not_depend_on_chunk_size(chunk):
-    expected = preview.read(CPT).to_json()
+    expected = pydiggs.read(CPT).to_json()
     original = _read._CHUNK
     _read._CHUNK = chunk
     try:
-        assert preview.read(CPT).to_json() == expected
+        assert pydiggs.read(CPT).to_json() == expected
     finally:
         _read._CHUNK = original
 
@@ -166,8 +166,8 @@ def test_owner_of_finds_the_node_for_validate_findings(annotated):
 
 
 def test_version_twins_read_alike():
-    old = preview.read(OFFICIAL / "2.5.a" / "AtterbergExample.xml")
-    new = preview.read(OFFICIAL / "2.6" / "AtterbergExample-from25.xml")
+    old = pydiggs.read(OFFICIAL / "2.5.a" / "AtterbergExample.xml")
+    new = pydiggs.read(OFFICIAL / "2.6" / "AtterbergExample-from25.xml")
     assert (old.source.diggs_version, new.source.diggs_version) == ("2.5.a", "2.6")
     for name in ("features", "samples", "measurements"):
         assert [n.key for n in getattr(old, name)] == [n.key for n in getattr(new, name)]
@@ -210,8 +210,8 @@ def test_typed_fields_and_navigation(annotated):
 
 
 def test_inventory_mode_keeps_shapes_but_no_values():
-    full = preview.read(CPT)
-    light = preview.read(CPT, results=False)
+    full = pydiggs.read(CPT)
+    light = pydiggs.read(CPT, results=False)
     shapes = [(t.row_count, len(t.columns)) for m in full.measurements for t in m.results]
     assert shapes == [(t.row_count, len(t.columns)) for m in light.measurements for t in m.results]
     assert all(c.values == () for m in light.measurements for t in m.results for c in t.columns)
@@ -221,7 +221,7 @@ def test_unknown_fields_are_ignored_and_bad_documents_refused(annotated):
     doc = annotated.to_dict()
     doc["future"] = 1
     doc["features"][0]["future"] = [1]
-    assert preview.Model.from_dict(doc) == annotated
+    assert pydiggs.Model.from_dict(doc) == annotated
     for mutate in (
         lambda d: d.update(schema_version="2.0"),
         lambda d: d["features"][0].update(key=d["features"][1]["key"]),
@@ -232,7 +232,7 @@ def test_unknown_fields_are_ignored_and_bad_documents_refused(annotated):
         broken = json.loads(json.dumps(doc))
         mutate(broken)
         with pytest.raises(ValueError):
-            preview.Model.from_dict(broken)
+            pydiggs.Model.from_dict(broken)
 
 
 def test_schema_and_classes_agree():
@@ -267,6 +267,7 @@ def test_schema_and_classes_agree():
         "source": model.SourceInfo,
         "extra_node": model.ExtraNode,
         "provenance": model.Provenance,
+        "field_location": model.FieldLocation,
     }
     for name, cls in pairs.items():
         names = {f.name for f in dataclasses.fields(cls)}
@@ -281,7 +282,7 @@ def test_schema_and_classes_agree():
 def test_schema_is_published_where_its_id_says():
     schema = model.model_schema()
     assert schema["$id"] == model.MODEL_SCHEMA_URL
-    assert preview.MODEL_SCHEMA_VERSION in model.MODEL_SCHEMA_URL
+    assert pydiggs.MODEL_SCHEMA_VERSION in model.MODEL_SCHEMA_URL
     jsonschema.Draft202012Validator.check_schema(schema)
 
 
@@ -303,7 +304,7 @@ def test_schema_is_published_where_its_id_says():
 )
 def test_unreadable_documents_raise_document_error(data, kind, rule):
     with pytest.raises(DocumentError) as info:
-        preview.read_bytes(data)
+        pydiggs.read_bytes(data)
     assert info.value.kind == kind
     assert info.value.finding.rule_id == rule
     assert isinstance(info.value, ValueError)
@@ -311,11 +312,11 @@ def test_unreadable_documents_raise_document_error(data, kind, rule):
 
 def test_input_errors(tmp_path):
     with pytest.raises(InstanceReadError):
-        preview.read(tmp_path / "missing.xml")
+        pydiggs.read(tmp_path / "missing.xml")
     with pytest.raises(InstanceReadError):
-        preview.read_bytes(b"<Diggs/>" * 10, max_bytes=10)
+        pydiggs.read_bytes(b"<Diggs/>" * 10, max_bytes=10)
     with pytest.raises(TypeError):
-        preview.read_bytes("<Diggs/>")  # type: ignore[arg-type]
+        pydiggs.read_bytes("<Diggs/>")  # type: ignore[arg-type]
     for bad in (
         {"diggs_version": "9"},
         {"max_bytes": 0},
@@ -323,24 +324,24 @@ def test_input_errors(tmp_path):
         {"time_budget": True},
     ):
         with pytest.raises(ValueError):
-            preview.read_bytes(b"<Diggs/>", **bad)
+            pydiggs.read_bytes(b"<Diggs/>", **bad)
     stream = io.BytesIO(CPT.read_bytes())
-    assert preview.read_bytes(stream, name="a/b/c.xml").source.name == "c.xml"
+    assert pydiggs.read_bytes(stream, name="a/b/c.xml").source.name == "c.xml"
     assert not stream.closed
 
 
 def test_time_budget_returns_a_partial_model(monkeypatch):
     clock = iter(range(1000))
     monkeypatch.setattr(_read.time, "monotonic", lambda: float(next(clock)))
-    m = preview.read(ANNOTATED, time_budget=1.5)
+    m = pydiggs.read(ANNOTATED, time_budget=1.5)
     assert m.complete is False
     assert m.limits_hit == ("time_budget",)
     assert any(n.rule_id == "structure.timeout" for n in m.notes)
-    assert 0 < len(list(m.nodes())) < len(list(preview.read(ANNOTATED).nodes()))
+    assert 0 < len(list(m.nodes())) < len(list(pydiggs.read(ANNOTATED).nodes()))
 
 
 def test_explicit_version_is_recorded():
-    m = preview.read(ANNOTATED, diggs_version="3.1-dev")
+    m = pydiggs.read(ANNOTATED, diggs_version="3.1-dev")
     assert m.source.diggs_version == "3.1-dev"
     assert m.source.detected is False
 
@@ -352,7 +353,7 @@ def test_new_note_rule_is_catalogued():
 
 def test_reading_imports_no_frame_or_gis_library():
     code = (
-        "import sys, pydiggs.preview as p;"
+        "import sys, pydiggs as p;"
         "p.read('tests/fixtures/official/2.6/CPT_and_PorePressureDissipation.xml');"
         "print(sorted({'pandas','polars','pyproj','rich'} & set(sys.modules)))"
     )

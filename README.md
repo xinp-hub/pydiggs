@@ -32,6 +32,11 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
     * DIGGS Standard dictionaries / codeSpace semantics (offline bundle from diggsml.org/def)
     * Schematron business rules (bundled DIGGS lxml-adapted rules by default)
     * Lightweight context checks (structure / SRS / xlink / dataBlock arity)
+* Read what is in a file: `pydiggs.read()` returns boreholes, samples, tests and their
+  result tables as Python objects and as JSON (diggs-model 1.0), the same shape for
+  DIGGS 2.5.a, 2.6 and 3.x ([Reading files](https://xinp-hub.github.io/pydiggs/model/)).
+  The public modules are `pydiggs`, `pydiggs.model` and `pydiggs.crs`; every other
+  module is internal.
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
       JSON (diggs-findings 1.0) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)

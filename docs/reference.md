@@ -19,16 +19,18 @@ major release, after a deprecation warning.
 
 ::: pydiggs.warm_up
 
-## Read (preview)
+## Read
 
-The read API is a preview in 1.6: import it from `pydiggs.preview`; it is outside the
-stability promise until 1.7.0 (see [Reading files](model.md)).
+Stable from 1.7.0; see [Reading files](model.md). The node and value classes are in
+`pydiggs.model`.
 
-::: pydiggs.preview.read
+::: pydiggs.read
 
-::: pydiggs.preview.read_bytes
+::: pydiggs.read_bytes
 
-::: pydiggs.model.Model
+::: pydiggs.Model
+
+::: pydiggs.model_schema
 
 ::: pydiggs.model.Component
 
@@ -36,13 +38,15 @@ stability promise until 1.7.0 (see [Reading files](model.md)).
 
 ::: pydiggs.errors.DocumentError
 
-### Coordinate reference systems (preview)
+### Coordinate reference systems
 
 ::: pydiggs.crs.parse
 
 ::: pydiggs.crs.epsg
 
 ::: pydiggs.crs.epsg_source
+
+::: pydiggs.crs.SUPPORTED_SRS_FORMS
 
 ## Results
 

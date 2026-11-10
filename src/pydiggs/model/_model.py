@@ -36,13 +36,11 @@ from pydiggs.model._values import CrsRef, Link, SourceInfo
 
 __all__ = ["MODEL_SCHEMA_URL", "MODEL_SCHEMA_VERSION", "Model", "model_schema"]
 
-#: Version of the diggs-model schema this release writes (a beta until 1.7.0 freezes 1.0).
-MODEL_SCHEMA_VERSION: Final = "1.0-beta.2"
+#: Version of the diggs-model schema this release writes.
+MODEL_SCHEMA_VERSION: Final = "1.0"
 #: ``$id`` of that schema, published on the documentation site.
-MODEL_SCHEMA_URL: Final = (
-    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.2.schema.json"
-)
-_SCHEMA_RESOURCE: Final = "diggs-model-1.0-beta.2.schema.json"
+MODEL_SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json"
+_SCHEMA_RESOURCE: Final = "diggs-model-1.0.schema.json"
 
 Direction = Literal["out", "in", "both"]
 
@@ -69,7 +67,7 @@ def model_schema() -> dict[str, Any]:
 class Model:
     """Everything one DIGGS file describes, as a graph of nodes and links.
 
-    Read one with :func:`pydiggs.preview.read`. Nodes are grouped by what they are
+    Read one with :func:`pydiggs.read`. Nodes are grouped by what they are
     (``features``, ``samples``, ``measurements``, …), each tuple in document order;
     ``links`` holds every reference between them and ``notes`` what reading had to work
     around (findings, not a validity verdict).

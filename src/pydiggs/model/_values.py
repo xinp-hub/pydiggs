@@ -19,6 +19,7 @@ __all__ = [
     "CrsRef",
     "Domain",
     "ExtraNode",
+    "FieldLocation",
     "Geographic",
     "Interval",
     "Link",
@@ -43,11 +44,29 @@ def _frozen_map(value: Mapping[str, object]) -> Mapping[str, object]:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Provenance:
-    """Where a node is: the findings ``xpath`` form and its line (1-based)."""
+class FieldLocation:
+    """Where one value of a node was read: an xpath relative to the node, and its line."""
 
     xpath: str
     line: int | None = None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Provenance:
+    """Where a node is: the findings ``xpath`` form and its line (1-based).
+
+    ``fields`` is filled only by ``read(..., provenance="field")``: for each child element
+    the node read a value from (its ``params`` and typed fields), keyed by the element's
+    local name (``name[2]`` for a second one), where that element is.
+    """
+
+    xpath: str
+    line: int | None = None
+    fields: Mapping[str, FieldLocation] | None = None
+
+    def __post_init__(self) -> None:
+        if self.fields is not None:
+            object.__setattr__(self, "fields", _frozen_map(self.fields))
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

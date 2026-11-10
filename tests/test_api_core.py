@@ -50,9 +50,22 @@ NAMES_1_2_0 = {
 }
 
 
-def test_the_public_api_is_1_2_0_plus_twelve_names():
+#: The read API, top-level from 1.7.0 (the 1.6.0 preview lived in pydiggs.preview).
+NAMES_1_7_0 = {
+    "DocumentError",
+    "MODEL_SCHEMA_URL",
+    "MODEL_SCHEMA_VERSION",
+    "Model",
+    "model_schema",
+    "read",
+    "read_bytes",
+}
+
+
+def test_the_public_api_is_1_2_0_plus_twelve_names_plus_the_read_api():
     assert len(NEW_NAMES) == 12
-    assert set(pydiggs.__all__) == NAMES_1_2_0 | NEW_NAMES
+    assert len(NAMES_1_7_0) == 7
+    assert set(pydiggs.__all__) == NAMES_1_2_0 | NEW_NAMES | NAMES_1_7_0
 
 
 def test_validate_keeps_its_1_2_0_signature_plus_time_budget():

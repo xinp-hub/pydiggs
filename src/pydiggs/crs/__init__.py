@@ -1,4 +1,4 @@
-"""Coordinate reference systems: what an ``srsName`` refers to (preview).
+"""Coordinate reference systems: what an ``srsName`` refers to.
 
 pyDIGGS reads coordinates without pyproj. To read a position correctly it still needs a
 few facts about the CRS an ``srsName`` names: is it geographic (and so which axis is
@@ -7,7 +7,7 @@ from the ``srsName`` alone, and :func:`epsg` from a packaged subset of the EPSG 
 (see :func:`epsg_source`). Nothing is fetched and nothing is transformed: for
 transformations, use pyproj.
 
-Like the rest of the read API, this module is a preview until pyDIGGS 1.7.0.
+Stable from pyDIGGS 1.7.0, with the rest of the read API.
 
 Examples:
     >>> from pydiggs import crs
@@ -40,8 +40,10 @@ from pydiggs._geo_checks import parse_srs_name
 from pydiggs.errors import ResourceError
 from pydiggs.model._values import CrsComponent, CrsRef
 
-__all__ = ["epsg", "epsg_source", "parse"]
+__all__ = ["SUPPORTED_SRS_FORMS", "epsg", "epsg_source", "parse"]
 
+#: The ``form`` values :func:`parse` recognises (anything else is ``unknown``).
+SUPPORTED_SRS_FORMS: Final[tuple[str, ...]] = ("epsg", "diggs", "ogc", "local")
 _RESOURCE: Final = "epsg-subset.json"
 #: OGC's longitude-first geographic CRSs and the EPSG datum each is on.
 _OGC: Final = {
@@ -50,6 +52,11 @@ _OGC: Final = {
     "CRS27": (4267, "NAD27 (CRS27)"),
 }
 _OGC_NAME: Final = re.compile(r"CRS(84|83|27)\s*$", re.IGNORECASE)
+_LRM_RESOURCE: Final = "lrm.xml"
+#: A linear referencing method in the DIGGS registry (DIGGSml/def, vendored as lrm.xml).
+_REGISTRY_LRM: Final = re.compile(
+    r"^https?://(?:www\.)?diggsml\.org/def/crs/DIGGS/0\.1/lrm\.xml#([A-Za-z_][\w.-]{0,127})$"
+)
 
 
 @cache
@@ -60,6 +67,33 @@ def _subset() -> tuple[Mapping[str, Any], Mapping[str, list[Any]]]:
         return types.MappingProxyType(document["source"]), document["crs"]
     except (OSError, ValueError, KeyError) as exc:  # pragma: no cover - a broken install
         raise ResourceError(f"pyDIGGS's EPSG subset ({_RESOURCE}) cannot be read: {exc}") from exc
+
+
+@cache
+def _registry_lrm() -> Mapping[str, str]:
+    """The DIGGS registry's linear referencing methods: gml:id -> units."""
+    from lxml import etree  # noqa: PLC0415 - only reading files needs lxml here
+
+    from pydiggs import _xml  # noqa: PLC0415
+
+    try:
+        data = resources.files("pydiggs.crs").joinpath(_LRM_RESOURCE).read_bytes()
+        root = _xml.parse_bytes(data, None).getroot()
+    except (OSError, etree.XMLSyntaxError) as exc:  # pragma: no cover - a broken install
+        raise ResourceError(f"pyDIGGS's DIGGS lrm.xml cannot be read: {exc}") from exc
+    units: dict[str, str] = {}
+    for method in root.iter("{*}LinearReferencingMethod"):
+        gml_id = method.get("{http://www.opengis.net/gml/3.2}id")
+        unit = method.find("{*}units")
+        if gml_id and unit is not None and unit.text and unit.text.strip():
+            units[gml_id] = unit.text.strip()
+    return types.MappingProxyType(units)
+
+
+def _lrm_units(href: str) -> str | None:
+    """The unit of a DIGGS registry linear referencing method, from its ``xlink:href``."""
+    match = _REGISTRY_LRM.match(href.strip())
+    return None if match is None else _registry_lrm().get(match.group(1))
 
 
 def epsg_source() -> Mapping[str, Any]:

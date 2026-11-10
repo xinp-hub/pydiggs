@@ -476,15 +476,20 @@ source = "local"
 note = "Facts about EPSG coordinate reference systems (name, type, axis order, unit, datum), extracted unmodified from the EPSG Dataset by scripts/build_epsg_subset.py. The EPSG Dataset is owned by IOGP and used under its terms of use: https://epsg.org/terms-of-use.html."
 sha256 = "810edb9d834ce1c170799103174cc27004af064548a833031f6986afeae4737c"
 
+[files."crs/lrm.xml"]
+source = "def"
+path = "docs/crs/DIGGS/0.1/lrm.xml"
+sha256 = "85d2c01598cab180a22eaeb0247e2014e58a3dc7e262e3d8f6bafa5f1cdd92f2"
+
 [files."findings/diggs-findings-1.0.schema.json"]
 source = "local"
 note = "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
 sha256 = "8442ad9b40d927b9dcba6dccd70bff8da96b7c13c13cf7c9fc093f92fcb31246"
 
-[files."model/diggs-model-1.0-beta.2.schema.json"]
+[files."model/diggs-model-1.0.schema.json"]
 source = "local"
-note = "The diggs-model JSON Schema (read API, preview): pyDIGGS's own output contract, kept equal to the model classes by tests/test_read_preview.py."
-sha256 = "e9040b42680c58f43290a8dea301f41333d07c4674d4bbedb3ce683900ec756e"
+note = "The diggs-model JSON Schema (read API): pyDIGGS's own output contract, kept equal to the model classes by tests/test_read_preview.py."
+sha256 = "0515e0517fff0ad7350086f9fd83ce9452814e35e3d61fd2738ab91664e35112"
 
 [files."schemas/LICENSE"]
 source = "schemas"

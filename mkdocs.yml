@@ -147,7 +147,7 @@ nav:
   - Guides:
     - Validation checks: usage.md
     - Findings (JSON / SARIF): findings.md
-    - Reading files (preview): model.md
+    - Reading files: model.md
   - Integrate:
     - integrations.md
     - HTTP API: http-api.md

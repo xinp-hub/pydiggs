@@ -10,7 +10,8 @@ import json
 
 import pytest
 
-from pydiggs import crs, preview
+import pydiggs
+from pydiggs import crs
 from pydiggs._reader import _read
 from pydiggs.errors import DocumentError
 from pydiggs.model import Model
@@ -22,7 +23,7 @@ _NS = (
 
 
 def _read_body(body: str) -> Model:
-    return preview.read_bytes(f"<Diggs {_NS}>{body}</Diggs>".encode())
+    return pydiggs.read_bytes(f"<Diggs {_NS}>{body}</Diggs>".encode())
 
 
 _RESULT_SET = (
@@ -147,7 +148,7 @@ def test_external_entities_and_dtds_are_never_loaded(prolog):
     if 'SYSTEM "file' not in prolog:
         data = data.replace(b"&x;", b"n")
     try:
-        model = preview.read_bytes(data)
+        model = pydiggs.read_bytes(data)
     except DocumentError as exc:
         assert exc.kind == "malformed"
         return
@@ -157,3 +158,33 @@ def test_external_entities_and_dtds_are_never_loaded(prolog):
 def test_tag_and_crs_caches_are_bounded():
     assert _read._local.cache_info().maxsize is not None
     assert _read._crs_of.cache_info().maxsize is not None
+
+
+def test_a_finite_time_budget_is_required():
+    for budget in (float("nan"), float("inf"), 0, -1):
+        with pytest.raises(ValueError, match="time_budget"):
+            pydiggs.read_bytes(b"<Diggs/>", time_budget=budget)
+
+
+def test_duplicate_gml_ids_are_noted_and_keyed_by_xpath():
+    model = _read_body(
+        '<samplingFeature><Borehole gml:id="B"/></samplingFeature>'
+        '<samplingFeature><Borehole gml:id="B"/></samplingFeature>'
+    )
+    keys = [f.key for f in model.features]
+    assert all(key.startswith("@/") for key in keys)
+    assert len(set(keys)) == 2
+    notes = [n for n in model.notes if n.rule_id == "structure.duplicate-gml-id"]
+    assert len(notes) == 1
+    assert notes[0].severity == pydiggs.Severity.WARNING
+    assert '"B" is used by 2 elements' in notes[0].message
+    assert pydiggs.explain_rule("structure.duplicate-gml-id").known
+
+
+def test_duplicate_id_notes_are_bounded():
+    body = "".join(
+        f'<samplingFeature><Borehole gml:id="B{i}"/></samplingFeature>' * 2 for i in range(150)
+    )
+    notes = [n for n in _read_body(body).notes if n.rule_id == "structure.duplicate-gml-id"]
+    assert len(notes) == 101
+    assert notes[-1].message.startswith("50 more gml:ids")
