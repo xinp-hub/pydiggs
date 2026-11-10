@@ -20,6 +20,7 @@ from pydiggs.findings._json import finding_entry
 from pydiggs.findings.model import Finding
 from pydiggs.model._nodes import (
     Associate,
+    Component,
     DocumentInfo,
     Feature,
     LithologyLayer,
@@ -36,12 +37,12 @@ from pydiggs.model._values import CrsRef, Link, SourceInfo
 __all__ = ["MODEL_SCHEMA_URL", "MODEL_SCHEMA_VERSION", "Model", "model_schema"]
 
 #: Version of the diggs-model schema this release writes (a beta until 1.7.0 freezes 1.0).
-MODEL_SCHEMA_VERSION: Final = "1.0-beta.1"
+MODEL_SCHEMA_VERSION: Final = "1.0-beta.2"
 #: ``$id`` of that schema, published on the documentation site.
 MODEL_SCHEMA_URL: Final = (
-    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.1.schema.json"
+    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.2.schema.json"
 )
-_SCHEMA_RESOURCE: Final = "diggs-model-1.0-beta.1.schema.json"
+_SCHEMA_RESOURCE: Final = "diggs-model-1.0-beta.2.schema.json"
 
 Direction = Literal["out", "in", "both"]
 
@@ -119,13 +120,26 @@ class Model:
     # --- navigation ---------------------------------------------------------------
 
     def nodes(self) -> Iterator[Node]:
-        """Every node, the document first, then each collection in order (layers last)."""
+        """Every node, each once.
+
+        The document, each collection in order, lithology layers, then every nested
+        :class:`Component` (depth first, in document order).
+        """
         if self.document is not None:
             yield self.document
         for name in _COLLECTIONS:
             yield from getattr(self, name)
         for observation in self.observations:
             yield from observation.layers
+        for node in self._holders():
+            for component in _components_of(node):
+                yield from _walk(component)
+
+    def _holders(self) -> Iterator[Node]:
+        yield from self.features
+        for observation in self.observations:
+            yield from observation.layers
+        yield from self.measurements
 
     def get(self, key: str) -> Node | None:
         """The node with this key, or None."""
@@ -207,6 +221,22 @@ class Model:
     def from_json(cls, text: str | bytes) -> Model:
         """Build a model from diggs-model JSON (see :meth:`from_dict`)."""
         return cls.from_dict(json.loads(text))
+
+
+def _components_of(node: Node) -> tuple[Component, ...]:
+    if isinstance(node, Feature):
+        return node.construction + node.water_strikes
+    if isinstance(node, LithologyLayer):
+        return node.components
+    if isinstance(node, Measurement) and node.procedure is not None:
+        return node.procedure.components
+    return ()
+
+
+def _walk(component: Component) -> Iterator[Component]:
+    yield component
+    for child in component.components:
+        yield from _walk(child)
 
 
 # --- codec --------------------------------------------------------------------------
@@ -296,9 +326,33 @@ def _primitive(tp: Any) -> Decoder | None:  # noqa: PLR0911 - one return per pri
     return None
 
 
+#: Plain JSON types a union may be made of and still take the fast path.
+_PLAIN: Final = frozenset({bool, int, float, str})
+
+
+def _plain_union(options: list[Any], nullable: bool) -> Decoder:
+    """A union of plain types (a table cell): one type check, no trial decoding."""
+    accepted = frozenset(options)
+    widen = float in accepted and int not in accepted
+
+    def plain(value: Any, where: str) -> Any:
+        kind = type(value)
+        if kind in accepted:
+            return value
+        if value is None and nullable:
+            return None
+        if widen and kind is int:
+            return float(value)
+        raise ValueError(f"{where}: {value!r} is not one of {sorted(t.__name__ for t in accepted)}")
+
+    return plain
+
+
 def _union(tp: Any) -> Decoder:
     options = [o for o in get_args(tp) if o is not type(None)]
     nullable = len(options) < len(get_args(tp))
+    if len(options) > 1 and all(o in _PLAIN for o in options):
+        return _plain_union(options, nullable)
     decoders = [_compile(o) for o in options]
     single = decoders[0] if len(decoders) == 1 else None
 
@@ -398,5 +452,6 @@ NODE_CLASSES: Final[Mapping[str, type[Node]]] = types.MappingProxyType(
         "measurements": Measurement,
         "others": Other,
         "layers": LithologyLayer,
+        "components": Component,
     }
 )

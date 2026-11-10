@@ -26,7 +26,7 @@ SCHEMA = PACKAGE / "findings" / "diggs-findings-1.0.schema.json"
 PUBLISHED = Path("schemas") / SCHEMA.name
 OPENAPI = PACKAGE / "server" / "openapi.json"
 OPENRPC = PACKAGE / "sidecar" / "openrpc.json"
-MODEL = PACKAGE / "model" / "diggs-model-1.0-beta.1.schema.json"
+MODEL = PACKAGE / "model" / "diggs-model-1.0-beta.2.schema.json"
 #: Every published document: packaged source -> path under the site root.
 DOCUMENTS: dict[Path, Path] = {
     SCHEMA: PUBLISHED,

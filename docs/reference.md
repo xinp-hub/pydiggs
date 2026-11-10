@@ -30,7 +30,19 @@ stability promise until 1.7.0 (see [Reading files](model.md)).
 
 ::: pydiggs.model.Model
 
+::: pydiggs.model.Component
+
+::: pydiggs.model.Procedure
+
 ::: pydiggs.errors.DocumentError
+
+### Coordinate reference systems (preview)
+
+::: pydiggs.crs.parse
+
+::: pydiggs.crs.epsg
+
+::: pydiggs.crs.epsg_source
 
 ## Results
 

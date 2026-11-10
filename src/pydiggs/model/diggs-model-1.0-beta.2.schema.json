@@ -1,0 +1,1451 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.2.schema.json",
+  "title": "diggs-model 1.0 (beta 2)",
+  "description": "BETA, written by pydiggs.preview.read() in pyDIGGS 1.6; it may change before 1.7.0 freezes diggs-model 1.0. The normalised, version-agnostic model of one DIGGS file that the pyDIGGS read API will return (pydiggs.preview in 1.6.0, frozen as diggs-model 1.0 in 1.7.0). Open for consumers: objects accept unknown fields and string vocabularies are open, so a 1.0 consumer accepts any 1.x document. A new optional field or vocabulary value is a minor version; anything else is a new major. Coordinates and values are kept as written; nothing is converted or transformed silently.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tool",
+    "source",
+    "complete",
+    "document",
+    "projects",
+    "associates",
+    "features",
+    "sampling_activities",
+    "samples",
+    "observations",
+    "measurements",
+    "others",
+    "crs",
+    "links",
+    "notes"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL of the schema the document follows."
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+(-(draft|beta\\.[0-9]+))?$",
+      "description": "Major.minor of diggs-model; pre-releases add -draft or -beta.N.",
+      "examples": [
+        "1.0-draft",
+        "1.0-beta.1",
+        "1.0"
+      ]
+    },
+    "tool": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "complete": {
+      "type": "boolean",
+      "description": "False when a limit stopped reading; members read so far are kept."
+    },
+    "limits_hit": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "examples": [
+          "time_budget"
+        ]
+      },
+      "description": "Which limits stopped reading; empty when complete."
+    },
+    "document": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/document_info"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The DocumentInformation member, if any."
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/project"
+      }
+    },
+    "associates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/associate"
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/feature"
+      },
+      "description": "Sampling features: boreholes, soundings, wells, and every other kind."
+    },
+    "sampling_activities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sampling_activity"
+      }
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sample"
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
+    },
+    "measurements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/measurement"
+      },
+      "description": "Tests, monitors, surveys: every measurement member."
+    },
+    "others": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/other"
+      },
+      "description": "Top-level members with no typed mapper yet (header, links, extra)."
+    },
+    "crs": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/crs_ref"
+      },
+      "description": "Every coordinate reference system used, by key (the srsName as written)."
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/link"
+      },
+      "description": "Every edge in document order; both directions are derivable."
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json#/$defs/finding"
+      },
+      "description": "What reading had to work around, as diggs-findings findings. Notes are not a validity verdict."
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": [
+        "name",
+        "sha256",
+        "size",
+        "diggs_version",
+        "namespace",
+        "detected"
+      ],
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Of the bytes as read; scopes every key."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diggs_version": {
+          "type": "string",
+          "examples": [
+            "2.5.a",
+            "2.6",
+            "3.0.0",
+            "3.1-dev"
+          ]
+        },
+        "namespace": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "detected": {
+          "type": "boolean",
+          "description": "False when the caller named the version."
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "xpath",
+        "line"
+      ],
+      "description": "Where the node is, in the same form as a diggs-findings location.",
+      "properties": {
+        "xpath": {
+          "type": "string",
+          "description": "e.g. /diggs:Diggs[1]/diggs:samplingFeature[2]/diggs:Borehole[1]"
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "extra_node": {
+      "type": "object",
+      "required": [
+        "qname",
+        "ns",
+        "attrs",
+        "text",
+        "children",
+        "line"
+      ],
+      "description": "A child element no typed field consumed, kept in document order.",
+      "properties": {
+        "qname": {
+          "type": "string"
+        },
+        "ns": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attrs": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extra_node"
+          }
+        },
+        "line": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "header": {
+      "type": "object",
+      "required": [
+        "key",
+        "gml_id",
+        "element",
+        "kind",
+        "name",
+        "names",
+        "params",
+        "provenance",
+        "extra"
+      ],
+      "description": "Fields every node starts with.",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "gml:id when present and unique, else '@' + xpath. Unique in the model."
+        },
+        "gml_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "element": {
+          "type": "string",
+          "description": "DIGGS element name, after version aliases.",
+          "examples": [
+            "Borehole",
+            "Test"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "description": "Open vocabulary.",
+          "examples": [
+            "borehole",
+            "sounding",
+            "well",
+            "test",
+            "lithology"
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "names": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "remarks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "params": {
+          "$ref": "#/$defs/params"
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "extra": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extra_node"
+          }
+        }
+      }
+    },
+    "quantity": {
+      "type": "object",
+      "required": [
+        "text",
+        "value",
+        "uom",
+        "si"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Exactly as reported."
+        },
+        "value": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "uom": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "si": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "value",
+            "uom"
+          ],
+          "description": "Present only when the unit converts; never silently.",
+          "properties": {
+            "value": {
+              "type": "number"
+            },
+            "uom": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "code": {
+      "type": "object",
+      "required": [
+        "value",
+        "code_space"
+      ],
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "code_space": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "param": {
+      "description": "A simple value: a quantity (the element had a uom), a code (a codeSpace) or text.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/quantity"
+        },
+        {
+          "$ref": "#/$defs/code"
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "params": {
+      "type": "object",
+      "description": "Simple values by DIGGS element name: every child with no child elements that appears once and has no attribute but uom or codeSpace. Everything else stays in extra.",
+      "additionalProperties": {
+        "$ref": "#/$defs/param"
+      }
+    },
+    "time_span": {
+      "type": "object",
+      "required": [
+        "start",
+        "end"
+      ],
+      "description": "A time instant (start only) or interval, each end exactly as written.",
+      "properties": {
+        "start": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "interval": {
+      "type": "object",
+      "required": [
+        "top",
+        "base",
+        "lrs"
+      ],
+      "properties": {
+        "top": {
+          "$ref": "#/$defs/quantity"
+        },
+        "base": {
+          "$ref": "#/$defs/quantity"
+        },
+        "lrs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "crs key of the linear referencing system."
+        }
+      }
+    },
+    "position": {
+      "type": "object",
+      "required": [
+        "coordinates",
+        "dim",
+        "crs",
+        "geographic",
+        "transformed_by"
+      ],
+      "properties": {
+        "coordinates": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "As written, in the CRS's own axis order."
+        },
+        "dim": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "crs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Key into the model's crs table."
+        },
+        "geographic": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "lon",
+            "lat",
+            "datum"
+          ],
+          "description": "Filled in core only for geographic CRSs; datum recorded, never shifted.",
+          "properties": {
+            "lon": {
+              "type": "number"
+            },
+            "lat": {
+              "type": "number"
+            },
+            "h": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "datum": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "transformed_by": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Set only by pydiggs[gis], e.g. 'pydiggs[gis] pyproj 3.8'."
+        }
+      }
+    },
+    "crs_component": {
+      "type": "object",
+      "required": [
+        "epsg",
+        "name",
+        "type",
+        "unit",
+        "axis_order",
+        "datum",
+        "components"
+      ],
+      "properties": {
+        "epsg": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "examples": [
+            "geographic_2d",
+            "geographic_3d",
+            "projected",
+            "vertical",
+            "geocentric",
+            "compound"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The axes' unit when they share one."
+        },
+        "axis_order": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "examples": [
+            "lat,lon",
+            "east,north",
+            "up"
+          ]
+        },
+        "datum": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "description": "EPSG codes of a compound CRS's parts."
+        }
+      },
+      "description": "One component of a CRS. Facts come from pyDIGGS's EPSG subset (EPSG Dataset, owned by IOGP; see pydiggs.crs.epsg_source()); a code not in it has only epsg."
+    },
+    "crs_ref": {
+      "type": "object",
+      "required": [
+        "srs_name",
+        "form",
+        "name",
+        "horizontal",
+        "vertical",
+        "axis_order",
+        "unit",
+        "known",
+        "local"
+      ],
+      "properties": {
+        "srs_name": {
+          "type": "string",
+          "description": "As written."
+        },
+        "form": {
+          "type": "string",
+          "examples": [
+            "epsg",
+            "diggs",
+            "ogc",
+            "local",
+            "unknown"
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "horizontal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/crs_component"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vertical": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/crs_component"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "axis_order": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "examples": [
+            "lat,lon",
+            "east,north"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The coordinates' unit when the CRS states one (a projected CRS's, or a linear referencing method's units)."
+        },
+        "known": {
+          "type": "boolean",
+          "description": "Whether pyDIGGS found what it names: the EPSG codes in its subset, or the gml:id in the file."
+        },
+        "local": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "gml:id of a local or linear referencing system defined in the file."
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "source",
+        "relation",
+        "target",
+        "href",
+        "resolved"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Key of another node in this model."
+        },
+        "relation": {
+          "type": "string",
+          "description": "Element name without 'Ref'. Open vocabulary.",
+          "examples": [
+            "project",
+            "samplingFeature",
+            "sample",
+            "samplingActivity"
+          ]
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "href": {
+          "type": "string"
+        },
+        "resolved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "component": {
+      "description": "A record nested inside another node (a casing, water strike, well opening, SPT drive set, cone, constituent ...), kept as a node of its own.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "role": {
+          "type": "string",
+          "description": "The DIGGS property that holds it. Open vocabulary.",
+          "examples": [
+            "casing",
+            "waterStrike",
+            "driveSet",
+            "constituent"
+          ]
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/position"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/time_span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        }
+      }
+    },
+    "feature": {
+      "description": "A sampling feature.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/position"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "centerline": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/$defs/position"
+          }
+        },
+        "total_depth": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/quantity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lrs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "when_constructed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/time_span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "construction": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          },
+          "description": "How the feature was built: method, casing, backfill, hole diameter, flush, advancement, events; a well's casing, openings and installation events."
+        },
+        "water_strikes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        }
+      }
+    },
+    "sampling_activity": {
+      "description": "A SamplingActivity.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "feature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/code"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/quantity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/time_span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "sample": {
+      "description": "A Sample. interval, method and recovery are copied from the sampling activity that produced it; type is its classification.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "feature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "sampling_activity": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/code"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/code"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/quantity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "lithology_layer": {
+      "description": "One layer of a lithology observation.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "interval": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/interval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classification": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/code"
+          },
+          "description": "Shortcut: the primary lithology's classification codes (classificationCode, classificationSymbol, legendCode, lithologyClassification)."
+        },
+        "colour": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/code"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Shortcut: the primary lithology's colour code."
+        },
+        "geologic_unit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The unit name the layer gives."
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          },
+          "description": "The layer's lithologies (primaryLithology, componentLithology), each with its constituents and colour nested."
+        }
+      }
+    },
+    "observation": {
+      "description": "An observation system (lithology typed; others generic).",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "system": {
+          "type": "string",
+          "examples": [
+            "LithologySystem",
+            "DiscontinuitySystem"
+          ]
+        },
+        "feature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/lithology_layer"
+          }
+        }
+      }
+    },
+    "procedure": {
+      "type": "object",
+      "required": [
+        "type",
+        "params",
+        "components",
+        "extra"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Procedure element. Open vocabulary.",
+          "examples": [
+            "DrivenPenetrationTest",
+            "StaticConePenetrationTest",
+            "AtterbergLimitsTest"
+          ]
+        },
+        "params": {
+          "$ref": "#/$defs/params"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          },
+          "description": "Nested records: SPT drive sets, equipment, trials, sieve analyses ..."
+        },
+        "extra": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/extra_node"
+          }
+        }
+      }
+    },
+    "domain": {
+      "type": "object",
+      "required": [
+        "shape",
+        "index",
+        "crs"
+      ],
+      "properties": {
+        "shape": {
+          "type": "string",
+          "examples": [
+            "point",
+            "interval",
+            "temporal",
+            "grid2d",
+            "grid3d",
+            "none"
+          ]
+        },
+        "index": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/column"
+          },
+          "description": "Columns that place each row: position (position_1 ... for more axes) for a multi-point location, top and base for one interval per row."
+        },
+        "crs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "srsName of the index values; key into the model's crs table."
+        }
+      }
+    },
+    "column": {
+      "type": "object",
+      "required": [
+        "name",
+        "key",
+        "definition",
+        "uom",
+        "type",
+        "null_value",
+        "values"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "key": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "propertyClass fragment, e.g. liquid_limit."
+        },
+        "definition": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uom": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "type": "string",
+          "examples": [
+            "number",
+            "string",
+            "boolean",
+            "datetime"
+          ]
+        },
+        "null_value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "si_uom": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "si_factor": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "si_offset": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    },
+    "result_table": {
+      "type": "object",
+      "required": [
+        "domain",
+        "columns",
+        "row_count",
+        "location",
+        "extent"
+      ],
+      "properties": {
+        "domain": {
+          "$ref": "#/$defs/domain"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/column"
+          }
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "location": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/position"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The single point the whole table was measured at, when the result gives one."
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/interval"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The single interval the whole table was measured over, when the result gives one."
+        }
+      }
+    },
+    "measurement": {
+      "description": "A measurement: Test, Monitor, GeophysicalFieldSurvey, ...",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "feature": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "samples": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Key of another node in this model."
+          }
+        },
+        "specimen": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "result_time": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/time_span"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "procedure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/procedure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/result_table"
+          },
+          "description": "Every result set under the measurement (outcome and procedure); columns have no values when read with results=False."
+        }
+      }
+    },
+    "project": {
+      "description": "A Project.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "client": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Key of another node in this model, or null."
+        },
+        "locality": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "associate": {
+      "description": "A BusinessAssociate.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/code"
+          }
+        }
+      }
+    },
+    "document_info": {
+      "description": "The DocumentInformation member.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "creation_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "other": {
+      "description": "A top-level member with no typed mapper yet.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/header"
+        }
+      ],
+      "type": "object",
+      "required": [],
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/result_table"
+          },
+          "description": "Every result set under the member."
+        }
+      }
+    }
+  }
+}

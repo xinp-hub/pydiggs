@@ -9,6 +9,7 @@ https://xinp-hub.github.io/pydiggs/model/.
 from pydiggs.model._model import MODEL_SCHEMA_URL, MODEL_SCHEMA_VERSION, Model, model_schema
 from pydiggs.model._nodes import (
     Associate,
+    Component,
     DocumentInfo,
     Feature,
     LithologyLayer,
@@ -16,6 +17,7 @@ from pydiggs.model._nodes import (
     Node,
     Observation,
     Other,
+    Procedure,
     Project,
     Sample,
     SamplingActivity,
@@ -30,13 +32,14 @@ from pydiggs.model._values import (
     Geographic,
     Interval,
     Link,
+    Param,
     Position,
-    Procedure,
     Provenance,
     Quantity,
     ResultTable,
     SiValue,
     SourceInfo,
+    TimeSpan,
 )
 
 __all__ = [
@@ -45,6 +48,7 @@ __all__ = [
     "Associate",
     "Code",
     "Column",
+    "Component",
     "CrsComponent",
     "CrsRef",
     "DocumentInfo",
@@ -60,6 +64,7 @@ __all__ = [
     "Node",
     "Observation",
     "Other",
+    "Param",
     "Position",
     "Procedure",
     "Project",
@@ -70,5 +75,6 @@ __all__ = [
     "SamplingActivity",
     "SiValue",
     "SourceInfo",
+    "TimeSpan",
     "model_schema",
 ]

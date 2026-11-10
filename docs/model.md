@@ -2,7 +2,7 @@
 
 !!! warning "Preview: may change before 1.7.0"
     The read API is in **pyDIGGS 1.6** as `pydiggs.preview`, outside the stability
-    promise. It returns **diggs-model 1.0-beta.1**; field names may still change.
+    promise. It returns **diggs-model 1.0-beta.2**; field names may still change.
 
     - **1.7.0** freezes **diggs-model 1.0** and adds `pydiggs.read()`, HTTP and sidecar
       `read`, and the `[frames]`, `[polars]` and `[gis]` extras.
@@ -15,8 +15,10 @@
 DIGGS 2.5.a, 2.6 and 3.x, as Python objects and as JSON.
 
 - **JSON Schema:**
-  [`schemas/preview/diggs-model-1.0-beta.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.1.schema.json)
-  (also `pydiggs.model.model_schema()`)
+  [`schemas/preview/diggs-model-1.0-beta.2.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.2.schema.json)
+  (also `pydiggs.model.model_schema()`). The first beta,
+  [`1.0-beta.1`](schemas/preview/diggs-model-1.0-beta.1.schema.json), stays published but
+  is no longer written.
 - **Example document** (from the draft):
   [`schemas/preview/diggs-model-1.0-draft.example.json`](schemas/preview/diggs-model-1.0-draft.example.json)
 
@@ -30,11 +32,16 @@ for f in m.features:
     print(f.key, f.kind, f.name, f.total_depth)  # B-01 borehole B-01 Quantity(text='160.00', …)
 
 bh = m.get("Location_B-01")
+print(bh.params["boreholeType"])  # Code(value='Borehole', code_space='https://…#BH')
+for c in bh.construction:  # construction methods, casing, backfill …
+    print(c.role, c.interval)
 for test in m.related(bh, relation="samplingFeature", direction="in"):
+    print(test.procedure.type, dict(test.procedure.params))  # tipArea, hammerEfficiency …
     for table in getattr(test, "results", ()):
+        depth = table.domain.index  # e.g. the CPT depth of every row, in metres
         n = table.column("n_value")  # find columns by dictionary key
         if n is not None:
-            print(test.procedure.type, n.values)
+            print(n.values)
 
 text = m.to_json()  # a diggs-model document; the same model always gives the same bytes
 again = preview.Model.from_json(text)  # == m
@@ -76,7 +83,7 @@ A diggs-model document is one JSON object:
 
 | Field | What it holds |
 | --- | --- |
-| `schema_version` | `1.0-beta.1` in 1.6.0, `1.0` from 1.7.0 (the R0 draft was `1.0-draft`) |
+| `schema_version` | `1.0-beta.2` in 1.6.0, `1.0` from 1.7.0 (the R0 draft was `1.0-draft`) |
 | `tool`, `source` | pyDIGGS version; file name, sha256, size, DIGGS version and namespace |
 | `complete`, `limits_hit` | `false` and the limit's name when a limit stopped reading |
 | `document`, `projects`, `associates` | Document information, projects, business associates |
@@ -91,7 +98,32 @@ A diggs-model document is one JSON object:
 
 Every node starts with the same header: `key`, `gml_id`, `element` (the DIGGS element
 name), `kind` (for example `borehole`), `name`, `names`, `description`, `remarks`,
-`provenance` and `extra`.
+`params`, `provenance` and `extra`.
+
+### Simple values: `params`
+
+Most of what DIGGS says about an object is simple values: a status, a purpose, a hammer
+efficiency, a tip area. Every child element that has no child elements of its own,
+appears once, and carries no attribute but `uom` or `codeSpace` is kept in `params`,
+by its DIGGS element name, as a `Quantity` (it had a `uom`, so it has a parsed value and,
+when the unit converts, an SI value), a `Code` (it had a `codeSpace`) or text. This
+applies to every node and every procedure, so every test has typed parameters, not only
+the ones pyDIGGS knows.
+
+What is not a simple value stays in `extra`: repeated elements (all copies, in order),
+elements with other attributes (`howDetermined`, `refAzimuth` …), empty elements and
+structured ones. A plain reference (`<projectRef xlink:href="#p1"/>`) is one of the
+model's `links` and is not repeated in `extra`.
+
+### Nested records: components
+
+Records nested inside a feature, a lithology or a procedure are `Component` nodes: a
+casing, a backfill, a water strike and its readings, a well opening, an SPT drive set,
+the cone of a CPT, a sieve analysis, a constituent. Each has the full header (with its
+own `key`, so links into it resolve to it), a `role` (the DIGGS property that holds it:
+`casing`, `waterStrike`, `driveSet` …), the `interval`, `location` and `time` it applies
+to when it says, its `params`, and its own nested `components`. `Model.nodes()` and
+`Model.get()` include them.
 
 ### Result tables
 
@@ -101,6 +133,20 @@ definitions and a block of values. The model turns each into a table with a `dom
 `name`, its dictionary `key` (for example `liquid_limit`), `uom`, `type` and `values`, and
 the factor to SI where the unit has one. Tables are generic for every procedure, so a test
 with no typed mapper still gives you its numbers.
+
+Where each row is lies outside the values, in the result's location or time domain. The
+model puts it in `domain.index`, columns of the same length as the table:
+
+| The result gives | `domain.index` | Example |
+| --- | --- | --- |
+| a multi-point location, one position per row | `position` (`position_1` … for more axes) | CPT depths |
+| an extent with a top and base for every row | `top`, `base` | stepped tests |
+| a list of times | `time` (datetime text) | water levels |
+| a list of elapsed times | `elapsed_time`, in the list's unit | pore-pressure dissipation |
+
+When the whole table was measured at one place instead, it is `location` (a point) or
+`extent` (an interval, such as an SPT's test interval). `domain.crs` names the system
+the index is in.
 
 ### Notes
 
@@ -116,6 +162,44 @@ Notes use rule ids that `validate()` already reports, so one explanation covers 
 | A value that is not a number where one is expected | `structure.value-unparsed` |
 | A result row longer or shorter than its columns | `context.datablock-arity` |
 | A time limit stopped reading | `structure.timeout` |
+
+## Coordinate reference systems
+
+`m.crs` describes every `srsName` the file uses: its `form` (`epsg`, `diggs`, `ogc`,
+`local` or `unknown`), `name`, `horizontal` and `vertical` components, `axis_order`,
+`unit`, and `known` (whether pyDIGGS found what it names). The same facts are available
+directly:
+
+```python
+from pydiggs import crs
+
+projected = crs.epsg(2272)
+projected.name  # 'NAD83 / Pennsylvania South (ftUS)'
+projected.unit  # 'US survey foot'
+projected.axis_order  # 'east,north'
+crs.parse("urn:ogc:def:crs:EPSG::5498").vertical.name  # 'NAVD88 height'
+```
+
+- **EPSG facts** (name, type, axis order, unit, datum; no WKT, no transformation
+  parameters) come from a subset of the EPSG Dataset packaged with pyDIGGS: every
+  geographic and vertical CRS, every CRS used in the United States and its territories,
+  the WGS 84 and ETRS89 UTM zones, and every code in the conformance corpus.
+  `crs.epsg_source()` gives the dataset version. A code outside the subset still reads;
+  it just has no name or unit (`known` is `false`).
+- **Positions** keep their coordinates as written. For a geographic CRS, `geographic`
+  gives latitude and longitude in the CRS's axis order and its datum; a value beyond 90°
+  where latitude should be is read the other way round, with a note.
+- **Depths.** A borehole's depths are written as bare numbers along its linear
+  referencing system (`srsName="#lsr-…"`). When that system states its `units` in the
+  file, intervals and index columns get that unit (and an SI value). Systems that refer
+  to the DIGGS registry for their method (`lrm.xml#md_ft`) are not looked up, so their
+  depths keep no unit.
+- Nothing is transformed or fetched; use pyproj for that.
+
+The EPSG Dataset is owned by the International Association of Oil & Gas Producers
+(IOGP). pyDIGGS includes facts from it, unmodified, under the
+[EPSG terms of use](https://epsg.org/terms-of-use.html); the full dataset is at
+[epsg.org](https://epsg.org).
 
 ## Versioning
 
@@ -146,27 +230,34 @@ means header, links, location and result tables, with the rest in `extra`.
 | Other observation systems | Generic |
 | Sampling activities and samples | Typed |
 | SPT, CPT, Atterberg limits, particle size, water level | Typed parameters and tables |
-| Every other test | Generic table, parameters in `extra` |
+| Every other test | Typed `params` and components, generic tables |
 
-### What 1.0-beta.1 (pyDIGGS 1.6.0) reads today
+### What 1.0-beta.2 (pyDIGGS 1.6.0) reads
 
-- Every top-level member, with its header, links and `extra`; nothing is dropped.
-- Features: `location`, `centerline`, `total_depth` (with SI value) and `lrs`.
-- Sampling activities and samples: their depth `interval`.
-- Lithology systems: one layer per `LithologyObservation`, with `interval`,
-  description and classification codes.
-- Measurements: the procedure's type and its simple parameters (the rest in the
-  procedure's `extra`), and **every result table**, for every procedure, with typed
-  columns, dictionary keys and SI factors. Construction activities keep their result
-  tables too (in `others`).
-- Links, resolved to the node that holds the referenced element, and the `feature`,
-  `samples`, `sampling_activity` and `specimen` shortcuts built from them.
-- A CRS table (`crs`): each `srsName`, its form and EPSG codes, and `geographic`
-  latitude and longitude for the common geographic CRSs.
+- Every top-level member, with its header, `params`, links and `extra`; nothing is
+  dropped.
+- **Features:** `location`, `centerline`, `total_depth` and `lrs`; `when_constructed`;
+  `construction` (method, casing, backfill, hole diameter, flush, advancement, events; a
+  well's casing, openings and installation events) and `water_strikes` as components; a
+  well's or installation's `parent` hole.
+- **Sampling activities:** `interval`, `method`, `recovery` and `date`. **Samples:**
+  `type` (their classification), and the `interval`, `method` and `recovery` of the
+  activity that produced them.
+- **Lithology:** one layer per `LithologyObservation`, with `interval`, `geologic_unit`,
+  its primary and component lithologies as components, and `description`,
+  `classification` and `colour` from the primary lithology.
+- **Measurements:** `result_time`; the procedure's type, `params` and nested
+  `components` (SPT drive sets, CPT cone, sieve analyses …); **every result table**, for
+  every procedure, with typed columns, dictionary keys, SI factors and index columns.
+  Construction activities keep their result tables too (in `others`).
+- **Links**, resolved to the node that holds the referenced element (a component when
+  the id is inside one), and the `feature`, `samples`, `sampling_activity`, `specimen`
+  and `parent` shortcuts built from them.
+- **CRS:** names, types, units, axis orders and datums from the EPSG subset; units of
+  in-file linear referencing systems.
 
-Coming in the 1.6.x betas: typed construction and water strikes, a well's parent hole,
-typed parameters for SPT, CPT, Atterberg and particle-size tests, CRS names, units and
-datums from a bundled EPSG subset, and table index columns.
+Planned before 1.7.0 freezes 1.0: units of depth systems that refer to the DIGGS
+registry, and field-level provenance (`provenance="field"`).
 
 ## Checking a reader
 

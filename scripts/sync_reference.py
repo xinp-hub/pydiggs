@@ -146,9 +146,15 @@ PACKAGE_LOCAL = {
         "reviewed here rather than synced (DIGGSml/def docs/validation/whiteList.xml is "
         "the upstream starting point)."
     ),
-    "model/diggs-model-1.0-beta.1.schema.json": (
+    "model/diggs-model-1.0-beta.2.schema.json": (
         "The diggs-model JSON Schema (read API, preview): pyDIGGS's own output contract, "
         "kept equal to the model classes by tests/test_read_preview.py."
+    ),
+    "crs/epsg-subset.json": (
+        "Facts about EPSG coordinate reference systems (name, type, axis order, unit, datum), "
+        "extracted unmodified from the EPSG Dataset by scripts/build_epsg_subset.py. The EPSG "
+        "Dataset is owned by IOGP and used under its terms of use: "
+        "https://epsg.org/terms-of-use.html."
     ),
     "server/openapi.json": (
         "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."

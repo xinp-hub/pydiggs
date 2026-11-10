@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Read API (preview):** `pydiggs.preview.read(path)` and `read_bytes(data)` read a
-  DIGGS 2.5.a, 2.6 or 3.x file into a `Model` (diggs-model 1.0-beta.1): features,
+  DIGGS 2.5.a, 2.6 or 3.x file into a `Model` (diggs-model 1.0-beta.2): features,
   sampling activities, samples, lithology layers, measurements with every result table
   as typed columns, links between them, a CRS table, and notes on what reading had to
   work around. Files are parsed one top-level member at a time, nothing is fetched, and
@@ -17,6 +17,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   node and value classes are in `pydiggs.model`, the schema in
   `pydiggs.model.model_schema()` and on the docs site. Preview: names may change before
   1.7.0 freezes diggs-model 1.0.
+- Read API coverage (diggs-model **1.0-beta.2**):
+  - Every node and procedure keeps its simple values in `params` (a `Quantity`, a `Code`
+    or text), so every test has typed parameters: SPT hammer efficiency and penetration,
+    CPT tip area and area ratio, and the rest.
+  - Nested records are `Component` nodes with their own keys: borehole and well
+    construction (method, casing, backfill, hole diameter, openings, events), water
+    strikes and their readings, SPT drive sets, CPT cones, sieve analyses, lithologies.
+  - A well's `parent` hole; a sample's depth, method and recovery from its sampling
+    activity; a lithology layer's classification, colour and geologic unit; a test's
+    `result_time`.
+  - Result tables say where each row is: `domain.index` columns for CPT depths, stepped
+    intervals, water-level times and elapsed times, and an `extent` for tests measured
+    over one interval. Depths take the unit of the borehole's linear referencing
+    system when the file states it.
+- `pydiggs.crs` (preview): `parse()` an `srsName`, and `epsg()` facts (name, type, axis
+  order, unit, datum) from a packaged subset of the EPSG Dataset (owned by IOGP, used
+  under its terms of use). The model's `crs` table and `geographic` positions use them.
 - `pydiggs.errors.DocumentError` (a `ValueError`): raised by the read API when the bytes
   are not a DIGGS document at all.
 - Rule `structure.value-unparsed` (info), used by read notes.
@@ -24,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   notifications, the releases feed, PyPI's feed, and an email list for feature releases).
 
 ### Security
+- GitHub releases are immutable from 1.6.0: once published, a release's files and its
+  tag cannot be changed or deleted, and `v*` tags cannot be moved. A release that needs
+  a fix gets a new patch version.
 - Release tags are signed by a maintainer's key, and the release workflow refuses to
   publish from a tag that is unsigned or signed by a key not listed in
   `.github/release-signers`. Check a release with

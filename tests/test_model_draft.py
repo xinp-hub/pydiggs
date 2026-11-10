@@ -105,7 +105,7 @@ def test_every_definition_is_used():
 def test_docs_page_links_the_schema_and_example():
     page = (ROOT / "docs" / "model.md").read_text(encoding="utf-8")
     assert EXAMPLE.relative_to(ROOT / "docs").as_posix() in page
-    assert "schemas/preview/diggs-model-1.0-beta.1.schema.json" in page
+    assert "schemas/preview/diggs-model-1.0-beta.2.schema.json" in page
     assert "model.md" in (ROOT / "mkdocs.yml").read_text(encoding="utf-8")
 
 
