@@ -15,6 +15,9 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 * Documentation: [https://xinp-hub.github.io/pydiggs](https://xinp-hub.github.io/pydiggs)
 * GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
 * PyPI: [https://pypi.org/project/pydiggs](https://pypi.org/project/pydiggs)
+* Release updates: **Watch → Custom → Releases** on this repository, the
+  [releases feed](https://github.com/xinp-hub/pydiggs/releases.atom), or email
+  (see [Stay updated](https://xinp-hub.github.io/pydiggs/stay-updated/))
 
 ## Authors
 

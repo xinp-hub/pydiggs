@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pydiggs.errors.DocumentError` (a `ValueError`): raised by the read API when the bytes
   are not a DIGGS document at all.
 - Rule `structure.value-unparsed` (info), used by read notes.
+- Documentation: a "Stay updated" page on how to follow new releases (GitHub release
+  notifications, the releases feed, PyPI's feed, and an email list for feature releases).
 
 ### Security
 - GitHub releases are immutable from 1.6.0: once published, a release's files and its

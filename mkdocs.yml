@@ -128,7 +128,13 @@ extra:
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/pydiggs/
       name: pyDIGGS on PyPI
+    - icon: material/rss
+      link: https://github.com/xinp-hub/pydiggs/releases.atom
+      name: pyDIGGS releases feed
   generator: false
+  # Buttondown username for the "Stay updated" sign-up form; empty shows a note instead.
+  newsletter:
+    buttondown: ""
 
 extra_css:
   - assets/stylesheets/extra.css
@@ -156,4 +162,5 @@ nav:
     - Contributing: contributing.md
     - Authors: authors.md
     - History: history.md
+    - Stay updated: stay-updated.md
     - Security policy: https://github.com/xinp-hub/pydiggs/security/policy

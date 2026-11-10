@@ -37,9 +37,43 @@
   inset: 0;
 }
 
+/* "Stay updated" email sign-up form (docs/stay-updated.md) */
+.md-typeset .pd-subscribe {
+  margin: 1rem 0;
+  max-width: 32rem;
+}
+
+.md-typeset .pd-subscribe label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-weight: 700;
+}
+
+.md-typeset .pd-subscribe-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.md-typeset .pd-subscribe input[type="email"] {
+  flex: 1 1 14rem;
+  min-height: 2.4rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color);
+  font: inherit;
+}
+
+.md-typeset .pd-subscribe .md-button {
+  margin: 0;
+}
+
 /* Keyboard focus stays visible everywhere (WCAG 2.2: 2.4.7 and 2.4.11) */
 .md-typeset a:focus-visible,
 .md-typeset button:focus-visible,
+.md-typeset input:focus-visible,
 .md-typeset summary:focus-visible,
 .md-typeset .tabbed-labels > label:focus-visible {
   outline: 2px solid var(--md-accent-fg-color);
