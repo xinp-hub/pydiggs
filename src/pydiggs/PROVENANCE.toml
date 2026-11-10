@@ -474,7 +474,7 @@ sha256 = "152c019c97353d45ffe2c344872e283eaf2853cdcd9f8e577af0382355066e50"
 [files."crs/epsg-subset.json"]
 source = "local"
 note = "Facts about EPSG coordinate reference systems (name, type, axis order, unit, datum), extracted unmodified from the EPSG Dataset by scripts/build_epsg_subset.py. The EPSG Dataset is owned by IOGP and used under its terms of use: https://epsg.org/terms-of-use.html."
-sha256 = "17841bcbf273dd827dfa23375fbc4ba2f0443f32a25235fadfb8f027c9092285"
+sha256 = "810edb9d834ce1c170799103174cc27004af064548a833031f6986afeae4737c"
 
 [files."findings/diggs-findings-1.0.schema.json"]
 source = "local"

@@ -20,7 +20,7 @@ const PYODIDE_SRI = "sha384-Lp79fMwxa4n2BLtugpUAoQMlbxIdg8iCUiP1r3h7nJLkQjwlXT1J
 // The CDN, or a self-hosted copy of the Pyodide "full" distribution, for example
 // new URL("./pyodide/", import.meta.url).href. The SRI check above applies either way.
 const PYODIDE_BASE = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-const PYDIGGS_VERSION = "1.5.0";
+const PYDIGGS_VERSION = "1.6.0";
 const MAX_BYTES = 25 * 1024 * 1024; // brief D8: the browser example's limit
 
 // While developing, ?wheel=/wheels/pydiggs-X.Y.Z-py3-none-any.whl on the page installs a

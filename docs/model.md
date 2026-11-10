@@ -91,7 +91,7 @@ A diggs-model document is one JSON object:
 | `sampling_activities`, `samples` | Sampling activities and samples |
 | `observations` | Observation systems, with lithology layers typed |
 | `measurements` | Tests, monitors and surveys, each with a `procedure` and result tables |
-| `others` | Top-level members with no typed mapper yet |
+| `others` | Top-level members with no typed mapper yet; a top-level reference is kind `reference`, and a property of the file itself (`gml:name`, `gml:description`) is kind `property` with its value in `params` |
 | `crs` | Every coordinate reference system used, keyed by its `srsName` |
 | `links` | Every link between nodes: `source`, `relation`, `target`, `href`, `resolved` |
 | `notes` | Findings about reading, in the diggs-findings shape |

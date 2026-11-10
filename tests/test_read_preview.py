@@ -111,7 +111,7 @@ def test_corpus_reads_and_matches_the_census(path, want):
     for node in m.nodes():
         steps = node.provenance.xpath.split("/")[2:]
         prop = steps[0].split(":")[-1].split("[")[0]
-        if node.kind == "reference":
+        if node.kind in ("reference", "property"):  # a member with no object
             members[f"{prop}/-"] += 1
         elif len(steps) == 2 and steps[1].endswith("[1]"):
             members[f"{prop}/{steps[1].split(':')[-1].split('[')[0]}"] += 1

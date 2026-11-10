@@ -261,18 +261,26 @@ def _encode(value: Any) -> Any:
 def _finding(data: Any, where: str) -> Finding:
     if not isinstance(data, Mapping):
         raise ValueError(f"{where}: a finding is an object")
+    missing = [k for k in ("step", "rule_id", "severity", "message") if k not in data]
+    if missing:
+        raise ValueError(f"{where}: a finding needs {', '.join(missing)}")
     location = data.get("location") or {}
-    return Finding(
-        layer=data.get("layer", "native"),
-        step=data["step"],
-        rule_id=data["rule_id"],
-        severity=data["severity"],
-        message=data["message"],
-        line=location.get("line"),
-        column=location.get("column"),
-        xpath=location.get("xpath"),
-        gml_id=location.get("gml_id"),
-    )
+    if not isinstance(location, Mapping):
+        raise ValueError(f"{where}.location: expected an object")
+    try:
+        return Finding(
+            layer=data.get("layer", "native"),
+            step=data["step"],
+            rule_id=data["rule_id"],
+            severity=data["severity"],
+            message=data["message"],
+            line=location.get("line"),
+            column=location.get("column"),
+            xpath=location.get("xpath"),
+            gml_id=location.get("gml_id"),
+        )
+    except (TypeError, KeyError) as exc:
+        raise ValueError(f"{where}: {exc}") from exc
 
 
 Decoder = Callable[[Any, str], Any]

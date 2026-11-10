@@ -1,5 +1,21 @@
 # History
 
+## 1.6.0 (2026-11-10)
+
+A first look at reading DIGGS files, all additive and marked preview:
+
+- The read API, `pydiggs.preview.read()`: what is *in* a file (boreholes, samples, tests
+  with typed parameters and result tables, and the links between them) as Python objects
+  and as JSON in diggs-model 1.0-beta.2. Names may change before 1.7.0 freezes
+  diggs-model 1.0; see [Reading files (preview)](model.md).
+- `pydiggs.crs`, which says what a coordinate reference system name means (type, axis
+  order, unit, datum) from a packaged subset of the EPSG Dataset.
+- A [Stay updated](stay-updated.md) page with the ways to hear about new releases.
+- Release tags are signed and checked before anything is published, and GitHub
+  releases can no longer be changed once published.
+
+See the CHANGELOG for the full list.
+
 ## 1.5.0 (2026-11-09)
 
 New checks and a look ahead, all additive:
