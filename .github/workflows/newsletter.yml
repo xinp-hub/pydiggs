@@ -1,0 +1,61 @@
+# Newsletter — after a successful release, create a Buttondown DRAFT announcing it.
+# Nothing is sent from CI: a maintainer reviews the draft in Buttondown and sends it.
+#
+# workflow_run, not release: published, because the release is created with
+# github.token, and events caused by that token do not start other workflows.
+# workflow_run always runs this file and the script from the default branch, so a tag
+# or pull request cannot change what runs with the secret.
+#
+# Setup: create the `newsletter` environment (Settings → Environments), restrict it to
+# the default branch, and add the BUTTONDOWN_API_KEY secret to it. Until the secret
+# exists the job only logs a notice.
+name: Newsletter draft
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to announce, e.g. v1.6.0
+        required: true
+      force:
+        description: Draft a patch release too
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: newsletter
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    # Only a successful Release run started by pushing a v* tag (not a dry run).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: newsletter
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Create the draft
+        env:
+          BUTTONDOWN_API_KEY: ${{ secrets.BUTTONDOWN_API_KEY }}
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+          FORCE: ${{ inputs.force && '--force' || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$BUTTONDOWN_API_KEY" ]; then
+            echo "::notice::BUTTONDOWN_API_KEY is not set in the newsletter environment; no draft created"
+            exit 0
+          fi
+          python3 .github/scripts/newsletter_draft.py "$TAG" $FORCE
