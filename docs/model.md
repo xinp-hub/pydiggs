@@ -15,7 +15,7 @@
 DIGGS 2.5.a, 2.6 and 3.x, as Python objects and as JSON.
 
 - **JSON Schema:**
-  [`schemas/preview/diggs-model-1.0-beta.1.schema.json`](schemas/preview/diggs-model-1.0-beta.1.schema.json)
+  [`schemas/preview/diggs-model-1.0-beta.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-model-1.0-beta.1.schema.json)
   (also `pydiggs.model.model_schema()`)
 - **Example document** (from the draft):
   [`schemas/preview/diggs-model-1.0-draft.example.json`](schemas/preview/diggs-model-1.0-draft.example.json)

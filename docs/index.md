@@ -101,3 +101,7 @@ with `--local-dictionaries off` or `validate(..., local_dictionaries="off")`. Se
 !!! tip "Prefer a web application?"
     [DXplorer](https://www.dx-plorer.com) brings pyDIGGS validation to the browser
     without any Python.
+
+!!! info "Stay updated"
+    Hear about each feature release by GitHub notification, feed or email: see
+    [Stay updated](stay-updated.md).
