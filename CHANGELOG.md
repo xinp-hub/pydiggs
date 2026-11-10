@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are not a DIGGS document at all.
 - Rule `structure.value-unparsed` (info), used by read notes.
 
+### Security
+- Release tags are signed by a maintainer's key, and the release workflow refuses to
+  publish from a tag that is unsigned or signed by a key not listed in
+  `.github/release-signers`. Check a release with
+  `git -c gpg.ssh.allowedSignersFile=.github/release-signers verify-tag vX.Y.Z`.
+
 ## [1.5.0] - 2026-11-09
 
 ### Added

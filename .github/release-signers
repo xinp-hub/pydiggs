@@ -1,0 +1,5 @@
+# SSH keys allowed to sign pyDIGGS release tags (git tag -s).
+# The release workflow (publish.yml, guard job) runs git verify-tag against this file and
+# refuses to publish a tag that is lightweight, unsigned, or signed by any other key.
+# Format: ssh-keygen(1) ALLOWED SIGNERS, one key per line. Changes are reviewed like code.
+xin_peng@outlook.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICV9GJBe+yBJP9CRUqYYu7dbE/xgl2j2L7a1o6IObJ5W
