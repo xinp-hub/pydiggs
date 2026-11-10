@@ -43,3 +43,14 @@ def test_release_workflow_verifies_the_tag_before_anything_else():
     assert 'git cat-file -t "refs/tags/${TAG}")" != "tag"' in guard
     assert verify < guard.index("id: check"), "verify the signature before the version checks"
     assert "TAG: ${{ github.ref_name }}" in guard, "pass the tag through env, not inline"
+
+
+def test_release_workflow_never_edits_a_published_release():
+    """Releases are immutable: a re-run fails instead of uploading to an existing one."""
+    text = PUBLISH.read_text(encoding="utf-8")
+    assert "gh release upload" not in text
+    assert "--clobber" not in text
+    create = text.index("gh release create")
+    refuse = text.index('gh release view "$GITHUB_REF_NAME"')
+    assert refuse < create
+    assert "exit 1" in text[refuse:create], "an existing release must stop the run"

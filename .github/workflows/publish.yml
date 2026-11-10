@@ -263,16 +263,19 @@ jobs:
             p {print}
           ' CHANGELOG.md > notes.md
           printf '\n---\nPyPI: https://pypi.org/project/pydiggs/%s/\n' "$VERSION" >> notes.md
+          # Releases are immutable (repository setting since 2026-11-10): once published,
+          # a release's assets and tag cannot change, so a re-run never edits one.
+          # gh creates the release as a draft, uploads every asset, then publishes it.
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            echo "Release $GITHUB_REF_NAME already exists; uploading assets only"
-            gh release upload "$GITHUB_REF_NAME" dist/* constraints/* dist-digests.txt --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              --title "pydiggs $VERSION" \
-              --notes-file notes.md \
-              --verify-tag \
-              dist/* constraints/* dist-digests.txt
+            echo "::error::Release $GITHUB_REF_NAME already exists and is immutable." \
+              "Do not edit it: fix forward with a new patch version."
+            exit 1
           fi
+          gh release create "$GITHUB_REF_NAME" \
+            --title "pydiggs $VERSION" \
+            --notes-file notes.md \
+            --verify-tag \
+            dist/* constraints/* dist-digests.txt
 
   # The container image (docs/container.md, brief D13), built only from the wheel this
   # run published: downloaded from PyPI and checked against both the PyPI JSON API and

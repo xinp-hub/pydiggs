@@ -160,6 +160,7 @@ module = [
   "pydiggs._serve_cli",
   "pydiggs._service",
   "pydiggs._versions",
+  "pydiggs.crs",
   "pydiggs.errors",
   "pydiggs.findings",
   "pydiggs.findings.*",
@@ -178,6 +179,12 @@ disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 module = ["lxml", "lxml.*"]
+ignore_missing_imports = true
+
+# pyproj is a maintainer tool for scripts/build_epsg_subset.py (run with uv --with),
+# never a dependency, so the dev environment does not install it.
+[[tool.mypy.overrides]]
+module = ["pyproj", "pyproj.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

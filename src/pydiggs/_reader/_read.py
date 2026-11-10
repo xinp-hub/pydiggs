@@ -19,20 +19,21 @@ import re
 import time
 import tomllib
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from functools import cache
 from importlib import resources
 from typing import Any, Final
 
 from lxml import etree
 
-from pydiggs import _geo_checks, _xml
+from pydiggs import _geo_checks, _xml, crs
 from pydiggs.detect import NAMESPACE_PROFILES
 from pydiggs.errors import DocumentError
 from pydiggs.findings import rules
 from pydiggs.findings.keys import normalise_xpath
 from pydiggs.findings.model import Finding, Severity, Step
-from pydiggs.model._model import MODEL_SCHEMA_VERSION, Model
+from pydiggs.model._model import MODEL_SCHEMA_VERSION, Model, _encode
+from pydiggs.model._values import CrsRef
 from pydiggs.units import UnitConverter
 
 __all__ = ["read_document"]
@@ -62,6 +63,60 @@ _SHAPES: Final = {
     "TimeInstant": "temporal",
     "RectifiedGrid": "grid2d",
 }
+#: Feature properties whose objects become ``construction`` components.
+_CONSTRUCTION: Final = frozenset(
+    {
+        "backfill",
+        "casing",
+        "chiseling",
+        "constructionEvent",
+        "constructionMethod",
+        "drillAdvancement",
+        "flush",
+        "holeDiameter",
+        "installationConstructionEvent",
+        "installationEquipment",
+        "maintenanceEvent",
+        "opening",
+        "wellAbandonment",
+        "wellCasing",
+    }
+)
+#: Geometry objects: a component's place, never a component of its own.
+_GEOMETRY: Final = frozenset(
+    {
+        "LinearExtent",
+        "MultiCurve",
+        "MultiPointLocation",
+        "PointLocation",
+        "RectifiedGrid",
+        "LineString",
+        "Point",
+    }
+)
+#: Time objects: a component's or activity's time.
+_TIME: Final = frozenset({"TimeInstant", "TimeInterval", "TimePeriod"})
+#: Time domains of result tables: read as their index, never kept twice.
+_TIME_DOMAINS: Final = frozenset({"TimePositionList", "TimeIntervalList", "MultiTimeInstant"})
+#: ``unit`` of a TimeIntervalList -> unit symbol.
+_TIME_UNITS: Final = {"second": "s", "minute": "min", "hour": "h", "day": "d"}
+#: Typed reference fields and the link relation each one follows.
+_TYPED_REFS: Final = (
+    ("feature", "samplingFeature"),
+    ("sampling_activity", "samplingActivity"),
+    ("specimen", "specimen"),
+    ("parent", "samplingFeature"),
+)
+#: CRSs a file defines for itself, by element.
+_LOCAL_CRS: Final = frozenset(
+    {"LinearSpatialReferenceSystem", "LocalCartesianCRS", "EngineeringCRS"}
+)
+#: Header properties: read into the header, never components.
+_HEADER: Final = frozenset({"name", "description", "remark"})
+#: Attributes a simple value may carry and still be a ``params`` entry.
+_PARAM_ATTRS: Final = frozenset({"uom", "codeSpace"})
+#: Lithology classification codes, in the order DIGGS lists them.
+_CLASSIFICATION: Final = ("classificationCode", "classificationSymbol", "legendCode")
 _NUMBER_TYPES: Final = frozenset(
     {"integer", "int", "double", "decimal", "float", "number", "long", "short", "real"}
 )
@@ -71,8 +126,15 @@ _CAMEL: Final = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _FLOAT: Final = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 
 
+_LOCALS: dict[object, str] = {}
+
+
 def _local(tag: object) -> str:
-    return str(tag).rpartition("}")[2]
+    """The local name of a tag; tags repeat, so each is split once per process."""
+    local = _LOCALS.get(tag)
+    if local is None:
+        local = _LOCALS[tag] = str(tag).rpartition("}")[2]
+    return local
 
 
 def _qname(el: etree._Element) -> str:
@@ -122,6 +184,134 @@ def _aliases() -> dict[tuple[str, str], str]:
     return table
 
 
+def _object(prop: etree._Element) -> etree._Element | None:
+    """The one object element a property holds (``<casing><Casing/></casing>``)."""
+    children = list(_elements(prop))
+    if len(children) != 1 or prop.get(_XLINK_HREF) is not None:
+        return None
+    local = _local(children[0].tag)
+    return children[0] if local[:1].isupper() else None
+
+
+def _is_table_part(el: etree._Element) -> bool:
+    """A result set or a time domain, or a property holding one: read into ``results``."""
+    local = _local(el.tag)
+    if local.endswith("ResultSet") or local in _TIME_DOMAINS:
+        return True
+    obj = _object(el)
+    return obj is not None and (
+        _local(obj.tag).endswith("ResultSet") or _local(obj.tag) in _TIME_DOMAINS
+    )
+
+
+def _plain_reference(el: etree._Element, text: str | None) -> bool:
+    return (
+        text is None and list(el.attrib) == [_XLINK_HREF] and not any(True for _ in _elements(el))
+    )
+
+
+def _time_index(domain: etree._Element, rows: int) -> list[dict[str, Any]]:
+    """The time of each row, from a result's ``timeDomain``, when it has one per row."""
+    obj = next(_elements(domain), None)
+    if obj is None or rows == 0:
+        return []
+    local = _local(obj.tag)
+    if local == "TimeIntervalList":
+        values = [_number(t) for t in (_text(_child(obj, "timeIntervalList")) or "").split()]
+        if len(values) != rows or any(v is None for v in values):
+            return []
+        unit = obj.get("unit")
+        return [_index_column("elapsed_time", values, _TIME_UNITS.get(unit or "", unit))]
+    if local == "TimePositionList":
+        times = (_text(_child(obj, "timePositionList")) or "").split()
+    elif local == "MultiTimeInstant":
+        times = [
+            t
+            for e in obj.iter(etree.Element)
+            if _local(e.tag) == "timePosition" and (t := _text(e)) is not None
+        ]
+    else:
+        return []
+    if len(times) != rows:
+        return []
+    column = _index_column("time", [], None)
+    column.update(type="datetime", values=times)
+    return [column]
+
+
+def _point_index(
+    values: list[float], dim: int, rows: int, labels: list[str]
+) -> list[dict[str, Any]]:
+    """One column per axis when a multi-point location gives every row a position."""
+    if rows == 0 or len(values) != dim * rows:
+        return []
+    names = ["position"] if dim == 1 else [f"position_{i + 1}" for i in range(dim)]
+    return [
+        _index_column(name, values[i::dim], labels[i] if i < len(labels) else None)
+        for i, name in enumerate(names)
+    ]
+
+
+def _index_column(name: str, values: Sequence[float | None], uom: str | None) -> dict[str, Any]:
+    affine = _converter().affine(uom) if uom else None
+    return {
+        "name": name,
+        "key": name,
+        "definition": None,
+        "uom": uom,
+        "type": "number",
+        "null_value": None,
+        "values": values,
+        "si_uom": None if affine is None else affine[0],
+        "si_factor": None if affine is None else affine[1],
+        "si_offset": None if affine is None else affine[2],
+    }
+
+
+def _code(el: etree._Element | None) -> dict[str, Any] | None:
+    text = _text(el)
+    if el is None or text is None:
+        return None
+    return {"value": text, "code_space": el.get("codeSpace")}
+
+
+def _codes(lithology: etree._Element) -> list[dict[str, Any]]:
+    """A lithology's classification codes, in document order."""
+    names = {*_CLASSIFICATION, "lithologyClassification"}
+    return [
+        code
+        for e in _elements(lithology)
+        if _local(e.tag) in names and (code := _code(e)) is not None
+    ]
+
+
+def _method(holder: etree._Element | None) -> dict[str, Any] | None:
+    """A method property as a code: the specification's name, or the property's text."""
+    if holder is None:
+        return None
+    named = next((e for e in holder.iter(etree.Element) if _local(e.tag) == "name"), None)
+    source = named if named is not None and _text(named) else holder
+    text = _text(source)
+    return None if text is None else {"value": text, "code_space": source.get("codeSpace")}
+
+
+def _time(holder: etree._Element) -> dict[str, Any] | None:
+    """The first time instant or interval in ``holder``, ends as written."""
+    for el in holder.iter(etree.Element):
+        local = _local(el.tag)
+        if local not in _TIME:
+            continue
+        start = end = None
+        for child in el.iter(etree.Element):
+            name = _local(child.tag)
+            if name in ("start", "beginPosition", "timePosition") and start is None:
+                start = _text(child)
+            elif name in ("end", "endPosition") and end is None:
+                end = _text(child)
+        return {"start": start, "end": end}
+    return None
+
+
 def _attr_name(el: etree._Element, name: str) -> str:
     if not name.startswith("{"):
         return name
@@ -148,6 +338,8 @@ class _Reader:
         self.collections["others"] = []
         self.document: dict[str, Any] | None = None
         self.layers: list[dict[str, Any]] = []
+        self.components: list[dict[str, Any]] = []
+        self.local_crs: dict[str, tuple[str | None, str | None]] = {}
         self.id_owner: dict[str, str] = {}
         self.id_count: Counter[str] = Counter()
         self.raw_links: list[tuple[str, str, str, int | None, str]] = []
@@ -311,6 +503,8 @@ class _Reader:
         srs = el.get("srsName")
         if srs and srs not in self.srs_first:
             self.srs_first[srs] = (xpath, el.sourceline)
+        if gml_id and _local(el.tag) in _LOCAL_CRS:
+            self.local_crs.setdefault(gml_id, _local_crs(el))
         counts: Counter[tuple[str | None, str]] = Counter()
         for child in _elements(el):
             key = (child.prefix, _local(child.tag))
@@ -348,6 +542,7 @@ class _Reader:
             if (t := _text(content))
         ]
         skip = {"name", "description", "remark", *consumed}
+        params, rest = self._params(el, xpath, skip)
         return {
             "key": "@" + xpath,
             "gml_id": el.get(_GML_ID),
@@ -357,9 +552,47 @@ class _Reader:
             "names": names,
             "description": _text(_child(el, "description")),
             "remarks": remarks,
+            "params": params,
             "provenance": {"xpath": xpath, "line": el.sourceline},
-            "extra": [self._extra(c) for c in _elements(el) if _local(c.tag) not in skip],
+            "extra": [self._extra(c) for c in rest],
         }
+
+    def _params(
+        self, el: etree._Element, xpath: str, skip: set[str] | frozenset[str]
+    ) -> tuple[dict[str, Any], list[etree._Element]]:
+        """Split ``el``'s children (except ``skip``) into simple values and the rest.
+
+        A simple value has no child elements, appears once, has text, and carries no
+        attribute but ``uom`` or ``codeSpace``. A plain reference (no text, no children,
+        only ``xlink:href``) is neither: it is already one of the model's ``links``.
+        """
+        children = [c for c in _elements(el) if _local(c.tag) not in skip]
+        seen = Counter(_local(c.tag) for c in children)
+        params: dict[str, Any] = {}
+        rest: list[etree._Element] = []
+        for child in children:
+            name = _local(child.tag)
+            attrs = {_local(k) for k in child.attrib}
+            text = _text(child)
+            if _plain_reference(child, text) or _is_table_part(child):
+                continue
+            if (
+                seen[name] == 1
+                and text is not None
+                and attrs <= _PARAM_ATTRS
+                and not any(True for _ in _elements(child))
+            ):
+                params[name] = self._param(child, xpath)
+            else:
+                rest.append(child)
+        return params, rest
+
+    def _param(self, el: etree._Element, xpath: str) -> Any:
+        if el.get("uom") is not None:
+            return self._quantity(el, xpath)
+        text = _text(el) or ""
+        code_space = el.get("codeSpace")
+        return text if code_space is None else {"value": text, "code_space": code_space}
 
     def _extra(self, el: etree._Element) -> dict[str, Any]:
         return {
@@ -370,6 +603,83 @@ class _Reader:
             "children": [self._extra(c) for c in _elements(el)],
             "line": el.sourceline,
         }
+
+    # --- components -----------------------------------------------------------------
+
+    def _components(
+        self,
+        holder: etree._Element,
+        xpath: str,
+        roles: frozenset[str] | None,
+        nested: dict[etree._Element, str],
+    ) -> tuple[list[dict[str, Any]], set[str]]:
+        """Components for ``holder``'s property children (``roles``, or every object).
+
+        A property child holds one object element: ``<casing><Casing>…``. Geometry and
+        time objects are places and times, not components. Returns the components and
+        the property names used.
+        """
+        out: list[dict[str, Any]] = []
+        used: set[str] = set()
+        counts: Counter[tuple[str | None, str]] = Counter()
+        for prop in _elements(holder):
+            key = (prop.prefix, _local(prop.tag))
+            counts[key] += 1
+            role = key[1]
+            if role in _HEADER or (roles is not None and role not in roles):
+                continue
+            obj = _object(prop)
+            if obj is None or _local(obj.tag) in _GEOMETRY | _TIME or _is_table_part(prop):
+                continue
+            prop_xpath = f"{xpath}/{_qname(prop)}[{counts[key]}]"
+            out.append(self._component(obj, f"{prop_xpath}/{_qname(obj)}[1]", role, nested))
+            used.add(role)
+        return out, used
+
+    def _component(
+        self, el: etree._Element, xpath: str, role: str, nested: dict[etree._Element, str]
+    ) -> dict[str, Any]:
+        interval_prop = location_prop = time_prop = None
+        for prop in _elements(el):
+            obj = _object(prop)
+            if obj is None:
+                continue
+            local = _local(obj.tag)
+            if local == "LinearExtent" and interval_prop is None:
+                interval_prop = prop
+            elif local == "PointLocation" and location_prop is None:
+                location_prop = prop
+            elif local in _TIME and time_prop is None:
+                time_prop = prop
+        places = [p for p in (interval_prop, location_prop, time_prop) if p is not None]
+        children, _ = self._components(el, xpath, None, nested)
+        consumed = {_local(p.tag) for p in places}
+        consumed |= {
+            _local(p.tag)
+            for p in _elements(el)
+            if (obj := _object(p)) is not None and _local(obj.tag) not in _GEOMETRY | _TIME
+        }
+        node = self._header(el, xpath, consumed=frozenset(consumed))
+        # Repeated place or time properties beyond the first stay in ``extra``.
+        node["extra"].extend(
+            self._extra(p)
+            for p in _elements(el)
+            if _local(p.tag) in consumed
+            and p not in places
+            and (obj := _object(p)) is not None
+            and _local(obj.tag) in _GEOMETRY | _TIME
+        )
+        pos = None if location_prop is None else self._first(location_prop, "pos")
+        node.update(
+            role=role,
+            interval=self._interval(interval_prop),
+            location=None if pos is None else self._position(pos, xpath),
+            time=None if time_prop is None else _time(time_prop),
+            components=children,
+        )
+        nested[el] = node["key"]
+        self.components.append(node)
+        return node
 
     def _map_document(
         self, obj: etree._Element, xpath: str, _nested: dict[etree._Element, str]
@@ -404,10 +714,18 @@ class _Reader:
         return node
 
     def _map_features(
-        self, obj: etree._Element, xpath: str, _nested: dict[etree._Element, str]
+        self, obj: etree._Element, xpath: str, nested: dict[etree._Element, str]
     ) -> dict[str, Any]:
-        consumed = frozenset({"referencePoint", "centerLine", "totalMeasuredDepth"})
+        construction, built = self._components(obj, xpath, _CONSTRUCTION, nested)
+        strikes, struck = self._components(obj, xpath, frozenset({"waterStrike"}), nested)
+        consumed = frozenset(
+            {"referencePoint", "centerLine", "totalMeasuredDepth", "whenConstructed"}
+            | built
+            | struck
+        )
         node = self._header(obj, xpath, consumed=consumed)
+        constructed = _child(obj, "whenConstructed")
+        node["when_constructed"] = None if constructed is None else _time(constructed)
         point = _child(obj, "referencePoint")
         pos = None if point is None else self._first(point, "pos")
         node["location"] = None if pos is None else self._position(pos, xpath)
@@ -425,25 +743,40 @@ class _Reader:
             None,
         )
         node["lrs"] = None if lrs is None else f"#{lrs}"
-        node["construction"] = []
-        node["water_strikes"] = []
+        node["construction"] = construction
+        node["water_strikes"] = strikes
         node["parent"] = None
         return node
 
     def _map_sampling_activities(
         self, obj: etree._Element, xpath: str, _nested: dict[etree._Element, str]
     ) -> dict[str, Any]:
-        node = self._header(obj, xpath, kind="sampling_activity")
+        consumed = frozenset({"samplingLocation", "totalSampleRecoveryLength", "samplingDate"})
+        node = self._header(obj, xpath, kind="sampling_activity", consumed=consumed)
         node["feature"] = None
         node["interval"] = self._interval(_child(obj, "samplingLocation"))
+        node["method"] = _method(_child(obj, "samplingMethod"))
+        recovery = _child(obj, "totalSampleRecoveryLength")
+        node["recovery"] = None if recovery is None else self._quantity(recovery, xpath)
+        date = _child(obj, "samplingDate")
+        node["date"] = None if date is None else _time(date)
         return node
 
     def _map_samples(
         self, obj: etree._Element, xpath: str, _nested: dict[etree._Element, str]
     ) -> dict[str, Any]:
-        node = self._header(obj, xpath, kind="sample")
-        node.update(feature=None, sampling_activity=None, method=None, type=None, recovery=None)
+        node = self._header(
+            obj, xpath, kind="sample", consumed=frozenset({"samplingLocation", "classification"})
+        )
+        node.update(feature=None, sampling_activity=None, method=None, recovery=None)
         node["interval"] = self._interval(_child(obj, "samplingLocation"))
+        classification = _child(obj, "classification")
+        text = _text(classification)
+        node["type"] = (
+            None
+            if classification is None or text is None
+            else {"value": text, "code_space": classification.get("codeSpace")}
+        )
         return node
 
     def _map_observations(
@@ -461,42 +794,61 @@ class _Reader:
                 continue
             prop_xpath = f"{xpath}/{_qname(prop)}[{counts[key]}]"
             for layer_el in _elements(prop):
-                layer = self._layer(layer_el, f"{prop_xpath}/{_qname(layer_el)}[1]")
+                layer = self._layer(layer_el, f"{prop_xpath}/{_qname(layer_el)}[1]", nested)
                 nested[layer_el] = layer["key"]
                 layers.append(layer)
         node["layers"] = layers
         return node
 
-    def _layer(self, el: etree._Element, xpath: str) -> dict[str, Any]:
-        node = self._header(el, xpath, kind="lithology_layer", consumed=frozenset({"location"}))
+    def _layer(
+        self, el: etree._Element, xpath: str, nested: dict[etree._Element, str]
+    ) -> dict[str, Any]:
+        roles = frozenset({"primaryLithology", "componentLithology"})
+        components, used = self._components(el, xpath, roles, nested)
+        node = self._header(
+            el,
+            xpath,
+            kind="lithology_layer",
+            consumed=frozenset({"location", "unitName"} | used),
+        )
         node["interval"] = self._interval(_child(el, "location"))
-        codes = [
-            {"value": t, "code_space": item.get("codeSpace")}
-            for item in el.iter(etree.Element)
-            if _local(item.tag) in ("legendCode", "lithologyClassification") and (t := _text(item))
-        ]
-        node["classification"] = codes
-        if node["description"] is None:
-            node["description"] = next(
-                (
-                    t
-                    for item in el.iter(etree.Element)
-                    if _local(item.tag) == "lithDescription" and (t := _text(item))
-                ),
-                None,
-            )
-        node["colour"] = None
-        node["geologic_unit"] = None
+        node["geologic_unit"] = _text(_child(el, "unitName"))
+        holder = _child(el, "primaryLithology")
+        primary = None if holder is None else _object(holder)
+        node["classification"] = [] if primary is None else _codes(primary)
+        if node["description"] is None and primary is not None:
+            node["description"] = _text(_child(primary, "lithDescription"))
+        colours = [] if primary is None else list(primary.iter(etree.Element))
+        node["colour"] = next(
+            (
+                code
+                for name in ("colorCode", "colorName")
+                for e in colours
+                if _local(e.tag) == name and (code := _code(e)) is not None
+            ),
+            None,
+        )
+        node["components"] = components
         return node
 
     def _map_measurements(
-        self, obj: etree._Element, xpath: str, _nested: dict[etree._Element, str]
+        self, obj: etree._Element, xpath: str, nested: dict[etree._Element, str]
     ) -> dict[str, Any]:
-        node = self._header(obj, xpath, consumed=frozenset({"procedure", "outcome"}))
-        node.update(feature=None, samples=[], specimen=None, result_time=None)
+        node = self._header(obj, xpath, consumed=frozenset({"procedure", "outcome", "resultTime"}))
+        result_time = _child(obj, "resultTime")
+        node.update(
+            feature=None,
+            samples=[],
+            specimen=None,
+            result_time=None if result_time is None else _time(result_time),
+        )
         holders = [c for c in _elements(obj) if _local(c.tag) == "procedure"]
         procedure = None if not holders else next(_elements(holders[0]), None)
-        node["procedure"] = None if procedure is None else self._procedure(procedure, xpath)
+        node["procedure"] = (
+            None
+            if procedure is None
+            else self._procedure(procedure, f"{xpath}/{_qname(holders[0])}[1]", nested)
+        )
         node["extra"].extend(self._extra(c) for c in holders[1:])
         tables = self._tables(obj, xpath)
         node["results"] = tables
@@ -519,24 +871,18 @@ class _Reader:
 
     # --- values ---------------------------------------------------------------------
 
-    def _procedure(self, el: etree._Element, xpath: str) -> dict[str, Any]:
+    def _procedure(
+        self, el: etree._Element, holder_xpath: str, nested: dict[etree._Element, str]
+    ) -> dict[str, Any]:
+        xpath = f"{holder_xpath}/{_qname(el)}[1]"
+        components, used = self._components(el, xpath, None, nested)
+        params, rest = self._params(el, xpath, used)
         element = _local(el.tag)
-        params: dict[str, Any] = {}
-        extra = []
-        for child in _elements(el):
-            name = _local(child.tag)
-            if any(True for _ in _elements(child)) or name in params or name == "name":
-                if name != "name":
-                    extra.append(self._extra(child))
-                continue
-            if child.get("uom") is not None:
-                params[name] = self._quantity(child, xpath)
-            else:
-                params[name] = _text(child)
         return {
             "type": _aliases().get((self.version, element), element),
             "params": params,
-            "extra": extra,
+            "components": components,
+            "extra": [self._extra(c) for c in rest],
         }
 
     def _quantity(self, el: etree._Element, xpath: str) -> dict[str, Any]:
@@ -642,17 +988,19 @@ class _Reader:
         xpath: str,
     ) -> dict[str, Any]:
         geographic = None
-        ref = _srs_ref(srs) if srs else None
-        if ref is not None and ref.horizontal in _geo_checks.GEOGRAPHIC_EPSG and dim >= 2:  # noqa: PLR2004
-            lat, lon = coords[0], coords[1]
+        horizontal = None if srs is None else _crs_of(srs).horizontal
+        geographic_crs = horizontal is not None and (horizontal.type or "").startswith("geographic")
+        if horizontal is not None and geographic_crs and dim >= 2:  # noqa: PLR2004
+            lon_first = (horizontal.axis_order or "lat,lon").startswith("lon")
+            lat, lon = (coords[1], coords[0]) if lon_first else (coords[0], coords[1])
             if abs(lat) > 90 >= abs(lon):  # noqa: PLR2004 - latitude bound
                 lat, lon = lon, lat
                 record = self.axis.setdefault(
-                    str(srs), [el.sourceline, xpath, coords[0], coords[1], 0]
+                    str(srs), [el.sourceline, xpath, coords[0], coords[1], lat, lon, 0]
                 )
-                record[4] += 1
+                record[6] += 1
             height = coords[2] if dim >= 3 else None  # noqa: PLR2004
-            geographic = {"lon": lon, "lat": lat, "h": height, "datum": None}
+            geographic = {"lon": lon, "lat": lat, "h": height, "datum": horizontal.datum}
         return {
             "coordinates": coords,
             "dim": dim,
@@ -712,12 +1060,75 @@ class _Reader:
         if shape_el is not None and _local(shape_el.tag) == "PointLocation":
             pos = self._first(shape_el, "pos")
             point = None if pos is None else self._position(pos, xpath)
+        index, extent, crs = self._index(shape_el, len(rows))
+        time_domain = None if holder is None else _child(holder, "timeDomain")
+        if not index and time_domain is not None:
+            index = _time_index(time_domain, len(rows))
+            if index:
+                shape = "temporal"
+        if not self.results:
+            for column in index:
+                column["values"] = []
         return {
-            "domain": {"shape": shape, "index": []},
+            "domain": {"shape": shape, "index": index, "crs": crs},
             "columns": columns,
             "row_count": len(rows),
             "location": point,
+            "extent": extent,
         }
+
+    def _pos_list(
+        self, shape_el: etree._Element | None
+    ) -> tuple[str, etree._Element, list[float]] | None:
+        """A multi-point or extent location's ``posList`` and its numbers, if all parse."""
+        local = None if shape_el is None else _local(shape_el.tag)
+        pos_list = None if shape_el is None else self._first(shape_el, "posList")
+        if local not in ("MultiPointLocation", "LinearExtent") or pos_list is None:
+            return None
+        values = [_number(t) for t in (pos_list.text or "").split()]
+        numbers = [v for v in values if v is not None]
+        if not numbers or len(numbers) != len(values):
+            return None
+        return str(local), pos_list, numbers
+
+    def _index(
+        self, shape_el: etree._Element | None, rows: int
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None, str | None]:
+        """Index columns (one place per row) or a single extent, from a result location.
+
+        A multi-point location with ``rows`` positions gives ``position`` columns; an
+        extent with two values per row gives ``top`` and ``base``; an extent with two
+        values for several rows, or one row, is the table's ``extent``.
+        """
+        found = self._pos_list(shape_el)
+        if found is None:
+            return [], None, None
+        local, pos_list, numbers = found
+        crs = self._srs(pos_list)
+        labels = (self._inherited(pos_list, "uomLabels") or "").split()
+        if local == "MultiPointLocation":
+            dim = self._dim(pos_list, 1, single=True)
+            return _point_index(numbers, dim, rows, labels), None, crs
+        uom = labels[0] if labels else None
+        if rows > 1 and len(numbers) == 2 * rows:
+            return (
+                [
+                    _index_column("top", numbers[0::2], uom),
+                    _index_column("base", numbers[1::2], uom),
+                ],
+                None,
+                crs,
+            )
+        if len(numbers) == 2:  # noqa: PLR2004 - one top and base
+            top, base = (
+                {"text": t, "value": _number(t), "uom": None, "si": None}
+                for t in (pos_list.text or "").split()
+            )
+            if uom:
+                top.update(self._with_unit(top, uom))
+                base.update(self._with_unit(base, uom))
+            return [], {"top": top, "base": base, "lrs": crs}, crs
+        return [], None, crs
 
     def _column(self, prop: etree._Element, cells: list[str]) -> tuple[dict[str, Any], int]:
         pclass = _child(prop, "propertyClass")
@@ -779,14 +1190,18 @@ class _Reader:
         rename = self._final_keys()
         links = self._links(rename)
         self._typed_refs(links)
-        crs = self._crs()
-        for srs, (line, xpath, first, second, count) in self.axis.items():
+        crs_table = self._crs()
+        for name in ("document", *self.collections):
+            self._fill_units(
+                self.document if name == "document" else self.collections[name], crs_table
+            )
+        for srs, (line, xpath, first, second, lat, lon, count) in self.axis.items():
             more = f" {count} positions look the same." if count > 1 else ""
             self.note(
                 rules.CONTEXT_RULES[105][1],
-                f"Coordinates ({first:.6g}, {second:.6g}) under {srs[:120]} look like"
-                f" longitude, latitude; they are read as latitude {second:.6g}, longitude"
-                f" {first:.6g} in `geographic`.{more}",
+                f"Coordinates ({first:.6g}, {second:.6g}) under {srs[:120]} put a latitude"
+                f" beyond 90 degrees in the CRS's axis order; they are read as latitude"
+                f" {lat:.6g}, longitude {lon:.6g} in `geographic`.{more}",
                 line=line,
                 xpath=xpath,
             )
@@ -807,7 +1222,7 @@ class _Reader:
             "limits_hit": self.limits_hit,
             "document": self.document,
             **self.collections,
-            "crs": crs,
+            "crs": crs_table,
             "links": links,
             "notes": [_finding_dict(n) for n in self.notes],
         }
@@ -819,6 +1234,7 @@ class _Reader:
             yield from nodes
         for observation in self.collections["observations"]:
             yield from observation["layers"]
+        yield from self.components
 
     def _final_keys(self) -> dict[str, str]:
         rename: dict[str, str] = {}
@@ -882,26 +1298,33 @@ class _Reader:
                 targets.setdefault((link["source"], link["relation"]), []).append(link["target"])
         for node in self._nodes():
             key = node["key"]
-            if "feature" in node:
-                node["feature"] = next(iter(targets.get((key, "samplingFeature"), [])), None)
-            if "sampling_activity" in node:
-                node["sampling_activity"] = next(
-                    iter(targets.get((key, "samplingActivity"), [])), None
-                )
+            for field, relation in _TYPED_REFS:
+                if field in node:
+                    found = targets.get((key, relation), [])
+                    node[field] = next(iter(found), None)
             if "samples" in node:
                 node["samples"] = list(dict.fromkeys(targets.get((key, "sample"), [])))
-            if "specimen" in node:
-                node["specimen"] = next(iter(targets.get((key, "specimen"), [])), None)
+        self._copy_from_activities()
+
+    def _copy_from_activities(self) -> None:
+        """A sample's depth, method and recovery are recorded on its sampling activity."""
+        activities = {a["key"]: a for a in self.collections["sampling_activities"]}
+        for sample in self.collections["samples"]:
+            activity = activities.get(sample["sampling_activity"] or "")
+            if activity is None:
+                continue
+            for name in ("interval", "method", "recovery"):
+                if sample[name] is None:
+                    sample[name] = activity[name]
+            if sample["feature"] is None:
+                sample["feature"] = activity["feature"]
 
     def _crs(self) -> dict[str, Any]:
         table: dict[str, Any] = {}
+        ids = frozenset(self.id_count)
         for srs, (xpath, line) in self.srs_first.items():
-            ref = _srs_ref(srs)
-            local = ref.local_id if ref.kind == "local" else None
-            known = ref.kind in ("epsg", "diggs", "ogc") or (
-                local is not None and local in self.id_count
-            )
-            if not known:
+            ref = crs.parse(srs, local_ids=ids)
+            if ref.form == "unknown" or (ref.form == "local" and not ref.known):
                 self.note(
                     rules.CONTEXT_RULES[106][1],
                     f'srsName "{srs[:120]}" is not a recognised EPSG or DIGGS reference nor'
@@ -909,33 +1332,85 @@ class _Reader:
                     line=line,
                     xpath=xpath,
                 )
-            geographic = ref.horizontal in _geo_checks.GEOGRAPHIC_EPSG
-            table[srs] = {
-                "srs_name": srs,
-                "form": ref.kind,
-                "horizontal": None
-                if ref.horizontal is None
-                else {
-                    "epsg": ref.horizontal,
-                    "name": None,
-                    "type": "geographic" if geographic else None,
-                    "unit": None,
-                },
-                "vertical": None
-                if ref.vertical is None
-                else {"epsg": ref.vertical, "name": None, "type": "vertical", "unit": None},
-                "axis_order": "lat,lon" if geographic else None,
-                "known": known,
-                "local": local,
-            }
+            entry = _encode(ref)
+            if ref.form == "local" and ref.local in self.local_crs:
+                entry["name"], entry["unit"] = self.local_crs[ref.local]
+            table[srs] = entry
         return table
 
+    def _fill_units(self, value: Any, table: dict[str, Any]) -> None:
+        """Give depths along a linear referencing system the unit it states.
 
-def _srs_ref(srs: str) -> _geo_checks.SrsRef:
-    ref = _geo_checks.parse_srs_name(srs)
-    if ref.kind == "local" and ref.local_id and ref.local_id.isdigit():
-        return _geo_checks.SrsRef("epsg", int(ref.local_id))
-    return ref
+        DIGGS writes an interval's top and base, and a table's index, as bare numbers
+        in the units of the system they refer to; the unit is copied onto them.
+        """
+        if isinstance(value, list):
+            for item in value:
+                self._fill_units(item, table)
+            return
+        if not isinstance(value, dict):
+            return
+        if {"top", "base", "lrs"} <= value.keys():
+            self._interval_units(value, _local_unit(table.get(value["lrs"] or "")))
+            return
+        if {"shape", "index", "crs"} <= value.keys():
+            _index_units(value["index"], _local_unit(table.get(value["crs"] or "")))
+            return
+        for item in value.values():
+            if isinstance(item, dict | list):
+                self._fill_units(item, table)
+
+    def _interval_units(self, interval: dict[str, Any], unit: str | None) -> None:
+        for end in (interval["top"], interval["base"]):
+            if unit and isinstance(end, dict) and end.get("uom") is None:
+                end.update(self._with_unit(end, unit))
+
+    @staticmethod
+    def _with_unit(quantity: dict[str, Any], unit: str) -> dict[str, Any]:
+        value = quantity["value"]
+        si = None
+        base = _converter().base_unit(unit)
+        if value is not None and base is not None:
+            converted = _converter().to_base(value, unit)
+            if converted is not None and math.isfinite(converted):
+                si = {"value": converted, "uom": base}
+        return {"uom": unit, "si": si}
+
+
+@cache
+def _crs_of(srs: str) -> CrsRef:
+    """What an ``srsName`` names, from the name alone (cached: files repeat them)."""
+    return crs.parse(srs)
+
+
+def _local_crs(el: etree._Element) -> tuple[str | None, str | None]:
+    """A CRS defined in the file: its name and the units it states."""
+    name = _text(next((e for e in _elements(el) if _local(e.tag) == "name"), None))
+    method = next(
+        (e for e in el.iter(etree.Element) if _local(e.tag) == "LinearReferencingMethod"), None
+    )
+    units = None if method is None else _text(_child(method, "units"))
+    if name is None and method is not None:
+        name = _text(_child(method, "name"))
+    return name, units
+
+
+def _index_units(columns: list[dict[str, Any]], unit: str | None) -> None:
+    if not unit:
+        return
+    affine = _converter().affine(unit)
+    for column in columns:
+        if column["uom"] is None and column["type"] == "number":
+            column["uom"] = unit
+            if affine is not None:
+                column.update(si_uom=affine[0], si_factor=affine[1], si_offset=affine[2])
+
+
+def _local_unit(entry: dict[str, Any] | None) -> str | None:
+    if entry is None or entry.get("form") != "local":
+        return None
+    unit = entry.get("unit")
+    return unit if isinstance(unit, str) else None
 
 
 def _finding_dict(finding: Finding) -> dict[str, Any]:

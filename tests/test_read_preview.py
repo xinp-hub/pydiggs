@@ -251,6 +251,8 @@ def test_schema_and_classes_agree():
         "associate": model.Associate,
         "document_info": model.DocumentInfo,
         "other": model.Other,
+        "component": model.Component,
+        "time_span": model.TimeSpan,
         "quantity": model.Quantity,
         "code": model.Code,
         "interval": model.Interval,

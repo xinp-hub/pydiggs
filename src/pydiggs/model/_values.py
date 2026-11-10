@@ -22,13 +22,14 @@ __all__ = [
     "Geographic",
     "Interval",
     "Link",
+    "Param",
     "Position",
-    "Procedure",
     "Provenance",
     "Quantity",
     "ResultTable",
     "SiValue",
     "SourceInfo",
+    "TimeSpan",
 ]
 
 _EMPTY: Final[Mapping[str, object]] = MappingProxyType({})
@@ -93,6 +94,18 @@ class Code:
     code_space: str | None = None
 
 
+#: A simple parameter: a quantity (it had a ``uom``), a code (a ``codeSpace``) or text.
+Param = Quantity | Code | str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TimeSpan:
+    """A time or time interval, each end exactly as written (ISO 8601 in valid files)."""
+
+    start: str | None = None
+    end: str | None = None
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Interval:
     """A depth or distance interval along a linear referencing system (``lrs``)."""
@@ -129,23 +142,42 @@ class Position:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CrsComponent:
-    """One component (horizontal or vertical) of a coordinate reference system."""
+    """One component (horizontal or vertical) of a coordinate reference system.
+
+    ``type`` is ``geographic_2d``, ``geographic_3d``, ``geocentric``, ``projected``,
+    ``vertical`` or ``compound``; ``unit`` is the axes' unit when they share one;
+    ``axis_order`` names the axes in order (``lat,lon``, ``east,north``, ``up``);
+    ``components`` are a compound CRS's parts. Facts come from pyDIGGS's EPSG subset
+    (:mod:`pydiggs.crs`); a code not in it has only ``epsg``.
+    """
 
     epsg: int | None = None
     name: str | None = None
     type: str | None = None
     unit: str | None = None
+    axis_order: str | None = None
+    datum: str | None = None
+    components: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CrsRef:
-    """What an ``srsName`` refers to."""
+    """What an ``srsName`` refers to.
+
+    ``form`` is how it is written: ``epsg``, ``diggs`` (the DIGGS CRS registry),
+    ``ogc`` (CRS84, CRS83, CRS27), ``local`` (``local`` is the ``gml:id`` of a CRS in
+    the file, such as a borehole's linear referencing system) or ``unknown``. ``known``
+    says whether pyDIGGS found what it names. ``unit`` is the coordinates' unit when
+    the CRS states one (a projected CRS's, or a linear referencing method's ``units``).
+    """
 
     srs_name: str
     form: str
+    name: str | None = None
     horizontal: CrsComponent | None = None
     vertical: CrsComponent | None = None
     axis_order: str | None = None
+    unit: str | None = None
     known: bool = False
     local: str | None = None
 
@@ -166,23 +198,18 @@ class Link:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Procedure:
-    """How a measurement was made: the procedure element and its parameters."""
-
-    type: str
-    params: Mapping[str, object] = field(default_factory=lambda: MappingProxyType({}))
-    extra: tuple[ExtraNode, ...] = ()
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "params", _frozen_map(self.params))
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class Domain:
-    """What a result table's rows are indexed by."""
+    """What a result table's rows are indexed by.
+
+    ``index`` holds one column per coordinate when the result's location gives every
+    row its own place: ``position`` (or ``position_1`` … for more axes) for a
+    multi-point location, ``top`` and ``base`` for one interval per row. Their values
+    are in ``crs``, the location's ``srsName``.
+    """
 
     shape: str = "none"
-    index: tuple[str, ...] = ()
+    index: tuple[Column, ...] = ()
+    crs: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -208,12 +235,17 @@ class Column:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ResultTable:
-    """One result set of a measurement."""
+    """One result set of a measurement.
+
+    ``location`` is the single point and ``extent`` the single interval the whole table
+    was measured at, when the result gives one.
+    """
 
     domain: Domain = field(default_factory=Domain)
     columns: tuple[Column, ...] = ()
     row_count: int = 0
     location: Position | None = None
+    extent: Interval | None = None
 
     def column(self, key: str) -> Column | None:
         """The first column whose ``key`` (or, failing that, ``name``) is ``key``."""
