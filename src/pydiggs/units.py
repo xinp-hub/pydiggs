@@ -74,7 +74,7 @@ class UnitConverter:
         factors = self._factors.get(symbol)
         return None if factors is None else factors[4]
 
-    def affine(self, symbol: str) -> tuple[str, float, float] | None:
+    def _affine(self, symbol: str) -> tuple[str, float, float] | None:
         """``(base unit, factor, offset)`` when ``symbol`` converts as ``x * factor + offset``.
 
         Energistics factors convert as ``(A + B x) / (C + D x)``; that is affine only

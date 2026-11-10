@@ -39,7 +39,10 @@ def test_release_workflow_verifies_the_tag_before_anything_else():
     text = PUBLISH.read_text(encoding="utf-8")
     guard = text.split("\n  guard:\n", 1)[1].split("\n  already-published:", 1)[0]
     verify = guard.index("verify-tag")
-    assert "gpg.ssh.allowedSignersFile=.github/release-signers" in guard
+    assert 'gpg.ssh.allowedSignersFile="${signers}"' in guard
+    # the signers come from the default branch, not from the commit being released
+    assert 'git show "FETCH_HEAD:.github/release-signers"' in guard
+    assert "DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}" in guard
     assert 'git cat-file -t "refs/tags/${TAG}")" != "tag"' in guard
     assert verify < guard.index("id: check"), "verify the signature before the version checks"
     assert "TAG: ${{ github.ref_name }}" in guard, "pass the tag through env, not inline"
@@ -54,3 +57,11 @@ def test_release_workflow_never_edits_a_published_release():
     refuse = text.index('gh release view "$GITHUB_REF_NAME"')
     assert refuse < create
     assert "exit 1" in text[refuse:create], "an existing release must stop the run"
+
+
+def test_only_a_tag_push_publishes_to_pypi():
+    """A manual run skips the signature check, so it must never reach PyPI."""
+    text = PUBLISH.read_text(encoding="utf-8")
+    pypi = text.split("\n  pypi:\n", 1)[1].split("\n  github-release:", 1)[0]
+    condition = next(line for line in pypi.splitlines() if line.strip().startswith("if:"))
+    assert "github.event_name == 'push'" in condition

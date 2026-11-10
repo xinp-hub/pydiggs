@@ -172,7 +172,7 @@ def _parse_epsg(text: str) -> SrsRef | None:
 def _resolve(ref: SrsRef, ids: dict[str, etree._Element]) -> SrsRef:
     """``#4326``-style fragments are EPSG codes unless the file defines that id."""
     local = ref.local_id
-    if ref.kind == "local" and local is not None and local not in ids and local.isdigit():
+    if ref.kind == "local" and local is not None and local not in ids and local.isdecimal():
         return SrsRef("epsg", int(local))
     return ref
 
@@ -222,7 +222,7 @@ def _inherited(el: etree._Element, attr: str, stop: etree._Element | None = None
 
 def _dimension(el: etree._Element, ref: SrsRef) -> int:
     declared = _inherited(el, "srsDimension")
-    if declared and declared.strip().isdigit():
+    if declared and declared.strip().isdecimal():
         return int(declared)
     if ref.vertical is not None or ref.horizontal in _GEOGRAPHIC_3D:
         return 3

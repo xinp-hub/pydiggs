@@ -116,7 +116,9 @@ def selected() -> set[int]:
 def facts(crs: CRS) -> Entry:
     """The facts pyDIGGS keeps about one CRS."""
     kind = TYPES.get(crs.type_name, crs.type_name.lower())
-    geographic = kind.startswith("geographic")
+    # a compound CRS on a geographic one names its axes like that one: lat,lon,h
+    horizontal = crs.sub_crs_list[0] if kind == "compound" and crs.sub_crs_list else crs
+    geographic = TYPES.get(horizontal.type_name, "").startswith("geographic")
     axes = [
         GEOGRAPHIC_AXES.get(a.direction, a.direction) if geographic else a.direction
         for a in crs.axis_info

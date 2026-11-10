@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-10
+
 ### Added
 - **Read API (preview):** `pydiggs.preview.read(path)` and `read_bytes(data)` read a
   DIGGS 2.5.a, 2.6 or 3.x file into a `Model` (diggs-model 1.0-beta.2): features,
@@ -41,12 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   notifications, the releases feed, PyPI's feed, and an email list for feature releases).
 
 ### Security
-- GitHub releases are immutable from 1.6.0: once published, a release's files and its
-  tag cannot be changed or deleted, and `v*` tags cannot be moved. A release that needs
-  a fix gets a new patch version.
+- GitHub releases are immutable from 1.6.0: a published release's files cannot be
+  changed, and its `v*` tag cannot be moved or reused. A release that needs a fix gets
+  a new patch version.
 - Release tags are signed by a maintainer's key, and the release workflow refuses to
   publish from a tag that is unsigned or signed by a key not listed in
-  `.github/release-signers`. Check a release with
+  `.github/release-signers` on the default branch (never the copy in the tagged
+  commit). Only a pushed tag publishes to PyPI; a manual run of the workflow stops at
+  TestPyPI. Check a release with
   `git -c gpg.ssh.allowedSignersFile=.github/release-signers verify-tag vX.Y.Z`.
 
 ## [1.5.0] - 2026-11-09
@@ -592,7 +596,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/xinp-hub/pydiggs/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/xinp-hub/pydiggs/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/xinp-hub/pydiggs/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/xinp-hub/pydiggs/compare/v1.3.0...v1.4.0

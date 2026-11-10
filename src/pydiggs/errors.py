@@ -7,6 +7,11 @@ exception means the check could not be run at all.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pydiggs.findings.model import Finding
+
 __all__ = ["DocumentError", "InstanceReadError", "PydiggsError", "ResourceError"]
 
 
@@ -58,7 +63,7 @@ class DocumentError(PydiggsError, ValueError):
     :func:`pydiggs.validate` reports for that file. It is also a :class:`ValueError`.
     """
 
-    def __init__(self, kind: str, message: str, finding: object = None) -> None:
+    def __init__(self, kind: str, message: str, finding: Finding | None = None) -> None:
         """Record ``kind`` and the matching ``finding``."""
         super().__init__(message)
         self.kind = kind

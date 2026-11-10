@@ -20,7 +20,7 @@ import time
 import tomllib
 from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
-from functools import cache
+from functools import cache, lru_cache
 from importlib import resources
 from typing import Any, Final
 
@@ -126,15 +126,10 @@ _CAMEL: Final = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _FLOAT: Final = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 
 
-_LOCALS: dict[object, str] = {}
-
-
+@lru_cache(maxsize=4096)
 def _local(tag: object) -> str:
-    """The local name of a tag; tags repeat, so each is split once per process."""
-    local = _LOCALS.get(tag)
-    if local is None:
-        local = _LOCALS[tag] = str(tag).rpartition("}")[2]
-    return local
+    """The local name of a tag (cached, bounded: tags repeat, but come from the file)."""
+    return str(tag).rpartition("}")[2]
 
 
 def _qname(el: etree._Element) -> str:
@@ -253,7 +248,7 @@ def _point_index(
 
 
 def _index_column(name: str, values: Sequence[float | None], uom: str | None) -> dict[str, Any]:
-    affine = _converter().affine(uom) if uom else None
+    affine = _converter()._affine(uom) if uom else None
     return {
         "name": name,
         "key": name,
@@ -458,7 +453,13 @@ class _Reader:
         objects = list(_elements(prop))
         nested: dict[etree._Element, str] = {}
         if not objects:
-            node = self._header(prop, xpath, kind="reference")
+            # A member reference (<projectRef xlink:href=.../>), or a property of the
+            # document itself (gml:name, gml:description), whose text is its value.
+            linked = prop.get(_XLINK_HREF) is not None
+            node = self._header(prop, xpath, kind="reference" if linked else "property")
+            value = None if linked else self._param(prop, xpath)
+            if value:
+                node["params"] = {**node["params"], _local(prop.tag): value}
             node["results"] = []
             self.collections["others"].append(node)
             nested[prop] = node["key"]
@@ -793,8 +794,12 @@ class _Reader:
             if key[1] != "lithologyObservation":
                 continue
             prop_xpath = f"{xpath}/{_qname(prop)}[{counts[key]}]"
+            layer_seen: Counter[tuple[str | None, str]] = Counter()
             for layer_el in _elements(prop):
-                layer = self._layer(layer_el, f"{prop_xpath}/{_qname(layer_el)}[1]", nested)
+                layer_key = (layer_el.prefix, _local(layer_el.tag))
+                layer_seen[layer_key] += 1
+                layer_xpath = f"{prop_xpath}/{_qname(layer_el)}[{layer_seen[layer_key]}]"
+                layer = self._layer(layer_el, layer_xpath, nested)
                 nested[layer_el] = layer["key"]
                 layers.append(layer)
         node["layers"] = layers
@@ -936,7 +941,7 @@ class _Reader:
 
     def _dim(self, el: etree._Element, count: int, *, single: bool) -> int:
         stated = self._inherited(el, "srsDimension")
-        if stated and stated.isdigit() and int(stated) > 0:
+        if stated and stated.isdecimal() and int(stated) > 0:
             return int(stated)
         labels = self._inherited(el, "uomLabels")
         if labels:
@@ -1015,7 +1020,7 @@ class _Reader:
         tuples: list[str] = []
         cs = ","
         if values_el is not None:
-            ts = values_el.get("ts", " ")
+            ts = values_el.get("ts") or " "
             cs = values_el.get("cs", ",") or ","
             body = (values_el.text or "").strip()
             if body:
@@ -1167,7 +1172,7 @@ class _Reader:
                 )
             else:
                 values.append(cell)
-        affine = _converter().affine(uom) if uom and kind == "number" else None
+        affine = _converter()._affine(uom) if uom and kind == "number" else None
         return (
             {
                 "name": _text(_child(prop, "propertyName")) or "",
@@ -1242,12 +1247,21 @@ class _Reader:
         nodes = list(self._nodes())
         for node in nodes:
             gml_id = node["gml_id"]
-            if gml_id and self.id_count[gml_id] == 1 and gml_id not in taken:
+            if (
+                gml_id
+                and not gml_id.startswith("@")
+                and self.id_count[gml_id] == 1
+                and gml_id not in taken
+            ):
                 final = gml_id
             else:
                 final = "@" + normalise_xpath(node["provenance"]["xpath"])
                 if final in taken:
                     final = node["key"]
+                base, n = final, 1
+                while final in taken:  # only when a gml:id mimics an xpath key
+                    n += 1
+                    final = f"{base}#{n}"
             taken.add(final)
             rename[node["key"]] = final
             node["key"] = final
@@ -1356,8 +1370,8 @@ class _Reader:
         if {"shape", "index", "crs"} <= value.keys():
             _index_units(value["index"], _local_unit(table.get(value["crs"] or "")))
             return
-        for item in value.values():
-            if isinstance(item, dict | list):
+        for name, item in value.items():
+            if name not in ("params", "extra") and isinstance(item, dict | list):
                 self._fill_units(item, table)
 
     def _interval_units(self, interval: dict[str, Any], unit: str | None) -> None:
@@ -1377,9 +1391,9 @@ class _Reader:
         return {"uom": unit, "si": si}
 
 
-@cache
+@lru_cache(maxsize=1024)
 def _crs_of(srs: str) -> CrsRef:
-    """What an ``srsName`` names, from the name alone (cached: files repeat them)."""
+    """What an ``srsName`` names, from the name alone (cached, bounded: files repeat them)."""
     return crs.parse(srs)
 
 
@@ -1398,7 +1412,7 @@ def _local_crs(el: etree._Element) -> tuple[str | None, str | None]:
 def _index_units(columns: list[dict[str, Any]], unit: str | None) -> None:
     if not unit:
         return
-    affine = _converter().affine(unit)
+    affine = _converter()._affine(unit)
     for column in columns:
         if column["uom"] is None and column["type"] == "number":
             column["uom"] = unit

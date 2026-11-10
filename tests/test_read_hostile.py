@@ -1,0 +1,159 @@
+"""The read API on unusual or hostile (but well-formed) input: it reads, or it says why.
+
+Each case here crashed with an undocumented exception, or read the wrong thing, before
+the 1.6.0 pre-release review.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from pydiggs import crs, preview
+from pydiggs._reader import _read
+from pydiggs.errors import DocumentError
+from pydiggs.model import Model
+
+_NS = (
+    'xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2"'
+    ' xmlns:xlink="http://www.w3.org/1999/xlink"'
+)
+
+
+def _read_body(body: str) -> Model:
+    return preview.read_bytes(f"<Diggs {_NS}>{body}</Diggs>".encode())
+
+
+_RESULT_SET = (
+    '<measurement><Test gml:id="t"><outcome><TestResult><results><ResultSet>'
+    '<parameters><PropertyParameters><properties><Property index="1">'
+    "<propertyName>a</propertyName><typeData>double</typeData></Property></properties>"
+    "</PropertyParameters></parameters>"
+    '<dataValues ts="" cs=",">1</dataValues></ResultSet></results></TestResult>'
+    "</outcome></Test></measurement>"
+)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        pytest.param(_RESULT_SET, id="empty-tuple-separator"),
+        pytest.param(
+            '<samplingFeature><Borehole gml:id="b"><referencePoint><PointLocation>'
+            '<gml:pos srsDimension="²" srsName="EPSG:4326">1 2</gml:pos>'
+            "</PointLocation></referencePoint></Borehole></samplingFeature>",
+            id="superscript-srs-dimension",
+        ),
+        pytest.param(
+            '<samplingFeature><Borehole gml:id="b"><referencePoint>'
+            '<PointLocation srsName="#²"><gml:pos>1 2</gml:pos></PointLocation>'
+            "</referencePoint></Borehole></samplingFeature>",
+            id="superscript-srs-name",
+        ),
+        pytest.param(
+            '<project><Project gml:id="@/Diggs[1]/samplingFeature[1]/Borehole[1]"/></project>'
+            "<samplingFeature><Borehole/></samplingFeature>",
+            id="gml-id-that-looks-like-a-key",
+        ),
+        pytest.param(
+            '<samplingFeature><Borehole gml:id="b"><top>1</top><base>2</base>'
+            '<lrs codeSpace="x">y</lrs></Borehole></samplingFeature>',
+            id="params-named-like-an-interval",
+        ),
+    ],
+)
+def test_unusual_values_read_without_crashing(body):
+    model = _read_body(body)
+    assert Model.from_json(model.to_json()) == model
+
+
+def test_superscript_digits_are_not_epsg_codes():
+    assert crs.parse("#²").form == "local"
+
+
+def test_layers_of_one_observation_have_their_own_keys():
+    model = _read_body(
+        '<observation><LithologySystem gml:id="ls"><lithologyObservation>'
+        '<LithologyObservation gml:id="L1"/><LithologyObservation gml:id="L2"/>'
+        "</lithologyObservation></LithologySystem></observation>"
+        '<samplingFeature><Borehole gml:id="b"><description xlink:href="#L1"/>'
+        "</Borehole></samplingFeature>"
+    )
+    assert [layer.key for layer in model.observations[0].layers] == ["L1", "L2"]
+    assert [(link.href, link.target) for link in model.links] == [("#L1", "L1")]
+
+
+def test_layers_without_ids_have_distinct_xpath_keys():
+    model = _read_body(
+        '<observation><LithologySystem gml:id="ls"><lithologyObservation>'
+        "<LithologyObservation/><LithologyObservation/>"
+        "</lithologyObservation></LithologySystem></observation>"
+    )
+    keys = [layer.key for layer in model.observations[0].layers]
+    assert keys[0].endswith("/LithologyObservation[1]")
+    assert keys[1].endswith("/LithologyObservation[2]")
+
+
+def test_document_properties_keep_their_text():
+    model = _read_body(
+        "<gml:description>About this file</gml:description><gml:name>Site X</gml:name>"
+    )
+    found = {(o.kind, o.element): dict(o.params) for o in model.others}
+    assert found[("property", "description")] == {"description": "About this file"}
+    assert found[("property", "name")] == {"name": "Site X"}
+
+
+def test_member_references_are_still_references():
+    model = _read_body('<project xlink:href="#p"/>')
+    assert [(o.kind, o.element) for o in model.others] == [("reference", "project")]
+
+
+@pytest.mark.parametrize(
+    ("note", "message"),
+    [
+        ({"rule_id": "a", "severity": "info", "message": "m"}, "needs step"),
+        (
+            {
+                "step": "structure",
+                "rule_id": "a",
+                "severity": "info",
+                "message": "m",
+                "location": [1],
+            },
+            "location: expected an object",
+        ),
+    ],
+)
+def test_from_dict_rejects_bad_notes_with_value_error(note, message):
+    document = json.loads(_read_body("").to_json())
+    with pytest.raises(ValueError, match=message):
+        Model.from_dict({**document, "notes": [note]})
+
+
+@pytest.mark.parametrize(
+    "prolog",
+    [
+        pytest.param('<!DOCTYPE Diggs [<!ENTITY x SYSTEM "file:///etc/passwd">]>', id="external"),
+        pytest.param(
+            '<!DOCTYPE Diggs [<!ENTITY % p SYSTEM "http://example.invalid/x.dtd"> %p;]>',
+            id="parameter",
+        ),
+        pytest.param('<!DOCTYPE Diggs SYSTEM "http://example.invalid/diggs.dtd">', id="dtd"),
+    ],
+)
+def test_external_entities_and_dtds_are_never_loaded(prolog):
+    data = f"{prolog}<Diggs {_NS}><gml:name>&x;</gml:name></Diggs>".encode()
+    if 'SYSTEM "file' not in prolog:
+        data = data.replace(b"&x;", b"n")
+    try:
+        model = preview.read_bytes(data)
+    except DocumentError as exc:
+        assert exc.kind == "malformed"
+        return
+    assert "root:" not in model.to_json()
+
+
+def test_tag_and_crs_caches_are_bounded():
+    assert _read._local.cache_info().maxsize is not None
+    assert _read._crs_of.cache_info().maxsize is not None

@@ -111,7 +111,7 @@ def parse(srs_name: str, *, local_ids: frozenset[str] | None = None) -> CrsRef:
     parts.
     """
     ref = parse_srs_name(srs_name)
-    if ref.kind == "local" and ref.local_id and ref.local_id.isdigit():
+    if ref.kind == "local" and ref.local_id and ref.local_id.isdecimal():
         ref = type(ref)("epsg", int(ref.local_id))  # a bare EPSG code, as some files write
     if ref.kind == "ogc":
         return _ogc(srs_name)
