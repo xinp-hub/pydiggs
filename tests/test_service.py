@@ -418,11 +418,29 @@ def test_the_cache_is_bounded_and_never_overrides_the_size_limit(fresh_cache):
     assert small.get(("big", None, True)) is None
 
 
-def test_an_incomplete_model_is_not_cached(fresh_cache):
+def test_a_model_cut_short_by_the_time_budget_is_not_cached(fresh_cache):
     data = CPT.read_bytes()
     partial = _service.read(ReadRequest(content=data, time_budget=1e-9))
     assert json.loads(partial.document)["complete"] is False
     assert json.loads(_service.read(ReadRequest(content=data)).document)["complete"] is True
+
+
+def test_a_model_cut_short_by_a_work_limit_is_cached(fresh_cache, monkeypatch):
+    """The same bytes stop at the same place, so paging such a file parses it once."""
+    from pydiggs._reader import _read as reader
+
+    data = CPT.read_bytes()
+    monkeypatch.setattr(reader, "LIMIT_BASE", 2 - len(data) // reader.LIMIT_BYTES_PER_ITEM)
+    first = _service.read(ReadRequest(content=data))
+    document = json.loads(first.document)
+    assert document["complete"] is False and "time_budget" not in document["limits_hit"]
+    calls = []
+    real = _service._reader.read_stoppable
+    monkeypatch.setattr(
+        _service._reader, "read_stoppable", lambda *a, **k: calls.append(1) or real(*a, **k)
+    )
+    assert _service.read(ReadRequest(content=data)).document == first.document
+    assert calls == []
 
 
 @pytest.mark.parametrize(

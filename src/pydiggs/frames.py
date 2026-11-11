@@ -28,10 +28,12 @@ Every function takes a :class:`pydiggs.Model` and a **view**:
     ``table`` (its number within the measurement) and ``row``; then where the row is
     (``position``, ``top`` and ``base``, ``time`` or ``elapsed_time``, when the table
     says) and one column per result, named by its dictionary key (``tip_resistance``)
-    or, without one, its name. Tables with different columns share the frame; a cell a
-    table does not have is null. Filters: ``feature``, ``procedure``, ``measurement``;
-    ``si=True`` gives values in SI units where the unit converts. Filter by
-    ``procedure`` for one tidy table per test type.
+    or, without one, its name. A result column named like a place (``position``,
+    ``top``, ``base``, ``time``, ``elapsed_time``) is always ``<name>_value``, so a place
+    and a measured value never share a column. Tables with different columns share
+    the frame; a cell a table does not have is null. Filters: ``feature``,
+    ``procedure``, ``measurement``; ``si=True`` gives values in SI units where the unit
+    converts. Filter by ``procedure`` for one tidy table per test type.
 
 A filter value is a node key (``feature``, ``measurement``), a ``kind`` such as
 ``"borehole"``, or a procedure type such as ``"StaticConePenetrationTest"``. Units are

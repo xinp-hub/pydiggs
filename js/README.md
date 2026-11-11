@@ -121,7 +121,7 @@ import { PydiggsBrowser, PYODIDE_VERSION } from "@pydiggs/client/browser";
 
 const pydiggs = new PydiggsBrowser({
   pyodideBaseUrl: `/vendor/pyodide-${PYODIDE_VERSION}/`,
-  pydiggsWheelUrl: "/vendor/pydiggs-1.7.0-py3-none-any.whl",
+  pydiggsWheelUrl: "/vendor/pydiggs-1.8.0-py3-none-any.whl",
 });
 ```
 

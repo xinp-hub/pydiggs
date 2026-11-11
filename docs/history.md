@@ -1,5 +1,21 @@
 # History
 
+## 1.8.0 (2026-11-11)
+
+AI assistants can now read a DIGGS file, not only validate it:
+
+- The MCP server has four new read-only tools: `list_features`, `get_feature`,
+  `list_measurements` and `get_results` give a model the boreholes and other features
+  in a document, one feature with its samples and tests, every test (also those that
+  name no feature), and the rows of a test's result tables, a page at a time. See
+  [MCP server](mcp.md).
+- In the `results` data frame, a result column named `position`, `top`, `base`, `time`
+  or `elapsed_time` is now always `<name>_value`, so a measured `elapsed_time` becomes
+  `elapsed_time_value`.
+- One small fix: the stdio sidecar refuses `read` on a protocol 1.0 session.
+
+See the CHANGELOG for the full list.
+
 ## 1.7.0 (2026-11-11)
 
 Reading DIGGS files is now a stable part of pyDIGGS:

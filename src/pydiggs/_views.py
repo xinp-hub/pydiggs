@@ -24,6 +24,9 @@ VIEWS: Final[dict[str, frozenset[str]]] = {
 }
 #: The columns every ``results`` row starts with; a table column of the same name is suffixed.
 _RESULT_KEYS: Final = ("measurement", "feature", "procedure", "table", "row")
+#: The names index columns have (where a row is). In the ``results`` view a result
+#: column with one of these names is always ``<name>_value``.
+_PLACE_NAMES: Final = frozenset({"position", "top", "base", "time", "elapsed_time"})
 
 Row = dict[str, Any]
 
@@ -192,9 +195,10 @@ def _cells(column: Column, *, si: bool) -> tuple[Any, ...]:
 def _results(model: Model, filters: Row) -> Iterator[Row]:
     """One row per row of every result table: its place (index columns), then its values.
 
-    Index columns (``position``, ``top``, ``base``, ``time`` …) keep their names across
-    the whole view; a result column whose name is one of them, in any table, gets a
-    ``_value`` suffix, so a place and a measured value never share a frame column.
+    Index columns (``position``, ``top``, ``base``, ``time``, ``elapsed_time``) keep
+    their names; a result column named like one of them is always ``<name>_value``,
+    whatever else is in the frame, so a place and a measured value never share a frame
+    column and a column's name does not depend on the filters.
     """
     si = bool(filters.get("si"))
     chosen = [
@@ -205,12 +209,6 @@ def _results(model: Model, filters: Row) -> Iterator[Row]:
         in (None, None if measurement.procedure is None else measurement.procedure.type)
         and filters.get("measurement") in (None, measurement.key)
     ]
-    places = {
-        column.key or column.name
-        for measurement in chosen
-        for table in measurement.results
-        for column in table.domain.index
-    }
     for measurement in chosen:
         procedure = None if measurement.procedure is None else measurement.procedure.type
         for number, table in enumerate(measurement.results):
@@ -222,7 +220,7 @@ def _results(model: Model, filters: Row) -> Iterator[Row]:
                 named[name] = _cells(column, si=si)
             for column in table.columns:
                 name = column.key or column.name
-                while name in named or name in _RESULT_KEYS or name in places:
+                while name in named or name in _RESULT_KEYS or name in _PLACE_NAMES:
                     name += "_value"
                 named[name] = _cells(column, si=si)
             count = min((len(cells) for cells in named.values()), default=0)

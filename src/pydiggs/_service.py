@@ -512,8 +512,10 @@ class _ModelCache:
     """Models read lately, by (content sha256, DIGGS version, with values): an LRU.
 
     A host lists a file with ``select.results = "none"`` and then asks for specific
-    tables; the second call finds the model here instead of parsing again. Only
-    complete models are kept. Bounded by count and by total weight (see
+    tables; the second call finds the model here instead of parsing again. A model
+    cut short by the time budget is not kept (another call may get further); one
+    cut short by a work limit is, since reading the same bytes stops at the same
+    place. Bounded by count and by total weight (see
     :data:`_CACHE_WEIGHT`); a model heavier than the whole budget is never kept.
     """
 
@@ -582,7 +584,7 @@ def _model(
         time_budget=request.time_budget,
         should_stop=should_stop,
     )
-    return model, key if model.complete else None
+    return model, None if "time_budget" in model.limits_hit else key
 
 
 def read(request: ReadRequest, *, should_stop: Callable[[], bool] | None = None) -> Outcome:

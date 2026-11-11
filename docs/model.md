@@ -116,7 +116,9 @@ gis.write(m, "site.gpkg")  # or .parquet (GeoParquet), .geojson
 In `results`, tables with different columns share one frame and a cell a table does not
 have is null, so filter by `procedure` (or `measurement`) for one tidy table. `si=True`
 gives values in SI units where the unit converts. Units are not in the frame: they are in
-the model (`table.column("tip_resistance").uom`).
+the model (`table.column("tip_resistance").uom`). The columns `position`, `top`, `base`,
+`time` and `elapsed_time` say where a row is; a result column with one of those names
+(a dissipation test's measured `elapsed_time`, say) is always `<name>_value`.
 
 **Coordinates.** `pydiggs.read()` never transforms a coordinate. `gis.transform(model,
 to="EPSG:4326")` returns a copy in which every position whose `srsName` names an EPSG or

@@ -5,7 +5,7 @@ export const PYODIDE_VERSION: string = "314.0.7";
 /** Subresource Integrity hash of that release's pyodide.mjs loader. */
 export const PYODIDE_SRI: string = "sha384-Lp79fMwxa4n2BLtugpUAoQMlbxIdg8iCUiP1r3h7nJLkQjwlXT1JzZTeHVL+f4Dg";
 /** The pydiggs release the worker installs from PyPI unless given a wheel URL. */
-export const PYDIGGS_VERSION: string = "1.7.0";
+export const PYDIGGS_VERSION: string = "1.8.0";
 /** Largest document the worker accepts, in bytes, unless configured lower. */
 export const DEFAULT_MAX_BYTES: number = 25 * 1024 * 1024;
 /** The diggs-findings schema these types were generated from. */
