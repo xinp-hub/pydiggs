@@ -54,8 +54,9 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
       `ghcr.io/xinp-hub/pydiggs:X.Y.Z` (no `latest` tag)
     * Desktop and native apps: a stdio JSON-RPC 2.0 sidecar (`pydiggs serve --stdio`)
       that any host language can drive
-    * AI assistants: an MCP server with read-only validation and rule tools (the `mcp`
-      extra, then `pydiggs serve --mcp`)
+    * AI assistants: an MCP server with read-only tools to validate a document, explain
+      rules, and read features, samples, tests and result tables (the `mcp` extra,
+      then `pydiggs serve --mcp`)
     * Browsers: in a web page with Pyodide, so the file never leaves the user's machine
       (a dependency-free Web Worker example is in `examples/browser-worker`)
 

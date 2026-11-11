@@ -1,6 +1,6 @@
 """The MCP tools and :func:`create_server`.
 
-Four read-only tools on the official SDK's ``MCPServer``:
+Seven read-only tools on the official SDK's ``MCPServer``:
 
 * ``validate_diggs`` validates one document sent as base64 and answers the whole
   one-file diggs-findings document as ``structuredContent`` (its ``outputSchema`` is
@@ -9,6 +9,9 @@ Four read-only tools on the official SDK's ``MCPServer``:
   document (a message, an XPath, a ``gml:id``, the file name) ever reaches it.
 * ``explain_rule``, ``list_rules`` and ``supported_versions`` describe rules and the
   running pydiggs.
+* ``list_features``, ``get_feature`` and ``get_results`` read one document into
+  diggs-model 1.0 and answer one slice of it, page by page (see
+  :mod:`pydiggs.mcp_server._read`).
 
 Every request goes through :mod:`pydiggs._service` (bundled reference data only; no
 network, no snippets, no local dictionaries; never a path). Validation runs in one
@@ -55,7 +58,8 @@ from pydiggs._serve_cli import (
     DEFAULT_TIMEOUT,
     ServeOptions,
 )
-from pydiggs._service import Code, Outcome, Request
+from pydiggs._service import Code, Outcome, ReadRequest, Request
+from pydiggs.mcp_server import _read
 
 if TYPE_CHECKING:
     from mcp.server.mcpserver.context import Context
@@ -84,7 +88,17 @@ _MAX_CHECKS: Final = 32
 #: Most distinct rule ids the summary names.
 _MAX_SUMMARY_RULES: Final = 50
 #: The tools this server offers, in ``tools/list`` order.
-TOOL_NAMES: Final = ("validate_diggs", "explain_rule", "list_rules", "supported_versions")
+TOOL_NAMES: Final = (
+    "validate_diggs",
+    "explain_rule",
+    "list_rules",
+    "supported_versions",
+    "list_features",
+    "get_feature",
+    "get_results",
+)
+#: Largest diggs-model document a read tool takes from the worker (it slices it).
+_MAX_READ_RESULT: Final = 256 * 2**20
 
 _SCHEMA_FILE: Final = "diggs-findings-1.0.schema.json"
 _SEVERITIES: Final = ("error", "warning", "info")
@@ -106,10 +120,9 @@ _FIXED_TEXT: Final = {
     Code.RESOURCE_ERROR: "pydiggs's bundled reference data could not be loaded.",
     Code.INTERNAL: "An internal error occurred.",
     Code.CANCELLED: "The request was cancelled.",
-    Code.TIMEOUT: "Validation did not finish within the time limit; the file was not checked.",
-    # The read codes: no tool reads yet (the read tools are planned for 1.8.0).
+    Code.TIMEOUT: "The request did not finish within the time limit; the file was not checked.",
     Code.INVALID_DOCUMENT: "The bytes are not a DIGGS document.",
-    Code.RESULT_TOO_LARGE: "The result is larger than this server sends.",
+    Code.RESULT_TOO_LARGE: "The document is too large to read here.",
 }
 
 _log = logging.getLogger("pydiggs.mcp")
@@ -125,6 +138,14 @@ _Checks = (
 )
 _Token = Annotated[str, Field(max_length=_MAX_TOKEN_CHARS)] | None
 _RuleId = Annotated[str, Field(max_length=MAX_RULE_ID_CHARS)]
+_Cursor = Annotated[str, Field(max_length=_read.MAX_CURSOR_CHARS)] | None
+_Key = Annotated[str, Field(min_length=1, max_length=4096)]
+_Table = Annotated[int, Field(ge=0, le=100_000)]
+_Columns = (
+    Annotated[list[Annotated[str, Field(max_length=4096)]], Field(min_length=1, max_length=500)]
+    | None
+)
+_MaxRows = Annotated[int, Field(ge=1, le=_read.MAX_ROWS)]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -206,6 +227,7 @@ def _version_info_schema() -> dict[str, Any]:
 
 def _output_schemas() -> dict[str, dict[str, Any]]:
     return {
+        **_read.output_schemas(),
         "validate_diggs": _findings_schema(),
         "explain_rule": _rule_info_schema(),
         "list_rules": {
@@ -359,6 +381,32 @@ class _Runtime:
         """Blocking: one validation in the worker, under the hard timeout."""
         return _service.validate_in_pool(self.pool(), request, timeout=self.limits.timeout)
 
+    def run_read(self, request: ReadRequest) -> Outcome:
+        """Blocking: one read in the worker, under the hard timeout (the worker caches it)."""
+        return _service.read_in_pool(self.pool(), request, timeout=self.limits.timeout)
+
+    async def document(
+        self, content_base64: str, select: dict[str, Any]
+    ) -> tuple[dict[str, Any], str] | CallToolResult:
+        """The diggs-model document of ``content_base64`` (with ``select``), and its sha256."""
+        if len(content_base64) > self.limits.max_encoded_chars:  # refused before queueing
+            return _error(Outcome(code=Code.INPUT_TOO_LARGE, detail="too large"))
+        async with self._turn:  # one call at a time, matching the single worker
+            content = _decode(content_base64, self.limits)
+            if isinstance(content, CallToolResult):
+                return content
+            request = ReadRequest(
+                content=content,
+                select=select,
+                max_bytes=self.limits.max_bytes,
+                max_result_bytes=_MAX_READ_RESULT,
+            )
+            outcome = await anyio.to_thread.run_sync(self.run_read, request)
+        if not outcome.ok or outcome.document is None:
+            return _error(outcome)
+        document: dict[str, Any] = json.loads(outcome.document)
+        return document, document["source"]["sha256"]
+
     async def check(
         self,
         content_base64: str,
@@ -424,7 +472,23 @@ class _Server(MCPServer[Any]):
             return _invalid(*((f, "missing or not valid") for f in fields or ["arguments"]))
 
 
-_PARAMS: Final = frozenset({"content_base64", "name", "checks", "diggs_version", "rule_id", "step"})
+_PARAMS: Final = frozenset(
+    {
+        "content_base64",
+        "name",
+        "checks",
+        "diggs_version",
+        "rule_id",
+        "step",
+        "kind",
+        "cursor",
+        "key",
+        "measurement_key",
+        "table",
+        "columns",
+        "max_rows",
+    }
+)
 
 
 def _tools(runtime: _Runtime) -> list[Tool]:
@@ -449,6 +513,55 @@ def _tools(runtime: _Runtime) -> list[Tool]:
         versions = ", ".join(info["diggs_versions"])
         return _ok(info, f"pydiggs {__version__} checks DIGGS {versions}.")
 
+    async def list_features(
+        content_base64: str, kind: _Token = None, cursor: _Cursor = None
+    ) -> CallToolResult:
+        read = await runtime.document(content_base64, {"results": "none"})
+        if isinstance(read, CallToolResult):
+            return read
+        try:
+            return _ok(*_read.features_result(*read, kind=kind, cursor=cursor))
+        except _read.CursorError:
+            return _invalid(("cursor", "not a cursor from this document and request"))
+
+    async def get_feature(content_base64: str, key: _Key) -> CallToolResult:
+        read = await runtime.document(content_base64, {"results": "none"})
+        if isinstance(read, CallToolResult):
+            return read
+        try:
+            return _ok(*_read.feature_result(read[0], key))
+        except _read.KeyNotFoundError:
+            return _invalid(("key", "no feature has this key; list_features gives them"))
+
+    async def get_results(
+        content_base64: str,
+        measurement_key: _Key,
+        *,
+        table: _Table = 0,
+        columns: _Columns = None,
+        cursor: _Cursor = None,
+        max_rows: _MaxRows = 100,
+    ) -> CallToolResult:
+        read = await runtime.document(content_base64, {"results": [measurement_key]})
+        if isinstance(read, CallToolResult):
+            return read
+        try:
+            structured, text = _read.results_result(
+                *read,
+                key=measurement_key,
+                table=table,
+                columns=columns,
+                cursor=cursor,
+                max_rows=max_rows,
+            )
+        except _read.KeyNotFoundError:
+            return _invalid(
+                ("measurement_key", "no measurement with result tables has this key and table")
+            )
+        except _read.CursorError:
+            return _invalid(("cursor", "not a cursor from this document and request"))
+        return _ok(structured, text)
+
     mib = limits.max_bytes / 2**20
     descriptions = {
         "validate_diggs": (
@@ -464,14 +577,49 @@ def _tools(runtime: _Runtime) -> list[Tool]:
         "supported_versions": (
             "The running pydiggs version, its findings schema and the DIGGS versions it checks."
         ),
+        "list_features": (
+            "Read one DIGGS XML document (base64 in content_base64; never a path) and list"
+            " its sampling features (boreholes, soundings, wells …): key, kind, name,"
+            " location as written, total depth, and how many samples and measurements"
+            f" refer to each. {_read.FEATURE_PAGE} per page; pass next_cursor back with the"
+            " same document for the next. Filter with kind (such as borehole). Reading is"
+            " not validating: an invalid file still reads. structuredContent is part of a"
+            f" diggs-model 1.0 document. Limits: {mib:g} MiB decoded, {limits.timeout:g} s,"
+            f" strings cut to {_read.MAX_STRING_CHARS} characters. {_read.READ_UNTRUSTED}"
+        ),
+        "get_feature": (
+            "Read one DIGGS XML document (base64) and answer one feature by key (from"
+            " list_features) as a diggs-model 1.0 feature, with the samples, measurements"
+            f" and lithology layers that refer to it (at most {_read.MAX_LIST_ITEMS} of"
+            f" each). {_read.READ_UNTRUSTED}"
+        ),
+        "get_results": (
+            "Read one DIGGS XML document (base64) and answer the rows of one result table of"
+            " a measurement (measurement_key from get_feature; table numbers from 0): its"
+            " columns (name, dictionary key, unit, SI factor, and whether each says where the"
+            " row is or a measured value) and rows as arrays, max_rows per page (at most"
+            f" {_read.MAX_ROWS}); pass next_cursor back for the next page. Choose columns by"
+            f" name or dictionary key. {_read.READ_UNTRUSTED}"
+        ),
     }
     titles = {
         "validate_diggs": "Validate a DIGGS document",
         "explain_rule": "Explain a pydiggs rule",
         "list_rules": "List pydiggs rules",
         "supported_versions": "pydiggs and DIGGS versions",
+        "list_features": "List the features of a DIGGS document",
+        "get_feature": "Get one feature of a DIGGS document",
+        "get_results": "Get the rows of a result table",
     }
-    functions = (validate_diggs, explain_rule, list_rules, supported_versions)
+    functions = (
+        validate_diggs,
+        explain_rule,
+        list_rules,
+        supported_versions,
+        list_features,
+        get_feature,
+        get_results,
+    )
     schemas = _output_schemas()
     tools = []
     for function in functions:
@@ -496,7 +644,7 @@ def create_server(
     timeout: float = DEFAULT_TIMEOUT,
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING",
 ) -> MCPServer[Any]:
-    """Build the pydiggs MCP server: four read-only tools on the official MCP SDK.
+    """Build the pydiggs MCP server: seven read-only tools on the official MCP SDK.
 
     Validation runs in one spawned worker process, started when the server starts
     serving and stopped when it stops; one document at a time, killed and replaced
@@ -539,9 +687,13 @@ def create_server(
     return _Server(
         "pydiggs",
         title="pydiggs",
-        description="Offline validation for DIGGS geotechnical XML documents.",
+        description="Offline validation and reading for DIGGS geotechnical XML documents.",
         instructions=(
-            "Use validate_diggs to check a DIGGS XML document sent as base64. " + _UNTRUSTED
+            "Use validate_diggs to check a DIGGS XML document sent as base64, and"
+            " list_features, get_feature and get_results to read what is in it. "
+            + _UNTRUSTED
+            + " "
+            + _read.READ_UNTRUSTED
         ),
         version=__version__,
         tools=_tools(runtime),

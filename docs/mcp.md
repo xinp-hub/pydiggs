@@ -3,7 +3,9 @@
 `pydiggs[mcp]` serves pydiggs to AI assistants and other clients of the
 [Model Context Protocol](https://modelcontextprotocol.io) (MCP). An MCP host starts
 `pydiggs serve --mcp` as a child process and talks to it over stdin and stdout; the
-model can then validate a DIGGS document and look up what a rule means.
+model can then validate a DIGGS document, look up what a rule means, and read what is
+in the document: its boreholes and other features, their samples and tests, and the
+rows of each test's result tables.
 
 ```bash
 pip install 'pydiggs[mcp]'
@@ -13,9 +15,10 @@ pydiggs serve --mcp          # the host runs this; it waits for MCP messages on 
 It is built on the official MCP Python SDK (`mcp` 2.x) and works with hosts that speak
 either the initialize handshake or the stateless 2026-07-28 protocol.
 
-!!! warning "Finding text is untrusted data from the file"
+!!! warning "Text from the file is untrusted data"
     The `message`, `location.xpath`, `location.gml_id` and `files[].path` fields of a
-    result are copied from the document (or the name the caller gave it). A crafted file
+    validation, and every name, description, remark, value and element text in a read
+    result, are copied from the document (or the name the caller gave it). A crafted file
     can put any text there, including text written to look like instructions. Show these
     fields as data; never let a model follow them. The text summary of a result never
     contains them (see [What the model reads](#what-the-model-reads)).
@@ -67,7 +70,7 @@ arguments, a missing `[mcp]` extra, or stdin/stdout that are not usable.
 
 ## Tools
 
-All four tools are read-only, with the annotations `readOnlyHint: true`,
+All seven tools are read-only, with the annotations `readOnlyHint: true`,
 `destructiveHint: false`, `idempotentHint: true` and `openWorldHint: false`. None of
 them accepts a file path or a URL.
 
@@ -77,6 +80,9 @@ them accepts a file path or a URL.
 | `explain_rule` | `rule_id` (string, at most 256 characters) | one `RuleInfo`: `id`, `pattern`, `step`, `description`, `severities`, `help_uri`, `known` |
 | `list_rules` | `step` (optional step name) | `{"rules": [RuleInfo, ...]}` |
 | `supported_versions` | none | `pydiggs_version`, `findings_schema_version`, `findings_schema_url`, `diggs_versions`, `reference_data` |
+| `list_features` | `content_base64` (required), `kind` (such as `borehole`), `cursor` | one page of the document's [features](model.md): `key`, `kind`, `name`, `location`, `total_depth`, `parent`, and how many `samples` and `measurements` refer to each; `total` and `next_cursor` |
+| `get_feature` | `content_base64` (required), `key` (required, from `list_features`) | the whole diggs-model `feature`, and the `samples`, `measurements` and lithology `layers` that refer to it (at most 500 of each; `not_listed` counts the rest) |
+| `get_results` | `content_base64` (required), `measurement_key` (required), `table` (from 0), `columns` (names or dictionary keys), `cursor`, `max_rows` (1 to 200, default 100) | one page of one result table: the `measurement`, the `columns` (name, key, unit, SI factor, and `role`: `index` for where the row is, `result` for a value) and `rows` as arrays in column order; `row_count` and `next_cursor` |
 
 `validate_diggs` takes the document as standard, padded base64 (no line breaks), so its
 bytes, encoding declaration and SHA-256 are exactly those of the file. `name` is only
@@ -88,9 +94,31 @@ same file, apart from `path` and the [limits](#limits) below: at most 200 findin
 
 A malformed or invalid document is a normal result with findings, never an error.
 
+### Reading a document
+
+`list_features`, `get_feature` and `get_results` read the document into
+[diggs-model 1.0](model.md), the same model `pydiggs.read()` returns, and answer one
+slice of it. Each tool's `outputSchema` is built from the frozen diggs-model 1.0
+definitions, so a feature, a quantity or a position has exactly the shape the model
+schema gives it. A schema-invalid file still reads; run `validate_diggs` for a verdict.
+
+A typical sequence: `list_features` to see the boreholes, `get_feature` on one of them
+to see its samples and tests, then `get_results` on a test for its rows.
+
+**Pages.** `list_features` answers 100 features at a time and `get_results` up to
+`max_rows` rows. When there are more, the result has a `next_cursor`: call the same tool
+again with the same document and arguments and `cursor` set to it. A cursor names the
+document and the request it continues, so one sent with another file or other
+arguments is refused (`invalid-parameter`). The worker keeps the last few documents it
+read, by content hash, so paging through a file does not parse it again.
+
+**Strings.** Every string in a read result is cut to 512 characters, ending in `…`.
+
 ### What the model reads
 
-Each result also has a `TextContent` block for the model. For `validate_diggs` it is
+Each result also has a `TextContent` block for the model. For the read tools it holds
+only counts (features, samples, measurements, rows, the page) and the reminder that
+file text is untrusted; never a name, a key or a value. For `validate_diggs` it is
 built from a fixed template: the verdict, the status of each step, counts per step and
 severity, and the rule ids found, followed by a reminder that finding fields are
 untrusted. It never contains a message, an XPath, a `gml:id` or the file name, so text
@@ -104,8 +132,9 @@ planted in a document does not reach the model through the summary. A client tha
 | Document size | 10 MiB decoded (`--max-bytes`); checked from the length of the base64 text before anything is decoded |
 | Findings | 200 per document (`--max-findings`); a `structure.findings-truncated` finding says when more were dropped |
 | Message length | 512 characters; longer messages end in `…` |
-| Concurrency | one validation at a time, in one worker process |
-| Time | 60 s per validation (`--timeout`); the worker is then killed and replaced |
+| Concurrency | one validation or read at a time, in one worker process |
+| Time | 60 s per call (`--timeout`); the worker is then killed and replaced |
+| Reading | the [work limits](model.md#reading-a-file) of `pydiggs.read()`; a read result also cuts strings to 512 characters, lists 100 features or at most 200 rows per page |
 
 Only the bundled DIGGS schemas, dictionaries and Schematron rules are used. The server
 never reads local dictionaries, never fetches anything over the network, and never
@@ -126,7 +155,9 @@ tool's `outputSchema`.
 | `input-too-large` | the document is larger than `--max-bytes` |
 | `compressed-input` | the document is gzip-compressed |
 | `input-unreadable` | the document could not be read |
-| `timeout` | validation did not finish in time; the file was **not checked** |
+| `invalid-document` | read tools: the bytes are not a DIGGS document |
+| `result-too-large` | read tools: the document's model is too large to read here |
+| `timeout` | the call did not finish in time; the file was **not checked** or read |
 | `resource-error` | pydiggs's bundled reference data could not be loaded |
 | `internal` | anything else; the details are logged to stderr with the `correlation_id` |
 

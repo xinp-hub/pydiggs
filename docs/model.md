@@ -6,7 +6,8 @@
     `pydiggs.preview`; that module still works, with a `DeprecationWarning`, until 2.0.
     The same document is available over HTTP ([`POST /v1/read`](http-api.md#post-v1read)),
     from the stdio sidecar ([`read`](sidecar.md#read)) and in the browser
-    ([Pyodide](browser.md)). MCP read tools follow in 1.8.0.
+    ([Pyodide](browser.md)), and to AI assistants through the MCP server's
+    [read tools](mcp.md#reading-a-document) (1.8.0).
 
     Comments are welcome as [GitHub issues](https://github.com/xinp-hub/pydiggs/issues).
 

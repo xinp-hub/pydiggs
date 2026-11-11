@@ -363,3 +363,49 @@ def test_a_later_target_replaces_an_earlier_one():
     nad83 = gis.transform(model, "EPSG:4269")
     assert nad83.get("b").location.transformed_by is not None
     assert gis.transform(nad83, "EPSG:4326") == model  # back to what the reader gave
+
+
+def test_a_result_named_like_another_tables_index_gets_a_suffix():
+    from pydiggs.model import (
+        Column,
+        Domain,
+        Measurement,
+        Model,
+        Provenance,
+        ResultTable,
+        SourceInfo,
+    )
+
+    def measurement(key, table):
+        return Measurement(
+            key=key,
+            gml_id=None,
+            element="Test",
+            kind="test",
+            name=None,
+            names=(),
+            description=None,
+            remarks=(),
+            provenance=Provenance(xpath=f"/{key}"),
+            extra=(),
+            results=(table,),
+        )
+
+    stepped = ResultTable(
+        domain=Domain(shape="interval", index=(Column(name="top", type="number", values=(1.0,)),)),
+        columns=(Column(name="n", type="number", values=(10.0,)),),
+        row_count=1,
+    )
+    flat = ResultTable(columns=(Column(name="top", type="number", values=(99.0,)),), row_count=1)
+    model = Model(
+        schema_version="1.0",
+        tool={"name": "pydiggs", "version": "x"},
+        source=SourceInfo(
+            name=None, sha256="0" * 64, size=0, diggs_version="3.0.0", namespace=None, detected=True
+        ),
+        complete=True,
+        measurements=(measurement("a", stepped), measurement("b", flat)),
+    )
+    data = _views.columns(model, "results")
+    assert data["top"] == [1.0, None]  # the place of each row
+    assert data["top_value"] == [None, 99.0]  # the measured value named "top"

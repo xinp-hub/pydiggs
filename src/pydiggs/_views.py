@@ -190,21 +190,39 @@ def _cells(column: Column, *, si: bool) -> tuple[Any, ...]:
 
 
 def _results(model: Model, filters: Row) -> Iterator[Row]:
-    """One row per row of every result table: its place (index columns), then its values."""
+    """One row per row of every result table: its place (index columns), then its values.
+
+    Index columns (``position``, ``top``, ``base``, ``time`` …) keep their names across
+    the whole view; a result column whose name is one of them, in any table, gets a
+    ``_value`` suffix, so a place and a measured value never share a frame column.
+    """
     si = bool(filters.get("si"))
-    for measurement in model.measurements:
+    chosen = [
+        measurement
+        for measurement in model.measurements
+        if filters.get("feature") in (None, measurement.feature)
+        and filters.get("procedure")
+        in (None, None if measurement.procedure is None else measurement.procedure.type)
+        and filters.get("measurement") in (None, measurement.key)
+    ]
+    places = {
+        column.key or column.name
+        for measurement in chosen
+        for table in measurement.results
+        for column in table.domain.index
+    }
+    for measurement in chosen:
         procedure = None if measurement.procedure is None else measurement.procedure.type
-        if (
-            filters.get("feature") not in (None, measurement.feature)
-            or filters.get("procedure") not in (None, procedure)
-            or filters.get("measurement") not in (None, measurement.key)
-        ):
-            continue
         for number, table in enumerate(measurement.results):
             named: dict[str, tuple[Any, ...]] = {}
-            for column in (*table.domain.index, *table.columns):
+            for column in table.domain.index:
                 name = column.key or column.name
                 while name in named or name in _RESULT_KEYS:
+                    name += "_value"
+                named[name] = _cells(column, si=si)
+            for column in table.columns:
+                name = column.key or column.name
+                while name in named or name in _RESULT_KEYS or name in places:
                     name += "_value"
                 named[name] = _cells(column, si=si)
             count = min((len(cells) for cells in named.values()), default=0)
