@@ -65,6 +65,62 @@ time_budget=None)`:
 - Nothing is fetched from the network, and the file is parsed one top-level member at a
   time, so memory stays close to the file's size.
 
+## Data frames and GIS
+
+Three extras turn a model into the tables and layers other tools use. Nothing in them is
+imported by `import pydiggs`.
+
+| Extra | Gives | Installs |
+| --- | --- | --- |
+| `pydiggs[frames]` | `pydiggs.frames.to_pandas()` | pandas |
+| `pydiggs[polars]` | `pydiggs.frames.to_polars()` | polars |
+| `pydiggs[gis]` | `pydiggs.gis.transform()`, `to_geodataframe()`, `write()` | geopandas, pyproj, shapely, pyogrio, pyarrow |
+
+```bash
+pip install 'pydiggs[frames,gis]'
+```
+
+```python
+import pydiggs
+from pydiggs import frames, gis
+
+m = pydiggs.read("site.xml")
+
+frames.to_pandas(m, "features")  # one row per borehole, sounding, well …
+cpt = frames.to_pandas(m, "results", procedure="StaticConePenetrationTest")
+cpt[["position", "tip_resistance"]]  # columns are named by dictionary key
+
+boreholes = gis.to_geodataframe(m, kind="borehole")  # points in WGS 84
+gis.write(m, "site.gpkg")  # or .parquet (GeoParquet), .geojson
+```
+
+**Views.** `to_pandas(model, view)` and `to_polars(model, view)` take the same five views:
+
+| View | One row per | Filters |
+| --- | --- | --- |
+| `features` | sampling feature, with its location as written and `lon`/`lat` when known | `kind` |
+| `samples` | sample, with its depth interval, type, method and recovery | `feature` |
+| `layers` | lithology layer, with its interval, description, classification and colour | `feature` |
+| `measurements` | test, monitor or survey, with its procedure and how many result rows it has | `feature`, `kind`, `procedure` |
+| `results` (default) | row of every result table: where it is, then one column per result | `feature`, `procedure`, `measurement`, `si` |
+
+In `results`, tables with different columns share one frame and a cell a table does not
+have is null, so filter by `procedure` (or `measurement`) for one tidy table. `si=True`
+gives values in SI units where the unit converts. Units are not in the frame: they are in
+the model (`table.column("tip_resistance").uom`).
+
+**Coordinates.** `pydiggs.read()` never transforms a coordinate. `gis.transform(model,
+to="EPSG:4326")` returns a copy in which every position whose `srsName` names an EPSG or
+OGC CRS has `geographic` (longitude, latitude) in the CRS you ask for, and
+`transformed_by` says which pyproj did it. `coordinates` and `crs` stay as written. A
+position in a CRS defined in the file, or in one pyDIGGS cannot resolve, is left alone,
+and such a feature has an empty geometry in `to_geodataframe()` and `write()`. pyproj
+chooses the transformation; without its datum grids, a shift between datums (NAD27 to
+WGS 84, say) can be off by metres.
+
+`gis.write()` saves the features as points: GeoPackage (`.gpkg`, layer `features`),
+GeoParquet (`.parquet`) or GeoJSON (`.geojson`). It replaces an existing file.
+
 ## Principles
 
 - **Reading is not validating.** `read` works on invalid files and never says "valid".

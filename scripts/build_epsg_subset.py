@@ -48,15 +48,15 @@ US_AREAS = {
     "guam-northern-marianas": (144.5, 13.2, 146.1, 20.6),
     "american-samoa": (-171.1, -14.6, -168.1, -11.0),
 }
-EVERYWHERE = (PJType.GEOGRAPHIC_2D_CRS, PJType.GEOGRAPHIC_3D_CRS, PJType.VERTICAL_CRS)
-US_TYPES = (
+EVERYWHERE = [PJType.GEOGRAPHIC_2D_CRS, PJType.GEOGRAPHIC_3D_CRS, PJType.VERTICAL_CRS]
+US_TYPES = [
     PJType.PROJECTED_CRS,
     PJType.GEOCENTRIC_CRS,
     PJType.COMPOUND_CRS,
     PJType.GEOGRAPHIC_2D_CRS,
     PJType.GEOGRAPHIC_3D_CRS,
     PJType.VERTICAL_CRS,
-)
+]
 #: PROJ's CRS type name -> the type pyDIGGS records.
 TYPES = {
     "Geographic 2D CRS": "geographic_2d",

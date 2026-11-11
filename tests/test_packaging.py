@@ -84,8 +84,18 @@ def test_requires_dist_keeps_the_core_small_and_declares_the_extras():
             "uvicorn>=0.54.0",
         },
         "mcp": {"mcp>=2.3.0", "python-multipart>=0.0.31"},
+        "frames": {"pandas>=2.2.3"},
+        "polars": {"polars>=1.20.0"},
+        "gis": {
+            "geopandas>=1.1.2",
+            "pandas>=2.2.3",
+            "pyarrow>=23.0.1",
+            "pyogrio>=0.10.0",
+            "pyproj>=3.7.0",
+            "shapely>=2.0.6",
+        },
     }
-    assert set(metadata.metadata(DIST).get_all("Provides-Extra") or []) == {"server", "mcp"}
+    assert set(metadata.metadata(DIST).get_all("Provides-Extra") or []) == set(by_extra)
 
 
 def test_ships_bundled_schema_profiles():

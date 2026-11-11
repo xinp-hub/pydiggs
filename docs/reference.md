@@ -48,6 +48,21 @@ Stable from 1.7.0; see [Reading files](model.md). The node and value classes are
 
 ::: pydiggs.crs.SUPPORTED_SRS_FORMS
 
+## Data frames and GIS
+
+The `frames`, `polars` and `gis` extras; see
+[Reading files](model.md#data-frames-and-gis).
+
+::: pydiggs.frames.to_pandas
+
+::: pydiggs.frames.to_polars
+
+::: pydiggs.gis.transform
+
+::: pydiggs.gis.to_geodataframe
+
+::: pydiggs.gis.write
+
 ## Results
 
 ::: pydiggs.Report

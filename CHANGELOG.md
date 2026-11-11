@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On both, `select` (`{"results": "all" | "none" | [node keys]}`) chooses which result
   tables keep their values, so a host can list a large file first and fetch tables
   after. Every surface returns the bytes `pydiggs.read_bytes(...).to_json()` gives.
+- **Data frames:** `pydiggs.frames.to_pandas()` (the new `frames` extra) and
+  `to_polars()` (the `polars` extra) give a model's features, samples, lithology
+  layers, measurements or result tables as a data frame, with filters by feature, kind,
+  procedure and measurement, and result values in SI units on request.
+- **GIS:** `pydiggs.gis` (the new `gis` extra: geopandas, pyproj, shapely, pyogrio,
+  pyarrow). `transform()` gives every position in an EPSG or OGC CRS a longitude and
+  latitude in the CRS you choose and records that it did; `to_geodataframe()` gives the
+  features as points; `write()` saves them as GeoPackage, GeoParquet or GeoJSON.
+  `import pydiggs` imports none of these libraries.
 - **Browser (Pyodide):** `read_bytes` is tested in Pyodide, byte for byte against
   CPython, and the Web Worker example shows what a file contains after validating it.
 

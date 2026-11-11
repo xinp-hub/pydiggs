@@ -51,6 +51,24 @@ mcp = [
   "mcp>=2.3.0",
   "python-multipart>=0.0.31",
 ]
+# The read API's exports (pydiggs.frames, pydiggs.gis). polars is its own extra so that
+# pandas users do not download it. geopandas brings pandas, shapely and pyproj; pyogrio
+# writes GeoPackage and pyarrow GeoParquet. geopandas>=1.1.2 and pyarrow>=23.0.1 are
+# security floors (GHSA-6497-prx7-gpmq, GHSA-rgxp-2hwp-jwgg).
+frames = [
+  "pandas>=2.2.3",
+]
+polars = [
+  "polars>=1.20.0",
+]
+gis = [
+  "geopandas>=1.1.2",
+  "pandas>=2.2.3",
+  "pyarrow>=23.0.1",
+  "pyogrio>=0.10.0",
+  "pyproj>=3.7.0",
+  "shapely>=2.0.6",
+]
 
 [project.scripts]
 pydiggs = "pydiggs.cli:main"
@@ -160,6 +178,9 @@ module = [
   "pydiggs._serve_cli",
   "pydiggs._service",
   "pydiggs._versions",
+  "pydiggs._views",
+  "pydiggs.frames",
+  "pydiggs.gis",
   "pydiggs.crs",
   "pydiggs.errors",
   "pydiggs.findings",
@@ -181,8 +202,8 @@ disallow_incomplete_defs = true
 module = ["lxml", "lxml.*"]
 ignore_missing_imports = true
 
-# pyproj is a maintainer tool for scripts/build_epsg_subset.py (run with uv --with),
-# never a dependency, so the dev environment does not install it.
+# pyproj comes with the gis extra (pydiggs.gis imports it lazily) and is the maintainer
+# tool behind scripts/build_epsg_subset.py; an environment without the extra lacks it.
 [[tool.mypy.overrides]]
 module = ["pyproj", "pyproj.*"]
 ignore_missing_imports = true
