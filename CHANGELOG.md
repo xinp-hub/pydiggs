@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-11
+
 ### Added
 - **The read API is stable.** `pydiggs.read()`, `pydiggs.read_bytes()`, `pydiggs.Model`,
   `pydiggs.model_schema()`, `pydiggs.MODEL_SCHEMA_VERSION`, `pydiggs.MODEL_SCHEMA_URL`
@@ -22,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read note `structure.duplicate-gml-id` (warning): two or more elements share one
   `gml:id`. Each copy is keyed by its xpath, and a link to the id resolves to the first.
 - `pydiggs.crs.SUPPORTED_SRS_FORMS`.
+- Reading has work limits, so a small hostile file cannot produce a huge model: at most
+  100,000 objects, and as many elements with no typed field, plus one of each per 200
+  bytes of the file, nested at most 64 deep (real files have a few thousand, over 1,000
+  bytes apiece and about 10 deep). Reaching one returns what was read with `complete=False`,
+  the limit in `limits_hit` and a `structure.read-limit` note. A namespace URI longer
+  than 1,024 characters is refused (`DocumentError`, kind `namespace-too-long`), as
+  `validate` already does.
 - **HTTP API:** `POST /v1/read` returns the diggs-model document for an uploaded file,
   with the same limits, isolation and problem responses as `/v1/validate`. Bytes that
   are not a DIGGS document are 422 `invalid-document` (with `kind`). The OpenAPI
@@ -55,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   removed in 2.0.
 
 ### Fixed
+- Reading from several threads at once could, on the first reads in a process, build a
+  model with fields missing; the decoder's setup is now safe to share.
 - `read()` rejects a `time_budget` that is not a finite number (NaN or infinity) with
   `ValueError`, instead of reading with no limit.
 
@@ -647,7 +658,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/xinp-hub/pydiggs/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/xinp-hub/pydiggs/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/xinp-hub/pydiggs/compare/v1.4.0...v1.4.1

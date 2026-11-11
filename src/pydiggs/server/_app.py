@@ -60,6 +60,9 @@ MAX_FIELDS: Final = 8
 MAX_PART_SIZE: Final = 64 * 2**10
 #: Multipart framing and fields allowed on top of ``max_body_bytes``.
 MULTIPART_SLACK: Final = MAX_FIELDS * MAX_PART_SIZE + 64 * 2**10
+#: ``/v1/read`` sends a document of at most this many times ``max_body_bytes`` (a real
+#: model is 0.6 to 2 times its XML); a larger one is 422 ``result-too-large``.
+RESULT_FACTOR: Final = 4
 #: Most ``Accept`` items considered (the rest are ignored).
 _MAX_ACCEPT_ITEMS: Final = 32
 _RETRY_AFTER: Final = {"Retry-After": "1"}
@@ -362,7 +365,6 @@ def _read_parameters(
         name=names[-1] if names else filename,
         diggs_version=versions[-1] if versions else None,
         select=_select(params.get("select", [])),
-        max_result_bytes=None,  # the body limit bounds the document; compression is the host's
     )
 
 
@@ -409,7 +411,11 @@ async def _read_input(
             content = await _read_raw(request, limit)
     except _TooLargeError:
         return _too_large()
-    return dataclasses.replace(build(content, params, filename), max_bytes=settings.max_body_bytes)
+    job = dataclasses.replace(build(content, params, filename), max_bytes=settings.max_body_bytes)
+    if isinstance(job, ReadRequest):
+        limit = RESULT_FACTOR * settings.max_body_bytes
+        job = dataclasses.replace(job, max_result_bytes=limit)
+    return job
 
 
 # --- per-router state --------------------------------------------------------------------

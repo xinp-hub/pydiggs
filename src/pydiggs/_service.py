@@ -92,15 +92,18 @@ MAX_SECONDS: Final = 86_400
 #: The extra CPU seconds a pooled job may use past its timeout before the kernel stops it.
 _CPU_SLACK: Final = 5.0
 #: Why a read may answer ``invalid-document`` (``Outcome.kind``; an open set).
-DOCUMENT_KINDS: Final = ("malformed", "not-diggs", "unsafe-entity")
+DOCUMENT_KINDS: Final = ("malformed", "not-diggs", "unsafe-entity", "namespace-too-long")
 #: Most node keys a read request's ``select.results`` list may name.
 MAX_SELECT_KEYS: Final = 1000
 #: Longest node key accepted in ``select.results`` (a key is a gml:id or "@" + an xpath).
 _MAX_KEY_CHARS: Final = 4096
 #: The read cache: models read lately, by content hash (a cache, never state).
 _CACHE_MODELS: Final = 4
-#: Largest total source size the read cache keeps; a model is a few times its source.
-_CACHE_SOURCE_BYTES: Final = 128 * 2**20
+#: Largest total weight the read cache keeps. A model's weight is the size of its
+#: source or of its JSON document, whichever is larger: a file of many small elements
+#: makes a document far larger than itself, and a model in memory is several times
+#: its document.
+_CACHE_WEIGHT: Final = 64 * 2**20
 
 _STEP_VALUES: Final = frozenset(s.value for s in run.NATIVE_STEPS)
 _ALL_STEPS: Final = frozenset(s.value for s in Step)
@@ -135,6 +138,7 @@ _DOCUMENT_TEXT: Final = {
     "malformed": "The bytes are not well-formed XML.",
     "not-diggs": "The root element is not a DIGGS Diggs element.",
     "unsafe-entity": "The document declares an entity whose value contains markup.",
+    "namespace-too-long": "The document declares a namespace URI longer than accepted.",
 }
 
 _GENERIC: Final = {
@@ -508,12 +512,13 @@ class _ModelCache:
 
     A host lists a file with ``select.results = "none"`` and then asks for specific
     tables; the second call finds the model here instead of parsing again. Only
-    complete models are kept. Bounded by count and by total source size.
+    complete models are kept. Bounded by count and by total weight (see
+    :data:`_CACHE_WEIGHT`); a model heavier than the whole budget is never kept.
     """
 
-    def __init__(self, models: int, source_bytes: int) -> None:
+    def __init__(self, models: int, weight: int) -> None:
         self._models = models
-        self._source_bytes = source_bytes
+        self._source_bytes = weight
         self._lock = threading.Lock()
         self._entries: OrderedDict[tuple[str, str | None, bool], tuple[Model, int]] = OrderedDict()
 
@@ -542,7 +547,7 @@ class _ModelCache:
             self._entries.clear()
 
 
-_read_cache: Final = _ModelCache(_CACHE_MODELS, _CACHE_SOURCE_BYTES)
+_read_cache: Final = _ModelCache(_CACHE_MODELS, _CACHE_WEIGHT)
 
 
 def _without_values(document: dict[str, Any], keep: frozenset[str]) -> None:
@@ -556,22 +561,27 @@ def _without_values(document: dict[str, Any], keep: frozenset[str]) -> None:
                     column["values"] = []
 
 
-def _model(request: ReadRequest, *, with_values: bool) -> Model:
+_CacheKey = tuple[str, str | None, bool]
+
+
+def _model(
+    request: ReadRequest, *, with_values: bool, should_stop: Callable[[], bool] | None
+) -> tuple[Model, _CacheKey | None]:
+    """The request's model, and the key to cache it under when it was read just now."""
     key = (hashlib.sha256(request.content).hexdigest(), request.diggs_version, with_values)
     cached = _read_cache.get(key)
     if cached is not None:
-        return cached
-    model = _reader.read_bytes(
+        return cached, None
+    model = _reader.read_stoppable(
         request.content,
         name=request.name,
         diggs_version=request.diggs_version,
         results=with_values,
         max_bytes=request.max_bytes,
         time_budget=request.time_budget,
+        should_stop=should_stop,
     )
-    if model.complete:
-        _read_cache.put(key, model, len(request.content))
-    return model
+    return model, key if model.complete else None
 
 
 def read(request: ReadRequest, *, should_stop: Callable[[], bool] | None = None) -> Outcome:
@@ -580,8 +590,9 @@ def read(request: ReadRequest, *, should_stop: Callable[[], bool] | None = None)
     The document is what :meth:`pydiggs.Model.to_json` gives for the same bytes, name
     and version, so every surface answers with the same bytes; ``select`` only empties
     the values of the tables it leaves out. ``time_budget`` is cooperative (checked
-    between top-level members); running out still gives a document, with
-    ``complete: false``. ``should_stop`` is checked before and after the read.
+    between top-level members and every so often inside one); running out, or
+    reaching one of the reader's work limits, still gives a document, with
+    ``complete: false``. ``should_stop`` is checked at the same points.
 
     Args:
         request: The document and its parameters.
@@ -607,15 +618,22 @@ def read(request: ReadRequest, *, should_stop: Callable[[], bool] | None = None)
     shown = run._input_name(request.name)
     try:
         return _read_outcome(request, shown, should_stop)
-    except DocumentError as exc:
+    except Exception as exc:  # fail closed: no traceback or path reaches the caller
+        return _read_failure(exc, shown)
+
+
+def _read_failure(exc: Exception, shown: str) -> Outcome:
+    """The outcome for what a read raised: cancelled, not a document, unreadable, or internal."""
+    if isinstance(exc, run._Cancelled):
+        return Outcome(code=Code.CANCELLED, detail=_GENERIC[Code.CANCELLED])
+    if isinstance(exc, DocumentError):
         detail = _DOCUMENT_TEXT.get(exc.kind, "The bytes are not a DIGGS document.")
         return Outcome(code=Code.INVALID_DOCUMENT, detail=detail, kind=exc.kind)
-    except InstanceReadError as exc:
+    if isinstance(exc, InstanceReadError):
         return _read_error(exc, shown)
-    except ResourceError as exc:
+    if isinstance(exc, ResourceError):
         return _failure(Code.RESOURCE_ERROR, exc)
-    except Exception as exc:  # fail closed: no traceback or path reaches the caller
-        return _failure(Code.INTERNAL, f"{type(exc).__name__}: {exc}")
+    return _failure(Code.INTERNAL, f"{type(exc).__name__}: {exc}")
 
 
 def _read_outcome(
@@ -628,7 +646,7 @@ def _read_outcome(
     if len(request.content) > request.max_bytes:  # before the cache: the limit is the request's
         return Outcome(code=Code.INPUT_TOO_LARGE, detail=f"{shown} is larger than allowed")
     selected = _selected(request.select)
-    model = _model(request, with_values=selected != "none")
+    model, fresh = _model(request, with_values=selected != "none", should_stop=should_stop)
     document = model.to_dict()
     document["source"]["name"] = shown  # a cached model may carry another name
     if isinstance(selected, frozenset):
@@ -638,6 +656,8 @@ def _read_outcome(
     body = json.dumps(document, ensure_ascii=False, allow_nan=False).encode(
         "utf-8", "backslashreplace"
     )
+    if fresh is not None:
+        _read_cache.put(fresh, model, max(len(request.content), len(body)))
     if should_stop is not None and should_stop():
         return cancelled
     if request.max_result_bytes is not None and len(body) > request.max_result_bytes:

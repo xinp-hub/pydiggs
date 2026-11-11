@@ -133,8 +133,11 @@ curl -s -F file=@BH-01.xml -F 'select={"results": "none"}' http://127.0.0.1:8000
   `/v1/validate` for a verdict. What reading had to work around is in the document's
   `notes`.
 - **Not a DIGGS document** is 422 `invalid-document`, with `kind` `malformed`,
-  `not-diggs` or `unsafe-entity`. (`/v1/validate` reports the same cases as findings in a
-  200.)
+  `not-diggs`, `unsafe-entity` or `namespace-too-long`. (`/v1/validate` reports the same
+  cases as findings in a 200.)
+- **Size.** The reader's own work limits ([Reading files](model.md#reading-a-file))
+  apply, and a document larger than four times `max_body_bytes` is 422
+  `result-too-large`; ask for fewer tables with `select`.
 - **Time limit:** with thread isolation, running out of time is a 200 with
   `complete: false` and the members read so far; with process isolation it is 504
   `timeout`.
@@ -240,7 +243,7 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 | 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart |
 | 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `checks`, `diggs_version`, `name`, `select`, `step` or rule id |
 | 422 | <span id="problem-invalid-document"></span>`invalid-document` | `/v1/read` only: the bytes are not a DIGGS document; `kind` says why |
-| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read` only: the document is larger than the server sends (not reached with the default settings) |
+| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read` only: the document is larger than four times `max_body_bytes`; ask for fewer tables with `select` |
 | 422 | <span id="problem-input-unreadable"></span>`input-unreadable` | the document could not be read |
 | 500 | <span id="problem-resource-error"></span>`resource-error` | bundled reference data could not be loaded |
 | 500 | <span id="problem-internal"></span>`internal` | anything else |

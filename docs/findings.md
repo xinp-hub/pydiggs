@@ -339,6 +339,7 @@ Rule ids are part of the stable contract.
 | `structure.markup-entity` | error | The internal DTD declares an entity whose value contains markup; no other check ran (see [Fail closed](#fail-closed)) |
 | `structure.entity-expansion` | error | The internal DTD's entities or ATTLIST defaults make the parsed text more than twice the file's raw size; no other check ran |
 | `structure.namespace-too-long` | error | A namespace URI is longer than 1,024 characters; no other check ran |
+| `structure.read-limit` | error | Reading only: the read stopped at a work limit (more objects or untyped elements than a file of its size may have, or untyped elements nested more than 64 deep); the model is incomplete |
 | `structure.duplicate-gml-id` | warning | Reading only: two or more elements share one `gml:id`. Each copy is keyed by its xpath, and a link to that id resolves to the first copy |
 | `structure.value-unparsed` | info | Reading only (`pydiggs.read`): a result value or quantity that should be a number is not one; the model keeps the text and reads the value as null |
 | `structure.timeout` | error | Validation did not finish within its time limit: `pydiggs validate --timeout` stopped the file or its worker died, or the `time_budget` ran out; the unfinished steps are `incomplete` |
