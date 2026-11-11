@@ -115,6 +115,7 @@ class Server:
         self._reader = reader
         self._writer = writer
         self._write_lock = threading.Lock()
+        self._minor = 0  # the negotiated protocol's minor version, set by initialize
         self._cv = threading.Condition()
         self._phase: Phase = "new"
         self._progress = False
@@ -298,6 +299,8 @@ class Server:
         elif method == "validate":
             self._submit_document("validate", request_id, params)
         elif method == "read":
+            if self._minor < 1:  # read is protocol 1.1; a 1.0 session does not have it
+                raise ProtocolError(ErrorCode.METHOD_NOT_FOUND)
             self._submit_document("read", request_id, params)
         elif method == "shutdown":
             self._shutdown(request_id, params)
@@ -482,7 +485,8 @@ class Server:
                 "time_budget_s": options.timeout,
             },
         }
-        if int(version.split(".")[1]) >= 1:  # protocol 1.1: the read method
+        minor = int(version.split(".")[1])
+        if minor >= 1:  # protocol 1.1: the read method
             result.update(_service.model_info())
             result["capabilities"]["read"] = {
                 "content": True,
@@ -492,6 +496,7 @@ class Server:
             result["limits"]["max_result_bytes"] = _protocol.MAX_RESULT_BYTES
         with self._cv:
             if self._phase == "initializing":
+                self._minor = minor
                 self._phase = "ready"
         self._reply(job.id, result)
 

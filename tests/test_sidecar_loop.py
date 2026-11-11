@@ -748,6 +748,13 @@ def test_read_answers_the_document_read_bytes_gives(session):
     assert filled == [key]
 
 
+def test_a_1_0_session_has_no_read(session):
+    s = session()
+    assert s.initialize()["protocol_version"] == "1.0"
+    reply = s.call("read", {"content_base64": _content()})
+    assert _slug(reply) == "method-not-found"
+
+
 def test_read_errors(session):
     s = session()
     _initialize_1_1(s)

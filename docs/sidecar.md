@@ -130,7 +130,7 @@ ends it with status 1. `exit` is honoured at any time and abandons any running w
 
 | param | type | notes |
 |---|---|---|
-| `protocol_version` | string, required | `"1.1"` (or `"1.0"`: `initialize` then answers without the 1.1 members) |
+| `protocol_version` | string, required | `"1.1"` (or `"1.0"`: `initialize` then answers without the 1.1 members, and `read` is `method-not-found`) |
 | `client_info` | object | `{name ≤ 128 chars, version ≤ 64 chars}`, logged at `info` |
 | `capabilities` | object | `{progress: bool}` asks for `$/progress` notifications |
 | `diggs_versions` | string[] | DIGGS versions to warm up (default: every released bundled version, not the experimental `3.1-dev`) |

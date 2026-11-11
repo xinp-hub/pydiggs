@@ -71,6 +71,7 @@ __all__ = [
     "explain",
     "make_pool",
     "model_info",
+    "model_schema",
     "read",
     "read_fd",
     "read_in_pool",
@@ -828,6 +829,18 @@ def model_info() -> dict[str, str]:
     from pydiggs.model import MODEL_SCHEMA_URL, MODEL_SCHEMA_VERSION  # noqa: PLC0415
 
     return {"model_schema_version": MODEL_SCHEMA_VERSION, "model_schema_url": MODEL_SCHEMA_URL}
+
+
+def model_schema() -> dict[str, Any]:
+    """The packaged diggs-model JSON Schema, a fresh dict (for adapters' output schemas).
+
+    Examples:
+        >>> model_schema()["title"]
+        'diggs-model 1.0'
+    """
+    from pydiggs.model import model_schema as packaged  # noqa: PLC0415
+
+    return packaged()
 
 
 def versions() -> dict[str, Any]:

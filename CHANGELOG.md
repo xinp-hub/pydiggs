@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **MCP read tools** (the `mcp` extra): `list_features` (a page of the document's
+  features, with how many samples and measurements refer to each), `get_feature` (one
+  feature as diggs-model 1.0, with its samples, measurements and lithology layers) and
+  `get_results` (a page of rows of one result table, with its columns described). Each
+  answers typed `structuredContent` whose `outputSchema` is built from the frozen
+  diggs-model 1.0 definitions, and a text summary of counts only. Pages continue with an
+  opaque `next_cursor` tied to the document and the request. Every string from the file
+  is cut to 512 characters, and the tool descriptions say file text is untrusted. They
+  share `validate_diggs`'s limits (10 MiB, one worker, 60 s), and paging a file reads
+  it once.
+
+### Changed
+- The MCP `timeout` error text says the call (a validation or a read) did not finish.
+
+### Fixed
+- Stdio sidecar: a session that negotiated protocol 1.0 gets `method-not-found` for
+  `read`, as documented, instead of an answer.
+- `pydiggs.frames` `results` view: a result column named like an index column of
+  another table in the same frame (`top`, `position` …) now gets a `_value` suffix
+  instead of sharing that column with the places of the other table's rows.
+
 ## [1.7.0] - 2026-11-11
 
 ### Added
