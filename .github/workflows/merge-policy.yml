@@ -121,7 +121,7 @@ jobs:
           fi
       - name: Classify
         id: tier
-        uses: xinp-hub/repo-policy/classify@4e160963e51156d1d70b90b45fa211f05a8bbe08 # v1.0.0
+        uses: xinp-hub/repo-policy/classify@f0855f43d6e937d37d5fb00b7fe3555cf3c8f09e # v1.1.0
         with:
           working-directory: head
           base: ${{ github.sha }}
@@ -162,7 +162,7 @@ jobs:
         run: bash -c "$INSTALL"
       - name: Review
         id: review
-        uses: xinp-hub/repo-policy/review@4e160963e51156d1d70b90b45fa211f05a8bbe08 # v1.0.0
+        uses: xinp-hub/repo-policy/review@f0855f43d6e937d37d5fb00b7fe3555cf3c8f09e # v1.1.0
         with:
           working-directory: head
           base: ${{ github.sha }}

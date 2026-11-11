@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Reject commits that credit an AI agent
-        uses: xinp-hub/repo-policy/attribution@4e160963e51156d1d70b90b45fa211f05a8bbe08 # v1.0.0
+        uses: xinp-hub/repo-policy/attribution@f0855f43d6e937d37d5fb00b7fe3555cf3c8f09e # v1.1.0
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
