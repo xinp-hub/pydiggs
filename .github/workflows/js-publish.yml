@@ -1,18 +1,19 @@
-# Publishes the npm package in js/ with npm Trusted Publishing (OIDC): no token, and
-# npm attaches a provenance attestation by itself.
+# Releases the npm package in js/ with npm Trusted Publishing (OIDC) and staged
+# publishing: no token, and nothing becomes installable until a maintainer approves the
+# staged version on npm with two-factor authentication.
 #
-# One-time setup, by a human:
-#   1. Create the `pydiggs` organisation on npmjs.com (the @pydiggs scope).
-#   2. On the package's settings page, add a trusted publisher:
-#        owner: xinp-hub  repository: pydiggs  workflow: js-publish.yml  environment: npm
-#      and allow publishing from that publisher only (no tokens).
-#   3. Create the GitHub Environment `npm` with required reviewers.
-# The very first version of a new package cannot use a trusted publisher, because the
-# package does not exist yet to configure one on: publish 0.1.0 once by hand
-# (`npm publish` in js/, with two-factor authentication), then do steps 2 and 3.
+# Setup on npmjs.com and GitHub (0.1.0 was published by hand, before either existed):
+#   - the package's trusted publisher is
+#       owner: xinp-hub  repository: pydiggs  workflow: js-publish.yml  environment: npm
+#     with neither "Allow npm publish" nor "Allow npm dist-tag" ticked, so this workflow
+#     can only stage a version; it cannot publish one or move a tag;
+#   - the GitHub Environment `npm` has required reviewers and deploys from js-v* tags only.
+# npm drops a trusted publisher that has not published within two days of being created;
+# if that happens, create it again with the same values before the next release.
 #
-# Release path: a signed tag js-vX.Y.Z -> verify -> check and pack -> reviewer -> npm.
-# A manual run stops after the pack; it never publishes.
+# Release path: a signed tag js-vX.Y.Z -> verify -> check and pack -> GitHub reviewer ->
+# staged on npm -> approved with 2FA (`npm stage approve <id>`, or the Staged Packages tab
+# of the package on npmjs.com). A manual run stops after the pack; it never stages.
 name: Release npm package
 
 on:
@@ -101,7 +102,7 @@ jobs:
           retention-days: 7
 
   publish:
-    name: publish to npm
+    name: stage on npm
     needs: build
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -110,24 +111,29 @@ jobs:
       name: npm
       url: https://www.npmjs.com/package/@pydiggs/client/v/${{ needs.build.outputs.version }}
     permissions:
-      id-token: write  # the OIDC token npm exchanges for a short-lived publish credential
+      id-token: write  # the OIDC token npm exchanges for a short-lived staging credential
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
         with:
           name: npm-tarball
+      # Node 26 ships an npm that knows staged publishing; the step below holds it to that.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: "24"
+          node-version: "26"
           registry-url: https://registry.npmjs.org
-      - name: npm is new enough for Trusted Publishing
+      - name: npm is new enough for staged publishing
         run: |
           set -euo pipefail
-          required="11.5.1"
+          required="11.15.0"
           have="$(npm --version)"
           if [ "$(printf '%s\n%s\n' "${required}" "${have}" | sort -V | head -n1)" != "${required}" ]; then
-            echo "::error::npm ${have} is older than ${required}, which Trusted Publishing needs"
+            echo "::error::npm ${have} is older than ${required}, which staged publishing needs"
             exit 1
           fi
       # The tarball was built and checked in the job above; nothing is installed or run here.
-      - name: Publish
-        run: npm publish ./*.tgz --access public --ignore-scripts
+      # Staging publishes nothing: the version waits on npm for a maintainer's approval.
+      - name: Stage the version for approval
+        run: |
+          set -euo pipefail
+          npm stage publish ./*.tgz --access public
+          echo "::notice::Staged. Approve it with 2FA: npm stage list @pydiggs/client, then npm stage approve <id>."
