@@ -201,3 +201,19 @@ def test_accepts_json():
     assert _app.accepts_json("application/json;q=0.1, application/sarif+json")
     assert not _app.accepts_json("application/json;q=0")
     assert not _app.accepts_json("text/html")
+
+
+def test_a_document_over_four_times_the_body_limit_is_result_too_large():
+    # 400 untyped elements in under 2,000 bytes of XML make a document many times larger.
+    data = (
+        b'<Diggs xmlns="http://diggsml.org/schemas/3"><samplingFeature><Borehole>'
+        + b"<a/>" * 400
+        + b"</Borehole></samplingFeature></Diggs>"
+    )
+    settings = ServerSettings(
+        workers=1, isolation="thread", allowed_hosts=("testserver",), max_body_bytes=2_000
+    )
+    response = TestClient(create_app(settings)).post("/v1/read", content=data, headers=XML)
+    body = _problem(response, 422, "result-too-large")
+    assert "select" in body["detail"]
+    assert _app.RESULT_FACTOR == 4

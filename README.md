@@ -37,8 +37,8 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
   DIGGS 2.5.a, 2.6 and 3.x ([Reading files](https://xinp-hub.github.io/pydiggs/model/)).
   With the `frames`, `polars` and `gis` extras, `pydiggs.frames` gives pandas or
   polars data frames and `pydiggs.gis` gives GeoDataFrames, GeoPackage and
-  GeoParquet files. The public modules are `pydiggs`, `pydiggs.model`,
-  `pydiggs.crs`, `pydiggs.frames` and `pydiggs.gis`; every other module is internal.
+  GeoParquet files. For reading, the public modules are `pydiggs`, `pydiggs.model`,
+  `pydiggs.crs`, `pydiggs.frames` and `pydiggs.gis`.
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
       JSON (diggs-findings 1.0) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)

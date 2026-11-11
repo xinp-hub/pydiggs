@@ -1,5 +1,20 @@
 # History
 
+## 1.7.0 (2026-11-11)
+
+Reading DIGGS files is now a stable part of pyDIGGS:
+
+- `pydiggs.read()` returns what is in a file (boreholes, samples, tests and their result
+  tables) as Python objects and as JSON in **diggs-model 1.0**, which is frozen: it now
+  changes only by adding. See [Reading files](model.md).
+- The same document is available over the HTTP API (`POST /v1/read`), from the stdio
+  sidecar (`read`, protocol 1.1) and in the browser with Pyodide.
+- New extras turn a model into data frames (`frames`, `polars`) and GIS layers (`gis`:
+  GeoDataFrame, GeoPackage, GeoParquet), with coordinates transformed by pyproj.
+- `pydiggs.preview`, the 1.6 home of the read API, still works but is deprecated.
+
+See the CHANGELOG for the full list.
+
 ## 1.6.0 (2026-11-10)
 
 A first look at reading DIGGS files, all additive and marked preview:

@@ -32,6 +32,7 @@ from pydiggs.errors import DocumentError
 from pydiggs.findings import rules
 from pydiggs.findings.keys import normalise_xpath
 from pydiggs.findings.model import Finding, Severity, Step
+from pydiggs.findings.run import MAX_NAMESPACE_CHARS, _Cancelled
 from pydiggs.model._model import MODEL_SCHEMA_VERSION, Model, _encode
 from pydiggs.model._values import CrsRef
 from pydiggs.units import UnitConverter
@@ -123,6 +124,34 @@ _NUMBER_TYPES: Final = frozenset(
 _BOOLEAN_TYPES: Final = frozenset({"boolean", "bool"})
 _DATETIME_TYPES: Final = frozenset({"datetime", "date", "time", "gyear"})
 _CAMEL: Final = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
+#: The work limits of one read. A model may hold ``LIMIT_BASE`` nodes, and as many
+#: elements in ``extra``, plus one of each per ``LIMIT_BYTES_PER_ITEM`` bytes of input.
+#: The largest real file (6.5 MB) has about 5,000 of each, over 1,000 bytes apiece; a
+#: file made of tiny unknown elements has one per 4 bytes, and each costs a few hundred
+#: bytes of JSON. The limits stop that file and scale with honest large ones.
+LIMIT_BASE: Final = 100_000
+LIMIT_BYTES_PER_ITEM: Final = 200
+#: Deepest nesting kept in ``extra`` (real files reach about 11).
+MAX_EXTRA_DEPTH: Final = 64
+#: How many ``extra`` elements pass between checks of the time budget and cancellation.
+_CHECK_EVERY: Final = 1024
+_LIMIT_TEXT: Final = {
+    "nodes": "the file has more objects than a file of its size may",
+    "extra_elements": (
+        "more elements have no typed field in the model than a file of its size may have"
+    ),
+    "extra_depth": f"elements with no typed field are nested more than {MAX_EXTRA_DEPTH} deep",
+}
+
+
+class _LimitError(Exception):
+    """A work limit stopped the read inside a member; ``name`` goes into ``limits_hit``."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(name)
+        self.name = name
+
+
 #: Duplicated gml:ids noted one by one before the rest are summarised.
 _MAX_ID_NOTES: Final = 100
 _FLOAT: Final = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
@@ -347,6 +376,11 @@ class _Reader:
         self.id_owner: dict[str, str] = {}
         self.id_count: Counter[str] = Counter()
         self.id_repeat: dict[str, int | None] = {}  # duplicated id -> line of its 2nd use
+        self.extra_count = 0
+        self.node_count = 0
+        self.limit = LIMIT_BASE + len(data) // LIMIT_BYTES_PER_ITEM
+        self.deadline: float | None = None
+        self.should_stop: Callable[[], bool] | None = None
         self.raw_links: list[tuple[str, str, str, int | None, str]] = []
         self.srs_first: dict[str, tuple[str, int | None]] = {}
         self.axis: dict[str, list[Any]] = {}
@@ -371,7 +405,9 @@ class _Reader:
 
     # --- the pass -------------------------------------------------------------------
 
-    def run(self, deadline: float | None) -> Model:
+    def run(self, deadline: float | None, should_stop: Callable[[], bool] | None = None) -> Model:
+        self.deadline = deadline
+        self.should_stop = should_stop
         entity = _xml.markup_entity(self.data)
         if entity is not None:
             finding = Finding(
@@ -382,7 +418,7 @@ class _Reader:
             )
             raise DocumentError("unsafe-entity", finding.message, finding)
         try:
-            self._stream(deadline)
+            self._stream()
         except etree.XMLSyntaxError as exc:
             line = exc.lineno if isinstance(exc.lineno, int) and exc.lineno > 0 else None
             finding = Finding(
@@ -395,9 +431,16 @@ class _Reader:
             raise DocumentError("malformed", finding.message, finding) from exc
         return Model.from_dict(self._finish())
 
-    def _stream(self, deadline: float | None) -> None:
+    def _tick(self) -> None:
+        """Between members, and every so often inside one: cancelled, or out of time?"""
+        if self.should_stop is not None and self.should_stop():
+            raise _Cancelled
+        if self.deadline is not None and time.monotonic() > self.deadline:
+            raise _LimitError("time_budget")
+
+    def _stream(self) -> None:
         parser = etree.XMLPullParser(
-            events=("start", "end"),
+            events=("start", "end", "start-ns"),
             resolve_entities="internal",
             load_dtd=False,
             no_network=True,
@@ -410,6 +453,9 @@ class _Reader:
         for start in range(0, max(len(self.data), 1), _CHUNK):
             parser.feed(self.data[start : start + _CHUNK])
             for event, el in parser.read_events():
+                if event == "start-ns":
+                    self._check_namespace(el)
+                    continue
                 if event == "start":
                     depth += 1
                     if depth == 1:
@@ -419,12 +465,14 @@ class _Reader:
                 if depth == 2 and root is not None and isinstance(el.tag, str):  # noqa: PLR2004
                     key = (el.prefix, _local(el.tag))
                     counts[key] += 1
-                    self._member(el, f"/{root_step}/{_qname(el)}[{counts[key]}]")
-                    el.clear()
-                    while el.getprevious() is not None:
-                        del root[0]
-                    if deadline is not None and time.monotonic() > deadline:
-                        self._stop(el)
+                    try:
+                        self._member(el, f"/{root_step}/{_qname(el)}[{counts[key]}]")
+                        el.clear()
+                        while el.getprevious() is not None:
+                            del root[0]
+                        self._tick()
+                    except _LimitError as limit:
+                        self._stop(el, limit.name)
                         return
                 depth -= 1
         parser.close()
@@ -447,12 +495,38 @@ class _Reader:
             self.version = NAMESPACE_PROFILES.get(ns or "", "3.0.0")
         return f"{_qname(el)}[1]"
 
-    def _stop(self, el: etree._Element) -> None:
+    @staticmethod
+    def _check_namespace(declaration: Any) -> None:
+        """Refuse a namespace URI longer than ``validate`` accepts: every element repeats it."""
+        uri = declaration[1] if isinstance(declaration, tuple) else ""
+        if len(uri or "") > MAX_NAMESPACE_CHARS:
+            finding = Finding(
+                step=Step.STRUCTURE,
+                rule_id=rules.NAMESPACE_TOO_LONG,
+                severity=Severity.ERROR,
+                message=(
+                    f"The file declares a namespace URI of {len(uri):,} characters, more than"
+                    f" the {MAX_NAMESPACE_CHARS:,} pyDIGGS accepts (real ones are under 100)."
+                ),
+            )
+            raise DocumentError("namespace-too-long", finding.message, finding)
+
+    def _stop(self, el: etree._Element, limit: str) -> None:
+        """Stop reading at ``limit``: a member cut short and the later ones are not read."""
         self.complete = False
-        self.limits_hit.append("time_budget")
+        self.limits_hit.append(limit)
+        if limit == "time_budget":
+            self.note(
+                rules.TIMEOUT,
+                "Reading stopped at its time budget; members after this point were not read.",
+                line=el.sourceline,
+                xpath=None,
+            )
+            return
         self.note(
-            rules.TIMEOUT,
-            "Reading stopped at its time budget; members after this point were not read.",
+            rules.READ_LIMIT,
+            f"Reading stopped: {_LIMIT_TEXT[limit]}. The member at this point and those"
+            " after it were not read.",
             line=el.sourceline,
             xpath=None,
         )
@@ -544,6 +618,11 @@ class _Reader:
         kind: str | None = None,
         consumed: frozenset[str] = frozenset(),
     ) -> dict[str, Any]:
+        self.node_count += 1
+        if self.node_count > self.limit:
+            raise _LimitError("nodes")
+        if self.node_count % _CHECK_EVERY == 0:
+            self._tick()
         element = _local(el.tag)
         element = _aliases().get((self.version, element), element)
         names = [t for c in _elements(el) if _local(c.tag) == "name" and (t := _text(c))]
@@ -611,13 +690,21 @@ class _Reader:
         code_space = el.get("codeSpace")
         return text if code_space is None else {"value": text, "code_space": code_space}
 
-    def _extra(self, el: etree._Element) -> dict[str, Any]:
+    def _extra(self, el: etree._Element, depth: int = 1) -> dict[str, Any]:
+        """An element no typed field holds, kept whole; counted against the work limits."""
+        self.extra_count += 1
+        if depth > MAX_EXTRA_DEPTH:
+            raise _LimitError("extra_depth")
+        if self.extra_count > self.limit:
+            raise _LimitError("extra_elements")
+        if self.extra_count % _CHECK_EVERY == 0:
+            self._tick()
         return {
             "qname": _qname(el),
             "ns": etree.QName(el).namespace,
             "attrs": {_attr_name(el, str(k)): str(v) for k, v in el.attrib.items()},
             "text": _text(el),
-            "children": [self._extra(c) for c in _elements(el)],
+            "children": [self._extra(c, depth + 1) for c in _elements(el)],
             "line": el.sourceline,
         }
 
@@ -1499,8 +1586,13 @@ def read_document(
     results: bool,
     time_budget: float | None,
     field_provenance: bool = False,
+    should_stop: Callable[[], bool] | None = None,
 ) -> Model:
-    """Read checked bytes into a model (the shared core of ``read`` and ``read_bytes``)."""
+    """Read checked bytes into a model (the shared core of ``read`` and ``read_bytes``).
+
+    ``should_stop`` is the adapters' cancellation hook: checked between members and
+    every so often inside one; when it returns True the read ends with ``_Cancelled``.
+    """
     deadline = None if time_budget is None else time.monotonic() + time_budget
     reader = _Reader(
         data,
@@ -1509,4 +1601,4 @@ def read_document(
         results=results,
         field_provenance=field_provenance,
     )
-    return reader.run(deadline)
+    return reader.run(deadline, should_stop)

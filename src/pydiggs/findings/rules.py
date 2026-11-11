@@ -33,6 +33,7 @@ __all__ = [
     "MAX_RULE_ID_CHARS",
     "MAX_USER_ID_CHARS",
     "NAMESPACE_TOO_LONG",
+    "READ_LIMIT",
     "REMOVED",
     "RULE_ID_PATTERN",
     "SARIF_LEVEL",
@@ -85,6 +86,9 @@ VALUE_UNPARSED: Final = "structure.value-unparsed"
 #: Reading: two or more elements share one gml:id; each is keyed by its xpath, and a
 #: link to that id resolves to the first.
 DUPLICATE_GML_ID: Final = "structure.duplicate-gml-id"
+#: Reading stopped at a work limit (too many or too deeply nested elements that
+#: no typed field holds); the model is incomplete.
+READ_LIMIT: Final = "structure.read-limit"
 #: pydiggs validate caught an unexpected error for one file (the batch went on).
 INTERNAL_ERROR: Final = "structure.internal-error"
 SCHEMA_INCOMPLETE: Final = "schema.incomplete"
@@ -263,6 +267,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     TIMEOUT: "Validation did not finish within its time limit",
     VALUE_UNPARSED: "A value that should be a number is not one (read API note)",
     DUPLICATE_GML_ID: "Two or more elements share one gml:id (read API note)",
+    READ_LIMIT: "Reading stopped at a work limit; the model is incomplete (read API note)",
     INTERNAL_ERROR: "Validation failed with an unexpected error",
     SCHEMA_INCOMPLETE: "Schema validation could not complete",
     UNRELEASED_PROFILE: "Checked against an unreleased DIGGS schema (experimental profile)",
@@ -403,6 +408,7 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     TIMEOUT: _ERROR,
     VALUE_UNPARSED: _INFO,
     DUPLICATE_GML_ID: _WARNING,
+    READ_LIMIT: _ERROR,
     INTERNAL_ERROR: _ERROR,
     UNRELEASED_PROFILE: _WARNING,
     FINDINGS_TRUNCATED: _ANY,  # as severe as the worst finding it stands for

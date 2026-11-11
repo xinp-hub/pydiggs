@@ -188,3 +188,74 @@ def test_duplicate_id_notes_are_bounded():
     notes = [n for n in _read_body(body).notes if n.rule_id == "structure.duplicate-gml-id"]
     assert len(notes) == 101
     assert notes[-1].message.startswith("50 more gml:ids")
+
+
+# --- work limits (1.7.0 pre-release review) ---------------------------------------------------
+
+
+def _unknown(count: int) -> str:
+    return "<samplingFeature><Borehole>" + "<a/>" * count + "</Borehole></samplingFeature>"
+
+
+def test_a_long_namespace_is_refused():
+    ok = f'<Diggs {_NS}><x xmlns="urn:{"n" * 1000}"/></Diggs>'.encode()
+    assert pydiggs.read_bytes(ok).complete
+    long = f'<Diggs {_NS}><samplingFeature><Borehole xmlns="urn:{"n" * 2000}"><a/></Borehole>'
+    with pytest.raises(DocumentError) as info:
+        pydiggs.read_bytes((long + "</samplingFeature></Diggs>").encode())
+    assert info.value.kind == "namespace-too-long"
+    assert info.value.finding.rule_id == "structure.namespace-too-long"
+
+
+def test_too_many_untyped_elements_stop_the_read(monkeypatch):
+    monkeypatch.setattr(_read, "LIMIT_BASE", 50)
+    model = _read_body(
+        '<samplingFeature><Borehole gml:id="kept"><a/></Borehole></samplingFeature>'
+        + _unknown(60)
+        + '<samplingFeature><Borehole gml:id="after"/></samplingFeature>'
+    )
+    assert model.complete is False and model.limits_hit == ("extra_elements",)
+    assert [f.key for f in model.features] == ["kept"]  # the member cut short is not half-read
+    notes = [n for n in model.notes if n.rule_id == "structure.read-limit"]
+    assert len(notes) == 1 and notes[0].severity == pydiggs.Severity.ERROR
+    assert pydiggs.explain_rule("structure.read-limit").known
+    assert Model.from_json(model.to_json()) == model
+
+
+def test_too_many_objects_stop_the_read(monkeypatch):
+    monkeypatch.setattr(_read, "LIMIT_BASE", 20)
+    model = _read_body('<samplingFeature><Borehole gml:id="kept"/></samplingFeature>' + "<a/>" * 40)
+    assert model.complete is False and model.limits_hit == ("nodes",)
+    assert [f.key for f in model.features] == ["kept"]
+    assert len(model.others) <= 20
+    assert [n.rule_id for n in model.notes] == ["structure.read-limit"]
+
+
+def test_the_limits_grow_with_the_file(monkeypatch):
+    monkeypatch.setattr(_read, "LIMIT_BASE", 20)
+    padded = "<a/>" * 40 + "<!--" + " " * (40 * _read.LIMIT_BYTES_PER_ITEM) + "-->"
+    assert _read_body(padded).complete  # the same 40 objects in a file large enough for them
+
+
+def test_untyped_elements_nested_too_deep_stop_the_read():
+    deep = "<a>" * 250 + "</a>" * 250  # libxml2 itself allows 256
+    model = _read_body(f"<samplingFeature><Borehole>{deep}</Borehole></samplingFeature>")
+    assert model.complete is False and model.limits_hit == ("extra_depth",)
+    assert model.features == ()
+    model.to_json()  # and what was read always serialises (it used to recurse too deep)
+    shallow = "<a>" * 60 + "</a>" * 60
+    assert _read_body(f"<samplingFeature><Borehole>{shallow}</Borehole></samplingFeature>").complete
+
+
+def test_real_files_are_far_below_the_limits():
+    assert _read.LIMIT_BASE >= 20 * 5_000  # the largest corpus file has about 5,000 of each
+    assert _read.LIMIT_BYTES_PER_ITEM <= 1_000 / 5  # and over 1,000 bytes for each
+    assert _read.MAX_EXTRA_DEPTH >= 5 * 11  # and nests them about 11 deep
+
+
+def test_the_document_grows_with_the_input_not_faster():
+    """N and 2N untyped elements: twice the document, and a bounded size per element."""
+    small = len(_read_body(_unknown(2_000)).to_json())
+    large = len(_read_body(_unknown(4_000)).to_json())
+    assert large < 2.2 * small
+    assert small / 2_000 < 400  # bytes of JSON per untyped element

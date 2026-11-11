@@ -275,6 +275,19 @@ def test_schema_and_classes_agree():
         if "allOf" in defs[name]:
             declared |= header
         assert names == declared, (name, names ^ declared)
+        # What the decoder insists on, the frozen schema must require too: a document
+        # the schema accepts must load.
+        needed = {
+            f.name
+            for f in dataclasses.fields(cls)
+            if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
+        }
+        required = set(defs[name].get("required", ()))
+        if "allOf" in defs[name]:
+            required |= set(defs["header"]["required"])
+            for part in defs[name]["allOf"]:
+                required |= set(part.get("required", ()))
+        assert needed <= required, (name, needed - required)
     top = {f.name for f in dataclasses.fields(model.Model) if not f.name.startswith("_")}
     assert top == set(schema["properties"]) - {"$schema"}
 

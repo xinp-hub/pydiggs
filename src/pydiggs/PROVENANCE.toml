@@ -489,7 +489,7 @@ sha256 = "8442ad9b40d927b9dcba6dccd70bff8da96b7c13c13cf7c9fc093f92fcb31246"
 [files."model/diggs-model-1.0.schema.json"]
 source = "local"
 note = "The diggs-model JSON Schema (read API): pyDIGGS's own output contract, kept equal to the model classes by tests/test_read_preview.py."
-sha256 = "0515e0517fff0ad7350086f9fd83ce9452814e35e3d61fd2738ab91664e35112"
+sha256 = "d04d3d796804b153703a9ce40f61d2d76a9a503b20b10e633dfe146999f45fc5"
 
 [files."schemas/LICENSE"]
 source = "schemas"
@@ -1204,7 +1204,7 @@ sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "d7819f50a0db8c0bec642b0704ab03253f615b0d0404d98d4f46baa387fae72f"
+sha256 = "b4a271f81a019d4214f4907b65654d92f419d088fa7d968904c45fe373cf7768"
 
 [files."sidecar/openrpc.json"]
 source = "local"

@@ -310,3 +310,56 @@ def test_doctests():
     for module in (_views, frames, gis):
         failed, attempted = doctest.testmod(module, optionflags=doctest.ELLIPSIS)
         assert attempted > 0 and failed == 0, module.__name__
+
+
+_GML = 'xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2"'
+
+
+def _one_position(srs: str, coordinates: str, dim: int = 2):
+    return pydiggs.read_bytes(
+        (
+            f'<Diggs {_GML}><samplingFeature><Borehole gml:id="b"><referencePoint>'
+            f'<PointLocation><gml:pos srsName="urn:ogc:def:crs:EPSG::{srs}"'
+            f' srsDimension="{dim}">{coordinates}</gml:pos></PointLocation></referencePoint>'
+            "</Borehole></samplingFeature></Diggs>"
+        ).encode()
+    )
+
+
+@pytest.mark.parametrize(
+    ("srs", "coordinates", "dim", "lon", "lat"),
+    [
+        ("26915", "480000 4980000", 2, -93.2536, 44.9732),  # UTM 15N: east, north
+        ("27700", "530000 180000", 2, -0.1284, 51.5040),  # British National Grid
+        ("2193", "5920000 1757000", 2, 174.76, -36.85),  # NZTM: north first
+        ("4267", "44.97 -93.25", 2, -93.2502, 44.9700),  # NAD27: another datum
+        ("4269", "-93.25 44.97", 2, -93.25, 44.97),  # written longitude first
+        ("4978", "-242000 -4513000 4485000", 3, -93.07, 44.97),  # geocentric
+    ],
+)
+def test_transforming_twice_is_transforming_once(srs, coordinates, dim, lon, lat):
+    pytest.importorskip("geopandas")
+    from pydiggs import gis
+
+    model = _one_position(srs, coordinates, dim)
+    once = gis.transform(model)
+    geographic = once.get("b").location.geographic
+    assert (geographic.lon, geographic.lat) == (
+        pytest.approx(lon, abs=2e-2),
+        pytest.approx(lat, abs=2e-2),
+    )
+    assert gis.transform(once) == once
+    assert gis.transform(gis.transform(model, "EPSG:4269"), "EPSG:4326") == once
+    first, again = gis.to_geodataframe(model), gis.to_geodataframe(once)
+    assert first.geometry.iloc[0].equals(again.geometry.iloc[0])
+    assert pydiggs.Model.from_json(once.to_json()) == once
+
+
+def test_a_later_target_replaces_an_earlier_one():
+    pytest.importorskip("pyproj")
+    from pydiggs import gis
+
+    model = _one_position("4326", "44.97 -93.25")
+    nad83 = gis.transform(model, "EPSG:4269")
+    assert nad83.get("b").location.transformed_by is not None
+    assert gis.transform(nad83, "EPSG:4326") == model  # back to what the reader gave

@@ -8,7 +8,7 @@ from __future__ import annotations
 import math
 import os
 from pathlib import Path
-from typing import BinaryIO, Literal
+from typing import TYPE_CHECKING, BinaryIO, Literal
 
 from pydiggs import _xml
 from pydiggs._reader._read import read_document
@@ -22,6 +22,9 @@ from pydiggs.findings.run import (
     _reason,
 )
 from pydiggs.model import Model
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = ["read", "read_bytes"]
 
@@ -70,13 +73,17 @@ def read(
             the node read came from (larger JSON).
         max_bytes: Largest file accepted (default 100 MiB, as for ``validate``).
         time_budget: Seconds to spend; when they run out the members read so far are
-            returned with ``complete=False`` and a ``structure.timeout`` note.
+            returned with ``complete=False`` and a ``structure.timeout`` note. Reading
+            also stops, the same way with a ``structure.read-limit`` note, at a work
+            limit: more objects, or more elements the model has no typed field for,
+            than 100,000 plus one per 200 bytes of the file, or such elements nested
+            more than 64 deep (real files have a few thousand, about 10 deep).
 
     Raises:
         InstanceReadError: The file is missing, unreadable, too large, compressed or
             not a regular file.
         DocumentError: The file is not a readable DIGGS document (``kind``:
-            ``malformed``, ``not-diggs`` or ``unsafe-entity``).
+            ``malformed``, ``not-diggs``, ``unsafe-entity`` or ``namespace-too-long``).
         ValueError: An argument is out of range.
 
     Examples:
@@ -123,6 +130,34 @@ def read_bytes(
         TypeError: ``data`` is text, a text stream or a non-contiguous memoryview.
         ValueError: An argument is out of range.
     """
+    return read_stoppable(
+        data,
+        name=name,
+        diggs_version=diggs_version,
+        results=results,
+        provenance=provenance,
+        max_bytes=max_bytes,
+        time_budget=time_budget,
+        should_stop=None,
+    )
+
+
+def read_stoppable(
+    data: bytes | bytearray | memoryview | BinaryIO,
+    *,
+    name: str | None,
+    diggs_version: str | None,
+    results: bool,
+    provenance: Literal["object", "field"] = "object",
+    max_bytes: int,
+    time_budget: float | None,
+    should_stop: Callable[[], bool] | None,
+) -> Model:
+    """:func:`read_bytes` with a cancellation hook, for ``pydiggs._service`` only.
+
+    ``should_stop`` is checked between top-level members and every so often inside
+    one; when it returns True the read ends with ``pydiggs.findings.run._Cancelled``.
+    """
     limit = _check(diggs_version, max_bytes, time_budget, provenance)
     shown = _input_name(name)
     payload = _payload(data, limit, shown)
@@ -133,4 +168,5 @@ def read_bytes(
         results=results,
         field_provenance=provenance == "field",
         time_budget=time_budget,
+        should_stop=should_stop,
     )

@@ -84,13 +84,40 @@ class _Transformer:
             self._operations[key] = operation
         return self._operations[key]
 
+    @staticmethod
+    def _written(source: Any, coordinates: Any) -> tuple[float, float, Any] | None:
+        """Longitude, latitude and height as written in a geographic CRS.
+
+        The axes are read in the CRS's own order; a first value that cannot be a
+        latitude (beyond 90 degrees) means the file wrote longitude first, as the reader
+        itself decides.
+        """
+        if len(coordinates) < 2:  # noqa: PLR2004 - a horizontal position has two axes
+            return None
+        first, second = coordinates[0], coordinates[1]
+        lat_first = source.axis_info[0].direction in ("north", "south")
+        lat, lon = (first, second) if lat_first else (second, first)
+        if abs(lat) > 90 >= abs(lon):  # noqa: PLR2004 - the reader's axis-swap rule
+            lat, lon = lon, lat
+        height = coordinates[2] if len(coordinates) > 2 else None  # noqa: PLR2004
+        return lon, lat, height
+
+    def _in_source(self, position: dict[str, Any], source: Any) -> tuple[float, float, Any] | None:
+        """A geographic position's longitude and latitude on its own CRS, before any transform."""
+        known = position["geographic"]
+        if known is not None and position["transformed_by"] is None:
+            return known["lon"], known["lat"], known["h"]  # filled by the reader
+        return self._written(source, position["coordinates"])  # never trust an earlier transform
+
     def _lon_lat(self, position: dict[str, Any], source: Any) -> tuple[float, float, Any] | None:
         srs_name: str = position["crs"]
-        known = position["geographic"]
         coordinates = position["coordinates"]
-        if known is not None:  # a geographic CRS: the core already put its axes in order
-            lon, lat = self._operation(srs_name, source, "xy").transform(known["lon"], known["lat"])
-            return lon, lat, known["h"]
+        if source.is_geographic:
+            start = self._in_source(position, source)
+            if start is None:
+                return None
+            lon, lat = self._operation(srs_name, source, "xy").transform(start[0], start[1])
+            return lon, lat, start[2]
         if source.is_geocentric and len(coordinates) >= _GEOCENTRIC_DIM:
             lon, lat, h = self._operation(srs_name, source, "3d").transform(*coordinates[:3])
             return lon, lat, h
@@ -100,15 +127,40 @@ class _Transformer:
         north_first = self.target.axis_info[0].direction == "north"
         return (second, first, None) if north_first else (first, second, None)
 
+    def _restore(self, position: dict[str, Any], source: Any) -> None:
+        """Undo an earlier transform of a position whose own CRS is the target."""
+        start = self._written(source, position["coordinates"])
+        if start is None:
+            return
+        ref = crs.parse(position["crs"])  # the datum name the reader itself would give
+        datum = ref.horizontal.datum if ref.horizontal is not None else None
+        position["geographic"] = {
+            "lon": start[0],
+            "lat": start[1],
+            "h": start[2],
+            "datum": datum or source.datum.name,
+        }
+        position["transformed_by"] = None
+
     def apply(self, position: dict[str, Any]) -> None:
-        """Fill ``position``'s ``geographic`` in the target CRS, when its CRS allows."""
+        """Fill ``position``'s ``geographic`` in the target CRS, when its CRS allows.
+
+        Applying it again, or to a model transformed to another CRS before, gives the
+        same result as applying it once to the model as read: everything is computed
+        from ``coordinates`` (or from what the reader itself filled), never from an
+        earlier transform's output.
+        """
         srs_name = position["crs"]
         if not isinstance(srs_name, str):
             return
         if srs_name not in self._sources:
             self._sources[srs_name] = _source(self.pyproj, srs_name)
         source = self._sources[srs_name]
-        if source is None or source.to_2d().equals(self.target):
+        if source is None:
+            return
+        if source.to_2d().equals(self.target):
+            if position["transformed_by"] is not None:
+                self._restore(position, source)
             return
         try:
             result = self._lon_lat(position, source)
@@ -124,7 +176,7 @@ class _Transformer:
 def _positions(node: Any) -> Any:
     """Every position object in a diggs-model document, in place."""
     if isinstance(node, dict):
-        if node.keys() == _POSITION_KEYS:
+        if node.keys() >= _POSITION_KEYS:  # >=: a later minor may add a member
             yield node
             return
         for value in node.values():
@@ -140,7 +192,12 @@ def transform(model: Model, to: str = "EPSG:4326") -> Model:
     Every position whose ``srsName`` names an EPSG or OGC CRS gets ``geographic``
     (``lon``, ``lat``, and ``h`` when the source is three-dimensional) in ``to``, and
     ``transformed_by`` says so. ``coordinates`` and ``crs`` are never changed. A position
-    already in ``to``, or in a CRS that cannot be resolved, is left as it is.
+    already in ``to``, or in a CRS that cannot be resolved, is left as it is. The height
+    ``h`` of a geographic position is copied as written, not shifted to the new datum.
+
+    Transforming a model that was transformed before is safe: each position is computed
+    again from its coordinates as written, so ``transform(transform(m))`` equals
+    ``transform(m)``, and a later ``to`` replaces an earlier one.
 
     Args:
         model: From :func:`pydiggs.read`.

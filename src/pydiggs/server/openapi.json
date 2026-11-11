@@ -1814,7 +1814,9 @@
           "names",
           "params",
           "provenance",
-          "extra"
+          "extra",
+          "description",
+          "remarks"
         ],
         "description": "Fields every node starts with.",
         "properties": {
@@ -2671,7 +2673,8 @@
             "examples": [
               "malformed",
               "not-diggs",
-              "unsafe-entity"
+              "unsafe-entity",
+              "namespace-too-long"
             ]
           }
         }

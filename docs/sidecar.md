@@ -130,7 +130,7 @@ ends it with status 1. `exit` is honoured at any time and abandons any running w
 
 | param | type | notes |
 |---|---|---|
-| `protocol_version` | string, required | `"1.1"` (or `"1.0"`: the same without `read`) |
+| `protocol_version` | string, required | `"1.1"` (or `"1.0"`: `initialize` then answers without the 1.1 members) |
 | `client_info` | object | `{name ≤ 128 chars, version ≤ 64 chars}`, logged at `info` |
 | `capabilities` | object | `{progress: bool}` asks for `$/progress` notifications |
 | `diggs_versions` | string[] | DIGGS versions to warm up (default: every released bundled version, not the experimental `3.1-dev`) |
@@ -140,7 +140,7 @@ Result:
 ```json
 {
   "protocol_version": "1.1",
-  "pydiggs_version": "1.6.0",
+  "pydiggs_version": "1.7.0",
   "findings_schema_version": "1.0",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json",
   "model_schema_version": "1.0",
@@ -211,8 +211,11 @@ same bytes. Validate it against its own `$schema` and tolerate unknown fields.
 - When `time_budget_s` runs out the result is still a document, with `complete: false`
   and the members read so far.
 - A `read` shares the queue with `validate` (one running, one waiting) and can be
-  cancelled the same way. A read is checked for cancellation before it starts and when it
-  ends, not during the parse.
+  cancelled the same way: cancellation and the time budget are checked between top-level
+  members and every so often inside a large one.
+- The reader's work limits ([Reading files](model.md#reading-a-file)) apply; reaching one
+  is a result with `complete: false`, not an error.
+- A `select` key that matches no measurement is ignored.
 - Bytes that are not a DIGGS document are the error `invalid-document`; a result over
   `limits.max_result_bytes` is `result-too-large` (ask for less with `select`).
 
@@ -271,7 +274,7 @@ it with LSP or MCP meanings.
 | -32007 | `resource-error` | the bundled reference data could not be loaded | `correlation_id` |
 | -32008 | `cancelled` | cancelled by `$/cancelRequest` | |
 | -32009 | `unsupported-protocol-version` | major version mismatch | `supported` |
-| -32010 | `invalid-document` | `read`: the bytes are not a DIGGS document | `kind`: `malformed`, `not-diggs` or `unsafe-entity` |
+| -32010 | `invalid-document` | `read`: the bytes are not a DIGGS document | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long` |
 | -32011 | `result-too-large` | `read`: the document is over `max_result_bytes` | `max_result_bytes` |
 
 Errors for unparseable lines carry `"id": null`. A broken notification gets no answer.
@@ -317,7 +320,7 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 
 ```text
 → {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.1","client_info":{"name":"example-host","version":"0.1"}}}
-← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.1","pydiggs_version":"1.6.0",…}}
+← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.1","pydiggs_version":"1.7.0",…}}
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}

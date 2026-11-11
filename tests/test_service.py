@@ -392,9 +392,9 @@ def test_read_serves_a_repeat_from_the_cache_under_the_new_name(fresh_cache, mon
     data = CPT.read_bytes()
     first = _service.read(ReadRequest(content=data, name="a.xml"))
     calls = []
-    real = _service._reader.read_bytes
+    real = _service._reader.read_stoppable
     monkeypatch.setattr(
-        _service._reader, "read_bytes", lambda *a, **k: calls.append(1) or real(*a, **k)
+        _service._reader, "read_stoppable", lambda *a, **k: calls.append(1) or real(*a, **k)
     )
     second = _service.read(ReadRequest(content=data, name="b.xml"))
     assert calls == []
@@ -460,7 +460,7 @@ def test_read_fails_closed(fresh_cache, monkeypatch, caplog):
     def broken(*args, **kwargs):
         raise RuntimeError("/secret/place")
 
-    monkeypatch.setattr(_service._reader, "read_bytes", broken)
+    monkeypatch.setattr(_service._reader, "read_stoppable", broken)
     with caplog.at_level(logging.ERROR, logger="pydiggs.service"):
         outcome = _service.read(ReadRequest(content=b"<Diggs/>"))
     assert outcome.code is Code.INTERNAL and "secret" not in outcome.detail
@@ -477,3 +477,46 @@ def test_pooled_read_round_trip_in_process(fresh_cache):
     assert (outcome.code, outcome.kind) == (Code.INVALID_DOCUMENT, "not-diggs")
     slow = _service.read_in_pool(_Pool(JobTimeoutError("x")), request, timeout=5)
     assert slow.code is Code.TIMEOUT and slow.detail == "Reading did not finish within 5 s."
+
+
+def _many_unknown_members(count: int) -> bytes:
+    """One feature holding ``count`` elements the model has no typed field for."""
+    return (
+        b'<Diggs xmlns="http://diggsml.org/schemas/3"><samplingFeature><Borehole>'
+        + b"<a><b/></a>" * (count // 2)
+        + b"</Borehole></samplingFeature></Diggs>"
+    )
+
+
+def test_a_read_is_cancelled_inside_a_member(fresh_cache):
+    calls = []
+
+    def should_stop() -> bool:
+        calls.append(1)
+        return len(calls) > 3  # not before it starts: only once the member is under way
+
+    outcome = _service.read(
+        ReadRequest(content=_many_unknown_members(20_000)), should_stop=should_stop
+    )
+    assert outcome.code is Code.CANCELLED
+    assert len(calls) > 3
+
+
+def test_the_time_budget_stops_a_read_inside_a_member(fresh_cache):
+    outcome = _service.read(ReadRequest(content=_many_unknown_members(20_000), time_budget=1e-9))
+    document = json.loads(outcome.document)
+    assert document["complete"] is False and document["limits_hit"] == ["time_budget"]
+
+
+def test_the_cache_weighs_a_model_by_its_document(fresh_cache, monkeypatch):
+    seen = []
+    real = _service._read_cache.put
+    monkeypatch.setattr(
+        _service._read_cache,
+        "put",
+        lambda key, model, size: seen.append(size) or real(key, model, size),
+    )
+    data = _many_unknown_members(2_000)
+    outcome = _service.read(ReadRequest(content=data))
+    assert seen == [len(outcome.document)] and seen[0] > len(data)
+    assert _service.DOCUMENT_KINDS[-1] == "namespace-too-long"

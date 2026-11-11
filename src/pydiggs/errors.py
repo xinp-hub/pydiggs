@@ -58,9 +58,11 @@ class DocumentError(PydiggsError, ValueError):
     """The bytes are not a readable DIGGS document (raised by the read API only).
 
     ``kind`` says why: ``malformed`` (not well-formed XML), ``not-diggs`` (the root is
-    not a DIGGS ``Diggs`` element) or ``unsafe-entity`` (the internal DTD declares an
-    entity whose value contains markup). ``finding`` is the same ``structure.*`` finding
-    :func:`pydiggs.validate` reports for that file. It is also a :class:`ValueError`.
+    not a DIGGS ``Diggs`` element), ``unsafe-entity`` (the internal DTD declares an
+    entity whose value contains markup) or ``namespace-too-long`` (a namespace URI of
+    more than 1,024 characters). The set may grow in a minor release. ``finding`` is the
+    same ``structure.*`` finding :func:`pydiggs.validate` reports for that file. It is
+    also a :class:`ValueError`.
     """
 
     def __init__(self, kind: str, message: str, finding: Finding | None = None) -> None:

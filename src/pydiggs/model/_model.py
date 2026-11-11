@@ -401,20 +401,24 @@ def _mapping(tp: Any) -> Decoder:
 
 def _record(tp: type) -> Decoder:
     """A dataclass decoder; field decoders are compiled on first use (types recurse)."""
-    plan: list[tuple[str, Any, bool]] = []
+    plans: list[tuple[tuple[str, Any, bool], ...]] = []
     compiled: dict[str, Decoder] = {}
 
     def record(value: Any, where: str) -> Any:
-        if not plan:
+        if not plans:
             hints = get_type_hints(tp)
-            plan.extend(
-                (f.name, hints[f.name], f.default is MISSING and f.default_factory is MISSING)
-                for f in fields(tp)
-                if f.init
+            # Built whole, then published in one step: another thread decoding at the
+            # same moment sees no plan or all of it, never a part (building twice is fine).
+            plans.append(
+                tuple(
+                    (f.name, hints[f.name], f.default is MISSING and f.default_factory is MISSING)
+                    for f in fields(tp)
+                    if f.init
+                )
             )
         _check(isinstance(value, Mapping), where, f"an object for {tp.__name__}")
         kwargs: dict[str, Any] = {}
-        for name, hint, required in plan:
+        for name, hint, required in plans[0]:
             if name in value:
                 decoder = compiled.get(name)
                 if decoder is None:

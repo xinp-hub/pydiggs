@@ -294,7 +294,9 @@
         "names",
         "params",
         "provenance",
-        "extra"
+        "extra",
+        "description",
+        "remarks"
       ],
       "description": "Fields every node starts with.",
       "properties": {
