@@ -1,4 +1,7 @@
-"""``pydiggs.mcp_server``'s read tools (work package R4): list_features, get_feature, get_results."""
+"""``pydiggs.mcp_server``'s read tools (work package R4).
+
+list_features, get_feature, list_measurements and get_results.
+"""
 
 from __future__ import annotations
 
@@ -25,7 +28,9 @@ OFFICIAL = ROOT / "tests" / "fixtures" / "official"
 CPT = OFFICIAL / "2.6" / "CPT_and_PorePressureDissipation.xml"
 LITHO = OFFICIAL / "2.5.a" / "LithoGrading.xml"
 NS = 'xmlns="http://diggsml.org/schemas/3" xmlns:gml="http://www.opengis.net/gml/3.2"'
-READ_TOOLS = ("list_features", "get_feature", "get_results")
+SURVEY = OFFICIAL / "2.6" / "PermeationGroutingExample.xml"
+GROUTING = OFFICIAL / "2.6" / "JetGroutingExample.xml"
+READ_TOOLS = ("list_features", "get_feature", "list_measurements", "get_results")
 
 
 def _b64(data: bytes) -> str:
@@ -83,7 +88,7 @@ def _boreholes(count: int, name: str = "B") -> bytes:
 
 def test_the_read_tools_are_listed_read_only_with_self_contained_output_schemas(tools):
     assert list(tools) == list(TOOL_NAMES)
-    assert TOOL_NAMES[-3:] == READ_TOOLS
+    assert TOOL_NAMES[-4:] == READ_TOOLS
     for name in READ_TOOLS:
         tool = tools[name]
         hints = tool.annotations
@@ -147,7 +152,7 @@ def test_list_features_filters_by_kind(server, tools):
     assert _ok(tools, result, "list_features")["total"] == 0
 
 
-@pytest.mark.parametrize("cursor", ["not a cursor!", "e30", "x" * 600])
+@pytest.mark.parametrize("cursor", ["not a cursor!", "e30", "x" * 100, "x" * 600])
 def test_a_bad_cursor_is_an_invalid_parameter(server, cursor):
     (result,) = _calls(
         server, ("list_features", {"content_base64": _b64(_boreholes(3)), "cursor": cursor})
@@ -195,6 +200,119 @@ def test_get_feature_with_an_unknown_key(server):
     assert "X" not in result.content[0].text.split(":", 1)[1]  # the key is never echoed
 
 
+def test_a_long_key_comes_back_whole_and_finds_its_feature(server, tools):
+    """Keys are not cut at 512 characters: a caller has to be able to send one back."""
+    key = "b" + "k" * 700
+    data = _b64(
+        f'<Diggs {NS}><samplingFeature><Borehole gml:id="{key}"/></samplingFeature></Diggs>'.encode()
+    )
+    (listed,) = _calls(server, ("list_features", {"content_base64": data}))
+    assert _ok(tools, listed, "list_features")["features"][0]["key"] == key
+    (got,) = _calls(server, ("get_feature", {"content_base64": data, "key": key}))
+    assert _ok(tools, got, "get_feature")["feature"]["key"] == key
+
+
+def _crowded(extras: int) -> bytes:
+    """One borehole with ``extras`` elements the model does not know (they go to ``extra``)."""
+    unknown = "".join(f"<unknownThing>{'x' * 300} {i}</unknownThing>" for i in range(extras))
+    return (
+        f'<Diggs {NS}><samplingFeature><Borehole gml:id="b">{unknown}</Borehole>'
+        "</samplingFeature></Diggs>"
+    ).encode()
+
+
+def test_get_feature_stays_under_the_size_limit_however_much_the_feature_holds(server, tools):
+    sizes = []
+    for extras in (4000, 8000):
+        (result,) = _calls(
+            server, ("get_feature", {"content_base64": _b64(_crowded(extras)), "key": "b"})
+        )
+        answer = _ok(tools, result, "get_feature")
+        assert answer["trimmed"] is True and answer["feature"]["extra"] == []
+        assert "left out" in result.content[0].text
+        sizes.append(len(json.dumps(answer)))
+    assert sizes[1] <= sizes[0] * 1.01 < _read.MAX_RESULT_BYTES  # twice the file, same answer
+    (small,) = _calls(server, ("get_feature", {"content_base64": _b64(_crowded(3)), "key": "b"}))
+    answer = _ok(tools, small, "get_feature")
+    assert answer["trimmed"] is False and len(answer["feature"]["extra"]) == 3
+
+
+# --- list_measurements --------------------------------------------------------------------------
+
+
+def test_list_measurements_finds_the_ones_that_name_no_feature(server, tools):
+    model = pydiggs.read(SURVEY)
+    data = _b64(SURVEY.read_bytes())
+    orphans = [m.key for m in model.measurements if m.feature is None]
+    owner = next(m.feature for m in model.measurements if m.feature is not None)
+    assert orphans  # the fixture has measurements get_feature cannot reach
+    everything, without, of_feature, both = _calls(
+        server,
+        ("list_measurements", {"content_base64": data}),
+        ("list_measurements", {"content_base64": data, "without_feature": True}),
+        ("list_measurements", {"content_base64": data, "feature": owner}),
+        ("list_measurements", {"content_base64": data, "feature": owner, "without_feature": True}),
+    )
+    page = _ok(tools, everything, "list_measurements")
+    assert [m["key"] for m in page["measurements"]] == [m.key for m in model.measurements]
+    assert page["total"] == len(model.measurements) and page["next_cursor"] is None
+    first = page["measurements"][0]
+    assert first["tables"] == len(model.measurements[0].results)
+    assert first["rows"] == sum(t.row_count for t in model.measurements[0].results)
+    assert [m["key"] for m in _ok(tools, without, "list_measurements")["measurements"]] == orphans
+    assert {m["feature"] for m in _ok(tools, of_feature, "list_measurements")["measurements"]} == {
+        owner
+    }
+    assert _error_code(both) == "invalid-parameter"
+    # and its rows are reachable
+    key = next(m.key for m in model.measurements if m.feature is None and m.results)
+    (rows,) = _calls(server, ("get_results", {"content_base64": data, "measurement_key": key}))
+    assert _ok(tools, rows, "get_results")["measurement"]["feature"] is None
+
+
+def test_list_measurements_filters_by_procedure_and_pages(server, tools, monkeypatch):
+    monkeypatch.setattr(_read, "MEASUREMENT_PAGE", 2)
+    model = pydiggs.read(SURVEY)
+    data = _b64(SURVEY.read_bytes())
+    keys, cursor = [], None
+    for _ in range(len(model.measurements)):
+        arguments = {"content_base64": data} | ({"cursor": cursor} if cursor else {})
+        (result,) = _calls(server, ("list_measurements", arguments))
+        page = _ok(tools, result, "list_measurements")
+        keys += [m["key"] for m in page["measurements"]]
+        cursor = page["next_cursor"]
+        if cursor is None:
+            break
+    assert keys == [m.key for m in model.measurements]
+    procedure = model.measurements[0].procedure.type
+    filtered, other_filter = _calls(
+        server,
+        ("list_measurements", {"content_base64": data, "procedure": procedure}),
+        ("list_measurements", {"content_base64": data, "procedure": "Nothing"}),
+    )
+    assert _ok(tools, filtered, "list_measurements")["total"] == sum(
+        1 for m in model.measurements if m.procedure and m.procedure.type == procedure
+    )
+    assert _ok(tools, other_filter, "list_measurements")["total"] == 0
+
+
+def test_other_members_with_result_tables_are_listed_and_readable(server, tools):
+    """A construction activity is not a measurement, but its tables are read the same way."""
+    model = pydiggs.read(GROUTING)
+    holder = next(o for o in model.others if getattr(o, "results", ()))
+    data = _b64(GROUTING.read_bytes())
+    (listed,) = _calls(server, ("list_measurements", {"content_base64": data}))
+    page = _ok(tools, listed, "list_measurements")
+    assert [m["key"] for m in page["measurements"]] == [
+        *(m.key for m in model.measurements),
+        holder.key,
+    ]
+    arguments = {"content_base64": data, "measurement_key": holder.key, "max_rows": 3}
+    (rows,) = _calls(server, ("get_results", arguments))
+    answer = _ok(tools, rows, "get_results")
+    assert answer["row_count"] == holder.results[0].row_count and len(answer["rows"]) <= 3
+
+
 # --- get_results --------------------------------------------------------------------------------
 
 
@@ -234,6 +352,49 @@ def test_get_results_chooses_columns_by_name_or_key(server, tools):
     page = _ok(tools, result, "get_results")
     assert [c["key"] or c["name"] for c in page["columns"]] == ["position", "tip_resistance"]
     assert all(len(row) == 2 for row in page["rows"])
+
+
+def test_a_cursor_stays_short_and_pages_whatever_the_arguments_are(server, tools):
+    """A long ``columns`` list once made a cursor too long to send back."""
+    test = _cpt_test()
+    arguments = {
+        "content_base64": _b64(CPT.read_bytes()),
+        "measurement_key": test.key,
+        "columns": ["tip_resistance", "position", *(f"no_such_column_{i:04}" for i in range(400))],
+        "max_rows": 5,
+    }
+    (first,) = _calls(server, ("get_results", arguments))
+    page = _ok(tools, first, "get_results")
+    assert len(page["next_cursor"]) <= _read.MAX_CURSOR_CHARS
+    again, other_rows, other_table, other_columns = _calls(
+        server,
+        ("get_results", {**arguments, "cursor": page["next_cursor"]}),
+        ("get_results", {**arguments, "cursor": page["next_cursor"], "max_rows": 6}),
+        ("get_results", {**arguments, "cursor": page["next_cursor"], "table": 1}),
+        ("get_results", {**arguments, "cursor": page["next_cursor"], "columns": ["position"]}),
+    )
+    assert _ok(tools, again, "get_results")["offset"] == 5
+    for refused in (other_rows, other_table, other_columns):
+        assert _error_code(refused) == "invalid-parameter"
+
+
+def test_columns_that_match_nothing_are_an_invalid_parameter(server):
+    arguments = {
+        "content_base64": _b64(CPT.read_bytes()),
+        "measurement_key": _cpt_test().key,
+        "columns": ["tip_resistence"],
+    }
+    (result,) = _calls(server, ("get_results", arguments))
+    assert _error_code(result) == "invalid-parameter"
+    assert "columns" in result.content[0].text
+
+
+def test_a_page_over_the_size_limit_is_result_too_large(server, monkeypatch):
+    monkeypatch.setattr(_read, "MAX_RESULT_BYTES", 2000)
+    arguments = {"content_base64": _b64(CPT.read_bytes()), "measurement_key": _cpt_test().key}
+    (result,) = _calls(server, ("get_results", arguments))
+    assert _error_code(result) == "result-too-large"
+    assert "fewer rows" in result.content[0].text
 
 
 @pytest.mark.parametrize(
@@ -289,9 +450,12 @@ def test_oversized_input_is_refused_before_decoding():
     assert _error_code(result) == "input-too-large"
 
 
-def test_a_repeat_read_is_served_by_the_worker_cache(server, monkeypatch):
-    """Paging one file reads it once: the worker keeps the model by content hash."""
-    data = _b64(_boreholes(_read.FEATURE_PAGE + 1, name="K"))
+def test_the_listing_tools_ask_for_no_values_and_get_results_for_one_measurement(
+    server, monkeypatch
+):
+    """What each tool asks the worker for; the worker's cache is tested in test_service."""
+    data = _b64(CPT.read_bytes())
+    key = _cpt_test().key
     seen = []
     real = _service.read_in_pool
 
@@ -303,15 +467,30 @@ def test_a_repeat_read_is_served_by_the_worker_cache(server, monkeypatch):
     _calls(
         server,
         ("list_features", {"content_base64": data}),
-        ("get_feature", {"content_base64": data, "key": "K1"}),
+        ("list_measurements", {"content_base64": data}),
+        ("get_results", {"content_base64": data, "measurement_key": key}),
     )
-    assert seen == [{"results": "none"}, {"results": "none"}]
+    assert seen == [{"results": "none"}, {"results": "none"}, {"results": [key]}]
+
+
+def test_a_partial_read_says_so_in_the_summary():
+    document = json.loads(pydiggs.read(CPT).to_json())
+    document["complete"], document["limits_hit"] = False, ["nodes"]
+    structured, text = _read.features_result(document, "0" * 64, kind=None, cursor=None)
+    assert structured["complete"] is False and structured["limits_hit"] == ["nodes"]
+    assert "the model is partial" in text
 
 
 def test_cap_strings_and_cursors():
     assert _read.cap_strings(["a", {"b": ("c" * 600,)}])[1]["b"][0].endswith("…")
-    cursor = _read._cursor("f" * 64, "scope", 7)
-    assert _read._offset(cursor, "f" * 64, "scope") == 7
-    for sha, scope in (("0" * 64, "scope"), ("f" * 64, "other")):
+    capped = _read.cap_strings({"k" * 600: 1, "key": "k" * 600, "name": "n" * 600})
+    assert sorted(len(k) for k in capped) == [3, 4, _read.MAX_STRING_CHARS]  # names of members
+    assert len(capped["key"]) == 600 and len(capped["name"]) == _read.MAX_STRING_CHARS
+    assert len(_read.cap_strings({"key": "k" * 9000})["key"]) == _read.MAX_KEY_CHARS
+    cursor = _read._cursor("f" * 64, ["rows", "x" * 5000], 7)
+    assert len(cursor) <= _read.MAX_CURSOR_CHARS
+    assert _read._offset(cursor, "f" * 64, ["rows", "x" * 5000], 10) == 7
+    wrong = (("0" * 64, ["rows", "x" * 5000], 10), ("f" * 64, ["rows"], 10))
+    for sha, scope, total in (*wrong, ("f" * 64, ["rows", "x" * 5000], 6)):  # last: past the end
         with pytest.raises(_read.CursorError):
-            _read._offset(cursor, sha, scope)
+            _read._offset(cursor, sha, scope, total)

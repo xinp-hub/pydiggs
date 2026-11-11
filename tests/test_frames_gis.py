@@ -409,3 +409,18 @@ def test_a_result_named_like_another_tables_index_gets_a_suffix():
     data = _views.columns(model, "results")
     assert data["top"] == [1.0, None]  # the place of each row
     assert data["top_value"] == [None, 99.0]  # the measured value named "top"
+    # the name does not depend on what else is in the frame
+    alone = _views.columns(model, "results", measurement="b")
+    assert alone["top_value"] == [99.0] and "top" not in alone
+
+
+def test_a_measured_elapsed_time_is_always_elapsed_time_value():
+    lugeon = pydiggs.read(OFFICIAL / "2.6" / "LugeonTestExample.xml")
+    assert any(
+        (c.key or c.name) == "elapsed_time"
+        for m in lugeon.measurements
+        for t in m.results
+        for c in t.columns
+    )
+    data = _views.columns(lugeon, "results")
+    assert "elapsed_time_value" in data and "elapsed_time" not in data

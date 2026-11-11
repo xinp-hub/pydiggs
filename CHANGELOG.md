@@ -7,27 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-11
+
 ### Added
 - **MCP read tools** (the `mcp` extra): `list_features` (a page of the document's
   features, with how many samples and measurements refer to each), `get_feature` (one
-  feature as diggs-model 1.0, with its samples, measurements and lithology layers) and
+  feature as diggs-model 1.0, with its samples, measurements and lithology layers),
+  `list_measurements` (a page of the measurements and other holders of result tables,
+  including those that name no feature; filter by feature or procedure) and
   `get_results` (a page of rows of one result table, with its columns described). Each
   answers typed `structuredContent` whose `outputSchema` is built from the frozen
-  diggs-model 1.0 definitions, and a text summary of counts only. Pages continue with an
-  opaque `next_cursor` tied to the document and the request. Every string from the file
-  is cut to 512 characters, and the tool descriptions say file text is untrusted. They
-  share `validate_diggs`'s limits (10 MiB, one worker, 60 s), and paging a file reads
-  it once.
+  diggs-model 1.0 definitions, and a text summary of counts only. Pages continue with a
+  short opaque `next_cursor` tied to the document and the request. Every string from
+  the file is cut to 512 characters (node keys at 4,096, so they can be sent back), a
+  result is at most 1 MiB, and the tool descriptions say file text is untrusted. They
+  share `validate_diggs`'s limits (10 MiB, one worker, 60 s); the worker keeps the
+  models it read lately, so the calls after the first do not parse the file again.
 
 ### Changed
-- The MCP `timeout` error text says the call (a validation or a read) did not finish.
+- `pydiggs.frames` `results` view: a result column named `position`, `top`, `base`,
+  `time` or `elapsed_time` is now always `<name>_value` (those names say where a row
+  is). In 1.7.0 a measured `elapsed_time`, as in a Lugeon or dissipation test, could be
+  the frame column `elapsed_time`; it is now `elapsed_time_value`, whatever filters are
+  used:
+
+  ```python
+  frame = frames.to_pandas(model, "results", procedure="LugeonTest")
+  frame["elapsed_time"]  # 1.7.0
+  frame["elapsed_time_value"]  # 1.8.0
+  ```
+- The read service keeps a model that was cut short by a work limit in its cache (the
+  same bytes stop at the same place), so paging such a file parses it once. A model cut
+  short by the time budget is still read again.
+- The MCP `timeout` error text says the file was not checked or read.
 
 ### Fixed
 - Stdio sidecar: a session that negotiated protocol 1.0 gets `method-not-found` for
   `read`, as documented, instead of an answer.
 - `pydiggs.frames` `results` view: a result column named like an index column of
-  another table in the same frame (`top`, `position` …) now gets a `_value` suffix
-  instead of sharing that column with the places of the other table's rows.
+  another table in the same frame (`top`, `position` …) no longer shares that column
+  with the places of the other table's rows (see the naming rule under Changed).
 
 ## [1.7.0] - 2026-11-11
 
@@ -680,7 +699,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/xinp-hub/pydiggs/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/xinp-hub/pydiggs/compare/v1.4.1...v1.5.0

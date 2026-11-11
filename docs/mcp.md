@@ -52,7 +52,7 @@ Without installing it first, [uv](https://docs.astral.sh/uv/) can fetch and run 
 }
 ```
 
-Pin a version (`pydiggs[mcp]==1.7.0`) for a repeatable setup. The exact file and key
+Pin a version (`pydiggs[mcp]==1.8.0`) for a repeatable setup. The exact file and key
 names depend on the host; check its documentation for "MCP servers" or "stdio servers".
 
 Options go after `--mcp`:
@@ -70,7 +70,7 @@ arguments, a missing `[mcp]` extra, or stdin/stdout that are not usable.
 
 ## Tools
 
-All seven tools are read-only, with the annotations `readOnlyHint: true`,
+All eight tools are read-only, with the annotations `readOnlyHint: true`,
 `destructiveHint: false`, `idempotentHint: true` and `openWorldHint: false`. None of
 them accepts a file path or a URL.
 
@@ -81,8 +81,9 @@ them accepts a file path or a URL.
 | `list_rules` | `step` (optional step name) | `{"rules": [RuleInfo, ...]}` |
 | `supported_versions` | none | `pydiggs_version`, `findings_schema_version`, `findings_schema_url`, `diggs_versions`, `reference_data` |
 | `list_features` | `content_base64` (required), `kind` (such as `borehole`), `cursor` | one page of the document's [features](model.md): `key`, `kind`, `name`, `location`, `total_depth`, `parent`, and how many `samples` and `measurements` refer to each; `total` and `next_cursor` |
-| `get_feature` | `content_base64` (required), `key` (required, from `list_features`) | the whole diggs-model `feature`, and the `samples`, `measurements` and lithology `layers` that refer to it (at most 500 of each; `not_listed` counts the rest) |
-| `get_results` | `content_base64` (required), `measurement_key` (required), `table` (from 0), `columns` (names or dictionary keys), `cursor`, `max_rows` (1 to 200, default 100) | one page of one result table: the `measurement`, the `columns` (name, key, unit, SI factor, and `role`: `index` for where the row is, `result` for a value) and `rows` as arrays in column order; `row_count` and `next_cursor` |
+| `get_feature` | `content_base64` (required), `key` (required, from `list_features`) | the whole diggs-model `feature`, and the `samples`, `measurements` and lithology `layers` that refer to it (at most 500 of each; `not_listed` counts the rest); `trimmed` |
+| `list_measurements` | `content_base64` (required), `feature` (a feature key), `without_feature` (`true` for those that name no feature), `procedure` (such as `AtterbergLimitsTest`), `cursor` | one page of the document's measurements, and of other members that hold result tables: `key`, `kind`, `name`, `procedure`, `feature`, and how many `tables` and `rows` each has; `total` and `next_cursor` |
+| `get_results` | `content_base64` (required), `measurement_key` (required, from `list_measurements` or `get_feature`), `table` (from 0), `columns` (names or dictionary keys), `cursor`, `max_rows` (1 to 200, default 100) | one page of one result table: the `measurement`, the `columns` (name, key, unit, SI factor, and `role`: `index` for where the row is, `result` for a value) and `rows` as arrays in column order; `row_count` and `next_cursor` |
 
 `validate_diggs` takes the document as standard, padded base64 (no line breaks), so its
 bytes, encoding declaration and SHA-256 are exactly those of the file. `name` is only
@@ -96,23 +97,39 @@ A malformed or invalid document is a normal result with findings, never an error
 
 ### Reading a document
 
-`list_features`, `get_feature` and `get_results` read the document into
+`list_features`, `get_feature`, `list_measurements` and `get_results` read the document into
 [diggs-model 1.0](model.md), the same model `pydiggs.read()` returns, and answer one
 slice of it. Each tool's `outputSchema` is built from the frozen diggs-model 1.0
 definitions, so a feature, a quantity or a position has exactly the shape the model
 schema gives it. A schema-invalid file still reads; run `validate_diggs` for a verdict.
 
 A typical sequence: `list_features` to see the boreholes, `get_feature` on one of them
-to see its samples and tests, then `get_results` on a test for its rows.
+to see its samples and tests, then `get_results` on a test for its rows. Not every test
+names a feature (a laboratory test may name only its sample), so `list_measurements`
+lists them all: every measurement, then any other member that holds result tables, such
+as a grouting activity. `without_feature: true` gives the ones no feature leads to.
 
-**Pages.** `list_features` answers 100 features at a time and `get_results` up to
-`max_rows` rows. When there are more, the result has a `next_cursor`: call the same tool
-again with the same document and arguments and `cursor` set to it. A cursor names the
-document and the request it continues, so one sent with another file or other
-arguments is refused (`invalid-parameter`). The worker keeps the last few documents it
-read, by content hash, so paging through a file does not parse it again.
+**Pages.** `list_features` and `list_measurements` answer 100 items at a time and
+`get_results` up to `max_rows` rows. When there are more, the result has a
+`next_cursor`: call the same tool again with the same document and arguments and
+`cursor` set to it. A cursor is short (under 128 characters) whatever the arguments
+were. It names the document and the request it continues, so one sent with another
+file or other arguments (another `max_rows` or `columns` too) is refused
+(`invalid-parameter`).
 
-**Strings.** Every string in a read result is cut to 512 characters, ending in `…`.
+**Parsing.** The server keeps no state between calls, so every call sends the document.
+The worker keeps the last few models it read, by content hash, so the calls after the
+first do not parse the file again. There are two models per file: one without table
+values, which the three listing tools share, and one with them, which `get_results`
+uses. A file cut short by a work limit is kept too; one cut short by the time limit is
+read again.
+
+**Sizes.** Every string in a read result is cut to 512 characters, ending in `…`,
+names of unknown elements included. Node keys and references to them (`key`, `feature`,
+`parent` …) are the exception, since a caller sends them back: they are cut only at
+4,096 characters. A result is at most 1 MiB of JSON. A feature larger than that comes
+without its `extra` elements and field provenance, with `trimmed: true`; a page of rows
+larger than that is the error `result-too-large` (ask for fewer rows or columns).
 
 ### What the model reads
 
@@ -134,7 +151,7 @@ planted in a document does not reach the model through the summary. A client tha
 | Message length | 512 characters; longer messages end in `…` |
 | Concurrency | one validation or read at a time, in one worker process |
 | Time | 60 s per call (`--timeout`); the worker is then killed and replaced |
-| Reading | the [work limits](model.md#reading-a-file) of `pydiggs.read()`; a read result also cuts strings to 512 characters, lists 100 features or at most 200 rows per page |
+| Reading | the [work limits](model.md#reading-a-file) of `pydiggs.read()`; a read result also cuts strings to 512 characters (keys to 4,096), lists 100 features or measurements or at most 200 rows per page, and is at most 1 MiB |
 
 Only the bundled DIGGS schemas, dictionaries and Schematron rules are used. The server
 never reads local dictionaries, never fetches anything over the network, and never
@@ -156,7 +173,7 @@ tool's `outputSchema`.
 | `compressed-input` | the document is gzip-compressed |
 | `input-unreadable` | the document could not be read |
 | `invalid-document` | read tools: the bytes are not a DIGGS document |
-| `result-too-large` | read tools: the document's model is too large to read here |
+| `result-too-large` | read tools: the document's model, or the page asked for, is too large to answer |
 | `timeout` | the call did not finish in time; the file was **not checked** or read |
 | `resource-error` | pydiggs's bundled reference data could not be loaded |
 | `internal` | anything else; the details are logged to stderr with the `correlation_id` |
