@@ -14,6 +14,10 @@ another later. Pick by where your code runs:
 | An AI assistant or agent | the [MCP server](mcp.md) | `pydiggs[mcp]` | `pydiggs serve --mcp` |
 | A web page where files must stay on the user's machine | [Pyodide in the browser](browser.md) | `pydiggs` in Pyodide | a Web Worker |
 
+Building in JavaScript or TypeScript? The [`@pydiggs/client`](javascript.md) npm package
+has the types of both documents, a client for the HTTP API and the browser worker, ready
+to import.
+
 ## How they compare
 
 | | Python API | HTTP API | Container | Stdio sidecar | MCP server | Browser |

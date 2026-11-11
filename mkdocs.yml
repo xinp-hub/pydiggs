@@ -156,6 +156,7 @@ nav:
     - Host integration: sidecar-hosts.md
     - MCP server (AI assistants): mcp.md
     - Browser (Pyodide): browser.md
+    - JavaScript and TypeScript: javascript.md
   - Reference:
     - Python API: reference.md
   - Project:
