@@ -8,6 +8,14 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-11
+
+### Changed
+
+- Released by the repository's release workflow from a signed tag, staged on npm and
+  approved by a maintainer, where 0.1.0 was published by hand. The code is the same as
+  0.1.0.
+
 ## [0.1.0] - 2026-11-11
 
 ### Added
