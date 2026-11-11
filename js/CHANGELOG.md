@@ -8,6 +8,8 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-11
+
 ### Added
 
 - TypeScript types for diggs-findings 1.0 and diggs-model 1.0 documents, generated from
