@@ -27,11 +27,23 @@ FIXTURES = ("casing_units.xml", "markup_in_value.xml")
 # The browser example's limit (brief D8).
 MAX_BYTES = 25 * 1024 * 1024
 # Never imported on the core path: rich (Pyodide installs pydiggs with deps=False),
-# process pools, the adapters' frameworks, subprocesses, and networking (only an
-# allow_network download imports urllib.request, http.client, socket and ssl).
-FORBIDDEN = ("rich", "multiprocessing", "fastapi", "mcp", "subprocess", "socket", "ssl", "http")
+# process pools, the adapters' frameworks, the frame and GIS libraries of the read
+# API's extras, subprocesses, and networking (only an allow_network download imports
+# urllib.request, http.client, socket and ssl).
+_EXTRAS = ("pandas", "polars", "pyproj", "shapely", "geopandas", "pyogrio", "pyarrow")
+FORBIDDEN = (
+    "rich",
+    "multiprocessing",
+    "fastapi",
+    "mcp",
+    *_EXTRAS,
+    "subprocess",
+    "socket",
+    "ssl",
+    "http",
+)
 # Of those, the ones Pyodide does not load itself: these must also be absent from sys.modules.
-NOT_LOADED = ("rich", "multiprocessing", "fastapi", "mcp")
+NOT_LOADED = ("rich", "multiprocessing", "fastapi", "mcp", *_EXTRAS)
 _attempts: dict[str, str] = {}
 
 
@@ -56,7 +68,12 @@ def watch_imports() -> None:
 
 
 def run(fixture_dir: str) -> dict[str, str]:
-    """Validate every fixture; return each ``report.to_json()`` and the combined document."""
+    """Validate and read every fixture.
+
+    Returns each ``report.to_json()``, the combined findings document, and each
+    fixture's diggs-model document (``read:<name>``: ``read_bytes(...).to_json()``, one
+    string for JavaScript to ``JSON.parse``).
+    """
     import pydiggs  # lazily: see the module docstring
 
     reports = [
@@ -65,6 +82,9 @@ def run(fixture_dir: str) -> dict[str, str]:
     ]
     out = {name: report.to_json() for name, report in zip(FIXTURES, reports, strict=True)}
     out["findings_json"] = pydiggs.findings_json(reports)
+    for name in FIXTURES:
+        data = Path(fixture_dir, name).read_bytes()
+        out[f"read:{name}"] = pydiggs.read_bytes(data, name=name, max_bytes=MAX_BYTES).to_json()
     return out
 
 

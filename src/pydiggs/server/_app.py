@@ -20,7 +20,7 @@ import logging
 import math
 import threading
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Sequence
-from typing import TYPE_CHECKING, Any, Final, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias
 from urllib.parse import urlsplit
 
 import anyio
@@ -36,7 +36,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from pydiggs import _service
-from pydiggs._service import Outcome
+from pydiggs._service import Outcome, ReadRequest
 from pydiggs._service import Request as ValidationRequest
 from pydiggs.server import _schemas
 from pydiggs.server._problems import (
@@ -64,6 +64,7 @@ MULTIPART_SLACK: Final = MAX_FIELDS * MAX_PART_SIZE + 64 * 2**10
 _MAX_ACCEPT_ITEMS: Final = 32
 _RETRY_AFTER: Final = {"Retry-After": "1"}
 _FORM_FIELDS: Final = frozenset({"name", "checks", "diggs_version"})
+_READ_FIELDS: Final = frozenset({"name", "diggs_version", "select"})
 
 Format = Literal["findings", "sarif"]
 _MEDIA: Final[dict[Format, str]] = {
@@ -116,6 +117,28 @@ def negotiate(accept: str | None) -> Format | None:
     """
     if accept is None or not accept.strip():
         return "findings"
+    (spec_f, q_f), (spec_s, q_s) = _best(accept)
+    if q_f <= 0 and q_s <= 0:
+        return None
+    if q_s > q_f or (q_s == q_f and spec_s > spec_f):
+        return "sarif"
+    return "findings"
+
+
+def accepts_json(accept: str | None) -> bool:
+    """Whether an ``Accept`` header allows ``application/json`` (all ``/v1/read`` sends).
+
+    Examples:
+        >>> accepts_json(None), accepts_json("*/*"), accepts_json("application/sarif+json")
+        (True, True, False)
+    """
+    if accept is None or not accept.strip():
+        return True
+    return _best(accept)[0][1] > 0
+
+
+def _best(accept: str) -> tuple[tuple[int, float], tuple[int, float]]:
+    """``(specificity, quality)`` of the best range for JSON, and for SARIF."""
     best: dict[Format, tuple[int, float]] = {"findings": (-1, 0.0), "sarif": (-1, 0.0)}
     for item in accept.split(",")[:_MAX_ACCEPT_ITEMS]:
         media, _, params = item.partition(";")
@@ -125,12 +148,7 @@ def negotiate(accept: str | None) -> Format | None:
             specificity = _SPECIFICITY.get(media if media != exact else " exact", -1)
             if specificity > best[fmt][0]:
                 best[fmt] = (specificity, quality)
-    (spec_f, q_f), (spec_s, q_s) = best["findings"], best["sarif"]
-    if q_f <= 0 and q_s <= 0:
-        return None
-    if q_s > q_f or (q_s == q_f and spec_s > spec_f):
-        return "sarif"
-    return "findings"
+    return best["findings"], best["sarif"]
 
 
 def _media_type(request: Request) -> str:
@@ -204,8 +222,10 @@ class _Upload:
     fields: dict[str, list[str]]
 
 
-async def _read_multipart(request: Request, limit: int, file_limit: int) -> _Upload | Response:
-    """Parse one ``file`` part and up to :data:`MAX_FIELDS` short fields.
+async def _read_multipart(
+    request: Request, limit: int, file_limit: int, allowed: frozenset[str]
+) -> _Upload | Response:
+    """Parse one ``file`` part and up to :data:`MAX_FIELDS` short fields (``allowed``).
 
     The whole body counts against ``limit`` while it streams; the file part against
     ``file_limit``. Spooled parts are closed (and so deleted) before returning.
@@ -232,11 +252,9 @@ async def _read_multipart(request: Request, limit: int, file_limit: int) -> _Upl
         for key, value in form.multi_items():
             if key == "file":
                 continue
-            if key not in _FORM_FIELDS or not isinstance(value, str):
-                return problem(
-                    "invalid-multipart",
-                    "Only the fields file, name, checks and diggs_version are accepted.",
-                )
+            if key not in allowed or not isinstance(value, str):
+                names = ", ".join(sorted(allowed))
+                return problem("invalid-multipart", f"Only the fields file, {names} are accepted.")
             fields.setdefault(key, []).append(value)
         return _Upload(content=content, filename=upload.filename, fields=fields)
     finally:
@@ -267,12 +285,20 @@ def _checks(values: Sequence[str]) -> list[str] | None:
     return list(dict.fromkeys(part for value in values for part in value.split(",")))
 
 
-def _precheck(request: Request, settings: ServerSettings) -> tuple[Format, bool] | Response:
+def _precheck(
+    request: Request, settings: ServerSettings, *, sarif: bool = True
+) -> tuple[Format, bool] | Response:
     """Checks that need only the headers: Accept, media type, encoding, Content-Length.
 
     Returns the chosen format and whether the body is multipart, or the refusal.
+    ``sarif=False`` is for an endpoint that only sends ``application/json``.
     """
-    fmt = negotiate(request.headers.get("accept"))
+    accept = request.headers.get("accept")
+    fmt: Format | None = negotiate(accept) if sarif else None
+    if not sarif:
+        if not accepts_json(accept):
+            return problem("not-acceptable", "Accept application/json (diggs-model).")
+        fmt = "findings"
     if fmt is None:
         return problem(
             "not-acceptable",
@@ -310,28 +336,72 @@ def _parameters(
     )
 
 
+def _select(values: Sequence[str]) -> object:
+    """The ``select`` parameter: JSON text, parsed. An unusable value stays text.
+
+    Text is not a selection, so the service refuses it as ``invalid-parameter``.
+    """
+    if not values:
+        return None
+    text = values[-1]
+    if len(text) > _schemas.MAX_SELECT_CHARS:
+        return text[:1]
+    try:
+        parsed: object = json.loads(text)
+    except (ValueError, RecursionError):
+        return text[:1]
+    return text[:1] if parsed is None else parsed
+
+
+def _read_parameters(
+    content: bytes, params: dict[str, list[str]], filename: str | None
+) -> ReadRequest:
+    names, versions = params.get("name", []), params.get("diggs_version", [])
+    return ReadRequest(
+        content=content,
+        name=names[-1] if names else filename,
+        diggs_version=versions[-1] if versions else None,
+        select=_select(params.get("select", [])),
+        max_result_bytes=None,  # the body limit bounds the document; compression is the host's
+    )
+
+
+_Job: TypeAlias = ValidationRequest | ReadRequest
+_Build: TypeAlias = Callable[[bytes, dict[str, list[str]], str | None], _Job]
+
+
 async def _read_input(
-    request: Request, settings: ServerSettings, *, fmt: Format, multipart: bool
-) -> ValidationRequest | Response:
-    """Read the body (streamed, counted) and the parameters into a validation request.
+    request: Request,
+    settings: ServerSettings,
+    *,
+    multipart: bool,
+    fields: frozenset[str],
+    build: _Build,
+) -> _Job | Response:
+    """Read the body (streamed, counted) and the parameters into a service request.
 
     A multipart request may give each parameter in the query or in the form; the
     form wins, but both must be valid (``invalid-parameter``). The ``name`` parameter
-    wins over the part's file name. Repeated values: the last ``name`` and
-    ``diggs_version`` count; ``checks`` values are joined.
+    wins over the part's file name. Repeated values: the last ``name``,
+    ``diggs_version`` and ``select`` count; ``checks`` values are joined.
     """
-    params = {key: request.query_params.getlist(key) for key in _FORM_FIELDS}
+    params = {key: request.query_params.getlist(key) for key in fields}
     filename: str | None = None
     limit = _body_limit(settings, multipart=multipart)
     try:
         if multipart:
-            upload = await _read_multipart(request, limit, settings.max_body_bytes)
+            upload = await _read_multipart(request, limit, settings.max_body_bytes, fields)
             if isinstance(upload, Response):
                 return upload
             content, filename = upload.content, upload.filename
             overridden = {k: v for k, v in params.items() if k in upload.fields and v}
             if overridden:
-                errors = _service._parameter_errors(_parameters(b"", overridden, None, fmt))
+                shadowed = build(b"", overridden, None)
+                errors = (
+                    _service._read_parameter_errors(shadowed)
+                    if isinstance(shadowed, ReadRequest)
+                    else _service._parameter_errors(shadowed)
+                )
                 if errors:
                     return problem("invalid-parameter", "invalid parameters", errors=errors)
             params.update(upload.fields)
@@ -339,11 +409,7 @@ async def _read_input(
             content = await _read_raw(request, limit)
     except _TooLargeError:
         return _too_large()
-    return dataclasses.replace(
-        _parameters(content, params, filename, fmt),
-        max_bytes=settings.max_body_bytes,
-        max_findings=settings.max_findings,
-    )
+    return dataclasses.replace(build(content, params, filename), max_bytes=settings.max_body_bytes)
 
 
 # --- per-router state --------------------------------------------------------------------
@@ -439,14 +505,23 @@ class _State:
         await anyio.to_thread.run_sync(pool.start)  # idempotent; a new pool begins warming
         return await anyio.to_thread.run_sync(pool.ready)  # ready() may block briefly
 
-    async def run(self, request: ValidationRequest) -> Outcome:
-        if self.isolation == "process":
-            pool = self._job_pool()
+    async def run(self, request: _Job) -> Outcome:
+        timeout = self.settings.timeout_s
+        job: Callable[[], Outcome]
+        if isinstance(request, ReadRequest):
+            if self.isolation == "process":
+                job = functools.partial(
+                    _service.read_in_pool, self._job_pool(), request, timeout=timeout
+                )
+            else:
+                job = functools.partial(_service.read, request)
+        elif self.isolation == "process":
             job = functools.partial(
-                _service.validate_in_pool, pool, request, timeout=self.settings.timeout_s
+                _service.validate_in_pool, self._job_pool(), request, timeout=timeout
             )
-            return await anyio.to_thread.run_sync(job, limiter=self.limiter())
-        return await anyio.to_thread.run_sync(_service.validate, request, limiter=self.limiter())
+        else:
+            job = functools.partial(_service.validate, request)
+        return await anyio.to_thread.run_sync(job, limiter=self.limiter())
 
 
 # --- routes ------------------------------------------------------------------------------
@@ -471,6 +546,38 @@ def _guarded(state: _State, endpoint: _Endpoint) -> _Endpoint:
         return response
 
     return wrapper
+
+
+async def _admitted(
+    state: _State, request: Request, *, multipart: bool, fields: frozenset[str], build: _Build
+) -> Outcome | Response:
+    """Read the request's input and run it, within the admission and body limits."""
+    settings = state.settings
+    if not state.admission.try_enter():
+        return problem(
+            "busy",
+            "Too many requests are in progress; try again shortly.",
+            headers={**_RETRY_AFTER, "Connection": "close"},
+        )
+    try:
+        try:
+            with anyio.fail_after(settings.body_timeout_s):
+                job = await _read_input(
+                    request, settings, multipart=multipart, fields=fields, build=build
+                )
+        except TimeoutError:
+            return problem(
+                "request-timeout",
+                "The request body did not arrive in time.",
+                headers={"Connection": "close"},
+            )
+        if isinstance(job, Response):
+            return job
+        if state.isolation == "thread":
+            job = dataclasses.replace(job, time_budget=settings.timeout_s)
+        return await state.run(job)
+    finally:
+        state.admission.leave()
 
 
 def _json(body: Any, status: int = 200) -> Response:
@@ -499,32 +606,36 @@ def _build_router(state: _State) -> APIRouter:
         if isinstance(checked, Response):
             return checked
         fmt, multipart = checked
-        if not state.admission.try_enter():
-            return problem(
-                "busy",
-                "Too many requests are in progress; try again shortly.",
-                headers={**_RETRY_AFTER, "Connection": "close"},
-            )
-        try:
-            try:
-                with anyio.fail_after(settings.body_timeout_s):
-                    job = await _read_input(request, settings, fmt=fmt, multipart=multipart)
-            except TimeoutError:
-                return problem(
-                    "request-timeout",
-                    "The request body did not arrive in time.",
-                    headers={"Connection": "close"},
-                )
-            if isinstance(job, Response):
-                return job
-            if state.isolation == "thread":
-                job = dataclasses.replace(job, time_budget=settings.timeout_s)
-            outcome = await state.run(job)
-        finally:
-            state.admission.leave()
+
+        def build(
+            content: bytes, params: dict[str, list[str]], filename: str | None
+        ) -> ValidationRequest:
+            job = _parameters(content, params, filename, fmt)
+            return dataclasses.replace(job, max_findings=settings.max_findings)
+
+        outcome = await _admitted(
+            state, request, multipart=multipart, fields=_FORM_FIELDS, build=build
+        )
+        if isinstance(outcome, Response):
+            return outcome
         if not outcome.ok or outcome.document is None:
             return from_outcome(outcome)
         return Response(outcome.document, media_type=_MEDIA[fmt], headers={"Vary": "Accept"})
+
+    async def read(request: Request) -> Response:
+        checked = _precheck(request, settings, sarif=False)
+        if isinstance(checked, Response):
+            return checked
+        outcome = await _admitted(
+            state, request, multipart=checked[1], fields=_READ_FIELDS, build=_read_parameters
+        )
+        if isinstance(outcome, Response):
+            return outcome
+        if not outcome.ok or outcome.document is None:
+            return from_outcome(outcome)
+        return Response(
+            outcome.document, media_type=_schemas.FINDINGS_MEDIA_TYPE, headers={"Vary": "Accept"}
+        )
 
     async def versions(request: Request) -> Response:
         del request
@@ -556,6 +667,18 @@ def _build_router(state: _State) -> APIRouter:
         openapi_extra={
             "parameters": _schemas.validate_parameters(),
             "requestBody": _schemas.validate_request_body(),
+        },
+    )
+    router.add_api_route(
+        "/read",
+        _guarded(state, read),
+        methods=["POST"],
+        summary="Read one DIGGS document into a diggs-model document",
+        operation_id="read",
+        responses=_schemas.read_responses(),
+        openapi_extra={
+            "parameters": _schemas.read_parameters(),
+            "requestBody": _schemas.read_request_body(),
         },
     )
     if settings.versions_enabled:
@@ -627,7 +750,7 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
         >>> app = FastAPI()
         >>> app.include_router(create_router(ServerSettings(workers=1)))
         >>> sorted(app.openapi()["paths"])[:2]
-        ['/v1/readyz', '/v1/rules']
+        ['/v1/read', '/v1/readyz']
     """
     settings = settings if settings is not None else ServerSettings()
     isolation = settings.isolation or "thread"

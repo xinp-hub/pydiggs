@@ -1,7 +1,7 @@
 // pydiggs in a module Web Worker. Loads Pyodide once, installs pydiggs with deps=False,
 // warms it up, then answers validation requests:
 //
-//   page -> worker  { id, type: "validate", name, data: ArrayBuffer }   (transfer `data`)
+//   page -> worker  { id, type: "validate" | "read", name, data: ArrayBuffer }   (transfer `data`)
 //   worker -> page  { type: "ready", versions }                         once, after loading
 //                   { type: "failed", message }                         loading failed
 //                   { id, type: "result", document }                    a diggs-findings 1.0 document
@@ -69,6 +69,18 @@ def validate(data, name, max_bytes):
         return json.dumps({"error": str(exc)})
     return report.to_json(indent=None)
 
+def read(data, name, max_bytes):
+    # pydiggs.read_bytes is top-level from pydiggs 1.7.0. One JSON string goes back to
+    # JavaScript (JSON.parse), never a proxy of the Python object graph.
+    read_bytes = getattr(pydiggs, "read_bytes", None)
+    if read_bytes is None:
+        return json.dumps({"error": "this pydiggs has no read API (needs 1.7.0 or later)"})
+    try:
+        model = read_bytes(data.to_bytes(), name=name, results=False, max_bytes=max_bytes)
+    except (pydiggs.InstanceReadError, ValueError) as exc:  # DocumentError is a ValueError
+        return json.dumps({"error": str(exc)})
+    return model.to_json()
+
 versions = json.dumps({"pydiggs": pydiggs.__version__, "lxml": __import__("lxml").__version__})
 `;
 
@@ -81,7 +93,11 @@ async function load() {
     deps: false, // rich and the extras are not needed in the browser
   });
   pyodide.runPython(PYTHON_SETUP);
-  return { pyodide, validate: pyodide.globals.get("validate") };
+  return {
+    pyodide,
+    validate: pyodide.globals.get("validate"),
+    read: pyodide.globals.get("read"),
+  };
 }
 
 const loading = load();
@@ -96,14 +112,15 @@ loading.then(
 let queue = Promise.resolve();
 self.addEventListener("message", (event) => {
   const { id, type, name, data } = event.data ?? {};
-  if (type !== "validate" || !(data instanceof ArrayBuffer)) return;
+  if ((type !== "validate" && type !== "read") || !(data instanceof ArrayBuffer)) return;
   queue = queue.then(async () => {
     try {
       if (data.byteLength > MAX_BYTES) {
         throw new Error(`the document is larger than ${MAX_BYTES} bytes`);
       }
-      const { validate } = await loading;
-      const text = validate(new Uint8Array(data), String(name ?? "input.xml"), MAX_BYTES);
+      const loaded = await loading;
+      const run = type === "read" ? loaded.read : loaded.validate;
+      const text = run(new Uint8Array(data), String(name ?? "input.xml"), MAX_BYTES);
       const parsed = JSON.parse(text);
       if (parsed.error) {
         self.postMessage({ id, type: "error", message: parsed.error });

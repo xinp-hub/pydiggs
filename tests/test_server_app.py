@@ -740,6 +740,8 @@ def test_create_router_warns_about_thread_isolation_too(caplog, isolation):
         (Code.INTERNAL, 500, "internal"),
         (Code.CANCELLED, 500, "internal"),
         (Code.TIMEOUT, 504, "timeout"),
+        (Code.INVALID_DOCUMENT, 422, "invalid-document"),
+        (Code.RESULT_TOO_LARGE, 422, "result-too-large"),
     ],
 )
 def test_every_code_maps_to_a_problem(code, status, name):
@@ -747,6 +749,10 @@ def test_every_code_maps_to_a_problem(code, status, name):
     body = json.loads(response.body)
     assert (response.status_code, body["code"], body["status"]) == (status, name, status)
     assert body["correlation_id"] == "c1"
+
+
+def test_every_service_code_has_a_status():
+    assert set(_problems.STATUS_FOR_CODE) == set(Code)
 
 
 def test_problems_cap_errors_and_fall_back_to_generic_text():

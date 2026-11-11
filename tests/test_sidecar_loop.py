@@ -265,7 +265,10 @@ def test_initialize_errors_and_retry(session):
     s = session()
     reply = s.call("initialize", {"protocol_version": "2.0"})
     assert reply["error"]["code"] == -32009
-    assert reply["error"]["data"] == {"code": "unsupported-protocol-version", "supported": ["1.0"]}
+    assert reply["error"]["data"] == {
+        "code": "unsupported-protocol-version",
+        "supported": ["1.0", "1.1"],
+    }
     assert _slug(s.call("initialize", {})) == "invalid-params"
     assert s.initialize()["protocol_version"] == "1.0"  # a failed initialize can be retried
     assert _slug(s.call("initialize", {"protocol_version": "1.0"})) == "invalid-request"
@@ -596,8 +599,8 @@ def test_a_validation_not_yet_started_survives_shutdown(no_warm, gate):
     gate.release.set()
     server = Server(ServeOptions(), (), io.BytesIO(), io.BytesIO())
     server._phase = "ready"
-    server._submit_validate("a", {"content_base64": _content()})  # nothing running yet
-    server._submit_validate("b", {"content_base64": _content()})
+    server._submit_document("validate", "a", {"content_base64": _content()})  # nothing running yet
+    server._submit_document("validate", "b", {"content_base64": _content()})
     server._shutdown("s", {})
     assert [j.id for j in server._queue] == ["a", "s"]
 
@@ -700,6 +703,99 @@ def test_path_mode_end_to_end(session, root, capsys):
     assert document["files"][0]["path"] == "BH-01.xml"
     assert "absolute_path" not in document["files"][0] or not document["files"][0]["absolute_path"]
     assert str(root) not in json.dumps(document)
+
+
+# --- read (protocol 1.1) -----------------------------------------------------------------------
+
+CPT = ROOT / "tests" / "fixtures" / "official" / "2.6" / "CPT_and_PorePressureDissipation.xml"
+
+
+def _initialize_1_1(s: Session) -> dict:
+    reply = s.call("initialize", {"protocol_version": "1.1"}, id="init")
+    return reply["result"]
+
+
+def test_protocol_1_1_advertises_read(session):
+    s = session()
+    result = _initialize_1_1(s)
+    assert result["protocol_version"] == "1.1"
+    assert result["capabilities"]["read"] == {"content": True, "path": False, "select": True}
+    assert result["model_schema_version"] == pydiggs.MODEL_SCHEMA_VERSION
+    assert result["model_schema_url"] == pydiggs.MODEL_SCHEMA_URL
+    assert result["limits"]["max_result_bytes"] == 256 * 2**20
+
+
+def test_read_answers_the_document_read_bytes_gives(session):
+    _service._read_cache.clear()
+    data = CPT.read_bytes()
+    s = session(options=ServeOptions(max_bytes=len(data) + 10))
+    _initialize_1_1(s)
+    document = s.call("read", {"content_base64": _content(data), "name": "up/cpt.xml"})["result"]
+    assert document == json.loads(pydiggs.read_bytes(data, name="cpt.xml").to_json())
+    inventory = s.call(
+        "read", {"content_base64": _content(data), "select": {"results": "none"}}, id=2
+    )["result"]
+    assert inventory == json.loads(pydiggs.read_bytes(data, results=False).to_json())
+    key = next(m["key"] for m in inventory["measurements"] if m["results"])
+    one = s.call("read", {"content_base64": _content(data), "select": {"results": [key]}}, id=3)[
+        "result"
+    ]
+    filled = [
+        m["key"]
+        for m in one["measurements"]
+        if any(c["values"] for table in m["results"] for c in table["columns"])
+    ]
+    assert filled == [key]
+
+
+def test_read_errors(session):
+    s = session()
+    _initialize_1_1(s)
+    bad = s.call("read", {"content_base64": _content(b"<html/>")})
+    assert _slug(bad) == "invalid-document"
+    assert bad["error"]["code"] == -32010
+    assert bad["error"]["data"]["kind"] == "not-diggs"
+    select = s.call("read", {"content_base64": _content(), "select": {"results": 5}}, id=2)
+    assert _slug(select) == "invalid-params"
+    assert [e["param"] for e in select["error"]["data"]["errors"]] == ["select"]
+    for params in (
+        {"content_base64": _content(), "select": "none"},
+        {"content_base64": _content(), "checks": ["schema"]},
+        {},
+    ):
+        assert _slug(s.call("read", params, id=3)) == "invalid-params"
+
+
+def test_a_read_result_over_the_limit_is_result_too_large(session, monkeypatch):
+    monkeypatch.setattr(_protocol, "MAX_RESULT_BYTES", 64)
+    s = session()
+    _initialize_1_1(s)
+    reply = s.call("read", {"content_base64": _content()})
+    assert _slug(reply) == "result-too-large"
+    assert reply["error"]["data"]["max_result_bytes"] == 64
+
+
+def test_read_by_path(session, root):
+    s = session(roots=(root,))
+    assert _initialize_1_1(s)["capabilities"]["read"]["path"] is True
+    document = s.call("read", {"path": str(root / "BH-01.xml")})["result"]
+    assert document["source"]["name"] == "BH-01.xml"
+    assert str(root) not in json.dumps(document)
+    outside = s.call("read", {"path": str(root.parent / "outside" / "secret.xml")}, id=2)
+    assert _slug(outside) == "path-not-permitted"
+
+
+def test_a_queued_read_can_be_cancelled(session, gate):
+    s = session()
+    _initialize_1_1(s)
+    s.send("validate", {"content_base64": _content()}, 1)
+    gate.started.get(timeout=TIMEOUT)
+    s.send("read", {"content_base64": _content()}, 2)
+    s.send("$/cancelRequest", {"id": 2})
+    reply = s.recv()
+    assert reply["id"] == 2 and _slug(reply) == "cancelled"
+    gate.release.set()
+    assert s.recv()["id"] == 1
 
 
 # --- process setup (serve) ---------------------------------------------------------------------

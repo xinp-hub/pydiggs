@@ -90,7 +90,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, or unreadable input",
+            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -128,7 +128,7 @@
             }
           },
           "504": {
-            "description": "Validation passed the hard time limit (process isolation)",
+            "description": "The request passed the hard time limit (process isolation)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -231,6 +231,234 @@
         }
       }
     },
+    "/v1/read": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Read one DIGGS document into a diggs-model document",
+        "operationId": "read",
+        "responses": {
+          "200": {
+            "description": "A diggs-model 1.0 document: what pydiggs.read() returns for the same bytes. A schema-invalid file still reads (run /v1/validate for a verdict); an exhausted time budget is a 200 with complete: false.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiggsModelDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows neither JSON nor SARIF",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "File name to report (reduced to a basename)."
+          },
+          {
+            "name": "diggs_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "2.5.a",
+                "2.6",
+                "3.0.0",
+                "3.1-dev"
+              ]
+            },
+            "description": "DIGGS version (default: detected)."
+          },
+          {
+            "name": "select",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 65536,
+              "contentMediaType": "application/json",
+              "examples": [
+                "{\"results\": \"none\"}",
+                "{\"results\": [\"Test_1\", \"Test_2\"]}"
+              ]
+            },
+            "description": "JSON text: {\"results\": \"all\" | \"none\" | [node keys]}. Which result tables keep their values (default: all); the others keep their columns and row_count."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "diggs_version": {
+                    "enum": [
+                      "2.5.a",
+                      "2.6",
+                      "3.0.0",
+                      "3.1-dev"
+                    ]
+                  },
+                  "select": {
+                    "type": "string",
+                    "maxLength": 65536,
+                    "contentMediaType": "application/json",
+                    "examples": [
+                      "{\"results\": \"none\"}",
+                      "{\"results\": [\"Test_1\", \"Test_2\"]}"
+                    ]
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/xml, text/xml, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/versions": {
       "get": {
         "tags": [
@@ -304,7 +532,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, or unreadable input",
+            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -377,7 +605,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, or unreadable input",
+            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -887,6 +1115,1485 @@
           "context"
         ]
       },
+      "DiggsModelAssociate": {
+        "description": "A BusinessAssociate.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelCode"
+            }
+          }
+        }
+      },
+      "DiggsModelCode": {
+        "type": "object",
+        "required": [
+          "value",
+          "code_space"
+        ],
+        "properties": {
+          "value": {
+            "type": "string"
+          },
+          "code_space": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DiggsModelColumn": {
+        "type": "object",
+        "required": [
+          "name",
+          "key",
+          "definition",
+          "uom",
+          "type",
+          "null_value",
+          "values"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "propertyClass fragment, e.g. liquid_limit."
+          },
+          "definition": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "examples": [
+              "number",
+              "string",
+              "boolean",
+              "datetime"
+            ]
+          },
+          "null_value": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": [
+                "number",
+                "string",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "si_uom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "si_factor": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "si_offset": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "DiggsModelComponent": {
+        "description": "A record nested inside another node (a casing, water strike, well opening, SPT drive set, cone, constituent ...), kept as a node of its own.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "The DIGGS property that holds it. Open vocabulary.",
+            "examples": [
+              "casing",
+              "waterStrike",
+              "driveSet",
+              "constituent"
+            ]
+          },
+          "interval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelInterval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelTimeSpan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelComponent"
+            }
+          }
+        }
+      },
+      "DiggsModelCrsComponent": {
+        "type": "object",
+        "required": [
+          "epsg",
+          "name",
+          "type",
+          "unit",
+          "axis_order",
+          "datum",
+          "components"
+        ],
+        "properties": {
+          "epsg": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "geographic_2d",
+              "geographic_3d",
+              "projected",
+              "vertical",
+              "geocentric",
+              "compound"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The axes' unit when they share one."
+          },
+          "axis_order": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "lat,lon",
+              "east,north",
+              "up"
+            ]
+          },
+          "datum": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "EPSG codes of a compound CRS's parts."
+          }
+        },
+        "description": "One component of a CRS. Facts come from pyDIGGS's EPSG subset (EPSG Dataset, owned by IOGP; see pydiggs.crs.epsg_source()); a code not in it has only epsg."
+      },
+      "DiggsModelCrsRef": {
+        "type": "object",
+        "required": [
+          "srs_name",
+          "form",
+          "name",
+          "horizontal",
+          "vertical",
+          "axis_order",
+          "unit",
+          "known",
+          "local"
+        ],
+        "properties": {
+          "srs_name": {
+            "type": "string",
+            "description": "As written."
+          },
+          "form": {
+            "type": "string",
+            "examples": [
+              "epsg",
+              "diggs",
+              "ogc",
+              "local",
+              "unknown"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "horizontal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelCrsComponent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vertical": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelCrsComponent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "axis_order": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "examples": [
+              "lat,lon",
+              "east,north"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The coordinates' unit when the CRS states one (a projected CRS's, or a linear referencing method's units)."
+          },
+          "known": {
+            "type": "boolean",
+            "description": "Whether pyDIGGS found what it names: the EPSG codes in its subset, or the gml:id in the file."
+          },
+          "local": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "gml:id of a local or linear referencing system defined in the file."
+          }
+        }
+      },
+      "DiggsModelDocument": {
+        "title": "diggs-model 1.0",
+        "description": "The normalised, version-agnostic model of one DIGGS file that pydiggs.read() returns (pyDIGGS 1.7 and later). Open for consumers: objects accept unknown fields and string vocabularies are open, so a 1.0 consumer accepts any 1.x document. A new optional field or vocabulary value is a minor version; anything else is a new major. Coordinates and values are kept as written; nothing is converted or transformed silently.",
+        "type": "object",
+        "required": [
+          "schema_version",
+          "tool",
+          "source",
+          "complete",
+          "document",
+          "projects",
+          "associates",
+          "features",
+          "sampling_activities",
+          "samples",
+          "observations",
+          "measurements",
+          "others",
+          "crs",
+          "links",
+          "notes"
+        ],
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "description": "URL of the schema the document follows."
+          },
+          "schema_version": {
+            "type": "string",
+            "pattern": "^1\\.[0-9]+(-(draft|beta\\.[0-9]+))?$",
+            "description": "Major.minor of diggs-model; pre-releases add -draft or -beta.N.",
+            "examples": [
+              "1.0-draft",
+              "1.0-beta.1",
+              "1.0"
+            ]
+          },
+          "tool": {
+            "type": "object",
+            "required": [
+              "name",
+              "version"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "source": {
+            "$ref": "#/components/schemas/DiggsModelSource"
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "False when a limit stopped reading; members read so far are kept."
+          },
+          "limits_hit": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "examples": [
+                "time_budget"
+              ]
+            },
+            "description": "Which limits stopped reading; empty when complete."
+          },
+          "document": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelDocumentInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The DocumentInformation member, if any."
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelProject"
+            }
+          },
+          "associates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelAssociate"
+            }
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelFeature"
+            },
+            "description": "Sampling features: boreholes, soundings, wells, and every other kind."
+          },
+          "sampling_activities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelSamplingActivity"
+            }
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelSample"
+            }
+          },
+          "observations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelObservation"
+            }
+          },
+          "measurements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelMeasurement"
+            },
+            "description": "Tests, monitors, surveys: every measurement member."
+          },
+          "others": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelOther"
+            },
+            "description": "Top-level members with no typed mapper yet (header, links, extra)."
+          },
+          "crs": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DiggsModelCrsRef"
+            },
+            "description": "Every coordinate reference system used, by key (the srsName as written)."
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelLink"
+            },
+            "description": "Every edge in document order; both directions are derivable."
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsFindingsFinding"
+            },
+            "description": "What reading had to work around, as diggs-findings findings. Notes are not a validity verdict."
+          }
+        }
+      },
+      "DiggsModelDocumentInfo": {
+        "description": "The DocumentInformation member.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "creation_date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DiggsModelDomain": {
+        "type": "object",
+        "required": [
+          "shape",
+          "index",
+          "crs"
+        ],
+        "properties": {
+          "shape": {
+            "type": "string",
+            "examples": [
+              "point",
+              "interval",
+              "temporal",
+              "grid2d",
+              "grid3d",
+              "none"
+            ]
+          },
+          "index": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelColumn"
+            },
+            "description": "Columns that place each row: position (position_1 ... for more axes) for a multi-point location, top and base for one interval per row."
+          },
+          "crs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "srsName of the index values; key into the model's crs table."
+          }
+        }
+      },
+      "DiggsModelExtraNode": {
+        "type": "object",
+        "required": [
+          "qname",
+          "ns",
+          "attrs",
+          "text",
+          "children",
+          "line"
+        ],
+        "description": "A child element no typed field consumed, kept in document order.",
+        "properties": {
+          "qname": {
+            "type": "string"
+          },
+          "ns": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "attrs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelExtraNode"
+            }
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      },
+      "DiggsModelFeature": {
+        "description": "A sampling feature.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "centerline": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelPosition"
+            }
+          },
+          "total_depth": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelQuantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lrs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "when_constructed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelTimeSpan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "construction": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelComponent"
+            },
+            "description": "How the feature was built: method, casing, backfill, hole diameter, flush, advancement, events; a well's casing, openings and installation events."
+          },
+          "water_strikes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelComponent"
+            }
+          },
+          "parent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          }
+        }
+      },
+      "DiggsModelFieldLocation": {
+        "type": "object",
+        "required": [
+          "xpath",
+          "line"
+        ],
+        "description": "Where one value of a node was read, relative to the node's xpath.",
+        "properties": {
+          "xpath": {
+            "type": "string",
+            "description": "e.g. diggs:totalMeasuredDepth[1]"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      },
+      "DiggsModelHeader": {
+        "type": "object",
+        "required": [
+          "key",
+          "gml_id",
+          "element",
+          "kind",
+          "name",
+          "names",
+          "params",
+          "provenance",
+          "extra"
+        ],
+        "description": "Fields every node starts with.",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "gml:id when present and unique, else '@' + xpath. Unique in the model."
+          },
+          "gml_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "element": {
+            "type": "string",
+            "description": "DIGGS element name, after version aliases.",
+            "examples": [
+              "Borehole",
+              "Test"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "description": "Open vocabulary.",
+            "examples": [
+              "borehole",
+              "sounding",
+              "well",
+              "test",
+              "lithology"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "remarks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "params": {
+            "$ref": "#/components/schemas/DiggsModelParams"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/DiggsModelProvenance"
+          },
+          "extra": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelExtraNode"
+            }
+          }
+        }
+      },
+      "DiggsModelInterval": {
+        "type": "object",
+        "required": [
+          "top",
+          "base",
+          "lrs"
+        ],
+        "properties": {
+          "top": {
+            "$ref": "#/components/schemas/DiggsModelQuantity"
+          },
+          "base": {
+            "$ref": "#/components/schemas/DiggsModelQuantity"
+          },
+          "lrs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "crs key of the linear referencing system."
+          }
+        }
+      },
+      "DiggsModelLink": {
+        "type": "object",
+        "required": [
+          "source",
+          "relation",
+          "target",
+          "href",
+          "resolved"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Key of another node in this model."
+          },
+          "relation": {
+            "type": "string",
+            "description": "Element name without 'Ref'. Open vocabulary.",
+            "examples": [
+              "project",
+              "samplingFeature",
+              "sample",
+              "samplingActivity"
+            ]
+          },
+          "target": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "href": {
+            "type": "string"
+          },
+          "resolved": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DiggsModelLithologyLayer": {
+        "description": "One layer of a lithology observation.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "interval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelInterval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "classification": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelCode"
+            },
+            "description": "Shortcut: the primary lithology's classification codes (classificationCode, classificationSymbol, legendCode, lithologyClassification)."
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelCode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Shortcut: the primary lithology's colour code."
+          },
+          "geologic_unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The unit name the layer gives."
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelComponent"
+            },
+            "description": "The layer's lithologies (primaryLithology, componentLithology), each with its constituents and colour nested."
+          }
+        }
+      },
+      "DiggsModelMeasurement": {
+        "description": "A measurement: Test, Monitor, GeophysicalFieldSurvey, ...",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "feature": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Key of another node in this model."
+            }
+          },
+          "specimen": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "result_time": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelTimeSpan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "procedure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelProcedure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelResultTable"
+            },
+            "description": "Every result set under the measurement (outcome and procedure); columns have no values when read with results=False."
+          }
+        }
+      },
+      "DiggsModelObservation": {
+        "description": "An observation system (lithology typed; others generic).",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "system": {
+            "type": "string",
+            "examples": [
+              "LithologySystem",
+              "DiscontinuitySystem"
+            ]
+          },
+          "feature": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelLithologyLayer"
+            }
+          }
+        }
+      },
+      "DiggsModelOther": {
+        "description": "A top-level member with no typed mapper yet.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelResultTable"
+            },
+            "description": "Every result set under the member."
+          }
+        }
+      },
+      "DiggsModelParam": {
+        "description": "A simple value: a quantity (the element had a uom), a code (a codeSpace) or text.",
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelQuantity"
+          },
+          {
+            "$ref": "#/components/schemas/DiggsModelCode"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "DiggsModelParams": {
+        "type": "object",
+        "description": "Simple values by DIGGS element name: every child with no child elements that appears once and has no attribute but uom or codeSpace. Everything else stays in extra.",
+        "additionalProperties": {
+          "$ref": "#/components/schemas/DiggsModelParam"
+        }
+      },
+      "DiggsModelPosition": {
+        "type": "object",
+        "required": [
+          "coordinates",
+          "dim",
+          "crs",
+          "geographic",
+          "transformed_by"
+        ],
+        "properties": {
+          "coordinates": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "As written, in the CRS's own axis order."
+          },
+          "dim": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "crs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Key into the model's crs table."
+          },
+          "geographic": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "lon",
+              "lat",
+              "datum"
+            ],
+            "description": "Filled in core only for geographic CRSs; datum recorded, never shifted.",
+            "properties": {
+              "lon": {
+                "type": "number"
+              },
+              "lat": {
+                "type": "number"
+              },
+              "h": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "datum": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "transformed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set only by pydiggs[gis], e.g. 'pydiggs[gis] pyproj 3.8'."
+          }
+        }
+      },
+      "DiggsModelProcedure": {
+        "type": "object",
+        "required": [
+          "type",
+          "params",
+          "components",
+          "extra"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Procedure element. Open vocabulary.",
+            "examples": [
+              "DrivenPenetrationTest",
+              "StaticConePenetrationTest",
+              "AtterbergLimitsTest"
+            ]
+          },
+          "params": {
+            "$ref": "#/components/schemas/DiggsModelParams"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelComponent"
+            },
+            "description": "Nested records: SPT drive sets, equipment, trials, sieve analyses ..."
+          },
+          "extra": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelExtraNode"
+            }
+          }
+        }
+      },
+      "DiggsModelProject": {
+        "description": "A Project.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "client": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "locality": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DiggsModelProvenance": {
+        "type": "object",
+        "required": [
+          "xpath",
+          "line",
+          "fields"
+        ],
+        "description": "Where the node is, in the same form as a diggs-findings location.",
+        "properties": {
+          "xpath": {
+            "type": "string",
+            "description": "e.g. /diggs:Diggs[1]/diggs:samplingFeature[2]/diggs:Borehole[1]"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "fields": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Filled only by read(..., provenance=\"field\"): for each child element the node read a value from, keyed by its local name (name[2] for a second one).",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DiggsModelFieldLocation"
+            }
+          }
+        }
+      },
+      "DiggsModelQuantity": {
+        "type": "object",
+        "required": [
+          "text",
+          "value",
+          "uom",
+          "si"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Exactly as reported."
+          },
+          "value": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "uom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "si": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "value",
+              "uom"
+            ],
+            "description": "Present only when the unit converts; never silently.",
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "uom": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "DiggsModelResultTable": {
+        "type": "object",
+        "required": [
+          "domain",
+          "columns",
+          "row_count",
+          "location",
+          "extent"
+        ],
+        "properties": {
+          "domain": {
+            "$ref": "#/components/schemas/DiggsModelDomain"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsModelColumn"
+            }
+          },
+          "row_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelPosition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The single point the whole table was measured at, when the result gives one."
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelInterval"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The single interval the whole table was measured over, when the result gives one."
+          }
+        }
+      },
+      "DiggsModelSample": {
+        "description": "A Sample. interval, method and recovery are copied from the sampling activity that produced it; type is its classification.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "feature": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "sampling_activity": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "interval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelInterval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recovery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelQuantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "DiggsModelSamplingActivity": {
+        "description": "A SamplingActivity.",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/DiggsModelHeader"
+          }
+        ],
+        "type": "object",
+        "required": [],
+        "properties": {
+          "feature": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "description": "Key of another node in this model, or null."
+          },
+          "interval": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelInterval"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recovery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelQuantity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "date": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsModelTimeSpan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "DiggsModelSource": {
+        "type": "object",
+        "required": [
+          "name",
+          "sha256",
+          "size",
+          "diggs_version",
+          "namespace",
+          "detected"
+        ],
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Of the bytes as read; scopes every key."
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "diggs_version": {
+            "type": "string",
+            "examples": [
+              "2.5.a",
+              "2.6",
+              "3.0.0",
+              "3.1-dev"
+            ]
+          },
+          "namespace": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "detected": {
+            "type": "boolean",
+            "description": "False when the caller named the version."
+          }
+        }
+      },
+      "DiggsModelTimeSpan": {
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "description": "A time instant (start only) or interval, each end exactly as written.",
+        "properties": {
+          "start": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "end": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "Problem": {
         "title": "Problem",
         "description": "RFC 9457 problem details. Switch on `code`; every text is fixed.",
@@ -920,6 +2627,7 @@
               "input-too-large",
               "input-unreadable",
               "internal",
+              "invalid-document",
               "invalid-host",
               "invalid-multipart",
               "invalid-parameter",
@@ -930,6 +2638,7 @@
               "not-ready",
               "request-timeout",
               "resource-error",
+              "result-too-large",
               "timeout",
               "unsupported-media-type"
             ]
@@ -955,6 +2664,15 @@
           },
           "correlation_id": {
             "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "For invalid-document: why the bytes are not a DIGGS document.",
+            "examples": [
+              "malformed",
+              "not-diggs",
+              "unsafe-entity"
+            ]
           }
         }
       },

@@ -4,7 +4,9 @@
     `pydiggs.read()` returns **diggs-model 1.0**, which changes only as described under
     [Versioning](#versioning). pyDIGGS 1.6 had the same API as a preview in
     `pydiggs.preview`; that module still works, with a `DeprecationWarning`, until 2.0.
-    MCP read tools follow in 1.8.0.
+    The same document is available over HTTP ([`POST /v1/read`](http-api.md#post-v1read)),
+    from the stdio sidecar ([`read`](sidecar.md#read)) and in the browser
+    ([Pyodide](browser.md)). MCP read tools follow in 1.8.0.
 
     Comments are welcome as [GitHub issues](https://github.com/xinp-hub/pydiggs/issues).
 
