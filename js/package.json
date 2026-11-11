@@ -1,0 +1,75 @@
+{
+  "name": "@pydiggs/client",
+  "version": "0.1.0",
+  "description": "TypeScript types and thin clients for pyDIGGS, the DIGGS geotechnical XML validator and reader: its HTTP API, and pydiggs itself in the browser on Pyodide. Not a JavaScript port.",
+  "license": "Apache-2.0",
+  "author": "Xin Peng",
+  "homepage": "https://xinp-hub.github.io/pydiggs/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xinp-hub/pydiggs.git",
+    "directory": "js"
+  },
+  "bugs": "https://github.com/xinp-hub/pydiggs/issues",
+  "keywords": [
+    "DIGGS",
+    "geotechnical",
+    "borehole",
+    "XML",
+    "validation",
+    "pydiggs",
+    "pyodide",
+    "typescript"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./dist/browser-worker.js"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "dist",
+    "schemas"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./http": {
+      "types": "./dist/http.d.ts",
+      "default": "./dist/http.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "default": "./dist/browser.js"
+    },
+    "./browser/worker": {
+      "types": "./dist/browser-worker.d.ts",
+      "default": "./dist/browser-worker.js"
+    },
+    "./schemas/*.json": "./schemas/*.json",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "generate:check": "node scripts/generate.mjs --check",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "build": "tsdown",
+    "lint:package": "publint --strict && attw --pack . --profile esm-only",
+    "check": "npm run generate:check && npm run typecheck && npm test && npm run build && npm run lint:package",
+    "prepublishOnly": "npm run check"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@types/node": "^26.6.6",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.7",
+    "typescript": "^7.0.2"
+  }
+}
