@@ -36,6 +36,23 @@ updates:
       pyodide:
         patterns: ["*"]
 
+  # The build tools of the npm package (js/). It has no runtime dependencies, so these
+  # are development tools only; they still build what is published, so they wait out
+  # the FORGE-standard 14-day cooldown.
+  - package-ecosystem: npm
+    directory: /js
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "build"
+    groups:
+      js-build-tools:
+        patterns: ["*"]
+
   # The container image's two bases (Dockerfile), pinned by digest: the uv builder and
   # the python:3.14-slim-trixie runtime. They must move to the same Python patch release,
   # so they share one group and one PR.

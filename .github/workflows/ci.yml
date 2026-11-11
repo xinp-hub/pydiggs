@@ -347,10 +347,43 @@ jobs:
       - name: Compare every corpus file with the reader census in conformance/model.toml
         run: uv run --no-sync python scripts/conformance.py check --model
 
+  # The npm package (js/): TypeScript types and clients for the contracts this repository
+  # owns. Its types, pins and schema copies are generated from the JSON Schemas, the
+  # OpenAPI document and the browser example, so a change to any of those fails the
+  # first step here until `npm run generate` is run in js/ and committed.
+  js:
+    name: npm package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: js
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: js/package-lock.json
+      - name: Generated files match the contracts (needs no dependencies)
+        run: node scripts/generate.mjs --check
+      - name: Install the build tools (no install scripts)
+        run: npm ci --ignore-scripts
+      - name: Type check
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Check the packed tarball (publint, Are the Types Wrong)
+        run: npm run lint:package
+
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance]
+    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, js]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
