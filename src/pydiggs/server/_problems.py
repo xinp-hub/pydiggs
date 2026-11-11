@@ -59,7 +59,9 @@ PROBLEMS: Final[Mapping[str, tuple[int, str]]] = {
     "compressed-input": (415, "Compressed input refused"),
     "unsupported-media-type": (415, "Unsupported media type"),
     "input-unreadable": (422, "Input unreadable"),
+    "invalid-document": (422, "Not a DIGGS document"),
     "invalid-parameter": (422, "Invalid parameter"),
+    "result-too-large": (422, "Result too large"),
     "resource-error": (500, "Bundled reference data unavailable"),
     "internal": (500, "Internal error"),
     "busy": (503, "Server busy"),
@@ -73,6 +75,8 @@ STATUS_FOR_CODE: Final[Mapping[Code, int]] = {
     Code.COMPRESSED_INPUT: 415,
     Code.INPUT_UNREADABLE: 422,
     Code.INVALID_PARAMETER: 422,
+    Code.INVALID_DOCUMENT: 422,
+    Code.RESULT_TOO_LARGE: 422,
     Code.RESOURCE_ERROR: 500,
     Code.INTERNAL: 500,
     Code.CANCELLED: 500,  # the HTTP adapter never cancels; fail closed if it ever happens
@@ -101,6 +105,7 @@ def problem(
     *,
     errors: tuple[tuple[str, str], ...] = (),
     correlation_id: str | None = None,
+    kind: str | None = None,
     headers: Mapping[str, str] | None = None,
 ) -> Response:
     """An ``application/problem+json`` response for the problem ``code``.
@@ -110,6 +115,7 @@ def problem(
         detail: A fixed, safe text (never a client value or a path).
         errors: ``(parameter, problem)`` pairs; at most :data:`MAX_ERRORS` are sent.
         correlation_id: Ties a 500 answer to the log line with the real text.
+        kind: For ``invalid-document``: why the bytes are not a DIGGS document.
         headers: Extra headers (``Retry-After``, ``Allow``).
 
     Returns:
@@ -132,6 +138,8 @@ def problem(
         body["errors"] = [{"parameter": p, "problem": t} for p, t in errors[:MAX_ERRORS]]
     if correlation_id is not None:
         body["correlation_id"] = correlation_id
+    if kind is not None:
+        body["kind"] = kind
     return Response(
         json.dumps(body, ensure_ascii=True).encode("ascii"),
         status_code=status,
@@ -141,7 +149,7 @@ def problem(
 
 
 def from_outcome(outcome: Outcome) -> Response:
-    """The problem response for a validation that produced no document.
+    """The problem response for a validation or a read that produced no document.
 
     Examples:
         >>> from pydiggs._service import Code, Outcome
@@ -156,6 +164,7 @@ def from_outcome(outcome: Outcome) -> Response:
         outcome.detail or _GENERIC_INTERNAL,
         errors=outcome.errors,
         correlation_id=outcome.correlation_id,
+        kind=outcome.kind,
         headers={"Connection": "close"} if status == 413 else None,  # noqa: PLR2004
     )
 

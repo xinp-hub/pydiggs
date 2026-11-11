@@ -22,6 +22,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Read note `structure.duplicate-gml-id` (warning): two or more elements share one
   `gml:id`. Each copy is keyed by its xpath, and a link to the id resolves to the first.
 - `pydiggs.crs.SUPPORTED_SRS_FORMS`.
+- **HTTP API:** `POST /v1/read` returns the diggs-model document for an uploaded file,
+  with the same limits, isolation and problem responses as `/v1/validate`. Bytes that
+  are not a DIGGS document are 422 `invalid-document` (with `kind`). The OpenAPI
+  document carries the model schema as `DiggsModel*` components.
+- **Stdio sidecar:** a `read` method, in protocol **1.1** (1.0 hosts are answered as
+  before). New errors `invalid-document` (-32010) and `result-too-large` (-32011);
+  `initialize` reports `model_schema_version`, `model_schema_url`,
+  `capabilities.read` and `limits.max_result_bytes`.
+- On both, `select` (`{"results": "all" | "none" | [node keys]}`) chooses which result
+  tables keep their values, so a host can list a large file first and fetch tables
+  after. Every surface returns the bytes `pydiggs.read_bytes(...).to_json()` gives.
+- **Browser (Pyodide):** `read_bytes` is tested in Pyodide, byte for byte against
+  CPython, and the Web Worker example shows what a file contains after validating it.
 
 ### Changed
 - diggs-model documents say `"schema_version": "1.0"` (1.6.0 wrote `1.0-beta.2`; the

@@ -20,7 +20,9 @@ let nextId = 1;
 // choosing a huge file cannot exhaust the tab's memory first.
 const MAX_BYTES = 25 * 1024 * 1024;
 
-function validate(file) {
+// Ask the worker to "validate" (a diggs-findings document) or "read" (a diggs-model
+// document without table values: an inventory of what is in the file).
+function ask(type, file) {
   if (file.size > MAX_BYTES) {
     return Promise.reject(new Error(`the document is larger than ${MAX_BYTES} bytes`));
   }
@@ -29,9 +31,22 @@ function validate(file) {
       new Promise((resolve, reject) => {
         const id = nextId++;
         pending.set(id, { resolve, reject });
-        worker.postMessage({ id, type: "validate", name: file.name, data }, [data]);
+        worker.postMessage({ id, type, name: file.name, data }, [data]);
       }),
   );
+}
+
+// One line from the diggs-model document: what the file holds, by kind.
+function contents(model) {
+  const count = (items, noun) => `${items.length} ${noun}${items.length === 1 ? "" : "s"}`;
+  const tables = model.measurements.reduce((sum, m) => sum + m.results.length, 0);
+  return [
+    `DIGGS ${model.source.diggs_version}`,
+    count(model.features, "feature"),
+    count(model.samples, "sample"),
+    count(model.measurements, "measurement"),
+    `${tables} result table${tables === 1 ? "" : "s"}`,
+  ].join(", ");
 }
 
 worker.addEventListener("message", (event) => {
@@ -99,8 +114,16 @@ fileInput.addEventListener("change", async () => {
   statusLine.textContent = "Validating…";
   try {
     const started = performance.now();
-    render(await validate(file));
-    statusLine.textContent = `Validated in ${((performance.now() - started) / 1000).toFixed(2)} s.`;
+    render(await ask("validate", file));
+    const seconds = ((performance.now() - started) / 1000).toFixed(2);
+    statusLine.textContent = `Validated in ${seconds} s.`;
+    try {
+      // Reading is separate from validating: an invalid file usually still reads.
+      const model = await ask("read", file);
+      statusLine.textContent = `Validated in ${seconds} s. Contains: ${contents(model)}.`;
+    } catch (error) {
+      statusLine.textContent = `Validated in ${seconds} s. Not read: ${error.message}`;
+    }
   } catch (error) {
     reportSection.replaceChildren();
     statusLine.className = "error";

@@ -107,6 +107,9 @@ _FIXED_TEXT: Final = {
     Code.INTERNAL: "An internal error occurred.",
     Code.CANCELLED: "The request was cancelled.",
     Code.TIMEOUT: "Validation did not finish within the time limit; the file was not checked.",
+    # The read codes: no tool reads yet (the read tools are planned for 1.8.0).
+    Code.INVALID_DOCUMENT: "The bytes are not a DIGGS document.",
+    Code.RESULT_TOO_LARGE: "The result is larger than this server sends.",
 }
 
 _log = logging.getLogger("pydiggs.mcp")

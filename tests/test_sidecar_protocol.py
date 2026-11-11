@@ -39,6 +39,8 @@ def test_error_codes_are_unique_and_application_codes_sit_in_the_pydiggs_band():
         "resource-error": -32007,
         "cancelled": -32008,
         "unsupported-protocol-version": -32009,
+        "invalid-document": -32010,
+        "result-too-large": -32011,
     }
     assert all(-32099 <= c <= -32000 for c in app.values())
 
@@ -206,11 +208,12 @@ def test_bad_initialize_params(params):
 
 def test_negotiation():
     assert _protocol.negotiate("1.0") == "1.0"
-    assert _protocol.negotiate("1.9999") == "1.0"
+    assert _protocol.negotiate("1.1") == "1.1"
+    assert _protocol.negotiate("1.9999") == "1.1"
     for bad in ("0.9", "2.0"):
         error = _problem(lambda v=bad: _protocol.negotiate(v))
         assert error.error.slug == "unsupported-protocol-version"
-        assert error.data()["supported"] == ["1.0"]
+        assert error.data()["supported"] == ["1.0", "1.1"]
 
 
 def test_unknown_params_are_refused_with_safe_names():
@@ -310,15 +313,16 @@ def test_the_committed_openrpc_document_matches_the_code():
     committed = json.loads(
         resources.files("pydiggs.sidecar").joinpath("openrpc.json").read_text("utf-8")
     )
-    expected = _protocol.openrpc_document(pydiggs.FINDINGS_SCHEMA_URL)
+    expected = _protocol.openrpc_document(pydiggs.FINDINGS_SCHEMA_URL, pydiggs.MODEL_SCHEMA_URL)
     assert committed == expected, (
         "openrpc.json is stale: regenerate it from"
-        " pydiggs.sidecar._protocol.openrpc_document(pydiggs.FINDINGS_SCHEMA_URL)"
+        " pydiggs.sidecar._protocol.openrpc_document(FINDINGS_SCHEMA_URL, MODEL_SCHEMA_URL)"
     )
     names = [m["name"] for m in committed["methods"]]
     assert names == [
         "initialize",
         "validate",
+        "read",
         "ping",
         "versions",
         "rules.list",

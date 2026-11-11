@@ -34,6 +34,7 @@ __all__ = [
     "check_empty",
     "check_explain",
     "check_initialize",
+    "check_read",
     "check_rules_list",
     "check_validate",
     "error_frame",
@@ -47,9 +48,11 @@ __all__ = [
 ]
 
 #: The protocol version this build speaks best.
-PROTOCOL_VERSION: Final = "1.0"
-#: Every protocol version this build can answer, oldest first.
-SUPPORTED_VERSIONS: Final = ("1.0",)
+PROTOCOL_VERSION: Final = "1.1"
+#: Every protocol version this build can answer, oldest first. 1.1 adds ``read``.
+SUPPORTED_VERSIONS: Final = ("1.0", "1.1")
+#: Largest ``read`` result sent; a larger one is ``result-too-large`` (use ``select``).
+MAX_RESULT_BYTES: Final = 256 * 2**20
 
 #: Longest string id accepted on a request.
 MAX_ID_CHARS: Final = 256
@@ -96,6 +99,8 @@ class ErrorCode(Enum):
     RESOURCE_ERROR = (-32007, "resource-error")
     CANCELLED = (-32008, "cancelled")
     UNSUPPORTED_PROTOCOL_VERSION = (-32009, "unsupported-protocol-version")
+    INVALID_DOCUMENT = (-32010, "invalid-document")
+    RESULT_TOO_LARGE = (-32011, "result-too-large")
 
     @property
     def code(self) -> int:
@@ -125,6 +130,8 @@ _MESSAGES: Final = {
     ErrorCode.RESOURCE_ERROR: "pydiggs's bundled reference data could not be loaded.",
     ErrorCode.CANCELLED: "The request was cancelled.",
     ErrorCode.UNSUPPORTED_PROTOCOL_VERSION: "Unsupported protocol version.",
+    ErrorCode.INVALID_DOCUMENT: "The bytes are not a DIGGS document.",
+    ErrorCode.RESULT_TOO_LARGE: "The result is larger than allowed; ask for less with select.",
 }
 
 _FROM_SERVICE: Final = {
@@ -136,6 +143,8 @@ _FROM_SERVICE: Final = {
     Code.INTERNAL: ErrorCode.INTERNAL_ERROR,
     Code.CANCELLED: ErrorCode.CANCELLED,
     Code.TIMEOUT: ErrorCode.INTERNAL_ERROR,  # in-thread validation never times out
+    Code.INVALID_DOCUMENT: ErrorCode.INVALID_DOCUMENT,
+    Code.RESULT_TOO_LARGE: ErrorCode.RESULT_TOO_LARGE,
 }
 
 RequestId = str | int
@@ -477,12 +486,12 @@ def negotiate(requested: str) -> str:
 
     Examples:
         >>> negotiate("1.0"), negotiate("1.7")
-        ('1.0', '1.0')
+        ('1.0', '1.1')
         >>> try:
         ...     negotiate("2.0")
         ... except ProtocolError as error:
         ...     print(error.data())
-        {'code': 'unsupported-protocol-version', 'supported': ['1.0']}
+        {'code': 'unsupported-protocol-version', 'supported': ['1.0', '1.1']}
     """
     major, minor = (int(p) for p in requested.split("."))
     candidates = [
@@ -541,14 +550,66 @@ def check_validate(params: dict[str, Any], *, max_bytes: int, time_limit: float)
         params,
         frozenset({"content_base64", "path", "name", "checks", "diggs_version", "time_budget_s"}),
     )
-    if ("content_base64" in params) == ("path" in params):
-        raise _bad("content_base64", "give exactly one of content_base64 and path")
-    name = _optional_str(params, "name", MAX_NAME_INPUT_CHARS)
     checks = params.get("checks")
     if "checks" in params and (
         not isinstance(checks, list) or not all(isinstance(c, str) for c in checks)
     ):
         raise _bad("checks", "must be an array of strings")
+    content, path, name, version, budget = _check_document(
+        params, max_bytes=max_bytes, time_limit=time_limit
+    )
+    return ValidateParams(content, path, name, checks, version, budget)
+
+
+@dataclass(frozen=True, slots=True)
+class ReadParams:
+    """``read`` parameters, checked: decoded content or a path to vet, and ``select``."""
+
+    content: bytes | None
+    path: str | None
+    name: str | None
+    diggs_version: str | None
+    time_budget: float
+    select: object
+
+
+def check_read(params: dict[str, Any], *, max_bytes: int, time_limit: float) -> ReadParams:
+    """Check ``read`` parameters and decode ``content_base64`` (as :func:`check_validate`).
+
+    ``select`` must be an object when given; the service checks what is in it.
+
+    Raises:
+        ProtocolError: ``invalid-params`` or ``input-too-large``.
+
+    Examples:
+        >>> p = check_read(
+        ...     {"content_base64": "PERpZ2dzLz4=", "select": {"results": "none"}},
+        ...     max_bytes=100,
+        ...     time_limit=60,
+        ... )
+        >>> p.content, p.select
+        (b'<Diggs/>', {'results': 'none'})
+    """
+    _only(
+        params,
+        frozenset({"content_base64", "path", "name", "diggs_version", "time_budget_s", "select"}),
+    )
+    select = params.get("select")
+    if "select" in params and not isinstance(select, dict):
+        raise _bad("select", 'must be an object: {"results": "all" | "none" | [node keys]}')
+    content, path, name, version, budget = _check_document(
+        params, max_bytes=max_bytes, time_limit=time_limit
+    )
+    return ReadParams(content, path, name, version, budget, select)
+
+
+def _check_document(
+    params: dict[str, Any], *, max_bytes: int, time_limit: float
+) -> tuple[bytes | None, str | None, str | None, str | None, float]:
+    """The parameters ``validate`` and ``read`` share: the document, its name and limits."""
+    if ("content_base64" in params) == ("path" in params):
+        raise _bad("content_base64", "give exactly one of content_base64 and path")
+    name = _optional_str(params, "name", MAX_NAME_INPUT_CHARS)
     version = _optional_str(params, "diggs_version", 64)
     budget: float = time_limit
     if "time_budget_s" in params:
@@ -578,7 +639,7 @@ def check_validate(params: dict[str, Any], *, max_bytes: int, time_limit: float)
             raise _bad("content_base64", "must be standard, padded base64") from None
         if len(content) > max_bytes:
             raise ProtocolError(ErrorCode.INPUT_TOO_LARGE, extra={"max_bytes": max_bytes})
-    return ValidateParams(content, path, name, checks, version, budget)
+    return content, path, name, version, budget
 
 
 def check_rules_list(params: dict[str, Any]) -> str | None:
@@ -649,16 +710,18 @@ def _method(
     }
 
 
-def openrpc_document(findings_schema_url: str) -> dict[str, Any]:
-    """The OpenRPC 1.3 description of protocol 1.0, committed as ``openrpc.json``.
+def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[str, Any]:
+    """The OpenRPC 1.3 description of protocol 1.1, committed as ``openrpc.json``.
 
     Notifications (``exit``, ``$/cancelRequest``, ``$/progress``) are described in
     ``x-notifications``, since OpenRPC has no notification object.
 
     Examples:
-        >>> doc = openrpc_document("https://example.invalid/s.json")
-        >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:2]
-        ('1.0', ['initialize', 'validate'])
+        >>> doc = openrpc_document(
+        ...     "https://example.invalid/f.json", "https://example.invalid/m.json"
+        ... )
+        >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:3]
+        ('1.1', ['initialize', 'validate', 'read'])
     """
     rule = {"$ref": "#/components/schemas/RuleInfo"}
     common = [ErrorCode.INVALID_REQUEST, ErrorCode.NOT_INITIALIZED, ErrorCode.SHUTTING_DOWN]
@@ -672,10 +735,22 @@ def openrpc_document(findings_schema_url: str) -> dict[str, Any]:
                 "max_line_bytes",
                 "max_findings",
                 "max_response_bytes_estimate",
+                "max_result_bytes",
                 "time_budget_s",
             )
         },
     }
+    document_errors = [
+        ErrorCode.INVALID_PARAMS,
+        ErrorCode.BUSY,
+        ErrorCode.INPUT_TOO_LARGE,
+        ErrorCode.COMPRESSED_INPUT,
+        ErrorCode.PATH_NOT_PERMITTED,
+        ErrorCode.INPUT_UNREADABLE,
+        ErrorCode.RESOURCE_ERROR,
+        ErrorCode.CANCELLED,
+        ErrorCode.INTERNAL_ERROR,
+    ]
     init_result = {
         "type": "object",
         "required": [
@@ -693,6 +768,8 @@ def openrpc_document(findings_schema_url: str) -> dict[str, Any]:
             "pydiggs_version": _STR,
             "findings_schema_version": _STR,
             "findings_schema_url": _STR,
+            "model_schema_version": _STR,
+            "model_schema_url": _STR,
             "diggs_versions": {"type": "array", "items": _STR},
             "reference_data": {"type": "object", "additionalProperties": _STR},
             "capabilities": {"$ref": "#/components/schemas/ServerCapabilities"},
@@ -745,17 +822,44 @@ def openrpc_document(findings_schema_url: str) -> dict[str, Any]:
                 _param("time_budget_s", {"type": "number", "exclusiveMinimum": 0}),
             ],
             {"$ref": findings_schema_url},
+            [*common, *document_errors],
+        ),
+        _method(
+            "read",
+            "Read one document into a diggs-model document (protocol 1.1). A schema-invalid"
+            " file still reads; run validate for a verdict.",
+            [
+                _param("content_base64", {"type": "string", "contentEncoding": "base64"}),
+                _param("path", {"type": "string", "maxLength": MAX_PATH_CHARS}),
+                _param("name", {"type": "string", "maxLength": MAX_NAME_INPUT_CHARS}),
+                _param("diggs_version", _STR),
+                _param("time_budget_s", {"type": "number", "exclusiveMinimum": 0}),
+                _param(
+                    "select",
+                    {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "results": {
+                                "oneOf": [
+                                    {"enum": ["all", "none"]},
+                                    {"type": "array", "items": _STR, "maxItems": 1000},
+                                ]
+                            }
+                        },
+                    },
+                    summary=(
+                        "Which result tables keep their values (default: all); the others"
+                        " keep their columns and row_count."
+                    ),
+                ),
+            ],
+            {"$ref": model_schema_url},
             [
                 *common,
-                ErrorCode.INVALID_PARAMS,
-                ErrorCode.BUSY,
-                ErrorCode.INPUT_TOO_LARGE,
-                ErrorCode.COMPRESSED_INPUT,
-                ErrorCode.PATH_NOT_PERMITTED,
-                ErrorCode.INPUT_UNREADABLE,
-                ErrorCode.RESOURCE_ERROR,
-                ErrorCode.CANCELLED,
-                ErrorCode.INTERNAL_ERROR,
+                *document_errors,
+                ErrorCode.INVALID_DOCUMENT,
+                ErrorCode.RESULT_TOO_LARGE,
             ],
         ),
         _method("ping", "Liveness check.", [], _EMPTY, common),
@@ -826,6 +930,15 @@ def openrpc_document(findings_schema_url: str) -> dict[str, Any]:
                             "properties": {
                                 "content": {"type": "boolean"},
                                 "path": {"type": "boolean"},
+                            },
+                        },
+                        "read": {
+                            "type": "object",
+                            "description": "Protocol 1.1 and later.",
+                            "properties": {
+                                "content": {"type": "boolean"},
+                                "path": {"type": "boolean"},
+                                "select": {"type": "boolean"},
                             },
                         },
                         "cancel": {"type": "boolean"},

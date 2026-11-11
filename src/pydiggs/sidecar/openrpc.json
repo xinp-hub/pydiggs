@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "pydiggs stdio sidecar",
-    "version": "1.0",
+    "version": "1.1",
     "description": "JSON-RPC 2.0 over NDJSON on stdin/stdout (pydiggs serve --stdio). The -32000..-32099 error band is pydiggs-defined; switch on error.data.code."
   },
   "methods": [
@@ -88,6 +88,12 @@
             "findings_schema_url": {
               "type": "string"
             },
+            "model_schema_version": {
+              "type": "string"
+            },
+            "model_schema_url": {
+              "type": "string"
+            },
             "diggs_versions": {
               "type": "array",
               "items": {
@@ -119,6 +125,9 @@
                   "type": "integer"
                 },
                 "max_response_bytes_estimate": {
+                  "type": "integer"
+                },
+                "max_result_bytes": {
                   "type": "integer"
                 },
                 "time_budget_s": {
@@ -245,6 +254,130 @@
         },
         {
           "$ref": "#/components/errors/internal"
+        }
+      ]
+    },
+    {
+      "name": "read",
+      "summary": "Read one document into a diggs-model document (protocol 1.1). A schema-invalid file still reads; run validate for a verdict.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "content_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "required": false
+        },
+        {
+          "name": "path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "diggs_version",
+          "schema": {
+            "type": "string"
+          },
+          "required": false
+        },
+        {
+          "name": "time_budget_s",
+          "schema": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "required": false
+        },
+        {
+          "name": "select",
+          "schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "results": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "all",
+                      "none"
+                    ]
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 1000
+                  }
+                ]
+              }
+            }
+          },
+          "required": false,
+          "summary": "Which result tables keep their values (default: all); the others keep their columns and row_count."
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/busy"
+        },
+        {
+          "$ref": "#/components/errors/input-too-large"
+        },
+        {
+          "$ref": "#/components/errors/compressed-input"
+        },
+        {
+          "$ref": "#/components/errors/path-not-permitted"
+        },
+        {
+          "$ref": "#/components/errors/input-unreadable"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/cancelled"
+        },
+        {
+          "$ref": "#/components/errors/internal"
+        },
+        {
+          "$ref": "#/components/errors/invalid-document"
+        },
+        {
+          "$ref": "#/components/errors/result-too-large"
         }
       ]
     },
@@ -497,6 +630,20 @@
         "data": {
           "code": "unsupported-protocol-version"
         }
+      },
+      "invalid-document": {
+        "code": -32010,
+        "message": "The bytes are not a DIGGS document.",
+        "data": {
+          "code": "invalid-document"
+        }
+      },
+      "result-too-large": {
+        "code": -32011,
+        "message": "The result is larger than allowed; ask for less with select.",
+        "data": {
+          "code": "result-too-large"
+        }
       }
     },
     "schemas": {
@@ -551,6 +698,21 @@
                 "type": "boolean"
               },
               "path": {
+                "type": "boolean"
+              }
+            }
+          },
+          "read": {
+            "type": "object",
+            "description": "Protocol 1.1 and later.",
+            "properties": {
+              "content": {
+                "type": "boolean"
+              },
+              "path": {
+                "type": "boolean"
+              },
+              "select": {
                 "type": "boolean"
               }
             }

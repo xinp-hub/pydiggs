@@ -49,7 +49,9 @@ _DISCARD_CHUNK: Final = 1 << 20
 _WAIT_SECONDS: Final = 0.5
 #: Requests answered without the executor.
 _CHEAP: Final = frozenset({"ping", "versions", "rules.list", "rules.explain"})
-_KNOWN: Final = _CHEAP | {"initialize", "validate", "shutdown"}
+_KNOWN: Final = _CHEAP | {"initialize", "validate", "read", "shutdown"}
+#: The requests that take a document: one runs, one waits, both can be cancelled.
+_DOCUMENT: Final = ("validate", "read")
 
 
 class _TooLong:
@@ -63,7 +65,7 @@ Phase = Literal["new", "initializing", "ready", "shutdown"]
 
 @dataclass(eq=False)
 class _Job:
-    kind: Literal["initialize", "validate", "shutdown"]
+    kind: Literal["initialize", "validate", "read", "shutdown"]
     id: RequestId
     params: Any = None
     cancel: threading.Event = field(default_factory=threading.Event)
@@ -294,7 +296,9 @@ class Server:
         elif phase != "ready":
             raise ProtocolError(ErrorCode.NOT_INITIALIZED)
         elif method == "validate":
-            self._submit_validate(request_id, params)
+            self._submit_document("validate", request_id, params)
+        elif method == "read":
+            self._submit_document("read", request_id, params)
         elif method == "shutdown":
             self._shutdown(request_id, params)
         else:
@@ -333,8 +337,10 @@ class Server:
             while self._phase == "initializing" and not self._done.is_set():
                 self._cv.wait()
 
-    def _submit_validate(self, request_id: RequestId, params: dict[str, Any]) -> None:
-        """Queue a validation: at most one running (or about to run) and one waiting.
+    def _submit_document(
+        self, kind: Literal["validate", "read"], request_id: RequestId, params: dict[str, Any]
+    ) -> None:
+        """Queue a validation or a read: at most one running (or about to run) and one waiting.
 
         The duplicate-id and busy checks come first, so a refused request never has
         its content decoded. Only this (reader) thread adds jobs, so the queue can
@@ -347,10 +353,9 @@ class Server:
                 raise ProtocolError(ErrorCode.INVALID_REQUEST, "Duplicate id")
             if len(jobs) >= 2:  # noqa: PLR2004  # one running plus one waiting
                 raise ProtocolError(ErrorCode.BUSY)
-        checked = _protocol.check_validate(
-            params, max_bytes=self.options.max_bytes, time_limit=self.options.timeout
-        )
-        job = _Job("validate", request_id, checked)
+        check = _protocol.check_validate if kind == "validate" else _protocol.check_read
+        checked = check(params, max_bytes=self.options.max_bytes, time_limit=self.options.timeout)
+        job = _Job(kind, request_id, checked)
         with self._cv:
             waiting = any(j is not None for j in (self._running, *self._queue))
             self._queue.append(job)
@@ -383,7 +388,7 @@ class Server:
         dropped = None
         with self._cv:
             for job in self._queue:
-                if job.kind == "validate" and job.key == key:
+                if job.kind in _DOCUMENT and job.key == key:
                     dropped = job
                     self._queue.remove(job)
                     break
@@ -391,7 +396,7 @@ class Server:
             if (
                 dropped is None
                 and running is not None
-                and running.kind == "validate"
+                and running.kind in _DOCUMENT
                 and running.key == key
             ):
                 running.cancel.set()
@@ -423,7 +428,10 @@ class Server:
             self._warm(job)
         else:
             try:
-                self._validate(job)
+                if job.kind == "read":
+                    self._read(job)
+                else:
+                    self._validate(job)
             except ProtocolError as error:
                 if not self._done.is_set():
                     self._error(job.id, error)
@@ -474,6 +482,14 @@ class Server:
                 "time_budget_s": options.timeout,
             },
         }
+        if int(version.split(".")[1]) >= 1:  # protocol 1.1: the read method
+            result.update(_service.model_info())
+            result["capabilities"]["read"] = {
+                "content": True,
+                "path": bool(self.roots),
+                "select": True,
+            }
+            result["limits"]["max_result_bytes"] = _protocol.MAX_RESULT_BYTES
         with self._cv:
             if self._phase == "initializing":
                 self._phase = "ready"
@@ -495,9 +511,10 @@ class Server:
             raise _protocol.service_error(data.code, data.detail)
         return data
 
-    def _validate(self, job: _Job) -> None:
-        params: _protocol.ValidateParams = job.params
-        self._progress_note(job, "validate", "started")
+    def _document(self, job: _Job, step: str) -> tuple[bytes, str | None, int, Callable[[], bool]]:
+        """A document job's content, name, size limit and cancellation hook."""
+        params: _protocol.ValidateParams | _protocol.ReadParams = job.params
+        self._progress_note(job, step, "started")
         name = params.name
         if params.path is not None:
             content = self._read_path(params.path)
@@ -511,8 +528,28 @@ class Server:
         def should_stop() -> bool:
             stop = job.cancel.is_set() or self._done.is_set()
             if not stop:
-                self._progress_note(job, "validate", "running")
+                self._progress_note(job, step, "running")
             return stop
+
+        return content, name, limit, should_stop
+
+    def _read(self, job: _Job) -> None:
+        params: _protocol.ReadParams = job.params
+        content, name, limit, should_stop = self._document(job, "read")
+        request = _service.ReadRequest(
+            content=content,
+            name=name,
+            diggs_version=params.diggs_version,
+            select=params.select,
+            max_bytes=limit,
+            time_budget=params.time_budget,
+            max_result_bytes=_protocol.MAX_RESULT_BYTES,
+        )
+        self._answer(job, _service.read(request, should_stop=should_stop))
+
+    def _validate(self, job: _Job) -> None:
+        params: _protocol.ValidateParams = job.params
+        content, name, limit, should_stop = self._document(job, "validate")
 
         request = _service.Request(
             content=content,
@@ -523,7 +560,10 @@ class Server:
             max_findings=self.options.max_findings,
             time_budget=params.time_budget,
         )
-        outcome = _service.validate(request, should_stop=should_stop)
+        self._answer(job, _service.validate(request, should_stop=should_stop))
+
+    def _answer(self, job: _Job, outcome: _service.Outcome) -> None:
+        """Send a document job's outcome: the document, or its protocol error."""
         if self._done.is_set():
             return  # abandoned (EOF, exit, signal): nobody is listening
         if outcome.ok:
@@ -534,6 +574,10 @@ class Server:
         extra: dict[str, Any] = {}
         if outcome.correlation_id is not None:
             extra["correlation_id"] = outcome.correlation_id
+        if outcome.kind is not None:
+            extra["kind"] = outcome.kind
+        if outcome.code is _service.Code.RESULT_TOO_LARGE:
+            extra["max_result_bytes"] = _protocol.MAX_RESULT_BYTES
         error = _protocol.service_error(outcome.code, outcome.detail, **extra)
         if outcome.errors:
             error = ProtocolError(error.error, None, outcome.errors, error.extra)

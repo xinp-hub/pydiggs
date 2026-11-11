@@ -363,3 +363,117 @@ def test_adapters_reach_pydiggs_only_through_the_service(package):
                 # ``_service.validate`` is the sanctioned route; any other owner is not.
                 via_service = isinstance(node.value, ast.Name) and node.value.id == "_service"
                 assert via_service or node.attr not in _FORBIDDEN_NAMES, (path, node.attr)
+
+
+# --- reading ------------------------------------------------------------------------------------
+
+from pydiggs._service import ReadRequest  # noqa: E402 - the read section's own import
+
+CPT = ROOT / "tests" / "fixtures" / "official" / "2.6" / "CPT_and_PorePressureDissipation.xml"
+
+
+@pytest.fixture
+def fresh_cache():
+    _service._read_cache.clear()
+    yield _service._read_cache
+    _service._read_cache.clear()
+
+
+def test_read_is_read_bytes_as_json(fresh_cache):
+    import pydiggs
+
+    data = CPT.read_bytes()
+    outcome = _service.read(ReadRequest(content=data, name="C:\\up\\cpt.xml"))
+    assert outcome.ok
+    assert outcome.document == pydiggs.read_bytes(data, name="cpt.xml").to_json().encode("utf-8")
+
+
+def test_read_serves_a_repeat_from_the_cache_under_the_new_name(fresh_cache, monkeypatch):
+    data = CPT.read_bytes()
+    first = _service.read(ReadRequest(content=data, name="a.xml"))
+    calls = []
+    real = _service._reader.read_bytes
+    monkeypatch.setattr(
+        _service._reader, "read_bytes", lambda *a, **k: calls.append(1) or real(*a, **k)
+    )
+    second = _service.read(ReadRequest(content=data, name="b.xml"))
+    assert calls == []
+    assert json.loads(second.document)["source"]["name"] == "b.xml"
+    assert second.document.replace(b'"b.xml"', b'"a.xml"', 1) == first.document
+    # another version or an inventory is another entry
+    _service.read(ReadRequest(content=data, select={"results": "none"}))
+    assert calls == [1]
+
+
+def test_the_cache_is_bounded_and_never_overrides_the_size_limit(fresh_cache):
+    data = CPT.read_bytes()
+    assert _service.read(ReadRequest(content=data)).ok
+    too_big = _service.read(ReadRequest(content=data, name="c.xml", max_bytes=10))
+    assert too_big.code is Code.INPUT_TOO_LARGE and too_big.detail == "c.xml is larger than allowed"
+    small = _service._ModelCache(2, 1000)
+    for index in range(3):
+        small.put((str(index), None, True), object(), 400)  # type: ignore[arg-type]
+    assert small.get(("0", None, True)) is None and small.get(("2", None, True)) is not None
+    small.put(("big", None, True), object(), 2000)  # type: ignore[arg-type]
+    assert small.get(("big", None, True)) is None
+
+
+def test_an_incomplete_model_is_not_cached(fresh_cache):
+    data = CPT.read_bytes()
+    partial = _service.read(ReadRequest(content=data, time_budget=1e-9))
+    assert json.loads(partial.document)["complete"] is False
+    assert json.loads(_service.read(ReadRequest(content=data)).document)["complete"] is True
+
+
+@pytest.mark.parametrize(
+    "select",
+    [5, "all", [], {"results": 5}, {"results": [""]}, {"results": ["k"] * 1001}, {"x": "all"}],
+)
+def test_read_refuses_a_bad_select(select):
+    outcome = _service.read(ReadRequest(content=b"<Diggs/>", select=select))
+    assert outcome.code is Code.INVALID_PARAMETER
+    assert [e[0] for e in outcome.errors] == ["select"]
+    assert "k" * 5 not in outcome.errors[0][1]
+
+
+@pytest.mark.parametrize(
+    ("data", "kind"),
+    [(b"<Diggs", "malformed"), (b"<html/>", "not-diggs")],
+)
+def test_read_answers_invalid_document_with_its_kind(data, kind):
+    outcome = _service.read(ReadRequest(content=data, name="a.xml"))
+    assert (outcome.code, outcome.kind) == (Code.INVALID_DOCUMENT, kind)
+    assert kind in _service.DOCUMENT_KINDS
+    assert outcome.detail == _service._DOCUMENT_TEXT[kind]  # fixed: never the file's own text
+    assert set(_service._DOCUMENT_TEXT) == set(_service.DOCUMENT_KINDS)
+
+
+def test_read_limits_the_result_and_can_be_cancelled(fresh_cache):
+    data = CPT.read_bytes()
+    big = _service.read(ReadRequest(content=data, name="a.xml", max_result_bytes=100))
+    assert big.code is Code.RESULT_TOO_LARGE and "select" in big.detail
+    stopped = _service.read(ReadRequest(content=data), should_stop=lambda: True)
+    assert stopped.code is Code.CANCELLED
+
+
+def test_read_fails_closed(fresh_cache, monkeypatch, caplog):
+    def broken(*args, **kwargs):
+        raise RuntimeError("/secret/place")
+
+    monkeypatch.setattr(_service._reader, "read_bytes", broken)
+    with caplog.at_level(logging.ERROR, logger="pydiggs.service"):
+        outcome = _service.read(ReadRequest(content=b"<Diggs/>"))
+    assert outcome.code is Code.INTERNAL and "secret" not in outcome.detail
+    assert outcome.correlation_id and outcome.correlation_id in caplog.text
+
+
+def test_pooled_read_round_trip_in_process(fresh_cache):
+    request = ReadRequest(content=CPT.read_bytes(), name="a.xml")
+    frame = _service._pooled(request)
+    outcome = _service.read_in_pool(_Pool(frame), request, timeout=5)
+    assert outcome == _service.read(request)
+    refused = _service._pooled(ReadRequest(content=b"<html/>"))
+    outcome = _service.read_in_pool(_Pool(refused), request, timeout=5)
+    assert (outcome.code, outcome.kind) == (Code.INVALID_DOCUMENT, "not-diggs")
+    slow = _service.read_in_pool(_Pool(JobTimeoutError("x")), request, timeout=5)
+    assert slow.code is Code.TIMEOUT and slow.detail == "Reading did not finish within 5 s."

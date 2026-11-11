@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from hypothesis import HealthCheck, settings
 from schemathesis.specs.openapi.checks import negative_data_rejection, positive_data_acceptance
 
+import pydiggs
 from pydiggs import findings_schema
 from pydiggs.server import ServerSettings, _app, _schemas, create_app, create_router
 
@@ -53,6 +54,7 @@ def test_the_document_is_openapi_3_1_with_every_reference_resolving():
     assert document["openapi"].startswith("3.1.")
     assert set(document["paths"]) == {
         "/v1/validate",
+        "/v1/read",
         "/v1/versions",
         "/v1/rules",
         "/v1/rules/{rule_id}",
@@ -95,6 +97,40 @@ def test_a_mounted_router_publishes_a_self_contained_document():
         _resolves(document, ref)  # no dangling DiggsFindings* reference
     response = document["paths"]["/v1/validate"]["post"]["responses"]["200"]
     assert response["content"]["application/json"]["schema"]["title"] == "diggs-findings 1.0"
+    read = document["paths"]["/v1/read"]["post"]["responses"]["200"]
+    assert read["content"]["application/json"]["schema"]["title"] == "diggs-model 1.0"
+
+
+def test_model_components_are_derived_from_the_packaged_schema():
+    packaged = pydiggs.model_schema()
+    components = _schemas.components()
+
+    def name(definition):
+        return "DiggsModel" + "".join(part.capitalize() for part in definition.split("_"))
+
+    names = {name(k) for k in packaged["$defs"]}
+    assert names | {"DiggsModelDocument"} <= set(components)
+    document = components["DiggsModelDocument"]
+    assert set(document["properties"]) == set(packaged["properties"])
+    assert document["required"] == packaged["required"]
+    assert "$id" not in document and "$defs" not in document
+    # the model's recursion survives as component references
+    assert "#/components/schemas/DiggsModelExtraNode" in json.dumps(
+        components["DiggsModelExtraNode"]
+    )
+    assert "#/components/schemas/DiggsModelComponent" in json.dumps(
+        components["DiggsModelComponent"]
+    )
+    # a note is a finding: the one reference outside the model schema
+    assert "#/components/schemas/DiggsFindingsFinding" in json.dumps(document)
+
+
+def test_the_committed_document_carries_the_model_schema_by_reference():
+    document = json.loads(COMMITTED.read_text("utf-8"))
+    schema = document["paths"]["/v1/read"]["post"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"]
+    assert schema == {"$ref": "#/components/schemas/DiggsModelDocument"}
 
 
 def test_versions_disabled_drops_the_operation():
@@ -125,6 +161,10 @@ def test_the_api_conforms_to_its_openapi_document(case):
     # A schema-valid binary body that happens to start with the gzip magic is refused
     # with 415 compressed-input on purpose; nothing in OpenAPI can express that.
     if _starts_gzipped(case.body):
+        excluded.append(positive_data_acceptance)
+    # /v1/read answers 422 invalid-document for bytes that are not a DIGGS document
+    # (/v1/validate reports the same as findings); OpenAPI cannot say "a DIGGS file".
+    if case.operation.path == "/v1/read" and positive_data_acceptance not in excluded:
         excluded.append(positive_data_acceptance)
     # Multipart fields are text on the wire: a "negative" null, boolean or number value
     # goes out as text (or not at all), which can be a valid value.

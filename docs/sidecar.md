@@ -4,7 +4,7 @@
 application can start and talk to over its standard input and output. It suits desktop
 and native applications in any language (Rust, C#, Java, Swift, C++, TypeScript on Node or
 Electron, and so on) that cannot embed CPython. This page is the normative specification
-of protocol version **1.0**. [Host guidance](sidecar-hosts.md) covers supervision,
+of protocol version **1.1** (1.0 plus the `read` method). [Host guidance](sidecar-hosts.md) covers supervision,
 packaging and example clients.
 
 The sidecar is part of the core package: it needs no extra and uses only the Python
@@ -91,7 +91,7 @@ content or absolute paths, and client strings are escaped.
 
 `initialize.params.protocol_version` is `"MAJOR.MINOR"`. The major must equal the
 sidecar's (`1`), otherwise the answer is `unsupported-protocol-version` with
-`data.supported`, e.g. `["1.0"]`. The sidecar answers the highest minor it supports that
+`data.supported`, e.g. `["1.0", "1.1"]`. The sidecar answers the highest minor it supports that
 does not exceed the requested one. Minor versions only add: hosts must ignore unknown
 result fields; new methods are advertised in `capabilities`. The sidecar refuses unknown
 parameters with `-32602` (except unknown keys inside `capabilities`, which it ignores).
@@ -130,7 +130,7 @@ ends it with status 1. `exit` is honoured at any time and abandons any running w
 
 | param | type | notes |
 |---|---|---|
-| `protocol_version` | string, required | `"1.0"` |
+| `protocol_version` | string, required | `"1.1"` (or `"1.0"`: the same without `read`) |
 | `client_info` | object | `{name ≤ 128 chars, version ≤ 64 chars}`, logged at `info` |
 | `capabilities` | object | `{progress: bool}` asks for `$/progress` notifications |
 | `diggs_versions` | string[] | DIGGS versions to warm up (default: every released bundled version, not the experimental `3.1-dev`) |
@@ -139,26 +139,32 @@ Result:
 
 ```json
 {
-  "protocol_version": "1.0",
+  "protocol_version": "1.1",
   "pydiggs_version": "1.6.0",
   "findings_schema_version": "1.0",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json",
+  "model_schema_version": "1.0",
+  "model_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json",
   "diggs_versions": ["2.5.a", "2.6", "3.0.0", "3.1-dev"],
   "reference_data": {"def": "…", "schema-dev": "…", "schemas": "…"},
   "capabilities": {
     "validate": {"content": true, "path": false},
+    "read": {"content": true, "path": false, "select": true},
     "cancel": true, "progress": false, "rules": true, "ping": true
   },
   "limits": {
     "max_bytes": 26214400, "max_path_bytes": 104857600, "max_line_bytes": 35018070,
-    "max_findings": 10000, "max_response_bytes_estimate": 20545536, "time_budget_s": 60.0
+    "max_findings": 10000, "max_response_bytes_estimate": 20545536,
+    "max_result_bytes": 268435456, "time_budget_s": 60.0
   }
 }
 ```
 
-`capabilities.validate.path` is true only when the sidecar was started with
-`--allow-path`. `max_response_bytes_estimate` is a rough upper bound for sizing buffers,
-not a guarantee.
+`capabilities.validate.path` and `capabilities.read.path` are true only when the sidecar
+was started with `--allow-path`. `max_response_bytes_estimate` is a rough upper bound for
+sizing buffers for `validate`, not a guarantee; `max_result_bytes` is the hard limit for a
+`read` result. A host that negotiates `"1.0"` gets the 1.0 answer: no `model_schema_*`,
+no `capabilities.read` and no `max_result_bytes`.
 
 ### `validate`
 
@@ -179,6 +185,36 @@ The result is a complete one-file **diggs-findings 1.0** document, the same as
 basename here) and with no `absolute_path`. Validate it against the document's own
 `$schema` and tolerate unknown fields. A malformed or invalid document is a normal result
 with findings, not an error.
+
+### `read`
+
+Protocol 1.1. Reads one document into a **diggs-model 1.0** document: what is in the file,
+as [`pydiggs.read()`](model.md) returns it.
+
+| param | type | notes |
+|---|---|---|
+| `content_base64` | string | as for `validate` |
+| `path` | string | as for `validate` |
+| `name` | string ≤ 4096 | as for `validate` |
+| `diggs_version` | string | force a DIGGS version instead of detecting it |
+| `time_budget_s` | number | `0 < t ≤ --timeout` |
+| `select` | object | `{"results": "all" \| "none" \| ["key", …]}`: which result tables keep their values (default all; at most 1,000 keys) |
+
+The result is the document `pydiggs.read_bytes(data, name=name).to_json()` gives for the
+same bytes. Validate it against its own `$schema` and tolerate unknown fields.
+
+- **`select`:** a table that is left out keeps its columns and `row_count` with empty
+  `values`. List a file with `{"results": "none"}`, then ask for the measurements you need
+  by `key`; the sidecar keeps the last few models it read (by content hash), so the second
+  call does not parse the file again. It is a cache, not state: there are no handles.
+- A schema-invalid file still reads; run `validate` for a verdict.
+- When `time_budget_s` runs out the result is still a document, with `complete: false`
+  and the members read so far.
+- A `read` shares the queue with `validate` (one running, one waiting) and can be
+  cancelled the same way. A read is checked for cancellation before it starts and when it
+  ends, not during the parse.
+- Bytes that are not a DIGGS document are the error `invalid-document`; a result over
+  `limits.max_result_bytes` is `result-too-large` (ask for less with `select`).
 
 ### `ping`, `versions`
 
@@ -206,10 +242,10 @@ See [Shutdown and exit](#shutdown-and-exit). `shutdown` takes no parameters and 
 | `$/cancelRequest` | host → sidecar | `{id}` |
 | `$/progress` | sidecar → host, only if negotiated | `{request_id, step, status}` |
 
-Other notifications, `$/`-prefixed or not, are ignored. In protocol 1.0, `$/progress`
-reports `step: "queue", status: "waiting"` when a validation waits behind another,
-`step: "validate", status: "started"` when it starts and `status: "running"` at each step
-boundary. Treat it as a liveness signal; hosts must ignore step and status values they do
+Other notifications, `$/`-prefixed or not, are ignored. `$/progress`
+reports `step: "queue", status: "waiting"` when a validation or a read waits behind
+another, `step: "validate", status: "started"` when a validation starts and
+`status: "running"` at each step boundary (`step: "read"` for a read). Treat it as a liveness signal; hosts must ignore step and status values they do
 not know (later minors may name the individual checks).
 
 ## Errors
@@ -225,7 +261,7 @@ it with LSP or MCP meanings.
 | -32601 | `method-not-found` | unknown method | |
 | -32602 | `invalid-params` | missing, unknown or malformed parameters | `errors: [{param, problem}]` |
 | -32603 | `internal` | unexpected failure; details go to stderr only | `correlation_id` |
-| -32000 | `busy` | one validation running and one waiting | |
+| -32000 | `busy` | one validation or read running and one waiting | |
 | -32001 | `not-initialized` | request before `initialize` completed | |
 | -32002 | `shutting-down` | request after `shutdown`, or dropped by it | |
 | -32003 | `input-too-large` | document over `max_bytes` / `max_path_bytes` | `max_bytes` (content mode) |
@@ -235,6 +271,8 @@ it with LSP or MCP meanings.
 | -32007 | `resource-error` | the bundled reference data could not be loaded | `correlation_id` |
 | -32008 | `cancelled` | cancelled by `$/cancelRequest` | |
 | -32009 | `unsupported-protocol-version` | major version mismatch | `supported` |
+| -32010 | `invalid-document` | `read`: the bytes are not a DIGGS document | `kind`: `malformed`, `not-diggs` or `unsafe-entity` |
+| -32011 | `result-too-large` | `read`: the document is over `max_result_bytes` | `max_result_bytes` |
 
 Errors for unparseable lines carry `"id": null`. A broken notification gets no answer.
 Messages never echo request values; at most they name the reported basename.
@@ -278,15 +316,17 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 ## Example session
 
 ```text
-→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.0","client_info":{"name":"example-host","version":"0.1"}}}
-← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.0","pydiggs_version":"1.6.0",…}}
+→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.1","client_info":{"name":"example-host","version":"0.1"}}}
+← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.1","pydiggs_version":"1.6.0",…}}
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}
 ← {"jsonrpc":"2.0","id":2,"result":{"$schema":"https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json","format":"diggs-findings",…}}
 → {"jsonrpc":"2.0","id":4,"method":"validate","params":{"path":"relative.xml"}}
 ← {"jsonrpc":"2.0","id":4,"error":{"code":-32005,"message":"The path is not permitted.","data":{"code":"path-not-permitted"}}}
-→ {"jsonrpc":"2.0","id":5,"method":"shutdown"}
-← {"jsonrpc":"2.0","id":5,"result":null}
+→ {"jsonrpc":"2.0","id":5,"method":"read","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml","select":{"results":"none"}}}
+← {"jsonrpc":"2.0","id":5,"result":{"$schema":"https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json","schema_version":"1.0",…}}
+→ {"jsonrpc":"2.0","id":6,"method":"shutdown"}
+← {"jsonrpc":"2.0","id":6,"result":null}
 → {"jsonrpc":"2.0","method":"exit"}
 ```

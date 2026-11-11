@@ -97,7 +97,18 @@ const hits = markupDoc.files[0].findings.filter((f) => f.message.includes(MARKUP
 assert.equal(hits.length, 1, "the markup must reach exactly one finding message verbatim");
 console.log(`ok  markup round-trips verbatim in ${hits[0].rule_id}: ${JSON.stringify(MARKUP)}`);
 
-// 3. The interpreter after validation.
+// 2b. The read API: read_bytes(...).to_json() is one string, a diggs-model 1.0 document.
+const readNames = Object.keys(out.results).filter((name) => name.startsWith("read:"));
+assert.ok(readNames.length > 0, "no read:<fixture> result");
+for (const name of readNames) {
+  const model = JSON.parse(out.results[name]);
+  assert.equal(model.schema_version, "1.0", `${name}: not a diggs-model 1.0 document`);
+  assert.equal(model.complete, true, `${name}: the read did not finish`);
+  assert.equal(model.source.name, name.slice("read:".length));
+}
+console.log(`ok  ${readNames.length} diggs-model documents parse in JavaScript`);
+
+// 3. The interpreter after validation and reading.
 const p = out.probe;
 assert.equal(p.python, facts.python, "pyodide-facts.json names another CPython");
 assert.equal(p.lxml, facts.lxml, "pyodide-facts.json names another lxml");
@@ -110,7 +121,7 @@ assert.ok(p.uom_units > 100, `UoM dictionary loaded only ${p.uom_units} units`);
 assert.ok(Math.abs(p.inch_in_mm - 25.4) < 1e-9, `1 in = ${p.inch_in_mm} mm`);
 assert.equal(out.refused, "InstanceReadError", "a document over 25 MiB was not refused");
 console.log(`ok  CPython ${p.python}, lxml ${p.lxml}, pydiggs ${p.pydiggs}`);
-console.log("ok  no import of rich, multiprocessing, fastapi, mcp, subprocess or networking; 1 thread");
+console.log("ok  no import of rich, multiprocessing, fastapi, mcp, pandas, pyproj, subprocess or networking; 1 thread");
 console.log(`ok  UoM dictionary: ${p.uom_units} units from ${p.uom_path}`);
 console.log("ok  a document over 25 MiB is refused (InstanceReadError)");
 console.log(`pyodide smoke passed (${elapsed()})`);

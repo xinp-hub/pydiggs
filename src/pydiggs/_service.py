@@ -2,11 +2,12 @@
 
 ``pydiggs serve --stdio``, ``pydiggs.server`` and ``pydiggs.mcp_server`` validate
 documents through :func:`validate` (in the calling thread) or :func:`validate_in_pool`
-(in a worker process with a hard timeout), and answer rule and version questions
+(in a worker process with a hard timeout), read them into diggs-model documents
+through :func:`read` or :func:`read_in_pool`, and answer rule and version questions
 through :func:`rules`, :func:`explain` and :func:`versions`. They never call
-:func:`pydiggs.validate`, :func:`pydiggs.validate_bytes` or the legacy validator
-themselves (a test enforces this), so every remote caller gets the same pinned
-settings:
+:func:`pydiggs.validate`, :func:`pydiggs.validate_bytes`, :func:`pydiggs.read`,
+:func:`pydiggs.read_bytes` or the legacy validator themselves (a test enforces this),
+so every remote caller gets the same pinned settings:
 
 * only the bundled schema, dictionaries and Schematron rules;
 * ``allow_network=False``, ``include_snippets=False``, local dictionaries off;
@@ -26,6 +27,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import errno
+import hashlib
 import json
 import logging
 import math
@@ -33,8 +35,10 @@ import secrets
 import site
 import sys
 import tempfile
+import threading
 import urllib.parse
-from collections.abc import Sequence
+from collections import OrderedDict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
@@ -42,10 +46,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 import pydiggs
-from pydiggs import _xml
+from pydiggs import _reader, _xml
 from pydiggs._versions import version_info
 from pydiggs.detect import SCHEMA_PATHS
-from pydiggs.errors import InstanceReadError, ResourceError
+from pydiggs.errors import DocumentError, InstanceReadError, ResourceError
 from pydiggs.findings import _json, run
 from pydiggs.findings.model import Report, Step
 from pydiggs.findings.rules import MAX_RULE_ID_CHARS, explain_rule, rule_catalogue
@@ -54,15 +58,22 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from pydiggs._pool import WorkerPool
+    from pydiggs.model import Model
 
 __all__ = [
+    "DOCUMENT_KINDS",
     "MAX_NAME_INPUT_CHARS",
+    "MAX_SELECT_KEYS",
     "Code",
     "Outcome",
+    "ReadRequest",
     "Request",
     "explain",
     "make_pool",
+    "model_info",
+    "read",
     "read_fd",
+    "read_in_pool",
     "rules",
     "validate",
     "validate_in_pool",
@@ -80,6 +91,16 @@ _MAX_CHECKS: Final = 32
 MAX_SECONDS: Final = 86_400
 #: The extra CPU seconds a pooled job may use past its timeout before the kernel stops it.
 _CPU_SLACK: Final = 5.0
+#: Why a read may answer ``invalid-document`` (``Outcome.kind``; an open set).
+DOCUMENT_KINDS: Final = ("malformed", "not-diggs", "unsafe-entity")
+#: Most node keys a read request's ``select.results`` list may name.
+MAX_SELECT_KEYS: Final = 1000
+#: Longest node key accepted in ``select.results`` (a key is a gml:id or "@" + an xpath).
+_MAX_KEY_CHARS: Final = 4096
+#: The read cache: models read lately, by content hash (a cache, never state).
+_CACHE_MODELS: Final = 4
+#: Largest total source size the read cache keeps; a model is a few times its source.
+_CACHE_SOURCE_BYTES: Final = 128 * 2**20
 
 _STEP_VALUES: Final = frozenset(s.value for s in run.NATIVE_STEPS)
 _ALL_STEPS: Final = frozenset(s.value for s in Step)
@@ -103,7 +124,18 @@ class Code(StrEnum):
     INTERNAL = "internal"
     CANCELLED = "cancelled"
     TIMEOUT = "timeout"
+    #: Reading only: the bytes are not a DIGGS document (``Outcome.kind`` says why).
+    INVALID_DOCUMENT = "invalid-document"
+    #: Reading only: the diggs-model document is larger than the adapter allows.
+    RESULT_TOO_LARGE = "result-too-large"
 
+
+#: Fixed texts for ``invalid-document``: the finding's own message can quote the file.
+_DOCUMENT_TEXT: Final = {
+    "malformed": "The bytes are not well-formed XML.",
+    "not-diggs": "The root element is not a DIGGS Diggs element.",
+    "unsafe-entity": "The document declares an entity whose value contains markup.",
+}
 
 _GENERIC: Final = {
     Code.RESOURCE_ERROR: "pydiggs's bundled reference data could not be loaded.",
@@ -161,11 +193,13 @@ class Request:
 class Outcome:
     """What a request produced: a document, or an error code with a safe text.
 
-    ``document`` is UTF-8 JSON on one line (a diggs-findings 1.0 document, or a SARIF
-    2.1.0 log when asked for). ``detail`` never contains an absolute path or a value
-    the caller sent, only the reported basename. ``errors`` lists ``(parameter,
-    problem)`` pairs for ``invalid-parameter``. ``correlation_id`` ties a
-    ``resource-error`` or ``internal`` answer to the log line with the real text.
+    ``document`` is UTF-8 JSON on one line (a diggs-findings 1.0 document, a SARIF
+    2.1.0 log when asked for, or a diggs-model document from :func:`read`). ``detail``
+    never contains an absolute path or a value the caller sent, only the reported
+    basename.
+    ``errors`` lists ``(parameter, problem)`` pairs for ``invalid-parameter``.
+    ``correlation_id`` ties a ``resource-error`` or ``internal`` answer to the log line
+    with the real text.
 
     Examples:
         >>> Outcome(document=b"{}").ok
@@ -179,6 +213,8 @@ class Outcome:
     detail: str = ""
     errors: tuple[tuple[str, str], ...] = ()
     correlation_id: str | None = None
+    #: For ``invalid-document``: ``malformed``, ``not-diggs`` or ``unsafe-entity``.
+    kind: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -379,6 +415,242 @@ def read_fd(fd: int, *, max_bytes: int, name: str | None) -> bytes | Outcome:
         return _read_error(exc, shown)
 
 
+# --- reading ----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ReadRequest:
+    """One read request. Limits come from the adapter's settings, not the caller.
+
+    ``name``, ``diggs_version`` and ``select`` may come from the caller; they are
+    checked by :func:`read`, which answers ``invalid-parameter`` rather than raising.
+    ``select`` is None or ``{"results": "all" | "none" | [node keys]}``: which result
+    tables keep their values (the others keep their columns and ``row_count``).
+
+    Examples:
+        >>> ReadRequest(content=b"<Diggs/>", select={"results": "none"}).max_bytes
+        26214400
+        >>> ReadRequest(content=b"", max_result_bytes=0)
+        Traceback (most recent call last):
+        ...
+        ValueError: max_result_bytes must be a positive int or None, got 0
+    """
+
+    content: bytes
+    name: str | None = None
+    diggs_version: str | None = None
+    select: object = None
+    max_bytes: int = 25 * 2**20
+    time_budget: float | None = None
+    max_result_bytes: int | None = 256 * 2**20
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.content, bytes):
+            raise TypeError(f"content must be bytes, not {type(self.content).__name__}")
+        if type(self.max_bytes) is not int or self.max_bytes < 1:
+            raise ValueError(f"max_bytes must be a positive int, got {self.max_bytes!r}")
+        if self.max_result_bytes is not None and (
+            type(self.max_result_bytes) is not int or self.max_result_bytes < 1
+        ):
+            raise ValueError(
+                f"max_result_bytes must be a positive int or None, got {self.max_result_bytes!r}"
+            )
+        if self.time_budget is not None and not _valid_seconds(self.time_budget):
+            raise ValueError(
+                f"time_budget must be a positive number of seconds, at most {MAX_SECONDS}"
+            )
+
+
+_SELECT_PROBLEM: Final = (
+    f'expected {{"results": "all" | "none" | [at most {MAX_SELECT_KEYS} node keys]}}'
+)
+
+
+def _selected(select: object) -> Literal["all", "none"] | frozenset[str] | None:
+    """What ``select`` asks for, or None when it is not a valid selection."""
+    if select is None:
+        return "all"
+    if not isinstance(select, Mapping) or set(select) - {"results"}:
+        return None
+    results = select.get("results", "all")
+    if results == "all":
+        return "all"
+    if results == "none":
+        return "none"
+    if (
+        isinstance(results, str)
+        or not isinstance(results, Sequence)
+        or len(results) > MAX_SELECT_KEYS
+        or not all(isinstance(k, str) and 0 < len(k) <= _MAX_KEY_CHARS for k in results)
+    ):
+        return None
+    return frozenset(results)
+
+
+def _read_parameter_errors(request: ReadRequest) -> tuple[tuple[str, str], ...]:
+    """Check the caller-supplied parameters; fixed texts that never echo the value."""
+    errors: list[tuple[str, str]] = []
+    if request.name is not None and (
+        not isinstance(request.name, str) or len(request.name) > MAX_NAME_INPUT_CHARS
+    ):
+        errors.append(("name", f"must be a string of at most {MAX_NAME_INPUT_CHARS} characters"))
+    if request.diggs_version is not None and (
+        not isinstance(request.diggs_version, str) or request.diggs_version not in SCHEMA_PATHS
+    ):
+        errors.append(("diggs_version", f"expected one of {', '.join(sorted(SCHEMA_PATHS))}"))
+    if _selected(request.select) is None:
+        errors.append(("select", _SELECT_PROBLEM))
+    return tuple(errors)
+
+
+class _ModelCache:
+    """Models read lately, by (content sha256, DIGGS version, with values): an LRU.
+
+    A host lists a file with ``select.results = "none"`` and then asks for specific
+    tables; the second call finds the model here instead of parsing again. Only
+    complete models are kept. Bounded by count and by total source size.
+    """
+
+    def __init__(self, models: int, source_bytes: int) -> None:
+        self._models = models
+        self._source_bytes = source_bytes
+        self._lock = threading.Lock()
+        self._entries: OrderedDict[tuple[str, str | None, bool], tuple[Model, int]] = OrderedDict()
+
+    def get(self, key: tuple[str, str | None, bool]) -> Model | None:
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None:
+                return None
+            self._entries.move_to_end(key)
+            return entry[0]
+
+    def put(self, key: tuple[str, str | None, bool], model: Model, size: int) -> None:
+        if size > self._source_bytes:
+            return
+        with self._lock:
+            self._entries[key] = (model, size)
+            self._entries.move_to_end(key)
+            while (
+                len(self._entries) > self._models
+                or sum(s for _, s in self._entries.values()) > self._source_bytes
+            ):
+                self._entries.popitem(last=False)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+
+
+_read_cache: Final = _ModelCache(_CACHE_MODELS, _CACHE_SOURCE_BYTES)
+
+
+def _without_values(document: dict[str, Any], keep: frozenset[str]) -> None:
+    """Empty the result tables of every node not in ``keep`` (as ``results=False`` reads)."""
+    for collection in ("measurements", "others"):
+        for node in document.get(collection, ()):
+            if node["key"] in keep:
+                continue
+            for table in node.get("results", ()):
+                for column in (*table["columns"], *table["domain"]["index"]):
+                    column["values"] = []
+
+
+def _model(request: ReadRequest, *, with_values: bool) -> Model:
+    key = (hashlib.sha256(request.content).hexdigest(), request.diggs_version, with_values)
+    cached = _read_cache.get(key)
+    if cached is not None:
+        return cached
+    model = _reader.read_bytes(
+        request.content,
+        name=request.name,
+        diggs_version=request.diggs_version,
+        results=with_values,
+        max_bytes=request.max_bytes,
+        time_budget=request.time_budget,
+    )
+    if model.complete:
+        _read_cache.put(key, model, len(request.content))
+    return model
+
+
+def read(request: ReadRequest, *, should_stop: Callable[[], bool] | None = None) -> Outcome:
+    """Read ``request`` into a diggs-model document, in the calling thread.
+
+    The document is what :meth:`pydiggs.Model.to_json` gives for the same bytes, name
+    and version, so every surface answers with the same bytes; ``select`` only empties
+    the values of the tables it leaves out. ``time_budget`` is cooperative (checked
+    between top-level members); running out still gives a document, with
+    ``complete: false``. ``should_stop`` is checked before and after the read.
+
+    Args:
+        request: The document and its parameters.
+        should_stop: Cancellation hook for adapters that can cancel (the sidecar).
+
+    Returns:
+        The document, or an error :class:`Code`: the ones :func:`validate` answers,
+        ``invalid-document`` (with ``kind``) and ``result-too-large``. Never raises
+        for bad input.
+
+    Examples:
+        >>> from pydiggs._service import ReadRequest, read
+        >>> outcome = read(ReadRequest(content=b"<Diggs xmlns='http://diggsml.org/schemas/3'/>"))
+        >>> outcome.ok, b'"schema_version": "1.0"' in outcome.document
+        (True, True)
+        >>> bad = read(ReadRequest(content=b"<html/>"))
+        >>> bad.code, bad.kind
+        (<Code.INVALID_DOCUMENT: 'invalid-document'>, 'not-diggs')
+    """
+    errors = _read_parameter_errors(request)
+    if errors:
+        return Outcome(code=Code.INVALID_PARAMETER, detail="invalid parameters", errors=errors)
+    shown = run._input_name(request.name)
+    try:
+        return _read_outcome(request, shown, should_stop)
+    except DocumentError as exc:
+        detail = _DOCUMENT_TEXT.get(exc.kind, "The bytes are not a DIGGS document.")
+        return Outcome(code=Code.INVALID_DOCUMENT, detail=detail, kind=exc.kind)
+    except InstanceReadError as exc:
+        return _read_error(exc, shown)
+    except ResourceError as exc:
+        return _failure(Code.RESOURCE_ERROR, exc)
+    except Exception as exc:  # fail closed: no traceback or path reaches the caller
+        return _failure(Code.INTERNAL, f"{type(exc).__name__}: {exc}")
+
+
+def _read_outcome(
+    request: ReadRequest, shown: str, should_stop: Callable[[], bool] | None
+) -> Outcome:
+    """:func:`read` after its parameter checks; reader errors propagate to it."""
+    cancelled = Outcome(code=Code.CANCELLED, detail=_GENERIC[Code.CANCELLED])
+    if should_stop is not None and should_stop():
+        return cancelled
+    if len(request.content) > request.max_bytes:  # before the cache: the limit is the request's
+        return Outcome(code=Code.INPUT_TOO_LARGE, detail=f"{shown} is larger than allowed")
+    selected = _selected(request.select)
+    model = _model(request, with_values=selected != "none")
+    document = model.to_dict()
+    document["source"]["name"] = shown  # a cached model may carry another name
+    if isinstance(selected, frozenset):
+        _without_values(document, selected)
+    for note in document["notes"]:
+        note["message"] = _scrub(note["message"])
+    body = json.dumps(document, ensure_ascii=False, allow_nan=False).encode(
+        "utf-8", "backslashreplace"
+    )
+    if should_stop is not None and should_stop():
+        return cancelled
+    if request.max_result_bytes is not None and len(body) > request.max_result_bytes:
+        return Outcome(
+            code=Code.RESULT_TOO_LARGE,
+            detail=(
+                f"The document for {shown} is larger than allowed; ask for fewer result"
+                " tables with select."
+            ),
+        )
+    return Outcome(document=body)
+
+
 # --- process isolation ------------------------------------------------------------------
 
 
@@ -430,14 +702,15 @@ def make_pool(workers: int, *, timeout: float, memory_mb: int | None = 2048) -> 
     )
 
 
-def _pooled(request: Request) -> bytes:
+def _pooled(request: Request | ReadRequest) -> bytes:
     """The worker's side: one header line of JSON, a newline, then the document bytes."""
-    outcome = validate(request)
+    outcome = read(request) if isinstance(request, ReadRequest) else validate(request)
     header = {
         "code": outcome.code.value if outcome.code is not None else None,
         "detail": outcome.detail,
         "errors": [list(e) for e in outcome.errors],
         "correlation_id": outcome.correlation_id,
+        "kind": outcome.kind,
     }
     head = json.dumps(header, ensure_ascii=True).encode("ascii")
     return head + b"\n" + (outcome.document or b"")
@@ -449,8 +722,8 @@ def _decode(frame: bytes) -> Outcome:
     header = json.loads(head) if sep else None
     if not isinstance(header, dict):
         raise ValueError("malformed reply")
-    code, detail, errors, correlation_id = (
-        header.get(k) for k in ("code", "detail", "errors", "correlation_id")
+    code, detail, errors, correlation_id, kind = (
+        header.get(k) for k in ("code", "detail", "errors", "correlation_id", "kind")
     )
     if not isinstance(detail, str) or not isinstance(errors, list):
         raise ValueError("malformed reply")
@@ -462,6 +735,7 @@ def _decode(frame: bytes) -> Outcome:
         detail=detail,
         errors=pairs,
         correlation_id=correlation_id if isinstance(correlation_id, str) else None,
+        kind=kind if isinstance(kind, str) else None,
     )
 
 
@@ -481,12 +755,35 @@ def validate_in_pool(pool: WorkerPool, request: Request, *, timeout: float) -> O
     Returns:
         As for :func:`validate`, plus ``timeout``.
     """
+    return _in_pool(pool, request, timeout=timeout, what="Validation")
+
+
+def read_in_pool(pool: WorkerPool, request: ReadRequest, *, timeout: float) -> Outcome:
+    """Read ``request`` in a worker process, killing it after ``timeout`` seconds.
+
+    As :func:`validate_in_pool`, for :func:`read`. Each worker keeps its own read
+    cache.
+
+    Args:
+        pool: From :func:`make_pool`.
+        request: The document and its parameters.
+        timeout: Hard limit in seconds.
+
+    Returns:
+        As for :func:`read`, plus ``timeout``.
+    """
+    return _in_pool(pool, request, timeout=timeout, what="Reading")
+
+
+def _in_pool(
+    pool: WorkerPool, request: Request | ReadRequest, *, timeout: float, what: str
+) -> Outcome:
     from pydiggs._pool import JobFailedError, JobTimeoutError, PoolError  # noqa: PLC0415
 
     try:
         frame = pool.run(_pooled, request, timeout=timeout)
     except JobTimeoutError:
-        return Outcome(code=Code.TIMEOUT, detail=f"Validation did not finish within {timeout:g} s.")
+        return Outcome(code=Code.TIMEOUT, detail=f"{what} did not finish within {timeout:g} s.")
     except JobFailedError as exc:
         code = Code.RESOURCE_ERROR if exc.type_name == "ResourceError" else Code.INTERNAL
         return _failure(code, f"worker {exc.phase} failed: {exc}")
@@ -499,6 +796,18 @@ def validate_in_pool(pool: WorkerPool, request: Request, *, timeout: float) -> O
 
 
 # --- rules and versions -----------------------------------------------------------------
+
+
+def model_info() -> dict[str, str]:
+    """The diggs-model version and schema URL that :func:`read` answers with.
+
+    Examples:
+        >>> model_info()["model_schema_version"]
+        '1.0'
+    """
+    from pydiggs.model import MODEL_SCHEMA_URL, MODEL_SCHEMA_VERSION  # noqa: PLC0415
+
+    return {"model_schema_version": MODEL_SCHEMA_VERSION, "model_schema_url": MODEL_SCHEMA_URL}
 
 
 def versions() -> dict[str, Any]:

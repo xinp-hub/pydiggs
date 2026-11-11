@@ -104,6 +104,89 @@ def _findings_inline() -> _JsonSchema:
     return inlined
 
 
+# --- diggs-model -------------------------------------------------------------------------
+
+_MODEL_FILE: Final = "diggs-model-1.0.schema.json"
+_MODEL_PREFIX: Final = "DiggsModel"
+#: The one reference the model schema makes outside itself: a note is a finding.
+_FINDING_REF: Final = "/diggs-findings-1.0.schema.json#/$defs/finding"
+
+
+@cache
+def _model_packaged() -> _JsonSchema:
+    """The packaged diggs-model JSON Schema (read once)."""
+    text = resources.files("pydiggs.model").joinpath(_MODEL_FILE).read_text("utf-8")
+    loaded: _JsonSchema = json.loads(text)
+    return loaded
+
+
+def _model_component_name(definition: str) -> str:
+    return _MODEL_PREFIX + "".join(part.capitalize() for part in definition.split("_"))
+
+
+def _rewrite_model(node: Any, local: Any, finding: Any) -> Any:
+    """Copy ``node``; ``local(name)`` replaces a ``#/$defs`` reference, ``finding()`` a note's."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and len(node) == 1:
+            if ref.startswith("#/$defs/"):
+                return local(ref.removeprefix("#/$defs/"))
+            if ref.endswith(_FINDING_REF):
+                return finding()
+        return {k: _rewrite_model(v, local, finding) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_rewrite_model(v, local, finding) for v in node]
+    return node
+
+
+def _model_components() -> dict[str, _JsonSchema]:
+    """``DiggsModel*`` components: the root and each ``$defs`` entry, refs rewritten."""
+    schema = _model_packaged()
+
+    def local(name: str) -> _JsonSchema:
+        return {"$ref": _COMPONENTS + _model_component_name(name)}
+
+    def finding() -> _JsonSchema:
+        return {"$ref": _COMPONENTS + _component_name("finding")}
+
+    out = {_MODEL_PREFIX + "Document": _rewrite_model(_root(schema), local, finding)}
+    for name, definition in schema.get("$defs", {}).items():
+        out[_model_component_name(name)] = _rewrite_model(definition, local, finding)
+    return out
+
+
+@cache
+def _model_inline() -> _JsonSchema:
+    """The document schema with its references inlined, for a router mounted in another app.
+
+    The model is recursive in two places (an ``extra`` element's children, a
+    component's components); there the inlined schema says only "an object". The
+    full, recursive definitions are the ``DiggsModel*`` components that
+    :func:`lift_components` adds to this package's own OpenAPI document.
+    """
+    defs = _model_packaged().get("$defs", {})
+    findings = _packaged().get("$defs", {})
+    open_stack: list[str] = []
+
+    def local(name: str) -> Any:
+        if name in open_stack:
+            return {"type": "object", "description": f"As the enclosing {name}."}
+        open_stack.append(name)
+        try:
+            return _rewrite_model(defs[name], local, finding)
+        finally:
+            open_stack.pop()
+
+    def inline_finding(name: str) -> Any:
+        return _rewrite(findings[name], inline_finding)
+
+    def finding() -> Any:
+        return inline_finding("finding")
+
+    inlined: _JsonSchema = _rewrite_model(_root(_model_packaged()), local, finding)
+    return inlined
+
+
 _SARIF: Final[_JsonSchema] = {
     "title": "SARIF 2.1.0 log",
     "description": "A SARIF 2.1.0 log with one run (sent for Accept: application/sarif+json).",
@@ -133,6 +216,11 @@ _PROBLEM: Final[_JsonSchema] = {
             },
         },
         "correlation_id": {"type": "string"},
+        "kind": {
+            "type": "string",
+            "description": "For invalid-document: why the bytes are not a DIGGS document.",
+            "examples": list(_service.DOCUMENT_KINDS),
+        },
     },
 }
 
@@ -198,6 +286,7 @@ def _named() -> dict[str, _JsonSchema]:
     """Component name -> the self-contained schema the routes carry inline."""
     return {
         "DiggsFindingsDocument": _findings_inline(),
+        "DiggsModelDocument": _model_inline(),
         "SarifLog": _SARIF,
         "Problem": _PROBLEM,
         "RuleInfo": _rule_info(),
@@ -213,8 +302,10 @@ def components() -> dict[str, _JsonSchema]:
         >>> sorted(components())[:3]
         ['DiggsFindingsCommit', 'DiggsFindingsCounts', 'DiggsFindingsDocument']
     """
-    out = {k: copy.deepcopy(v) for k, v in _named().items() if k != "DiggsFindingsDocument"}
+    inlined = ("DiggsFindingsDocument", "DiggsModelDocument")
+    out = {k: copy.deepcopy(v) for k, v in _named().items() if k not in inlined}
     out.update(_findings_components())
+    out.update(_model_components())
     return dict(sorted(out.items()))
 
 
@@ -260,10 +351,10 @@ _STATUS_TEXT: Final = {
     408: "The body did not arrive within the body timeout",
     413: "Body larger than the limit",
     415: "Unsupported media type, or compressed input",
-    422: "Invalid parameter, or unreadable input",
+    422: "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
     500: "Internal error (fixed text and a correlation id)",
     503: "Busy (see Retry-After) or not ready",
-    504: "Validation passed the hard time limit (process isolation)",
+    504: "The request passed the hard time limit (process isolation)",
 }
 
 
@@ -352,6 +443,72 @@ def validate_responses() -> dict[int | str, dict[str, Any]]:
                 FINDINGS_MEDIA_TYPE: {"schema": _findings_inline()},
                 SARIF_MEDIA_TYPE: {"schema": _SARIF},
             },
+        },
+        **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
+    }
+
+
+#: Longest ``select`` value accepted (JSON text in a query or form field).
+MAX_SELECT_CHARS: Final = 64 * 2**10
+
+
+def _select_schema() -> _JsonSchema:
+    return {
+        "type": "string",
+        "maxLength": MAX_SELECT_CHARS,
+        "contentMediaType": "application/json",
+        "examples": ['{"results": "none"}', '{"results": ["Test_1", "Test_2"]}'],
+    }
+
+
+_SELECT_TEXT: Final = (
+    'JSON text: {"results": "all" | "none" | [node keys]}. Which result tables keep their'
+    " values (default: all); the others keep their columns and row_count."
+)
+
+
+def read_parameters() -> list[dict[str, Any]]:
+    """The query parameters of ``POST /v1/read``."""
+    return [
+        _query("name", _name_schema(), "File name to report (reduced to a basename)."),
+        _query("diggs_version", _diggs_version_schema(), "DIGGS version (default: detected)."),
+        _query("select", _select_schema(), _SELECT_TEXT),
+    ]
+
+
+def read_request_body() -> dict[str, Any]:
+    """The request body of ``POST /v1/read``: raw XML or one multipart file."""
+    raw = {"schema": {"type": "string", "format": "binary"}}
+    form = {
+        "schema": {
+            "type": "object",
+            "required": ["file"],
+            "additionalProperties": False,
+            "properties": {
+                "file": {"type": "string", "format": "binary"},
+                "name": _name_schema(),
+                "diggs_version": _diggs_version_schema(),
+                "select": _select_schema(),
+            },
+        },
+        "encoding": {"file": {"contentType": "application/xml, text/xml, */*"}},
+    }
+    return {
+        "required": True,
+        "content": {**dict.fromkeys(XML_MEDIA_TYPES, raw), "multipart/form-data": form},
+    }
+
+
+def read_responses() -> dict[int | str, dict[str, Any]]:
+    """The responses of ``POST /v1/read``."""
+    return {
+        200: {
+            "description": (
+                "A diggs-model 1.0 document: what pydiggs.read() returns for the same"
+                " bytes. A schema-invalid file still reads (run /v1/validate for a"
+                " verdict); an exhausted time budget is a 200 with complete: false."
+            ),
+            "content": {FINDINGS_MEDIA_TYPE: {"schema": _model_inline()}},
         },
         **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
     }

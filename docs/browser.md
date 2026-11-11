@@ -58,9 +58,10 @@ Then it answers messages. Each request carries an `id` that its reply repeats:
 | Direction | Message |
 |---|---|
 | page → worker | `{id, type: "validate", name, data}` with `data` an `ArrayBuffer` (transfer it) |
+| page → worker | `{id, type: "read", name, data}`: read the file instead (pydiggs 1.7.0 or later) |
 | worker → page | `{type: "ready", versions}` once loaded, or `{type: "failed", message}` |
-| worker → page | `{id, type: "result", document}`: a [diggs-findings 1.0](findings.md) document |
-| worker → page | `{id, type: "error", message}`: refused (too large, gzip-compressed, …) |
+| worker → page | `{id, type: "result", document}`: a [diggs-findings 1.0](findings.md) document, or for `read` a [diggs-model 1.0](model.md) document |
+| worker → page | `{id, type: "error", message}`: refused (too large, gzip-compressed, not a DIGGS document, …) |
 
 `document` is exactly what `validate_bytes(data, name=name, max_bytes=25 MiB).to_json()`
 gives in CPython, byte for byte (CI checks this). From the page
@@ -74,6 +75,12 @@ worker.postMessage({ id: 1, type: "validate", name: file.name, data }, [data]);
 
 `validate_bytes` reads no file and no URL the document names: local dictionaries are off
 and `allow_network` is false, so validation itself makes no request at all.
+
+For `read`, the worker calls `pydiggs.read_bytes(data, name=name, results=False)` and sends
+back `model.to_json()`, parsed: one JSON string crosses from Python to JavaScript, never a
+proxy of the Python objects. The example uses it to say what the file contains (features,
+samples, measurements, result tables) after validating it. `results=False` leaves the
+table values out; ask again without it for the tables you want to show.
 
 ## Loading Pyodide: CDN or self-hosted
 
@@ -149,10 +156,11 @@ The tested Pyodide is pinned exactly: npm `pyodide@314.0.7` in `tests/pyodide`
 (CPython 3.14.2, lxml 6.1.3). On every change, CI builds the wheel, installs it into
 that Pyodide under Node with `deps=False`, and checks that:
 
-- every report and the combined findings document are byte-identical to CPython's;
+- every report, the combined findings document and every `read_bytes(...).to_json()`
+  document are byte-identical to CPython's;
 - HTML in an element value comes back verbatim, as data;
-- validation imports no `rich`, `multiprocessing`, `fastapi`, `mcp` or `subprocess` and
-  starts no thread;
+- validating and reading import no `rich`, `multiprocessing`, `fastapi`, `mcp`,
+  `subprocess`, `pandas`, `polars` or `pyproj`, and start no thread;
 - the bundled UoM dictionary is read from the Emscripten filesystem;
 - a document over 25 MiB is refused.
 

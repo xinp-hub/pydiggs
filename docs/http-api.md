@@ -67,6 +67,7 @@ app, a reverse proxy or an API gateway for that.
 | method and path | answer |
 |---|---|
 | `POST /v1/validate` | 200 with a diggs-findings 1.0 document, or SARIF 2.1.0 for `Accept: application/sarif+json` |
+| `POST /v1/read` | 200 with a diggs-model 1.0 document: what is in the file ([Reading files](model.md)) |
 | `GET /v1/versions` | pydiggs, findings schema and DIGGS versions, reference-data commits, `api_version: "1"` (off with `versions_enabled=False`) |
 | `GET /v1/rules?step=` | every rule id pydiggs can emit (open families as patterns) |
 | `GET /v1/rules/{rule_id}` | one rule; a valid id pydiggs does not emit is 200 with `known: false` |
@@ -103,6 +104,43 @@ and an exhausted time budget (`structure.timeout`) are all **200 with findings**
 `Accept` decides the format: `application/json` (the default, also for `*/*` and no
 header) or `application/sarif+json`. When both are listed with the same quality, JSON
 wins. An `Accept` that allows neither is 406.
+
+### `POST /v1/read`
+
+Reads the document into a **diggs-model 1.0** document: boreholes, samples, tests and
+their result tables, as [`pydiggs.read()`](model.md) returns them. The body is exactly
+`pydiggs.read_bytes(data, name=name).to_json()`, so every surface gives the same bytes
+for the same file. Send the document as for `/v1/validate` (raw XML or one multipart
+`file` part); the body limit, admission, isolation and time limit are the same.
+
+| parameter | meaning |
+|---|---|
+| `name` | File name to report; reduced to a basename, `input.xml` when empty |
+| `diggs_version` | As for `/v1/validate`; default detected |
+| `select` | JSON text: `{"results": "all"}` (the default), `{"results": "none"}` or `{"results": ["key", …]}` (at most 1,000 node keys) |
+
+```bash
+curl -s -F file=@BH-01.xml -F 'select={"results": "none"}' http://127.0.0.1:8000/v1/read
+```
+
+- **`select`** says which result tables keep their values. A table that is left out keeps
+  its columns and `row_count` with empty `values`. List a file first with
+  `{"results": "none"}`, then ask for the measurements you need by `key`. Each worker
+  keeps the last few models it read (by content hash), so the second call does not parse
+  the file again. That is a cache only: nothing is stored between requests that a caller
+  could address.
+- **Reading is not validating.** A schema-invalid file still reads with 200; run
+  `/v1/validate` for a verdict. What reading had to work around is in the document's
+  `notes`.
+- **Not a DIGGS document** is 422 `invalid-document`, with `kind` `malformed`,
+  `not-diggs` or `unsafe-entity`. (`/v1/validate` reports the same cases as findings in a
+  200.)
+- **Time limit:** with thread isolation, running out of time is a 200 with
+  `complete: false` and the members read so far; with process isolation it is 504
+  `timeout`.
+- The answer is always `application/json`. On the conformance corpus a whole model is
+  0.6 to 2 times the size of its XML (1.1 times overall); compressing responses is the
+  host's job.
 
 ## Limits and admission
 
@@ -195,12 +233,14 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 | 403 | <span id="problem-cross-site"></span>`cross-site` | cross-site request |
 | 404 | <span id="problem-not-found"></span>`not-found` | unknown path (app only) |
 | 405 | <span id="problem-method-not-allowed"></span>`method-not-allowed` | wrong method; see `Allow` (app only) |
-| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF |
+| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF (`/v1/read`: not JSON) |
 | 408 | <span id="problem-request-timeout"></span>`request-timeout` | the body did not arrive within `body_timeout_s` |
 | 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes` |
 | 415 | <span id="problem-compressed-input"></span>`compressed-input` | gzip document, or `Content-Encoding` other than `identity` |
 | 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart |
-| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `checks`, `diggs_version`, `name`, `step` or rule id |
+| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `checks`, `diggs_version`, `name`, `select`, `step` or rule id |
+| 422 | <span id="problem-invalid-document"></span>`invalid-document` | `/v1/read` only: the bytes are not a DIGGS document; `kind` says why |
+| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read` only: the document is larger than the server sends (not reached with the default settings) |
 | 422 | <span id="problem-input-unreadable"></span>`input-unreadable` | the document could not be read |
 | 500 | <span id="problem-resource-error"></span>`resource-error` | bundled reference data could not be loaded |
 | 500 | <span id="problem-internal"></span>`internal` | anything else |
