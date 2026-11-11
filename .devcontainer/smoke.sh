@@ -10,3 +10,8 @@ uv run python -c "import pydiggs, lxml; print('pydiggs', pydiggs.__version__)"
 uv run pydiggs --help >/dev/null
 uv run ruff check --quiet .
 uv run mypy
+
+# The npm package: its generated files match the contracts, it type-checks, and its tests
+# run on the container's Node (which runs the TypeScript sources directly).
+node --version
+(cd js && npm run generate:check && npm run typecheck && npm test)

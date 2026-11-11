@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json",
+  "title": "diggs-findings 1.0",
+  "description": "Validation findings for DIGGS instance files, as written by pydiggs (pydiggs validate --format json). A new optional field is a 1.1; renaming or removing a field is a 2.0.",
+  "type": "object",
+  "required": ["$schema", "format", "schema_version", "tool", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "const": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json"
+    },
+    "format": { "const": "diggs-findings" },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$",
+      "description": "Major.minor version of this schema the document follows."
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version", "reference_data"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "reference_data": {
+          "description": "Upstream commit of each vendored DIGGS reference-data source (from PROVENANCE.toml).",
+          "type": "object",
+          "properties": {
+            "schemas": { "$ref": "#/$defs/commit" },
+            "def": { "$ref": "#/$defs/commit" },
+            "diggs-examples": { "$ref": "#/$defs/commit" }
+          },
+          "additionalProperties": { "$ref": "#/$defs/commit" }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file" }
+    }
+  },
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{7,64}$" },
+    "severity": { "enum": ["error", "warning", "info"] },
+    "step": {
+      "enum": [
+        "structure",
+        "schema",
+        "codeType",
+        "dictionary",
+        "schematron",
+        "geometry",
+        "crs",
+        "coordinate",
+        "deprecation",
+        "context"
+      ]
+    },
+    "counts": {
+      "type": "object",
+      "required": ["error", "warning", "info"],
+      "additionalProperties": false,
+      "properties": {
+        "error": { "type": "integer", "minimum": 0 },
+        "warning": { "type": "integer", "minimum": 0 },
+        "info": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "file": {
+      "type": "object",
+      "required": ["path", "sha256", "diggs_version", "status", "verdict", "steps", "counts", "findings"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Relative to the working directory when the file is under it, else the bare file name; absolute only when asked for."
+        },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "diggs_version": {
+          "description": "DIGGS profile the file was checked as (2.5.a, 2.6, 3.0.0), or null when it could not be told or the file is not DIGGS.",
+          "type": ["string", "null"]
+        },
+        "status": {
+          "enum": ["checked", "not-diggs", "unreadable"],
+          "description": "not-diggs: the root element is not a DIGGS Diggs element; only the structure step ran."
+        },
+        "verdict": {
+          "enum": ["valid", "valid-with-warnings", "not-valid", "partly-checked", "not-diggs", "unreadable"],
+          "description": "Derived from status, steps and findings: not-diggs or unreadable from the status; else not-valid if any finding is an error; else partly-checked if a step is partial or incomplete; else valid-with-warnings if any finding is a warning; else valid."
+        },
+        "error": {
+          "type": "string",
+          "description": "Why an unreadable file could not be read."
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["step", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "step": { "$ref": "#/$defs/step" },
+              "status": {
+                "enum": ["passed", "partial", "failed", "skipped", "incomplete"],
+                "description": "partial: no error, but part of the step could not be checked offline (dictionary.offline); incomplete: the step could not finish, or lost findings to max_findings (see the structure.findings-truncated finding). A step with an error is failed (or incomplete), never partial."
+              }
+            }
+          }
+        },
+        "counts": { "$ref": "#/$defs/counts" },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/finding" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "unreadable" } } },
+          "then": {
+            "required": ["error"],
+            "properties": {
+              "sha256": { "type": "null" },
+              "verdict": { "const": "unreadable" },
+              "findings": { "maxItems": 0 }
+            }
+          },
+          "else": {
+            "not": { "required": ["error"] },
+            "properties": { "sha256": { "type": "string" } }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "not-diggs" } } },
+          "then": {
+            "properties": {
+              "verdict": { "const": "not-diggs" },
+              "diggs_version": { "type": "null" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "status": { "const": "checked" } } },
+          "then": {
+            "properties": {
+              "verdict": { "enum": ["valid", "valid-with-warnings", "not-valid", "partly-checked"] }
+            }
+          }
+        }
+      ]
+    },
+    "finding": {
+      "type": "object",
+      "required": ["layer", "step", "rule_id", "severity", "message", "location"],
+      "additionalProperties": false,
+      "properties": {
+        "layer": { "enum": ["native", "official"] },
+        "step": { "$ref": "#/$defs/step" },
+        "rule_id": {
+          "type": "string",
+          "pattern": "^(structure|schema|codeType|dictionary|schematron|geometry|crs|coordinate|deprecation|context)\\.[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "description": "Stable id; the part before the first dot equals step."
+        },
+        "severity": { "$ref": "#/$defs/severity" },
+        "message": {
+          "type": "string",
+          "description": "Human-readable text. Never compare it; compare rule_id and location."
+        },
+        "location": {
+          "type": "object",
+          "required": ["line", "column", "xpath", "gml_id"],
+          "additionalProperties": false,
+          "properties": {
+            "line": { "type": ["integer", "null"], "minimum": 1 },
+            "column": { "type": ["integer", "null"], "minimum": 1 },
+            "xpath": {
+              "type": ["string", "null"],
+              "description": "Element path in the official diggs:get-path form, e.g. /diggs:Diggs[1]/diggs:samplingFeature[2]."
+            },
+            "gml_id": {
+              "type": ["string", "null"],
+              "description": "gml:id of the nearest element at or above the problem."
+            }
+          }
+        },
+        "source_snippet": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "The offending element's XML, at most 1 KiB; present only when snippets were asked for."
+        }
+      }
+    }
+  }
+}
