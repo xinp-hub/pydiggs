@@ -384,10 +384,29 @@ jobs:
       - name: Check the packed tarball (publint, Are the Types Wrong)
         run: npm run lint:package
 
+  # The site is deployed from master by docs.yml, which is too late to learn that a page
+  # has a broken link. This builds it the same way on every pull request and publishes
+  # nothing.
+  docs:
+    name: docs build (strict)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --group docs --group dev
+      - name: Build (strict, a broken link fails the build)
+        run: uv run --group docs mkdocs build --strict
+
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, js]
+    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, js, docs]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
