@@ -1,0 +1,18 @@
+POSC License Agreement
+
+The WITSML 1.3.1.1 schema files bundled in pyDIGGS (the witsml/1.3.1.1/ folders of the
+DIGGS 2.5.a and 2.6 schemas) carry this notice in their headers:
+
+    POSC License Agreement
+    This file is distributed under the POSC License Agreement at
+    http://www.posc.org/about/license.shtml.
+    Use of this file constitutes agreement with the POSC License Agreement.
+
+POSC is the predecessor of Energistics, and the posc.org address no longer serves the
+agreement. Its successor is the Energistics Product License Agreement:
+
+    https://energistics.org/product-license-agreement
+
+pyDIGGS redistributes these files as received from the DIGGS project
+(https://github.com/DIGGSml/schemas). They are not covered by the pyDIGGS Apache-2.0
+licence.

@@ -47,6 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and published, and every 1.0 document is a valid 1.1 document.
 
 ### Changed
+- **Licensing is now documented file by file.** A top-level `NOTICE` file lists the
+  attributions to keep when you redistribute pyDIGGS, including the bundled Energistics,
+  OGC and EPSG material that the licence metadata did not name before. The wheel ships it
+  with the third-party licence texts in `.dist-info/licenses/`. Every file in the
+  repository has its copyright and licence recorded in `REUSE.toml` (REUSE 3.3), checked
+  in CI. A new [Licence and use](https://xinp-hub.github.io/pydiggs/license/) page says
+  what you may do, what you must do when you redistribute, and what a pyDIGGS check does
+  and does not tell you about engineering data. The pyDIGGS licence is unchanged
+  (Apache-2.0).
 - Findings documents now declare **diggs-findings 1.1**: `$schema` is the 1.1 URL and
   `schema_version` is `"1.1"` (`FINDINGS_SCHEMA_URL`, `FINDINGS_SCHEMA_VERSION`,
   `findings_schema()`, the HTTP API's OpenAPI document, the sidecar's OpenRPC document

@@ -1,0 +1,12 @@
+DIGGS material with no stated licence
+
+src/pydiggs/schematron/diggs_schematron_rules_2.6.sch is adapted from
+https://github.com/DIGGSml/validation (modules/diggs_schematron_rules.sch). The changes are
+listed in the file header.
+
+At the commit pyDIGGS adapted, the DIGGSml/validation repository contains no licence
+file and states no licence, and pyDIGGS is asking the DIGGS project to state one. Until it
+does, the upstream portions of this file are used as published by the DIGGS project for
+validating DIGGS files, and pyDIGGS's changes are licensed under Apache-2.0.
+
+This entry will be replaced by the upstream licence once one is stated.

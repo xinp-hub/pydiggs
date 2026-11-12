@@ -1,0 +1,14 @@
+OASIS Open copyright notice
+
+tests/fixtures/sarif/sarif-schema-2.1.0.json is the official JSON Schema of the Static
+Analysis Results Interchange Format (SARIF) Version 2.1.0 Plus Errata 01, an OASIS
+Standard, vendored unmodified for the test suite only (it is not in the pydiggs wheel).
+
+    Copyright (c) OASIS Open 2023. All Rights Reserved.
+
+OASIS publishes its standards and their schemas under the OASIS Intellectual Property
+Rights Policy and the copyright notice that accompanies each specification:
+
+    https://www.oasis-open.org/policies-guidelines/ipr/
+
+Source, checksum and fetch date: tests/fixtures/sarif/NOTICE.

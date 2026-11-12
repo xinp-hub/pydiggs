@@ -1,0 +1,12 @@
+OGC XLink schema notice
+
+The xlinks.xsd files bundled in pyDIGGS (one in each DIGGS schema version) are the GML 3.0
+candidate XLink schema and carry this notice:
+
+    GML 3.0 candidate xlinks schema. Copyright (c) 2001 OGC, All Rights Reserved.
+
+The Open Geospatial Consortium publishes its XML schemas for implementation of its
+standards. pyDIGGS redistributes these files unmodified, as received from the DIGGS
+project (https://github.com/DIGGSml/schemas and https://github.com/DIGGSml/schema-dev),
+which ships them as part of the DIGGS schemas. They are not covered by the pyDIGGS
+Apache-2.0 licence.

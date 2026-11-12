@@ -1,0 +1,19 @@
+Energistics Product License Agreement
+
+The Energistics schema files bundled in pyDIGGS (the energistics/ and witsml/2.0/ folders
+of the DIGGS schemas) carry this notice in their headers:
+
+    Copyright (c) 2014 Energistics. All rights reserved.
+    Copyright (c) 2016 Energistics. All rights reserved.
+    Use of this file constitutes agreement with the Energistics Product License Agreement.
+    Energistics, WITSML, PRODML and RESQML are trademarks or registered trademarks of
+    Energistics.
+
+The agreement is published by the Energistics Consortium at:
+
+    https://energistics.org/product-license-agreement
+
+That page is the authoritative text; it is not reproduced here. pyDIGGS redistributes
+these files as received from the DIGGS project (https://github.com/DIGGSml/schemas and
+https://github.com/DIGGSml/schema-dev), which ships them as part of its DIGGS profile.
+They are not covered by the pyDIGGS Apache-2.0 licence.
