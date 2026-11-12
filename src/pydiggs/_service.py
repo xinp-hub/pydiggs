@@ -198,7 +198,7 @@ class Request:
 class Outcome:
     """What a request produced: a document, or an error code with a safe text.
 
-    ``document`` is UTF-8 JSON on one line (a diggs-findings 1.0 document, a SARIF
+    ``document`` is UTF-8 JSON on one line (a diggs-findings 1.1 document, a SARIF
     2.1.0 log when asked for, or a diggs-model document from :func:`read`). ``detail``
     never contains an absolute path or a value the caller sent, only the reported
     basename.
@@ -850,7 +850,7 @@ def versions() -> dict[str, Any]:
 
     Examples:
         >>> versions()["findings_schema_version"]
-        '1.0'
+        '1.1'
     """
     return version_info().to_dict()
 

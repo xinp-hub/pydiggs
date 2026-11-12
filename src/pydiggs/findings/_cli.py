@@ -50,7 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="pydiggs validate",
         description=(
             "Validate DIGGS instance files with every native check and report the "
-            "findings as text, JSON (diggs-findings 1.0) or SARIF 2.1.0."
+            "findings as text, JSON (diggs-findings 1.1) or SARIF 2.1.0."
         ),
         epilog=(
             "Exit status: 0 no finding at or above --fail-on; 1 some; 2 usage error, "

@@ -50,6 +50,8 @@ def test_step_values_and_order_follow_the_official_pipeline():
         "coordinate",
         "deprecation",
         "context",
+        "ags4",  # diggs-findings 1.1
+        "convert",  # diggs-findings 1.1
     ]
     assert [s.order for s in Step] == list(range(len(Step)))
 
@@ -167,7 +169,8 @@ def test_generated_rule_ids_match_the_grammar(rule_id):
 def test_rule_id_grammar_never_accepts_a_bad_step(text):
     if is_valid_rule_id(text):
         assert text.split(".", 1)[0] in {s.value for s in Step}
-        assert re.fullmatch(r"[A-Za-z]+\.[A-Za-z0-9][A-Za-z0-9._-]*", text)
+        # A step name is letters, then letters or digits ("ags4", from diggs-findings 1.1).
+        assert re.fullmatch(r"[A-Za-z][A-Za-z0-9]*\.[A-Za-z0-9][A-Za-z0-9._-]*", text)
 
 
 def test_every_named_rule_id_is_valid():

@@ -45,7 +45,7 @@ def _document(entries: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def findings_document(reports: Iterable[Report], *, absolute_paths: bool = False) -> dict[str, Any]:
-    """Build one ``diggs-findings`` 1.0 document from several reports, sorted by path.
+    """Build one ``diggs-findings`` 1.1 document from several reports, sorted by path.
 
     ``tool.version`` and ``tool.reference_data`` describe the running pydiggs. No
     reports gives a valid document with an empty ``files`` list.

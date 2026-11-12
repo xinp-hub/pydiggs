@@ -27,9 +27,14 @@ def _hooks():
 def test_hook_publishes_the_packaged_schema_byte_for_byte(tmp_path):
     hooks = _hooks()
     hooks.on_post_build({"site_dir": str(tmp_path)})
-    published = tmp_path / "schemas" / "diggs-findings-1.0.schema.json"
+    published = tmp_path / "schemas" / "diggs-findings-1.1.schema.json"
     packaged = resources.files("pydiggs.findings").joinpath(_json.SCHEMA_RESOURCE).read_bytes()
     assert published.read_bytes() == packaged
+    # The earlier version stays published, byte for byte, beside the current one.
+    earlier = "diggs-findings-1.0.schema.json"
+    assert (tmp_path / "schemas" / earlier).read_bytes() == (
+        resources.files("pydiggs.findings").joinpath(earlier).read_bytes()
+    )
 
 
 def test_published_path_matches_the_schema_id():

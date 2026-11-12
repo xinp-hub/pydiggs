@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`pydiggs.ags4`: read and write AGS4 files** (the first part of AGS4 and DIGGS
+  conversion). `ags4.read(path)` and `ags4.read_bytes(data)` return a `File` of `Group`
+  tables (`name`, `headings`, `units`, `types`, `rows`), with every value kept as the
+  text the file holds; `ags4.dumps(file)` and `ags4.write(file, path)` write one back the
+  same way every time (every field quoted, CR LF, groups in the order given), so a file
+  that follows the rules is written back byte for byte. `File` and `Group` have public
+  constructors, and `ags4.AGS_VERSIONS` lists the versions read and written (4.0.3 to
+  4.2). The module is new and nothing at the top level changes:
+
+  ```python
+  from pydiggs import ags4
+
+  f = ags4.read("site.ags")
+  f.version  # '4.1.1', from TRAN_AGS
+  f.groups["LOCA"].records()  # [{'LOCA_ID': 'BH01', ...}, ...]
+  f.notes  # what reading had to work around, as findings
+  ags4.write(f, "copy.ags")
+  ```
+
+  Reading is lenient, like `pydiggs.read`: a file that breaks the AGS4 rules still reads
+  and each workaround is a note (`ags4.rule-4` for a short row, `ags4.rule-5` for an
+  unquoted field, and so on); `DocumentError` (`kind` `not-ags4` or
+  `unsupported-version`) is raised only when no table can be built. Text is read as
+  UTF-8, and as Windows-1252 with an `ags4.encoding-assumed` warning when it is not.
+  Every file is treated as untrusted: size, groups, headings, rows, cells, value length
+  and time (`max_bytes`, `time_budget`) are limited, a limit gives a partial file with
+  `complete=False`, nothing a file names is opened, and there is no network access.
+  The reader is written for pyDIGGS from the published AGS4 rules, with no new
+  dependency; no AGS data dictionary or AGS example file is bundled, and pyDIGGS is not
+  an AGS-approved tool. Checking the AGS4 rules (`ags4.check`) and conversion follow.
+- **diggs-findings 1.1**, which only adds to 1.0: the steps `ags4` and `convert`
+  (`Step.AGS4`, `Step.CONVERT`; `validate()` never runs them), an optional
+  `location.path` for a place in a source that is not XML (`Finding.path`, for AGS4
+  `GROUP/row/HEADING`), and an optional `files[].format` (`Report.format`, `"ags4"` for an
+  AGS4 file). The new schema is packaged and published as
+  `diggs-findings-1.1.schema.json`; the 1.0 schema file is unchanged and still packaged
+  and published, and every 1.0 document is a valid 1.1 document.
+
+### Changed
+- Findings documents now declare **diggs-findings 1.1**: `$schema` is the 1.1 URL and
+  `schema_version` is `"1.1"` (`FINDINGS_SCHEMA_URL`, `FINDINGS_SCHEMA_VERSION`,
+  `findings_schema()`, the HTTP API's OpenAPI document, the sidecar's OpenRPC document
+  and the MCP `outputSchema` follow). Nothing else in a document about DIGGS files
+  changes: the two new fields are written only for AGS4. If you check documents against
+  the 1.0 schema, move to the 1.1 schema, because the 1.0 schema accepts only its own
+  `$schema` URL:
+
+  ```python
+  jsonschema.validate(document, schema_1_0)  # 1.8.0
+  jsonschema.validate(document, pydiggs.findings_schema())  # 1.9.0
+  ```
+- `GET /v1/rules?step=` and the rule catalogue accept and list the `ags4` step.
+
 ## [1.8.0] - 2026-11-11
 
 ### Added

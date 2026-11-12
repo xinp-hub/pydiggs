@@ -43,7 +43,7 @@ SARIF_MEDIA_TYPE: Final = "application/sarif+json"
 XML_MEDIA_TYPES: Final = ("application/xml", "text/xml")
 #: Longest ``checks`` value, as documented in OpenAPI (``maxLength``).
 MAX_CHECKS_CHARS: Final = 512
-_SCHEMA_FILE: Final = "diggs-findings-1.0.schema.json"
+_SCHEMA_FILE: Final = "diggs-findings-1.1.schema.json"
 _PREFIX: Final = "DiggsFindings"
 _COMPONENTS: Final = "#/components/schemas/"
 _JsonSchema = dict[str, Any]
@@ -436,7 +436,7 @@ def validate_responses() -> dict[int | str, dict[str, Any]]:
     return {
         200: {
             "description": (
-                "A diggs-findings 1.0 document (or a SARIF 2.1.0 log). Malformed XML,"
+                "A diggs-findings 1.1 document (or a SARIF 2.1.0 log). Malformed XML,"
                 " truncation and an exhausted time budget are 200s with findings."
             ),
             "content": {

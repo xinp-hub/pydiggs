@@ -241,16 +241,24 @@ pydiggs validate PATH... [--format text|json|sarif] [--output FILE]
 
 ## The JSON document
 
-The format is **diggs-findings 1.0**, described by a JSON Schema (draft 2020-12) that
-ships inside the package (`pydiggs/findings/diggs-findings-1.0.schema.json`) and is
+The format is **diggs-findings 1.1**, described by a JSON Schema (draft 2020-12) that
+ships inside the package (`pydiggs/findings/diggs-findings-1.1.schema.json`) and is
 published with this site at
-[`schemas/diggs-findings-1.0.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json).
+[`schemas/diggs-findings-1.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json).
+
+Version 1.1 (pyDIGGS 1.9.0) only adds to 1.0: the steps `ags4` and `convert`, the optional
+`location.path` and the optional `files[].format`. Every 1.0 document is a valid 1.1
+document, and the two new fields are written only when they say something, so a document
+about DIGGS files differs from its 1.0 form only in `$schema` and `schema_version`. The
+[1.0 schema](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json) stays packaged and published, unchanged. A consumer that
+checks documents against the 1.0 schema must move to the 1.1 schema, because the 1.0
+schema pins `$schema` to its own URL.
 
 ```json
 {
-  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json",
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json",
   "format": "diggs-findings",
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "tool": {
     "name": "pydiggs",
     "version": "1.2.0",
@@ -290,18 +298,20 @@ published with this site at
 | `tool.reference_data` | Upstream commit of each vendored DIGGS source (`schemas`, `def`), from the bundled `PROVENANCE.toml` |
 | `files[].path` | See [Paths](#paths); absolute only with `--absolute-paths` / `absolute_paths=True` |
 | `files[].sha256` | Digest of the file's bytes (`null` when unreadable) |
+| `files[].format` | Absent for a DIGGS file; `ags4` for an AGS4 file, whose `diggs_version` is `null` (new in 1.1) |
 | `files[].status` | `checked`, `not-diggs` (the root is not `Diggs`; `diggs_version` is `null` and only `structure` ran) or `unreadable` (the entry also has `error`) |
 | `files[].verdict` | `valid`, `valid-with-warnings`, `not-valid`, `partly-checked`, `not-diggs` or `unreadable`, derived as described under [validate()](#findings-json-and-sarif-output); SARIF carries `status` and `verdict` in each artifact's `properties` |
 | `findings[].layer` | `native` (pydiggs's own checks); `official` is reserved for the DIGGSml/validation layer |
-| `findings[].step` | One of `structure`, `schema`, `codeType`, `dictionary`, `schematron`, `geometry`, `crs`, `coordinate`, `deprecation`, `context` |
+| `findings[].step` | One of `structure`, `schema`, `codeType`, `dictionary`, `schematron`, `geometry`, `crs`, `coordinate`, `deprecation`, `context`, and from 1.1 `ags4` (reading and checking an AGS4 file) and `convert` (what a conversion lost). `validate()` never runs the last two |
 | `location.line`, `location.column` | 1-based; the column is known only for XML syntax errors |
 | `location.xpath` | The official `diggs:get-path` form: every element as `name()[n]` |
 | `location.gml_id` | `gml:id` of the nearest element at or above the problem |
+| `location.path` | Only for a place in a source that is not XML (new in 1.1). For AGS4: `GROUP`, `GROUP/row` or `GROUP/row/HEADING`, with DATA rows counted from 1, for example `GEOL/12/GEOL_LEG` |
 | `source_snippet` | A shallow copy of the element: its attributes and text plus at most eight child elements (their attributes and text only; deeper content is "..."), a comment counting any further children, and only the namespace declarations those use; at most 1 KiB of UTF-8. Only with `--snippets` / `include_snippets=True` |
 
 There is no timestamp, keys come in a fixed order and findings are sorted (by step, line,
 column, severity, rule id, xpath, message), so the same input gives the same bytes.
-Compatibility: a new optional field is version 1.1; renaming or removing a field is 2.0.
+Compatibility: a new optional field or step is a new minor version (1.1 was the first); renaming or removing a field is 2.0.
 **Messages are for people**: compare `rule_id`, `step`, `severity` and location, never
 the message text. Unlike the legacy logs, a message has no `Check N:` prefix; the rule id
 carries the number.
@@ -359,6 +369,9 @@ Rule ids are part of the stable contract.
 | `geometry.reported-depth-mismatch` | warning | A feature's `totalMeasuredDepth` and the length of its `centerLine` differ by more than 2 % (and more than 5 cm), the DIGGS File Inspector's tolerance. Checked only when the file states the axis units itself (`uomLabels`, or the axes of a `LocalCartesianCRS` it defines); otherwise skipped |
 | `geometry.crs-axis-order-suspect` | warning | Coordinates in a geographic CRS (EPSG:4326, 4269, 4979 and other common ones) whose first value cannot be a latitude (absolute value over 90): the axes look swapped to longitude, latitude. A negative first value alone is not flagged, so southern- and western-hemisphere sites are fine. Reported once per `srsName`, at the first such element, with a count |
 | `geometry.crs-unresolvable` | warning | An `srsName` that is neither a recognised EPSG or DIGGS CRS reference (the forms the Inspector recognises: `urn:ogc:def:crs:EPSG::4326`, compound URNs and `crs-compound` URLs, `opengis.net/def/crs/EPSG/0/…`, `epsg.xml#…`, `#4326`, `urn:diggs:def:crs:DIGGS:0.1:…`, `diggsml.org/def/crs/…`) nor the `gml:id` of an element in the file. Once per distinct value, with its number of uses |
+| `ags4.rule-1`, `ags4.rule-2`, `ags4.rule-2a`, `ags4.rule-2b`, `ags4.rule-3`, `ags4.rule-4`, `ags4.rule-5` | error | AGS4 reading only (`pydiggs.ags4.read`): the file breaks the AGS4 rule of that number, and the note says what the reader did about it. Rule 1: a byte order mark (dropped). Rule 2: a row before the first GROUP row (not read), or no GROUP row at all (the file is refused). Rule 2a: lines that do not end with CR LF. Rule 2b: a HEADING, UNIT or TYPE row that is missing, repeated or out of order. Rule 3: a row that starts with no known descriptor (not read). Rule 4: a row with more or fewer values than the HEADING row (cut or padded with empty values), or a GROUP row without exactly one name. Rule 5: a field not enclosed in double quotes |
+| `ags4.duplicate-group`, `ags4.unsupported-version`, `ags4.limit`, `ags4.timeout` | error | AGS4 reading only. `duplicate-group`: a group name has more than one GROUP row, and only the first group is read. `unsupported-version`: an AGS 3 or older file, which is refused. `limit` and `timeout`: reading stopped at a work limit or at its `time_budget`, and the file is incomplete |
+| `ags4.encoding-assumed`, `ags4.version-unknown` | warning | AGS4 reading only. `encoding-assumed`: the bytes are not UTF-8 and were read as Windows-1252. `version-unknown`: `TRAN_AGS` names a version pyDIGGS does not know, and the file is read as the newest known one |
 | `context.xlink-remote-unresolved` | info | An `xlink:href` into another document. pyDIGGS never fetches it, so what it points at was not checked. Once per document; links to DIGGS code lists (`diggsml.org/def/codes/`) are left to the dictionary step |
 
 `rule_catalogue()` returns this table as data (`RuleInfo` objects: fixed ids, then the

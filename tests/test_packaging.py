@@ -111,3 +111,23 @@ def test_ships_findings_schema():
     schema = resources.files(pkg).joinpath("findings/diggs-findings-1.0.schema.json")
     assert schema.is_file()
     assert '"$id"' in schema.read_text(encoding="utf-8")
+    # 1.1 ships beside 1.0, which stays in the wheel (tests/test_findings_schema_11.py).
+    newer = resources.files(pkg).joinpath("findings/diggs-findings-1.1.schema.json")
+    assert newer.is_file()
+    assert '"$id"' in newer.read_text(encoding="utf-8")
+
+
+def test_ships_the_ags4_subpackage():
+    from pydiggs import ags4
+
+    assert ags4.__all__ == [
+        "AGS_VERSIONS",
+        "File",
+        "Group",
+        "dumps",
+        "read",
+        "read_bytes",
+        "write",
+    ]
+    for module in ("_emit", "_io", "_parse", "_table"):
+        assert resources.files(pkg).joinpath(f"ags4/{module}.py").is_file()

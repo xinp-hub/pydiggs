@@ -1,0 +1,11 @@
+"GROUP","PROJ"
+"HEADING","PROJ_ID","PROJ_NAME"
+"UNIT","",""
+"TYPE","ID","X"
+"DATA","PD-007","Slope of 12° – café site"
+
+"GROUP","TRAN"
+"HEADING","TRAN_ISNO","TRAN_AGS"
+"UNIT","",""
+"TYPE","X","X"
+"DATA","1","4.1.1"

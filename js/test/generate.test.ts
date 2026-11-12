@@ -22,7 +22,12 @@ test("the Pyodide pin is the one CI tests pydiggs against", () => {
 
 test("the shipped schemas carry the exported URLs", () => {
   const read = (name: string) => JSON.parse(readFileSync(new URL(`../schemas/${name}`, import.meta.url), "utf8"));
-  assert.equal(read("diggs-findings-1.0.schema.json").$id, FINDINGS_SCHEMA_URL);
+  assert.equal(read("diggs-findings-1.1.schema.json").$id, FINDINGS_SCHEMA_URL);
+  // The earlier version stays shipped: 1.0 documents name it, and so do diggs-model 1.0 notes.
+  assert.equal(
+    read("diggs-findings-1.0.schema.json").$id,
+    FINDINGS_SCHEMA_URL.replace("diggs-findings-1.1", "diggs-findings-1.0"),
+  );
   assert.equal(read("diggs-model-1.0.schema.json").$id, MODEL_SCHEMA_URL);
 });
 
@@ -37,6 +42,16 @@ test("a document literal fits the generated types", () => {
     location: { line: 12, column: 3, xpath: "/diggs:Diggs[1]", gml_id: null },
   };
   const depth: DiggsModelQuantity = { text: "160.00", value: 160, uom: "ft", si: { value: 48.768, uom: "m" } };
+  // diggs-findings 1.1: the ags4 and convert steps, and a place that is not XML.
+  const note: DiggsFindingsFinding = {
+    layer: "native",
+    step: "ags4",
+    rule_id: "ags4.rule-4",
+    severity: "error",
+    message: "A DATA row has 1 values where the HEADING row has 2 headings.",
+    location: { line: 6, column: null, xpath: null, gml_id: null, path: "PROJ/1" },
+  };
+  assert.equal(note.location.path, "PROJ/1");
   assert.equal(finding.severity, "error");
   assert.equal(depth.si?.uom, "m");
 });

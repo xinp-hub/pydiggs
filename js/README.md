@@ -9,7 +9,7 @@ package gives you the types of what comes back and the code to ask for it.
 
 | Import | What it is | Runs |
 |---|---|---|
-| `@pydiggs/client` | Types for diggs-findings 1.0 and diggs-model 1.0 documents | anywhere (types only) |
+| `@pydiggs/client` | Types for diggs-findings 1.1 and diggs-model 1.0 documents | anywhere (types only) |
 | `@pydiggs/client/http` | Client for the pyDIGGS HTTP API | Node 22+, Deno, Bun, browsers |
 | `@pydiggs/client/browser` | pyDIGGS in a Web Worker; the file never leaves the tab | browsers |
 
@@ -39,7 +39,7 @@ OpenAPI document. The types are generated from the JSON Schemas, which are also 
 package for a validator such as Ajv:
 
 ```ts
-import schema from "@pydiggs/client/schemas/diggs-findings-1.0.schema.json" with { type: "json" };
+import schema from "@pydiggs/client/schemas/diggs-findings-1.1.schema.json" with { type: "json" };
 ```
 
 Both formats grow by adding optional fields within 1.x, so ignore fields you do not
