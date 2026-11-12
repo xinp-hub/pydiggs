@@ -5,6 +5,7 @@
 
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parentPort } from "node:worker_threads";
 
 import { PYODIDE_VERSION } from "./generated/pins.ts";
@@ -19,7 +20,7 @@ interface NodePyodide extends PyodideLike {
 }
 
 interface PyodideModule {
-  loadPyodide(options?: { packageCacheDir?: string }): Promise<NodePyodide>;
+  loadPyodide(options?: { indexURL?: string; packageCacheDir?: string }): Promise<NodePyodide>;
 }
 
 // Where a wheel from disk is put inside Pyodide's file system for micropip to install.
@@ -34,13 +35,22 @@ const handle = createWorkerCore({
   post: (message) => port.postMessage(message),
   loadPyodide: async (init: InitMessage): Promise<NodePyodide> => {
     const specifier = init.pyodideModuleUrl ?? "pyodide";
+    let moduleUrl: string;
     let module: PyodideModule;
     try {
-      module = (await import(specifier)) as PyodideModule;
+      moduleUrl = import.meta.resolve(specifier);
+      module = (await import(moduleUrl)) as PyodideModule;
     } catch {
       throw new Error(`cannot load Pyodide; install it next to @pydiggs/client: npm install pyodide@${PYODIDE_VERSION}`);
     }
-    const pyodide = await module.loadPyodide(init.packageCacheDir ? { packageCacheDir: init.packageCacheDir } : {});
+    // Name Pyodide's folder. Left to itself, Pyodide works it out from a stack trace, and
+    // with source maps on (`node --enable-source-maps`, as `next dev` runs) that trace
+    // names its original sources, so it looks for its WebAssembly where there is none.
+    const indexURL = fileURLToPath(new URL(".", moduleUrl));
+    const pyodide = await module.loadPyodide({
+      indexURL,
+      ...(init.packageCacheDir ? { packageCacheDir: init.packageCacheDir } : {}),
+    });
     // lxml comes from this Pyodide release, and CI checks byte-equality with CPython
     // for exactly this release. Another version may give other answers.
     if (pyodide.version !== PYODIDE_VERSION) {

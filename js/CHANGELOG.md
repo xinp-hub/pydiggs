@@ -30,6 +30,9 @@ matching pyDIGGS version number.
   such a document to the server (`reason: "browser-timeout"` or `"browser-unavailable"`).
   Documents now go to the worker one at a time; the worker already ran them one at a
   time.
+- `PydiggsNode` tells Pyodide where it is installed, so it loads under
+  `node --enable-source-maps` and `next dev`, where Pyodide's own guess from a stack
+  trace pointed at its original sources.
 - Tested set-ups, with the packed package: Vite production builds in Chromium, Firefox
   and WebKit; the Vite dev server; Next.js with Turbopack and with webpack, and `next
   dev`, with `PydiggsNode` behind a route handler. The README has the configuration
