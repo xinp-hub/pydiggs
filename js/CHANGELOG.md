@@ -18,7 +18,7 @@ matching pyDIGGS version number.
 - `@pydiggs/client/node`: `PydiggsNode` runs pyDIGGS in a Node worker thread on the
   npm `pyodide` package (an optional peer dependency, pinned to `PYODIDE_VERSION`), with
   `packageCacheDir`, `pydiggsWheelPath` and limits above 25 MiB up to
-  `ABSOLUTE_MAX_BYTES`. `createPydiggsHandler` serves pyDIGGS's HTTP API (`/v1/validate`,
+  `ABSOLUTE_MAX_BYTES` (256 MiB, from measured memory use). `createPydiggsHandler` serves pyDIGGS's HTTP API (`/v1/validate`,
   `/v1/read`, `/v1/readyz`) from it as a standard Fetch handler, for Next.js route
   handlers, Hono, Bun, Deno and others.
 - `PydiggsBrowser`: `onProgress` reports the load stages (`runtime`, `packages`,

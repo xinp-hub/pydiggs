@@ -61,8 +61,13 @@ interface Loaded {
   read: PyCallable;
 }
 
-/** No document above this fits: WebAssembly memory is 4 GiB, and pydiggs needs a few times the document. */
-export const ABSOLUTE_MAX_BYTES: number = 1024 * 1024 * 1024;
+/**
+ * The largest document any engine accepts. Measured with tests/pyodide/memory-probe.mjs
+ * (2026-11-12, Pyodide 314.0.7): reading needs about 14 times the document in
+ * WebAssembly memory (1.4 GiB at 100 MiB), and 32-bit WebAssembly stops at 4 GiB, so
+ * about 280 MiB is the most that could fit. This keeps a margin below it.
+ */
+export const ABSOLUTE_MAX_BYTES: number = 256 * 1024 * 1024;
 
 const text = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 

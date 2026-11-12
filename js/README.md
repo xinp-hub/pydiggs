@@ -224,8 +224,7 @@ const findings = await pydiggs.validate(await readFile("BH-01.xml"), { name: "BH
   With `packageCacheDir` and `pydiggsWheelPath` (a wheel on disk), later starts need no
   network.
 - **One request at a time per instance,** off the event loop. Run a few instances for
-  more throughput, and size the server's memory: pyDIGGS needs several times the
-  document while it works (`tests/pyodide/memory-probe.mjs` measures it).
+  more throughput, and size the server's memory with the table below.
 - **Node runtime only.** Edge runtimes cannot hold Pyodide.
 
 ### Serving pyDIGGS's HTTP API
@@ -247,6 +246,26 @@ export const GET = handle;
 It answers `validate` and `read` with `select` of `all` or `none`; SARIF, `checks`,
 `diggs_version` and node-key selection need `pydiggs serve --http` and are refused with
 422 `invalid-parameter`. It adds no authentication: put it behind your own.
+
+## Sizing
+
+Measured with `tests/pyodide/memory-probe.mjs` on 2026-11-12 (Apple silicon Mac,
+Pyodide 314.0.7, pyDIGGS 1.8.0). The documents are synthetic: many small boreholes and
+casings, so time grows with the number of features more than with bytes. Peak memory
+includes the 90 MiB a loaded worker holds, and covers validating and then reading.
+
+| Document | Peak memory | Validate | Read |
+|---|---|---|---|
+| 10 MiB | 224 MiB | 7 s | 15 s |
+| 25 MiB | 387 MiB | 15 s | 39 s |
+| 50 MiB | 716 MiB | 29 s | 74 s |
+| 100 MiB | 1.4 GiB | 41 s | 130 s |
+
+- **Browser:** 25 MiB stays the limit. Memory would allow more on a desktop, but a
+  document above 25 MiB takes most of a minute or longer in the tab, which a server does
+  better. On phones and tablets, set `maxBrowserBytes` to 5 or 10 MiB.
+- **Node server:** up to `ABSOLUTE_MAX_BYTES` (256 MiB). Plan on about 14 times the
+  largest document in memory per instance, and timeouts of minutes at 100 MiB.
 
 ## Versions
 

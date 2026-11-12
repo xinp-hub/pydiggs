@@ -29,8 +29,9 @@ export { createPydiggsHandler, type PydiggsHandlerOptions } from "./handler.ts";
 export interface PydiggsNodeOptions {
   /**
    * Largest document accepted, in bytes. Default: 25 MiB, as in the browser. A server
-   * may go higher, up to `ABSOLUTE_MAX_BYTES`; pydiggs needs several times the
-   * document in memory while it works, so size the server for it.
+   * may go higher, up to `ABSOLUTE_MAX_BYTES` (256 MiB). Reading needs about 14 times
+   * the document in memory (1.4 GiB at 100 MiB) and takes minutes at that size, so size
+   * the server, and its timeouts, for the largest document you accept.
    */
   maxBytes?: number;
   /**
