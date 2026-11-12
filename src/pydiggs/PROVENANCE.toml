@@ -21,6 +21,11 @@ source = "local"
 note = "Element renames between DIGGS versions for the diggs-model reader, beyond the deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
 sha256 = "bb908f53cd8dc4c122a2c77a23450c0c3c509c0439508441af032ad0ab8a95bb"
 
+[files."_writer/layout-3.0.0.toml"]
+source = "local"
+note = "Element order of DIGGS 3.0.0 for the internal writer: generated from the bundled XSDs by scripts/writer_layout.py (drift-tested)."
+sha256 = "3c4b4091f7221657fea9237266f9e49c186cfab4a7d5bb82665ab732e424742c"
+
 [files."deprecation/DeprecationRegistry.xml"]
 source = "schemas"
 path = "deprecation/DeprecationRegistry.xml"

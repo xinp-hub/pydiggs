@@ -164,6 +164,10 @@ PACKAGE_LOCAL = {
         "Element renames between DIGGS versions for the diggs-model reader, beyond the "
         "deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
     ),
+    "_writer/layout-3.0.0.toml": (
+        "Element order of DIGGS 3.0.0 for the internal writer: generated from the bundled "
+        "XSDs by scripts/writer_layout.py (drift-tested)."
+    ),
     "schematron/diggs_schematron_rules_2.6.sch": (
         "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); "
         "see the file header for the changes."

@@ -1,0 +1,7883 @@
+# Element layout of DIGGS 3.0.0 for the internal pyDIGGS writer.
+# Generated from the bundled XSDs by scripts/writer_layout.py. Do not edit by hand:
+# run `python scripts/writer_layout.py` and review the diff like a golden file.
+#
+# [elements.<Name>]: an object element the writer may emit.
+#   ns        prefix of its namespace (see [namespaces])
+#   id        "required" or "optional" when it takes a gml:id; absent when it takes none
+#   interval  the first child that may hold a LinearExtent (where it applies)
+#   location  the first child that may hold a PointLocation
+#   time      the first child that may hold a TimeInterval (when it applies)
+#   children  its child elements in schema order; bare names are in the DIGGS namespace
+
+format = 1
+diggs_version = "3.0.0"
+
+[namespaces]
+diggs = "http://diggsml.org/schemas/3"
+gml = "http://www.opengis.net/gml/3.2"
+glr = "http://www.opengis.net/gml/3.3/lr"
+glrov = "http://www.opengis.net/gml/3.3/lrov"
+xlink = "http://www.w3.org/1999/xlink"
+xml = "http://www.w3.org/XML/1998/namespace"
+
+[elements.AdditionEvent]
+ns = "diggs"
+id = "required"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "time",
+  "weightAdded",
+  "volumeAdded",
+]
+
+[elements.Address]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "number",
+  "streetAddress",
+  "city",
+  "state",
+  "province",
+  "county",
+  "country",
+  "postalCode",
+]
+
+[elements.Admixture]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "specificGravity",
+  "type",
+  "volume",
+  "weight",
+]
+
+[elements.Advancement]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "elapsedTime",
+  "advancementRate",
+  "downwardThrust",
+  "downthrustPressure",
+  "energyDensity",
+  "fluidCirculationRate",
+  "fluidPressurePump",
+  "fluidRecoveryRate",
+  "fluidWeight",
+  "hammeringUsed",
+  "chiselingToolUsed",
+  "hammerPressure",
+  "mechanicalSpecificEnergy",
+  "penetrationRate",
+  "restrainingForce",
+  "restrainingPressure",
+  "rotationalSpeed",
+  "rotationalTorque",
+  "torqueOnRods",
+  "torquePressure",
+]
+
+[elements.AffineCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.AggregateAbrasionValueTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.AggregateCrushingValueTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.AggregateElongationIndexTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.AggregateFlakinessIndexTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.AggregateImpactValueTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "particleDensity",
+  "impactValue1",
+  "impactValue2",
+  "numberOfBlows",
+]
+
+[elements.AggregatePolishedStoneValueTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.AggregateSlakeDurabilityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "drumMass",
+  "fragmentsRetainedDescription",
+  "fragmentsPassingDescription",
+  "index1",
+  "averageFluidTemperature",
+  "maximumFluidTemperature",
+  "minimumFluidTemperature",
+  "slakingFluidDescription",
+]
+
+[elements.AggregateSoundnessTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.AggregateTenPercentFinesTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "value1",
+  "value2",
+]
+
+[elements.AggregateWaterAbsorptionTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.AssociatedFile]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "contact",
+  "fileURL",
+  "fileType",
+  "creatingApplication",
+  "documentType",
+  "fileDate",
+  "fileStructure",
+  "mimeType",
+  "compression",
+  "encryption",
+]
+
+[elements.AtterbergLimitsTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "ovenDriedBeforeTest",
+  "sieveProcedure",
+  "handRemoved",
+  "percentRetainedNo40",
+  "specimenInitialState",
+  "multiPointLLmethod",
+  "waterDensity",
+  "waxDensity",
+  "casagrandeTrial",
+  "fallConeTrial",
+  "plasticLimitTrial",
+  "shrinkageLimitTrial",
+]
+
+[elements.AxisLocation]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "axisRef",
+  "axisOrder",
+  "location",
+  "directionVector",
+]
+
+[elements.BackPressureIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "incrementNumber",
+  "backPressureApplied",
+  "bValue",
+  "chamberPressureApplied",
+  "deairedWaterUsed",
+  "elapsedTime",
+]
+
+[elements.Backfill]
+ns = "diggs"
+id = "required"
+time = "backfillDateTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "backfillDateTime",
+  "backfillLayer",
+  "backfillType",
+]
+
+[elements.BackfillLayer]
+ns = "diggs"
+id = "required"
+interval = "backfillInterval"
+time = "whenEmplaced"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "backfillInterval",
+  "whenEmplaced",
+  "backfillMaterial",
+  "isSanitarySeal",
+  "backfillVolume",
+  "groutingActivityRef",
+  "groutRef",
+  "wellOpeningRef",
+]
+
+[elements.Binder]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "specificGravity",
+  "type",
+  "volume",
+  "weight",
+]
+
+[elements.BleedTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.Borehole]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenConstructed"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "whenConstructed",
+  "whenDestroyed",
+  "totalMeasuredDepth",
+  "holeBearing",
+  "holePlunge",
+  "boreholePurpose",
+  "boreholeType",
+  "backfill",
+  "casing",
+  "constructionMethod",
+  "constructionEvent",
+  "chiseling",
+  "drillAdvancement",
+  "flush",
+  "holeDiameter",
+  "waterStrike",
+]
+
+[elements.BoreholeConstructionMethod]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+time = "methodTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "location",
+  "methodTime",
+  "holeStability",
+  "constructionMethod",
+  "constructionEquipment",
+  "cuttingToolInfo",
+  "drillPipeInfo",
+  "hydraulicFluidFlowRate",
+]
+
+[elements.BoreholeDiameter]
+ns = "diggs"
+id = "required"
+interval = "diameterLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "diameterLocation",
+  "diameter",
+  "computedBoreholeCrossSectionalArea",
+  "computedBoreholeVolume",
+]
+
+[elements.BoreholeEvent]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "infoRecorded",
+  "casingBottom",
+  "holeBottom",
+  "waterDepth",
+  "isDry",
+]
+
+[elements.Boundary]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "dipAngle",
+  "dipDirection",
+  "distinctness",
+  "origin",
+  "topography",
+]
+
+[elements.BusinessAssociate]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "associatedFile",
+  "remark",
+  "title",
+  "address",
+  "emailAddress",
+  "phoneNumber",
+  "associatedWith",
+]
+
+[elements.CBRIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "calculatedStress",
+  "measuredLoad",
+  "measuredPenetration",
+]
+
+[elements.CTConsolidationIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "elapsedTime",
+  "axialDeformation",
+]
+
+[elements.Calibration]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "calibrationData",
+  "cqlibrationValues",
+  "date",
+  "useSinceLastCalibration",
+]
+
+[elements.CartesianCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.CasagrandeTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "trialNo",
+  "isManual",
+  "blowCount",
+  "waterContent",
+]
+
+[elements.Casing]
+ns = "diggs"
+id = "required"
+interval = "casingLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "casingLocation",
+  "casingOutsideDiameter",
+  "casingInsideDiameter",
+  "casingWallThickness",
+  "casingMaterial",
+  "numberGroutPorts",
+  "timeCasingInstalled",
+  "timeCasingRemoved",
+  "casingAdvancement",
+]
+
+[elements.CasingAdvancement]
+ns = "diggs"
+id = "required"
+location = "casingBaseAtStart"
+time = "advancementTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "advancementTime",
+  "casingBaseAtStart",
+  "casingBaseAtEnd",
+  "casingBlows",
+]
+
+[elements.Cement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "specificGravity",
+  "type",
+  "volume",
+  "weight",
+]
+
+[elements.ChainOfCustodyEvent]
+ns = "diggs"
+id = "optional"
+location = "storageLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "sourceCustodian",
+  "destinationCustodian",
+  "dateInitiated",
+  "dateCompleted",
+  "sampleContainer",
+  "shippingContainer",
+  "storageLocation",
+]
+
+[elements.ChalkCrushingValueTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "waterContent",
+  "pctGreater10mm",
+]
+
+[elements.Chemical]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "specificGravity",
+  "type",
+  "volume",
+  "weight",
+]
+
+[elements.Chiseling]
+ns = "diggs"
+id = "required"
+interval = "chiselingLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "chiselingLocation",
+  "timeTaken",
+  "chiselingToolUsed",
+]
+
+[elements.Color]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "colorCode",
+  "colorName",
+  "colorComponents",
+  "abundanceCode",
+  "abundancePercent",
+  "maxAbundancePercent",
+  "preface",
+]
+
+[elements.ColorComponents]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "intensity",
+  "modifier",
+  "hue",
+]
+
+[elements.ColorObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "colorCharacter",
+  "color",
+  "placedObservation",
+  "baseBoundary",
+]
+
+[elements.ColorSystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "colorType",
+  "colorObservation",
+]
+
+[elements.ComponentLith]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "classificationCode",
+  "lithDescription",
+  "classificationSymbol",
+  "groupIndexAASHTO",
+  "colorCharacter",
+  "color",
+  "constituent",
+  "componentProperties",
+]
+
+[elements.ComponentLithology]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "lithology",
+  "abundanceCode",
+  "abundancePercent",
+  "maxAbundancePercent",
+]
+
+[elements.ComponentProperties]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "remark",
+  "apparentDensity",
+  "consistency",
+  "beddingOrientation",
+  "dipAngle",
+  "dipDirection",
+  "beddingSpacing",
+  "cementation",
+  "dilatancy",
+  "dryStrength",
+  "fabric",
+  "moistureCondition",
+  "particleAngularity",
+  "particleHardness",
+  "particleShape",
+  "particleSize",
+  "particleSizeDistribution",
+  "particleSorting",
+  "plasticity",
+  "reactionToHCl",
+  "rockGrainSize",
+  "rockHardness",
+  "rockMass",
+  "rockSlakingRate",
+  "rockSorting",
+  "rockStrength",
+  "rockWeathering",
+  "soilStructure",
+  "staining",
+  "surfaceTexture",
+  "toughness",
+  "otherComponentProperty",
+]
+
+[elements.CompositeCurve]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:curveMember",
+]
+
+[elements.CompositeValue]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:valueComponent",
+  "gml:valueComponents",
+  "properties",
+]
+
+[elements.CompoundCRS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:domainOfValidity",
+  "gml:scope",
+  "gml:componentReferenceSystem",
+]
+
+[elements.CompressionIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "elapsedTime",
+  "loadDialReading",
+  "axialLoad",
+  "strainDialReading",
+  "totalStrain",
+  "unitStrain",
+  "correctedArea",
+  "stress",
+]
+
+[elements.ConcretePile]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenInstalled"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "samplingFeatureRef",
+  "installationConstructionEvent",
+  "installationEquipment",
+  "whenInstalled",
+  "referenceElevation",
+  "groundSurfaceElevation",
+  "cutoffElevation",
+  "jettingElevation",
+  "totalPileLength",
+  "weightPerLength",
+  "tipDeviationNorth",
+  "tipDeviationEast",
+  "lengthAboveGroundSurface",
+  "lengthBelowGroundSurface",
+  "lengthNonFriction",
+  "finalTipElevation",
+  "taperInterval",
+  "productionPile",
+  "testPile",
+  "tipType",
+  "nominalCapacity",
+  "allowableDrivingStress",
+  "pileSizeDesignation",
+  "shape",
+  "hollowWidth",
+  "wallThickness",
+  "sideLength",
+  "soilPlugDepth",
+  "soilPlugElevation",
+  "splices",
+]
+
+[elements.Configuration]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "remark",
+  "receiverInfo",
+  "sourceInfo",
+]
+
+[elements.ConsolidationIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "deformationIndicatorReading",
+  "elapsedTime",
+  "volumeChange",
+]
+
+[elements.ConsolidationTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "consolidationTestType",
+  "estimatedPreConsolidationStress",
+  "initialHeightChange",
+  "interpretationProcedure",
+  "swellingPressure",
+  "loadingIncrement",
+]
+
+[elements.ConsolidationTestTrial]
+ns = "diggs"
+id = "required"
+time = "timeInterval"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "trialNo",
+  "timeInterval",
+  "averageTemperature",
+  "appliedLoad",
+  "loadingStress",
+  "consolidationIncrement",
+  "finalaxialDeformation",
+  "finalStress",
+  "initialVoidRatio",
+  "finalVoidRatio",
+  "coefficientOfConsolidationLogTime",
+  "coefficientOfConsolidationRootTime",
+  "coefficientOfConsolidation",
+  "coefficientOfSecondaryCompression",
+  "coefficientTertiaryCompression",
+  "coefficientOfVolumeCompressibility",
+]
+
+[elements.Constituent]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "status",
+  "remark",
+  "codeValue",
+  "abundanceCode",
+  "abundancePercent",
+  "maxAbundancePercent",
+  "distribution",
+]
+
+[elements.ConstituentObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "constituent",
+  "placedObservation",
+  "baseBoundary",
+]
+
+[elements.ConstituentSystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "constituentType",
+  "constituentObservation",
+]
+
+[elements.Container]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "containerLabel",
+  "containerType",
+  "containerMaterial",
+  "containerHeight",
+  "containerLength",
+  "containerVolume",
+  "containerWeight",
+  "containerWidth",
+  "preservativeAdded",
+]
+
+[elements.ContinuousGrouting]
+ns = "diggs"
+id = "required"
+interval = "groutInterval"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "groutRef",
+  "penetrationGroutRef",
+  "withdrawalGroutRef",
+  "fluid_2",
+  "fluid_3",
+  "groutInterval",
+  "gaugeHeight",
+  "maxInjectionPressureGrout",
+  "minInjectionPressureGrout",
+  "maxInjectionPressureFluid_2",
+  "minInjectionPressureFluid_2",
+  "maxInjectionPressureFluid_3",
+  "minInjectionPressureFluid_3",
+  "startTimeGrouting",
+  "endTime",
+  "mixingType",
+  "groutingTimeSeries",
+  "totalGroutTake",
+  "totalFluid_2Take",
+  "totalFluid_3Take",
+  "groutTemperature",
+  "penetrationGroutTemperature",
+  "withdrawalGroutTemperature",
+  "fluid_2Temperature",
+  "Fluid_3Temperature",
+]
+
+[elements.Contract]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "version",
+  "contractDate",
+  "revisionDate",
+  "type",
+  "value",
+]
+
+[elements.CoordinateSystemAxis]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axisAbbrev",
+  "gml:axisDirection",
+  "gml:minimumValue",
+  "gml:maximumValue",
+  "gml:rangeMeaning",
+]
+
+[elements.CoringDevice]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "areaRatio",
+  "barrelExtension",
+  "barrelInnerDiameter",
+  "barrelOuterDiameter",
+  "barrelLength",
+  "insideClearanceRatio",
+  "linerPresent",
+  "linerType",
+  "outsideClearanceRatio",
+  "shoeInnerDiameter",
+  "shoeLength",
+  "shoeOuterDiameter",
+  "shoeType",
+]
+
+[elements.CoverageMappingRule]
+ns = "gml"
+children = [
+  "gml:ruleDefinition",
+  "gml:ruleReference",
+]
+
+[elements.Cushion]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "cushionElement",
+  "totalThicknessBeforeDrive",
+  "totalThicknessAfterDrive",
+  "areaBeforeDrive",
+  "areaAfterDrive",
+  "coefficientOfRestitution",
+]
+
+[elements.CushionElement]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "material",
+  "noLayers",
+  "thickness",
+  "elasticModulus",
+]
+
+[elements.CutoffWallSectionDepth]
+ns = "diggs"
+id = "optional"
+interval = "sectionLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "sectionLocation",
+  "wallDepth",
+]
+
+[elements.CutterSoilMixingTool]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "diameterCuttingWheels",
+  "panelLength",
+  "panelWidth",
+]
+
+[elements.CuttingTool]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "toolType",
+  "classIADC",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "toolInnerDiameter",
+  "toolOuterDiameter",
+  "toolMaterial",
+  "toolWearStart",
+  "toolWearEnd",
+]
+
+[elements.CylindricalCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.DataBlock]
+ns = "gml"
+children = [
+  "gml:rangeParameters",
+  "parameters",
+  "gml:tupleList",
+  "dataValues",
+  "gml:doubleOrNilReasonTupleList",
+]
+
+[elements.DataPackage]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "files",
+]
+
+[elements.DeepSoilMixingTool]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "diameterMixingBlades",
+  "numberBladesPerShaft",
+  "numberShafts",
+  "mixingToolHeight",
+  "panelLength",
+  "panelWidth",
+]
+
+[elements.Definition]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "dataType",
+  "quantityClass",
+  "authority",
+  "reference",
+  "occurrences",
+]
+
+[elements.DelayEvent]
+ns = "diggs"
+id = "required"
+time = "timeOfDelay"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "timeOfDelay",
+  "delayDuration",
+  "delayType",
+]
+
+[elements.DepthDependentGroutConstructionCriteria]
+ns = "diggs"
+children = [
+  "minimumDepthBelowLS",
+  "maximumDepthBelowLS",
+  "injectionEquipment",
+  "mixer",
+  "plant",
+  "pump",
+  "injectionMethod",
+  "reinjectionCriteria",
+  "digitalRecordingRequired",
+  "recordingParameter",
+  "digitalRecordingNotRequired",
+  "groutingPressureMaximum",
+  "groutingPressureMinimum",
+  "groutVolumeMaximum",
+  "groutVolumeMinimum",
+  "InjectionRateMaximum",
+  "injectionRateMinimum",
+  "pressureControlLogic",
+  "stageLengthMaximum",
+  "stageLengthMinimum",
+]
+
+[elements.DesignGroutMix]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "groutSpecificationRef",
+  "placementDescription",
+  "trialGroutBatchRef",
+  "admixture",
+  "binder",
+  "cement",
+  "chemical",
+  "filler",
+  "theoreticalYield",
+  "typeMix",
+  "volumeWater",
+  "waterCementRatio",
+  "wtCementPerGalH2O",
+  "bleedDesign",
+  "filtrateVolumeDesign",
+  "gelTimeDesign",
+  "marshFunnelTimeDesign",
+  "mudBalanceDensityDesign",
+  "pressureFiltrationCoefficientDesign",
+  "shrinkageDesign",
+  "slumpDesign",
+  "specificGravityMixDesign",
+  "strengthDesign",
+  "syneresisDesign",
+]
+
+[elements.Detector]
+ns = "diggs"
+id = "required"
+interval = "detectorLocation"
+location = "detectorLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "detectorLocation",
+  "measurand",
+  "type",
+  "measurementAxisBearing",
+  "measurementAxisInclination",
+]
+
+[elements.Dictionary]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:dictionaryEntry",
+]
+
+[elements.Diggs]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "documentInformation",
+  "project",
+  "program",
+  "samplingFeature",
+  "samplingActivity",
+  "sample",
+  "observation",
+  "measurement",
+  "constructionActivity",
+  "group",
+]
+
+[elements.DirectShearConsolidationLoadingIncrement]
+ns = "diggs"
+id = "required"
+time = "timeInterval"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "appliedLoad",
+  "consolidationIncrement",
+  "finalNormalDisplacement",
+  "timeInterval",
+]
+
+[elements.DirectShearTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "areaShearBox",
+  "consolidationLoadingIncrement",
+  "directShearTestType",
+  "displacementRatePeakStressStage",
+  "displacementRateResidualStressStage",
+  "failureCriteria",
+  "HorizDisplPeakShear",
+  "HorizDisplResidualShear",
+  "normalForcePriorToShearing",
+  "normalStressApplied",
+  "peakShearStress",
+  "relativeLaterallDisplacementPriorToShearing",
+  "residualShearStress",
+  "shearForcePriorToShearing",
+  "verticalDisplacementPriorToShearing",
+  "VertDisplPeakShear",
+  "VertDisplResidualShear",
+  "shearingIncrementPeakStressStage",
+  "shearingIncrementResidualStressStage",
+]
+
+[elements.DirectShearTestIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "elapsedTime",
+  "normalForce",
+  "normalStress",
+  "shearForce",
+  "shearStress",
+  "lateralDisplacement",
+  "relativeLateralDisplacement",
+  "verticalDisplacement",
+]
+
+[elements.DiscontinuityObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "fractureObservation",
+  "fractureSpacing",
+  "placedObservation",
+  "baseBoundary",
+]
+
+[elements.DiscontinuitySystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "discontinuityType",
+  "discontinuityObservation",
+]
+
+[elements.DocumentInformation]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "creationDate",
+  "effectiveDate",
+  "expirationDate",
+  "author",
+  "disclaimer",
+  "sourceSoftware",
+  "destination",
+  "destinationSoftware",
+  "auditTrail",
+  "crs",
+]
+
+[elements.DrillPipe]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "pipeInnerDiameter",
+  "pipeOuterDiameter",
+  "pipeMaterial",
+  "pipeSectionLength",
+  "pipeSectcionWeight",
+]
+
+[elements.DrillRig]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "engine",
+  "carrierType",
+  "tireSizeFront",
+  "tireSizeRear",
+  "groundBearingPressure",
+  "numberForwardGears",
+  "numberReverseGears",
+  "transferCaseInfo",
+  "axleInfo",
+  "winchCapacity",
+  "waterTankCapacity",
+  "levelingSystem",
+  "rotaryDriveMaxTorque",
+  "rotaryDriveMaxSpeed",
+  "rotaryDriveGearRatio",
+  "pullDownForceMax",
+  "feedRateMax",
+  "retractForceMax",
+  "retractRateMax",
+  "strokeMax",
+  "crowdSystemType",
+  "crowdCylinderArea",
+  "baselineCrowdPressure",
+  "crowdConversionCoeff",
+  "baselineTorquePressure",
+  "noHydraulicMotors",
+  "maxHydMotorDisplacement",
+  "minHydMotorDisplacement",
+  "maxHydPressure",
+  "maxTorque",
+  "mastLength",
+]
+
+[elements.DriveSet]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "remark",
+  "index",
+  "blowCount",
+  "penetration",
+  "delay",
+  "torque",
+]
+
+[elements.DrivenPenetrationTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "penetrationTestType",
+  "hammerType",
+  "hammerMass",
+  "hammerDropHeight",
+  "hammerEfficiency",
+  "samplerLength",
+  "samplerInternalDiameter",
+  "samplerLinerDescription",
+  "samplerRetainerDescription",
+  "rodType",
+  "rodExternalDiameter",
+  "rodSectionLength",
+  "rodWeight",
+  "depthCasing",
+  "selfWeightPenetration",
+  "waterDepth",
+  "totalPenetration",
+  "driveSet",
+]
+
+[elements.DsConConsolidationIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "elapsedTime",
+  "axialDeformation",
+]
+
+[elements.DynamicProbeTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "penetrationTestType",
+  "hammerType",
+  "hammerMass",
+  "hammerDropHeight",
+  "hammerEfficiency",
+  "samplerLength",
+  "samplerInternalDiameter",
+  "samplerLinerDescription",
+  "samplerRetainerDescription",
+  "rodType",
+  "rodExternalDiameter",
+  "rodSectionLength",
+  "rodWeight",
+  "depthCasing",
+  "selfWeightPenetration",
+  "waterDepth",
+  "totalPenetration",
+]
+
+[elements.EngineeringCRS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:domainOfValidity",
+  "gml:scope",
+  "gml:affineCS",
+  "gml:cartesianCS",
+  "gml:cylindricalCS",
+  "gml:linearCS",
+  "gml:polarCS",
+  "gml:sphericalCS",
+  "gml:userDefinedCS",
+  "gml:engineeringDatum",
+]
+
+[elements.EngineeringDatum]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:domainOfValidity",
+  "gml:scope",
+  "gml:anchorDefinition",
+  "gml:realizationEpoch",
+]
+
+[elements.Environment]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "dateTime",
+  "ambientTemperature",
+  "barometricPressure",
+  "humidity",
+  "weather",
+  "windSpeed",
+  "otherEnvironmentalProperty",
+]
+
+[elements.EnvironmentalScreeningTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.Equipment]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+]
+
+[elements.FallConeTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "trialNo",
+  "penetration",
+  "waterContent",
+]
+
+[elements.File]
+ns = "gml"
+children = [
+  "gml:rangeParameters",
+  "parameters",
+  "gml:fileName",
+  "gml:fileReference",
+  "fileReference",
+  "gml:fileStructure",
+  "fileStructure",
+  "gml:mimeType",
+  "gml:compression",
+]
+
+[elements.Filler]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "specificGravity",
+  "type",
+  "volume",
+  "weight",
+]
+
+[elements.FilterInfo]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "filterPaperConfiguration",
+  "filterPaperDisksUsed",
+  "filterPaperType",
+  "loadCarriedbyFilterPaperStrips",
+  "perimeterCarriedbyFilterPaperStrips",
+]
+
+[elements.FlatPlateDilatometerTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "bladeThickness",
+  "bladeWidth",
+  "deltaA",
+  "deltaB",
+  "membraneType",
+  "frictionReducerDiameter",
+  "frictionReducerLocation",
+  "rodDiameter",
+  "rodLinearWeight",
+  "zm",
+]
+
+[elements.FlowConeTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.FlowReading]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "time",
+  "flowReading",
+  "gaugePressure",
+]
+
+[elements.FluidAdditive]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "additiveType",
+  "additionEvent",
+]
+
+[elements.FluidSpecimen]
+ns = "diggs"
+id = "required"
+interval = "specimenLocation"
+location = "specimenLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "sampleRef",
+  "specimenLocation",
+  "extractionTime",
+  "preparationProcedure",
+  "otherSpecimenProperty",
+  "dilutionFactor",
+  "leachatePreparationDateTime",
+  "leachatePreparationMethod",
+]
+
+[elements.Flush]
+ns = "diggs"
+id = "required"
+interval = "flushZoneLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "flushZoneLocation",
+  "fluidType",
+  "minFlushReturn",
+  "maxflushReturn",
+  "flushColor",
+]
+
+[elements.FractureObservation]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "aperatureMeasurement",
+  "aperatureObservation",
+  "dipAngle",
+  "dipDirection",
+  "discontinuityNumber",
+  "fractureSetNumber",
+  "infillMaterial",
+  "infillHardness",
+  "jointRoughnessCoefficient",
+  "persistence",
+  "planarity",
+  "roughness",
+  "seepageRating",
+  "surfaceAppearance",
+  "termination",
+  "type",
+  "wallStrength",
+  "wallWeathering",
+  "fractureHealing",
+  "waterFlow",
+  "wavinessAmplitude",
+  "wavinessWavelength",
+]
+
+[elements.FractureSpacing]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "minSpacing",
+  "maxSpacing",
+  "averageSpacing",
+  "fractureCount",
+  "fracturesPerUnitLength",
+]
+
+[elements.FrostHeaveTrial]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "specimenRef",
+  "frostHeave",
+]
+
+[elements.FrostSusceptibilityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "frostHeaveTrial",
+]
+
+[elements.GP_ArealSurvey]
+ns = "diggs"
+id = "required"
+interval = "referenceEdge"
+location = "locality"
+time = "whenSurveyed"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "referenceEdge",
+  "featureExtent",
+  "relativeFeatureBoundary",
+  "planarReferencing",
+  "sensorMix",
+  "whenSurveyed",
+  "totalSurveyArea",
+]
+
+[elements.GP_DataAcquisitionSystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "numberChannels",
+]
+
+[elements.GP_Detector]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "measurand",
+  "recordingSpace",
+  "measurementAxisBearing",
+  "measurementAxisInclination",
+]
+
+[elements.GP_FieldDataFile]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "contact",
+  "fileURL",
+  "fileType",
+  "creatingApplication",
+  "documentType",
+  "fileDate",
+  "fileStructure",
+  "mimeType",
+  "compression",
+  "encryption",
+]
+
+[elements.GP_FieldProcedure]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "receiverEquipment",
+  "sourceEquipment",
+  "dataAcquisitionSystem",
+  "recordingParameters",
+  "configurations",
+  "platforms",
+]
+
+[elements.GP_Location]
+ns = "diggs"
+id = "optional"
+location = "receiverLocations"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "receiverLocations",
+  "sourceLocations",
+]
+
+[elements.GP_MeasurementProperties]
+ns = "diggs"
+children = [
+  "gp_measurementProperty",
+]
+
+[elements.GP_MultiTrack]
+ns = "diggs"
+id = "required"
+location = "locality"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "trackline",
+]
+
+[elements.GP_Receiver]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "receiverType",
+  "isGroup",
+  "detector",
+]
+
+[elements.GP_Source]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "sourceType",
+  "isGroup",
+]
+
+[elements.GP_SurveyResult]
+ns = "diggs"
+id = "required"
+children = [
+  "gp_Location",
+  "dataPackage",
+  "gridMappingFunction",
+]
+
+[elements.GP_Trackline]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenTracklineOccupied"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "sensorMix",
+  "whenTracklineOccupied",
+  "totalTracklineLength",
+]
+
+[elements.GeoUnitObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "unitName",
+  "unitDescription",
+  "verticalDistanceToTopOfUnit",
+  "verticalDistanceToBaseOfUnit",
+  "verticallThicknessOfUnit",
+  "characteristicProperty",
+  "baseBoundary",
+]
+
+[elements.GeoUnitSystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "geoUnitType",
+  "geoUnitObservation",
+]
+
+[elements.GeophysicalFieldSurvey]
+ns = "diggs"
+id = "required"
+time = "samplingTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "constructionActivityRef",
+  "otherMeasurementProperty",
+  "processedGeophysicalResultsRef",
+  "samplingTime",
+  "resultTime",
+  "validTime",
+  "outcome",
+  "geophysicalMethod",
+  "procedure",
+]
+
+[elements.GeophysicalProcessing]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "equipment",
+  "geophysicalFieldSurveyRef",
+  "geophysicalMethod",
+  "processingSteps",
+]
+
+[elements.Grading]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "particleSize",
+  "sieveNumber",
+  "percentPassing",
+  "percentRetained",
+  "weightRetained",
+  "otherGradingProperty",
+]
+
+[elements.Grid]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "limits",
+  "axisLabels",
+  "axisName",
+]
+
+[elements.GridFunction]
+ns = "gml"
+children = [
+  "gml:sequenceRule",
+  "gml:startPoint",
+]
+
+[elements.GroupGroup]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "groupRef",
+]
+
+[elements.GroutBatch]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "samplingActivityRef",
+  "sampleProducedRef",
+  "groutSpecificationRef",
+  "admixture",
+  "binder",
+  "cement",
+  "chemical",
+  "filler",
+  "specificGravityMix",
+  "specificGravityWater",
+  "totalBatchVolume",
+  "typeMix",
+  "volumeWater",
+  "waterCementRatio",
+  "waterCementRatioOfMix",
+  "wtCementPerGalH2O",
+  "binderFactor",
+  "binderFactorInPlace",
+  "binderContent",
+  "volumeRatio",
+  "designGroutMixRef",
+]
+
+[elements.GroutConstructionSpecification]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "maxDesignPressureForRockByVerticalDepth",
+  "maxDesignPressureForSoilByVerticalDepth",
+  "depthDependentGroutConstructionCriteria",
+  "injectionEquipment",
+  "mixer",
+  "plant",
+  "pump",
+  "injectionMethod",
+  "reinjectionCriteria",
+  "digitalRecordingRequired",
+  "recordingParameter",
+  "digitalRecordingNotRequired",
+  "groutingPressureMaximum",
+  "groutingPressureMinimum",
+  "groutVolumeMaximum",
+  "groutVolumeMinimum",
+  "injectionRateMaximum",
+  "injectionRateMinimum",
+  "pressureControlLogic",
+  "stageLengthMaximum",
+  "stageLengthMinimum",
+]
+
+[elements.GroutGradingSpecification]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "specimenRef",
+  "coarseFractionWetSieved",
+  "dispersantUsed",
+  "sandGravelConsistency",
+  "otherSieveAnalysisProperty",
+  "gradingData",
+  "panData",
+]
+
+[elements.GroutInjectionEquipment]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "lanceOuterDiameter",
+  "lanceLength",
+  "packerSpacing",
+  "packerType",
+  "groutPipeInnerDiameter",
+  "headerRadius",
+  "headerSize",
+  "riserRadius",
+  "lengthOfOCSP",
+  "portSpacing",
+  "sealType",
+  "tubeInnerDiameter",
+  "tubeType",
+]
+
+[elements.GroutMixer]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "outletPressure",
+  "outputRate",
+  "agitatorVolume",
+  "mixerVolume",
+  "agitatorSpeed",
+  "impellerSpeed",
+]
+
+[elements.GroutPlant]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "mixer",
+  "pump",
+]
+
+[elements.GroutPump]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "inletPipeSize",
+  "maxFlow",
+  "maxGrainsize",
+  "maxPressure",
+  "numberOfPistons",
+  "outletPipeSize",
+  "pistonDiameter",
+  "pistonStroke",
+  "cylinderVolume",
+  "type",
+  "enginePower",
+  "pumpTransportWeight",
+  "pressureFlowCurveData",
+]
+
+[elements.GroutSpecification]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "designGroutMixRef",
+  "aggregateGradationCurveCoarseLimit",
+  "aggregateGradationCurveFineLimit",
+  "maxBleedAllowed",
+  "maxDeviationFlowConeTime",
+  "maxDeviationGelTime",
+  "maxDeviationMarshFunnelTime",
+  "maxDeviationUnitWeight",
+  "maxShrinkageAllowed",
+  "maxSlumpAllowed",
+  "maxSyneresisAllowed",
+  "strengthAverage",
+  "strength90Percent",
+  "strengthMinimum",
+]
+
+[elements.GroutSpecimen]
+ns = "diggs"
+id = "required"
+interval = "specimenLocation"
+location = "specimenLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "sampleRef",
+  "specimenLocation",
+  "extractionTime",
+  "preparationProcedure",
+  "otherSpecimenProperty",
+  "specimenCondition",
+  "componentRef",
+  "componentType",
+  "formMaterial",
+  "curingTime",
+  "groutSpecimenExtractionLocation",
+  "specificGravityOfSolids",
+]
+
+[elements.GroutSpecimenConditions]
+ns = "diggs"
+id = "required"
+time = "dateTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "dateTime",
+  "bulkUnitWeight",
+  "specimenPlumb",
+  "dimensionMeasurementTechnique",
+  "diameter",
+  "length",
+  "width",
+  "height",
+  "shape",
+  "surfaceArea",
+  "temperature",
+  "volume",
+  "wetWeight",
+  "wtBleedWater",
+  "otherConditionProperty",
+]
+
+[elements.GroutStage]
+ns = "diggs"
+id = "required"
+interval = "stageInterval"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "equipment",
+  "groutRef",
+  "stageType",
+  "stageInterval",
+  "gaugeHeight",
+  "maxInjectionPressure",
+  "minInjectionPressure",
+  "startTimeFilling",
+  "startTimePressurizing",
+  "endTime",
+  "deliveryType",
+  "holeVolume",
+  "hydrostaticColumnPressure",
+  "injectionTerminatedBy",
+  "injectionTimeSeries",
+  "lancePlacementMethod",
+  "strokeCount",
+  "totalCement",
+  "totalGroutTake",
+  "volumeInjectionPerLength",
+  "waterLugeonValue",
+  "groutTemperature",
+  "maxHeaderPressureAtZeroFlow",
+  "staticLineResistanceAtZeroFlow",
+]
+
+[elements.GroutTrenchCutoffWall]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenConstructed"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "whenConstructed",
+  "cutoffWallWidth",
+  "wallSectionDepths",
+]
+
+[elements.GroutingActivitySpecification]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "constructionSpecification",
+  "terminationCriteria",
+]
+
+[elements.GroutingFluid]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+]
+
+[elements.GroutingProgram]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "design",
+  "specification",
+]
+
+[elements.GroutingTimeSeries]
+ns = "diggs"
+id = "optional"
+children = [
+  "timeDomain",
+  "results",
+  "initiationTime",
+  "endTime",
+  "totalElapsedTime",
+  "totalGroutTake",
+  "filteringParameters",
+]
+
+[elements.HeatingCycleParameters]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "heatingIncrementNumber",
+  "heatingSource",
+  "heatingDuration",
+  "microwavePowerSetting",
+  "massOfSamplePlusContainer",
+]
+
+[elements.Hydrometer]
+ns = "diggs"
+id = "required"
+time = "soakingPeriod"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "specimenRef",
+  "soakingPeriod",
+  "dispersionDevice",
+  "dispersionDuration",
+  "hydrometerType",
+  "otherHydrometerProperty",
+  "sedimentationData",
+]
+
+[elements.InSituPenetrometerTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "reading",
+]
+
+[elements.InSituTestEvent]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "infoRecorded",
+]
+
+[elements.InjectionTimeSeries]
+ns = "diggs"
+id = "optional"
+children = [
+  "timeDomain",
+  "results",
+  "initiationTime",
+  "endTime",
+  "totalElapsedTime",
+  "injectionTerminatedBy",
+  "numberPumpStrokes",
+  "totalGroutTake",
+  "waterLugeonValue",
+  "filteringParameters",
+]
+
+[elements.InsituCBRTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "penetrationIncrement",
+  "pistonDiameter",
+  "reactionLoadDescription",
+  "seatingForce",
+  "surchargePressure",
+]
+
+[elements.InsituDensityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+]
+
+[elements.InsituPermeabilityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "permeabilityTestType",
+  "depthTestZoneTop",
+  "depthTestZoneBottom",
+  "stage",
+  "depthWaterPreTest",
+  "diameterTestZone",
+  "diameterCasing",
+  "averageFlow",
+  "depthStandingWater",
+  "appliedHead",
+]
+
+[elements.InsituResistivityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "testType",
+  "electrodeSpacing",
+]
+
+[elements.InsituVaneTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "intactVaneTest",
+  "remoldedVaneTest",
+  "torqueRodFriction",
+  "vaneBladeThickness",
+  "vaneDepthBelow",
+  "vaneDiameter",
+  "vaneHeight",
+  "vaneShaftDiameter",
+  "vaneSystemType",
+  "vaneTaperAngleBottom",
+  "vaneTaperAngleTop",
+  "vaneType",
+]
+
+[elements.InstallationEvent]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "infoRecorded",
+]
+
+[elements.IntactSpecimenPreparationInfo]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "IntactSpecimenType",
+  "specimenTrimmedInWetRoom",
+]
+
+[elements.JetGroutingMonitor]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "numberOfGroutNozzles",
+  "diameterOfGroutNozzles",
+  "numberOfFluid_2Nozzles",
+  "diameterOfFluid_2Nozzles",
+  "innerDiameterOfFluid_2Nozzles",
+  "outerDiameterOfFluid_2Nozzles",
+  "numberOfFluid_3Nozzles",
+  "diameterOfFluid_3Nozzles",
+  "innerDiameterOfFluid_3Nozzles",
+  "outerDiameterOfFluid_3Nozzles",
+  "xJet",
+]
+
+[elements.LabCBRTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "trial",
+]
+
+[elements.LabCBRTestTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "trialNo",
+  "specimenRef",
+  "bottomWaterContent",
+  "cbr_0.1",
+  "cbr_0.2",
+  "penetrationIncrement",
+  "pistonDiameter",
+  "seatingForce",
+  "soaking",
+  "soakingDetails",
+  "surchargePressure",
+  "swellFromSoaking",
+  "topWaterContent",
+  "wtPercentRetained19mm",
+]
+
+[elements.LabChemicalTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.LabCompactionTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "compactionTestType",
+  "fieldWetDensity",
+  "fieldDryDensity",
+  "fieldWaterContent",
+  "mouldDiameter",
+  "mouldVolume",
+  "rammerDiameter",
+  "rammerMass",
+  "rammerDrop",
+  "rammerIsManual",
+  "numberOfLayers",
+  "blowsPerLayer",
+  "trial",
+]
+
+[elements.LabCompactionTestTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "trialNo",
+  "waterContent",
+  "wetDensity",
+  "dryDensity",
+  "convertedWetDensityDensity",
+  "moistureAdjustment",
+  "tamperReading",
+  "otherTrialProperty",
+]
+
+[elements.LabDensityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.LabPenetrometerTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "reading",
+]
+
+[elements.LabPermeabilityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "backPressure",
+  "drainDiameter",
+  "drainMethod",
+  "effectiveConsolidationStress",
+  "effluentArea",
+  "influentArea",
+  "methodOfSaturation",
+  "permeantLiquidType",
+  "testType",
+  "permeationTrial",
+]
+
+[elements.LabPermeationTrial]
+ns = "diggs"
+id = "required"
+time = "timeInterval"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "averageInflowVolume",
+  "averageHeadLoss",
+  "averageOutflowVolume",
+  "deltaHg1",
+  "deltaHg2",
+  "deltaHgC",
+  "deltaHgTail",
+  "finalHydraulicGradient",
+  "gHg",
+  "headLossStartOfTrial",
+  "initialHydraulicGradient",
+  "headLossEndOfTrial",
+  "hydraulicConductivity",
+  "hydraulicConductivity20C",
+  "tempStartOfTrial",
+  "tempEndOfTrial",
+  "timeInterval",
+  "totalFlowVolume",
+]
+
+[elements.LabResistivityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "electrodeType",
+  "electrodeDiameter",
+  "electrodeLength",
+  "electrodePenetration",
+  "waterResistivity",
+]
+
+[elements.LabVaneTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "intactVaneTest",
+  "remoldedVaneTest",
+  "torqueMeasuringDevice",
+  "vaneDiameter",
+  "vaneHeight",
+  "vaneLength",
+]
+
+[elements.LabVelocityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "testType",
+]
+
+[elements.LaboratoryTestEvent]
+ns = "diggs"
+id = "optional"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "time",
+  "infoRecorded",
+]
+
+[elements.LastBlowsData]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "lastBlowsDistance",
+  "blowCount",
+  "averageStrokeLength",
+]
+
+[elements.Limit]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "constraint",
+  "limitType",
+  "value",
+  "outOfLimitValue",
+]
+
+[elements.LineLossData]
+ns = "diggs"
+children = [
+  "flowRate",
+  "p1",
+  "p2",
+  "lineLoss",
+  "lineLossNormalized",
+]
+
+[elements.LineLossTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+  "lineLength",
+  "lineLossCoeffA",
+  "lineLossCoeffB",
+  "lineLossCoeffC",
+  "lineLossR2",
+  "lineLossData",
+]
+
+[elements.LineString]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:pos",
+  "gml:pointProperty",
+  "gml:posList",
+]
+
+[elements.LinearCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.LinearExtent]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:posList",
+  "datumReference",
+  "anchorPoint",
+  "startValue",
+  "uncertainty",
+]
+
+[elements.LinearGroutingActivity]
+ns = "diggs"
+id = "required"
+interval = "groutingInterval"
+location = "distanceToWater"
+time = "activityDateTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "samplingFeatureRef",
+  "programRef",
+  "programSpecificationRef",
+  "constructionMethod",
+  "constructionEnvironment",
+  "equipment",
+  "otherConstructionActivityProperty",
+  "activityDateTime",
+  "groutingType",
+  "cavity_depth",
+  "distanceToWater",
+  "geoUnit",
+  "groutingInterval",
+  "overburdenInterval",
+  "overburdenVerticalThickness",
+  "groutRef",
+  "groutStage",
+  "continuousGrouting",
+  "totalGroutVolumeActivity",
+  "totalGroutVolumeAtFeature",
+  "wasteVolume",
+]
+
+[elements.LinearReferencingMethod]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "name",
+  "type",
+  "units",
+  "positiveDirection",
+  "constraint",
+  "offsetParameters",
+]
+
+[elements.LinearRing]
+ns = "gml"
+children = [
+  "gml:posList",
+]
+
+[elements.LinearSRS]
+ns = "glr"
+id = "required"
+interval = "glr:linearElement"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "glr:linearElement",
+  "glr:lrm",
+]
+
+[elements.LinearShrinkageTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "pct424",
+]
+
+[elements.LinearSpatialReferenceSystem]
+ns = "diggs"
+id = "required"
+interval = "glr:linearElement"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "glr:linearElement",
+  "lrm",
+  "glr:lrm",
+  "referent",
+  "linearReferencingMethodUncertainty",
+]
+
+[elements.LinkedWSReading]
+ns = "diggs"
+id = "required"
+location = "waterLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "elapsedTime",
+  "dateTime",
+  "notEncountered",
+  "waterLocation",
+]
+
+[elements.LithProperties]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "remark",
+  "apparentDensity",
+  "consistency",
+  "beddingOrientation",
+  "dipAngle",
+  "dipDirection",
+  "beddingSpacing",
+  "cementation",
+  "dilatancy",
+  "dryStrength",
+  "fabric",
+  "moistureCondition",
+  "odor",
+  "particleAngularity",
+  "particleHardness",
+  "particleShape",
+  "particleSize",
+  "particleSizeDistribution",
+  "particleSorting",
+  "plasticity",
+  "reactionToHCl",
+  "rockGrainSize",
+  "rockHardness",
+  "rockMass",
+  "rockSorting",
+  "rockSlakingRate",
+  "rockStrength",
+  "rockWeathering",
+  "soilStructure",
+  "staining",
+  "surfaceTexture",
+  "toughness",
+  "unitRecoveryLength",
+  "unitRQD",
+  "unitRQDLength",
+  "otherLithProperty",
+]
+
+[elements.Lithology]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "classificationCode",
+  "lithDescription",
+  "classificationSymbol",
+  "groupIndexAASHTO",
+  "legendCode",
+  "matrixType",
+  "colorCharacter",
+  "color",
+  "constituent",
+  "lithProperties",
+]
+
+[elements.LithologyObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "primaryLithology",
+  "componentLithology",
+  "facies",
+  "unitName",
+  "placedObservation",
+  "baseBoundary",
+]
+
+[elements.LithologySystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "lithologyClassificationType",
+  "lithologyObservation",
+]
+
+[elements.LocalCartesianCRS]
+ns = "diggs"
+id = "required"
+location = "originLocation"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:domainOfValidity",
+  "gml:scope",
+  "gml:cartesianCS",
+  "gml:engineeringDatum",
+  "originLocation",
+  "axisLocation",
+  "transformationMethod",
+  "rotationAngle",
+  "scaleFactor",
+  "transformationAccuracy",
+]
+
+[elements.LocalCoordinate]
+ns = "diggs"
+interval = "location"
+location = "location"
+children = [
+  "easting",
+  "northing",
+  "elevation",
+  "location",
+  "localCoodinateUncertainty",
+]
+
+[elements.Locality]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "address",
+  "district",
+  "division",
+  "lot",
+  "parceI",
+  "plss",
+  "quadrangle",
+  "route",
+  "segment",
+  "station",
+  "mileMarker",
+  "offset",
+  "offsetDirection",
+  "tract",
+  "watershed",
+  "otherLocalityProperty",
+]
+
+[elements.LocationUncertainty]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "locationMethod",
+  "horizontalUncertainty",
+  "verticalUncertainty",
+  "xValueUncertainty",
+  "yValueUncertainty",
+  "zValueUncertainty",
+]
+
+[elements.LosAngelesAbrasionTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "chargeDescription",
+]
+
+[elements.LossOnIgnitionTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "dryingTemperature",
+  "dryingTime",
+  "ignitionTemperature",
+  "ignitionTime",
+]
+
+[elements.LugeonStep]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "lugeonStepNumber",
+  "pressure",
+  "avgFlowRate",
+  "coeffPermeability",
+  "lugeonValue",
+  "lugeonStepTimeSeries",
+  "totalElapsedTime",
+  "totalVolumeWater",
+]
+
+[elements.LugeonTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "depthToGroundWater",
+  "pressureMeasurementConfiguration",
+  "pressureGaugeHeight",
+  "pMax",
+  "lugeonStep",
+]
+
+[elements.MCVTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "typeStabilizer",
+  "amtStabilizer",
+  "trial",
+]
+
+[elements.MCVTestTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "trialNo",
+  "waterContent",
+  "interpretationMethod",
+  "bulkDensity",
+  "mcv",
+  "difference",
+  "strongerWeaker",
+]
+
+[elements.MWDProcedure]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "dataCaptureSoftware",
+]
+
+[elements.MWDResult]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+children = [
+  "location",
+  "timeDomain",
+  "results",
+]
+
+[elements.MarshFunnelTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+  "marshFunnelVolume",
+]
+
+[elements.MaterialGradationTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+  "sieveAnalysis",
+]
+
+[elements.MaterialTest]
+ns = "diggs"
+id = "required"
+time = "samplingTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "constructionActivityRef",
+  "otherMeasurementProperty",
+  "samplingTime",
+  "resultTime",
+  "validTime",
+  "outcome",
+  "procedure",
+]
+
+[elements.MaterialTestResult]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "results",
+]
+
+[elements.MeasurementGroup]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "measurementRef",
+]
+
+[elements.MeasurementWhileDrilling]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "constructionActivityRef",
+  "otherMeasurementProperty",
+  "outcome",
+  "procedure",
+]
+
+[elements.MembraneInfo]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "membraneMaterial",
+  "membraneThickness",
+  "membraneYoungsModulus",
+  "membraneYoungsmodulusDetermination",
+  "numberOfMembranesUsed",
+  "unstretchedMembraneCircumference",
+  "unstretchedMembraneLength",
+]
+
+[elements.MicroDevalTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "testType",
+  "coeffSpecimenOne",
+  "coeffSpecimenTwo",
+  "dateControlPolishedStone",
+]
+
+[elements.MixedGrout-SoilSpecification]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "mixedGrout-SoilSampleRef",
+  "measurementRef",
+  "strengthMinimum",
+  "bkadeRotationNumber",
+  "volumeRatio",
+  "binderFactor",
+  "binderFactorInPlace",
+  "binderContent",
+  "totalWaterBinderRatio",
+]
+
+[elements.Monitor]
+ns = "diggs"
+id = "required"
+interval = "monitorLocation"
+location = "monitorLocation"
+time = "samplingTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "constructionActivityRef",
+  "otherMeasurementProperty",
+  "samplingTime",
+  "monitorLocation",
+  "outcome",
+  "procedure",
+]
+
+[elements.MonitorResult]
+ns = "diggs"
+id = "optional"
+children = [
+  "timeDomain",
+  "results",
+]
+
+[elements.MudBalanceTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.MultiCurve]
+ns = "diggs"
+id = "required"
+interval = "curveMembers"
+children = [
+  "gml:description",
+  "curveMembers",
+]
+
+[elements.MultiGeometry]
+ns = "gml"
+id = "optional"
+interval = "gml:geometryMember"
+location = "gml:geometryMember"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:geometryMember",
+  "gml:geometryMembers",
+]
+
+[elements.MultiPlanarSurface]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:patches",
+]
+
+[elements.MultiPoint]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:pointMember",
+  "gml:pointMembers",
+]
+
+[elements.MultiPointCoverage]
+ns = "gml"
+id = "optional"
+interval = "gml:domainSet"
+location = "gml:domainSet"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:domainSet",
+  "location",
+  "pileTipLocation",
+  "timeDomain",
+  "gml:rangeSet",
+  "pdaRecordResults",
+  "pileDrivingRecordResults",
+  "results",
+  "gml:coverageFunction",
+]
+
+[elements.MultiPointLocation]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:posList",
+  "uncertainty",
+]
+
+[elements.MultiSurface]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:surfaceMember",
+  "gml:surfaceMembers",
+]
+
+[elements.MultiTimeInstant]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "status",
+  "remark",
+  "timeMember",
+]
+
+[elements.Occurrence]
+ns = "diggs"
+children = [
+  "sourceElementXpath",
+  "conditionalElementXpath",
+]
+
+[elements.OffsetParameters]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "offsetType",
+  "offsetDirection",
+  "offsetUnits",
+  "maxOffset",
+  "bearing",
+]
+
+[elements.OrganicMatterByWetCombustionTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "sampleTitre",
+  "blankTitre",
+]
+
+[elements.OrientableCurve]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:baseCurve",
+]
+
+[elements.Orientation]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "strikeOrBearing",
+  "dipOrPlunge",
+]
+
+[elements.OrientationObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "orientation",
+  "placedObservation",
+  "baseBoundary",
+]
+
+[elements.OrientationSystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "orientationFeatureType",
+  "orientationFeatureObservation",
+]
+
+[elements.OtherObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "property",
+  "placedObservation",
+  "baseBoundary",
+]
+
+[elements.OtherObservationSystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "otherSystemType",
+  "otherObservation",
+]
+
+[elements.PDAAccelerometer]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "serialNo",
+  "calibrationConstant",
+]
+
+[elements.PDAConnectorCable]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "serialNo",
+]
+
+[elements.PDARecord]
+ns = "diggs"
+id = "optional"
+interval = "driveInterval"
+children = [
+  "pileTipLocation",
+  "pdaRecordResults",
+  "hammerRef",
+  "pileCapRef",
+  "hammerCushionRef",
+  "pileCushionRef",
+  "driveInterval",
+  "initiationTime",
+  "endTime",
+  "totalElapsedTime",
+  "associatedPileDrivingRecord",
+  "hammerStartSetting",
+  "hammerEndSetting",
+  "pressureAtHammer",
+  "effectiveLength",
+  "crossSectionAreaAtGages",
+  "elasticModulus",
+  "pileUnitWeight",
+  "waveSpeed",
+  "waveSpeedCalc",
+  "dampingConstant",
+  "multiplicationFactor",
+  "distancePileTopToGage",
+  "pdaInfo",
+]
+
+[elements.PDAStrainTransducer]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "serialNo",
+  "calibrationConstant",
+]
+
+[elements.PLSS]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "township",
+  "range",
+  "section",
+  "aliquotPart",
+  "governmentLot",
+  "baseAndMeridian",
+  "landGrant",
+]
+
+[elements.PanData]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "percentLoss",
+  "percentRetained",
+  "weightRetained",
+  "otherGradingProperty",
+]
+
+[elements.Parameter]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "parameterName",
+  "parameterMinValue",
+  "parameterValue",
+  "parameterMaxValue",
+  "parameterUnits",
+]
+
+[elements.ParticleSize]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "particleSizeValue",
+  "particleSizeDescription",
+]
+
+[elements.ParticleSizeDistribution]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "meanGrainsize",
+  "modalGrainsize",
+  "equivalentDiameter",
+  "minimumDiameter",
+  "maximumDiameter",
+]
+
+[elements.ParticleSizeTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "sieveAnalysis",
+  "hydrometer",
+]
+
+[elements.PileCap]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "material",
+  "weight",
+  "diameter",
+  "thickness",
+  "pileCushion",
+]
+
+[elements.PileDriveHammer]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "hammerType",
+  "hammerAction",
+  "ramRatedEnergyMax",
+  "ramRatedEnergyMin",
+  "ramWeight",
+  "ratedStroke",
+  "totalHammerWeight",
+  "cylinderWeight",
+  "helmetWeight",
+  "pistonAreaDblActing",
+  "smallPistonAreaDifActing",
+  "strikerPlate",
+  "hammerCushion",
+  "blowsPerMinuteMin",
+  "blowsPerMinuteMax",
+]
+
+[elements.PileDrivingActivity]
+ns = "diggs"
+id = "required"
+time = "activityDateTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "samplingFeatureRef",
+  "programRef",
+  "programSpecificationRef",
+  "constructionMethod",
+  "constructionEnvironment",
+  "equipment",
+  "otherConstructionActivityProperty",
+  "activityDateTime",
+  "totalDrivenLength",
+  "preDrillDepth",
+  "preDrillDiameter",
+  "plumbCheck",
+  "plumbCheckDirection",
+  "hammer",
+  "pileCap",
+  "totallengthPlacedInLeads",
+  "safety",
+  "lastBlowsData",
+  "pileDrivingRecord",
+  "pdaRecord",
+]
+
+[elements.PileDrivingRecord]
+ns = "diggs"
+id = "optional"
+interval = "driveInterval"
+children = [
+  "pileTipLocation",
+  "pileDrivingRecordResults",
+  "recordType",
+  "hammerRef",
+  "pileCapRef",
+  "hammerCushionRef",
+  "pileCushionRef",
+  "driveInterval",
+  "initiationTime",
+  "endTime",
+  "totalElapsedTime",
+  "associatedPDARecord",
+  "hammerStartSetting",
+  "hammerEndSetting",
+  "pressureAtHammer",
+]
+
+[elements.PlacedObservation]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "location",
+  "observation",
+]
+
+[elements.PlanarObservationRepresentation]
+ns = "diggs"
+id = "required"
+interval = "layerTopIntersection"
+children = [
+  "gml:description",
+  "layerTopIntersection",
+  "layerBaseIntersection",
+  "representativeSurface",
+]
+
+[elements.PlanarSamplingFeature]
+ns = "diggs"
+id = "required"
+interval = "referenceEdge"
+location = "locality"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "referenceEdge",
+  "featureExtent",
+  "relativeFeatureBoundary",
+  "planarReferencing",
+]
+
+[elements.PlanarSurface]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:exterior",
+  "gml:interior",
+  "uncertainty",
+]
+
+[elements.PlanarSurfacePatch]
+ns = "diggs"
+children = [
+  "gml:exterior",
+  "gml:interior",
+  "uncertainty",
+]
+
+[elements.PlasticLimitTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "trialNo",
+  "isManual",
+  "waterContent",
+]
+
+[elements.Platform]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "remark",
+  "receiverType",
+  "noReceivers",
+  "receiverArrayOrientation",
+  "receiverSpacing",
+  "sourceType",
+  "noSources",
+  "sourceReceiverOrientation",
+  "minSourceReceiverSpacing",
+  "maxSourceReceiverSpacing",
+  "platformMovement",
+]
+
+[elements.PlatformMovement]
+ns = "diggs"
+id = "optional"
+location = "locations"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "samplingFeatureRef",
+  "platformVelocity",
+  "samplingRate",
+  "locations",
+]
+
+[elements.PocketPenetrometerTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "reading",
+]
+
+[elements.Point]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:pos",
+]
+
+[elements.PointLoadTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "type",
+]
+
+[elements.PointLocation]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:pos",
+  "uncertainty",
+]
+
+[elements.PolarCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.PorePressureDissipationTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "estimatedIr",
+  "estimatedU0",
+  "estimatedU50",
+  "estimatedWaterDepth",
+  "dissipationTimeSeries",
+]
+
+[elements.PorePressureElement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "cellId",
+  "filterElementLocation",
+  "poreCapacity",
+  "porousElementType",
+  "saturationFluid",
+  "saturationMethod",
+  "saturationMethodRef",
+]
+
+[elements.PressureFiltrationTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.PressuremeterTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "pressuremeterType",
+  "pressuremeterDiameter",
+  "trial",
+]
+
+[elements.PressuremeterTestTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "trialNo",
+  "shearModulus",
+  "meanStrain",
+  "strainRange",
+  "meanPressure",
+  "pressureRange",
+  "linearity",
+]
+
+[elements.ProcessingStep]
+ns = "diggs"
+children = [
+  "associatedFile",
+  "role",
+  "remark",
+  "equipment",
+  "timePerformed",
+  "processStepDescription",
+  "processStepName",
+]
+
+[elements.Project]
+ns = "diggs"
+id = "required"
+interval = "linearExtent"
+location = "referencePoint"
+time = "projectDateTimeSpan"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "referencePoint",
+  "linearExtent",
+  "arealExtent",
+  "projectDateTimeSpan",
+  "locality",
+  "purpose",
+  "projectEvent",
+  "contract",
+  "otherProjectProperty",
+]
+
+[elements.ProjectEvent]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "infoRecorded",
+]
+
+[elements.ProjectGroup]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+]
+
+[elements.Property]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "propertyName",
+  "typeData",
+  "propertyClass",
+  "uom",
+  "atTemperature",
+  "measurementAxisBearing",
+  "measurementAxisInclination",
+  "nullValue",
+  "context",
+  "sampleFraction",
+  "grainsizeFraction",
+  "correctionUsed",
+  "measurementTechnique",
+  "procedureRef",
+  "detectorRef",
+  "detectionLimits",
+  "reportable",
+  "qualifier",
+  "curveState",
+  "curveDerivation",
+  "samplingRate",
+]
+
+[elements.PropertyParameters]
+ns = "diggs"
+id = "optional"
+children = [
+  "properties",
+]
+
+[elements.PumpingTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "averagePumpingRate",
+  "pumpingTestTimeSeries",
+]
+
+[elements.Qualifier]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "parameterName",
+  "parameterMinValue",
+  "parameterValue",
+  "parameterMaxValue",
+  "parameterUnits",
+]
+
+[elements.ReceiverInfo]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "remark",
+  "samplingFeatureRef",
+  "receiverType",
+  "receiverSpacing",
+  "noReceiverStations",
+  "noReceivers",
+  "receiverLocations",
+]
+
+[elements.ReceiverLocations]
+ns = "diggs"
+id = "required"
+location = "locations"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "receiverRef",
+  "locations",
+]
+
+[elements.ReconstitutedSpecimenPreparationInfo]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "compactorType",
+  "numberOfLifts",
+  "relativeCompaction",
+  "waterContentRelativeToOptimum",
+]
+
+[elements.RectifiedGrid]
+ns = "diggs"
+id = "required"
+location = "origin"
+children = [
+  "gml:description",
+  "limits",
+  "axisLabels",
+  "axisName",
+  "origin",
+  "offsetVector",
+  "uncertainty",
+]
+
+[elements.RectifiedGridCoverage]
+ns = "gml"
+id = "optional"
+interval = "gml:domainSet"
+location = "gml:domainSet"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:domainSet",
+  "location",
+  "pileTipLocation",
+  "timeDomain",
+  "gml:rangeSet",
+  "pdaRecordResults",
+  "pileDrivingRecordResults",
+  "results",
+  "gml:coverageFunction",
+]
+
+[elements.RedoxTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "redoxTestType",
+  "meanValueOfPotentialOfPlatinumProbes",
+]
+
+[elements.ReferencePoint]
+ns = "diggs"
+id = "optional"
+location = "rpLocation"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "time",
+  "rpLocation",
+  "datumDescription",
+]
+
+[elements.Referent]
+ns = "diggs"
+id = "optional"
+location = "position"
+children = [
+  "gml:description",
+  "name",
+  "referentType",
+  "position",
+  "distanceAlong",
+  "startValue",
+]
+
+[elements.RelativeDensityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "maxDryDensity",
+  "minDryDensity",
+  "wtPct2",
+  "wtPct6.3",
+  "wtPct37.5",
+]
+
+[elements.Remark]
+ns = "diggs"
+children = [
+  "content",
+  "author",
+  "remarkDateTime",
+]
+
+[elements.ResultFile]
+ns = "diggs"
+children = [
+  "parameters",
+  "fileReference",
+  "fileStructure",
+  "mimeType",
+  "compression",
+]
+
+[elements.ResultSet]
+ns = "diggs"
+children = [
+  "parameters",
+  "dataValues",
+]
+
+[elements.Ring]
+ns = "gml"
+children = [
+  "gml:curveMember",
+]
+
+[elements.RockPorosityDensityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "testType",
+  "waterContent",
+  "dryingTemperature",
+  "initialSaturation",
+  "initiaParticleDensity",
+]
+
+[elements.RockSpecimen]
+ns = "diggs"
+id = "required"
+interval = "specimenLocation"
+location = "specimenLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "sampleRef",
+  "specimenLocation",
+  "extractionTime",
+  "preparationProcedure",
+  "otherSpecimenProperty",
+  "conditionPreTest",
+  "conditionIntermediate",
+  "conditionPostTest",
+]
+
+[elements.Role]
+ns = "diggs"
+time = "timePerformed"
+children = [
+  "rolePerformed",
+  "timePerformed",
+  "remark",
+  "businessAssociate",
+]
+
+[elements.RotationalViscometer]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "spindleMinViscosity",
+  "spindleMaxViscosity",
+  "temperatureSensorType",
+  "torqueScaleMin",
+  "torqueScaleMax",
+]
+
+[elements.Sample]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "samplingActivityRef",
+  "sampleProducedRef",
+  "relativeReferencingSystem",
+  "relativeReferenceSystemOrigin",
+  "classification",
+  "type",
+  "condition",
+  "extrusionMethod",
+  "initialContainer",
+  "purpose",
+  "sampleWeight",
+  "sampleVolume",
+  "sampleDimensions",
+  "sampleMatrix",
+  "initialPreservationMethod",
+  "chainOfCustodyEvent",
+  "otherSampleProperty",
+  "coreDistkurbance",
+]
+
+[elements.SampleDimensions]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "remark",
+  "diameter",
+  "height",
+  "length",
+  "width",
+]
+
+[elements.SampleGroup]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "measurementRef",
+]
+
+[elements.SampleProduced]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+time = "sampleTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "sampleTime",
+]
+
+[elements.SamplingActivity]
+ns = "diggs"
+id = "required"
+interval = "samplingLocation"
+location = "samplingLocation"
+time = "samplingDate"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "programRef",
+  "constructionActivityRef",
+  "samplingFeatureRef",
+  "samplingLocation",
+  "associatedProjectRef",
+  "originalProjectRef",
+  "sourceSampleRef",
+  "activityType",
+  "lengthLongestPortion",
+  "purpose",
+  "rockQualityDesignationLength",
+  "samplingActivityRQD",
+  "sampleProduced",
+  "samplerInsertionMethod",
+  "samplingDate",
+  "samplingEnvironment",
+  "samplingEquipment",
+  "samplingMethod",
+  "solidCoreRecoveryLength",
+  "totalSampleRecoveryLength",
+  "totalSampleRecovery",
+  "mixingTime",
+  "otherSamplingActivityProperty",
+  "coringPushPressure",
+  "coringPushPressureMin",
+  "coringPushPressureMax",
+]
+
+[elements.SamplingFeatureGroup]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "samplingFeatureRef",
+]
+
+[elements.SchmidtReboundHardnessTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "hammerOrientation",
+  "clampingMethod",
+]
+
+[elements.Sedimentation]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "clockTime",
+  "elapsedTime",
+  "hydrometerReading",
+  "temperature",
+  "compositeCorrection",
+  "correctedReading",
+  "effectiveLength",
+  "particleDiameter",
+  "percentPassing",
+]
+
+[elements.Sensor]
+ns = "diggs"
+id = "required"
+location = "referencePoint"
+time = "dateInstalled"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "referencePoint",
+  "dateInstalled",
+  "detector",
+]
+
+[elements.SensorSpacing]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "minSpacing",
+  "maxSpacing",
+  "avgSpacing",
+]
+
+[elements.SetTimeTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.ShearingIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "axialLoad",
+  "axialDeflection",
+  "deviatorStress",
+  "axialStrain",
+  "elapsedTime",
+  "totalPoreWaterPressure",
+  "inducedPoreWaterPressure",
+  "totalCellPressure",
+]
+
+[elements.Shell]
+ns = "diggs"
+id = "optional"
+children = [
+  "surfaceMembers",
+  "uncertainty",
+]
+
+[elements.ShoreScleroscopeHardnessTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "hammerDropHeight",
+]
+
+[elements.ShrinkageLimitTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "trialNo",
+  "waterContentWetSoil",
+  "volumeWetSoil",
+  "volumeDrySoil",
+  "massDrySoil",
+]
+
+[elements.ShrinkageTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.SieveAnalysis]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "specimenRef",
+  "coarseFractionWetSieved",
+  "dispersantUsed",
+  "sandGravelConsistency",
+  "otherSieveAnalysisProperty",
+  "gradingData",
+  "panData",
+]
+
+[elements.SizeFraction]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "minimumGrainSize",
+  "maximumGrainSize",
+  "percentOfTotalSample",
+]
+
+[elements.SlumpTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.SoftwareApplication]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "version",
+]
+
+[elements.SoilSpecimen]
+ns = "diggs"
+id = "required"
+interval = "specimenLocation"
+location = "specimenLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "sampleRef",
+  "specimenLocation",
+  "extractionTime",
+  "preparationProcedure",
+  "otherSpecimenProperty",
+  "conditionPreTest",
+  "conditionIntermediate",
+  "conditionPostTest",
+  "intactSpecimenPreparationInfo",
+  "reconstitutedSpecimenPreparationInfo",
+  "sizeFraction",
+  "specificGravityOfSolids",
+  "specimenType",
+]
+
+[elements.Solid]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "exterior",
+  "interior",
+  "uncertainty",
+]
+
+[elements.Sounding]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenConstructed"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "whenConstructed",
+  "totalMeasuredDepth",
+  "soundingPurpose",
+  "backfill",
+  "casing",
+  "constructionMethod",
+  "constructionEvent",
+]
+
+[elements.SoundingConstructionMethod]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+time = "methodTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "location",
+  "methodTime",
+  "constructionMethod",
+  "constructionEquipment",
+]
+
+[elements.SoundingEvent]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "infoRecorded",
+  "casingBottom",
+  "soundingBottom",
+]
+
+[elements.SourceInfo]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "remark",
+  "samplingFeatureRef",
+  "sourceType",
+  "sourceSpacing",
+  "noSourceStations",
+  "noSources",
+  "sourceLocations",
+]
+
+[elements.SourceLocations]
+ns = "diggs"
+id = "required"
+location = "locations"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "sourceRef",
+  "locations",
+]
+
+[elements.SpecificGravityTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "waterTemperature",
+  "temperatureWaterAndSoil",
+  "correctionFactorForWaterTemperature",
+]
+
+[elements.Specification]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "accredtingBody",
+  "shortMethodName",
+  "standardClause",
+  "standardPart",
+  "standardReferenceNumber",
+  "standardTitle",
+  "standardVersion",
+  "otherSpecificationProperty",
+]
+
+[elements.SpecimenConditions]
+ns = "diggs"
+id = "optional"
+time = "dateTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "dateTime",
+  "index",
+  "bulkUnitWeight",
+  "crossSectionalArea",
+  "dimensionMeasurementTechnique",
+  "ringDiameter",
+  "dryUnitWeight",
+  "dryWeight",
+  "diameter",
+  "length",
+  "width",
+  "height",
+  "diameterHeightRatio",
+  "percentSaturation",
+  "shape",
+  "surfaceArea",
+  "temperature",
+  "volume",
+  "waterContent",
+  "wetWeight",
+  "voidRatio",
+  "otherConditionProperty",
+]
+
+[elements.SphericalCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.Splice]
+ns = "diggs"
+id = "optional"
+location = "spliceLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "spliceNumber",
+  "spliceType",
+  "spliceLocation",
+]
+
+[elements.StaticConePenetrationTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "penetrometerType",
+  "distanceTipToSleeve",
+  "estimatedWaterDepth",
+  "frictionReducer",
+  "frictionSleeveArea",
+  "netAreaRatioCorrection",
+  "penetrationRate",
+  "piezoconeType",
+  "porePressureElementInfo",
+  "pushRodType",
+  "tipCapacity",
+  "sleeveCapacity",
+  "surfaceCapacity",
+  "tipApexAngle",
+  "tipArea",
+]
+
+[elements.Station]
+ns = "diggs"
+id = "required"
+location = "locality"
+time = "whenOccupied"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "whenOccupied",
+  "type",
+]
+
+[elements.SteelHPile]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenInstalled"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "samplingFeatureRef",
+  "installationConstructionEvent",
+  "installationEquipment",
+  "whenInstalled",
+  "referenceElevation",
+  "groundSurfaceElevation",
+  "cutoffElevation",
+  "jettingElevation",
+  "totalPileLength",
+  "weightPerLength",
+  "tipDeviationNorth",
+  "tipDeviationEast",
+  "lengthAboveGroundSurface",
+  "lengthBelowGroundSurface",
+  "lengthNonFriction",
+  "finalTipElevation",
+  "taperInterval",
+  "productionPile",
+  "testPile",
+  "tipType",
+  "nominalCapacity",
+  "allowableDrivingStress",
+  "pileSizeDesignation",
+  "weldType",
+  "flangeLength",
+  "flangeThickness",
+  "webThickness",
+  "splices",
+]
+
+[elements.SteelPipePile]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenInstalled"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "samplingFeatureRef",
+  "installationConstructionEvent",
+  "installationEquipment",
+  "whenInstalled",
+  "referenceElevation",
+  "groundSurfaceElevation",
+  "cutoffElevation",
+  "jettingElevation",
+  "totalPileLength",
+  "weightPerLength",
+  "tipDeviationNorth",
+  "tipDeviationEast",
+  "lengthAboveGroundSurface",
+  "lengthBelowGroundSurface",
+  "lengthNonFriction",
+  "finalTipElevation",
+  "taperInterval",
+  "productionPile",
+  "testPile",
+  "tipType",
+  "nominalCapacity",
+  "allowableDrivingStress",
+  "pileSizeDesignation",
+  "wallThickness",
+  "openEnded",
+  "concreteFilled",
+  "soilPlugDepth",
+  "soilPlugElevation",
+  "splices",
+]
+
+[elements.StratigraphyObservation]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+children = [
+  "gml:identifier",
+  "status",
+  "remark",
+  "measurementRef",
+  "location",
+  "trueTopObserved",
+  "trueBaseObserved",
+  "stratigraphicUnitName",
+  "stratigraphicUnitDescription",
+  "unitType",
+  "placedObservation",
+  "baseBoundary",
+]
+
+[elements.StratigraphySystem]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "observationProcedure",
+  "stratigraphyType",
+  "stratigraphyObservation",
+]
+
+[elements.StrikerPlate]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "weight",
+  "diameter",
+  "thickness",
+]
+
+[elements.SuctionTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+]
+
+[elements.SwellOrCollapseMeasurement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "elapsedTime",
+  "swellOrCollapse",
+]
+
+[elements.SwellOrCollapseStage]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "swellOrCollapseMeasurements",
+]
+
+[elements.SwellOrCollapseTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "swellTestProcedure",
+  "moldHeight",
+  "testWaterType",
+  "swellTestIncrement",
+]
+
+[elements.SwellTestConsolidationStage]
+ns = "diggs"
+id = "required"
+time = "timeInterval"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "timeInterval",
+  "appliedLoad",
+  "loadingStress",
+  "consolidationIncrement",
+  "finalaxialDeformation",
+  "finalStress",
+]
+
+[elements.SwellTestIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "specimenRef",
+  "seatingPressure",
+  "preInundationConsolidation",
+  "postInundatiomSwellOrCollapse",
+  "postInundationConsolidation",
+]
+
+[elements.SyneresisTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+  "timeSeriesTrial",
+]
+
+[elements.Taper]
+ns = "diggs"
+id = "optional"
+interval = "intervalLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "intervalLocation",
+  "widthAtTop",
+  "widthAtBottom",
+  "pileMaterial",
+  "pileShape",
+]
+
+[elements.TemperatureMeasurement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "dateTime",
+  "temperature",
+]
+
+[elements.TemporalCRS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:domainOfValidity",
+  "gml:scope",
+  "gml:timeCS",
+  "gml:temporalDatum",
+]
+
+[elements.TemporalDatum]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:domainOfValidity",
+  "gml:scope",
+  "gml:origin",
+]
+
+[elements.TemporalResult]
+ns = "diggs"
+id = "optional"
+children = [
+  "timeDomain",
+  "results",
+]
+
+[elements.TensileStrengthTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "type",
+  "testDuration",
+  "stressRate",
+  "modeOfFailure",
+]
+
+[elements.TerminationCriteria]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "apparentLugeonValue",
+  "crossCommunication",
+  "gInValue",
+  "groutAtSurface",
+  "groutFlowAtConstantPressure",
+  "groutVolumeLimit",
+  "lateralMovement",
+  "movement",
+  "pressureLimit",
+  "rotation",
+  "tilt",
+  "verticalMovement",
+]
+
+[elements.Test]
+ns = "diggs"
+id = "required"
+time = "samplingTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "programRef",
+  "samplingFeatureRef",
+  "sampleRef",
+  "constructionActivityRef",
+  "otherMeasurementProperty",
+  "samplingTime",
+  "resultTime",
+  "validTime",
+  "outcome",
+  "procedure",
+]
+
+[elements.TestResult]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+children = [
+  "location",
+  "results",
+  "gridMappingFunction",
+]
+
+[elements.TiltCupTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.TimberPile]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenInstalled"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "samplingFeatureRef",
+  "installationConstructionEvent",
+  "installationEquipment",
+  "whenInstalled",
+  "referenceElevation",
+  "groundSurfaceElevation",
+  "cutoffElevation",
+  "jettingElevation",
+  "totalPileLength",
+  "weightPerLength",
+  "tipDeviationNorth",
+  "tipDeviationEast",
+  "lengthAboveGroundSurface",
+  "lengthBelowGroundSurface",
+  "lengthNonFriction",
+  "finalTipElevation",
+  "taperInterval",
+  "productionPile",
+  "testPile",
+  "tipType",
+  "nominalCapacity",
+  "allowableDrivingStress",
+  "pileSizeDesignation",
+  "timberType",
+]
+
+[elements.TimeCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.TimeInstant]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:relatedTime",
+  "gml:timePosition",
+]
+
+[elements.TimeInterval]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "start",
+  "end",
+  "duration",
+]
+
+[elements.TimeIntervalList]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "status",
+  "remark",
+  "timeIntervalList",
+]
+
+[elements.TimePeriod]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:relatedTime",
+  "gml:beginPosition",
+  "gml:begin",
+  "gml:endPosition",
+  "gml:end",
+  "gml:duration",
+  "gml:timeInterval",
+]
+
+[elements.TimePositionList]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "status",
+  "remark",
+  "timePositionList",
+]
+
+[elements.TimeSeriesTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "specimenRef",
+  "syneresisTimeSeries",
+]
+
+[elements.TorqueIncrement]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "elapsedTime",
+  "measuredTorque",
+]
+
+[elements.Transect]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenTransectRun"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "whenTransectRun",
+  "totalTransectLength",
+  "transectPurpose",
+]
+
+[elements.TrenchConstructionMethod]
+ns = "diggs"
+id = "required"
+interval = "location"
+location = "location"
+time = "methodTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "role",
+  "remark",
+  "location",
+  "methodTime",
+  "trenchStability",
+  "constructionMethod",
+  "constructionEquipment",
+]
+
+[elements.TrenchWall]
+ns = "diggs"
+id = "required"
+interval = "referenceEdge"
+location = "locality"
+time = "whenConstructed"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "referenceEdge",
+  "featureExtent",
+  "relativeFeatureBoundary",
+  "planarReferencing",
+  "whenConstructed",
+  "trenchDepth",
+  "trenchLength",
+  "trenchWidth",
+  "shoring",
+  "trenchPurpose",
+  "backfill",
+  "constructionMethod",
+  "constructionEvent",
+]
+
+[elements.TrenchWallEvent]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "infoRecorded",
+  "depth",
+  "length",
+  "width",
+  "stability",
+]
+
+[elements.TrialGroutBatch]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "projectRef",
+  "samplingActivityRef",
+  "sampleProducedRef",
+  "groutSpecificationRef",
+  "admixture",
+  "binder",
+  "cement",
+  "chemical",
+  "filler",
+  "specificGravityMix",
+  "specificGravityWater",
+  "totalBatchVolume",
+  "typeMix",
+  "volumeWater",
+  "waterCementRatio",
+  "waterCementRatioOfMix",
+  "wtCementPerGalH2O",
+  "binderFactor",
+  "binderFactorInPlace",
+  "binderContent",
+  "volumeRatio",
+]
+
+[elements.TrialPit]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "whenConstructed"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "whenConstructed",
+  "totalMeasuredDepth",
+  "pitLength",
+  "pitWidth",
+  "shoring",
+  "trialPitPurpose",
+  "backfill",
+  "constructionMethod",
+  "constructionEvent",
+]
+
+[elements.TrialPitEvent]
+ns = "diggs"
+id = "optional"
+interval = "location"
+location = "location"
+time = "time"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "location",
+  "time",
+  "infoRecorded",
+  "depth",
+  "length",
+  "width",
+  "stability",
+]
+
+[elements.TriaxialTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "triaxialTestType",
+  "trial",
+]
+
+[elements.TriaxialTestConsolidationStage]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "consolidationIncrement",
+  "specimenCrossSectionalAreaCalculationMethod",
+  "effectiveStressEndofConsolidationStage",
+  "t50",
+  "specimenHeightChangeAfterConsolidation",
+  "t50Method",
+]
+
+[elements.TriaxialTestEquipment]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "class",
+  "make",
+  "modelNumber",
+  "serialNumber",
+  "calibrationAuditTrail",
+  "otherEquipmentProperty",
+  "loadCellCapacity",
+  "massOfTopPorousStone",
+  "massOfTopCap",
+  "pistonDiameter",
+  "poreWaterPressureDeviceMeetsUndrainedSpecs",
+  "pressureTransducerType",
+]
+
+[elements.TriaxialTestSaturationStage]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "automatedSaturationEquipmentUsed",
+  "backPressureIncrement",
+  "bValueEndOfSaturation",
+  "initialSaturation",
+  "maximumBackPressureApplied",
+  "saturationMethod",
+]
+
+[elements.TriaxialTestShearStage]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "axialStrainAtFailure",
+  "deviatorStressAtFailure",
+  "failureCriterion",
+  "modeOfFailure",
+  "totalPorewaterPressureAtFailure",
+  "inducedPorewaterPressureAtFailure",
+  "porewaterPressureStartOfShearing",
+  "rateOfAxialStrainDuringShear",
+  "shearingIncrement",
+  "slopeOfAngleOfFailureSurface",
+  "totalCellPressureDuringShearStage",
+  "undrainedShearStrengthAtFailure",
+  "volumetricStrainAtFailureDrainedOnly",
+  "areaCorrectionApplied",
+  "areaCorrectionType",
+  "filterCorrectionApplied",
+  "membraneCorrectionApplied",
+  "pistonFrictionCorrectionApplied",
+  "upliftCorrectionApplied",
+]
+
+[elements.TriaxialTestTrial]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "otherProperty",
+  "specimenRef",
+  "filterInfo",
+  "membraneInfo",
+  "saturationStage",
+  "consolidationStage",
+  "shearStage",
+]
+
+[elements.Uncertainty]
+ns = "diggs"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "plusUncertaintyValue",
+  "minusUncertaintyValue",
+  "confidenceLevel",
+  "uncertaintyRepresentation",
+]
+
+[elements.UnconfinedCompressiveStrengthTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "testDuration",
+  "averageRateOfStrain",
+  "modeOfFailure",
+  "slopeOfAngleOfFailureSurface",
+  "axialStrainAtFailure",
+  "compressionIncrement",
+]
+
+[elements.UserDefinedCS]
+ns = "gml"
+id = "required"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "gml:axis",
+]
+
+[elements.ValueArray]
+ns = "gml"
+id = "optional"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:valueComponent",
+  "gml:valueComponents",
+  "properties",
+]
+
+[elements.VaneTestMeasurementData]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "delay",
+  "maximumMeasuredTorque",
+  "remoldedRevolutions",
+  "rotationRate",
+  "timeToSoilFailure",
+  "torqueIncrement",
+]
+
+[elements.VectorLinearSpatialReferenceSystem]
+ns = "diggs"
+id = "required"
+interval = "glr:linearElement"
+children = [
+  "gml:description",
+  "gml:descriptionReference",
+  "gml:identifier",
+  "gml:name",
+  "gml:remarks",
+  "glr:linearElement",
+  "glr:lrm",
+  "offsetVector",
+  "linearReferencingMethodUncertainty",
+  "vectorOffsetUncertainty",
+]
+
+[elements.VibrationRecord]
+ns = "diggs"
+children = []
+
+[elements.ViscometerTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+  "startingTemperature",
+  "endingTemperature",
+  "viscocityReading",
+]
+
+[elements.ViscosityReading]
+ns = "diggs"
+children = [
+  "index",
+  "specimenRef",
+  "elapsedTime",
+  "rotationalSpeed",
+  "temperature",
+  "torque",
+  "viscosity",
+]
+
+[elements.VolumetricSamplingFeature]
+ns = "diggs"
+id = "required"
+interval = "referenceEdge"
+location = "locality"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "referenceEdge",
+  "featureExtent",
+  "relativeFeatureExtent",
+  "volumeReferencing",
+]
+
+[elements.WashoutTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "sampleRef",
+  "specimen",
+]
+
+[elements.WaterContentTest]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "specimen",
+  "waterContentDerivedFrom",
+  "dryingTemperature",
+  "dryingTime",
+  "calciumCarbonateGasPressureMoistureReading",
+  "heatingCycleParameters",
+]
+
+[elements.WaterLevelMonitoring]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "referencePoints",
+]
+
+[elements.WaterStrike]
+ns = "diggs"
+id = "required"
+location = "sealLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "waterStrikeReadings",
+  "sealLocation",
+  "bottomCasing",
+  "bottomHole",
+]
+
+[elements.WaterStrikeReading]
+ns = "diggs"
+id = "required"
+location = "waterLocation"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "elapsedTime",
+  "dateTime",
+  "notEncountered",
+  "waterLocation",
+  "linkedReading",
+]
+
+[elements.Well]
+ns = "diggs"
+id = "required"
+interval = "centerLine"
+location = "locality"
+time = "initialDevelopmentTime"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "investigationTarget",
+  "projectRef",
+  "originalProjectRef",
+  "associatedProjectRef",
+  "programRef",
+  "environment",
+  "otherSamplingFeatureProperty",
+  "locality",
+  "referencePoint",
+  "localCoordinates",
+  "centerLine",
+  "linearReferencing",
+  "plunge",
+  "bearing",
+  "samplingFeatureRef",
+  "installationConstructionEvent",
+  "installationEquipment",
+  "aquiferTested",
+  "fluidPurpose",
+  "initialDevelopmentMethod",
+  "initialDevelopmentTime",
+  "maintenanceEvent",
+  "opening",
+  "sanitarySealLocation",
+  "sanitarySealType",
+  "specialTreatment",
+  "wellAbandonment",
+  "wellCasing",
+  "wellDepth",
+  "wellFinishType",
+  "wellPurpose",
+]
+
+[elements.WellOpening]
+ns = "diggs"
+id = "required"
+interval = "openInterval"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "status",
+  "remark",
+  "openInterval",
+  "filterPackInterval",
+  "openingLength",
+  "openingWidth",
+  "openingDiameter",
+  "openingType",
+  "openingMaterial",
+]
+
+[elements.WirelineLog]
+ns = "diggs"
+id = "required"
+children = [
+  "gml:description",
+  "gml:identifier",
+  "gml:name",
+  "internalIdentifier",
+  "status",
+  "implementationStatus",
+  "associatedFile",
+  "role",
+  "remark",
+  "testProcedureMethod",
+  "testProcedureEquipment",
+  "testingEnvironment",
+  "otherTestProperty",
+  "testEvent",
+  "geophysicalFieldSurveyRef",
+  "runNumber",
+  "bhaRunNumber",
+  "logParameter",
+]
