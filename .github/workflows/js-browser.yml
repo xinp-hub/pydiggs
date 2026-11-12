@@ -1,13 +1,16 @@
-# Runs the npm package (js/) in real browsers: Chromium, Firefox and WebKit. A small Vite
-# app (js/e2e) installs the packed tarball, as a vendor's app would, builds it, and is
-# served under the Content Security Policy docs/browser.md documents. Playwright picks
-# each Pyodide smoke fixture and compares the browser's findings and model with CPython's
-# from this checkout.
+# Runs the npm package (js/) where vendors run it: in real browsers and in a Next.js app.
 #
-# This is the only test of what a Web Worker alone can do: the integrity-checked fetch
-# of Pyodide's loader from its CDN, the bundler's handling of the package's worker file,
-# and the CSP. It downloads Pyodide and three browsers, so it runs when js/ changes,
-# weekly, and on demand, and is not a required check.
+# - package: builds this checkout's wheel, CPython's answers for the Pyodide smoke
+#   fixtures (the goldens), and the packed npm tarball, once for every job below.
+# - vite: a Vite app (js/e2e) installs the tarball. Its production build runs under the
+#   CSP docs/browser.md documents in Chromium, Firefox and WebKit; the Vite dev server
+#   runs in Chromium.
+# - nextjs: a Next.js app (js/e2e-next) installs the tarball and runs the browser worker
+#   in a client component, built by Turbopack and by webpack and from `next dev`, and
+#   PydiggsNode behind a route handler on the Node runtime.
+#
+# Every answer is compared with CPython's. These jobs download Pyodide, browsers and
+# Next.js, so they run when js/ changes, weekly, and on demand, and are not required.
 name: npm package in browsers
 
 on:
@@ -36,11 +39,14 @@ concurrency:
   group: js-browser-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
 jobs:
-  browsers:
-    name: real browsers (Chromium, Firefox, WebKit)
+  package:
+    name: wheel, goldens and npm tarball
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -53,44 +59,131 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: |
-            js/package-lock.json
-            js/e2e/package-lock.json
+          cache-dependency-path: js/package-lock.json
       - name: Build the wheel and the CPython goldens
         run: |
-          uv build --wheel
+          set -euo pipefail
+          uv build --wheel --out-dir "$RUNNER_TEMP/out"
           uv sync --no-dev
-          uv run --no-sync python tests/pyodide/cases.py "$RUNNER_TEMP/goldens.json"
+          uv run --no-sync python tests/pyodide/cases.py "$RUNNER_TEMP/out/goldens.json"
       - name: Build and pack the npm package
         working-directory: js
         run: |
           npm ci --ignore-scripts
           npm run build
-          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP"
-      - name: Install the packed package and this checkout's wheel into the test app
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/out"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: under-test
+          path: ${{ runner.temp }}/out
+          if-no-files-found: error
+          retention-days: 3
+
+  vite:
+    name: Vite (Chromium, Firefox, WebKit; dev server)
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
         working-directory: js/e2e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: js/e2e/package-lock.json
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: under-test
+          path: ${{ runner.temp }}/out
+      - name: Install the packed package and the wheel into the test app
         run: |
           set -euo pipefail
           npm ci --ignore-scripts
-          npm install --no-save --ignore-scripts "$RUNNER_TEMP"/pydiggs-client-*.tgz
-          wheel="$(ls ../../dist/pydiggs-*-py3-none-any.whl | tail -n 1)"
+          npm install --no-save --ignore-scripts "$RUNNER_TEMP"/out/pydiggs-client-*.tgz
+          wheel="$(ls "$RUNNER_TEMP"/out/pydiggs-*-py3-none-any.whl | tail -n 1)"
           mkdir -p public/wheels
           cp "$wheel" public/wheels/
           echo "VITE_PYDIGGS_WHEEL=/wheels/$(basename "$wheel")" >> "$GITHUB_ENV"
       - name: Install the browsers
-        working-directory: js/e2e
         run: npx playwright install --with-deps chromium firefox webkit
-      - name: Run in Chromium, Firefox and WebKit
-        working-directory: js/e2e
+      - name: Run
         env:
-          PYDIGGS_GOLDENS: ${{ runner.temp }}/goldens.json
+          PYDIGGS_GOLDENS: ${{ runner.temp }}/out/goldens.json
         run: npx playwright test
       - name: Keep the report and traces of a failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
-          name: playwright-report
+          name: playwright-vite
           path: |
             js/e2e/playwright-report
             js/e2e/test-results
+          retention-days: 7
+
+  nextjs:
+    name: Next.js (${{ matrix.name }})
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Turbopack build
+            mode: build
+            flags: ""
+          - name: webpack build
+            mode: build
+            flags: "--webpack"
+          - name: next dev
+            mode: dev
+            flags: ""
+    defaults:
+      run:
+        working-directory: js/e2e-next
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: js/e2e-next/package-lock.json
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: under-test
+          path: ${{ runner.temp }}/out
+      - name: Install the packed package and the wheel into the app
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm install --no-save --ignore-scripts "$RUNNER_TEMP"/out/pydiggs-client-*.tgz
+          wheel="$(ls "$RUNNER_TEMP"/out/pydiggs-*-py3-none-any.whl | tail -n 1)"
+          mkdir -p public/wheels
+          cp "$wheel" public/wheels/
+          echo "NEXT_PUBLIC_PYDIGGS_WHEEL=/wheels/$(basename "$wheel")" >> "$GITHUB_ENV"
+          echo "PYDIGGS_WHEEL_PATH=$wheel" >> "$GITHUB_ENV"
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+      - name: Run
+        env:
+          PYDIGGS_GOLDENS: ${{ runner.temp }}/out/goldens.json
+          NEXT_MODE: ${{ matrix.mode }}
+          NEXT_BUILD_FLAGS: ${{ matrix.flags }}
+        run: npx playwright test
+      - name: Keep the report and traces of a failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: playwright-next-${{ matrix.mode }}-${{ strategy.job-index }}
+          path: |
+            js/e2e-next/playwright-report
+            js/e2e-next/test-results
+            js/e2e-next/.next/trace
           retention-days: 7

@@ -19,6 +19,11 @@ const csp = [
 export default defineConfig({
   // The package's worker imports shared chunks, so it must be an ES module worker.
   worker: { format: "es" },
+  // The dev server pre-bundles dependencies into one file, which loses the worker file
+  // the package finds next to itself. Leaving the package out of pre-bundling keeps it
+  // as published; the production build is not affected.
+  optimizeDeps: { exclude: ["@pydiggs/client"] },
+  server: { host: "127.0.0.1", port: 5173, strictPort: true },
   build: { target: "es2022" },
   preview: {
     host: "127.0.0.1",

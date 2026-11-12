@@ -69,6 +69,24 @@ unchanged.
 
 Create the worker when the page opens, so its first-visit download (about 14 MB, cached
 afterwards) overlaps with the user finding a file, and show its `onProgress` stages.
+A document that runs past `timeoutMs` (default 120 s) stops its worker and fails alone;
+a fresh worker takes the next one.
+
+### Frameworks
+
+CI runs the packed package in a Vite app (production build in Chromium, Firefox and
+WebKit, and the dev server) and in a Next.js app (Turbopack and webpack builds, and
+`next dev`, with a route handler serving the HTTP API). Two rules cover most apps:
+
+- **Vite:** set `worker: { format: "es" }`, and for the dev server
+  `optimizeDeps: { exclude: ["@pydiggs/client"] }`.
+- **Server rendering** (Next.js, Nuxt, SvelteKit, Remix): import
+  `@pydiggs/client/browser` inside an effect, never during rendering, and share one
+  worker across the app. In Next.js, also set
+  `serverExternalPackages: ["@pydiggs/client", "pyodide"]` for the Node side.
+
+The package's [README](https://github.com/xinp-hub/pydiggs/tree/master/js#frameworks-and-bundlers)
+has the recipes, and `js/e2e-next` the tested Next.js app.
 
 ## Browser first, server as fallback
 

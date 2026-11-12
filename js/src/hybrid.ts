@@ -21,10 +21,17 @@ export type Route = "browser" | "server";
 /**
  * Why it went there: the browser was usable ("browser"), or there is no browser
  * ("no-browser"), the document is over `maxBrowserBytes` ("too-large"), the worker
- * failed to load ("browser-unavailable"), or it was still loading and
+ * failed to load or died on the document ("browser-unavailable"), the document ran past
+ * the browser's time limit ("browser-timeout"), or the worker was still loading and
  * `whileLoading: "server"` was set ("browser-loading").
  */
-export type RouteReason = "browser" | "no-browser" | "too-large" | "browser-unavailable" | "browser-loading";
+export type RouteReason =
+  | "browser"
+  | "no-browser"
+  | "too-large"
+  | "browser-unavailable"
+  | "browser-loading"
+  | "browser-timeout";
 
 export interface HybridResult<T> {
   document: T;
@@ -143,9 +150,9 @@ export class PydiggsHybrid {
     );
   }
 
-  // Sends the document where #decide says. If the worker itself dies while working on
-  // it (it runs out of memory, say), the document goes to the server instead. An error
-  // about the document is not retried: the server would say the same.
+  // Sends the document where #decide says. If the worker dies on it (out of memory, say)
+  // or it runs past the browser's time limit, the document goes to the server instead.
+  // An error about the document is not retried: the server would say the same.
   async #run<T>(
     input: BrowserDocumentInput,
     signal: AbortSignal | undefined,
@@ -157,8 +164,13 @@ export class PydiggsHybrid {
     try {
       return { document: await inBrowser(), ...decision };
     } catch (error) {
-      if (this.#browser!.status !== "failed" || !this.#server || signal?.aborted) throw error;
-      return { document: await onServer(), via: "server", reason: "browser-unavailable" };
+      if (!this.#server || signal?.aborted) throw error;
+      const code = (error as { code?: unknown } | null)?.code;
+      if (code === "timeout") return { document: await onServer(), via: "server", reason: "browser-timeout" };
+      if (code === "crashed" || this.#browser!.status === "failed") {
+        return { document: await onServer(), via: "server", reason: "browser-unavailable" };
+      }
+      throw error;
     }
   }
 
@@ -195,6 +207,7 @@ export class PydiggsHybrid {
         "too-large": `the document is larger than ${this.#maxBrowserBytes} bytes`,
         "browser-unavailable": "the browser worker is not available",
         "browser-loading": "the browser worker is still loading",
+        "browser-timeout": "the document ran past the browser's time limit",
         browser: "",
       }[reason];
       throw new PydiggsError(`cannot run pydiggs in the browser (${why}), and no server is configured`);
