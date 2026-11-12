@@ -279,8 +279,8 @@ def check(
             not a regular file.
         DocumentError: No table can be built from the source (``not-ags4`` or
             ``unsupported-version``).
-        ResourceError: ``dictionary`` cannot be read, or has no DICT group that defines
-            groups.
+        ResourceError: ``dictionary`` cannot be read, was read only in part (a limit
+            stopped the read), or has no DICT group that defines groups.
         ValueError: An argument is out of range, or the source is not valid text in
             the ``encoding`` asked for.
         TypeError: ``source`` or ``dictionary`` is of the wrong type.

@@ -20,12 +20,13 @@ a message.
 
 from __future__ import annotations
 
+import calendar
 import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Final
 
-from pydiggs.ags4._dictionary import DICT, Dictionary, GroupDef, build, overlay
+from pydiggs.ags4._dictionary import DICT, Dictionary, GroupDef, concatenator, from_file, overlay
 from pydiggs.ags4._parse import (
     MAX_NOTES_PER_RULE,
     RULE_1,
@@ -189,28 +190,31 @@ def index_lines(
     rows to groups as the reader does: the first group of a name, header rows before
     DATA rows. A group whose DATA row count differs from the table's (a limit stopped
     the read, or the text is not the one read) gets ``data=None``. The second list
-    holds each line that ends inside a quoted value while the next line closes it: a
-    line break inside a value (Rule 6).
+    holds, for each value a line break splits (Rule 6), the line that opens it: a line
+    with an odd number of quotes leaves a value open, lines with an even number keep it
+    open, and the next line with an odd number closes it.
 
     Raises:
-        Stopped: ``should_stop`` returned True.
+        Stopped: ``should_stop`` returned True, here or in the tokenizer.
     """
     index: dict[str, GroupLines] = {}
     broken: list[int] = []
     current: GroupLines | None = None
-    previous_odd = 0
+    opened = 0  # the line that left a quoted value open, or 0
     for number, (line, _crlf) in enumerate(_lines(text), start=1):
         if should_stop is not None and number % _CHECK_EVERY == 0 and should_stop():
             raise Stopped
-        odd = line.count('"') % 2 == 1
-        if odd and previous_odd:
-            broken.append(previous_odd)
-        previous_odd = number if odd and not previous_odd else 0
+        if line.count('"') % 2 == 1:
+            if opened:
+                broken.append(opened)
+            opened = 0 if opened else number
         if not line or line.isspace():
             continue
         try:
             descriptor, name = _descriptor(line, should_stop)
-        except _LimitError:
+        except _LimitError as stop:
+            if stop.name == "time_budget":
+                raise Stopped from None
             break
         if descriptor == "GROUP":
             current = None
@@ -347,7 +351,15 @@ _DT_FORMS: Final = (
     "hh:mm:ss",
     "hh:mm",
 )
-_LIMITS: Final = {"month": (1, 12), "day": (1, 31), "hour": (0, 24), "minute": (0, 59)}
+_LIMITS: Final = {
+    "month": (1, 12),
+    "day": (1, 31),
+    "hour": (0, 24),
+    "minute": (0, 59),
+    "second": (0, 59),
+}
+#: A year in which 29 February exists, for a date format that gives no year.
+_LEAP_YEAR: Final = 2000
 
 
 def _date_pattern(unit: str) -> re.Pattern[str] | None:
@@ -392,15 +404,23 @@ def _dates(unit: str) -> Callable[[str], bool]:
             match = pattern.fullmatch(value)
             if match is None:
                 continue
-            parts = match.groupdict()
-            return all(
-                low <= int(parts[name]) <= high
-                for name, (low, high) in _LIMITS.items()
-                if parts.get(name) is not None
-            )
+            return _real(match.groupdict())
         return False
 
     return valid
+
+
+def _real(parts: dict[str, str | None]) -> bool:
+    """Every part in range, and the day one its month has (29 February in leap years)."""
+    values = {name: int(value) for name, value in parts.items() if value is not None}
+    if not all(
+        low <= values[name] <= high for name, (low, high) in _LIMITS.items() if name in values
+    ):
+        return False
+    if "day" in values and "month" in values:
+        year = values.get("year") or _LEAP_YEAR  # no year, or year 0: allow 29 February
+        return values["day"] <= calendar.monthrange(year, values["month"])[1]
+    return True
 
 
 def _matches(pattern: re.Pattern[str]) -> Callable[[str], bool]:
@@ -458,12 +478,14 @@ class _Context:
     )
 
     def tick(self) -> None:
+        """Count one DATA row; look at the clock every ``_CHECK_EVERY`` rows."""
         self.rows_seen += 1
-        if (
-            self.should_stop is not None
-            and self.rows_seen % _CHECK_EVERY == 0
-            and self.should_stop()
-        ):
+        if self.rows_seen % _CHECK_EVERY == 0:
+            self.poll()
+
+    def poll(self) -> None:
+        """Raise Stopped when ``should_stop`` says time is up."""
+        if self.should_stop is not None and self.should_stop():
             raise Stopped
 
     def line(self, group: Group, row: int | None = None, header: str | None = None) -> int | None:
@@ -544,14 +566,13 @@ def _lookups(file: File) -> _Lookups:
         abbreviations = {k: frozenset(v) for k, v in found.items()}
     tran = groups.get(_TRAN)
     delimiter = _first(tran, "TRAN_DLIM")
-    concatenator = _first(tran, "TRAN_RCON")
     return _Lookups(
         units=None if unit is None else frozenset(_column(unit, "UNIT_UNIT")),
         types=None if type_ is None else frozenset(_column(type_, "TYPE_TYPE")),
         abbreviations=abbreviations,
         file_sets=None if files is None else frozenset(_column(files, _FSET)),
         delimiter=delimiter if delimiter is not None and len(delimiter) == 1 else "|",
-        concatenator=concatenator if concatenator is not None and len(concatenator) == 1 else "+",
+        concatenator=concatenator(file),
     )
 
 
@@ -1121,6 +1142,32 @@ def _standard_names(ctx: _Context) -> None:
         )
 
 
+def _own_names(ctx: _Context) -> None:
+    """Rule 9 without a dictionary: the headings of each group the DICT group defines.
+
+    A heading that names another group (Rule 19b) is judged only when that group is the
+    file's own too; a standard group's headings are unknown without the dictionary.
+    """
+    for group in ctx.file.groups.values():
+        definition = ctx.own.group(group.name)
+        if definition is None or not definition.defined:
+            continue
+        for heading in group.headings:
+            if heading in definition.headings or _borrowed(ctx, heading):
+                continue
+            prefix = heading.partition("_")[0]
+            other = ctx.own.group(prefix)
+            if prefix != group.name and (other is None or not other.defined):
+                continue
+            ctx.add(
+                RULE_9,
+                f"Heading {shown(heading)} of group {shown(group.name)} is not defined in"
+                " the DICT group, which defines the group.",
+                group,
+                header="heading",
+            )
+
+
 def _borrowed(ctx: _Context, heading: str) -> bool:
     """A heading of another group (Rule 19b), defined there."""
     prefix = heading.partition("_")[0]
@@ -1165,7 +1212,7 @@ def check_tables(
         broken: Lines that end inside a quoted value (Rule 6).
         should_stop: Called every so often; True stops the check.
     """
-    own = build(file.groups.get(DICT))
+    own = from_file(file)
     out = _Out()
     ctx = _Context(
         file=file,
@@ -1179,7 +1226,9 @@ def check_tables(
     )
     finished = True
     try:
+        ctx.poll()
         _check(ctx, broken)
+        ctx.poll()
     except Stopped:
         finished = False
     out.summarise()
@@ -1191,7 +1240,7 @@ def _check(ctx: _Context, broken: Iterable[int]) -> None:
     for line in broken:
         ctx.out.add(
             RULE_6,
-            "A line ends inside a quoted value that the next line closes: a value holds a"
+            "A line ends inside a quoted value that a later line closes: a value holds a"
             " line break.",
             line,
             None,
@@ -1201,6 +1250,7 @@ def _check(ctx: _Context, broken: Iterable[int]) -> None:
         _built_in_code(ctx)
     used_abbreviation = False
     for group in file.groups.values():
+        ctx.poll()
         if not group.rows:
             ctx.add(RULE_2, f"Group {shown(group.name)} has no DATA rows.", group)
         _names(ctx, group)
@@ -1223,6 +1273,8 @@ def _check(ctx: _Context, broken: Iterable[int]) -> None:
     _dict_rows(ctx)
     if ctx.standard:
         _standard_names(ctx)
+    else:
+        _own_names(ctx)
     _file_group(ctx)
 
 

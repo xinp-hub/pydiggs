@@ -19,7 +19,16 @@ from typing import Final
 
 from pydiggs.ags4._table import File, Group
 
-__all__ = ["DICT", "Dictionary", "GroupDef", "HeadingDef", "build", "from_file", "overlay"]
+__all__ = [
+    "DICT",
+    "Dictionary",
+    "GroupDef",
+    "HeadingDef",
+    "build",
+    "concatenator",
+    "from_file",
+    "overlay",
+]
 
 DICT: Final = "DICT"
 _TYPE: Final = "DICT_TYPE"
@@ -29,6 +38,10 @@ _STATUS: Final = "DICT_STAT"
 _PARENT: Final = "DICT_PGRP"
 _KEY: Final = "KEY"
 _REQUIRED: Final = "REQUIRED"
+_TRAN: Final = "TRAN"
+_RCON: Final = "TRAN_RCON"
+#: The record link concatenator when TRAN_RCON does not give one character.
+DEFAULT_CONCATENATOR: Final = "+"
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,9 +97,16 @@ class Dictionary:
         return bool(self.groups)
 
 
-def _status(text: str) -> tuple[bool, bool]:
-    """(key, required) from a DICT_STAT value such as ``KEY+REQUIRED`` or ``*R``."""
-    words = {w for w in text.upper().replace("+", " ").replace(",", " ").split() if w}
+def _status(text: str, concatenator: str) -> tuple[bool, bool]:
+    """(key, required) from a DICT_STAT value such as ``KEY+REQUIRED`` or ``*R``.
+
+    A combined status is joined by the file's concatenator (TRAN_RCON); ``+``, commas
+    and spaces are also read as separators.
+    """
+    joined = text.upper().replace("+", " ").replace(",", " ")
+    if not concatenator.isalnum():  # a letter would split KEY or REQUIRED itself
+        joined = joined.replace(concatenator.upper(), " ")
+    words = set(joined.split())
     key = _KEY in words or "*" in text
     required = _REQUIRED in words or text.strip().upper() in ("R", "*R")
     return key, required
@@ -96,8 +116,21 @@ def _value(index: int | None, row: tuple[str, ...]) -> str:
     return row[index].strip() if index is not None and index < len(row) else ""
 
 
-def build(dict_group: Group | None) -> Dictionary:
+def concatenator(file: File) -> str:
+    """The record link concatenator ``file`` declares (TRAN_RCON), or ``+``."""
+    tran = file.groups.get(_TRAN)
+    if tran is None or _RCON not in tran.headings or not tran.rows:
+        return DEFAULT_CONCATENATOR
+    index, row = tran.headings.index(_RCON), tran.rows[0]
+    value = row[index] if index < len(row) else ""
+    return value if len(value) == 1 else DEFAULT_CONCATENATOR
+
+
+def build(dict_group: Group | None, concatenator: str = DEFAULT_CONCATENATOR) -> Dictionary:
     """The view a DICT group defines; an empty view for None.
+
+    ``concatenator`` is the TRAN_RCON of the file the DICT group is in: it joins the
+    parts of a combined DICT_STAT such as ``KEY+REQUIRED``.
 
     A row that names no group, or a HEADING row that names no heading, is skipped: the
     checker reports such rows under Rule 18 itself.
@@ -124,7 +157,7 @@ def build(dict_group: Group | None) -> Dictionary:
         elif kind == "HEADING":
             heading = _value(heading_at, row)
             if heading and heading not in definition.headings:
-                key, required = _status(_value(status_at, row))
+                key, required = _status(_value(status_at, row), concatenator)
                 definition.headings[heading] = HeadingDef(heading, key, required)
     return view
 
@@ -149,6 +182,6 @@ def overlay(standard: Dictionary, own: Dictionary) -> Dictionary:
 
 
 def from_file(file: File) -> Dictionary:
-    """The view of a whole dictionary file (its DICT group)."""
+    """The view of a whole file's DICT group, read with the file's own TRAN_RCON."""
     groups: Mapping[str, Group] = file.groups
-    return build(groups.get(DICT))
+    return build(groups.get(DICT), concatenator(file))

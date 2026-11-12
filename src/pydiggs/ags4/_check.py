@@ -52,6 +52,10 @@ def _dictionary(dictionary: object, max_bytes: int) -> Dictionary | None:
         raise TypeError(
             f"dictionary must be a path, an ags4.File or None, not {type(dictionary).__name__}"
         )
+    if not source.complete:
+        raise ResourceError(
+            "the AGS4 dictionary was read only in part: a limit or the time budget stopped the read"
+        )
     view = from_file(source)
     if not any(group.defined for group in view.groups.values()):
         raise ResourceError(

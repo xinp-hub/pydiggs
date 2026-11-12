@@ -15,18 +15,20 @@ from __future__ import annotations
 
 import ast
 import dataclasses
+import functools
 import hashlib
 import inspect
 import json
 import os
 import sys
 import tomllib
+import types
 from pathlib import Path
 
 import pytest
 
 from pydiggs import DocumentError, ResourceError, Severity, Step, ags4, explain_rule
-from pydiggs.ags4 import _check, _dictionary, _rules
+from pydiggs.ags4 import _check, _dictionary, _io, _parse, _rules
 from pydiggs.cli import main
 from pydiggs.findings.rules import rule_catalogue
 
@@ -247,6 +249,56 @@ def test_the_dictionary_view_reads_statuses_and_lays_the_files_dict_over_it():
     assert not _dictionary.build(None)
 
 
+def with_concatenator(file, concatenator):
+    """``file`` with TRAN_RCON ``concatenator`` and each combined DICT_STAT joined by it."""
+    tran = file.groups["TRAN"]
+    file = replace_group(file, "TRAN", rows=[(*tran.rows[0][:-1], concatenator)])
+    dict_group = file.groups["DICT"]
+    at = dict_group.headings.index("DICT_STAT")
+    rows = [
+        tuple(v.replace("+", concatenator) if i == at else v for i, v in enumerate(row))
+        for row in dict_group.rows
+    ]
+    return replace_group(file, "DICT", rows=rows)
+
+
+def test_combined_statuses_are_split_on_the_files_own_concatenator(clean):
+    # A supplied dictionary whose TRAN_RCON is ";" writes KEY;REQUIRED.
+    dictionary = with_concatenator(ags4.read(DICTIONARY), ";")
+    geol = _dictionary.from_file(dictionary).group("GEOL")
+    assert geol is not None
+    assert geol.keys == ("LOCA_ID", "GEOL_TOP", "GEOL_BASE")
+    assert geol.required == ("LOCA_ID", "GEOL_TOP", "GEOL_BASE", "GEOL_DESC")
+    rows = clean.groups["GEOL"].rows
+    duplicate = replace_group(clean, "GEOL", rows=[*rows, rows[0]])
+    assert ("ags4.rule-10a", None, "GEOL/4") in errors_of(duplicate, dictionary=dictionary)
+    # The file's own DICT group, read with the file's TRAN_RCON.
+    user = ags4.read(USER_GROUP)
+    dict_rows = user.groups["DICT"].rows
+    at = user.groups["DICT"].headings.index("DICT_STAT")
+    combined = [
+        tuple("KEY+REQUIRED" if i == at and row[2] == "XTST_REF" else v for i, v in enumerate(row))
+        for row in dict_rows
+    ]
+    user = with_concatenator(replace_group(user, "DICT", rows=combined), ";")
+    xtst = user.groups["XTST"]
+    empty = replace_group(user, "XTST", rows=[("XB01", "", "1.25"), *xtst.rows[1:]])
+    assert ("ags4.rule-10b", None, "XTST/1/XTST_REF") in errors_of(empty)
+
+
+def test_a_dictionary_read_only_in_part_is_refused(clean, monkeypatch, capsys):
+    partial = ags4.File(groups=list(ags4.read(DICTIONARY).groups.values()), complete=False)
+    with pytest.raises(ResourceError, match="read only in part"):
+        ags4.check(clean, dictionary=partial)
+    # A limit stops the read of the dictionary file: refused, not taken as whole.
+    monkeypatch.setattr(_parse, "Limits", functools.partial(_parse.Limits, max_rows=5))
+    with pytest.raises(ResourceError, match="read only in part"):
+        ags4.check(clean, dictionary=DICTIONARY)
+    code, _, err = run_cli(capsys, CLEAN, "--dictionary", DICTIONARY)
+    assert code == 2
+    assert "read only in part" in err
+
+
 # --- each rule, on files built in code -----------------------------------------------
 
 
@@ -273,6 +325,16 @@ def test_rule_6_a_line_break_inside_a_quoted_value(tmp_path):
     assert [f.line for f in rule_6] == [
         text.split(b"\r\n").index(b'"DATA","XB01","3.50","12.00","Invented dense') + 1
     ]
+
+
+def test_rule_6_a_quoted_value_over_three_lines(tmp_path):
+    # The middle line has no quote; the value stays open across it.
+    old = b'"Invented dense sand"'
+    text = CLEAN.read_bytes().replace(old, b'"Invented\r\ndense\r\nsand"')
+    path = tmp_path / "three.ags"
+    path.write_bytes(text)
+    rule_6 = [f.line for f in ags4.check(path).findings if f.rule_id == "ags4.rule-6"]
+    assert rule_6 == [text.split(b"\r\n").index(b'"DATA","XB01","3.50","12.00","Invented') + 1]
 
 
 def test_rules_2_2b_4_19_19a_19b(clean):
@@ -309,7 +371,20 @@ def test_rules_2_2b_4_19_19a_19b(clean):
         ("DT", "yyyy-mm-dd", ["2026-11-12"], ["12/11/2026", "2026-13-01", "2026-11-12T10:00"]),
         ("DT", "yyyy-mm-ddThh:mm", ["2026-11-12T10:30", "2026-11-12T10:30Z"], ["2026-11-12"]),
         ("DT", "hh:mm", ["10:30"], ["10:61", "25:00"]),
-        ("DT", "", ["2026", "2026-11-12", "2026-11-12T10:30:00.123+01:00", "10:30"], ["Nov"]),
+        (
+            "DT",
+            "yyyy-mm-dd",
+            ["2024-02-29", "2000-02-29", "2026-02-28", "2026-04-30"],
+            ["2026-02-31", "2026-02-29", "1900-02-29", "2026-04-31", "2026-11-00"],
+        ),
+        ("DT", "dd/mm/yyyy", ["29/02/2024"], ["31/02/2026", "29/02/2026"]),
+        ("DT", "hh:mm:ss", ["10:30:00", "23:59:59"], ["10:30:99", "10:30:60"]),
+        (
+            "DT",
+            "",
+            ["2026", "2026-11-12", "2026-11-12T10:30:00.123+01:00", "10:30"],
+            ["Nov", "2026-02-31", "2026-11-12T10:30:99", "10:30:99"],
+        ),
         ("T", "hh:mm:ss", ["12:30:00", "100:05"], ["12h30", "12:61"]),
         ("DMS", "", ["51:28:52.498", "-0:7:39"], ["51.48"]),
         ("YN", "", ["Y", "N", "y", "n"], ["YES", "1"]),
@@ -438,6 +513,31 @@ def test_rule_18_dict_rows_and_18a_9_order():
         rows=[(*r, "u") for r in loca.rows],
     )
     assert ags4.check(last).ok
+
+
+def test_rule_9_a_heading_the_files_own_dict_group_does_not_define():
+    user = ags4.read(USER_GROUP)
+    xtst = user.groups["XTST"]
+    extra = replace_group(
+        user,
+        "XTST",
+        headings=(*xtst.headings, "XTST_BAD"),
+        units=(*xtst.units, ""),
+        types=(*xtst.types, "X"),
+        rows=[(*r, "x") for r in xtst.rows],
+    )
+    assert ("ags4.rule-9", None, "XTST") in errors_of(extra)
+    # A standard group is not judged without a dictionary: none is bundled.
+    loca = user.groups["LOCA"]
+    unknown = replace_group(
+        user,
+        "LOCA",
+        headings=(*loca.headings, "LOCA_ZZZ"),
+        units=(*loca.units, ""),
+        types=(*loca.types, "X"),
+        rows=[(*r, "x") for r in loca.rows],
+    )
+    assert ags4.check(unknown).ok
 
 
 def test_rule_20_the_file_group_is_never_opened(clean):
@@ -608,6 +708,35 @@ def test_the_time_budget_stops_the_check(clean, monkeypatch):
     assert "ags4.timeout" in ids(report)
     assert dict(report.steps) == {Step.AGS4: "incomplete"}
     assert not report.ok
+
+
+def test_the_time_budget_holds_for_a_short_file_already_read(clean, monkeypatch):
+    monkeypatch.setattr(_check, "deadline", lambda budget: lambda: True)
+    report = ags4.check(clean, time_budget=1.0)
+    assert "ags4.timeout" in ids(report)
+    assert dict(report.steps) == {Step.AGS4: "incomplete"}
+
+
+def test_a_clock_that_runs_out_partway_stops_a_short_check(clean, monkeypatch):
+    now = [0.0]
+
+    def monotonic():
+        now[0] += 1.0  # each look at the clock costs a second
+        return now[0]
+
+    monkeypatch.setattr(_io, "time", types.SimpleNamespace(monotonic=monotonic))
+    report = ags4.check(clean, time_budget=3.0)
+    assert "ags4.timeout" in ids(report)
+    assert dict(report.steps) == {Step.AGS4: "incomplete"}
+    now[0] = 0.0
+    assert ags4.check(clean, time_budget=10_000.0).ok
+
+
+def test_line_index_stops_on_time_inside_a_long_header_row(clean):
+    line = '"HEADING","' + '""' * (3 * 4096) + '"'
+    text = f'"GROUP","XQUO"\r\n{line}\r\n'
+    with pytest.raises(_rules.Stopped):
+        _rules.index_lines(text, clean, lambda: True)
 
 
 def test_line_index_stops_on_time_and_tolerates_a_mismatch(clean):
