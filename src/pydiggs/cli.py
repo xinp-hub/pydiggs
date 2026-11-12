@@ -23,6 +23,10 @@ def main(argv: list[str] | None = None) -> int:
         return _cli.main(args_in[1:])
     if args_in[:1] == ["serve"]:
         return _serve_cli.main(args_in[1:])
+    if args_in[:1] == ["ags4"]:
+        from pydiggs.ags4 import _cli as ags4_cli  # noqa: PLC0415  # loads AGS4 on demand
+
+        return ags4_cli.main(args_in[1:])
 
     parser = argparse.ArgumentParser(
         description=(
@@ -33,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
             "Machine-readable findings (JSON, SARIF) for one or many files:"
             " pydiggs validate --help. Validation for other programs"
             " (stdio sidecar, HTTP, MCP): pydiggs serve --help."
+            " AGS4 files against the AGS4 rules: pydiggs ags4 check --help."
             " Installed version: pydiggs --version."
         ),
     )

@@ -3037,10 +3037,648 @@ process_error = "Validation terminated due to suspected AGS3 file. Please fix er
 "ags4.rule-3" = [1]
 
 [[file]]
+key = "fixtures/c2_broken.ags"
+path = "tests/fixtures/ags4/c2_broken.ags"
+sha256 = "2e889c1c85ed81da54b0dfbd1f127841a7bb9fbbae03f8f50d39bd984c1407a8"
+size = 1525
+encoding = "utf-8"
+ags_version = "4.1.1"
+readable = true
+
+[[file.group]]
+name = "PROJ"
+headings = ["PROJ_ID", "PROJ_NAME", "PROJ_LOC", "PROJ_CLNT"]
+units = ["", "", "", ""]
+types = ["ID", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "038a81e0b3bd73a2e06b2e9f3acddbfa76c2b48439c6840fb858b548873dd505"
+rows = [
+  ["C2-001", "Invented Wharf Upgrade", "Nowhere Bay", "Invented Port Trust"],
+]
+
+[[file.group]]
+name = "TRAN"
+headings = ["TRAN_ISNO", "TRAN_DATE", "TRAN_PROD", "TRAN_STAT", "TRAN_AGS", "TRAN_RECV", "TRAN_DLIM", "TRAN_RCON"]
+units = ["", "yyyy-mm-dd", "", "", "", "", "", ""]
+types = ["X", "DT", "X", "X", "X", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "0c49627f467eb4c6b35ba49065deef95c5483fa8fcdbdaa6cf82c92134bd6785"
+rows = [
+  ["1", "2026-11-12", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 5
+rows_sha256 = "63b9f20c2250f1ed185ac27ec6673528b63248668ae8bb9a007f58ba9ccca070"
+rows = [
+  ["LOCA_TYPE", "CP", "Invented: cable percussion"],
+  ["LOCA_TYPE", "RC", "Invented: rotary core"],
+  ["LOCA_TYPE", "TP", "Invented: trial pit"],
+  ["GEOL_LEG", "201", "Invented: clay"],
+  ["GEOL_LEG", "401", "Invented: sand"],
+]
+
+[[file.group]]
+name = "TYPE"
+headings = ["TYPE_TYPE", "TYPE_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 5
+rows_sha256 = "ebcad88f314aec980e16fdc90d46ad575c15c577b363169a519d712da5625fb3"
+rows = [
+  ["ID", "Invented: identifier"],
+  ["PA", "Invented: abbreviation"],
+  ["X", "Invented: text"],
+  ["DT", "Invented: date"],
+  ["2DP", "Invented: two decimal places"],
+]
+
+[[file.group]]
+name = "UNIT"
+headings = ["UNIT_UNIT", "UNIT_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 2
+rows_sha256 = "96c5f4591310781f813e6618e96877511b4126b02e6aa067c8d1cb6802a54d8a"
+rows = [
+  ["m", "Invented: metre"],
+  ["yyyy-mm-dd", "Invented: date"],
+]
+
+[[file.group]]
+name = "LOCA"
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_GL", "LOCA_FDEP", "LOCA_REM", "FILE_FSET"]
+units = ["", "", "m", "ft", "", ""]
+types = ["ID", "PA", "2DP", "3DP", "X", "X"]
+row_count = 3
+rows_sha256 = "ba5789fdb568a8afc509684114676651f2f48acd181acba146972eaf7ec6e495"
+rows = [
+  ["XB01", "CP", "4.2", "12.000", "=1+1", "FS9"],
+  ["XB02", "CP+ZZ", "4.35", "20.500", "", ""],
+  ["XB03", "QQ", "4.10", "2.400", "", ""],
+]
+
+[file.check]
+dictionary = "Standard_dictionary_v4_1_1.ags"
+errors = 7
+fyi = 5
+
+[file.check.rules]
+"ags4.rule-7" = 1
+"ags4.rule-8" = 1
+"ags4.rule-15" = 1
+"ags4.rule-16" = 2
+"ags4.rule-17" = 1
+"ags4.rule-20" = 1
+
+[file.check.lines]
+"ags4.rule-7" = [41]
+"ags4.rule-8" = [44]
+
+[[file]]
+key = "fixtures/c2_clean.ags"
+path = "tests/fixtures/ags4/c2_clean.ags"
+sha256 = "12a825ea337d23d8157cf280f84899582ef94e3680b3a5c43723d0c183c90f17"
+size = 1780
+encoding = "utf-8"
+ags_version = "4.1.1"
+readable = true
+
+[[file.group]]
+name = "PROJ"
+headings = ["PROJ_ID", "PROJ_NAME", "PROJ_LOC", "PROJ_CLNT"]
+units = ["", "", "", ""]
+types = ["ID", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "038a81e0b3bd73a2e06b2e9f3acddbfa76c2b48439c6840fb858b548873dd505"
+rows = [
+  ["C2-001", "Invented Wharf Upgrade", "Nowhere Bay", "Invented Port Trust"],
+]
+
+[[file.group]]
+name = "TRAN"
+headings = ["TRAN_ISNO", "TRAN_DATE", "TRAN_PROD", "TRAN_STAT", "TRAN_AGS", "TRAN_RECV", "TRAN_DLIM", "TRAN_RCON"]
+units = ["", "yyyy-mm-dd", "", "", "", "", "", ""]
+types = ["X", "DT", "X", "X", "X", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "0c49627f467eb4c6b35ba49065deef95c5483fa8fcdbdaa6cf82c92134bd6785"
+rows = [
+  ["1", "2026-11-12", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 5
+rows_sha256 = "63b9f20c2250f1ed185ac27ec6673528b63248668ae8bb9a007f58ba9ccca070"
+rows = [
+  ["LOCA_TYPE", "CP", "Invented: cable percussion"],
+  ["LOCA_TYPE", "RC", "Invented: rotary core"],
+  ["LOCA_TYPE", "TP", "Invented: trial pit"],
+  ["GEOL_LEG", "201", "Invented: clay"],
+  ["GEOL_LEG", "401", "Invented: sand"],
+]
+
+[[file.group]]
+name = "TYPE"
+headings = ["TYPE_TYPE", "TYPE_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 5
+rows_sha256 = "ebcad88f314aec980e16fdc90d46ad575c15c577b363169a519d712da5625fb3"
+rows = [
+  ["ID", "Invented: identifier"],
+  ["PA", "Invented: abbreviation"],
+  ["X", "Invented: text"],
+  ["DT", "Invented: date"],
+  ["2DP", "Invented: two decimal places"],
+]
+
+[[file.group]]
+name = "UNIT"
+headings = ["UNIT_UNIT", "UNIT_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 2
+rows_sha256 = "96c5f4591310781f813e6618e96877511b4126b02e6aa067c8d1cb6802a54d8a"
+rows = [
+  ["m", "Invented: metre"],
+  ["yyyy-mm-dd", "Invented: date"],
+]
+
+[[file.group]]
+name = "LOCA"
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_GL", "LOCA_FDEP"]
+units = ["", "", "m", "m"]
+types = ["ID", "PA", "2DP", "2DP"]
+row_count = 3
+rows_sha256 = "337d49e2830e3ee520747ecce2e9ba730f9b51252ace72d0d02f3d5c7aecc09b"
+rows = [
+  ["XB01", "CP", "4.20", "12.00"],
+  ["XB02", "CP+RC", "4.35", "20.50"],
+  ["XT01", "TP", "4.10", "2.40"],
+]
+
+[[file.group]]
+name = "GEOL"
+headings = ["LOCA_ID", "GEOL_TOP", "GEOL_BASE", "GEOL_DESC", "GEOL_LEG"]
+units = ["", "m", "m", "", ""]
+types = ["ID", "2DP", "2DP", "X", "PA"]
+row_count = 3
+rows_sha256 = "fc23427b0b3bb2571c71660a540bdbcc904cbbbd81ae1aa9a42b237a86fe1a85"
+rows = [
+  ["XB01", "0.00", "3.50", "Invented soft grey clay", "201"],
+  ["XB01", "3.50", "12.00", "Invented dense sand", "401"],
+  ["XB02", "0.00", "20.50", "Invented firm clay", "201"],
+]
+
+[file.check]
+dictionary = "Standard_dictionary_v4_1_1.ags"
+errors = 0
+fyi = 5
+
+[file.check.rules]
+
+[file.check.lines]
+
+[[file]]
+key = "fixtures/c2_dictionary.ags"
+path = "tests/fixtures/ags4/c2_dictionary.ags"
+sha256 = "79a7164d4271ac2d2baf467aee2bf9f7c1b363321c6a88f8ab50931b52922de0"
+size = 4681
+encoding = "utf-8"
+ags_version = "4.1.1"
+readable = true
+
+[[file.group]]
+name = "PROJ"
+headings = ["PROJ_ID", "PROJ_NAME", "PROJ_LOC", "PROJ_CLNT"]
+units = ["", "", "", ""]
+types = ["ID", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "038a81e0b3bd73a2e06b2e9f3acddbfa76c2b48439c6840fb858b548873dd505"
+rows = [
+  ["C2-001", "Invented Wharf Upgrade", "Nowhere Bay", "Invented Port Trust"],
+]
+
+[[file.group]]
+name = "TRAN"
+headings = ["TRAN_ISNO", "TRAN_DATE", "TRAN_PROD", "TRAN_STAT", "TRAN_AGS", "TRAN_RECV", "TRAN_DLIM", "TRAN_RCON"]
+units = ["", "yyyy-mm-dd", "", "", "", "", "", ""]
+types = ["X", "DT", "X", "X", "X", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "0c49627f467eb4c6b35ba49065deef95c5483fa8fcdbdaa6cf82c92134bd6785"
+rows = [
+  ["1", "2026-11-12", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 10
+rows_sha256 = "88ee8a955d39ce757f67f8ba30789f1c08e0ce113868c750305414bcdb8884dd"
+rows = [
+  ["LOCA_TYPE", "CP", "Invented: cable percussion"],
+  ["LOCA_TYPE", "RC", "Invented: rotary core"],
+  ["LOCA_TYPE", "TP", "Invented: trial pit"],
+  ["GEOL_LEG", "201", "Invented: clay"],
+  ["GEOL_LEG", "401", "Invented: sand"],
+  ["DICT_TYPE", "GROUP", "Invented: group definition"],
+  ["DICT_TYPE", "HEADING", "Invented: heading definition"],
+  ["DICT_STAT", "KEY", "Invented: key heading"],
+  ["DICT_STAT", "OTHER", "Invented: other heading"],
+  ["DICT_STAT", "REQUIRED", "Invented: required heading"],
+]
+
+[[file.group]]
+name = "TYPE"
+headings = ["TYPE_TYPE", "TYPE_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 7
+rows_sha256 = "95e170ff407557ace072cbbd2a796188000b7bc2b5ca23f4fe7e8654ad8d1fd0"
+rows = [
+  ["ID", "Invented: identifier"],
+  ["PA", "Invented: abbreviation"],
+  ["X", "Invented: text"],
+  ["DT", "Invented: date"],
+  ["2DP", "Invented: two decimal places"],
+  ["PT", "Invented: data type"],
+  ["PU", "Invented: unit"],
+]
+
+[[file.group]]
+name = "UNIT"
+headings = ["UNIT_UNIT", "UNIT_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 2
+rows_sha256 = "96c5f4591310781f813e6618e96877511b4126b02e6aa067c8d1cb6802a54d8a"
+rows = [
+  ["m", "Invented: metre"],
+  ["yyyy-mm-dd", "Invented: date"],
+]
+
+[[file.group]]
+name = "DICT"
+headings = ["DICT_TYPE", "DICT_GRP", "DICT_HDNG", "DICT_STAT", "DICT_DTYP", "DICT_DESC", "DICT_UNIT", "DICT_PGRP"]
+units = ["", "", "", "", "", "", "", ""]
+types = ["PA", "X", "X", "PA", "PT", "X", "PU", "X"]
+row_count = 44
+rows_sha256 = "75b4df15cd2d8f69d1aea7f79cd8eadbfc75079b4044ceccbc5418c3f8968c80"
+rows = [
+  ["GROUP", "PROJ", "", "", "", "Invented", "", ""],
+  ["HEADING", "PROJ", "PROJ_ID", "KEY+REQUIRED", "ID", "Invented", "", ""],
+  ["HEADING", "PROJ", "PROJ_NAME", "OTHER", "X", "Invented", "", ""],
+  ["HEADING", "PROJ", "PROJ_LOC", "OTHER", "X", "Invented", "", ""],
+  ["HEADING", "PROJ", "PROJ_CLNT", "OTHER", "X", "Invented", "", ""],
+  ["GROUP", "TRAN", "", "", "", "Invented", "", ""],
+  ["HEADING", "TRAN", "TRAN_ISNO", "KEY+REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "TRAN", "TRAN_DATE", "REQUIRED", "DT", "Invented", "yyyy-mm-dd", ""],
+  ["HEADING", "TRAN", "TRAN_PROD", "REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "TRAN", "TRAN_STAT", "REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "TRAN", "TRAN_AGS", "REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "TRAN", "TRAN_RECV", "REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "TRAN", "TRAN_DLIM", "OTHER", "X", "Invented", "", ""],
+  ["HEADING", "TRAN", "TRAN_RCON", "OTHER", "X", "Invented", "", ""],
+  ["GROUP", "ABBR", "", "", "", "Invented", "", ""],
+  ["HEADING", "ABBR", "ABBR_HDNG", "KEY+REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "ABBR", "ABBR_CODE", "KEY+REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "ABBR", "ABBR_DESC", "REQUIRED", "X", "Invented", "", ""],
+  ["GROUP", "TYPE", "", "", "", "Invented", "", ""],
+  ["HEADING", "TYPE", "TYPE_TYPE", "KEY+REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "TYPE", "TYPE_DESC", "REQUIRED", "X", "Invented", "", ""],
+  ["GROUP", "UNIT", "", "", "", "Invented", "", ""],
+  ["HEADING", "UNIT", "UNIT_UNIT", "KEY+REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "UNIT", "UNIT_DESC", "REQUIRED", "X", "Invented", "", ""],
+  ["GROUP", "DICT", "", "", "", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_TYPE", "KEY+REQUIRED", "PA", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_GRP", "KEY+REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_HDNG", "KEY", "X", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_STAT", "OTHER", "PA", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_DTYP", "OTHER", "PT", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_DESC", "REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_UNIT", "OTHER", "PU", "Invented", "", ""],
+  ["HEADING", "DICT", "DICT_PGRP", "OTHER", "X", "Invented", "", ""],
+  ["GROUP", "LOCA", "", "", "", "Invented", "", ""],
+  ["HEADING", "LOCA", "LOCA_ID", "KEY+REQUIRED", "ID", "Invented", "", ""],
+  ["HEADING", "LOCA", "LOCA_TYPE", "OTHER", "PA", "Invented", "", ""],
+  ["HEADING", "LOCA", "LOCA_GL", "OTHER", "2DP", "Invented", "m", ""],
+  ["HEADING", "LOCA", "LOCA_FDEP", "REQUIRED", "2DP", "Invented", "m", ""],
+  ["GROUP", "GEOL", "", "", "", "Invented", "", "LOCA"],
+  ["HEADING", "GEOL", "LOCA_ID", "KEY+REQUIRED", "ID", "Invented", "", ""],
+  ["HEADING", "GEOL", "GEOL_TOP", "KEY+REQUIRED", "2DP", "Invented", "m", ""],
+  ["HEADING", "GEOL", "GEOL_BASE", "KEY+REQUIRED", "2DP", "Invented", "m", ""],
+  ["HEADING", "GEOL", "GEOL_DESC", "REQUIRED", "X", "Invented", "", ""],
+  ["HEADING", "GEOL", "GEOL_LEG", "OTHER", "PA", "Invented", "", ""],
+]
+
+[file.check]
+dictionary = "Standard_dictionary_v4_1_1.ags"
+errors = 0
+fyi = 10
+
+[file.check.rules]
+
+[file.check.lines]
+
+[[file]]
+key = "fixtures/c2_rule_10a.ags"
+path = "tests/fixtures/ags4/c2_rule_10a.ags"
+sha256 = "f9c4ad84454e261cda46082f9fbebd625eeb55c7f9eb03db244a72ddfab5db82"
+size = 2777
+encoding = "utf-8"
+ags_version = "4.1.1"
+readable = true
+
+[[file.group]]
+name = "PROJ"
+headings = ["PROJ_ID", "PROJ_NAME", "PROJ_LOC", "PROJ_CLNT"]
+units = ["", "", "", ""]
+types = ["ID", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "038a81e0b3bd73a2e06b2e9f3acddbfa76c2b48439c6840fb858b548873dd505"
+rows = [
+  ["C2-001", "Invented Wharf Upgrade", "Nowhere Bay", "Invented Port Trust"],
+]
+
+[[file.group]]
+name = "TRAN"
+headings = ["TRAN_ISNO", "TRAN_DATE", "TRAN_PROD", "TRAN_STAT", "TRAN_AGS", "TRAN_RECV", "TRAN_DLIM", "TRAN_RCON"]
+units = ["", "yyyy-mm-dd", "", "", "", "", "", ""]
+types = ["X", "DT", "X", "X", "X", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "0c49627f467eb4c6b35ba49065deef95c5483fa8fcdbdaa6cf82c92134bd6785"
+rows = [
+  ["1", "2026-11-12", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 10
+rows_sha256 = "88ee8a955d39ce757f67f8ba30789f1c08e0ce113868c750305414bcdb8884dd"
+rows = [
+  ["LOCA_TYPE", "CP", "Invented: cable percussion"],
+  ["LOCA_TYPE", "RC", "Invented: rotary core"],
+  ["LOCA_TYPE", "TP", "Invented: trial pit"],
+  ["GEOL_LEG", "201", "Invented: clay"],
+  ["GEOL_LEG", "401", "Invented: sand"],
+  ["DICT_TYPE", "GROUP", "Invented: group definition"],
+  ["DICT_TYPE", "HEADING", "Invented: heading definition"],
+  ["DICT_STAT", "KEY", "Invented: key heading"],
+  ["DICT_STAT", "OTHER", "Invented: other heading"],
+  ["DICT_STAT", "REQUIRED", "Invented: required heading"],
+]
+
+[[file.group]]
+name = "TYPE"
+headings = ["TYPE_TYPE", "TYPE_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 7
+rows_sha256 = "95e170ff407557ace072cbbd2a796188000b7bc2b5ca23f4fe7e8654ad8d1fd0"
+rows = [
+  ["ID", "Invented: identifier"],
+  ["PA", "Invented: abbreviation"],
+  ["X", "Invented: text"],
+  ["DT", "Invented: date"],
+  ["2DP", "Invented: two decimal places"],
+  ["PT", "Invented: data type"],
+  ["PU", "Invented: unit"],
+]
+
+[[file.group]]
+name = "UNIT"
+headings = ["UNIT_UNIT", "UNIT_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 2
+rows_sha256 = "96c5f4591310781f813e6618e96877511b4126b02e6aa067c8d1cb6802a54d8a"
+rows = [
+  ["m", "Invented: metre"],
+  ["yyyy-mm-dd", "Invented: date"],
+]
+
+[[file.group]]
+name = "DICT"
+headings = ["DICT_TYPE", "DICT_GRP", "DICT_HDNG", "DICT_STAT", "DICT_DTYP", "DICT_DESC", "DICT_UNIT", "DICT_PGRP"]
+units = ["", "", "", "", "", "", "", ""]
+types = ["PA", "X", "X", "PA", "PT", "X", "PU", "X"]
+row_count = 4
+rows_sha256 = "adc84b3e196c25cd551618add6622a704fb4768c47bc78006a61f5f4d519d4fa"
+rows = [
+  ["GROUP", "XTST", "", "", "", "Invented test results", "", "LOCA"],
+  ["HEADING", "XTST", "LOCA_ID", "KEY", "ID", "Invented location", "", ""],
+  ["HEADING", "XTST", "XTST_REF", "KEY", "X", "Invented test reference", "", ""],
+  ["HEADING", "XTST", "XTST_RES", "REQUIRED", "2DP", "Invented result", "m", ""],
+]
+
+[[file.group]]
+name = "LOCA"
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_GL", "LOCA_FDEP"]
+units = ["", "", "m", "m"]
+types = ["ID", "PA", "2DP", "2DP"]
+row_count = 3
+rows_sha256 = "337d49e2830e3ee520747ecce2e9ba730f9b51252ace72d0d02f3d5c7aecc09b"
+rows = [
+  ["XB01", "CP", "4.20", "12.00"],
+  ["XB02", "CP+RC", "4.35", "20.50"],
+  ["XT01", "TP", "4.10", "2.40"],
+]
+
+[[file.group]]
+name = "GEOL"
+headings = ["LOCA_ID", "GEOL_TOP", "GEOL_BASE", "GEOL_DESC", "GEOL_LEG"]
+units = ["", "m", "m", "", ""]
+types = ["ID", "2DP", "2DP", "X", "PA"]
+row_count = 3
+rows_sha256 = "fc23427b0b3bb2571c71660a540bdbcc904cbbbd81ae1aa9a42b237a86fe1a85"
+rows = [
+  ["XB01", "0.00", "3.50", "Invented soft grey clay", "201"],
+  ["XB01", "3.50", "12.00", "Invented dense sand", "401"],
+  ["XB02", "0.00", "20.50", "Invented firm clay", "201"],
+]
+
+[[file.group]]
+name = "XTST"
+headings = ["LOCA_ID", "XTST_REF", "XTST_RES"]
+units = ["", "", "m"]
+types = ["ID", "X", "2DP"]
+row_count = 2
+rows_sha256 = "151c96d8f0d7cf352b789449c3442ca8031b2f0d67e420098327336aff65df53"
+rows = [
+  ["XB01", "T1", "1.25"],
+  ["XB01", "T1", "2.50"],
+]
+
+[file.check]
+dictionary = "Standard_dictionary_v4_1_1.ags"
+errors = 2
+fyi = 10
+
+[file.check.rules]
+"ags4.rule-10a" = 2
+
+[file.check.lines]
+"ags4.rule-10a" = [76, 77]
+
+[[file]]
+key = "fixtures/c2_user_group.ags"
+path = "tests/fixtures/ags4/c2_user_group.ags"
+sha256 = "3f1ae85b17af5a31368512689e5733d45c5a8e399ffce311c3a1a258dbb678e0"
+size = 2777
+encoding = "utf-8"
+ags_version = "4.1.1"
+readable = true
+
+[[file.group]]
+name = "PROJ"
+headings = ["PROJ_ID", "PROJ_NAME", "PROJ_LOC", "PROJ_CLNT"]
+units = ["", "", "", ""]
+types = ["ID", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "038a81e0b3bd73a2e06b2e9f3acddbfa76c2b48439c6840fb858b548873dd505"
+rows = [
+  ["C2-001", "Invented Wharf Upgrade", "Nowhere Bay", "Invented Port Trust"],
+]
+
+[[file.group]]
+name = "TRAN"
+headings = ["TRAN_ISNO", "TRAN_DATE", "TRAN_PROD", "TRAN_STAT", "TRAN_AGS", "TRAN_RECV", "TRAN_DLIM", "TRAN_RCON"]
+units = ["", "yyyy-mm-dd", "", "", "", "", "", ""]
+types = ["X", "DT", "X", "X", "X", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "0c49627f467eb4c6b35ba49065deef95c5483fa8fcdbdaa6cf82c92134bd6785"
+rows = [
+  ["1", "2026-11-12", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 10
+rows_sha256 = "88ee8a955d39ce757f67f8ba30789f1c08e0ce113868c750305414bcdb8884dd"
+rows = [
+  ["LOCA_TYPE", "CP", "Invented: cable percussion"],
+  ["LOCA_TYPE", "RC", "Invented: rotary core"],
+  ["LOCA_TYPE", "TP", "Invented: trial pit"],
+  ["GEOL_LEG", "201", "Invented: clay"],
+  ["GEOL_LEG", "401", "Invented: sand"],
+  ["DICT_TYPE", "GROUP", "Invented: group definition"],
+  ["DICT_TYPE", "HEADING", "Invented: heading definition"],
+  ["DICT_STAT", "KEY", "Invented: key heading"],
+  ["DICT_STAT", "OTHER", "Invented: other heading"],
+  ["DICT_STAT", "REQUIRED", "Invented: required heading"],
+]
+
+[[file.group]]
+name = "TYPE"
+headings = ["TYPE_TYPE", "TYPE_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 7
+rows_sha256 = "95e170ff407557ace072cbbd2a796188000b7bc2b5ca23f4fe7e8654ad8d1fd0"
+rows = [
+  ["ID", "Invented: identifier"],
+  ["PA", "Invented: abbreviation"],
+  ["X", "Invented: text"],
+  ["DT", "Invented: date"],
+  ["2DP", "Invented: two decimal places"],
+  ["PT", "Invented: data type"],
+  ["PU", "Invented: unit"],
+]
+
+[[file.group]]
+name = "UNIT"
+headings = ["UNIT_UNIT", "UNIT_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 2
+rows_sha256 = "96c5f4591310781f813e6618e96877511b4126b02e6aa067c8d1cb6802a54d8a"
+rows = [
+  ["m", "Invented: metre"],
+  ["yyyy-mm-dd", "Invented: date"],
+]
+
+[[file.group]]
+name = "DICT"
+headings = ["DICT_TYPE", "DICT_GRP", "DICT_HDNG", "DICT_STAT", "DICT_DTYP", "DICT_DESC", "DICT_UNIT", "DICT_PGRP"]
+units = ["", "", "", "", "", "", "", ""]
+types = ["PA", "X", "X", "PA", "PT", "X", "PU", "X"]
+row_count = 4
+rows_sha256 = "adc84b3e196c25cd551618add6622a704fb4768c47bc78006a61f5f4d519d4fa"
+rows = [
+  ["GROUP", "XTST", "", "", "", "Invented test results", "", "LOCA"],
+  ["HEADING", "XTST", "LOCA_ID", "KEY", "ID", "Invented location", "", ""],
+  ["HEADING", "XTST", "XTST_REF", "KEY", "X", "Invented test reference", "", ""],
+  ["HEADING", "XTST", "XTST_RES", "REQUIRED", "2DP", "Invented result", "m", ""],
+]
+
+[[file.group]]
+name = "LOCA"
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_GL", "LOCA_FDEP"]
+units = ["", "", "m", "m"]
+types = ["ID", "PA", "2DP", "2DP"]
+row_count = 3
+rows_sha256 = "337d49e2830e3ee520747ecce2e9ba730f9b51252ace72d0d02f3d5c7aecc09b"
+rows = [
+  ["XB01", "CP", "4.20", "12.00"],
+  ["XB02", "CP+RC", "4.35", "20.50"],
+  ["XT01", "TP", "4.10", "2.40"],
+]
+
+[[file.group]]
+name = "GEOL"
+headings = ["LOCA_ID", "GEOL_TOP", "GEOL_BASE", "GEOL_DESC", "GEOL_LEG"]
+units = ["", "m", "m", "", ""]
+types = ["ID", "2DP", "2DP", "X", "PA"]
+row_count = 3
+rows_sha256 = "fc23427b0b3bb2571c71660a540bdbcc904cbbbd81ae1aa9a42b237a86fe1a85"
+rows = [
+  ["XB01", "0.00", "3.50", "Invented soft grey clay", "201"],
+  ["XB01", "3.50", "12.00", "Invented dense sand", "401"],
+  ["XB02", "0.00", "20.50", "Invented firm clay", "201"],
+]
+
+[[file.group]]
+name = "XTST"
+headings = ["LOCA_ID", "XTST_REF", "XTST_RES"]
+units = ["", "", "m"]
+types = ["ID", "X", "2DP"]
+row_count = 2
+rows_sha256 = "2facebe10ae09dcaa662dfb8e7d46d4d0130fd85f49f73dba1c3a17669201bcb"
+rows = [
+  ["XB01", "T1", "1.25"],
+  ["XB01", "T2", "2.50"],
+]
+
+[file.check]
+dictionary = "Standard_dictionary_v4_1_1.ags"
+errors = 0
+fyi = 10
+
+[file.check.rules]
+
+[file.check.lines]
+
+[[file]]
 key = "fixtures/clean_4_0_3.ags"
 path = "tests/fixtures/ags4/clean_4_0_3.ags"
-sha256 = "9db895f6fd0c86abe0c73a30a538ac6ed4d405be72adacf991dac88e0111ca3c"
-size = 2138
+sha256 = "614d251acd789b65ee0bb1033d730f1e707fdafb555dbf131ee29785cba99e43"
+size = 2527
 encoding = "utf-8"
 ags_version = "4.0.3"
 readable = true
@@ -3065,6 +3703,23 @@ row_count = 1
 rows_sha256 = "8bb67d19d5dff67621ebd2603e92e6e1a84082922bb5a626ff7fd3041d3db1fd"
 rows = [
   ["1", "2026-11-11", "pyDIGGS test data", "Draft", "4.0.3", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 7
+rows_sha256 = "30f9804335ab5139cf99d798675eeece9a60025e925d0a9d3a6e8a65c912ccb1"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion borehole"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["GEOL_LEG", "102", "Made ground"],
+  ["GEOL_LEG", "201", "Clay"],
+  ["GEOL_LEG", "401", "Sand"],
+  ["SAMP_TYPE", "U", "Undisturbed sample"],
+  ["SAMP_TYPE", "D", "Small disturbed sample"],
 ]
 
 [[file.group]]
@@ -3097,15 +3752,15 @@ rows = [
 
 [[file.group]]
 name = "LOCA"
-headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_FDEP", "LOCA_REM"]
-units = ["", "", "m", "m", "m", "m", ""]
-types = ["ID", "PA", "2DP", "2DP", "2DP", "2DP", "X"]
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_REM", "LOCA_FDEP"]
+units = ["", "", "m", "m", "m", "", "m"]
+types = ["ID", "PA", "2DP", "2DP", "2DP", "X", "2DP"]
 row_count = 3
-rows_sha256 = "687ecd70736faa5e601b1e823eaf8e006bb09487ed9f56d35c6b56cff178af17"
+rows_sha256 = "64693604104f85f16ac917544033bb28b102d5cbf5c4ace00013850f877908df"
 rows = [
-  ["BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", ""],
-  ["BH02", "CP", "451260.50", "206480.25", "11.80", "10.00", "Stopped on an obstruction"],
-  ["TP01", "TP", "451230.00", "206520.00", "12.10", "3.20", ""],
+  ["BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00"],
+  ["BH02", "CP", "451260.50", "206480.25", "11.80", "Stopped on an obstruction", "10.00"],
+  ["TP01", "TP", "451230.00", "206520.00", "12.10", "", "3.20"],
 ]
 
 [[file.group]]
@@ -3148,21 +3803,18 @@ rows = [
 
 [file.check]
 dictionary = "Standard_dictionary_v4_0_3.ags"
-errors = 2
-fyi = 0
+errors = 0
+fyi = 3
 
 [file.check.rules]
-"ags4.rule-7" = 1
-"ags4.rule-16" = 1
 
 [file.check.lines]
-"ags4.rule-7" = [32]
 
 [[file]]
 key = "fixtures/clean_4_0_4.ags"
 path = "tests/fixtures/ags4/clean_4_0_4.ags"
-sha256 = "d791e745563603a2b7b9a9f91f0c18b695737b720f0f8584ae01261a38b2c8d7"
-size = 2138
+sha256 = "3e36921824e9cc4c71fa82f1f30d9103d1d6ebe571994632ef55a7940dec4905"
+size = 2527
 encoding = "utf-8"
 ags_version = "4.0.4"
 readable = true
@@ -3187,6 +3839,23 @@ row_count = 1
 rows_sha256 = "d68a5c580c18b6444e65e6c53d4a291e0671d231a12273a140df2b646db00154"
 rows = [
   ["1", "2026-11-11", "pyDIGGS test data", "Draft", "4.0.4", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 7
+rows_sha256 = "30f9804335ab5139cf99d798675eeece9a60025e925d0a9d3a6e8a65c912ccb1"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion borehole"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["GEOL_LEG", "102", "Made ground"],
+  ["GEOL_LEG", "201", "Clay"],
+  ["GEOL_LEG", "401", "Sand"],
+  ["SAMP_TYPE", "U", "Undisturbed sample"],
+  ["SAMP_TYPE", "D", "Small disturbed sample"],
 ]
 
 [[file.group]]
@@ -3219,15 +3888,15 @@ rows = [
 
 [[file.group]]
 name = "LOCA"
-headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_FDEP", "LOCA_REM"]
-units = ["", "", "m", "m", "m", "m", ""]
-types = ["ID", "PA", "2DP", "2DP", "2DP", "2DP", "X"]
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_REM", "LOCA_FDEP"]
+units = ["", "", "m", "m", "m", "", "m"]
+types = ["ID", "PA", "2DP", "2DP", "2DP", "X", "2DP"]
 row_count = 3
-rows_sha256 = "687ecd70736faa5e601b1e823eaf8e006bb09487ed9f56d35c6b56cff178af17"
+rows_sha256 = "64693604104f85f16ac917544033bb28b102d5cbf5c4ace00013850f877908df"
 rows = [
-  ["BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", ""],
-  ["BH02", "CP", "451260.50", "206480.25", "11.80", "10.00", "Stopped on an obstruction"],
-  ["TP01", "TP", "451230.00", "206520.00", "12.10", "3.20", ""],
+  ["BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00"],
+  ["BH02", "CP", "451260.50", "206480.25", "11.80", "Stopped on an obstruction", "10.00"],
+  ["TP01", "TP", "451230.00", "206520.00", "12.10", "", "3.20"],
 ]
 
 [[file.group]]
@@ -3270,21 +3939,18 @@ rows = [
 
 [file.check]
 dictionary = "Standard_dictionary_v4_0_4.ags"
-errors = 2
-fyi = 0
+errors = 0
+fyi = 3
 
 [file.check.rules]
-"ags4.rule-7" = 1
-"ags4.rule-16" = 1
 
 [file.check.lines]
-"ags4.rule-7" = [32]
 
 [[file]]
 key = "fixtures/clean_4_1.ags"
 path = "tests/fixtures/ags4/clean_4_1.ags"
-sha256 = "2dfc8f75e160aafdd22f0348b509853619d55d55f35db4da6876034cc77e53a4"
-size = 2136
+sha256 = "ee0fce89938be78bc3a04002e6c430dbbafc6bbc7e05d57d479bf278a82724e4"
+size = 2525
 encoding = "utf-8"
 ags_version = "4.1"
 readable = true
@@ -3309,6 +3975,23 @@ row_count = 1
 rows_sha256 = "b07317e4afbb39a4d508319c5a8d2c26e91edef62b526fc186a95c6da1317119"
 rows = [
   ["1", "2026-11-11", "pyDIGGS test data", "Draft", "4.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 7
+rows_sha256 = "30f9804335ab5139cf99d798675eeece9a60025e925d0a9d3a6e8a65c912ccb1"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion borehole"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["GEOL_LEG", "102", "Made ground"],
+  ["GEOL_LEG", "201", "Clay"],
+  ["GEOL_LEG", "401", "Sand"],
+  ["SAMP_TYPE", "U", "Undisturbed sample"],
+  ["SAMP_TYPE", "D", "Small disturbed sample"],
 ]
 
 [[file.group]]
@@ -3341,15 +4024,15 @@ rows = [
 
 [[file.group]]
 name = "LOCA"
-headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_FDEP", "LOCA_REM"]
-units = ["", "", "m", "m", "m", "m", ""]
-types = ["ID", "PA", "2DP", "2DP", "2DP", "2DP", "X"]
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_REM", "LOCA_FDEP"]
+units = ["", "", "m", "m", "m", "", "m"]
+types = ["ID", "PA", "2DP", "2DP", "2DP", "X", "2DP"]
 row_count = 3
-rows_sha256 = "687ecd70736faa5e601b1e823eaf8e006bb09487ed9f56d35c6b56cff178af17"
+rows_sha256 = "64693604104f85f16ac917544033bb28b102d5cbf5c4ace00013850f877908df"
 rows = [
-  ["BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", ""],
-  ["BH02", "CP", "451260.50", "206480.25", "11.80", "10.00", "Stopped on an obstruction"],
-  ["TP01", "TP", "451230.00", "206520.00", "12.10", "3.20", ""],
+  ["BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00"],
+  ["BH02", "CP", "451260.50", "206480.25", "11.80", "Stopped on an obstruction", "10.00"],
+  ["TP01", "TP", "451230.00", "206520.00", "12.10", "", "3.20"],
 ]
 
 [[file.group]]
@@ -3392,21 +4075,18 @@ rows = [
 
 [file.check]
 dictionary = "Standard_dictionary_v4_1.ags"
-errors = 2
-fyi = 0
+errors = 0
+fyi = 3
 
 [file.check.rules]
-"ags4.rule-7" = 1
-"ags4.rule-16" = 1
 
 [file.check.lines]
-"ags4.rule-7" = [32]
 
 [[file]]
 key = "fixtures/clean_4_1_1.ags"
 path = "tests/fixtures/ags4/clean_4_1_1.ags"
-sha256 = "2939568654e8335cb1320ab6390ca21d09544a42053ac45f505c2231b915fbec"
-size = 2138
+sha256 = "a7f76ba72449f1812bc0d72bddc835c56878935401c42057b731592b7569040d"
+size = 2527
 encoding = "utf-8"
 ags_version = "4.1.1"
 readable = true
@@ -3431,6 +4111,23 @@ row_count = 1
 rows_sha256 = "ee6a33e0cc5eed27b81e05435ce07be7cdd3059a4019ce3eaf6fb710d53f0874"
 rows = [
   ["1", "2026-11-11", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 7
+rows_sha256 = "30f9804335ab5139cf99d798675eeece9a60025e925d0a9d3a6e8a65c912ccb1"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion borehole"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["GEOL_LEG", "102", "Made ground"],
+  ["GEOL_LEG", "201", "Clay"],
+  ["GEOL_LEG", "401", "Sand"],
+  ["SAMP_TYPE", "U", "Undisturbed sample"],
+  ["SAMP_TYPE", "D", "Small disturbed sample"],
 ]
 
 [[file.group]]
@@ -3463,15 +4160,15 @@ rows = [
 
 [[file.group]]
 name = "LOCA"
-headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_FDEP", "LOCA_REM"]
-units = ["", "", "m", "m", "m", "m", ""]
-types = ["ID", "PA", "2DP", "2DP", "2DP", "2DP", "X"]
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_REM", "LOCA_FDEP"]
+units = ["", "", "m", "m", "m", "", "m"]
+types = ["ID", "PA", "2DP", "2DP", "2DP", "X", "2DP"]
 row_count = 3
-rows_sha256 = "687ecd70736faa5e601b1e823eaf8e006bb09487ed9f56d35c6b56cff178af17"
+rows_sha256 = "64693604104f85f16ac917544033bb28b102d5cbf5c4ace00013850f877908df"
 rows = [
-  ["BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", ""],
-  ["BH02", "CP", "451260.50", "206480.25", "11.80", "10.00", "Stopped on an obstruction"],
-  ["TP01", "TP", "451230.00", "206520.00", "12.10", "3.20", ""],
+  ["BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00"],
+  ["BH02", "CP", "451260.50", "206480.25", "11.80", "Stopped on an obstruction", "10.00"],
+  ["TP01", "TP", "451230.00", "206520.00", "12.10", "", "3.20"],
 ]
 
 [[file.group]]
@@ -3514,21 +4211,18 @@ rows = [
 
 [file.check]
 dictionary = "Standard_dictionary_v4_1_1.ags"
-errors = 2
-fyi = 0
+errors = 0
+fyi = 3
 
 [file.check.rules]
-"ags4.rule-7" = 1
-"ags4.rule-16" = 1
 
 [file.check.lines]
-"ags4.rule-7" = [32]
 
 [[file]]
 key = "fixtures/clean_4_2.ags"
 path = "tests/fixtures/ags4/clean_4_2.ags"
-sha256 = "7eebfa45ed038d5df2c938e0e25eecba6d5c11641a0ce90988a1c97d69e42a49"
-size = 2136
+sha256 = "a2c1b4814d420fc4d9c16765a6bb4c63f3274255c297218a4c25017878db9c77"
+size = 2525
 encoding = "utf-8"
 ags_version = "4.2"
 readable = true
@@ -3553,6 +4247,23 @@ row_count = 1
 rows_sha256 = "be76a712a279da454c2a3982c64ebcbade4d278e1b6bf2b3ad05eaf05fd81170"
 rows = [
   ["1", "2026-11-11", "pyDIGGS test data", "Draft", "4.2", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 7
+rows_sha256 = "30f9804335ab5139cf99d798675eeece9a60025e925d0a9d3a6e8a65c912ccb1"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion borehole"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["GEOL_LEG", "102", "Made ground"],
+  ["GEOL_LEG", "201", "Clay"],
+  ["GEOL_LEG", "401", "Sand"],
+  ["SAMP_TYPE", "U", "Undisturbed sample"],
+  ["SAMP_TYPE", "D", "Small disturbed sample"],
 ]
 
 [[file.group]]
@@ -3585,15 +4296,15 @@ rows = [
 
 [[file.group]]
 name = "LOCA"
-headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_FDEP", "LOCA_REM"]
-units = ["", "", "m", "m", "m", "m", ""]
-types = ["ID", "PA", "2DP", "2DP", "2DP", "2DP", "X"]
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_REM", "LOCA_FDEP"]
+units = ["", "", "m", "m", "m", "", "m"]
+types = ["ID", "PA", "2DP", "2DP", "2DP", "X", "2DP"]
 row_count = 3
-rows_sha256 = "687ecd70736faa5e601b1e823eaf8e006bb09487ed9f56d35c6b56cff178af17"
+rows_sha256 = "64693604104f85f16ac917544033bb28b102d5cbf5c4ace00013850f877908df"
 rows = [
-  ["BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", ""],
-  ["BH02", "CP", "451260.50", "206480.25", "11.80", "10.00", "Stopped on an obstruction"],
-  ["TP01", "TP", "451230.00", "206520.00", "12.10", "3.20", ""],
+  ["BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00"],
+  ["BH02", "CP", "451260.50", "206480.25", "11.80", "Stopped on an obstruction", "10.00"],
+  ["TP01", "TP", "451230.00", "206520.00", "12.10", "", "3.20"],
 ]
 
 [[file.group]]
@@ -3636,15 +4347,12 @@ rows = [
 
 [file.check]
 dictionary = "Standard_dictionary_v4_2.ags"
-errors = 2
-fyi = 0
+errors = 0
+fyi = 3
 
 [file.check.rules]
-"ags4.rule-7" = 1
-"ags4.rule-16" = 1
 
 [file.check.lines]
-"ags4.rule-7" = [32]
 
 [[file]]
 key = "fixtures/cp1252.ags"
@@ -3692,8 +4400,8 @@ process_error = "'utf-8' codec can't decode byte 0xb0 in position 108: invalid s
 [[file]]
 key = "fixtures/lf_only.ags"
 path = "tests/fixtures/ags4/lf_only.ags"
-sha256 = "1d0d7bce154c94866bc62ae3d5b895230ff0cd168cd195e924b256443d355d24"
-size = 2078
+sha256 = "7a7d79738eee4864b560f7caa8d25eaab9fe74c580a239837e590d07277a1d33"
+size = 2455
 encoding = "utf-8"
 ags_version = "4.1.1"
 readable = true
@@ -3718,6 +4426,23 @@ row_count = 1
 rows_sha256 = "ee6a33e0cc5eed27b81e05435ce07be7cdd3059a4019ce3eaf6fb710d53f0874"
 rows = [
   ["1", "2026-11-11", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 7
+rows_sha256 = "30f9804335ab5139cf99d798675eeece9a60025e925d0a9d3a6e8a65c912ccb1"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion borehole"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["GEOL_LEG", "102", "Made ground"],
+  ["GEOL_LEG", "201", "Clay"],
+  ["GEOL_LEG", "401", "Sand"],
+  ["SAMP_TYPE", "U", "Undisturbed sample"],
+  ["SAMP_TYPE", "D", "Small disturbed sample"],
 ]
 
 [[file.group]]
@@ -3750,15 +4475,15 @@ rows = [
 
 [[file.group]]
 name = "LOCA"
-headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_FDEP", "LOCA_REM"]
-units = ["", "", "m", "m", "m", "m", ""]
-types = ["ID", "PA", "2DP", "2DP", "2DP", "2DP", "X"]
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_REM", "LOCA_FDEP"]
+units = ["", "", "m", "m", "m", "", "m"]
+types = ["ID", "PA", "2DP", "2DP", "2DP", "X", "2DP"]
 row_count = 3
-rows_sha256 = "687ecd70736faa5e601b1e823eaf8e006bb09487ed9f56d35c6b56cff178af17"
+rows_sha256 = "64693604104f85f16ac917544033bb28b102d5cbf5c4ace00013850f877908df"
 rows = [
-  ["BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", ""],
-  ["BH02", "CP", "451260.50", "206480.25", "11.80", "10.00", "Stopped on an obstruction"],
-  ["TP01", "TP", "451230.00", "206520.00", "12.10", "3.20", ""],
+  ["BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00"],
+  ["BH02", "CP", "451260.50", "206480.25", "11.80", "Stopped on an obstruction", "10.00"],
+  ["TP01", "TP", "451230.00", "206520.00", "12.10", "", "3.20"],
 ]
 
 [[file.group]]
@@ -3801,17 +4526,14 @@ rows = [
 
 [file.check]
 dictionary = "Standard_dictionary_v4_1_1.ags"
-errors = 62
-fyi = 0
+errors = 72
+fyi = 3
 
 [file.check.rules]
-"ags4.rule-2a" = 60
-"ags4.rule-7" = 1
-"ags4.rule-16" = 1
+"ags4.rule-2a" = 72
 
 [file.check.lines]
 "ags4.rule-2a" = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-"ags4.rule-7" = [32]
 
 [[file]]
 key = "fixtures/messy.ags"
@@ -6963,8 +7685,8 @@ fyi = 0
 [[file]]
 key = "fixtures/utf8_bom.ags"
 path = "tests/fixtures/ags4/utf8_bom.ags"
-sha256 = "2b7f47e562d3d9d69da962a583148d0918cb56807f2d62335f516a261bd12f1d"
-size = 2141
+sha256 = "b11ef3514e1f4ce7262a919d9f1d5dcd23a0af9068bbe4d96d074a35462ca135"
+size = 2530
 encoding = "utf-8-sig"
 ags_version = "4.1.1"
 readable = true
@@ -6989,6 +7711,23 @@ row_count = 1
 rows_sha256 = "ee6a33e0cc5eed27b81e05435ce07be7cdd3059a4019ce3eaf6fb710d53f0874"
 rows = [
   ["1", "2026-11-11", "pyDIGGS test data", "Draft", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 7
+rows_sha256 = "30f9804335ab5139cf99d798675eeece9a60025e925d0a9d3a6e8a65c912ccb1"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion borehole"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["GEOL_LEG", "102", "Made ground"],
+  ["GEOL_LEG", "201", "Clay"],
+  ["GEOL_LEG", "401", "Sand"],
+  ["SAMP_TYPE", "U", "Undisturbed sample"],
+  ["SAMP_TYPE", "D", "Small disturbed sample"],
 ]
 
 [[file.group]]
@@ -7021,15 +7760,15 @@ rows = [
 
 [[file.group]]
 name = "LOCA"
-headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_FDEP", "LOCA_REM"]
-units = ["", "", "m", "m", "m", "m", ""]
-types = ["ID", "PA", "2DP", "2DP", "2DP", "2DP", "X"]
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL", "LOCA_REM", "LOCA_FDEP"]
+units = ["", "", "m", "m", "m", "", "m"]
+types = ["ID", "PA", "2DP", "2DP", "2DP", "X", "2DP"]
 row_count = 3
-rows_sha256 = "687ecd70736faa5e601b1e823eaf8e006bb09487ed9f56d35c6b56cff178af17"
+rows_sha256 = "64693604104f85f16ac917544033bb28b102d5cbf5c4ace00013850f877908df"
 rows = [
-  ["BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", ""],
-  ["BH02", "CP", "451260.50", "206480.25", "11.80", "10.00", "Stopped on an obstruction"],
-  ["TP01", "TP", "451230.00", "206520.00", "12.10", "3.20", ""],
+  ["BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00"],
+  ["BH02", "CP", "451260.50", "206480.25", "11.80", "Stopped on an obstruction", "10.00"],
+  ["TP01", "TP", "451230.00", "206520.00", "12.10", "", "3.20"],
 ]
 
 [[file.group]]
@@ -7072,12 +7811,9 @@ rows = [
 
 [file.check]
 dictionary = "Standard_dictionary_v4_1_1.ags"
-errors = 2
-fyi = 0
+errors = 0
+fyi = 3
 
 [file.check.rules]
-"ags4.rule-7" = 1
-"ags4.rule-16" = 1
 
 [file.check.lines]
-"ags4.rule-7" = [32]
