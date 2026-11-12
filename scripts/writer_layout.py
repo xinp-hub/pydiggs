@@ -16,6 +16,14 @@ the DIGGS, GML or GML linear-referencing namespace) the layout lists:
 * ``children``  its child elements in schema order, base types first. A child in the
   DIGGS namespace is written bare, any other as ``prefix:name``. Where the schema names an
   abstract element or the head of a substitution group, its concrete members follow it.
+  Where a choice puts one element in two branches, the order fits every branch.
+* ``required``  the children the schema requires: each entry lists the elements of which
+  at least one must be present (one, or the members of a required choice or substitution
+  group). It never asks for more than the schema does, so the writer can refuse a model
+  that lacks one instead of writing a document that is not valid.
+* ``when``      what is required once a child is present that only a branch of a choice,
+  or an optional sequence, holds: ``present`` lists those children, ``required`` is as
+  above (``samplingLocation`` needs ``samplingFeatureRef``, for example).
 
 Usage (from the package root)::
 
@@ -34,8 +42,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import heapq
 import re
 import sys
+from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,6 +62,8 @@ PROVENANCE = PKG / "PROVENANCE.toml"
 XS = "http://www.w3.org/2001/XMLSchema"
 XML = "http://www.w3.org/XML/1998/namespace"
 _PARTICLES = frozenset({"sequence", "choice", "all"})
+#: Particles that may hold elements, as the branches of a choice.
+_CONTENT = _PARTICLES | {"group", "element", "any"}
 #: Layout key -> the DIGGS object whose first holder among an element's children it names.
 _HELD = {"interval": "LinearExtent", "location": "PointLocation", "time": "TimeInterval"}
 
@@ -221,24 +233,179 @@ def _target(schema: _Schema, el: etree._Element) -> str:
     raise LayoutError(f"no target namespace for line {el.sourceline}")
 
 
-def _particle(schema: _Schema, holder: etree._Element, out: list[QName]) -> None:
-    """Append the elements of ``holder``'s content model to ``out``, in schema order."""
+Edges = set[tuple[QName, QName]]
+
+
+def _sequence(
+    schema: _Schema, holder: etree._Element, out: list[QName], edges: Edges
+) -> set[QName]:
+    """The elements of ``holder``'s particles, taken as a sequence; see :func:`_particle`.
+
+    Every element of an earlier particle must come before every element of a later one,
+    so each such pair is an edge.
+    """
+    before: set[QName] = set()
     for item in holder:
-        kind = _tag(item)
-        if kind in _PARTICLES:
-            _particle(schema, item, out)
-        elif kind == "group":
-            group = schema.groups.get(_resolve(item, item.get("ref", "")))
-            if group is None:
+        names = _particle(schema, item, out, edges)
+        edges.update((a, b) for a in before for b in names if a != b)
+        before |= names
+    return before
+
+
+def _particle(schema: _Schema, item: etree._Element, out: list[QName], edges: Edges) -> set[QName]:
+    """The elements particle ``item`` may hold, appended to ``out`` in schema order.
+
+    ``edges`` gets ``(a, b)`` for every pair the schema puts ``a`` before ``b`` in. The
+    branches of a choice (and the members of an ``all``) are alternatives, so they give
+    no edge between them: an element that appears in two branches is ordered by what
+    each branch puts around it, not by where it appears first.
+    """
+    kind = _tag(item)
+    if kind == "sequence":
+        return _sequence(schema, item, out, edges)
+    if kind in _PARTICLES:
+        found: set[QName] = set()
+        for branch in item:
+            found |= _particle(schema, branch, out, edges)
+        return found
+    if kind == "group":
+        group = schema.groups.get(_resolve(item, item.get("ref", "")))
+        if group is None:
+            raise LayoutError(f"unknown group {item.get('ref')!r}")
+        return _sequence(schema, group, out, edges)
+    if kind == "element":
+        ref = item.get("ref")
+        name = _resolve(item, ref) if ref else (_target(schema, item), item.get("name", ""))
+        decl = schema.elements.get(name) if ref else None
+        names = [] if decl is not None and decl.get("abstract") == "true" else [name]
+        names.extend(_substitutes(schema, name))
+        out.extend(names)
+        return set(names)
+    return set()  # an annotation, an attribute: no element
+
+
+Needs = list[frozenset[QName]]
+#: ``(when, needs)``: when one of ``when`` is present, ``needs`` are required too.
+Condition = tuple[frozenset[QName], Needs]
+
+
+def _elements_of(schema: _Schema, item: etree._Element) -> frozenset[QName]:
+    return frozenset(_particle(schema, item, [], set()))
+
+
+def _needs(schema: _Schema, item: etree._Element, conditions: list[Condition]) -> Needs:
+    """What particle ``item`` requires: each entry a set of which one must be present.
+
+    A required choice requires one element of its branches, unless a branch requires
+    nothing; an optional particle (``minOccurs="0"``) requires nothing. What a branch
+    of a choice, or an optional sequence, requires once it is there goes to
+    ``conditions``, keyed by the elements that show it is there.
+    """
+    kind = _tag(item)
+    if kind in ("sequence", "all", "group"):
+        holder = item
+        if kind == "group":
+            found = schema.groups.get(_resolve(item, item.get("ref", "")))
+            if found is None:
                 raise LayoutError(f"unknown group {item.get('ref')!r}")
-            _particle(schema, group, out)
-        elif kind == "element":
-            ref = item.get("ref")
-            name = _resolve(item, ref) if ref else (_target(schema, item), item.get("name", ""))
-            decl = schema.elements.get(name) if ref else None
-            if decl is None or decl.get("abstract") != "true":
-                out.append(name)
-            out.extend(_substitutes(schema, name))
+            holder = found
+        inner = [need for child in holder for need in _needs(schema, child, conditions)]
+    elif kind == "choice":
+        branches = [branch for branch in item if _tag(branch) in _CONTENT]
+        needs = [_needs(schema, branch, conditions) for branch in branches]
+        for number, branch in enumerate(branches):
+            others = frozenset().union(
+                *(_elements_of(schema, b) for n, b in enumerate(branches) if n != number)
+            )
+            if needs[number] and len(branches) > 1:
+                conditions.append((_elements_of(schema, branch) - others, needs[number]))
+        if not needs or not all(needs):
+            return []
+        inner = [frozenset().union(*(need for branch in needs for need in branch))]
+    elif kind == "element":
+        names = _elements_of(schema, item)
+        inner = [names] if names else []
+    else:
+        return []
+    if item.get("minOccurs", "1") == "0":
+        if inner and kind in ("sequence", "all", "group"):
+            conditions.append((_elements_of(schema, item), inner))
+        return []
+    return inner
+
+
+def _required(
+    schema: _Schema, type_decl: etree._Element | None, conditions: list[Condition]
+) -> Needs:
+    """What a type's content model requires, base types first (see :func:`_needs`)."""
+    if type_decl is None or _tag(type_decl) != "complexType":
+        return []
+    derived = _derivation(type_decl)
+    if derived is None:
+        return [need for item in type_decl for need in _needs(schema, item, conditions)]
+    kind, step = derived
+    base: Needs = []
+    if kind == "extension":
+        declared = schema.types.get(_resolve(step, step.get("base", "")))
+        base = _required(schema, declared, conditions)
+    return base + [need for item in step for need in _needs(schema, item, conditions)]
+
+
+def _rules(
+    schema: _Schema, type_decl: etree._Element | None
+) -> tuple[Needs, list[tuple[list[QName], Needs]]]:
+    """What a type requires, and what it requires when some child is present.
+
+    A condition only counts children that appear once in the content model: one that
+    appears in two places does not show which of them it fills.
+    """
+    out: list[QName] = []
+    _content(schema, type_decl, out, set())
+    once = {name for name, count in Counter(out).items() if count == 1}
+    conditions: list[Condition] = []
+    required = _required(schema, type_decl, conditions)
+    met = set(required)
+    kept: list[tuple[list[QName], Needs]] = []
+    for when, needs in conditions:
+        wanted = [need for need in needs if need not in met]
+        # A child that meets every need itself shows nothing new.
+        shows = sorted(n for n in when & once if not all(n in need for need in wanted))
+        if shows and wanted and (shows, wanted) not in kept:
+            kept.append((shows, wanted))
+    return required, kept
+
+
+def _ordered(out: list[QName], edges: Edges) -> list[QName]:
+    """Each element of ``out`` once, in an order that keeps every edge.
+
+    Among the elements free to come next, the one ``out`` lists first goes first, so a
+    content model without choices keeps exactly its schema order.
+
+    Raises:
+        LayoutError: The edges have a cycle: no one order fits every branch.
+    """
+    names = list(dict.fromkeys(out))
+    rank = {name: number for number, name in enumerate(names)}
+    after: dict[QName, set[QName]] = {name: set() for name in names}
+    waiting = dict.fromkeys(names, 0)
+    for a, b in edges:
+        if b not in after[a]:
+            after[a].add(b)
+            waiting[b] += 1
+    ready = [rank[name] for name in names if not waiting[name]]
+    heapq.heapify(ready)
+    order: list[QName] = []
+    while ready:
+        name = names[heapq.heappop(ready)]
+        order.append(name)
+        for later in after[name]:
+            waiting[later] -= 1
+            if not waiting[later]:
+                heapq.heappush(ready, rank[later])
+    if len(order) != len(names):
+        stuck = sorted(local for (_, local), count in waiting.items() if count)
+        raise LayoutError(f"no single child order fits {', '.join(stuck)}")
+    return order
 
 
 def _substitutes(schema: _Schema, head: QName) -> Iterator[QName]:
@@ -249,20 +416,30 @@ def _substitutes(schema: _Schema, head: QName) -> Iterator[QName]:
         yield from _substitutes(schema, member)
 
 
-def _children(schema: _Schema, type_decl: etree._Element | None) -> list[QName]:
-    """The child elements a type allows, base types first, each once."""
+def _content(
+    schema: _Schema, type_decl: etree._Element | None, out: list[QName], edges: Edges
+) -> set[QName]:
+    """The elements a type's content model holds, base types first (see :func:`_particle`)."""
     if type_decl is None or _tag(type_decl) != "complexType":
-        return []
-    out: list[QName] = []
+        return set()
     derived = _derivation(type_decl)
     if derived is None:
-        _particle(schema, type_decl, out)
-    else:
-        kind, step = derived
-        if kind == "extension":
-            out.extend(_children(schema, schema.types.get(_resolve(step, step.get("base", "")))))
-        _particle(schema, step, out)
-    return list(dict.fromkeys(out))
+        return _sequence(schema, type_decl, out, edges)
+    kind, step = derived
+    base: set[QName] = set()
+    if kind == "extension":
+        base = _content(schema, schema.types.get(_resolve(step, step.get("base", ""))), out, edges)
+    own = _sequence(schema, step, out, edges)
+    edges.update((a, b) for a in base for b in own if a != b)
+    return base | own
+
+
+def _children(schema: _Schema, type_decl: etree._Element | None) -> list[QName]:
+    """The child elements a type allows, each once, in an order every branch accepts."""
+    out: list[QName] = []
+    edges: Edges = set()
+    _content(schema, type_decl, out, edges)
+    return _ordered(out, edges)
 
 
 def _attributes(schema: _Schema, holder: etree._Element) -> Iterator[etree._Element]:
@@ -323,6 +500,27 @@ def build(profile: Profile) -> dict[str, dict[str, object]]:
                 if holder is not None:
                     entry[key] = _written(schema, holder)
             entry["children"] = [_written(schema, child) for child in children]
+            place = {child: number for number, child in enumerate(children)}
+
+            def written(needs: Needs, place: dict[QName, int] = place) -> list[list[str]]:
+                ordered = {tuple(sorted(need, key=place.__getitem__)) for need in needs}
+                return [
+                    [_written(schema, child) for child in need]
+                    for need in sorted(ordered, key=lambda need: [place[c] for c in need])
+                ]
+
+            required, conditions = _rules(schema, type_decl)
+            entry["required"] = written(required)
+            rules = {
+                (
+                    tuple(_written(schema, c) for c in sorted(shows, key=place.__getitem__)),
+                    tuple(map(tuple, written(needs))),
+                )
+                for shows, needs in conditions
+            }
+            entry["when"] = [
+                ([*shows], [[*need] for need in needs]) for shows, needs in sorted(rules)
+            ]
             layout[name] = entry
     return layout
 
@@ -371,6 +569,9 @@ def render(profile: Profile, layout: dict[str, dict[str, object]]) -> str:
         "#   location  the first child that may hold a PointLocation",
         "#   time      the first child that may hold a TimeInterval (when it applies)",
         "#   children  its child elements in schema order; bare names are in the DIGGS namespace",
+        "#   required  what the schema requires: per entry, one of these children at least",
+        "#   when      what it requires once one of `present` is there (a choice branch, or an",
+        "#             optional sequence): `required` as above",
         "",
         "format = 1",
         f"diggs_version = {_string(profile.version)}",
@@ -393,6 +594,21 @@ def render(profile: Profile, layout: dict[str, dict[str, object]]) -> str:
             lines.append("]")
         else:
             lines.append("children = []")
+        required = entry["required"]
+        assert isinstance(required, list)  # noqa: S101 - build() makes it one
+        if required:
+            lines.append("required = [")
+            lines += [f"  [{', '.join(map(_string, need))}]," for need in required]
+            lines.append("]")
+        when = entry["when"]
+        assert isinstance(when, list)  # noqa: S101 - build() makes it one
+        if when:
+            lines.append("when = [")
+            for present, needs in when:
+                listed = ", ".join(f"[{', '.join(map(_string, need))}]" for need in needs)
+                shown = ", ".join(map(_string, present))
+                lines.append(f"  {{ present = [{shown}], required = [{listed}] }},")
+            lines.append("]")
     return "\n".join(lines) + "\n"
 
 

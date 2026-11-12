@@ -9,6 +9,7 @@ official DIGGS 3.0 examples and reducing them to what the writer writes.
 
 from __future__ import annotations
 
+import ast
 import doctest
 import importlib.util
 import re
@@ -786,11 +787,11 @@ _REFUSED: dict[str, tuple[Callable[[Model], Model], str]] = {
     ),
     "typed reference without a link": (
         lambda m: _drop_link(m, "SA1", "samplingFeature"),
-        "feature 'BH01' has no 'samplingFeature' link",
+        "feature 'BH01' is not the first 'samplingFeature' link's target",
     ),
     "samples entry without a link": (
         lambda m: _drop_link(m, "T-LL", "sample"),
-        "samples entry 'S1' has no 'sample' link",
+        r"samples \('S1',\) are not the targets of its 'sample' links",
     ),
     "href that is not the target's id": (
         lambda m: replace(m, links=(*m.links, _link("TP01", "program", "P1", "#elsewhere"))),
@@ -915,7 +916,7 @@ _REFUSED: dict[str, tuple[Callable[[Model], Model], str]] = {
     ),
     "layer colour": (
         lambda m: _layer(m, colour=Code(value="brown")),
-        "colour is not a colorCode or colorName",
+        "colour is not the one reading back gives",
     ),
     "component place the element has no child for": (
         lambda m: _layer(
@@ -937,6 +938,35 @@ _REFUSED: dict[str, tuple[Callable[[Model], Model], str]] = {
             ),
         ),
         "Borehole has no child element 'x'",
+    ),
+    "feature without a name": (
+        lambda m: _swap(m, replace(m.features[1], name=None, names=())),
+        "requires TrialPit to have gml:name, which the model does not give",
+    ),
+    "test without a project": (
+        lambda m: _drop_link(m, "T-SPT", "project"),
+        "requires Test to have projectRef",
+    ),
+    "procedure without its required child": (
+        lambda m: _swap(
+            m,
+            replace(m.measurements[0], procedure=replace(m.measurements[0].procedure, params={})),
+        ),
+        "requires DrivenPenetrationTest to have penetrationTestType",
+    ),
+    "sampling location without a feature": (
+        lambda m: _swap(
+            _swap(
+                _drop_link(m, "SA1", "samplingFeature"),
+                replace(m.sampling_activities[0], feature=None),
+            ),
+            replace(m.samples[0], feature=None),
+        ),
+        "requires SamplingActivity with samplingLocation to have samplingFeatureRef",
+    ),
+    "location and a referencePoint link": (
+        lambda m: replace(m, links=(*m.links, _link("TP01", "referencePoint", "BH01"))),
+        "give a location or a 'referencePoint' link, not both",
     ),
     "id on an element that takes none": (
         lambda m: _swap(
@@ -966,6 +996,169 @@ def test_only_diggs_3_0_0_is_written() -> None:
     for version in ("2.6", "2.5.a", "3.1-dev", "3.0", "", "3.0.0 "):
         with pytest.raises(ValueError, match=r"the writer targets DIGGS 3\.0\.0, not"):
             write_model(_site(), version)
+
+
+def test_a_colour_with_a_name_and_a_code_validates() -> None:
+    """ColorType allows ``colorCode``, or ``colorName`` then ``colorCode``: never code first."""
+    model = _site()
+    code = Code(value="10YR4/3", code_space="urn:example:munsell")
+    colour = _node(
+        Component,
+        "Color",
+        None,
+        key="L1-1-colour",
+        role="color",
+        params={
+            "colorName": Code(value="brown", code_space="urn:example:names"),
+            "colorCode": code,
+        },
+    )
+    layer = model.observations[0].layers[0]
+    lithology = replace(layer.components[0], components=(colour,))
+    model = _layer(model, components=(lithology,), colour=code)
+    xml, back = _round_trip(model)
+    assert _errors(pydiggs.validate_bytes(xml)) == []
+    assert back.observations[0].layers[0].colour == code
+    color = LAYOUT.element("Color")
+    assert color.children.index(color.by_local["colorName"]) < color.children.index(
+        color.by_local["colorCode"]
+    )
+
+
+def test_a_layer_colour_must_be_the_one_reading_returns() -> None:
+    """Reading takes the first colorCode of the primary lithology, else its first colorName."""
+    model = _site()
+    name = Code(value="brown", code_space="urn:example:names")
+    colour = _node(
+        Component,
+        "Color",
+        None,
+        key="L1-1-colour",
+        role="color",
+        params={"colorName": name, "colorCode": Code(value="10YR4/3", code_space="urn:x")},
+    )
+    lithology = replace(model.observations[0].layers[0].components[0], components=(colour,))
+    with pytest.raises(ValueError, match="colour is not the one reading back gives"):
+        write_model(_layer(model, components=(lithology,), colour=name))
+
+
+def test_a_fragment_href_that_resolves_to_nothing_is_refused() -> None:
+    """A dangling ``#id`` could be captured by an id the writer makes up, so it is refused."""
+    model = _without_ids(_site())  # its tests get the made-up ids Test, Test-2, Test-3
+    dangling = Link(source="TP01", relation="program", target=None, href="#Test", resolved=False)
+    with pytest.raises(ValueError, match="resolves to no node"):
+        write_model(replace(model, links=(*model.links, dangling)))
+
+
+def test_a_reference_must_be_the_first_target_reading_returns() -> None:
+    model = _site()
+    first = _link("T-SPT", "samplingFeature", "TP01")
+    with pytest.raises(ValueError, match="feature 'BH01' is not the first 'samplingFeature' link"):
+        write_model(replace(model, links=(first, *model.links)))
+    # The same links with the reference reading would give are written.
+    spt = replace(model.measurements[0], feature="TP01")
+    _round_trip(_swap(replace(model, links=(first, *model.links)), spt))
+
+
+def test_a_link_without_its_reference_is_refused() -> None:
+    model = _site()
+    with pytest.raises(ValueError, match="feature None is not the first 'samplingFeature' link"):
+        write_model(_swap(model, replace(model.measurements[0], feature=None)))
+
+
+def test_samples_must_be_the_ordered_unique_sample_links() -> None:
+    model = _site()
+    limits = model.measurements[1]
+    with pytest.raises(ValueError, match=r"samples .* are not the targets of its 'sample' links"):
+        write_model(_swap(model, replace(limits, samples=("S1", "S1"))))
+    with pytest.raises(ValueError, match=r"samples .* are not the targets of its 'sample' links"):
+        write_model(_swap(model, replace(limits, samples=())))
+
+
+def test_a_feature_without_a_location_is_refused() -> None:
+    """DIGGS 3.0.0 requires every sampling feature to have a referencePoint."""
+    model = _site()
+    with pytest.raises(ValueError, match="requires a location"):
+        write_model(_swap(model, replace(model.features[1], location=None)))
+
+
+def _index_table(model: Model, index: tuple[Column, ...], crs: str | None) -> Model:
+    return _table(
+        model,
+        extent=None,
+        domain=Domain(shape="point", index=index, crs=crs),
+        columns=(_column("n_value", (17.0,)),),
+    )
+
+
+def _axis(name: str, uom: str | None, value: float = 1.0) -> Column:
+    return Column(name=name, key=name, uom=uom, type="number", values=(value,))
+
+
+def test_index_units_in_a_projected_crs_read_back() -> None:
+    """No local system states them, so the writer puts them on the geometry."""
+    index = (_axis("position_1", "m", 523456.5), _axis("position_2", "m", 178901.25))
+    xml, back = _round_trip(_index_table(_site(), index, OSGB))
+    assert [c.uom for c in back.measurements[0].results[0].domain.index] == ["m", "m"]
+    assert _errors(pydiggs.validate_bytes(xml)) == []
+    labelled = [el.get("uomLabels") for el in _parse(xml).iter() if el.get("uomLabels")]
+    assert labelled == ["m m"]
+    # Depths along a system that states its unit need no labels: the output is as before.
+    assert b"uomLabels" not in write_model(_site())
+
+
+def test_an_extent_unit_other_than_its_systems_reads_back() -> None:
+    extent = _depths("4", "5.5", "#BH01-lrs", uom="ft")
+    xml, back = _round_trip(_table(_site(), extent=extent))
+    back_extent = back.measurements[0].results[0].extent
+    assert (back_extent.top.uom, back_extent.base.uom) == ("ft", "ft")
+    assert _errors(pydiggs.validate_bytes(xml)) == []
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (
+            lambda m: _index_table(m, (_axis("position", None),), "#BH01-lrs"),
+            "reading back gives 'm'",
+        ),
+        (lambda m: _index_table(m, (_axis("position", "%"),), OSGB), "cannot be a uomLabel"),
+        (
+            lambda m: _index_table(m, (_axis("position_1", "m"), _axis("position_2", None)), OSGB),
+            "cannot be a uomLabel",
+        ),
+        (
+            lambda m: _table(
+                m,
+                extent=Interval(
+                    top=_quantity("1", "m"), base=_quantity("2", "ft"), lrs="#BH01-lrs"
+                ),
+            ),
+            "top and base in different units",
+        ),
+        (
+            lambda m: _swap(
+                m,
+                replace(
+                    m.features[0],
+                    construction=(
+                        replace(
+                            m.features[0].construction[0],
+                            interval=_depths("1", "2", "#BH01-lrs", "ft"),
+                        ),
+                    ),
+                ),
+            ),
+            "reading back gives 'm'",
+        ),
+    ],
+    ids=["unitless on a system", "not a label", "one axis unitless", "mixed", "interval"],
+)
+def test_units_that_cannot_be_read_back_are_refused(
+    change: Callable[[Model], Model], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        write_model(change(_site()))
 
 
 def test_external_links_keep_their_href() -> None:
@@ -1133,13 +1326,14 @@ def _reduce(model: Model) -> tuple[Model, Counter[str]]:
     typed layers, or measurements other than a ``Test`` with one located result table. A
     file's own defects go too: ids that are not XML names, references that do not
     resolve, samples without a sampling activity. Derived fields are then recomputed as
-    the reader derives them.
+    the reader derives them. Last, a node that lacks a child DIGGS 3.0.0 requires once
+    the rest is cut (a feature whose referencePoint pointed into a cut test, a
+    TrenchWall whose featureExtent is ``extra``) is cut, with what depends on it.
     """
     data = model.to_dict()
     cut: Counter[str] = Counter()
     activity_of = _cut_members(data, cut)
-    tops = [data["document"], *(n for name in (*_COLLECTIONS, "measurements") for n in data[name])]
-    nodes = {node["key"]: node for top in tops for node in _walk(top)}
+    nodes = _nodes_of(data)
     _trim(data, nodes, cut)
     links = []
     seen = set()
@@ -1152,28 +1346,98 @@ def _reduce(model: Model) -> tuple[Model, Counter[str]]:
     cut["links"] = len(data["links"]) - len(links)
     data["links"] = links
     _rederive(data, nodes)
-    return Model.from_dict(data), cut
+    reduced = Model.from_dict(data)
+    while (key := _lacking(reduced)) is not None:
+        data = reduced.to_dict()
+        _cut_node(data, key, cut)
+        _rederive(data, _nodes_of(data))
+        reduced = Model.from_dict(data)
+    return reduced, cut
+
+
+#: The node a refusal for a missing required child names, as ``_emit._where`` gives it.
+_LACKING = re.compile(r"(?P<key>'[^']*'|\"[^\"]*\")(?: procedure \S+)?: DIGGS 3\.0\.0 requires ")
+
+
+def _lacking(model: Model) -> str | None:
+    """The key of a node the writer refuses for lacking a required child, or None."""
+    try:
+        write_model(model)
+    except ValueError as error:
+        found = _LACKING.search(str(error).partition("\n")[0])
+        if found is None:
+            raise
+        key = ast.literal_eval(found["key"])
+        assert isinstance(key, str)
+        return key
+    return None
+
+
+def _nodes_of(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    tops = [data["document"], *(n for name in (*_COLLECTIONS, "measurements") for n in data[name])]
+    return {node["key"]: node for top in tops for node in _walk(top)}
+
+
+def _cut_node(data: dict[str, Any], key: str, cut: Counter[str]) -> None:
+    """Remove node ``key`` (top-level or nested), what it holds, and its links.
+
+    A sample whose sampling activity goes goes too: DIGGS 3.0.0 requires one.
+    """
+    gone: set[str] = set()
+
+    def prune(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        kept = []
+        for node in nodes:
+            if node["key"] == key:
+                gone.update(n["key"] for n in _walk(node))
+                continue
+            for name in ("construction", "water_strikes", "components", "layers"):
+                if node.get(name):
+                    node[name] = prune(node[name])
+            if (node.get("procedure") or {}).get("components"):
+                node["procedure"]["components"] = prune(node["procedure"]["components"])
+            kept.append(node)
+        return kept
+
+    for name in (*_COLLECTIONS, "measurements"):
+        data[name] = prune(data[name])
+    assert key in gone, key
+    cut["required"] += 1
+    data["links"] = [
+        link for link in data["links"] if link["source"] not in gone and link["target"] not in gone
+    ]
+    activities = {a["key"] for a in data["sampling_activities"]}
+    for sample in data["samples"]:
+        produced = {
+            link["target"]
+            for link in data["links"]
+            if link["source"] == sample["key"] and link["relation"] == "samplingActivity"
+        }
+        if not produced & activities:
+            _cut_node(data, sample["key"], cut)
+            return
 
 
 #: What is left of each example once reduced: features, sampling activities, samples,
 #: lithology systems and tests. Pinned so that a reducer that cuts everything shows up.
 _KEPT = {
-    "Aeromag.xml": (1, 0, 0, 0, 0),
+    "Aeromag.xml": (0, 0, 0, 0, 0),
     "Borehole-CPT_Example_Annotated.xml": (2, 35, 35, 1, 99),
-    "GeophysicalFieldSurveyExamples.xml": (3, 0, 0, 0, 0),
+    "GeophysicalFieldSurveyExamples.xml": (0, 0, 0, 0, 0),
     "MWDExample.xml": (1, 0, 0, 0, 0),
     "Piezometer_Example.xml": (2, 1, 1, 0, 1),
     "PorePressureDissipation_Example.xml": (1, 0, 0, 0, 1),
-    "TrenchWallExample.xml": (1, 0, 0, 1, 0),
+    "TrenchWallExample.xml": (0, 0, 0, 0, 0),
 }
-#: Examples that write and read back equal, but are not valid DIGGS once reduced, because
-#: the reader keeps a child their schema requires in ``extra``, which the writer refuses.
-_NOT_VALID_REDUCED = {
-    "Aeromag.xml": "GP_ArealSurvey: its required geophysics members are in `extra`",
-    "GeophysicalFieldSurveyExamples.xml": (
-        "its features repeat investigationTarget (a repeated value is `extra`, not a param)"
-    ),
-    "TrenchWallExample.xml": "TrenchWall: its required referenceEdge is in `extra`",
+#: Nodes cut because, once reduced, they lack a child DIGGS 3.0.0 requires, which the
+#: writer refuses (the rest of each example is then valid when written):
+#: Aeromag: the GP_ArealSurvey, whose referencePoint pointed into a test that is cut;
+#: GeophysicalFieldSurveyExamples: its three features, which keep no projectRef;
+#: TrenchWallExample: the TrenchWall (its featureExtent is `extra`), then its log.
+_CUT_REQUIRED = {
+    "Aeromag.xml": 1,
+    "GeophysicalFieldSurveyExamples.xml": 3,
+    "TrenchWallExample.xml": 2,
 }
 
 
@@ -1185,16 +1449,14 @@ def test_official_examples_round_trip(path: Path) -> None:
     assert (*map(len, kept), len(model.measurements)) == _KEPT[path.name]
     xml, _back = _round_trip(model)
     assert xml == write_model(model)
+    assert _cut["required"] == _CUT_REQUIRED.get(path.name, 0)
     new = set(_errors(pydiggs.validate_bytes(xml))) - set(_errors(pydiggs.validate(str(path))))
-    if path.name in _NOT_VALID_REDUCED:
-        assert new, "this example is valid when reduced: take it off the list"
-    else:
-        assert not new
+    assert not new
 
 
 def test_the_official_examples_are_all_listed() -> None:
     assert sorted(_KEPT) == sorted(p.name for p in OFFICIAL.glob("*.xml"))
-    assert set(_NOT_VALID_REDUCED) < set(_KEPT)
+    assert set(_CUT_REQUIRED) < set(_KEPT)
 
 
 def test_a_model_read_from_diggs_2_6_is_written_as_3_0_0() -> None:
@@ -1202,8 +1464,12 @@ def test_a_model_read_from_diggs_2_6_is_written_as_3_0_0() -> None:
     path = ROOT / "tests" / "fixtures" / "official" / "2.6" / "cptExample-from25.xml"
     original = pydiggs.read(str(path))
     assert original.source.diggs_version == "2.6"
-    model, _cut = _reduce(original)
-    _xml_bytes, back = _round_trip(model)
+    model, cut = _reduce(original)
+    # Its two SoundingConstructionMethod components have no gml:name, which DIGGS 2.6
+    # does not require and DIGGS 3.0.0 does.
+    assert cut["required"] == 2
+    xml, back = _round_trip(model)
+    assert _errors(pydiggs.validate_bytes(xml)) == []
     assert back.source.namespace == DIGGS
     assert len(back.measurements) == 1
     assert (
@@ -1295,6 +1561,24 @@ def test_layout_agrees_with_the_official_examples() -> None:
                 assert lay.id is not None, (path.name, name)
     assert len(seen) > 60
     assert seen["Borehole"] and seen["Test"] and seen["Property"] > 100
+
+
+def test_layout_orders_choices_and_lists_what_is_required() -> None:
+    """Order fits every branch of a choice; ``required`` never asks more than the XSD."""
+    color = LAYOUT.element("Color")
+    assert color.required == ((color.by_local["colorName"], color.by_local["colorCode"]),)
+    activity = LAYOUT.element("SamplingActivity")
+    _present, needs = next(
+        rule for rule in activity.when if activity.by_local["samplingLocation"] in rule[0]
+    )
+    assert (activity.by_local["samplingFeatureRef"],) in needs
+    assert (LAYOUT.tag("gml:name"),) in LAYOUT.element("Borehole").required
+    assert LAYOUT.element("Casing").required == ()
+    script = _script()
+    a, b = ("urn:x", "a"), ("urn:x", "b")
+    assert script._ordered([a, b], {(b, a)}) == [b, a]
+    with pytest.raises(script.LayoutError, match="no single child order fits a, b"):
+        script._ordered([a, b], {(a, b), (b, a)})
 
 
 def test_layout_ships_with_the_package_and_names_the_namespaces() -> None:

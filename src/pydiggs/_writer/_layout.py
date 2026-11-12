@@ -1,8 +1,9 @@
 """The writer's layout data and ``gml:id`` assignment. Pure: no XML, no I/O after load.
 
 ``layout-<version>.toml`` says, for every object element of one DIGGS version, which
-namespace it is in, whether it takes a ``gml:id``, and the order the schema wants its
-children in. It is generated from the bundled XSDs by ``scripts/writer_layout.py``.
+namespace it is in, whether it takes a ``gml:id``, the order the schema wants its
+children in, and which of them it requires. It is generated from the bundled XSDs by
+``scripts/writer_layout.py``.
 """
 
 from __future__ import annotations
@@ -35,6 +36,9 @@ class ElementLayout:
     finds a child's tag by its local name (the first one, where two namespaces share a
     name). ``interval``, ``location`` and ``time`` are the tags of the first child that
     may hold a ``LinearExtent``, a ``PointLocation`` and a ``TimeInterval``.
+    ``required`` lists what the schema requires: per entry, the tags of which at least
+    one must be present. ``when`` adds what is required once one of some children is
+    present: ``(present, required)`` pairs.
     """
 
     name: str
@@ -45,6 +49,8 @@ class ElementLayout:
     interval: str | None = None
     location: str | None = None
     time: str | None = None
+    required: tuple[tuple[str, ...], ...] = ()
+    when: tuple[tuple[tuple[str, ...], tuple[tuple[str, ...], ...]], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,12 +94,22 @@ def _build(data: Mapping[str, Any], diggs_version: str) -> Layout:
         for child in children:
             by_local.setdefault(child.rpartition("}")[2], child)
         held = {key: clark(entry[key]) for key in ("interval", "location", "time") if key in entry}
+
+        def needs(listed: list[list[str]]) -> tuple[tuple[str, ...], ...]:
+            return tuple(tuple(clark(tag) for tag in need) for need in listed)
+
+        when = tuple(
+            (tuple(clark(tag) for tag in rule["present"]), needs(rule["required"]))
+            for rule in entry.get("when", ())
+        )
         elements[name] = ElementLayout(
             name=name,
             tag=f"{{{namespaces[entry['ns']]}}}{name}",
             id=entry.get("id"),
             children=children,
             by_local=MappingProxyType(by_local),
+            required=needs(entry.get("required", [])),
+            when=when,
             **held,
         )
     return Layout(

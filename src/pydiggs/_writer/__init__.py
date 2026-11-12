@@ -44,8 +44,11 @@ def write_model(model: Model, diggs_version: str = "3.0.0") -> bytes:
         ValueError: ``diggs_version`` is not supported, or the model holds something
             that cannot be written so that reading it back returns it: a non-empty
             ``extra``, top-level ``associates`` or ``others``, an element or child
-            element DIGGS 3.0.0 does not have, a measurement that is not a ``Test`` with
-            one result table, a typed reference with no link, text that is empty or has
+            element DIGGS 3.0.0 does not have, a child DIGGS 3.0.0 requires that the model
+            does not give (a feature's location, a name, a ``project`` link …), a
+            measurement that is not a ``Test`` with one result table, a typed reference
+            that is not the first target of its links, a ``#id`` href that resolves to no
+            node, units that reading back would not return, text that is empty or has
             surrounding white space, a character XML forbids, a non-finite number.
         ResourceError: The bundled layout file is missing or broken.
 

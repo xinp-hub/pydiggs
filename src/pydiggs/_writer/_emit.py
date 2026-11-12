@@ -3,7 +3,9 @@
 Every element is made through lxml's API and every value is set as text or as an
 attribute, so nothing from the model can become markup. Each object's children are
 collected as *parts* (a child tag and a function that fills the new child) and appended
-in the order the layout gives, which is the order the schema wants.
+in the order the layout gives, which is the order the schema wants. When the parts lack
+a child the layout says the schema requires, the model is refused rather than written
+as a document that is not valid.
 
 The writer is the inverse of the reader for typed fields, ``params``, components, links
 and result tables. What the reader derives (keys, SI values, the CRS table, a sample's
@@ -15,7 +17,7 @@ is refused, so nothing is dropped silently.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Collection, Iterator, Sequence
 from functools import cache, partial
 from typing import Final
 
@@ -23,7 +25,8 @@ from lxml import etree
 
 from pydiggs import _xml
 from pydiggs._bundled import _DEFAULT_DICTIONARY
-from pydiggs._writer._layout import ElementLayout, Ids, Layout
+from pydiggs._writer._layout import _NCNAME, ElementLayout, Ids, Layout
+from pydiggs.crs import _lrm_units
 from pydiggs.errors import ResourceError
 from pydiggs.model import (
     Code,
@@ -96,6 +99,12 @@ Part = tuple[str, Fill]
 
 def _where(node: Node) -> str:
     return f"{node.element} {node.key!r}"
+
+
+def _written(tag: str) -> str:
+    """A child's tag as the layout names it: its local name, ``gml:`` for GML ones."""
+    namespace, _, local = tag[1:].partition("}")
+    return f"gml:{local}" if namespace == "http://www.opengis.net/gml/3.2" else local
 
 
 def _checked(value: str, where: str) -> str:
@@ -173,6 +182,8 @@ class _Emitter:
         self.produced_id: dict[str, str] = {}
         #: Sampling activity key -> the SampleProduced ids to write in it, in sample order.
         self.produced: dict[str, list[str]] = {}
+        #: A feature's lrs -> the unit reading back gives bare depths along it.
+        self.lrs_unit: dict[str, str | None] = {}
 
     # --- ids ------------------------------------------------------------------------
 
@@ -201,7 +212,18 @@ class _Emitter:
                 made = self.ids.new(node.element)
             self.node_id[node.key] = node.gml_id or made
         self._make_helper_ids()
+        for feature in self.model.features:
+            if feature.lrs is not None:
+                self.lrs_unit[feature.lrs] = self._lrs_unit(feature)
         return root_id
+
+    def _lrs_unit(self, feature: Feature) -> str | None:
+        """The unit of the system written for ``feature.lrs``, as reading derives it."""
+        registry = self._registry_method(feature)
+        if registry is not None:
+            return _lrm_units(registry.href)
+        ref = self.model.crs.get(feature.lrs or "")
+        return None if ref is None else ref.unit
 
     def _make_helper_ids(self) -> None:
         """Ids of the centerlines and ``SampleProduced`` elements no link has named."""
@@ -270,10 +292,16 @@ class _Emitter:
     def _fill(
         self, obj: etree._Element, lay: ElementLayout, parts: Sequence[Part], where: str
     ) -> None:
-        """Append ``parts`` to ``obj`` in the layout's order (stable within one child)."""
+        """Append ``parts`` to ``obj`` in the layout's order (stable within one child).
+
+        Raises:
+            ValueError: ``parts`` lack a child the schema requires: written, the
+                document would not be valid.
+        """
         groups: dict[str, list[Fill]] = {}
         for tag, fill in parts:
             groups.setdefault(tag, []).append(fill)
+        self._check_required(lay, groups.keys(), where)
         for tag in lay.children:
             if not groups:
                 break
@@ -281,6 +309,25 @@ class _Emitter:
                 fill(etree.SubElement(obj, tag))
         if groups:  # only when a part was not made with _child
             raise ValueError(f"{where}: {lay.name} has no child element {next(iter(groups))}")
+
+    def _check_required(self, lay: ElementLayout, present: Collection[str], where: str) -> None:
+        """Refuse what lacks a child the schema requires (``required`` and ``when``)."""
+        rules: list[tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]] = [((), lay.required)]
+        rules += [(shows, needs) for shows, needs in lay.when if any(t in present for t in shows)]
+        for shows, needs in rules:
+            for need in needs:
+                if any(tag in present for tag in need):
+                    continue
+                wanted = " or ".join(_written(tag) for tag in need)
+                with_ = (
+                    f" with {' or '.join(_written(t) for t in shows if t in present)}"
+                    if shows
+                    else ""
+                )
+                raise ValueError(
+                    f"{where}: DIGGS {self.layout.diggs_version} requires {lay.name}{with_} to"
+                    f" have {wanted}, which the model does not give"
+                )
 
     def _object(
         self,
@@ -314,11 +361,13 @@ class _Emitter:
         dim: int,
         gml_id: str,
         where: str,
+        uom_labels: Sequence[str] = (),
     ) -> None:
         """``<prop><element gml:id srsName srsDimension><gml:pos or gml:posList>``.
 
         The CRS and dimension go on the geometry object, which is DIGGS best practice
-        (the reader finds them on the object or on the coordinate element).
+        (the reader finds them on the object or on the coordinate element), and so do
+        ``uomLabels`` when the units of a result location must be stated.
         """
         lay = self.layout.element(element)
         obj = etree.SubElement(prop, lay.tag)
@@ -326,6 +375,8 @@ class _Emitter:
         if srs is not None:
             obj.set("srsName", srs)
         obj.set("srsDimension", str(dim))
+        if uom_labels:
+            obj.set("uomLabels", " ".join(uom_labels))
         child = "pos" if element == "PointLocation" else "posList"
         etree.SubElement(obj, self._child(lay, child, where)).text = " ".join(tokens)
 
@@ -340,10 +391,32 @@ class _Emitter:
             where=where,
         )
 
-    def _interval(self, interval: Interval, base: str, where: str, prop: etree._Element) -> None:
+    def _interval(
+        self,
+        interval: Interval,
+        base: str,
+        where: str,
+        prop: etree._Element,
+        *,
+        result: bool = False,
+    ) -> None:
+        """A depth interval as a one-dimensional ``LinearExtent`` of its top and base.
+
+        Its ends are bare numbers: reading back gives them the unit of their system.
+        Only a result location (``result``) may state another unit, as ``uomLabels``.
+        """
         if interval.top is None or interval.base is None:
             raise ValueError(f"{where}: an interval needs both a top and a base")
+        if interval.top.uom != interval.base.uom:
+            raise ValueError(f"{where}: an interval has its top and base in different units")
         tokens = [_token(interval.top.text, where), _token(interval.base.text, where)]
+        implied = self.lrs_unit.get(interval.lrs or "")
+        unit = interval.top.uom
+        if not result and unit != implied:
+            raise ValueError(
+                f"{where}: an interval in {unit!r:.40} along {interval.lrs!r:.80}, but"
+                f" reading back gives {implied!r:.40}"
+            )
         self._geometry(
             "LinearExtent",
             tokens,
@@ -352,6 +425,7 @@ class _Emitter:
             dim=1,
             gml_id=self.ids.new(base),
             where=where,
+            uom_labels=_uom_labels([unit], implied, where),
         )
 
     def _time(self, span: TimeSpan, base: str, where: str, prop: etree._Element) -> None:
@@ -380,7 +454,15 @@ class _Emitter:
 
     def _link(self, link: Link, where: str, el: etree._Element) -> None:
         if link.target is None:
-            el.set(self.href, _checked(link.href, where))
+            href = _checked(link.href, where)
+            if href.startswith("#"):
+                # Reading back would resolve it to whatever element has that id, and an
+                # id the writer makes up could be the one: refused, not retargeted.
+                raise ValueError(
+                    f"{where}: link {link.relation!r} has href {href!r:.80}, a '#id' that"
+                    " resolves to no node of the model"
+                )
+            el.set(self.href, href)
             return
         target = self.model.get(link.target)
         written = self.node_id.get(link.target)
@@ -431,20 +513,37 @@ class _Emitter:
         return self._child(lay, name, at), partial(_set_param, value, at)
 
     def _check_refs(self, node: Node, where: str) -> None:
-        """A typed reference must be backed by a link: links are what gets written."""
-        linked = {(link.relation, link.target) for link in self.links.get(node.key, ())}
-        for name, relation in _TYPED_REFS:
-            value = getattr(node, name, None)
-            if value is None or (relation, value) in linked:
-                continue
-            if isinstance(node, Sample) and name == "feature":
-                continue  # copied from the sampling activity; checked in _sample
-            raise ValueError(f"{where}: {name} {value!r:.80} has no {relation!r} link")
-        for sample in getattr(node, "samples", ()):
-            if ("sample", sample) not in linked:
-                raise ValueError(f"{where}: samples entry {sample!r:.80} has no 'sample' link")
+        """Typed references must be what reading derives from the links (which are written).
 
-    def _node(self, node: Node, parts: list[Part], where: str, prop: etree._Element) -> None:
+        A scalar reference is the target of the node's first link of its relation that
+        resolves; ``samples`` is the targets of its ``sample`` links, in order, once each.
+        """
+        targets: dict[str, list[str]] = {}
+        for link in self.links.get(node.key, ()):
+            if link.target is not None:
+                targets.setdefault(link.relation, []).append(link.target)
+        for name, relation in _TYPED_REFS:
+            if not hasattr(node, name):
+                continue
+            value = getattr(node, name)
+            first = next(iter(targets.get(relation, ())), None)
+            if value == first or (isinstance(node, Sample) and name == "feature" and first is None):
+                continue  # a sample's feature is then copied from its activity (see _sample)
+            raise ValueError(
+                f"{where}: {name} {value!r:.80} is not the first {relation!r} link's target"
+                f" ({first!r:.80}), which reading back gives"
+            )
+        if hasattr(node, "samples"):
+            linked = tuple(dict.fromkeys(targets.get("sample", ())))
+            if tuple(node.samples) != linked:
+                raise ValueError(
+                    f"{where}: samples {node.samples!r:.80} are not the targets of its 'sample'"
+                    f" links in order and once each ({linked!r:.80}), which reading back gives"
+                )
+
+    def _node(
+        self, node: Node, parts: list[Part], where: str, prop: etree._Element
+    ) -> etree._Element:
         """Append ``node``'s object element to ``prop`` and fill it with ``parts``."""
         lay = self.layout.element(node.element)
         obj = etree.SubElement(prop, lay.tag)
@@ -452,6 +551,7 @@ class _Emitter:
         if written is not None:
             obj.set(self.gml_id, written)
         self._fill(obj, lay, parts, where)
+        return obj
 
     def _component_part(self, lay: ElementLayout, component: Component, where: str) -> Part:
         return self._child(lay, component.role, where), partial(self._component, component)
@@ -514,12 +614,17 @@ class _Emitter:
 
     def _feature(self, node: Feature, prop: etree._Element) -> None:
         lay, where, base = self.layout.element(node.element), _where(node), self._base(node)
+        linked = any(link.relation == "referencePoint" for link in self.links.get(node.key, ()))
+        if (node.location is None) != linked:
+            raise ValueError(
+                f"{where}: DIGGS {self.layout.diggs_version} requires a location, its one"
+                " referencePoint: give a location or a 'referencePoint' link, not both"
+            )
         parts = self._header(node, lay, where)
         if node.location is not None:
             tag = self._child(lay, "referencePoint", where)
-            parts.append(
-                (tag, partial(self._point, node.location, f"{base}.referencePoint", where))
-            )
+            fill = partial(self._point, node.location, f"{base}.referencePoint", where)
+            parts.append((tag, fill))
         if node.centerline is not None:
             line_id = self.line_id[node.key]
             tag = self._child(lay, "centerLine", where)
@@ -707,7 +812,12 @@ class _Emitter:
             tag = self._child(lay, "unitName", where)
             parts.append((tag, partial(_set_text, layer.geologic_unit, where)))
         parts.extend(self._component_part(lay, c, where) for c in layer.components)
-        self._node(layer, parts, where, prop)
+        obj = self._node(layer, parts, where, prop)
+        if layer.colour != _layer_colour(obj):
+            raise ValueError(
+                f"{where}: colour is not the one reading back gives: the first colorCode in"
+                " its primary lithology, else the first colorName"
+            )
 
     def _check_layer(self, layer: LithologyLayer, where: str) -> None:
         """A layer's shortcuts must be what the reader derives from its primary lithology."""
@@ -725,8 +835,6 @@ class _Emitter:
             raise ValueError(
                 f"{where}: classification is not its primary lithology's classification codes"
             )
-        if layer.colour is not None and layer.colour not in _colours(primary):
-            raise ValueError(f"{where}: colour is not a colorCode or colorName of its lithology")
 
     def _measurement(self, node: Measurement, prop: etree._Element) -> None:
         lay, where, base = self.layout.element(node.element), _where(node), self._base(node)
@@ -795,7 +903,7 @@ class _Emitter:
             extent = table.extent
             if extent.lrs != table.domain.crs:
                 raise ValueError(f"{where}: domain.crs must be the extent's lrs")
-            return partial(self._interval, extent, base, where)
+            return partial(self._interval, extent, base, where, result=True)
         if not index:
             return None
         rows = range(table.row_count)
@@ -812,6 +920,12 @@ class _Emitter:
         else:
             raise ValueError(f"{where}: this writer has no location for a row index of {names}")
         tokens = [_number(column.values[row], where) for row in rows for column in index]
+        units = [column.uom for column in index]
+        if element == "LinearExtent":  # top and base: one axis, so one label for both
+            if units[0] != units[1]:
+                raise ValueError(f"{where}: a top/base index has top and base in different units")
+            units = units[:1]
+        implied = self.lrs_unit.get(table.domain.crs or "")
         return partial(
             self._geometry,
             element,
@@ -820,6 +934,7 @@ class _Emitter:
             dim=dim,
             gml_id=self.ids.new(base),
             where=where,
+            uom_labels=_uom_labels(units, implied, where),
         )
 
     def _results(self, table: ResultTable, base: str, where: str, prop: etree._Element) -> None:
@@ -935,16 +1050,36 @@ class _Emitter:
         return root
 
 
-def _colours(component: Component | None) -> Iterator[Code]:
-    """Every ``colorCode`` and ``colorName`` in a lithology and its nested records."""
-    if component is None:
-        return
+def _uom_labels(units: Sequence[str | None], implied: str | None, where: str) -> list[str]:
+    """The ``uomLabels`` that make reading back give each axis its unit, or none.
+
+    Without labels, reading back gives every axis ``implied``: the unit of the linear
+    referencing system the place is measured along, or None (no local system states one;
+    an EPSG system's units are not looked up). Labels are NCNames, so a unit that is
+    not one, or no unit at all, cannot be given another way and is refused.
+    """
+    if all(unit == implied for unit in units):
+        return []
+    for unit in units:
+        if unit is None or not _NCNAME.fullmatch(unit):
+            raise ValueError(
+                f"{where}: unit {unit!r:.40} cannot be a uomLabel, and without labels reading"
+                f" back gives {implied!r:.40}"
+            )
+    return [unit for unit in units if unit is not None]
+
+
+def _layer_colour(layer: etree._Element) -> Code | None:
+    """A written layer's colour as reading derives it from its primary lithology."""
+    holder = next((el for el in layer if etree.QName(el).localname == "primaryLithology"), None)
+    primary = None if holder is None else next(iter(holder), None)
+    if primary is None:
+        return None
     for name in ("colorCode", "colorName"):
-        value = component.params.get(name)
-        if isinstance(value, Code | str):
-            yield value if isinstance(value, Code) else Code(value=value)
-    for child in component.components:
-        yield from _colours(child)
+        for el in primary.iter(f"{{*}}{name}"):
+            if el.text:
+                return Code(value=el.text, code_space=el.get("codeSpace"))
+    return None
 
 
 @cache
