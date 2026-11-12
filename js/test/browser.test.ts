@@ -154,3 +154,26 @@ test("an abort signal stops the wait, before or after the request is sent", asyn
   // A late answer for the abandoned request is ignored.
   worker.reply({ id: worker.requests[0].id, type: "result", document: {} });
 });
+
+test("progress stages reach onProgress, and status follows loading", async () => {
+  const stages: string[] = [];
+  const { worker, client } = start({ onProgress: (stage: string) => stages.push(stage) });
+  assert.equal(client.status, "loading");
+  for (const stage of ["runtime", "packages", "pydiggs", "warm-up"]) worker.reply({ type: "progress", stage });
+  worker.reply({ type: "ready", versions: VERSIONS });
+  await client.ready;
+  assert.deepEqual(stages, ["runtime", "packages", "pydiggs", "warm-up"]);
+  assert.equal(client.status, "ready");
+  worker.reply({ type: "progress", stage: "runtime" });
+  assert.equal(stages.length, 4, "progress after ready is ignored");
+});
+
+test("status is failed after a load failure or terminate", async () => {
+  const failed = start();
+  failed.worker.reply({ type: "failed", message: "x" });
+  await assert.rejects(failed.client.ready);
+  assert.equal(failed.client.status, "failed");
+  const stopped = start();
+  stopped.client.terminate();
+  assert.equal(stopped.client.status, "failed");
+});

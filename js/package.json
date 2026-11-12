@@ -23,7 +23,8 @@
   ],
   "type": "module",
   "sideEffects": [
-    "./dist/browser-worker.js"
+    "./dist/browser-worker.js",
+    "./dist/node-worker.js"
   ],
   "engines": {
     "node": ">=22"
@@ -45,6 +46,14 @@
       "types": "./dist/browser.d.ts",
       "default": "./dist/browser.js"
     },
+    "./hybrid": {
+      "types": "./dist/hybrid.d.ts",
+      "default": "./dist/hybrid.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
     "./browser/worker": {
       "types": "./dist/browser-worker.d.ts",
       "default": "./dist/browser-worker.js"
@@ -61,6 +70,14 @@
     "lint:package": "publint --strict && attw --pack . --profile esm-only",
     "check": "npm run generate:check && npm run typecheck && npm test && npm run build && npm run lint:package",
     "prepublishOnly": "npm run check"
+  },
+  "peerDependencies": {
+    "pyodide": "314.0.7"
+  },
+  "peerDependenciesMeta": {
+    "pyodide": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"
