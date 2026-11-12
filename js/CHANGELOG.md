@@ -8,6 +8,8 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-12
+
 ### Added
 
 - `@pydiggs/client/hybrid`: `PydiggsHybrid` runs each document in the browser when it
