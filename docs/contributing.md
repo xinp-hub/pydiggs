@@ -113,7 +113,7 @@ git checkout -b name-of-your-bugfix-or-feature
 8. Commit your changes and push your branch to GitHub:
 ```bash
 git add .
-git commit -m "Your detailed description of your changes."
+git commit -s -m "Your detailed description of your changes."
 git push origin name-of-your-bugfix-or-feature
 ```
 
@@ -130,8 +130,14 @@ Before you submit a pull request, check that it meets these guidelines:
    * Add the feature to the list in README.md
 3. The pull request should work for Python 3.11 and above.
 4. Check that all tests pass in the GitHub Actions CI pipeline.
-5. Sign your commits. `master` only accepts commits that GitHub shows as **Verified**,
-   so an unsigned pull request cannot be merged even when it is approved and green. SSH
+5. Sign off every commit with `git commit -s`. The `Signed-off-by` line certifies the
+   [Developer Certificate of Origin 1.1](https://developercertificate.org/), and your
+   contribution is licensed under Apache-2.0 like the rest of the project. The
+   `DCO sign-off` check fails a pull request with a commit that lacks it; see
+   [CONTRIBUTING.md](https://github.com/xinp-hub/pydiggs/blob/master/CONTRIBUTING.md)
+   for the terms and for how to fix existing commits.
+6. Sign your commits cryptographically as well. `master` only accepts commits that
+   GitHub shows as **Verified**, so an unsigned pull request cannot be merged even when it is approved and green. SSH
    signing is the simplest setup: register an SSH key on GitHub as a *signing* key, then
    run `git config --global gpg.format ssh`, point `user.signingkey` at the public key,
    and set `commit.gpgsign` to `true`.

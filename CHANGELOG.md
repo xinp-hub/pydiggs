@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and published, and every 1.0 document is a valid 1.1 document.
 
 ### Changed
+- **Contributions are signed off under the Developer Certificate of Origin.** Every commit
+  in a pull request needs a `Signed-off-by` line (`git commit -s`), checked by a new
+  `DCO sign-off` job; there is still no contributor licence agreement. The terms are in
+  the new `CONTRIBUTING.md`, and pull requests get a short checklist template.
 - **Licensing is now documented file by file.** A top-level `NOTICE` file lists the
   attributions to keep when you redistribute pyDIGGS, including the bundled Energistics,
   OGC and EPSG material that the licence metadata did not name before. The wheel ships it

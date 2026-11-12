@@ -25,6 +25,13 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 * **Project lead:** Xin Peng (<xin_peng@outlook.com>)
 * **Contributor:** Asitha Senanayake (<asitha.senanayake@utexas.edu>)
 
+## Contributing
+
+Contributions are welcome under the project's Apache-2.0 licence, with each commit signed
+off (`git commit -s`) under the
+[Developer Certificate of Origin](https://developercertificate.org/). See
+[CONTRIBUTING.md](https://github.com/xinp-hub/pydiggs/blob/master/CONTRIBUTING.md).
+
 ## Features
 
 * Validate DIGGS instance files against:
