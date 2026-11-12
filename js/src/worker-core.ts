@@ -4,7 +4,7 @@
 // against the real, pinned Pyodide, which a Web Worker file cannot be.
 
 import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION } from "./generated/pins.ts";
-import type { InitMessage, ReplyMessage, RequestMessage, RuntimeVersions } from "./protocol.ts";
+import type { InitMessage, LoadStage, ReplyMessage, RequestMessage, RuntimeVersions } from "./protocol.ts";
 
 /** A Python function as Pyodide hands it to JavaScript. */
 export interface PyCallable {
@@ -61,6 +61,9 @@ interface Loaded {
   read: PyCallable;
 }
 
+/** No document above this fits: WebAssembly memory is 4 GiB, and pydiggs needs a few times the document. */
+export const ABSOLUTE_MAX_BYTES: number = 1024 * 1024 * 1024;
+
 const text = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 function wheelSpec(init: InitMessage): string {
@@ -74,16 +77,23 @@ function wheelSpec(init: InitMessage): string {
 
 async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Loaded> {
   const spec = wheelSpec(init); // refuse a bad wheel URL before downloading anything
+  const stage = (name: LoadStage): void => options.post({ type: "progress", stage: name });
+  stage("runtime");
   const pyodide = await options.loadPyodide(init);
+  stage("packages");
   await pyodide.loadPackage(["lxml", "micropip"]);
+  stage("pydiggs");
   const micropip = pyodide.pyimport("micropip") as { install: PyCallable };
   // deps=False: rich and the extras are not needed in the browser.
   await micropip.install.callKwargs(spec, { deps: false });
+  stage("warm-up");
   pyodide.runPython(PYTHON_SETUP);
   const versions = JSON.parse(pyodide.globals.get("versions") as string) as Omit<RuntimeVersions, "pyodide">;
+  // The page side sets the limit for its platform (25 MiB at most in a browser). This
+  // ceiling only keeps a document inside what 32-bit WebAssembly can address at all.
   const limit = Number.isFinite(init.maxBytes) && init.maxBytes > 0 ? init.maxBytes : DEFAULT_MAX_BYTES;
   const loaded: Loaded = {
-    maxBytes: Math.min(limit, DEFAULT_MAX_BYTES),
+    maxBytes: Math.min(limit, ABSOLUTE_MAX_BYTES),
     validate: pyodide.globals.get("validate") as PyCallable,
     read: pyodide.globals.get("read") as PyCallable,
   };

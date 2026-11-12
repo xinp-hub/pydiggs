@@ -8,6 +8,22 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Added
+
+- `@pydiggs/client/hybrid`: `PydiggsHybrid` runs each document in the browser when it
+  can and on your server when it cannot: the document is over `maxBrowserBytes`, the
+  worker failed to load or died on the document, or (with `whileLoading: "server"`) the
+  worker is still loading. Every result says where it ran and why. Without a `server`,
+  nothing is ever uploaded.
+- `@pydiggs/client/node`: `PydiggsNode` runs pyDIGGS in a Node worker thread on the
+  npm `pyodide` package (an optional peer dependency, pinned to `PYODIDE_VERSION`), with
+  `packageCacheDir`, `pydiggsWheelPath` and limits above 25 MiB up to
+  `ABSOLUTE_MAX_BYTES`. `createPydiggsHandler` serves pyDIGGS's HTTP API (`/v1/validate`,
+  `/v1/read`, `/v1/readyz`) from it as a standard Fetch handler, for Next.js route
+  handlers, Hono, Bun, Deno and others.
+- `PydiggsBrowser`: `onProgress` reports the load stages (`runtime`, `packages`,
+  `pydiggs`, `warm-up`), and `status` says whether the worker is loading, ready or failed.
+
 ## [0.1.1] - 2026-11-11
 
 ### Changed

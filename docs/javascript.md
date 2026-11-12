@@ -14,6 +14,8 @@ npm install @pydiggs/client
 | `@pydiggs/client` | TypeScript types for [diggs-findings 1.0](findings.md) and [diggs-model 1.0](model.md) documents | nothing: types only |
 | `@pydiggs/client/http` | A `fetch` client for the [HTTP API](http-api.md) | a pyDIGGS server or [container](container.md) |
 | `@pydiggs/client/browser` | pyDIGGS in a Web Worker on [Pyodide](browser.md); the file never leaves the tab | a browser |
+| `@pydiggs/client/hybrid` | The browser when it can, your server when it cannot | a browser, and a server if you want the fallback |
+| `@pydiggs/client/node` | pyDIGGS in a Node worker thread, and a handler serving the [HTTP API](http-api.md) | Node 22+ and the npm `pyodide` package |
 
 It has no runtime dependencies and ships as ES modules only.
 
@@ -64,6 +66,48 @@ pinned Pyodide and integrity check, the same 25 MiB limit, one request at a time
 every download on your own origin, pass `pyodideBaseUrl` and `pydiggsWheelUrl`. The
 [Content Security Policy](browser.md#content-security-policy) on that page applies
 unchanged.
+
+Create the worker when the page opens, so its first-visit download (about 14 MB, cached
+afterwards) overlaps with the user finding a file, and show its `onProgress` stages.
+
+## Browser first, server as fallback
+
+```ts
+import { PydiggsBrowser } from "@pydiggs/client/browser";
+import { PydiggsHttpClient } from "@pydiggs/client/http";
+import { PydiggsHybrid } from "@pydiggs/client/hybrid";
+
+const pydiggs = new PydiggsHybrid({
+  browser: new PydiggsBrowser(),
+  server: new PydiggsHttpClient({ baseUrl: "/api/pydiggs" }),
+  maxBrowserBytes: 10 * 1024 * 1024,
+});
+const { document, via, reason } = await pydiggs.validate(file);
+```
+
+A document runs in the tab when it can, and on the server when it is larger than
+`maxBrowserBytes`, when the worker failed to load or died on it, or, with
+`whileLoading: "server"`, while the worker is still loading. Every result says where it
+ran and why. Without a `server`, nothing is ever uploaded.
+
+## A JavaScript server, no Python
+
+For apps whose server is JavaScript (Next.js, Express, Fastify, Hono, a serverless
+function on the Node runtime), `PydiggsNode` runs pyDIGGS in a worker thread on Pyodide
+from npm, and `createPydiggsHandler` serves the same `/v1/validate` and `/v1/read` as
+`pydiggs serve --http`:
+
+```ts
+import { createPydiggsHandler, PydiggsNode } from "@pydiggs/client/node";
+
+const handle = createPydiggsHandler(new PydiggsNode(), { basePath: "/api/pydiggs" });
+// a Fetch handler: (request: Request) => Promise<Response>
+```
+
+Point `PydiggsHybrid`'s `server` at that path, and large documents, weak devices and a
+worker that fails to load all fall back to your own server, with no Python anywhere.
+The handler covers `validate` and `read`; SARIF, `checks`, `diggs_version` and node-key
+selection need the [Python server](http-api.md) or the [container](container.md).
 
 ## Types only
 
