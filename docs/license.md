@@ -82,5 +82,7 @@ liable for its use; see sections 7 and 8 of the licence.
 
 Contributions are licensed under Apache-2.0, the same as the rest of pyDIGGS, under
 section 5 of the licence. There is no contributor licence agreement and no copyright
-assignment: contributors keep the copyright in their work. See the
-[Contributing guide](contributing.md).
+assignment: contributors keep the copyright in their work. Instead, each commit is signed
+off (`git commit -s`), certifying the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/), and CI checks
+the sign-off. See the [Contributing guide](contributing.md).

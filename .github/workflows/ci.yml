@@ -41,6 +41,26 @@ jobs:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
 
+  # Contributions come in under the Developer Certificate of Origin (CONTRIBUTING.md):
+  # every commit of a pull request needs a Signed-off-by line naming its author or
+  # committer. Dependabot's commits are exempt (EXEMPT_BOTS in the script). The script is
+  # standard-library Python reading git history: no token, so it works for forks.
+  dco:
+    name: DCO sign-off
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Every commit is signed off
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/scripts/dco_check.py "$BASE_SHA" "$HEAD_SHA"
+
   lint:
     name: lint & types
     runs-on: ubuntu-latest
@@ -445,6 +465,8 @@ jobs:
   all-green:
     name: all green
     if: always()
+    # dco is not listed yet: it reports on every pull request, and joins this list once a
+    # Dependabot pull request has passed it (plan risk R13).
     needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, ags4-fuzz, js, docs]
     runs-on: ubuntu-latest
     timeout-minutes: 5
