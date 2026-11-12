@@ -181,6 +181,8 @@ module = [
   "pydiggs._service",
   "pydiggs._versions",
   "pydiggs._views",
+  "pydiggs._writer",
+  "pydiggs._writer.*",
   "pydiggs.frames",
   "pydiggs.gis",
   "pydiggs.crs",
