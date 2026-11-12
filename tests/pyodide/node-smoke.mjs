@@ -7,7 +7,9 @@
 //   - every validate and read equals CPython's document (goldens from cases.py);
 //   - PydiggsHttpClient, talking to createPydiggsHandler(PydiggsNode), gets the same
 //     documents, so a JavaScript server can stand in for `pydiggs serve --http`;
-//   - a limit above the browser's 25 MiB is honoured on a server.
+//   - a limit above the browser's 25 MiB is honoured on a server;
+//   - a document past timeoutMs fails with code "timeout", and the next document runs
+//     on a fresh worker thread with the same answers.
 //
 //   cd tests/pyodide && npm ci --ignore-scripts
 //   uv build --wheel && uv run --no-sync python tests/pyodide/cases.py goldens.json
@@ -90,7 +92,36 @@ try {
   const findings = await node.validate(big, { name: "big.xml" });
   assert.equal(findings.files[0].path, "big.xml");
   console.log(`ok  a ${(big.byteLength / MiB).toFixed(0)} MiB document is validated on a server (${elapsed()})`);
-  console.log(`node smoke passed (${elapsed()})`);
 } finally {
   node.terminate();
 }
+
+// 5. The timeout: a document with many features takes seconds, so a 1 s limit stops it.
+const slowDoc = (() => {
+  const parts = ['<?xml version="1.0"?>\n<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2">\n'];
+  for (let i = 1; i <= 40000; i++) {
+    parts.push(`<samplingFeature><Borehole gml:id="BH-${i}"><totalMeasuredDepth uom="ft">-1</totalMeasuredDepth></Borehole></samplingFeature>\n`);
+  }
+  parts.push("</Diggs>\n");
+  return Buffer.from(parts.join(""));
+})();
+const timed = new PydiggsNode({
+  workerUrl: new URL("../../js/src/node-worker.ts", import.meta.url),
+  pyodideModule: join(here, "node_modules", "pyodide", "pyodide.mjs"),
+  pydiggsWheelPath: resolve(args.wheel),
+  packageCacheDir: cache,
+  timeoutMs: 1000,
+});
+try {
+  await timed.ready;
+  const slow = timed.validate(slowDoc, { name: "slow.xml" });
+  const after = timed.validate(readFileSync(join(here, "fixtures", FIXTURES[0])), { name: FIXTURES[0] });
+  await assert.rejects(slow, (error) => error.code === "timeout");
+  console.log(`ok  a ${(slowDoc.byteLength / MiB).toFixed(1)} MiB document past timeoutMs fails with code "timeout" (${elapsed()})`);
+  assert.deepEqual(await after, JSON.parse(goldens[FIXTURES[0]]));
+  assert.equal(timed.status, "ready");
+  console.log(`ok  the next document ran on a fresh worker thread and equals CPython's (${elapsed()})`);
+} finally {
+  timed.terminate();
+}
+console.log(`node smoke passed (${elapsed()})`);

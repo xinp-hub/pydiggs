@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@pydiggs/client in a browser</title>
+  </head>
+  <body>
+    <main>
+      <h1>@pydiggs/client in a browser</h1>
+      <p>Worker: <output id="status">loading</output> <output id="stages"></output></p>
+      <p><output id="versions"></output></p>
+      <label>DIGGS file <input id="file" type="file" accept=".xml" /></label>
+      <p>Result: <output id="result-status"></output> <output id="verdict"></output></p>
+      <ul id="messages"></ul>
+      <pre id="findings" hidden></pre>
+      <pre id="model" hidden></pre>
+      <p><output id="error"></output></p>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

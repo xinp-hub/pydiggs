@@ -10,6 +10,7 @@ parentPort.on("message", (message) => {
     return;
   }
   if (message.name === "crash.xml") process.exit(4); // a crash on a document
+  if (message.name === "slow.xml") return; // a document that never finishes
   parentPort.postMessage({
     id: message.id,
     type: "result",

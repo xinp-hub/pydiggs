@@ -5,7 +5,9 @@ import { createPydiggsHandler, type PydiggsEngine } from "../src/handler.ts";
 import { PydiggsHttpClient, PydiggsHttpError } from "../src/http.ts";
 
 // An engine that records each call and answers from `behaviour`.
-function engine(behaviour: { fail?: "document" | "engine"; status?: PydiggsEngine["status"]; pending?: number } = {}) {
+function engine(
+  behaviour: { fail?: "document" | "engine" | "timeout" | "crashed"; status?: PydiggsEngine["status"]; pending?: number } = {},
+) {
   const calls: unknown[] = [];
   const state = { status: behaviour.status ?? "ready", pending: behaviour.pending ?? 0 };
   const answer = async (kind: string, input: unknown, options: Record<string, unknown> = {}) => {
@@ -16,6 +18,9 @@ function engine(behaviour: { fail?: "document" | "engine"; status?: PydiggsEngin
       throw new Error("worker died");
     }
     if (behaviour.fail === "document") throw new Error("not a DIGGS document");
+    if (behaviour.fail === "timeout" || behaviour.fail === "crashed") {
+      throw Object.assign(new Error("stopped"), { code: behaviour.fail });
+    }
     return kind === "validate"
       ? { format: "diggs-findings", schema_version: "1.0", files: [{ path: options.name }] }
       : { schema_version: "1.0", features: [], source: { name: options.name } };
@@ -113,6 +118,13 @@ test("busy, not ready, a bad document and a dead engine", async () => {
   assert.deepEqual([bad.status, (await bad.json()).code], [422, "invalid-document"]);
   const dead = await createPydiggsHandler(engine({ fail: "engine" }).value)(xml("/v1/validate"));
   assert.deepEqual([dead.status, (await dead.json()).code], [503, "not-ready"]);
+});
+
+test("a timeout is 504 timeout and a crashed worker is 500 internal, as in pydiggs", async () => {
+  const timeout = await createPydiggsHandler(engine({ fail: "timeout" }).value)(xml("/v1/read"));
+  assert.deepEqual([timeout.status, (await timeout.json()).code], [504, "timeout"]);
+  const crashed = await createPydiggsHandler(engine({ fail: "crashed" }).value)(xml("/v1/validate"));
+  assert.deepEqual([crashed.status, (await crashed.json()).code], [500, "internal"]);
 });
 
 test("texts are fixed: nothing the client sent comes back in a problem", async () => {

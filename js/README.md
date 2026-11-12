@@ -99,6 +99,10 @@ first visit; the browser caches them. Requests run one at a time, and a document
 be at most 25 MiB. A running request cannot be interrupted: `signal` stops the wait,
 `terminate()` stops the worker.
 
+CI runs the packed package in Chromium, Firefox and WebKit, built by Vite and served
+under the Content Security Policy below, and compares every answer with CPython's
+(`js/e2e`).
+
 ### Making the first visit feel fast
 
 - **Start early.** Create the `PydiggsBrowser` when the page opens, not when the user
@@ -225,13 +229,18 @@ const findings = await pydiggs.validate(await readFile("BH-01.xml"), { name: "BH
   network.
 - **One request at a time per instance,** off the event loop. Run a few instances for
   more throughput, and size the server's memory with the table below.
+- **A time limit, as in pyDIGGS's own server.** A document that runs past `timeoutMs`
+  (default 60 s) stops its worker thread and fails with `code: "timeout"`; a fresh
+  worker takes the documents still waiting. A worker that dies on a document is
+  replaced the same way (`code: "crashed"`). `timeoutMs: 0` turns the limit off.
 - **Node runtime only.** Edge runtimes cannot hold Pyodide.
 
 ### Serving pyDIGGS's HTTP API
 
 `createPydiggsHandler` turns an engine into a standard Fetch handler for
 `/v1/validate`, `/v1/read` and `/v1/readyz`, with pyDIGGS's own status codes and problem
-documents. `PydiggsHttpClient` and `PydiggsHybrid` work against it unchanged. In a
+documents, including 504 `timeout` and 503 `busy` with `Retry-After`. `PydiggsHttpClient`
+and `PydiggsHybrid` work against it unchanged. In a
 Next.js route handler (`app/api/pydiggs/[...path]/route.ts`):
 
 ```ts

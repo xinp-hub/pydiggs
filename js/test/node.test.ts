@@ -63,9 +63,70 @@ test("a thread that dies while loading fails the client", async () => {
   await assert.rejects(node.validate(new Uint8Array(1)), PydiggsNodeError);
 });
 
-test("a thread that dies on a document rejects it and fails the client", async () => {
+test("a thread that dies on a document fails that document, and a fresh worker takes the next", async () => {
   const node = new PydiggsNode({ workerUrl: fakeWorker });
+  try {
+    await node.ready;
+    await assert.rejects(node.validate(new Uint8Array(1), { name: "crash.xml" }), (error: unknown) => {
+      assert.ok(error instanceof PydiggsNodeError);
+      assert.equal(error.code, "crashed");
+      assert.match(error.message, /exited with code 4/);
+      return true;
+    });
+    assert.notEqual(node.status, "failed");
+    assert.deepEqual(await node.validate(new Uint8Array(2), { name: "b.xml" }), {
+      type: "validate",
+      name: "b.xml",
+      size: 2,
+      results: undefined,
+    });
+  } finally {
+    node.terminate();
+  }
+});
+
+test("a document past timeoutMs fails with code timeout; the documents behind it still run", async () => {
+  const node = new PydiggsNode({ workerUrl: fakeWorker, timeoutMs: 300 });
+  try {
+    await node.ready;
+    const slow = node.validate(new Uint8Array(1), { name: "slow.xml" });
+    const next = node.validate(new Uint8Array(3), { name: "next.xml" });
+    assert.equal(node.pending, 2);
+    await assert.rejects(slow, (error: unknown) => {
+      assert.ok(error instanceof PydiggsNodeError);
+      assert.equal(error.code, "timeout");
+      return true;
+    });
+    assert.equal(((await next) as unknown as { name: string }).name, "next.xml", "the queued document ran on the replacement worker");
+    assert.equal(node.pending, 0);
+    assert.equal(node.status, "ready");
+  } finally {
+    node.terminate();
+  }
+});
+
+test("loading does not count against the timeout, and timeoutMs 0 turns it off", async () => {
+  const node = new PydiggsNode({ workerUrl: fakeWorker, timeoutMs: 0 });
+  try {
+    const slow = node.validate(new Uint8Array(1), { name: "slow.xml" });
+    const outcome = await Promise.race([
+      slow.then(() => "answered", () => "rejected"),
+      new Promise((resolve) => setTimeout(() => resolve("still running"), 500)),
+    ]);
+    assert.equal(outcome, "still running");
+  } finally {
+    node.terminate();
+  }
+});
+
+test("terminate rejects waiting documents, and nothing runs after it", async () => {
+  const node = new PydiggsNode({ workerUrl: fakeWorker, timeoutMs: 0 });
+  const slow = node.validate(new Uint8Array(1), { name: "slow.xml" });
+  const waiting = node.validate(new Uint8Array(1), { name: "w.xml" });
   await node.ready;
-  await assert.rejects(node.validate(new Uint8Array(1), { name: "crash.xml" }), /exited with code 4/);
+  node.terminate();
+  await assert.rejects(slow, PydiggsNodeError);
+  await assert.rejects(waiting, /terminated/);
+  await assert.rejects(node.read(new Uint8Array(1)), /terminated/);
   assert.equal(node.status, "failed");
 });
