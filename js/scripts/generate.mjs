@@ -1,10 +1,12 @@
 // Generates everything under src/generated/ and schemas/ from pydiggs's own contracts:
 //
-//   ../src/pydiggs/findings/diggs-findings-1.0.schema.json  -> src/generated/findings.ts
+//   ../src/pydiggs/findings/diggs-findings-1.1.schema.json  -> src/generated/findings.ts
 //   ../src/pydiggs/model/diggs-model-1.0.schema.json        -> src/generated/model.ts
 //   ../src/pydiggs/server/openapi.json                      -> src/generated/http.ts
 //   ../examples/browser-worker/worker.mjs (the pins)        -> src/generated/pins.ts
 //   both JSON Schemas, byte for byte                        -> schemas/
+//   ../src/pydiggs/findings/diggs-findings-1.0.schema.json  -> schemas/ (the earlier
+//     version: unchanged, still shipped, and what diggs-model 1.0's notes refer to)
 //
 //   node scripts/generate.mjs           write the files
 //   node scripts/generate.mjs --check   exit 1 if a file on disk differs (CI)
@@ -19,7 +21,10 @@ import { fileURLToPath } from "node:url";
 const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = join(JS_ROOT, "..");
 
-const FINDINGS_SCHEMA = "src/pydiggs/findings/diggs-findings-1.0.schema.json";
+const FINDINGS_SCHEMA = "src/pydiggs/findings/diggs-findings-1.1.schema.json";
+// Earlier diggs-findings versions. Each stays shipped byte for byte, and a $ref to one
+// resolves to the current types: a minor version only adds to the one before it.
+const EARLIER_FINDINGS_SCHEMAS = ["src/pydiggs/findings/diggs-findings-1.0.schema.json"];
 const MODEL_SCHEMA = "src/pydiggs/model/diggs-model-1.0.schema.json";
 const OPENAPI = "src/pydiggs/server/openapi.json";
 const WORKER = "examples/browser-worker/worker.mjs";
@@ -232,6 +237,11 @@ const readText = (relative) => readFileSync(join(REPO_ROOT, relative), "utf8");
 const findingsText = readText(FINDINGS_SCHEMA);
 const modelText = readText(MODEL_SCHEMA);
 const findingsSchema = JSON.parse(findingsText);
+const earlierFindings = EARLIER_FINDINGS_SCHEMAS.map((path) => {
+  const text = readText(path);
+  return { path, text, id: JSON.parse(text).$id };
+});
+const findingsTypes = { prefix: "DiggsFindings", module: "./findings.ts" };
 const modelSchema = JSON.parse(modelText);
 const openapi = JSON.parse(readText(OPENAPI));
 const workerText = readText(WORKER);
@@ -249,7 +259,9 @@ const model = emitSchema({
   prefix: "DiggsModel",
   rootName: "DiggsModelDocument",
   sourcePath: MODEL_SCHEMA,
-  external: { [findingsSchema.$id]: { prefix: "DiggsFindings", module: "./findings.ts" } },
+  external: Object.fromEntries(
+    [findingsSchema.$id, ...earlierFindings.map((earlier) => earlier.id)].map((id) => [id, findingsTypes]),
+  ),
 });
 
 // The OpenAPI document derives its DiggsFindings* and DiggsModel* components from the
@@ -350,7 +362,8 @@ const outputs = new Map([
   ["src/generated/model.ts", model.text],
   ["src/generated/http.ts", emitHttp()],
   ["src/generated/pins.ts", emitPins()],
-  ["schemas/diggs-findings-1.0.schema.json", findingsText],
+  [`schemas/${FINDINGS_SCHEMA.split("/").at(-1)}`, findingsText],
+  ...earlierFindings.map((earlier) => [`schemas/${earlier.path.split("/").at(-1)}`, earlier.text]),
   ["schemas/diggs-model-1.0.schema.json", modelText],
 ]);
 

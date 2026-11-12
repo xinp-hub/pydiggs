@@ -141,8 +141,8 @@ Result:
 {
   "protocol_version": "1.1",
   "pydiggs_version": "1.8.0",
-  "findings_schema_version": "1.0",
-  "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json",
+  "findings_schema_version": "1.1",
+  "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json",
   "model_schema_version": "1.0",
   "model_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json",
   "diggs_versions": ["2.5.a", "2.6", "3.0.0", "3.1-dev"],
@@ -180,7 +180,7 @@ no `capabilities.read` and no `max_result_bytes`.
 Exactly one of `content_base64` and `path` is required. The encoded length is checked
 against `max_bytes` before decoding.
 
-The result is a complete one-file **diggs-findings 1.0** document, the same as
+The result is a complete one-file **diggs-findings 1.1** document, the same as
 `pydiggs validate --format json` gives for that file apart from `files[].path` (always the
 basename here) and with no `absolute_path`. Validate it against the document's own
 `$schema` and tolerate unknown fields. A malformed or invalid document is a normal result
@@ -324,7 +324,7 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}
-← {"jsonrpc":"2.0","id":2,"result":{"$schema":"https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json","format":"diggs-findings",…}}
+← {"jsonrpc":"2.0","id":2,"result":{"$schema":"https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json","format":"diggs-findings",…}}
 → {"jsonrpc":"2.0","id":4,"method":"validate","params":{"path":"relative.xml"}}
 ← {"jsonrpc":"2.0","id":4,"error":{"code":-32005,"message":"The path is not permitted.","data":{"code":"path-not-permitted"}}}
 → {"jsonrpc":"2.0","id":5,"method":"read","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml","select":{"results":"none"}}}

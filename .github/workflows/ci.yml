@@ -355,6 +355,28 @@ jobs:
       - name: Compare every corpus file with the reader census in conformance/model.toml
         run: uv run --no-sync python scripts/conformance.py check --model
 
+  # The AGS4 reader's fuzz target (tests/test_ags4_hostile.py): random bytes, mixes of
+  # AGS4 pieces and mutations of the fixtures must each give a File or one of the two
+  # documented errors, and never anything else. The test jobs run it on a small budget;
+  # this job runs it alone on a large one.
+  ags4-fuzz:
+    name: ags4 fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - run: uv sync --all-groups --all-extras
+      - name: Fuzz the AGS4 reader
+        env:
+          PYDIGGS_FUZZ_EXAMPLES: "20000"
+        run: uv run --no-sync pytest -q -p no:randomly --no-cov tests/test_ags4_hostile.py
+
   # The npm package (js/): TypeScript types and clients for the contracts this repository
   # owns. Its types, pins and schema copies are generated from the JSON Schemas, the
   # OpenAPI document and the browser example, so a change to any of those fails the
@@ -410,7 +432,7 @@ jobs:
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, js, docs]
+    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, ags4-fuzz, js, docs]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

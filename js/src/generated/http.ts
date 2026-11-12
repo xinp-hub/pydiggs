@@ -24,7 +24,7 @@ export interface Ready {
 export interface RuleInfo {
   id: string;
   pattern: string | null;
-  step: "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context";
+  step: "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context" | "ags4" | "convert";
   description: string;
   severities: ("error" | "warning" | "info")[];
   help_uri: string;
@@ -56,4 +56,4 @@ export type DiggsVersion = "2.5.a" | "2.6" | "3.0.0" | "3.1-dev";
 export type ValidateCheck = "context" | "deprecation" | "dictionary" | "geometry" | "schema" | "schematron" | "structure";
 
 /** Only the rules of this step. */
-export type RuleStep = "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context";
+export type RuleStep = "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context" | "ags4" | "convert";

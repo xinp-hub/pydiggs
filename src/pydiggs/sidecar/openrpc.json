@@ -215,7 +215,7 @@
       "result": {
         "name": "result",
         "schema": {
-          "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json"
+          "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json"
         }
       },
       "errors": [

@@ -1,9 +1,13 @@
-"""The ``diggs-findings`` 1.0 JSON document.
+"""The ``diggs-findings`` 1.1 JSON document.
 
 Pure: no lxml, no I/O. The JSON Schema ships next to this module as
-``diggs-findings-1.0.schema.json`` and is published at :data:`SCHEMA_URL`.
+``diggs-findings-1.1.schema.json`` and is published at :data:`SCHEMA_URL`. The 1.0
+schema stays packaged and published beside it, unchanged.
 
-A new optional field is a 1.1; renaming or removing one is a 2.0. There is no
+A new optional field is a minor version (1.1 added ``location.path``, ``files[].format``
+and the steps ``ags4`` and ``convert``); renaming or removing one is a 2.0. The 1.1
+fields are written only when they say something, so a document about DIGGS files
+differs from its 1.0 form only in ``$schema`` and ``schema_version``. There is no
 timestamp, so the same input always gives the same bytes.
 """
 
@@ -28,11 +32,11 @@ __all__ = [
 ]
 
 FORMAT: Final = "diggs-findings"
-SCHEMA_VERSION: Final = "1.0"
+SCHEMA_VERSION: Final = "1.1"
 #: File name of the JSON Schema inside the ``pydiggs.findings`` package.
-SCHEMA_RESOURCE: Final = "diggs-findings-1.0.schema.json"
+SCHEMA_RESOURCE: Final = "diggs-findings-1.1.schema.json"
 #: Where the schema is published; also the schema's ``$id``.
-SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json"
+SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json"
 
 
 def finding_entry(finding: Finding) -> dict[str, Any]:
@@ -50,6 +54,8 @@ def finding_entry(finding: Finding) -> dict[str, Any]:
             "gml_id": finding.gml_id,
         },
     }
+    if finding.path is not None:
+        entry["location"]["path"] = finding.path
     if finding.source_snippet is not None:
         entry["source_snippet"] = finding.source_snippet
     return entry
@@ -61,16 +67,25 @@ def _path(path: str, absolute_path: str | None, *, absolute_paths: bool) -> str:
 
 def file_entry(report: Report, *, absolute_paths: bool = False) -> dict[str, Any]:
     """One ``files[]`` item for a file that was checked."""
-    return {
+    entry: dict[str, Any] = {
         "path": _path(report.path, report.absolute_path, absolute_paths=absolute_paths),
         "sha256": report.sha256,
-        "diggs_version": report.diggs_version,
-        "status": report.status,
-        "verdict": report.verdict,
-        "steps": [{"step": step.value, "status": status} for step, status in report.steps.items()],
-        "counts": report.counts,
-        "findings": [finding_entry(f) for f in report.findings],
     }
+    if report.format != "diggs":
+        entry["format"] = report.format
+    entry.update(
+        {
+            "diggs_version": report.diggs_version,
+            "status": report.status,
+            "verdict": report.verdict,
+            "steps": [
+                {"step": step.value, "status": status} for step, status in report.steps.items()
+            ],
+            "counts": report.counts,
+            "findings": [finding_entry(f) for f in report.findings],
+        }
+    )
+    return entry
 
 
 def unreadable_entry(item: UnreadableFile, *, absolute_paths: bool = False) -> dict[str, Any]:

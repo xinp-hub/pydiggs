@@ -1,0 +1,9 @@
+"**PROJ"
+"*PROJ_ID","*PROJ_NAME"
+"<UNITS>",""
+"PD-012","An AGS 3 style file"
+
+"**HOLE"
+"*HOLE_ID","*HOLE_TYPE"
+"<UNITS>",""
+"BH01","CP"

@@ -1,4 +1,4 @@
-"""The diggs-findings 1.0 JSON document and its JSON Schema."""
+"""The diggs-findings JSON document (1.1) and its JSON Schema."""
 
 from __future__ import annotations
 
@@ -31,7 +31,8 @@ def test_schema_is_a_valid_2020_12_schema_with_the_published_id():
     jsonschema.Draft202012Validator.check_schema(SCHEMA)
     assert SCHEMA["$schema"] == "https://json-schema.org/draft/2020-12/schema"
     assert SCHEMA["$id"] == _json.SCHEMA_URL
-    assert SCHEMA["properties"]["$schema"]["const"] == _json.SCHEMA_URL
+    # 1.1 accepts its own URL and the 1.0 URL (tests/test_findings_schema_11.py).
+    assert SCHEMA["properties"]["$schema"]["enum"][0] == _json.SCHEMA_URL
 
 
 def test_schema_enums_match_the_model():
@@ -93,7 +94,7 @@ def test_document_shape_and_field_order():
     doc = json.loads(_file_with(finding).to_json())
     assert list(doc) == ["$schema", "format", "schema_version", "tool", "files"]
     assert doc["format"] == "diggs-findings"
-    assert doc["schema_version"] == "1.0"
+    assert doc["schema_version"] == "1.1"
     entry = doc["files"][0]
     assert list(entry) == [
         "path",

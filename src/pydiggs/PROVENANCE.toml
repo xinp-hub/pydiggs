@@ -491,6 +491,11 @@ source = "local"
 note = "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
 sha256 = "8442ad9b40d927b9dcba6dccd70bff8da96b7c13c13cf7c9fc093f92fcb31246"
 
+[files."findings/diggs-findings-1.1.schema.json"]
+source = "local"
+note = "The diggs-findings 1.1 JSON Schema (adds the ags4 and convert steps, location.path and files[].format): pyDIGGS's own output contract, not upstream data."
+sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
+
 [files."model/diggs-model-1.0.schema.json"]
 source = "local"
 note = "The diggs-model JSON Schema (read API): pyDIGGS's own output contract, kept equal to the model classes by tests/test_read_preview.py."
@@ -1209,9 +1214,9 @@ sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "b4a271f81a019d4214f4907b65654d92f419d088fa7d968904c45fe373cf7768"
+sha256 = "d369ba541c0b75828cb3b75e1449749b53220df712ffa93eccb1f2eeabc8852c"
 
 [files."sidecar/openrpc.json"]
 source = "local"
 note = "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, generated from pydiggs.sidecar._protocol and drift-tested."
-sha256 = "c937da17b199f0e2435143e16cd424c015234cd65d8360aaa87b96b84e8b4055"
+sha256 = "a0606f1f6d99fd2f936b9a980f10c1a810887223bc1ee5dd5fa6a1eca624f972"

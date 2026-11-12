@@ -27,6 +27,17 @@ matching pyDIGGS version number.
 - `PydiggsBrowser`: `onProgress` reports the load stages (`runtime`, `packages`,
   `pydiggs`, `warm-up`), and `status` says whether the worker is loading, ready or failed.
 
+### Changed
+
+- The findings types follow **diggs-findings 1.1** (pyDIGGS 1.9.0), which only adds to
+  1.0: `DiggsFindingsStep` gains `"ags4"` and `"convert"`, a finding's `location` may
+  have a `path` (the place in a source that is not XML), and a file entry may have a
+  `format` (`"ags4"`; absent for DIGGS). A 1.0 document still fits the types.
+  `FINDINGS_SCHEMA_URL` is the 1.1 schema, shipped as
+  `@pydiggs/client/schemas/diggs-findings-1.1.schema.json`; the 1.0 schema file is still
+  shipped, unchanged. Code that switches over every `DiggsFindingsStep` needs the two new
+  cases.
+
 ## [0.1.1] - 2026-11-11
 
 ### Changed

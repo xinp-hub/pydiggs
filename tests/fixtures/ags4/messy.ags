@@ -1,0 +1,30 @@
+"DATA","before any group"
+"GROUP","PROJ","extra"
+"HEADING","PROJ_ID","PROJ_NAME"
+"TYPE","ID","X"
+"UNIT","",""
+"DATA","PD-008"
+"DATA","PD-009","Two","Three"
+DATA,"PD-010",unquoted
+"NOTE","not a descriptor"
+
+"GROUP","LOCA"
+"DATA","BH01"
+"HEADING","LOCA_ID"
+"HEADING","LOCA_ID","LOCA_GL"
+"DATA","BH01"
+
+"GROUP","PROJ"
+"HEADING","PROJ_ID"
+"DATA","PD-011"
+
+"GROUP","TRAN"
+"HEADING","TRAN_ISNO","TRAN_AGS"
+"UNIT","",""
+"TYPE","X","X"
+"DATA","1","9.9"
+
+"GROUP",""
+"HEADING","X"
+
+"GROUP","SAMP"

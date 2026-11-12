@@ -11,7 +11,7 @@ npm install @pydiggs/client
 
 | Import | What it is | Needs |
 |---|---|---|
-| `@pydiggs/client` | TypeScript types for [diggs-findings 1.0](findings.md) and [diggs-model 1.0](model.md) documents | nothing: types only |
+| `@pydiggs/client` | TypeScript types for [diggs-findings 1.1](findings.md) and [diggs-model 1.0](model.md) documents | nothing: types only |
 | `@pydiggs/client/http` | A `fetch` client for the [HTTP API](http-api.md) | a pyDIGGS server or [container](container.md) |
 | `@pydiggs/client/browser` | pyDIGGS in a Web Worker on [Pyodide](browser.md); the file never leaves the tab | a browser |
 | `@pydiggs/client/hybrid` | The browser when it can, your server when it cannot | a browser, and a server if you want the fallback |

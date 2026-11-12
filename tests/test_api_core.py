@@ -119,6 +119,18 @@ def test_import_and_validate_bytes_do_not_import_rich_or_the_adapters():
     assert _fresh(code) == "[]"
 
 
+def test_the_ags4_module_is_public_but_not_imported_with_pydiggs():
+    # pydiggs.ags4 (1.9.0) adds no top-level name and costs nothing until it is imported.
+    code = (
+        "import sys, pydiggs\n"
+        "before = 'pydiggs.ags4' in sys.modules\n"
+        "from pydiggs import ags4\n"
+        "print(before, sorted(ags4.__all__) == sorted(set(ags4.__all__)), 'socket' in sys.modules)\n"
+    )
+    assert _fresh(code) == "False True False"
+    assert not {"ags4", "File", "Group"} & set(pydiggs.__all__)
+
+
 def test_validation_loads_no_networking_modules():
     # Only an allow_network download needs them; the browser build relies on this.
     code = (

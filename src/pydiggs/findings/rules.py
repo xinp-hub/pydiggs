@@ -288,6 +288,20 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     "context.xlink-remote-unresolved": "xlink:href into another document, not fetched or checked",
     SCHEMATRON_CASING_UNITS: "Casing outside diameter must exceed inside diameter (any unit)",
     SCHEMATRON_CASING_NUMERIC: "Casing diameters must be numeric",
+    # Notes of the AGS4 reader (pydiggs.ags4.read); the constants live in pydiggs.ags4.
+    "ags4.rule-1": "AGS4 Rule 1: the file is ASCII text (the reader notes a byte order mark)",
+    "ags4.rule-2": "AGS4 Rule 2: a file is made of groups, and every row belongs to one",
+    "ags4.rule-2a": "AGS4 Rule 2a: every row ends with CR LF",
+    "ags4.rule-2b": "AGS4 Rule 2b: a group has GROUP, HEADING, UNIT and TYPE rows, in that order",
+    "ags4.rule-3": "AGS4 Rule 3: every row starts with GROUP, HEADING, UNIT, TYPE or DATA",
+    "ags4.rule-4": "AGS4 Rule 4: a GROUP row holds one name; other rows match the HEADING row",
+    "ags4.rule-5": "AGS4 Rule 5: every field is in double quotes, a quote inside it doubled",
+    "ags4.duplicate-group": "A group name is used by more than one GROUP row (AGS4 read note)",
+    "ags4.encoding-assumed": "The file is not UTF-8 and was read as Windows-1252 (AGS4 read note)",
+    "ags4.version-unknown": "TRAN_AGS names an AGS4 version pyDIGGS does not know (AGS4 read note)",
+    "ags4.unsupported-version": "An AGS 3 or older file; pyDIGGS reads AGS4 only",
+    "ags4.limit": "Reading stopped at a work limit; the AGS4 file is incomplete (AGS4 read note)",
+    "ags4.timeout": "Reading the AGS4 file did not finish within its time budget",
 }
 
 
@@ -438,6 +452,19 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     "geometry.crs-axis-order-suspect": _WARNING,
     "geometry.crs-unresolvable": _WARNING,
     "context.xlink-remote-unresolved": _INFO,
+    "ags4.rule-1": _ERROR,
+    "ags4.rule-2": _ERROR,
+    "ags4.rule-2a": _ERROR,
+    "ags4.rule-2b": _ERROR,
+    "ags4.rule-3": _ERROR,
+    "ags4.rule-4": _ERROR,
+    "ags4.rule-5": _ERROR,
+    "ags4.duplicate-group": _ERROR,
+    "ags4.encoding-assumed": _WARNING,
+    "ags4.version-unknown": _WARNING,
+    "ags4.unsupported-version": _ERROR,
+    "ags4.limit": _ERROR,
+    "ags4.timeout": _ERROR,
 }
 #: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
 #: keeps them equal): only they can be ``incomplete``.

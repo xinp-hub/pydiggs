@@ -101,7 +101,7 @@ TOOL_NAMES: Final = (
 #: Largest diggs-model document a read tool takes from the worker (it slices it).
 _MAX_READ_RESULT: Final = 256 * 2**20
 
-_SCHEMA_FILE: Final = "diggs-findings-1.0.schema.json"
+_SCHEMA_FILE: Final = "diggs-findings-1.1.schema.json"
 _SEVERITIES: Final = ("error", "warning", "info")
 #: What the summary prints from a document: rule ids, steps, verdicts. Anything else is "?".
 _SAFE_TOKEN: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}")
@@ -620,7 +620,7 @@ def _tools(runtime: _Runtime) -> list[Tool]:
             " path) against the bundled DIGGS schema, dictionaries and Schematron rules."
             f" Limits: {mib:g} MiB decoded, {limits.max_findings} findings,"
             f" {MAX_MESSAGE_CHARS}-character messages, {limits.timeout:g} s."
-            " structuredContent is a diggs-findings 1.0 document. Malformed XML is a"
+            " structuredContent is a diggs-findings 1.1 document. Malformed XML is a"
             f" normal result with findings, not an error. {_UNTRUSTED}"
         ),
         "explain_rule": "Describe one pydiggs rule id, such as schematron.Borehole.x.",

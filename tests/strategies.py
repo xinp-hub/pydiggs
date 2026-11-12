@@ -33,6 +33,7 @@ def findings(draw: st.DrawFn) -> Finding:
         xpath=draw(st.none() | st.sampled_from(["/diggs:Diggs[1]", "/Diggs[1]/a[2]/@b", "x"])),
         gml_id=draw(_OPT_TEXT),
         source_snippet=draw(st.none() | st.text(max_size=1024)),
+        path=draw(st.none() | st.sampled_from(["GEOL", "GEOL/12", "GEOL/12/GEOL_LEG"])),
     )
 
 
@@ -52,7 +53,8 @@ def reports(draw: st.DrawFn) -> Report:
         )
     )
     status = draw(st.sampled_from(["checked", "not-diggs"]))
-    versions = st.sampled_from(["2.5.a", "2.6", "3.0.0"])
+    file_format = draw(st.sampled_from(["diggs", "ags4"]))
+    versions = st.none() if file_format == "ags4" else st.sampled_from(["2.5.a", "2.6", "3.0.0"])
     return Report(
         path=draw(_PATHS),
         absolute_path=draw(st.none() | _PATHS.map(lambda p: "/abs/" + p)),
@@ -62,6 +64,7 @@ def reports(draw: st.DrawFn) -> Report:
         findings=tuple(draw(st.lists(findings(), max_size=6))),
         tool_version="1.2.0",
         status=status,
+        format=file_format,
         reference_data=draw(
             st.dictionaries(
                 st.sampled_from(["schemas", "def", "diggs-examples"]),

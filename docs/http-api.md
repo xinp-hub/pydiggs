@@ -1,7 +1,7 @@
 # HTTP API
 
 `pydiggs[server]` serves pydiggs over HTTP: upload a DIGGS document, get a
-[diggs-findings 1.0](findings.md) document (or a SARIF 2.1.0 log) back. It is a FastAPI
+[diggs-findings 1.1](findings.md) document (or a SARIF 2.1.0 log) back. It is a FastAPI
 application you can run as is, or a router you mount in your own FastAPI app.
 
 ```bash
@@ -66,7 +66,7 @@ app, a reverse proxy or an API gateway for that.
 
 | method and path | answer |
 |---|---|
-| `POST /v1/validate` | 200 with a diggs-findings 1.0 document, or SARIF 2.1.0 for `Accept: application/sarif+json` |
+| `POST /v1/validate` | 200 with a diggs-findings 1.1 document, or SARIF 2.1.0 for `Accept: application/sarif+json` |
 | `POST /v1/read` | 200 with a diggs-model 1.0 document: what is in the file ([Reading files](model.md)) |
 | `GET /v1/versions` | pydiggs, findings schema and DIGGS versions, reference-data commits, `api_version: "1"` (off with `versions_enabled=False`) |
 | `GET /v1/rules?step=` | every rule id pydiggs can emit (open families as patterns) |
