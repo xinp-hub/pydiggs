@@ -184,6 +184,7 @@ webpack and Turbopack all follow. CI runs each set-up below with the packed pack
 | Vite dev server | Chromium | also `optimizeDeps: { exclude: ["@pydiggs/client"] }` |
 | Next.js, Turbopack (`next build`, `next dev`) | Chromium | the recipe below |
 | Next.js, webpack (`next build --webpack`) | Chromium | the recipe below |
+| Vue (Vite) | Chromium, Firefox, WebKit | the Vue recipe below |
 | Rspack, Parcel, esbuild | not tested | if the worker is not found, see `createWorker` below |
 
 **Vite** (`vite.config.ts`):
@@ -224,6 +225,34 @@ export function usePydiggs() {
 
 The tested version, with load progress, is `js/e2e-next/lib/pydiggs.js`.
 
+**Vue** (and Nuxt): the same shared worker, behind a composable that fills in once
+mounted in the browser:
+
+```ts
+import { onMounted, ref, shallowRef } from "vue";
+import type { PydiggsBrowser } from "@pydiggs/client/browser";
+
+let shared: Promise<PydiggsBrowser> | undefined;
+export function getPydiggs() {
+  shared ??= import("@pydiggs/client/browser").then(({ PydiggsBrowser }) => new PydiggsBrowser());
+  return shared;
+}
+
+export function usePydiggs() {
+  const pydiggs = shallowRef<PydiggsBrowser | null>(null);
+  const status = ref<"loading" | "ready" | "failed">("loading");
+  onMounted(async () => {
+    const instance = await getPydiggs();
+    pydiggs.value = instance;
+    instance.ready.then(() => (status.value = "ready"), () => (status.value = "failed"));
+  });
+  return { pydiggs, status };
+}
+```
+
+The tested version is `js/e2e/vue.ts`. SvelteKit and Remix follow the same rule: create
+the worker in `onMount` or an effect, once for the app.
+
 **Next.js** (`next.config.mjs`) keeps the Node side out of the server bundle, so
 `PydiggsNode` finds its worker-thread file and Pyodide finds its WebAssembly:
 
@@ -249,20 +278,29 @@ const pydiggs = new PydiggsBrowser({
 ### Hosting everything yourself
 
 By default the worker loads Pyodide from the jsDelivr CDN and pydiggs from PyPI. To
-keep every request on your own origin, serve the Pyodide `full` distribution of
-version `PYODIDE_VERSION` and a pydiggs wheel, and point the worker at them:
+keep every request on your own origin, let the package's command assemble the files at
+build time and serve the folder:
+
+```bash
+npm install -D pyodide@314.0.7
+npx pydiggs-client vendor public/pydiggs
+```
+
+It copies Pyodide's own files from the npm `pyodide` package, downloads lxml, micropip
+and what they need, and the pinned pydiggs wheel from PyPI (or `--pydiggs-wheel PATH`).
+Each download must match the sha256 in Pyodide's lock file or on PyPI, and the loader
+must match the integrity hash the worker checks, or nothing is written. The folder
+lists what is in it, with hashes, in `pydiggs-vendor.json`. Then:
 
 ```ts
-import { PydiggsBrowser, PYODIDE_VERSION } from "@pydiggs/client/browser";
-
 const pydiggs = new PydiggsBrowser({
-  pyodideBaseUrl: `/vendor/pyodide-${PYODIDE_VERSION}/`,
-  pydiggsWheelUrl: "/vendor/pydiggs-1.8.0-py3-none-any.whl",
+  pyodideBaseUrl: "/pydiggs/",
+  pydiggsWheelUrl: "/pydiggs/pydiggs-1.8.0-py3-none-any.whl",
 });
 ```
 
-Pyodide's loader is checked against a pinned integrity hash wherever it comes from.
-The wheel you name is not checked, so only name one you control.
+and the worker's CSP needs no third-party origin (`connect-src 'self'`). CI runs this
+set-up in Chromium, Firefox and WebKit with exactly that policy.
 
 ### Content Security Policy
 
@@ -303,6 +341,57 @@ const findings = await pydiggs.validate(await readFile("BH-01.xml"), { name: "BH
   worker takes the documents still waiting. A worker that dies on a document is
   replaced the same way (`code: "crashed"`). `timeoutMs: 0` turns the limit off.
 - **Node runtime only.** Edge runtimes cannot hold Pyodide.
+- **Bun and Deno** run the Node engine too: CI runs the same Node smoke (worker thread,
+  HTTP handler, timeout) under each.
+
+### Batches: several documents at once
+
+One engine runs one document at a time. `PydiggsPool` runs several engines behind the
+same `validate` and `read`, each document going to the least busy one; a timeout or
+crash in one does not stop the others. It works in the browser and in Node, and goes
+wherever an engine does (`PydiggsHybrid`'s `browser`, `createPydiggsHandler`):
+
+```ts
+import { PydiggsNode, PydiggsPool } from "@pydiggs/client/node";
+
+const pool = new PydiggsPool(() => new PydiggsNode({ packageCacheDir }), { size: 3 });
+const results = await Promise.all(files.map((file) => pool.validate(file.data, { name: file.name })));
+```
+
+The default size is one less than the processors reported, from 1 to 4. Each engine
+holds its own Pyodide (about 90 MiB, plus some 14 times the document while it works),
+so keep pools small in a browser tab, and size a server's memory for them.
+
+### Serverless functions
+
+pyDIGGS runs in Node functions (Vercel, AWS Lambda, Netlify, Google Cloud Run
+functions), not in edge functions. Four things decide whether it runs well there:
+
+- **Cold starts.** Bundle a complete package cache with the function so a cold start
+  loads Pyodide from disk and downloads nothing (about 2 s), and a read-only file system
+  is fine:
+
+  ```bash
+  npx pydiggs-client vendor pydiggs-runtime --packages-only
+  ```
+
+  ```ts
+  const engine = new PydiggsNode({
+    packageCacheDir: join(process.cwd(), "pydiggs-runtime"),
+    pydiggsWheelPath: join(process.cwd(), "pydiggs-runtime", "pydiggs-1.8.0-py3-none-any.whl"),
+  });
+  ```
+
+  In Next.js, include the folder in the function:
+  `outputFileTracingIncludes: { "/api/pydiggs/[...path]": ["./pydiggs-runtime/**"] }`.
+- **Reuse.** Create the engine at module scope or on `globalThis`, as in the route
+  handler above, so warm invocations reuse the loaded worker.
+- **Memory.** Give the function about 14 times the largest document you accept (Sizing,
+  below), plus room for Node and the loaded runtime (an estimate of 250 MiB; measure
+  your own); set `maxBytes` to match.
+- **Time.** Set `timeoutMs` below the platform's maximum duration, so a slow document
+  gets pyDIGGS's 504 and not the platform's own cut-off; a fresh worker then serves the
+  next request.
 
 ### Serving pyDIGGS's HTTP API
 

@@ -8,6 +8,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
-    "vite": "^8.3.8"
+    "pyodide": "^314.0.7",
+    "vite": "^8.3.8",
+    "vue": "^3.5.45"
   }
 }

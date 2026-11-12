@@ -86,7 +86,18 @@ WebKit, and the dev server) and in a Next.js app (Turbopack and webpack builds, 
   `serverExternalPackages: ["@pydiggs/client", "pyodide"]` for the Node side.
 
 The package's [README](https://github.com/xinp-hub/pydiggs/tree/master/js#frameworks-and-bundlers)
-has the recipes, and `js/e2e-next` the tested Next.js app.
+has the recipes (React, Vue, Next.js), and `js/e2e` and `js/e2e-next` the tested apps.
+
+### Self-hosting, serverless and batches
+
+- **No CDN:** `npx pydiggs-client vendor public/pydiggs` assembles Pyodide, lxml and the
+  pydiggs wheel into one folder, each file checked against its published hash; point
+  `pyodideBaseUrl` at it and the worker's CSP needs no third-party origin.
+- **Serverless functions** (Node runtime): bundle `pydiggs-client vendor <dir>
+  --packages-only` with the function and pass it as `packageCacheDir`, so a cold start
+  downloads nothing; keep the engine at module scope, and set `timeoutMs` below the
+  platform's limit.
+- **Batches:** `PydiggsPool` runs several engines, in a browser or in Node.
 
 ## Browser first, server as fallback
 

@@ -29,6 +29,9 @@
   "engines": {
     "node": ">=22"
   },
+  "bin": {
+    "pydiggs-client": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "schemas"

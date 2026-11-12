@@ -23,6 +23,7 @@ export type { LoadStage, RuntimeVersions } from "./protocol.ts";
 export type { WorkerErrorCode, WorkerLike } from "./worker-client.ts";
 export { PydiggsWorkerError } from "./worker-client.ts";
 export { PydiggsError } from "./errors.ts";
+export { defaultPoolSize, type PoolEngine, PydiggsPool, type PydiggsPoolOptions } from "./pool.ts";
 export { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYODIDE_SRI, PYODIDE_VERSION } from "./generated/pins.ts";
 
 /** Where the worker is: still loading, ready for documents, or out of service. */

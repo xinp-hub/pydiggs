@@ -9,6 +9,7 @@ export default defineConfig({
     browser: "src/browser.ts",
     hybrid: "src/hybrid.ts",
     node: "src/node.ts",
+    cli: "src/cli.ts",
     "browser-worker": "src/browser-worker.ts",
     "node-worker": "src/node-worker.ts",
   },

@@ -9,11 +9,14 @@ const message = (error: unknown): string => (error instanceof Error ? error.mess
 
 // CI installs the wheel built from this checkout, so the answers can be compared with
 // CPython's from the same checkout. Without it, the pinned release comes from PyPI.
+// Self-hosted, VITE_PYODIDE_BASE names the folder `pydiggs-client vendor` filled.
 const wheel = import.meta.env.VITE_PYDIGGS_WHEEL as string | undefined;
+const pyodideBase = import.meta.env.VITE_PYODIDE_BASE as string | undefined;
 
 const stages: LoadStage[] = [];
 const pydiggs = new PydiggsBrowser({
   ...(wheel ? { pydiggsWheelUrl: new URL(wheel, location.href) } : {}),
+  ...(pyodideBase ? { pyodideBaseUrl: new URL(pyodideBase, location.href) } : {}),
   onProgress: (stage) => {
     stages.push(stage);
     $("stages").textContent = stages.join(",");

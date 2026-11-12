@@ -28,9 +28,11 @@ export type { DocumentBytes, WorkerReadOptions, WorkerRequestOptions, WorkerStat
 export type { LoadStage, RuntimeVersions } from "./protocol.ts";
 export { PydiggsWorkerError } from "./worker-client.ts";
 export { PydiggsError } from "./errors.ts";
+export { defaultPoolSize, type PoolEngine, PydiggsPool, type PydiggsPoolOptions } from "./pool.ts";
 export { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYODIDE_VERSION } from "./generated/pins.ts";
 export { ABSOLUTE_MAX_BYTES } from "./worker-core.ts";
 export { createPydiggsHandler, type PydiggsHandlerOptions } from "./handler.ts";
+export { vendor, type VendoredFile, type VendorOptions, type VendorResult } from "./vendor.ts";
 
 export interface PydiggsNodeOptions {
   /**
