@@ -162,6 +162,7 @@ nav:
   - Project:
     - Contributing: contributing.md
     - Authors: authors.md
+    - Licence and use: license.md
     - History: history.md
     - Stay updated: stay-updated.md
     - Security policy: https://github.com/xinp-hub/pydiggs/security/policy

@@ -11,7 +11,8 @@
 
 A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 
-* Licensed under the Apache License 2.0
+* Licensed under the Apache License 2.0; see [Licence and use](https://xinp-hub.github.io/pydiggs/license/)
+  for redistribution, bundled third-party material and professional use
 * Documentation: [https://xinp-hub.github.io/pydiggs](https://xinp-hub.github.io/pydiggs)
 * GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
 * PyPI: [https://pypi.org/project/pydiggs](https://pypi.org/project/pydiggs)

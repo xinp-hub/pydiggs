@@ -1,0 +1,33 @@
+# Licensing check: every file has a copyright and licence under REUSE 3.3 (REUSE.toml,
+# LICENSES/). Least privilege; Actions pinned via scripts/pin_actions.py.
+name: REUSE
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reuse-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  reuse:
+    name: REUSE licensing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: false
+          python-version: "3.11"
+      - name: reuse lint
+        run: uvx --color never --from "reuse[charset-normalizer]==6.3.0" reuse lint

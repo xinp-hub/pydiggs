@@ -1,0 +1,59 @@
+pyDIGGS
+Copyright 2021-2026 Xin Peng and the pyDIGGS contributors
+
+This product includes software developed by Xin Peng and the pyDIGGS contributors
+(https://github.com/xinp-hub/pydiggs), licensed under the Apache License, Version 2.0.
+Please retain this notice, and the notices below, in redistributions. If you cite
+pyDIGGS in a report, paper or product, name the version you used.
+
+-----------------------------------------------------------------------------------------
+Third-party material bundled in the pydiggs package
+-----------------------------------------------------------------------------------------
+
+Each item keeps its own licence and copyright notices. Exact upstream commits are in
+src/pydiggs/PROVENANCE.toml; per-file licences are in REUSE.toml.
+
+DIGGS XML schemas (src/pydiggs/schemas/, src/pydiggs/deprecation/)
+  From https://github.com/DIGGSml/schemas and https://github.com/DIGGSml/schema-dev.
+  Copyright (c) DIGGS. Licensed under the Mozilla Public License 2.0; the licence text
+  is in src/pydiggs/schemas/LICENSE and the source is at the repositories above.
+
+DIGGS dictionaries (src/pydiggs/dictionaries/, src/pydiggs/crs/lrm.xml)
+  From https://github.com/DIGGSml/def, stated by its README to be under the MIT
+  License. See src/pydiggs/dictionaries/NOTICE.
+
+DIGGS Schematron rules (src/pydiggs/schematron/diggs_schematron_rules_2.6.sch)
+  Adapted from https://github.com/DIGGSml/validation; the changes are listed in the
+  file header. The upstream repository states no licence.
+
+Energistics and POSC schemas, as profiled by DIGGS
+  (witsml/ and energistics/ folders under src/pydiggs/schemas/)
+  Copyright (c) 2014, 2016 Energistics. All rights reserved. Use of these files is
+  governed by the Energistics Product License Agreement,
+  https://energistics.org/product-license-agreement. The WITSML 1.3.1.1 files are
+  distributed under the POSC License Agreement (POSC is the predecessor of Energistics).
+  Energistics, WITSML, PRODML and RESQML are trademarks or registered trademarks of
+  Energistics.
+  The following Energistics(R) products were used in the creation of this work:
+  WITSML 1.3.1.1, WITSML 2.0, Energistics Common (EML) 2.1, Energistics Unit of Measure
+  Dictionary 1.0.
+
+OGC XLink schema (xlinks.xsd under src/pydiggs/schemas/)
+  GML 3.0 candidate xlinks schema. Copyright (c) 2001 OGC, All Rights Reserved.
+
+EPSG Geodetic Parameter Dataset subset (src/pydiggs/crs/epsg-subset.json)
+  Facts extracted unmodified from the EPSG Dataset v12.029. The EPSG Dataset is owned by
+  the International Association of Oil & Gas Producers (IOGP) and is used under the EPSG
+  Dataset Terms of Use, https://epsg.org/terms-of-use.html, which also apply to anyone
+  you pass it on to. The full dataset is at https://epsg.org.
+
+-----------------------------------------------------------------------------------------
+Additional material in the source distribution only (tests/)
+-----------------------------------------------------------------------------------------
+
+DIGGS example files (tests/fixtures/official/)
+  From https://github.com/DIGGSml/diggs-examples, under the Mozilla Public License 2.0
+  (tests/fixtures/official/LICENSE).
+
+SARIF 2.1.0 JSON Schema (tests/fixtures/sarif/)
+  Copyright (c) OASIS Open 2023. All Rights Reserved. See tests/fixtures/sarif/NOTICE.

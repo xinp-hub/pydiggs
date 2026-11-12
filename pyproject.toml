@@ -12,6 +12,12 @@ requires-python = ">=3.11"
 license = "Apache-2.0 AND MPL-2.0 AND MIT"
 license-files = [
   "LICENSE",
+  "NOTICE",
+  "LICENSES/LicenseRef-DIGGS-Unstated.txt",
+  "LICENSES/LicenseRef-EPSG-TOU.txt",
+  "LICENSES/LicenseRef-Energistics-PLA.txt",
+  "LICENSES/LicenseRef-OGC-2001.txt",
+  "LICENSES/LicenseRef-POSC-LA.txt",
   "src/pydiggs/schemas/LICENSE",
   "src/pydiggs/dictionaries/NOTICE",
 ]
@@ -117,6 +123,9 @@ include = [
   "README.md",
   "CHANGELOG.md",
   "LICENSE",
+  "LICENSES",
+  "NOTICE",
+  "REUSE.toml",
   "pyproject.toml",
 ]
 
