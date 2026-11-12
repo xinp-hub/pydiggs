@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION } from "../src/generated/pins.ts";
 import type { InitMessage, ReplyMessage } from "../src/protocol.ts";
-import { createWorkerCore, type PyCallable, type PyodideLike } from "../src/worker-core.ts";
+import { ABSOLUTE_MAX_BYTES, createWorkerCore, type PyCallable, type PyodideLike } from "../src/worker-core.ts";
 
 // A Pyodide that records what the worker asks of it. The Python functions are stand-ins:
 // tests/pyodide/worker-smoke.mjs runs the real glue in the real Pyodide.
@@ -35,11 +35,12 @@ function fakePyodide(log: string[]): PyodideLike {
 function start(loadPyodide?: (init: InitMessage) => Promise<PyodideLike>) {
   const log: string[] = [];
   const replies: ReplyMessage[] = [];
+  const stages: string[] = [];
   const handle = createWorkerCore({
-    post: (message) => replies.push(message),
+    post: (message) => (message.type === "progress" ? stages.push(message.stage) : replies.push(message)),
     loadPyodide: loadPyodide ?? (async () => fakePyodide(log)),
   });
-  return { log, replies, handle };
+  return { log, replies, stages, handle };
 }
 
 const settle = async () => {
@@ -100,7 +101,7 @@ test("requests are answered in arrival order, one reply each", async () => {
   ]);
 });
 
-test("the size limit is enforced in the worker and capped at the default", async () => {
+test("the size limit is enforced in the worker, up to the absolute ceiling", async () => {
   const small = start();
   small.handle({ type: "init", maxBytes: 4 });
   small.handle({ id: 1, type: "validate", name: "a.xml", data: bytes(5) });
@@ -109,10 +110,16 @@ test("the size limit is enforced in the worker and capped at the default", async
   assert.equal(small.log.some((line) => line.startsWith("validate")), false);
 
   const huge = start();
-  huge.handle({ type: "init", maxBytes: DEFAULT_MAX_BYTES * 4 });
+  huge.handle({ type: "init", maxBytes: ABSOLUTE_MAX_BYTES * 4 });
   huge.handle({ id: 1, type: "validate", name: "a.xml", data: bytes(1) });
   await settle();
-  assert.equal(huge.log.at(-1), `validate a.xml 1 ${DEFAULT_MAX_BYTES}`);
+  assert.equal(huge.log.at(-1), `validate a.xml 1 ${ABSOLUTE_MAX_BYTES}`);
+
+  const server = start();
+  server.handle({ type: "init", maxBytes: DEFAULT_MAX_BYTES * 4 });
+  server.handle({ id: 1, type: "validate", name: "a.xml", data: bytes(1) });
+  await settle();
+  assert.equal(server.log.at(-1), `validate a.xml 1 ${DEFAULT_MAX_BYTES * 4}`, "a server may go above 25 MiB");
 });
 
 test("a load failure is reported once, and each request then gets an error", async () => {
@@ -148,4 +155,12 @@ test("a request before init is refused, a second init is ignored, and junk is dr
     replies.filter((reply) => reply.type !== "ready"),
     [{ id: 1, type: "error", message: "the worker was not initialised" }],
   );
+});
+
+test("loading reports its stages in order, before ready", async () => {
+  const { stages, replies, handle } = start();
+  handle({ type: "init", maxBytes: 1 });
+  await settle();
+  assert.deepEqual(stages, ["runtime", "packages", "pydiggs", "warm-up"]);
+  assert.equal(replies[0]?.type, "ready");
 });
