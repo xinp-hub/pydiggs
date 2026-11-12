@@ -53,6 +53,22 @@ updates:
       js-build-tools:
         patterns: ["*"]
 
+  # The browser test of the npm package (js/e2e): Vite and Playwright. They decide which
+  # browsers the package is tested in, so they wait out the same cooldown.
+  - package-ecosystem: npm
+    directory: /js/e2e
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: "test"
+    groups:
+      js-browser-tests:
+        patterns: ["*"]
+
   # The container image's two bases (Dockerfile), pinned by digest: the uv builder and
   # the python:3.14-slim-trixie runtime. They must move to the same Python patch release,
   # so they share one group and one PR.

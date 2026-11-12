@@ -1,0 +1,5 @@
+node_modules/
+dist/
+public/wheels/
+test-results/
+playwright-report/

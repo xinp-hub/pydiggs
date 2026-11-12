@@ -195,6 +195,15 @@ export function createPydiggsHandler(
     return { data, name: baseName(name), select };
   }
 
+  // A document that ran too long is 504 `timeout`, as in pydiggs; a worker that died on
+  // it is 500. Otherwise the engine refused the document itself.
+  function failure(error: unknown, documentProblem: "input-unreadable" | "invalid-document"): Response {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === "timeout") return problem("timeout");
+    if (code === "crashed") return problem("internal");
+    return engine.status === "failed" ? problem("not-ready") : problem(documentProblem);
+  }
+
   function gate(request: Request): Response | null {
     if (rejectCrossSite && request.headers.get("Sec-Fetch-Site") === "cross-site") return problem("cross-site");
     if (!acceptsJson(request.headers.get("Accept"))) return problem("not-acceptable");
@@ -210,8 +219,8 @@ export function createPydiggsHandler(
     if (parsed instanceof Response) return parsed;
     try {
       return json(await engine.validate(parsed.data, { name: parsed.name, signal: request.signal }));
-    } catch {
-      return engine.status === "failed" ? problem("not-ready") : problem("input-unreadable");
+    } catch (error) {
+      return failure(error, "input-unreadable");
     }
   }
 
@@ -238,8 +247,8 @@ export function createPydiggsHandler(
     }
     try {
       return json(await engine.read(parsed.data, { name: parsed.name, results, signal: request.signal }));
-    } catch {
-      return engine.status === "failed" ? problem("not-ready") : problem("invalid-document");
+    } catch (error) {
+      return failure(error, "invalid-document");
     }
   }
 
