@@ -142,7 +142,9 @@ def dumps(file: File) -> bytes:
     The output is the same for the same file every time: every field in double
     quotes, a quote inside a value doubled, each group as its GROUP, HEADING, UNIT and
     TYPE rows and then its DATA rows, groups in the order given with one blank line
-    between them, and CR LF after every row. Values are written exactly as held; in
+    between them, and CR LF after every row. A group with headings whose ``units`` or
+    ``types`` is empty is written without that row, as it was read: the writer adds no
+    row the file lacked. Values are written exactly as held; in
     particular a value a spreadsheet would read as a formula (one starting with ``=``,
     ``+``, ``-`` or ``@``) is not changed. The bytes are UTF-8, which is plain ASCII
     for a file that follows AGS4 Rule 1.
@@ -159,8 +161,9 @@ def dumps(file: File) -> bytes:
     Raises:
         ValueError: The file cannot be written: it has no group, or a group has an
             empty name, UNIT, TYPE or DATA rows that are not as long as its HEADING
-            row, or a value that holds a line break, a NUL character or a character
-            UTF-8 cannot encode. A file over the work limits of :func:`read` is refused
+            row (an empty ``units`` or ``types`` is no row, and is allowed), or a value
+            that holds a line break, a NUL character or a character UTF-8 cannot
+            encode. A file over the work limits of :func:`read` is refused
             too, as it would not read back whole: more than 10,000 groups, 2,000
             headings in a group, 5,000,000 DATA rows, or 1,000,000 characters in a value.
         TypeError: ``file`` is not a :class:`File`.

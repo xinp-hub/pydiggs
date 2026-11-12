@@ -89,7 +89,8 @@ def _check(file: ags4.File, data: bytes) -> None:
         assert name == group.name
         assert name != ""
         width = len(group.headings)
-        assert len(group.units) == len(group.types) == width
+        assert len(group.units) in {0, width}  # empty: the file has no UNIT row
+        assert len(group.types) in {0, width}
         assert all(len(row) == width for row in group.rows)
         assert group.line is not None
         assert group.line >= 1

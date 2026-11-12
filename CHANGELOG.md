@@ -29,9 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Reading is lenient, like `pydiggs.read`: a file that breaks the AGS4 rules still reads
   and each workaround is a note (`ags4.rule-4` for a short row, `ags4.rule-5` for an
-  unquoted field, and so on); `DocumentError` (`kind` `not-ags4` or
-  `unsupported-version`) is raised only when no table can be built. Text is read as
-  UTF-8, and as Windows-1252 with an `ags4.encoding-assumed` warning when it is not.
+  unquoted field, and so on; a missing UNIT or TYPE row is an empty `units` or `types`
+  and an `ags4.rule-2b` note, never a row invented, and `dumps` writes no row for it);
+  `DocumentError` (`kind` `not-ags4` or `unsupported-version`) is raised only when no
+  table can be built. Text is read as UTF-8, and as Windows-1252 with an
+  `ags4.encoding-assumed` warning when it is not.
   Every file is treated as untrusted: size, groups, headings, rows, cells, value length
   and time (`max_bytes`, `time_budget`) are limited, a limit gives a partial file with
   `complete=False`, nothing a file names is opened, and there is no network access.

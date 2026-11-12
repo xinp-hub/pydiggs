@@ -1,0 +1,117 @@
+# External AGS4 files in the pyDIGGS conformance corpus (the "ags4" set).
+#
+# Same manifest pattern as corpus.toml: each file is pinned by commit, sha256 (after
+# CRLF -> LF normalisation) and size, and fetched on demand by
+# `python scripts/conformance.py fetch --set ags4` into .cache/conformance/ags4/.
+# External files are never committed and never packaged. The synthetic fixtures in
+# tests/fixtures/ags4/ are part of the set too.
+#
+# What python-ags4 makes of every file is recorded in conformance/ags4-expected.toml by
+# scripts/ags4_oracle.py (see conformance/README.md, "The AGS4 set").
+#
+# Licence rule (brief 20261111-pydiggs-conversion-core, Q1 and Q16): only files whose
+# licence permits redistribution and use in CI, checked at the pinned commit. No AGS data
+# dictionary and no AGS-published example file until AGS agrees in writing. Excluded
+# candidates and the reasons are listed in conformance/README.md.
+
+[sources.bgs]
+repo = "https://github.com/BritishGeologicalSurvey/pyagsapi"
+commit = "b223b48803d8feb07897ae468b455842cbf1790d"
+license = "OGL-UK-3.0"
+license_url = "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"
+# README.md at the pinned commit, section "Example Files" (the repository's code is
+# LGPL-3.0; the files under test/files/real are covered by this statement):
+license_text = "Files in https://github.com/BritishGeologicalSurvey/pyagsapi/tree/main/test/files/real are a collection of real AGS files which have been submitted to the BGS and are available under OGL, we have included them here as example files for testing pyagsapi."
+license_source = "https://github.com/BritishGeologicalSurvey/pyagsapi/blob/b223b48803d8feb07897ae468b455842cbf1790d/README.md#example-files"
+attribution = "Contains public sector information licensed under the Open Government Licence v3.0. Contains British Geological Survey materials © UKRI."
+note = "Real AGS4 submissions to the British Geological Survey (test/files/real). Fetch only: OGL v3.0 does not cover personal data, and these files may name people, so none is vendored and the oracle records digests, not cell values, for them."
+
+[files."bgs/161-41.ags"]
+path = "test/files/real/161-41.ags"
+sha256 = "2ad98c32d8b80bdd4d56bda42ce6cc35a4890636f380c0f20b1b626c3a138e10"
+size = 2583
+note = "Smallest complete file: 8 groups, TRAN_AGS 4.0"
+
+[files."bgs/ashfield-area-c.ags"]
+path = "test/files/real/Ashfield Area C Development.ags"
+sha256 = "8973aba8f4f658bae576cf97fcb77d0940bc6436637b091efecd201ccedfe77e"
+size = 2117
+note = "PROJ before TRAN; GUID project id; undoubled quotes inside a value (Rule 5)"
+
+[files."bgs/43370.ags"]
+path = "test/files/real/43370.ags"
+sha256 = "3cd67b11923a71229d90ed182b87138e7d78f0cf3e1a7301469802e71988583f"
+size = 6473
+note = "Borehole log with ISPT and water strikes"
+
+[files."bgs/southwark-street-52-54.ags"]
+path = "test/files/real/52-54 Southwark Street London.ags"
+sha256 = "c7ffc92ee808afeea40a4ba143eacb68e45f50f9513b3b8c810f4a390e32249d"
+size = 10407
+note = "Older investigation (contractor Norwest Holst); DICT group"
+
+[files."bgs/20-0139.ags"]
+path = "test/files/real/20-0139 - 2020-04-03 1014 - Final - 1.ags"
+sha256 = "f51f68c95b88674215f141bcbfc657fd54f36d08155beab64b1a69f0fe07bbe9"
+size = 8658
+note = "UTF-8 with a byte order mark; sediment sampling (PTIM)"
+
+[files."bgs/cuthbertson-logs.ags"]
+path = "test/files/real/1-CO106833.013_Cuthbertson Logs.ags"
+sha256 = "4f225d67c92038e9ae25243738d78374db37e31fc3290d691e7b165d4290b457"
+size = 58338
+note = "Cores, fractures and monitoring installations (CORE, FRAC, MONG, PIPE)"
+
+[files."bgs/a112794-16-glenelly-road.ags"]
+path = "test/files/real/A112794-16 Glenally_Road_Factual_FINAL.ags"
+sha256 = "d994ea117aefae9a097d9bd4433f30045aec19172c8dc43080045fe646025895"
+size = 16701
+note = "Tier B groups HORN, HDIA, CDIA, BKFL, WSTG; chemistry (ERES, GCHM)"
+
+[files."bgs/20-0071.ags"]
+path = "test/files/real/20-0071 - 2020-04-30 1103 - Final - 1.ags"
+sha256 = "f513b2de14999ab4098a403f006afdcb1547fdf81368664ea2d43703a994de1a"
+size = 32331
+note = "UTF-8 with a byte order mark; Tier A laboratory groups (GRAG/GRAT, LLPL, LNMC)"
+
+[files."bgs/303t-stepps.ags"]
+path = "test/files/real/303T - 2017-01-05 1418 -Complete - 2.ags"
+sha256 = "9895ac0a3b013cbe5990c4637628efaff753ea24594b6d38ca49a4625ce4c131"
+size = 77854
+note = "34 groups including CBRG/CBRT, DREM, IVAN and a vendor group (DLOG)"
+
+[files."bgs/east-india-dock.ags"]
+path = "test/files/real/Combined Court Centre East India Dock.ags"
+sha256 = "9a5d24c6d6857b3af3a0e93284e41a32403c166519f45d7af2171a92b361ae25"
+size = 128436
+note = "Older investigation; SAMP, CHIS and water strikes"
+
+[files."bgs/20-0183.ags"]
+path = "test/files/real/20-0183 - 2020-08-07 1044 - Final - 1.ags"
+sha256 = "2c134ed0576f79d7185dc85a363a16619880bfbf4d40610ad8e76c132881c621"
+size = 230132
+note = "UTF-8 with a byte order mark; triaxial, rock and monitoring groups"
+
+[files."bgs/541241b-v2.ags"]
+path = "test/files/real/541241b_v2.ags"
+sha256 = "10f14a449760e5b6bc39a6437f46cb045f24343b93e15a4f78f2d182c808432c"
+size = 716785
+note = "TRAN_AGS written as \"4\"; groups in non-standard order (lookups last); STND"
+
+[files."bgs/bingley-street.ags"]
+path = "test/files/real/Bingley Street AGS.ags"
+sha256 = "2122f623e93776aa5d11e9bbe61fc35d6c89b2beb55cd0c555b79f7102f44ff2"
+size = 826904
+note = "33 groups, monitoring readings (MOND)"
+
+[files."bgs/19-0217-portadown.ags"]
+path = "test/files/real/19-0217_PortadownFAS1_AGS_20200717.ags"
+sha256 = "45245977645b98d89ee2e18f404273a98a8f85749b0bf26ea10564e8645d720e"
+size = 854036
+note = "UTF-8 with a byte order mark; 44 groups including LDEN, CONG/CONS, TREG/TRET"
+
+[files."bgs/d7053-17-london-power-tunnels.ags"]
+path = "test/files/real/D7053-17 LPT Phase 2 Final Report_v2.AGS"
+sha256 = "b91de56bcff81ecc35a8332d084ef1b53e5352bd7d2140597e7aeca36b8449e2"
+size = 1159935
+note = "Largest file in the set; upper-case .AGS extension"

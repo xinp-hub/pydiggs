@@ -1,7 +1,8 @@
 """pydiggs.ags4: the deterministic writer and the AGS4 round trip (property 2).
 
 ``dumps(read(b)) == b`` for every conforming file, and ``read(dumps(f)) == f`` for
-every :class:`~pydiggs.ags4.File` that can be written.
+every :class:`~pydiggs.ags4.File` that can be written. A UNIT or TYPE row a file lacks
+is an empty tuple, and the writer writes no row for it.
 """
 
 from __future__ import annotations
@@ -105,9 +106,47 @@ def test_a_file_that_broke_rules_is_written_conforming(path):
     data = ags4.dumps(f)
     again = ags4.read_bytes(data)
     assert again == f
-    # Only what the tables themselves say is left: an unknown version, absent header rows.
-    assert {n.rule_id for n in again.notes} <= {"ags4.version-unknown"}
+    # Only what the tables themselves say is left: an unknown version, and a UNIT or
+    # TYPE row the file lacked, which the writer does not invent.
+    missing = [
+        (group.name, row)
+        for group in f.groups.values()
+        for row, values in (("UNIT", group.units), ("TYPE", group.types))
+        if group.headings and not values
+    ]
+    assert [n.message for n in again.notes if n.rule_id == "ags4.rule-2b"] == [
+        f"Group {name} has no {row} row." for name, row in missing
+    ]
+    assert {n.rule_id for n in again.notes} <= {"ags4.version-unknown", "ags4.rule-2b"}
     assert ags4.dumps(again) == data
+
+
+@pytest.mark.parametrize("row", ["UNIT", "TYPE", "both"])
+def test_a_missing_unit_or_type_row_stays_missing(row):
+    lines = [
+        b'"GROUP","LOCA"',
+        b'"HEADING","LOCA_ID","LOCA_GL"',
+        b'"UNIT","","m"',
+        b'"TYPE","ID","2DP"',
+        b'"DATA","BH01","12.50"',
+    ]
+    gone = {"UNIT": [2], "TYPE": [3], "both": [2, 3]}[row]
+    data = b"".join(line + b"\r\n" for i, line in enumerate(lines) if i not in gone)
+    f = ags4.read_bytes(data)
+    loca = f.groups["LOCA"]
+    assert loca.units == (() if row in {"UNIT", "both"} else ("", "m"))
+    assert loca.types == (() if row in {"TYPE", "both"} else ("ID", "2DP"))
+    assert {n.rule_id for n in f.notes} == {"ags4.rule-2b"}
+    assert ags4.dumps(f) == data  # no row is invented
+    assert ags4.read_bytes(ags4.dumps(f)) == f
+    assert f != ags4.read_bytes(b"".join(line + b"\r\n" for line in lines))
+
+
+def test_an_empty_unit_or_type_is_no_row_but_a_short_one_is_refused():
+    assert b'"UNIT"' not in ags4.dumps(ags4.File(groups=[_group(units=())]))
+    assert b'"TYPE"' not in ags4.dumps(ags4.File(groups=[_group(types=())]))
+    with pytest.raises(ValueError, match="or empty for no row"):
+        ags4.dumps(ags4.File(groups=[_group(types=("ID",))]))
 
 
 # --- the layout -------------------------------------------------------------------------
@@ -174,7 +213,7 @@ def test_non_ascii_text_is_written_as_utf8():
     [
         (_group(name=""), "empty name"),
         (_group(units=("",)), "UNIT and TYPE rows"),
-        (_group(types=()), "UNIT and TYPE rows"),
+        (_group(types=("ID",)), "UNIT and TYPE rows"),
         (_group(rows=(("P1",),)), "DATA row 1 has 1 values for 2 headings"),
         (_group(rows=(("P1", "a"), ("P2", "b", "c"))), "DATA row 2 has 3 values for 2 headings"),
         (_group(rows=(("P1", "two\nlines"),)), "a DATA row holds a line break"),
@@ -264,7 +303,7 @@ def test_groups_and_rows_over_the_readers_limits_are_refused(monkeypatch):
 
 def test_error_messages_do_not_echo_a_name_that_is_not_plain():
     with pytest.raises(ValueError, match="cannot be written") as caught:
-        ags4.dumps(ags4.File(groups=[_group(name="\x1b[31m" + "x" * 80, units=())]))
+        ags4.dumps(ags4.File(groups=[_group(name="\x1b[31m" + "x" * 80, units=("",))]))
     assert "\x1b" not in str(caught.value)
     assert "x" * 40 not in str(caught.value)
 

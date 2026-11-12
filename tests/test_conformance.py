@@ -173,7 +173,10 @@ def test_load_external_builds_pinned_url(conf, tmp_path):
     ("old", "new"),
     [
         (COMMIT, "main"),
-        ("https://github.com/example/demo", "https://gitlab.com/example/demo"),
+        ("https://github.com/example/demo", "https://bitbucket.org/example/demo"),
+        ("https://github.com/example/demo", "https://gitlab.com/example/../demo"),
+        ("https://github.com/example/demo", "https://gitlab.com/example/-/demo"),
+        ("https://github.com/example/demo", "https://gitlab.com/demo"),
         ('path = "dir/a b.xml"', 'path = "../a.xml"'),
         ('[files."demo/a.xml"]', '[files."other/a.xml"]'),
         ("size = 5", "size = 999999999"),
@@ -183,7 +186,10 @@ def test_load_external_builds_pinned_url(conf, tmp_path):
     ],
     ids=[
         "branch-not-commit",
-        "not-github",
+        "not-github-or-gitlab",
+        "gitlab-dotdot",
+        "gitlab-dash-segment",
+        "gitlab-no-namespace",
         "dotdot",
         "unknown-source",
         "too-big",
@@ -196,6 +202,15 @@ def test_load_external_rejects_bad_manifests(conf, tmp_path, old, new):
     assert old in GOOD
     with pytest.raises(conf.ManifestError):
         conf.load_external(_manifest(tmp_path, GOOD.replace(old, new)), tmp_path)
+
+
+def test_load_external_builds_pinned_gitlab_url(conf, tmp_path):
+    body = GOOD.replace(
+        "https://github.com/example/demo", "https://gitlab.com/group/sub-group/demo"
+    )
+    (entry,) = conf.load_external(_manifest(tmp_path, body), tmp_path / "cache")
+    assert entry.url == f"https://gitlab.com/group/sub-group/demo/-/raw/{COMMIT}/dir/a%20b.xml"
+    conf._check_url(entry.url)  # an allowed host
 
 
 def test_digest_ignores_crlf(conf):
@@ -241,7 +256,13 @@ def test_fetch_refuses_digest_mismatch(conf, tmp_path):
 
 @pytest.mark.parametrize(
     "url",
-    ["http://raw.githubusercontent.com/a", "https://example.com/a", "file:///etc/passwd"],
+    [
+        "http://raw.githubusercontent.com/a",
+        "http://gitlab.com/a",
+        "https://example.com/a",
+        "https://gitlab.com.example.org/a",
+        "file:///etc/passwd",
+    ],
 )
 def test_fetch_refuses_disallowed_urls(conf, tmp_path, url):
     opener = _opener(b"<a/>\n")
@@ -508,3 +529,168 @@ def test_main_model_flag_uses_model_toml(conf, tmp_path, monkeypatch, capsys):
     assert "model.toml" in capsys.readouterr().out
     assert conf.main(["check", "--model"]) == 0
     assert "0 difference(s)" in capsys.readouterr().out
+
+
+# --- the AGS4 set (--set ags4) ----------------------------------------------------------
+
+AGS4_BODY = b'"GROUP","PROJ"\r\n"HEADING","PROJ_ID"\r\n"UNIT",""\r\n"TYPE","ID"\r\n"DATA","P1"\r\n'
+
+
+def test_committed_ags4_manifest_is_valid(conf):
+    external = conf.load_external(conf.AGS4_CORPUS, conf.AGS4_CACHE)
+    assert external, "ags4-corpus.toml lists no external files"
+    keys = [e.key for e in external]
+    assert len(keys) == len(set(keys))
+    data = tomllib.loads(conf.AGS4_CORPUS.read_text(encoding="utf-8"))
+    for name, source in data["sources"].items():
+        # Q1: every source records its licence, where it was read, and the attribution.
+        for field in ("license", "license_url", "license_text", "license_source", "attribution"):
+            assert source.get(field), f"{name}: {field}"
+        assert source["commit"] in source["license_source"], "licence read at the pinned commit"
+    for entry in external:
+        assert entry.path.is_relative_to(conf.AGS4_CACHE)
+        assert entry.url.startswith("https://raw.githubusercontent.com/")
+        # Q1: no AGS data dictionary and no AGS example file until AGS agrees in writing.
+        lowered = entry.url.lower()
+        assert "dictionary" not in lowered
+        assert "example" not in lowered
+        assert "ags.org.uk" not in lowered
+
+
+def test_ags4_sets_do_not_overlap_the_diggs_corpus(conf):
+    diggs = {e.key for e in conf.load_external()}
+    ags4 = {e.key for e in conf.load_external(conf.AGS4_CORPUS, conf.AGS4_CACHE)}
+    assert not diggs & ags4
+    assert conf.AGS4_CACHE != conf.CACHE  # an AGS4 source name cannot shadow a DIGGS file
+
+
+def test_committed_ags4_oracle_covers_exactly_the_set(conf):
+    """ags4-expected.toml has one record per AGS4 file, at the bytes in the repository.
+
+    External files are compared only if fetched; the oracle is re-recorded when the set
+    or a fixture changes (python scripts/ags4_oracle.py, see conformance/README.md).
+    """
+    entries = [
+        *conf.load_external(conf.AGS4_CORPUS, conf.AGS4_CACHE),
+        *conf.ags4_fixtures(conf.AGS4_FIXTURES),
+    ]
+    problems = conf.check_ags4(entries, conf.AGS4_EXPECTED, allow_missing=True)
+    assert problems == [], "\n".join(problems)
+
+
+def test_ags4_fixtures_are_keyed_by_name(conf, tmp_path):
+    (tmp_path / "b.ags").write_bytes(AGS4_BODY)
+    (tmp_path / "a.ags").write_bytes(AGS4_BODY)
+    (tmp_path / "notes.txt").write_text("not a fixture", encoding="utf-8")
+    entries = conf.ags4_fixtures(tmp_path)
+    assert [e.key for e in entries] == ["fixtures/a.ags", "fixtures/b.ags"]
+    assert all(e.url is None and conf.is_present(e) for e in entries)
+    assert conf.ags4_fixtures(tmp_path / "absent") == []
+
+
+def _ags4_record(conf, entry, **changes) -> str:
+    fields = {
+        "key": entry.key,
+        "path": conf._rel(entry.path),
+        "sha256": conf.raw_sha256(entry.path),
+    } | changes
+    return "[[file]]\n" + "".join(f'{k} = "{v}"\n' for k, v in fields.items())
+
+
+def test_check_ags4_round_trip_and_differences(conf, tmp_path):
+    (tmp_path / "a.ags").write_bytes(AGS4_BODY)
+    (tmp_path / "b.ags").write_bytes(AGS4_BODY.replace(b"P1", b"P2"))
+    a, b = conf.ags4_fixtures(tmp_path)
+    expected = tmp_path / "ags4-expected.toml"
+    expected.write_text(_ags4_record(conf, a) + _ags4_record(conf, b), encoding="utf-8")
+    assert conf.check_ags4([a, b], expected) == []
+
+    # A CRLF -> LF change keeps the manifest digest but changes what the oracle read.
+    b.path.write_bytes(AGS4_BODY.replace(b"P1", b"P2").replace(b"\r\n", b"\n"))
+    stale = _ags4_record(conf, a, key="fixtures/gone.ags")
+    expected.write_text(_ags4_record(conf, b) + stale, encoding="utf-8")
+    problems = conf.check_ags4([a, b], expected)
+    assert problems[0] == "fixtures/gone.ags: in ags4-expected.toml but not in the AGS4 set"
+    assert problems[1].startswith("fixtures/a.ags: no oracle record (run: uv run --isolated")
+    assert len(problems) == 2  # b's record was written from its current bytes
+
+    expected.write_text(_ags4_record(conf, a, sha256="0" * 64), encoding="utf-8")
+    (problem,) = conf.check_ags4([a], expected)
+    assert problem.startswith("fixtures/a.ags: changed since the oracle was recorded")
+
+    expected.write_text(_ags4_record(conf, a, path="elsewhere/a.ags"), encoding="utf-8")
+    (problem,) = conf.check_ags4([a], expected)
+    assert "path expected" in problem
+
+
+@pytest.mark.parametrize("body", ['file = "x"\n', "[[file]]\npath = 'a'\n", "[file]\nkey = 'a'\n"])
+def test_check_ags4_rejects_a_malformed_record(conf, tmp_path, body):
+    expected = tmp_path / "ags4-expected.toml"
+    expected.write_text(body, encoding="utf-8")
+    with pytest.raises(conf.ManifestError, match=r"\[\[file\]\]"):
+        conf.check_ags4([], expected)
+
+
+def test_check_ags4_missing_external_file(conf, tmp_path):
+    entry = _entry(conf, tmp_path, key="bgs/a.ags")
+    expected = tmp_path / "ags4-expected.toml"
+    expected.write_text("", encoding="utf-8")
+    with pytest.raises(conf.CorpusError, match="missing"):
+        conf.check_ags4([entry], expected)
+    assert conf.check_ags4([entry], expected, allow_missing=True) == []
+
+
+def _ags4_paths(conf, tmp_path, monkeypatch, corpus_body: str = ""):
+    monkeypatch.setattr(conf, "AGS4_CORPUS", _manifest(tmp_path, corpus_body))
+    monkeypatch.setattr(conf, "AGS4_CACHE", tmp_path / "cache")
+    monkeypatch.setattr(conf, "AGS4_FIXTURES", tmp_path / "fixtures")
+    monkeypatch.setattr(conf, "AGS4_EXPECTED", tmp_path / "ags4-expected.toml")
+    # The DIGGS set must not be read at all for --set ags4.
+    monkeypatch.setattr(conf, "CORPUS", tmp_path / "missing-corpus.toml")
+
+
+def test_main_set_ags4(conf, tmp_path, monkeypatch, capsys):
+    _ags4_paths(conf, tmp_path, monkeypatch)
+    assert conf.main(["fetch", "--set", "ags4"]) == 0
+    assert "0 external AGS4 file(s) present" in capsys.readouterr().out
+
+    assert conf.main(["record", "--set", "ags4"]) == 2
+    assert "scripts/ags4_oracle.py record" in capsys.readouterr().err
+
+    (tmp_path / "fixtures").mkdir()
+    (tmp_path / "fixtures" / "a.ags").write_bytes(AGS4_BODY)
+    conf.AGS4_EXPECTED.write_text("", encoding="utf-8")
+    assert conf.main(["check", "--set", "ags4"]) == 1
+    assert "fixtures/a.ags: no oracle record" in capsys.readouterr().out
+    (entry,) = conf.ags4_fixtures(tmp_path / "fixtures")
+    conf.AGS4_EXPECTED.write_text(_ags4_record(conf, entry), encoding="utf-8")
+    assert conf.main(["check", "--set", "ags4"]) == 0
+    assert "1 AGS4 file(s), 0 difference(s)" in capsys.readouterr().out
+
+
+def test_main_set_ags4_fetches_its_own_manifest(conf, tmp_path, monkeypatch, capsys):
+    body = GOOD.replace('"demo/a.xml"', '"demo/a.ags"')
+    _ags4_paths(conf, tmp_path, monkeypatch, body)
+    calls = []
+
+    def fake_fetch(entries, *args, **kwargs):
+        calls.extend(entries)
+        return [e.key for e in entries]
+
+    monkeypatch.setattr(conf, "fetch", fake_fetch)
+    assert conf.main(["fetch", "--set", "ags4"]) == 0
+    assert [e.path for e in calls] == [tmp_path / "cache" / "demo" / "a.ags"]
+    assert "fetched demo/a.ags" in capsys.readouterr().out
+
+
+def test_main_set_ags4_bad_manifest_exits_2(conf, tmp_path, monkeypatch, capsys):
+    _ags4_paths(conf, tmp_path, monkeypatch, GOOD.replace(COMMIT, "main"))
+    assert conf.main(["fetch", "--set", "ags4"]) == 2
+    assert "commit" in capsys.readouterr().err
+
+
+def test_main_model_is_not_for_the_ags4_set(conf, capsys):
+    with pytest.raises(SystemExit) as exc:
+        conf.main(["check", "--set", "ags4", "--model"])
+    assert exc.value.code == 2
+    assert "--model is for the DIGGS corpus" in capsys.readouterr().err

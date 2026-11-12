@@ -41,12 +41,18 @@ class Group:
 
     ``headings``, ``units`` and ``types`` are the HEADING, UNIT and TYPE rows; each of
     ``rows`` is one DATA row. Every value is the string as written (an empty string for
-    a null). ``line`` is the 1-based line of the GROUP row in the file the group was
+    a null). ``units`` or ``types`` is an empty tuple when the group has no such row:
+    :func:`pydiggs.ags4.read` keeps a missing row missing (and notes it under
+    ``ags4.rule-2b``) rather than inventing one, and :func:`pydiggs.ags4.dumps` writes
+    none for it. A row that is there but empty holds one ``""`` per heading.
+
+    ``line`` is the 1-based line of the GROUP row in the file the group was
     read from, None for a group built in code; it takes no part in equality.
 
     A group built in code may be ragged (a row shorter than ``headings``): it is
     :func:`pydiggs.ags4.write` that refuses it. A group that :func:`pydiggs.ags4.read`
-    returns is always rectangular.
+    returns is always rectangular: every row is as long as ``headings``, and ``units``
+    and ``types`` are too unless they are empty for a row the file lacks.
 
     Examples:
         >>> from pydiggs import ags4
