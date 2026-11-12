@@ -3,3 +3,4 @@ dist/
 public/wheels/
 test-results/
 playwright-report/
+public/pyodide/

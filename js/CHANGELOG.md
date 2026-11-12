@@ -8,6 +8,20 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Added
+
+- `PydiggsPool`: several engines (`PydiggsBrowser` or `PydiggsNode`) behind one
+  `validate` and `read`, each document going to the least busy engine; usable as
+  `PydiggsHybrid`'s `browser` and with `createPydiggsHandler`.
+- `pydiggs-client vendor <dir>`: assembles Pyodide, its packages and the pydiggs wheel
+  into one folder, every file checked against Pyodide's lock file, PyPI and the worker's
+  integrity hash, for self-hosting in a browser (`pyodideBaseUrl`) or as a complete
+  `packageCacheDir` for Node and serverless functions (`--packages-only`). Also
+  `vendor()` from `@pydiggs/client/node`.
+- Tested: self-hosted with no CDN allowed by the CSP, in Chromium, Firefox and WebKit;
+  the Vue recipe; the Node engine under Bun and Deno. The README has recipes for Vue,
+  serverless functions and batches.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added

@@ -53,3 +53,21 @@ test("the packed package runs pyDIGGS in a Web Worker, as CPython does", async (
   // No CSP violation, no uncaught error, no dialog.
   expect(problems).toEqual([]);
 });
+
+test("the Vue recipe: a composable over one shared worker, as CPython does", async ({ page }) => {
+  const problems: string[] = [];
+  page.on("console", (entry) => {
+    if (entry.type() === "error") problems.push(entry.text());
+  });
+  page.on("pageerror", (error) => problems.push(error.message));
+  await page.goto("/vue.html");
+  await expect(page.locator("#status")).toHaveText("ready");
+  const name = FIXTURES[1]!;
+  await page.locator("#file").setInputFiles(fileURLToPath(new URL(name, fixtures)));
+  await expect(page.locator("#result-status")).toHaveText(`done:${name}`);
+  const findings = JSON.parse((await page.locator("#findings").textContent()) ?? "null");
+  if (goldens) expect(findings).toEqual(JSON.parse(goldens[name]!));
+  await expect(page.locator("#messages")).toContainText(MARKUP);
+  await expect(page.locator("#messages img")).toHaveCount(0);
+  expect(problems).toEqual([]);
+});

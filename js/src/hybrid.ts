@@ -6,7 +6,8 @@
 //
 // Pass no `server` and nothing ever leaves the tab. Every result says where it ran.
 
-import type { BrowserDocumentInput, PydiggsBrowser } from "./browser.ts";
+import type { BrowserDocumentInput } from "./browser.ts";
+import type { PoolEngine } from "./pool.ts";
 import { PydiggsError } from "./errors.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
@@ -40,8 +41,8 @@ export interface HybridResult<T> {
 }
 
 export interface PydiggsHybridOptions {
-  /** Runs pydiggs in the tab. Leave it out to use the server only. */
-  browser?: PydiggsBrowser;
+  /** Runs pydiggs in the tab: a `PydiggsBrowser`, or a `PydiggsPool` of them. Leave it out to use the server only. */
+  browser?: Pick<PoolEngine, "status" | "ready" | "validate" | "read">;
   /** Runs pydiggs on your server. Leave it out and no document is ever uploaded. */
   server?: PydiggsHttpClient;
   /**
@@ -104,7 +105,7 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): 
 }
 
 export class PydiggsHybrid {
-  readonly #browser: PydiggsBrowser | undefined;
+  readonly #browser: Pick<PoolEngine, "status" | "ready" | "validate" | "read"> | undefined;
   readonly #server: PydiggsHttpClient | undefined;
   readonly #maxBrowserBytes: number;
   readonly #whileLoading: "wait" | "server";
