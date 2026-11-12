@@ -190,7 +190,8 @@ def test_main_fails_and_names_the_unsigned_commit(dco: ModuleType, capsys) -> No
     assert "1" * 12 not in out
     assert f"{'2' * 12} by Bob Example <bob@example.org>: no Signed-off-by line" in out
     assert f"{'3' * 12} by Bob Example <bob@example.org>: the sign-off names someone else" in out
-    assert "https://developercertificate.org/" in out
+    lines = out.splitlines()
+    assert lines.count("(https://developercertificate.org/); see CONTRIBUTING.md.") == 1
     assert "git rebase --signoff" in out
 
 
