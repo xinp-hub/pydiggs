@@ -24,6 +24,19 @@ matching pyDIGGS version number.
   still waiting, and a worker that dies on a document is replaced the same way. `createPydiggsHandler` serves pyDIGGS's HTTP API (`/v1/validate`,
   `/v1/read`, `/v1/readyz`) from it as a standard Fetch handler, for Next.js route
   handlers, Hono, Bun, Deno and others.
+- `PydiggsBrowser`: a time limit, `timeoutMs` (default 120 s). A document that runs past
+  it, or kills the worker, fails alone (`code: "timeout"` or `"crashed"`) and a fresh
+  worker takes the documents still waiting, as in `PydiggsNode`. `PydiggsHybrid` sends
+  such a document to the server (`reason: "browser-timeout"` or `"browser-unavailable"`).
+  Documents now go to the worker one at a time; the worker already ran them one at a
+  time.
+- `PydiggsNode` tells Pyodide where it is installed, so it loads under
+  `node --enable-source-maps` and `next dev`, where Pyodide's own guess from a stack
+  trace pointed at its original sources.
+- Tested set-ups, with the packed package: Vite production builds in Chromium, Firefox
+  and WebKit; the Vite dev server; Next.js with Turbopack and with webpack, and `next
+  dev`, with `PydiggsNode` behind a route handler. The README has the configuration
+  each needs.
 - `PydiggsBrowser`: `onProgress` reports the load stages (`runtime`, `packages`,
   `pydiggs`, `warm-up`), and `status` says whether the worker is loading, ready or failed.
 

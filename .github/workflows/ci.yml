@@ -224,8 +224,10 @@ jobs:
         run: node tests/pyodide/worker-smoke.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json"
       # The npm package's Node side: PydiggsNode in a worker thread and the Fetch handler
       # serving pyDIGGS's HTTP API, against the same Pyodide, wheel and goldens.
+      # With source maps on, as `next dev` runs Node: Pyodide must not find its folder from
+      # a stack trace, which source maps rewrite.
       - name: Smoke the npm package's Node engine and HTTP handler in Pyodide
-        run: node tests/pyodide/node-smoke.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json"
+        run: node --enable-source-maps tests/pyodide/node-smoke.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json"
 
   # The container image (docs/container.md), built from this checkout's wheel and uv.lock
   # for amd64 and loaded locally; nothing is pushed. It is run with the documented

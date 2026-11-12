@@ -13,7 +13,7 @@ const goldens: Record<string, string> | undefined = goldensPath
   : undefined;
 const MARKUP = '<img src=x onerror="alert(document.domain)">';
 
-test("the packed package runs pyDIGGS in a Web Worker under a strict CSP, as CPython does", async ({ page }) => {
+test("the packed package runs pyDIGGS in a Web Worker, as CPython does", async ({ page }) => {
   const problems: string[] = [];
   page.on("console", (entry) => {
     if (entry.type() === "error") problems.push(entry.text());

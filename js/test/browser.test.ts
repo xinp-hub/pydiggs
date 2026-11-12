@@ -78,13 +78,26 @@ test("a view sends only its own bytes", async () => {
   assert.equal(new TextDecoder().decode(worker.requests[0].data), "<Diggs/>");
 });
 
+// Answers each request as it reaches the worker; documents go one at a time.
+async function answerAll(worker: FakeWorker, count: number): Promise<void> {
+  for (let i = 0; i < count; i++) {
+    await tick();
+    const request = worker.requests[i];
+    assert.ok(request, `request ${i + 1} reached the worker`);
+    worker.reply({ id: request.id, type: "result", document: { n: i } });
+  }
+}
+
 test("read passes results, true unless asked otherwise, and names a File by its name", async () => {
   const { worker, client } = start();
   const file = new File(["<Diggs/>"], "site.xml");
-  void client.read(file);
-  void client.read(file, { results: false, name: "other.xml" });
-  void client.read(new Blob(["<Diggs/>"]));
-  await tick();
+  const all = Promise.all([
+    client.read(file),
+    client.read(file, { results: false, name: "other.xml" }),
+    client.read(new Blob(["<Diggs/>"])),
+  ]);
+  await answerAll(worker, 3);
+  await all;
   const [first, second, third] = worker.requests;
   assert.deepEqual([first.type, first.name, first.results], ["read", "site.xml", true]);
   assert.deepEqual([second.name, second.results], ["other.xml", false]);
@@ -92,20 +105,90 @@ test("read passes results, true unless asked otherwise, and names a File by its 
   assert.notEqual(first.id, second.id);
 });
 
-test("replies settle the request they name", async () => {
+test("documents go one at a time, and each reply settles its own document", async () => {
   const { worker, client } = start();
   const first = client.validate(new ArrayBuffer(1));
   const second = client.validate(new ArrayBuffer(1));
   await tick();
-  const [a, b] = worker.requests;
-  worker.reply({ id: b.id, type: "error", message: "not a DIGGS document" });
-  worker.reply({ id: a.id, type: "result", document: { n: 1 } });
+  assert.equal(worker.requests.length, 1, "the second waits for the first");
+  assert.equal(client.pending, 2);
+  worker.reply({ id: worker.requests[0].id, type: "result", document: { n: 1 } });
+  assert.deepEqual(await first, { n: 1 });
+  await tick();
+  worker.reply({ id: worker.requests[1].id, type: "error", message: "not a DIGGS document" });
   await assert.rejects(second, (error: unknown) => {
     assert.ok(error instanceof PydiggsBrowserError);
     assert.equal(error.message, "not a DIGGS document");
+    assert.equal(error.code, undefined, "a refused document is not a timeout or a crash");
     return true;
   });
-  assert.deepEqual(await first, { n: 1 });
+  assert.equal(client.pending, 0);
+});
+
+// A worker factory that records every worker made, so a test can see a restart.
+function startRestartable(options: object = {}): { workers: FakeWorker[]; client: PydiggsBrowser } {
+  const workers: FakeWorker[] = [];
+  const client = new PydiggsBrowser({
+    createWorker: () => {
+      const worker = new FakeWorker();
+      workers.push(worker);
+      return worker;
+    },
+    ...options,
+  });
+  return { workers, client };
+}
+
+test("a document past timeoutMs fails with code timeout; a fresh worker takes the next", async () => {
+  const { workers, client } = startRestartable({ timeoutMs: 100 });
+  workers[0]!.reply({ type: "ready", versions: VERSIONS });
+  await client.ready;
+  const slow = client.validate(new ArrayBuffer(1));
+  const next = client.validate(new ArrayBuffer(2));
+  await assert.rejects(slow, (error: unknown) => {
+    assert.ok(error instanceof PydiggsBrowserError);
+    assert.equal(error.code, "timeout");
+    return true;
+  });
+  assert.equal(workers.length, 2, "the stuck worker was replaced");
+  assert.equal(workers[0]!.terminated, true);
+  assert.equal(workers[1]!.posted[0]?.message.type, "init", "the new worker is configured like the first");
+  assert.equal(client.status, "loading");
+  workers[1]!.reply({ type: "ready", versions: VERSIONS });
+  await tick();
+  const request = workers[1]!.requests[0];
+  assert.equal(request.data.byteLength, 2, "the waiting document went to the new worker");
+  workers[1]!.reply({ id: request.id, type: "result", document: { ok: true } });
+  assert.deepEqual(await next, { ok: true });
+});
+
+test("loading does not count against timeoutMs", async () => {
+  const { workers, client } = startRestartable({ timeoutMs: 50 });
+  const document = client.validate(new ArrayBuffer(1));
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  workers[0]!.reply({ type: "ready", versions: VERSIONS });
+  await tick();
+  const request = workers[0]!.requests[0];
+  workers[0]!.reply({ id: request.id, type: "result", document: { fine: true } });
+  assert.deepEqual(await document, { fine: true });
+  assert.equal(workers.length, 1);
+});
+
+test("a worker that dies on a document fails it with code crashed, and is replaced", async () => {
+  const { workers, client } = startRestartable();
+  workers[0]!.reply({ type: "ready", versions: VERSIONS });
+  await client.ready;
+  const document = client.validate(new ArrayBuffer(1));
+  await tick();
+  workers[0]!.onerror?.({ message: "out of memory" } as ErrorEvent);
+  await assert.rejects(document, (error: unknown) => {
+    assert.ok(error instanceof PydiggsBrowserError);
+    assert.equal(error.code, "crashed");
+    assert.match(error.message, /out of memory/);
+    return true;
+  });
+  assert.equal(workers.length, 2);
+  assert.notEqual(client.status, "failed");
 });
 
 test("a document over the limit is refused before it reaches the worker", async () => {

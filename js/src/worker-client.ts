@@ -36,9 +36,22 @@ export interface WorkerReadOptions extends WorkerRequestOptions {
   results?: boolean;
 }
 
-/** The worker failed to load, refused the document, or was terminated. */
+/** Why a request failed when the document itself was not the reason. */
+export type WorkerErrorCode = "timeout" | "crashed";
+
+/**
+ * The worker failed to load, refused the document, or was stopped. `code` is
+ * "timeout" when the document ran past the time limit, "crashed" when the worker died
+ * on it (out of memory, say); either way a fresh worker takes the next document.
+ */
 export class PydiggsWorkerError extends PydiggsError {
   override name: string = "PydiggsWorkerError";
+  readonly code: WorkerErrorCode | undefined;
+
+  constructor(message: string, code?: WorkerErrorCode) {
+    super(message);
+    this.code = code;
+  }
 }
 
 interface Pending {
@@ -213,5 +226,139 @@ export class WorkerClient {
     this.#pending.clear();
     for (const request of pending) request.reject(this.#failure);
     return this.#failure;
+  }
+}
+
+export interface SupervisedWorkerSetup {
+  /** Starts a fresh worker: on construction, and again after a timeout or a crash. */
+  start: () => WorkerClient;
+  /** Longest a document may run once the worker is loaded; `Infinity` for no limit. */
+  timeoutMs: number;
+  makeError: (message: string, code?: WorkerErrorCode) => PydiggsWorkerError;
+  /** Name used in the error a terminated instance gives, e.g. "PydiggsBrowser". */
+  label: string;
+}
+
+/**
+ * A worker with a supervisor around it, shared by PydiggsBrowser and PydiggsNode.
+ * Documents run one at a time, in arrival order (Pyodide is single-threaded anyway).
+ * Pyodide cannot be interrupted, so a document that runs past `timeoutMs` stops its
+ * worker: that document fails with code "timeout", and a fresh worker takes the
+ * documents still waiting. A worker that dies on a document is replaced the same way
+ * (code "crashed"). A worker that fails to load is not retried: that is a setup problem,
+ * reported by `ready` and by every request. Loading never counts against the limit.
+ */
+export class SupervisedWorker {
+  readonly #setup: SupervisedWorkerSetup;
+  readonly #loaded: WeakSet<WorkerClient> = new WeakSet();
+  #client: WorkerClient;
+  #queue: Promise<void> = Promise.resolve();
+  #pending: number = 0;
+  #closed: PydiggsWorkerError | undefined;
+
+  constructor(setup: SupervisedWorkerSetup) {
+    this.#setup = setup;
+    this.#client = this.#start();
+  }
+
+  /** Settles once the current worker has loaded Pyodide and pydiggs, or failed to. */
+  get ready(): Promise<RuntimeVersions> {
+    return this.#client.ready;
+  }
+
+  /** "loading" (also while a replacement worker starts), "ready", or "failed". */
+  get status(): WorkerStatus {
+    return this.#closed ? "failed" : this.#client.status;
+  }
+
+  /** Documents waiting or running. */
+  get pending(): number {
+    return this.#pending;
+  }
+
+  /**
+   * Validates a document. A malformed or invalid document is not an error: it comes
+   * back as findings, with the verdict in `files[0].verdict`.
+   */
+  validate(input: DocumentBytes, options: WorkerRequestOptions = {}): Promise<DiggsFindingsDocument> {
+    return this.#run(options.signal, (client) => client.validate(input, options));
+  }
+
+  /**
+   * Reads a document into a diggs-model document: boreholes, samples, tests and their
+   * result tables. Reading is not validating; call `validate` for a verdict.
+   */
+  read(input: DocumentBytes, options: WorkerReadOptions = {}): Promise<DiggsModelDocument> {
+    return this.#run(options.signal, (client) => client.read(input, options));
+  }
+
+  /** Stops the worker. Documents waiting or running are rejected; nothing runs after it. */
+  terminate(): void {
+    this.#closed ??= this.#setup.makeError(`${this.#setup.label} was terminated`);
+    this.#client.terminate();
+  }
+
+  #start(): WorkerClient {
+    const client = this.#setup.start();
+    client.ready.then(
+      () => this.#loaded.add(client),
+      () => {},
+    );
+    return client;
+  }
+
+  // Replaces a worker that timed out or died. One that never loaded stays failed.
+  #restart(client: WorkerClient): void {
+    if (this.#closed || client !== this.#client || !this.#loaded.has(client)) return;
+    client.terminate();
+    this.#client = this.#start();
+  }
+
+  #run<T>(signal: AbortSignal | undefined, work: (client: WorkerClient) => Promise<T>): Promise<T> {
+    this.#pending++;
+    const turn = this.#queue.then(() => this.#attempt(signal, work));
+    this.#queue = turn.then(
+      () => {},
+      () => {},
+    );
+    return turn.finally(() => {
+      this.#pending--;
+    });
+  }
+
+  async #attempt<T>(signal: AbortSignal | undefined, work: (client: WorkerClient) => Promise<T>): Promise<T> {
+    if (this.#closed) throw this.#closed;
+    signal?.throwIfAborted();
+    const client = this.#client;
+    const limit = this.#setup.timeoutMs;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const timedOut = new Promise<never>((_, reject) => {
+      if (!Number.isFinite(limit)) return;
+      const arm = (): void => {
+        if (settled) return;
+        timer = setTimeout(() => {
+          reject(this.#setup.makeError(`the document took longer than ${limit} ms`, "timeout"));
+          this.#restart(client);
+        }, limit);
+      };
+      // The clock starts when the worker is loaded: loading is not the document's time.
+      if (client.status === "ready") arm();
+      else client.ready.then(arm, () => {});
+    });
+    try {
+      return await Promise.race([work(client), timedOut]);
+    } catch (error) {
+      if (error instanceof PydiggsWorkerError && error.code === "timeout") throw error;
+      if (this.#closed) throw this.#closed;
+      if (client.status === "failed" && client === this.#client && this.#loaded.has(client)) {
+        this.#restart(client);
+        throw this.#setup.makeError(error instanceof Error ? error.message : String(error), "crashed");
+      }
+      throw error;
+    } finally {
+      settled = true;
+      clearTimeout(timer);
+    }
   }
 }

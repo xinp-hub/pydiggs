@@ -130,6 +130,21 @@ test("a worker that dies on the document is retried on the server", async () => 
   assert.deepEqual(server.calls, ["validate BH-01.xml"]);
 });
 
+test("a document past the browser's time limit is retried on the server", async () => {
+  const browser = new FakeBrowser();
+  const server = new FakeServer();
+  browser.fail = Object.assign(new Error("the document took longer than 120000 ms"), { code: "timeout" });
+  const result = await hybrid({ browser, server }).validate(doc(1));
+  assert.deepEqual([result.via, result.reason], ["server", "browser-timeout"]);
+  assert.deepEqual(server.calls, ["validate BH-01.xml"]);
+});
+
+test("a timed-out document without a server is an error, not an upload", async () => {
+  const browser = new FakeBrowser();
+  browser.fail = Object.assign(new Error("the document took longer than 120000 ms"), { code: "timeout" });
+  await assert.rejects(hybrid({ browser }).validate(doc(1)), /took longer/);
+});
+
 test("an error about the document is not retried on the server", async () => {
   const browser = new FakeBrowser();
   const server = new FakeServer();
