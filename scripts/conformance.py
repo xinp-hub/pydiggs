@@ -25,10 +25,18 @@ relation, result tables, rows and cells), counted from a whole-tree parse by
 :func:`census`. It is deliberately independent of any reader, so the pyDIGGS read API
 (diggs-model) and other readers can be checked against the same numbers.
 
+With ``--set ags4``, ``fetch`` and ``check`` work on the AGS4 set instead: the external
+files in ``conformance/ags4-corpus.toml`` (fetched into ``.cache/conformance/ags4/``) and
+the synthetic fixtures in ``tests/fixtures/ags4/``. Its expected outcomes,
+``conformance/ags4-expected.toml``, are recorded from the python-ags4 oracle by
+``scripts/ags4_oracle.py``, never by this script; ``check --set ags4`` confirms that the
+oracle file covers exactly the set, at the bytes on disk.
+
 Usage (from the repository root)::
 
-    # Download the external files (network: raw.githubusercontent.com only).
+    # Download the external files (network: raw.githubusercontent.com and gitlab.com).
     python scripts/conformance.py fetch
+    python scripts/conformance.py fetch --set ags4
 
     # Compare pyDIGGS's results with conformance/expected.toml (offline; CI runs this).
     python scripts/conformance.py check
@@ -39,6 +47,9 @@ Usage (from the repository root)::
     # The same for the reader census in conformance/model.toml.
     python scripts/conformance.py check --model
     python scripts/conformance.py record --model
+
+    # Is conformance/ags4-expected.toml current for every AGS4 corpus file and fixture?
+    python scripts/conformance.py check --set ags4
 
 Exit codes: 0 success, 1 a mismatch or a missing or corrupt file, 2 a bad manifest or
 usage error.
@@ -71,15 +82,22 @@ MODEL = ROOT / "conformance" / "model.toml"
 VENDORED = ROOT / "tests" / "fixtures" / "official"
 VENDORED_PROVENANCE = VENDORED / "PROVENANCE.toml"
 CACHE = ROOT / ".cache" / "conformance"
+AGS4_CORPUS = ROOT / "conformance" / "ags4-corpus.toml"
+AGS4_EXPECTED = ROOT / "conformance" / "ags4-expected.toml"
+AGS4_FIXTURES = ROOT / "tests" / "fixtures" / "ags4"
+AGS4_CACHE = CACHE / "ags4"
+AGS4_ORACLE = "uv run --isolated --with python-ags4==1.2.0 python scripts/ags4_oracle.py record"
 
-# External files are downloaded from this host only, over HTTPS, at a pinned commit.
-ALLOWED_HOSTS = frozenset({"raw.githubusercontent.com"})
+# External files are downloaded from these hosts only, over HTTPS, at a pinned commit.
+ALLOWED_HOSTS = frozenset({"raw.githubusercontent.com", "gitlab.com"})
 MAX_BYTES = 64 * 2**20
 TIMEOUT_S = 60.0
 
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 _GITHUB_REPO = re.compile(r"https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)")
+# A GitLab project may sit in nested groups: https://gitlab.com/<group>/<subgroup>/<name>.
+_GITLAB_REPO = re.compile(r"https://gitlab\.com/((?:[A-Za-z0-9_.-]+/){1,8}[A-Za-z0-9_.-]+)")
 # Every component of a corpus path must match this (no "..", no separators, no streams).
 _SAFE_COMPONENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._ +-]*")
 # A DIGGS profile name, as pydiggs spells them (2.5.a, 2.6, 3.0.0, 3.1-dev).
@@ -189,24 +207,39 @@ def load_vendored(provenance: Path = VENDORED_PROVENANCE) -> list[Entry]:
     return entries
 
 
+def _raw_prefix(repo: str, commit: str, where: str) -> str:
+    """Return the URL prefix of a repository's raw files at ``commit``.
+
+    Examples:
+        >>> _raw_prefix("https://github.com/o/r", "c0ffee", "x")
+        'https://raw.githubusercontent.com/o/r/c0ffee/'
+        >>> _raw_prefix("https://gitlab.com/g/sub/r", "c0ffee", "x")
+        'https://gitlab.com/g/sub/r/-/raw/c0ffee/'
+    """
+    if (match := _GITHUB_REPO.fullmatch(repo)) is not None:
+        return f"https://raw.githubusercontent.com/{match.group(1)}/{match.group(2)}/{commit}/"
+    match = _GITLAB_REPO.fullmatch(repo)
+    if match is not None and not {".", "..", "-"} & set(match.group(1).split("/")):
+        return f"https://gitlab.com/{match.group(1)}/-/raw/{commit}/"
+    msg = f"{where}: repo must be https://github.com/<owner>/<name> or https://gitlab.com/<path>"
+    raise ManifestError(msg)
+
+
 def load_external(corpus: Path = CORPUS, cache: Path = CACHE) -> list[Entry]:
     """Return the external files listed in ``corpus`` as corpus entries."""
     data = _load_toml(corpus)
-    sources: dict[str, tuple[str, str, str]] = {}
+    # Each source maps to the URL prefix of its files at the pinned commit.
+    sources: dict[str, str] = {}
     for name, meta in data.get("sources", {}).items():
         where = f"{corpus.name} [sources.{name}]"
         _safe_rel(name, where)
         repo = str(_require(meta, "repo", where))
         commit = str(_require(meta, "commit", where))
         _require(meta, "license", where)
-        match = _GITHUB_REPO.fullmatch(repo)
-        if match is None:
-            msg = f"{where}: repo must be https://github.com/<owner>/<name>"
-            raise ManifestError(msg)
         if not _HEX40.fullmatch(commit):
             msg = f"{where}: commit must be a full 40-character sha"
             raise ManifestError(msg)
-        sources[name] = (match.group(1), match.group(2), commit)
+        sources[name] = _raw_prefix(repo, commit, where)
 
     entries = []
     for key, meta in sorted(data.get("files", {}).items()):
@@ -225,11 +258,7 @@ def load_external(corpus: Path = CORPUS, cache: Path = CACHE) -> list[Entry]:
         if not isinstance(size, int) or not 0 < size <= MAX_BYTES:
             msg = f"{where}: size must be an integer between 1 and {MAX_BYTES}"
             raise ManifestError(msg)
-        owner, name, commit = sources[source]
-        url = (
-            f"https://raw.githubusercontent.com/{owner}/{name}/{commit}/"
-            f"{urllib.parse.quote(upstream)}"
-        )
+        url = sources[source] + urllib.parse.quote(upstream)
         version = meta.get("diggs_version")
         entries.append(
             Entry(
@@ -617,6 +646,99 @@ def check(
     return problems
 
 
+# --- the AGS4 set ----------------------------------------------------------------------
+
+
+def raw_sha256(path: Path) -> str:
+    """Return the sha256 of the bytes of ``path``, with no normalisation.
+
+    The oracle records this one: line endings matter to an AGS4 reader and to Rule 2a.
+    """
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def ags4_fixtures(fixtures: Path = AGS4_FIXTURES) -> list[Entry]:
+    """Return the synthetic AGS4 fixtures as corpus entries keyed ``fixtures/<name>``.
+
+    They are in the repository, so the digest (as :class:`Entry` defines it) is that of
+    the file on disk.
+    """
+    if not fixtures.is_dir():
+        return []
+    return [
+        Entry(f"fixtures/{path.name}", path, digest(path.read_bytes()))
+        for path in sorted(fixtures.glob("*.ags"))
+        if path.is_file()
+    ]
+
+
+def _rel(path: Path) -> str:
+    """``path`` relative to the repository root, with ``/`` separators, if under it."""
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def check_ags4(
+    entries: Sequence[Entry],
+    expected: Path = AGS4_EXPECTED,
+    *,
+    allow_missing: bool = False,
+) -> list[str]:
+    """Compare the AGS4 set with the oracle record; return one line per difference.
+
+    ``expected`` is ``conformance/ags4-expected.toml``, written by
+    ``scripts/ags4_oracle.py record``. Every entry needs a ``[[file]]`` with its key, its
+    path and the sha256 of the bytes it was recorded from; no record may name a file
+    that is not in the set. What pyDIGGS reads is compared with the record by the
+    pydiggs.ags4 tests, not here: this check needs neither python-ags4 nor pyDIGGS.
+    """
+    want = _load_toml(expected)
+    records = want.get("file", [])
+    if not isinstance(records, list) or not all(
+        isinstance(r, dict) and isinstance(r.get("key"), str) for r in records
+    ):
+        msg = f"{expected.name}: [[file]] must be an array of tables, each with a key"
+        raise ManifestError(msg)
+    by_key = {r["key"]: r for r in records}
+    ready = _require_present(entries, allow_missing=allow_missing)
+    hint = f"run: {AGS4_ORACLE}"
+    problems = [
+        f"{key}: in {expected.name} but not in the AGS4 set"
+        for key in sorted(set(by_key) - {e.key for e in entries})
+    ]
+    for entry in ready:
+        record = by_key.get(entry.key)
+        if record is None:
+            problems.append(f"{entry.key}: no oracle record ({hint})")
+        elif record.get("sha256") != raw_sha256(entry.path):
+            problems.append(f"{entry.key}: changed since the oracle was recorded ({hint})")
+        elif record.get("path") != _rel(entry.path):
+            problems.append(
+                f"{entry.key}: path expected {_rel(entry.path)!r}, got {record.get('path')!r}"
+            )
+    return problems
+
+
+def _main_ags4(command: str, *, allow_missing: bool) -> int:
+    external = load_external(AGS4_CORPUS, AGS4_CACHE)
+    if command == "fetch":
+        for key in fetch(external):
+            print(f"fetched {key}")
+        print(f"{len(external)} external AGS4 file(s) present")
+        return 0
+    if command == "record":
+        print(f"error: the AGS4 set is recorded from python-ags4: {AGS4_ORACLE}", file=sys.stderr)
+        return 2
+    entries = [*external, *ags4_fixtures(AGS4_FIXTURES)]
+    problems = check_ags4(entries, AGS4_EXPECTED, allow_missing=allow_missing)
+    for line in problems:
+        print(line)
+    print(f"{len(entries)} AGS4 file(s), {len(problems)} difference(s)")
+    return 1 if problems else 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Command-line entry point."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
@@ -629,8 +751,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="check/record the reader census in model.toml instead of expected.toml",
     )
+    parser.add_argument(
+        "--set",
+        choices=["diggs", "ags4"],
+        default="diggs",
+        help="the DIGGS corpus (corpus.toml, default) or the AGS4 set (ags4-corpus.toml)",
+    )
     args = parser.parse_args(argv)
+    if args.set == "ags4" and args.model:
+        parser.error("--model is for the DIGGS corpus, not --set ags4")
     try:
+        if args.set == "ags4":
+            return _main_ags4(args.command, allow_missing=args.allow_missing)
         external = load_external(CORPUS, CACHE)
         if args.command == "fetch":
             for key in fetch(external):

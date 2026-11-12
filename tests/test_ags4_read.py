@@ -5,8 +5,9 @@ Every file under ``tests/fixtures/ags4/`` was written for pyDIGGS with invented 
 from another project, and no AGS data dictionary is bundled.
 
 Parity is checked here against the stdlib ``csv`` module on those fixtures. The
-python-ags4 oracle file (``conformance/ags4-expected.toml``) comes with
-work package C0; when it exists, the test at the end of this file compares with it.
+python-ags4 oracle record (``conformance/ags4-expected.toml``, work package C0) is
+compared with at the end of this file: every fixture, and every external file of the
+AGS4 set that ``scripts/conformance.py fetch --set ags4`` has cached.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ import doctest
 import hashlib
 import inspect
 import io
+import json
+import os
 import pickle
 import subprocess
 import sys
@@ -343,8 +346,8 @@ def test_a_file_that_breaks_many_rules_still_reads_and_each_workaround_is_a_note
     loca = f.groups["LOCA"]
     assert (loca.headings, loca.units, loca.types, loca.rows) == (
         ("LOCA_ID",),
-        ("",),
-        ("",),
+        (),  # no UNIT row: kept missing, not invented
+        (),  # no TYPE row
         (("BH01",),),
     )
     assert f.groups["SAMP"] == ags4.Group(name="SAMP", headings=())
@@ -620,18 +623,83 @@ def test_every_reader_rule_id_is_in_the_catalogue_at_its_severity():
 # --- the recorded oracle (work package C0) ---------------------------------------------
 
 
-@pytest.mark.skipif(not EXPECTED.is_file(), reason="conformance/ags4-expected.toml is made in C0")
-def test_reader_parity_with_the_recorded_oracle():  # pragma: no cover - needs C0's file
-    expected = tomllib.loads(EXPECTED.read_text("utf-8"))
-    for entry in expected.get("file", []):
-        path = ROOT / entry["path"]
-        if not path.is_file():
-            continue
-        f = ags4.read(path)
-        assert list(f.groups) == [g["name"] for g in entry["group"]], entry["path"]
-        for table in entry["group"]:
-            group = f.groups[table["name"]]
-            assert list(group.headings) == table["headings"]
-            assert list(group.units) == table["units"]
-            assert list(group.types) == table["types"]
-            assert [list(row) for row in group.rows] == table["rows"]
+def _oracle_records() -> list[dict]:
+    """The ``[[file]]`` records of ``conformance/ags4-expected.toml``; none without it."""
+    if not EXPECTED.is_file():
+        return []
+    return tomllib.loads(EXPECTED.read_text("utf-8")).get("file", [])
+
+
+def _rows_sha256(rows: tuple[tuple[str, ...], ...]) -> str:
+    """The oracle's ``rows_sha256`` (scripts/ags4_oracle.py ``rows_digest``) of ``rows``."""
+    text = json.dumps([list(row) for row in rows], ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+@pytest.mark.parametrize("record", _oracle_records(), ids=lambda record: record["key"])
+def test_reader_parity_with_the_recorded_oracle(record):
+    """pyDIGGS reads every file of the AGS4 set as python-ags4 did when it was recorded.
+
+    Fixtures are always there. An external file is there only after
+    ``scripts/conformance.py fetch --set ags4`` (CI's conformance job runs it, and sets
+    ``PYDIGGS_AGS4_CORPUS=required`` so that a missing file fails there); elsewhere a
+    file not fetched is skipped.
+    """
+    path = ROOT / record["path"]
+    if not path.is_file():
+        if os.environ.get("PYDIGGS_AGS4_CORPUS") == "required":
+            pytest.fail(f"{record['key']} is not fetched: run conformance.py fetch --set ags4")
+        pytest.skip(f"{record['key']} is not fetched (conformance.py fetch --set ags4)")
+    data = path.read_bytes()
+    assert hashlib.sha256(data).hexdigest() == record["sha256"], "re-record the oracle"
+    if not record["readable"]:
+        # python-ags4 refused the file: pyDIGGS reads it leniently, saying what it
+        # worked around, or refuses it too.
+        try:
+            f = ags4.read_bytes(data)
+        except DocumentError:
+            return
+        assert f.notes
+        return
+    if not record["group"]:
+        # python-ags4 found no table (an AGS3 file): pyDIGGS has none to build either.
+        with pytest.raises(DocumentError):
+            ags4.read_bytes(data)
+        return
+    f = ags4.read_bytes(data)
+    assert list(f.groups) == [table["name"] for table in record["group"]]
+    for table in record["group"]:
+        group = f.groups[table["name"]]
+        where = table["name"]
+        assert list(group.headings) == table["headings"], where
+        assert list(group.units) == table["units"], where
+        assert list(group.types) == table["types"], where
+        if "rows" in table:
+            assert [list(row) for row in group.rows] == table["rows"], where
+        assert len(group.rows) == table["row_count"], where
+        assert _rows_sha256(group.rows) == table["rows_sha256"], where
+
+
+def test_the_oracle_record_covers_every_fixture():
+    if not EXPECTED.is_file():
+        pytest.skip("conformance/ags4-expected.toml is not in this tree")
+    recorded = {record["key"] for record in _oracle_records()}
+    assert {f"fixtures/{path.name}" for path in FIXTURES.glob("*.ags")} <= recorded
+
+
+def test_a_group_without_a_unit_row_has_empty_units_as_the_oracle_records():
+    f = ags4.read(FIXTURES / "rule_2b.ags")
+    loca = f.groups["LOCA"]
+    assert loca.units == ()  # no row: an empty tuple, not one invented of empty strings
+    assert loca.types == ("ID", "PA", "2DP", "2DP", "2DP", "2DP")
+    assert [(n.rule_id, n.line, n.path, n.message) for n in f.notes] == [
+        (
+            "ags4.rule-2b",
+            40,
+            "LOCA",
+            "The TYPE row of group LOCA is out of order (the order is GROUP, HEADING, UNIT,"
+            " TYPE, DATA); it was read all the same.",
+        ),
+        ("ags4.rule-2b", 38, "LOCA", "Group LOCA has no UNIT row."),
+    ]
+    assert ags4.dumps(f) == (FIXTURES / "rule_2b.ags").read_bytes()

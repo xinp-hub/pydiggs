@@ -334,7 +334,9 @@ jobs:
 
   # The conformance corpus (conformance/README.md): the vendored DIGGSml examples plus
   # external real-world files pinned by commit and sha256, each with an expected outcome.
-  # The test jobs check the vendored files; this job also fetches and checks the others.
+  # The test jobs check the vendored files; this job also fetches and checks the others,
+  # and the external AGS4 files, which it reads with pydiggs.ags4 against the python-ags4
+  # record (conformance/ags4-expected.toml).
   conformance:
     name: conformance corpus
     runs-on: ubuntu-latest
@@ -354,6 +356,15 @@ jobs:
         run: uv run --no-sync python scripts/conformance.py check
       - name: Compare every corpus file with the reader census in conformance/model.toml
         run: uv run --no-sync python scripts/conformance.py check --model
+      - name: Fetch the external AGS4 files (pinned commit, size and sha256 checked)
+        run: uv run --no-sync python scripts/conformance.py fetch --set ags4
+      - name: Compare every AGS4 file with the oracle record in conformance/ags4-expected.toml
+        run: uv run --no-sync python scripts/conformance.py check --set ags4
+      - run: uv sync
+      - name: Read every AGS4 file as the python-ags4 record says (a file not fetched fails)
+        env:
+          PYDIGGS_AGS4_CORPUS: required
+        run: uv run --no-sync pytest -q -p no:randomly --no-cov tests/test_ags4_read.py -k oracle
 
   # The AGS4 reader's fuzz target (tests/test_ags4_hostile.py): random bytes, mixes of
   # AGS4 pieces and mutations of the fixtures must each give a File or one of the two

@@ -502,11 +502,11 @@ class _Assembler:
             if values is None:
                 self.note(
                     RULE_2B,
-                    f"Group {name} has no {descriptor} row; it was read as empty.",
+                    f"Group {name} has no {descriptor} row.",
                     group.line,
                     group.path,
                 )
-                header.append(("",) * width)
+                header.append(())  # no row: an empty tuple, as written (not invented)
             elif values.count != width and group.headings is not None:
                 header.append(
                     self._fit(values, width, descriptor=descriptor, line=line, group=group)
