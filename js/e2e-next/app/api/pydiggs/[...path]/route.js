@@ -17,7 +17,14 @@ async function handler() {
     const engine = new PydiggsNode({
       packageCacheDir: join(tmpdir(), "pydiggs-pyodide-packages"),
       ...(wheel ? { pydiggsWheelPath: wheel } : {}),
+      onProgress: (stage) => console.log(`pydiggs: loading (${stage})`),
     });
+    // The handler answers 503 while pydiggs is not ready and never says why to a
+    // client; the server's own log is where the reason belongs.
+    engine.ready.then(
+      (versions) => console.log(`pydiggs: ready ${JSON.stringify(versions)}`),
+      (error) => console.error(`pydiggs: failed to load: ${error?.stack ?? error}`),
+    );
     return createPydiggsHandler(engine, { basePath: "/api/pydiggs" });
   });
   return globalThis[KEY];
