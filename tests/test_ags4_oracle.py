@@ -317,8 +317,13 @@ def test_main_missing_corpus_file_exits_1(oracle_script, tmp_path, monkeypatch, 
 
 
 def test_python_ags4_is_never_a_dependency_or_an_import():
-    for name in ("pyproject.toml", "uv.lock"):
-        text = (ROOT / name).read_text(encoding="utf-8").lower()
+    # uv.lock is not in the sdist (pyproject.toml's sdist include list), so it is checked
+    # only where it exists; pyproject.toml always is.
+    for name, required in (("pyproject.toml", True), ("uv.lock", False)):
+        path = ROOT / name
+        if not required and not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8").lower()
         assert "python-ags4" not in text and "python_ags4" not in text, name
     for path in [*(ROOT / "src").rglob("*.py"), *(ROOT / "tests").rglob("*.py")]:
         if path.name == Path(__file__).name:
