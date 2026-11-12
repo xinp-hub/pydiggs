@@ -18,7 +18,7 @@ letters, digits and underscores.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -85,6 +85,12 @@ _SAFE_NAME: Final = re.compile(r"[A-Za-z0-9_]{1,32}")
 MAX_NOTES_PER_RULE: Final = 100
 #: How many lines pass between two calls of ``should_stop``.
 _CHECK_EVERY: Final = 1024
+#: How many characters of text pass, at most, between two calls of ``should_stop`` at
+#: line boundaries; a line longer than this is preceded by a call of its own.
+_CHECK_CHARS: Final = 64 * 1024
+#: How many fields, or doubled quotes inside one value, the tokenizer reads between two
+#: calls of ``should_stop``.
+_CHECK_STEPS: Final = 4096
 #: Cells a file may hold beyond one per two characters of its text. An honest cell
 #: takes at least three characters (``"",``), so only rows padded out to a long
 #: HEADING row can reach this.
@@ -147,61 +153,122 @@ def _lines(text: str) -> Iterator[tuple[str, bool]]:
         yield text[position:], False
 
 
-def _tokenize(line: str) -> tuple[list[str], bool]:
-    """Split one line into its fields; False when a field breaks the quoting rule.
+class _Clock:
+    """Calls ``should_stop`` once every ``_CHECK_STEPS`` steps of the tokenizer."""
 
-    The general path, for a line the fast path in :func:`parse` cannot take. A field
+    __slots__ = ("should_stop", "steps")
+
+    def __init__(self, should_stop: Callable[[], bool] | None) -> None:
+        self.should_stop = should_stop
+        self.steps = 0
+
+    def step(self) -> None:
+        """Count one step; raise ``_LimitError("time_budget")`` when time is up."""
+        if self.should_stop is None:
+            return
+        self.steps += 1
+        if self.steps >= _CHECK_STEPS:
+            self.steps = 0
+            if self.should_stop():
+                raise _LimitError("time_budget")
+
+
+def _quoted(line: str, first: int, limit: int, clock: _Clock) -> tuple[int, int]:
+    """Where the quoted value starting at ``first`` ends, and how many doubled quotes it has.
+
+    The value is ``line[first:end]`` with each doubled quote read as one; ``end`` is the
+    closing quote, or the end of the line when the quote is never closed. A value longer
+    than ``limit`` raises ``_LimitError("max_field_chars")`` before anything is copied.
+    """
+    doubled = 0
+    j = first
+    while True:
+        k = line.find('"', j)
+        if k == -1:  # the quote is never closed: the field ends with the line
+            return len(line), doubled
+        if not line.startswith('"', k + 1):
+            return k, doubled
+        doubled += 1  # a doubled quote is one quote
+        j = k + 2
+        if j - first - doubled > limit:
+            raise _LimitError("max_field_chars")
+        clock.step()
+
+
+def _tokenize(
+    line: str,
+    *,
+    keep: int | None = None,
+    max_chars: int | None = None,
+    should_stop: Callable[[], bool] | None = None,
+) -> tuple[list[str], int, bool]:
+    """Split one line into fields: the first ``keep``, how many there are, and if all are clean.
+
+    The general path, for a line the fast path in :func:`_scan` cannot take. A field
     is read leniently: an unquoted field runs to the next comma, a quote left open runs
     to the end of the line, text after a closing quote joins the field, and spaces or
     tabs around a quoted field are dropped. Work is linear in the length of the line.
+
+    The limits apply while scanning: no more than ``keep`` fields are made (the rest are
+    only counted), a field longer than ``max_chars`` stops the read before it is copied,
+    and ``should_stop`` is called every ``_CHECK_STEPS`` fields or doubled quotes.
+
+    Raises:
+        _LimitError: ``max_field_chars`` or ``time_budget``.
     """
     fields: list[str] = []
+    count = 0
     clean = True
     i, n = 0, len(line)
+    limit = n if max_chars is None else max_chars
+    keep = n + 1 if keep is None else keep
+    clock = _Clock(should_stop)
     while True:
+        count += 1
+        clock.step()
         start = i
         while i < n and line[i] in " \t":
             i += 1
         if i < n and line[i] == '"':
-            clean = clean and i == start
-            parts: list[str] = []
-            j = i + 1
-            while True:
-                k = line.find('"', j)
-                if k == -1:  # the quote is never closed: the field ends with the line
-                    parts.append(line[j:])
-                    i, clean = n, False
-                    break
-                if line.startswith('"', k + 1):  # a doubled quote is one quote
-                    parts.append(line[j : k + 1])
-                    j = k + 2
-                    continue
-                parts.append(line[j:k])
-                i = k + 1
-                break
-            after = i
+            first, plain = i + 1, i == start
+            last, doubled = _quoted(line, first, limit, clock)
+            i = after = min(last + 1, n)
             while i < n and line[i] in " \t":
                 i += 1
-            if i < n and line[i] != ",":  # text after the closing quote
+            tail = after
+            if i < n and line[i] != ",":  # text after the closing quote joins the field
                 k = line.find(",", i)
-                k = n if k == -1 else k
-                parts.append(line[after:k])
-                i = k
-            clean = clean and i == after
-            fields.append("".join(parts))
+                i = tail = n if k == -1 else k
+            clean = clean and plain and last < n and i == after
+            if last - first - doubled + tail - after > limit:
+                raise _LimitError("max_field_chars")
+            if count <= keep:
+                value = line[first:last]
+                fields.append((value.replace('""', '"') if doubled else value) + line[after:tail])
         else:
             k = line.find(",", start)
             k = n if k == -1 else k
-            fields.append(line[start:k])
+            if k - start > limit:
+                raise _LimitError("max_field_chars")
+            if count <= keep:
+                fields.append(line[start:k])
             i, clean = k, False
         if i >= n:
-            return fields, clean
+            return fields, count, clean
         i += 1  # the comma
 
 
 def shown(name: str) -> str:
     """``name`` for a message: itself when plain, else an escaped, truncated literal."""
     return name if _SAFE_NAME.fullmatch(name) else ascii(name[:32])
+
+
+@dataclass(frozen=True, slots=True)
+class _Values:
+    """The first values of a row, and how many values the row has in all."""
+
+    kept: Sequence[str]
+    count: int
 
 
 @dataclass(slots=True)
@@ -212,9 +279,9 @@ class _Open:
     line: int
     path: str | None
     headings: tuple[str, ...] | None = None
-    units: tuple[str, ...] | None = None
+    units: _Values | None = None
     units_line: int = 0
-    types: tuple[str, ...] | None = None
+    types: _Values | None = None
     types_line: int = 0
     rows: list[tuple[str, ...]] = field(default_factory=list)
     stage: int = 0
@@ -239,7 +306,6 @@ class _Assembler:
         self._counts: dict[str, int] = {}
         self.current: _Open | None = None
         self.skipping = False
-        self.group_rows = 0
         self.rows = 0
         self.cells = 0
         self.ags3 = False
@@ -266,14 +332,15 @@ class _Assembler:
 
     # --- rows ---------------------------------------------------------------------------
 
-    def row(self, fields: list[str], line: int) -> None:
+    def row(self, fields: list[str], count: int, line: int) -> None:
+        """One row: its first fields (at least ``keep``) and how many it has in all."""
         descriptor = fields[0]
         if descriptor == _DATA:
-            self._data(fields, line)
+            self._data(fields, count - 1, line)
         elif descriptor == _GROUP:
-            self._group(fields, line)
+            self._group(fields, count, line)
         elif descriptor in _STAGE:
-            self._header(descriptor, fields, line)
+            self._header(descriptor, fields, count - 1, line)
         else:
             if descriptor.startswith("**"):
                 self.ags3 = True
@@ -283,15 +350,14 @@ class _Assembler:
                 line,
             )
 
-    def _group(self, fields: list[str], line: int) -> None:
+    def _group(self, fields: list[str], count: int, line: int) -> None:
         self.close()
-        self.group_rows += 1
         name = fields[1] if len(fields) > 1 else ""
         self.skipping = True
         if not name:
             self.note(RULE_4, "A GROUP row has no group name; its rows were not read.", line)
             return
-        if len(fields) > 2:  # noqa: PLR2004  # the descriptor and the name
+        if count > 2:  # noqa: PLR2004  # the descriptor and the name
             self.note(
                 RULE_4,
                 "A GROUP row has more than a group name; the other fields were not read.",
@@ -317,12 +383,12 @@ class _Assembler:
             self.note(RULE_2, "A row comes before the first GROUP row; it was not read.", line)
         return True
 
-    def _header(self, descriptor: str, fields: list[str], line: int) -> None:
+    def _header(self, descriptor: str, fields: list[str], width: int, line: int) -> None:
+        """A HEADING, UNIT or TYPE row of ``width`` values, the first of them in ``fields``."""
         if self._orphan(line):
             return
         group = self.current
         assert group is not None  # noqa: S101  # _orphan() returned False
-        values = tuple(fields[1:])
         taken = {_HEADING: group.headings, _UNIT: group.units, _TYPE: group.types}[descriptor]
         if taken is not None:
             self.note(
@@ -334,13 +400,16 @@ class _Assembler:
             )
             return
         if descriptor == _HEADING:
-            if len(values) > self.limits.max_headings:
+            if width > self.limits.max_headings:
                 raise _LimitError("max_headings")
-            group.headings = values
-        elif descriptor == _UNIT:
-            group.units, group.units_line = values, line
+            group.headings = tuple(fields[1:])
         else:
-            group.types, group.types_line = values, line
+            # Only the first max_headings + 1 values are kept; the count is the real one.
+            values = _Values(fields[1:], width)
+            if descriptor == _UNIT:
+                group.units, group.units_line = values, line
+            else:
+                group.types, group.types_line = values, line
         if group.stage != _STAGE[descriptor] - 1:
             self.note(
                 RULE_2B,
@@ -351,7 +420,7 @@ class _Assembler:
             )
         group.stage = max(group.stage, _STAGE[descriptor])
 
-    def _data(self, fields: list[str], line: int) -> None:
+    def _data(self, fields: list[str], count: int, line: int) -> None:
         if self._orphan(line):
             return
         group = self.current
@@ -374,16 +443,21 @@ class _Assembler:
             raise _LimitError("max_cells")
         self.rows += 1
         group.stage = _STAGE[_DATA]
-        values = tuple(fields[1:])
-        if len(values) != width:
+        values = tuple(fields[1 : width + 1])
+        if count != width:
             values = self._fit(
-                values, width, descriptor=_DATA, line=line, group=group, row=len(group.rows) + 1
+                _Values(values, count),
+                width,
+                descriptor=_DATA,
+                line=line,
+                group=group,
+                row=len(group.rows) + 1,
             )
         group.rows.append(values)
 
     def _fit(
         self,
-        values: tuple[str, ...],
+        values: _Values,
         width: int,
         *,
         descriptor: str,
@@ -394,18 +468,19 @@ class _Assembler:
         """``values`` cut or padded to ``width``, with the Rule 4 note."""
         done = (
             "the missing values were read as empty"
-            if len(values) < width
+            if values.count < width
             else "the values past the last heading were not read"
         )
         path = group.path if row is None or group.path is None else f"{group.path}/{row}"
         self.note(
             RULE_4,
-            f"A {descriptor} row has {len(values)} values where the HEADING row has {width}"
+            f"A {descriptor} row has {values.count} values where the HEADING row has {width}"
             f" headings; {done}.",
             line,
             path,
         )
-        return values[:width] + ("",) * (width - len(values))
+        kept = tuple(values.kept[:width])
+        return kept + ("",) * (width - len(kept))
 
     # --- groups -------------------------------------------------------------------------
 
@@ -432,12 +507,12 @@ class _Assembler:
                     group.path,
                 )
                 header.append(("",) * width)
-            elif len(values) != width and group.headings is not None:
+            elif values.count != width and group.headings is not None:
                 header.append(
                     self._fit(values, width, descriptor=descriptor, line=line, group=group)
                 )
             else:
-                header.append(values[:width])
+                header.append(tuple(values.kept[:width]))
         self.groups[group.name] = Group._trusted(
             name=group.name,
             headings=headings,
@@ -449,28 +524,42 @@ class _Assembler:
 
 
 def _scan(text: str, build: _Assembler, should_stop: Callable[[], bool] | None) -> str | None:
-    """Feed every row of ``text`` to ``build``; the name of the limit that stopped it, if any."""
+    """Feed every row of ``text`` to ``build``; the name of the limit that stopped it, if any.
+
+    ``should_stop`` is called at a line boundary every ``_CHECK_EVERY`` lines or
+    ``_CHECK_CHARS`` characters, whichever comes first (so before any line longer than
+    that), and inside a long line by the tokenizer.
+    """
     max_field = build.limits.max_field_chars
-    line_no = 0
+    # A row keeps its descriptor and at most max_headings + 1 values: enough to fill the
+    # widest HEADING row the limits allow and to tell that a HEADING row is too wide.
+    keep = max(2, build.limits.max_headings + 2)
+    line_no = chars = 0
     try:
         for line, crlf in _lines(text):
             build.line_no = line_no = line_no + 1
             if not crlf:
                 build.not_crlf += 1
                 build.first_not_crlf = build.first_not_crlf or line_no
-            if should_stop is not None and line_no % _CHECK_EVERY == 0 and should_stop():
-                return "time_budget"
+            if should_stop is not None:
+                chars += len(line) + 1
+                if line_no % _CHECK_EVERY == 0 or chars >= _CHECK_CHARS:
+                    chars = 0
+                    if should_stop():
+                        return "time_budget"
             if not line or line.isspace():
                 continue
-            if line[0] == '"' and line[-1] == '"' and len(line) > 1:
-                fields = line[1:-1].split('","')
-                clean = line.count('"') == 2 * len(fields)
-                if not clean:
-                    fields, clean = _tokenize(line)
-            else:
-                fields, clean = _tokenize(line)
-            if len(line) > max_field and max(map(len, fields)) > max_field:
-                return "max_field_chars"
+            # The fast path, for a row the writer could have made: every field quoted. No
+            # value of a line this short can pass max_field_chars.
+            fields: list[str] | None = None
+            if len(line) <= max_field and line[0] == '"' and line[-1] == '"' and len(line) > 1:
+                count = line.count('","', 1, len(line) - 1) + 1
+                if count <= keep and line.count('"') == 2 * count:
+                    fields, clean = line[1:-1].split('","'), True
+            if fields is None:
+                fields, count, clean = _tokenize(
+                    line, keep=keep, max_chars=max_field, should_stop=should_stop
+                )
             if not clean:
                 build.note(
                     RULE_5,
@@ -478,7 +567,7 @@ def _scan(text: str, build: _Assembler, should_stop: Callable[[], bool] | None) 
                     " the row was read as far as it could be told.",
                     line_no,
                 )
-            build.row(fields, line_no)
+            build.row(fields, count, line_no)
     except _LimitError as stop:
         return stop.name
     return None
@@ -509,7 +598,7 @@ def parse(
     build = _Assembler(limits or Limits(), _CELL_BASE + len(text) // 2)
     stopped = _scan(text, build, should_stop)
     build.close()
-    if stopped is None and not build.group_rows:
+    if stopped is None and not build.groups:  # no group was assembled from the whole text
         raise _no_table(build.ags3)
     if build.not_crlf:
         build.note(

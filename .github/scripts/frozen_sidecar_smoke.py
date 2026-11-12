@@ -77,7 +77,7 @@ def main(argv: list[str]) -> int:
         assert validated is not None  # noqa: S101
         document = validated["result"]
         check(document.get("format") == "diggs-findings", document)
-        check(document.get("schema_version") == "1.0", document)
+        check(document.get("schema_version") == "1.1", document)
         files = document.get("files")
         check(isinstance(files, list) and len(files) == 1, files)
         entry = files[0]

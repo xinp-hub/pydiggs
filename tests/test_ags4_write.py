@@ -13,7 +13,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from pydiggs import DocumentError, ags4
-from pydiggs.ags4 import _emit
+from pydiggs.ags4 import _emit, _parse
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures" / "ags4"
@@ -195,6 +195,71 @@ def test_a_file_that_cannot_be_written_is_a_value_error(group, message, tmp_path
     with pytest.raises(ValueError, match=message):
         ags4.write(f, target)
     assert not target.exists()  # nothing is written
+
+
+# --- the writer refuses what the reader would not read back whole ------------------------
+
+MAX = _parse.Limits()
+
+
+def _round_trips(f: ags4.File) -> None:
+    again = ags4.read_bytes(ags4.dumps(f))
+    assert again.complete
+    assert again == f
+
+
+def _refused(f: ags4.File, message: str) -> None:
+    with pytest.raises(ValueError, match=message) as caught:
+        ags4.dumps(f)
+    assert len(str(caught.value)) < 200  # a fixed template: no value is echoed
+
+
+def test_the_writer_uses_the_readers_limits():
+    assert _emit._LIMITS == MAX
+
+
+def test_headings_up_to_the_readers_limit_are_written_and_no_more():
+    def wide(width: int) -> ags4.File:
+        empty = ("",) * width
+        names = tuple(f"H{i}" for i in range(width))
+        return ags4.File(
+            groups=[ags4.Group(name="A", headings=names, units=empty, types=empty, rows=[empty])]
+        )
+
+    _round_trips(wide(MAX.max_headings))
+    _refused(wide(MAX.max_headings + 1), f"group A cannot be written: .* {MAX.max_headings} ")
+
+
+@pytest.mark.parametrize("where", ["name", "headings", "units", "types", "rows"])
+def test_values_up_to_the_readers_limit_are_written_and_no_more(where):
+    def holding(value: str) -> ags4.File:
+        if where == "name":
+            return ags4.File(groups=[_group(name=value)])
+        if where == "rows":
+            return ags4.File(groups=[_group(rows=(("P1", value),))])
+        return ags4.File(groups=[_group(**{where: (value, "")})])
+
+    _round_trips(holding("x" * MAX.max_field_chars))
+    # A doubled quote is one character of the value, so it counts once.
+    _round_trips(holding('"' * MAX.max_field_chars))
+    _refused(holding("x" * (MAX.max_field_chars + 1)), "a value longer than 1000000 characters")
+
+
+def test_groups_and_rows_over_the_readers_limits_are_refused(monkeypatch):
+    # The real limits are 10,000 groups and 5,000,000 rows: the writer reads them from
+    # the same Limits, so smaller ones show the boundary without the memory.
+    monkeypatch.setattr(_emit, "_LIMITS", _parse.Limits(max_groups=3, max_rows=4))
+    three = ags4.File(groups=[_group(name=f"G{i}") for i in range(3)])
+    assert ags4.dumps(three)
+    _refused(ags4.File(groups=[_group(name=f"G{i}") for i in range(4)]), "more than 3 groups")
+    four = ags4.File(
+        groups=[_group(rows=(("P1", "a"),) * 2), _group(name="B", rows=[("P", "b")] * 2)]
+    )
+    assert ags4.dumps(four)
+    five = ags4.File(
+        groups=[_group(rows=(("P1", "a"),) * 2), _group(name="B", rows=[("P", "b")] * 3)]
+    )
+    _refused(five, "more than 4 DATA rows")
 
 
 def test_error_messages_do_not_echo_a_name_that_is_not_plain():

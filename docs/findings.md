@@ -498,8 +498,10 @@ against the official OASIS errata01 schema):
 
 `Finding.conformance_key()` returns `(step, severity, location, rule_id)`, where location
 is `"xpath:"` plus the xpath with namespace prefixes dropped and every position made
-explicit, else `"line:<n>"`, else `"file"`. Two layers agree when their keys match as
-multisets over the steps both ran. The message is never compared.
+explicit; else, for a finding in a source that is not XML (diggs-findings 1.1), `"path:"`
+plus its `path`, followed by `";line:<n>"` when the line is known; else `"line:<n>"`, else
+`"file"`. Two layers agree when their keys match as multisets over the steps both ran.
+The message is never compared.
 
 ## Security notes
 

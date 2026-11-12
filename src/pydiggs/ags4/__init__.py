@@ -160,7 +160,9 @@ def dumps(file: File) -> bytes:
         ValueError: The file cannot be written: it has no group, or a group has an
             empty name, UNIT, TYPE or DATA rows that are not as long as its HEADING
             row, or a value that holds a line break, a NUL character or a character
-            UTF-8 cannot encode.
+            UTF-8 cannot encode. A file over the work limits of :func:`read` is refused
+            too, as it would not read back whole: more than 10,000 groups, 2,000
+            headings in a group, 5,000,000 DATA rows, or 1,000,000 characters in a value.
         TypeError: ``file`` is not a :class:`File`.
 
     Examples:

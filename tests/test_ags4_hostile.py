@@ -18,6 +18,7 @@ import io
 import os
 import sys
 import threading
+import tracemalloc
 import zipfile
 from pathlib import Path
 
@@ -194,8 +195,9 @@ def test_the_pure_parser_takes_any_text_under_any_limits(text, groups, headings,
 @FUZZ
 @given(st.text(alphabet='",ab \t', max_size=40))
 def test_the_tokenizer_agrees_with_itself_on_any_line(line):
-    fields, clean = _parse._tokenize(line)
+    fields, count, clean = _parse._tokenize(line)
     assert fields  # every line has at least one field
+    assert count == len(fields)  # nothing is dropped under the default bound
     if clean:  # a clean line is exactly what the writer would make of its fields
         assert '"' + '","'.join(f.replace('"', '""') for f in fields) + '"' == line
 
@@ -310,6 +312,79 @@ def test_padding_cannot_multiply_the_file():
     assert parse(honest).complete
 
 
+def _peak(text: str, **limits: int) -> tuple[_parse.Parsed, int]:
+    """Parse ``text``; the result and the peak of memory allocated while parsing."""
+    tracemalloc.start()
+    try:
+        parsed = parse(text, limits=Limits(**limits))
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    return parsed, peak
+
+
+# A row may cost a copy of its line and a bounded number of fields, never one object (or
+# one list slot) per comma: the bound is the size of the text plus 1 MiB, against tens of
+# MiB for one list slot per field.
+@pytest.mark.parametrize(
+    ("tail", "path"),
+    [
+        ("," * 2_000_000, "general: unquoted commas"),
+        (',""' * 300_000, "fast: quoted empty fields, a line under max_field_chars"),
+        (',"' + '""' * 1_500_000 + '"', "general: one value of doubled quotes, over the limit"),
+        (',"' + "x" * 3_000_000 + '"', "general: one value over the limit"),
+    ],
+    ids=["commas", "quoted-empties", "doubled-quotes", "long-value"],
+)
+def test_a_pathological_row_is_read_in_bounded_memory(tail, path):
+    text = HEADER + '"DATA"' + tail + "\r\n" + ROW
+    parsed, peak = _peak(text)
+    assert peak < len(text) + 2**20, (path, peak)
+    if "over the limit" in path:
+        _stopped(parsed, "max_field_chars", 5)
+    else:
+        rows = parsed.groups["PROJ"].rows
+        assert rows == (("", ""), ("P1", "One"))
+        rule_4 = next(n for n in parsed.notes if n.rule_id == "ags4.rule-4")
+        count = tail.count(",")
+        assert rule_4.message.startswith(f"A DATA row has {count} values where the HEADING")
+
+
+def test_a_long_value_is_refused_while_scanning_in_both_paths():
+    for row in ('"DATA","P1","' + "x" * 60 + '"', 'DATA,P1,"' + "x" * 60 + '"'):
+        parsed = _limited(HEADER + row + "\r\n", max_field_chars=59)
+        _stopped(parsed, "max_field_chars", 5)
+        assert _limited(HEADER + row + "\r\n", max_field_chars=60).complete
+
+
+def test_fields_past_the_widest_heading_row_are_counted_not_kept():
+    fields, count, clean = _parse._tokenize('"DATA"' + ',"x"' * 50, keep=4)
+    assert (fields, count, clean) == (["DATA", "x", "x", "x"], 51, True)
+    parsed = _limited(HEADER + '"DATA","a","b","c","d"\r\n', max_headings=2)
+    assert parsed.groups["PROJ"].rows == (("a", "b"),)
+    assert "has 4 values where the HEADING row has 2" in parsed.notes[0].message
+    wide = _limited('"GROUP","A"\r\n"HEADING","H1","H2","H3"\r\n', max_headings=2)
+    _stopped(wide, "max_headings", 2)
+    group = _limited('"GROUP","A","B","C"\r\n"HEADING","H"\r\n', max_headings=0)
+    assert group.notes[0].message.startswith("A GROUP row has more than a group name")
+
+
+def test_a_group_row_with_no_name_alone_is_not_ags4():
+    for data in (b'"GROUP",""\r\n', b'"GROUP"\r\n"GROUP",""\r\n"GROUP","","",""\r\n'):
+        with pytest.raises(DocumentError) as caught:
+            ags4.read_bytes(data)
+        assert caught.value.kind == "not-ags4"
+    with pytest.raises(DocumentError) as caught:
+        ags4.read_bytes(b'"**PROJ"\r\n"GROUP",""\r\n')
+    assert caught.value.kind == "unsupported-version"
+    # A read stopped by a limit before any group is assembled still gives a partial file.
+    stopped = parse(
+        '"GROUP",""\r\n' + '"GROUP","' + "x" * 40 + '"\r\n', limits=Limits(max_field_chars=10)
+    )
+    assert stopped.groups == {}
+    assert stopped.limits_hit == ("max_field_chars",)
+
+
 def test_the_default_limits_are_far_above_real_files():
     assert Limits() == Limits(
         max_groups=10_000, max_headings=2_000, max_rows=5_000_000, max_field_chars=1_000_000
@@ -367,6 +442,57 @@ def test_an_exhausted_time_budget_is_not_an_exception(monkeypatch):
     assert 0 < len(f.groups["PROJ"].rows) < 5_000
     assert f.notes[-1].rule_id == "ags4.timeout"
     _check(f, data)
+
+
+def _clock(monkeypatch: pytest.MonkeyPatch, *times: float) -> list[float]:
+    """Make ``time.monotonic`` in the adapter return ``times``, then 1,000 for ever.
+
+    The first value is read when the deadline is set; the list records each read.
+    """
+    reads: list[float] = []
+    ticks = iter(times)
+
+    def monotonic() -> float:
+        reads.append(next(ticks, 1_000.0))
+        return reads[-1]
+
+    monkeypatch.setattr(_io.time, "monotonic", monotonic)
+    return reads
+
+
+def test_a_short_file_of_long_rows_checks_its_time_budget(monkeypatch):
+    reads = _clock(monkeypatch, 0.0)
+    data = (HEADER + ('"DATA","P1","' + "x" * 2_000 + '"\r\n') * 200).encode()
+    assert data.count(b"\r\n") < _parse._CHECK_EVERY
+    f = ags4.read_bytes(data, time_budget=5)
+    assert not f.complete
+    assert f.limits_hit == ("time_budget",)
+    assert f.notes[-1].rule_id == "ags4.timeout"
+    assert len(f.groups["PROJ"].rows) < 200
+    assert len(reads) >= 2
+    _check(f, data)
+
+
+def test_one_long_row_checks_its_time_budget_while_it_is_tokenized(monkeypatch):
+    for tail in ("," * 1_000_000, ',"x"' * 300_000, ',"' + '""' * 400_000 + '"'):
+        # Set the deadline, pass the check before the long line, then run out inside it.
+        reads = _clock(monkeypatch, 0.0, 0.0)
+        data = (HEADER + '"DATA"' + tail + "\r\n" + ROW).encode()
+        f = ags4.read_bytes(data, time_budget=5)
+        assert not f.complete
+        assert f.limits_hit == ("time_budget",)
+        assert (f.notes[-1].rule_id, f.notes[-1].line) == ("ags4.timeout", 5)
+        assert f.groups["PROJ"].rows == ()
+        assert len(reads) == 3
+        _check(f, data)
+
+
+def test_a_file_that_fits_its_time_budget_checks_it_without_stopping(monkeypatch):
+    reads = _clock(monkeypatch, *([0.0] * 10_000))
+    data = (HEADER + ('"DATA","P1","' + "x" * 2_000 + '"\r\n') * 200).encode()
+    f = ags4.read_bytes(data, time_budget=5)
+    assert f.complete
+    assert len(reads) > 2
 
 
 def test_out_of_time_before_any_group_is_a_partial_file_not_a_refusal():

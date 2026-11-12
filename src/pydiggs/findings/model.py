@@ -211,15 +211,15 @@ class Finding:
     def conformance_key(self) -> ConformanceKey:
         """``(step, severity, location, rule_id)`` used to match findings across layers.
 
-        The location is ``"xpath:"`` plus the normalised xpath when there is one, else
-        ``"line:<n>"``, else ``"file"``. The message is deliberately left out.
+        The location is ``"xpath:"`` plus the normalised xpath when there is one. A
+        finding with no xpath but a ``path`` (a source that is not XML) has
+        ``"path:<path>"``, followed by ``";line:<n>"`` when the line is known. Otherwise
+        it is ``"line:<n>"``, else ``"file"``. The message is deliberately left out.
         """
-        return (
-            self.step.value,
-            self.severity.value,
-            location_key(self.xpath, self.line),
-            self.rule_id,
-        )
+        location = location_key(self.xpath, self.line)
+        if self.path is not None and not self.xpath:
+            location = f"path:{self.path}" if self.line is None else f"path:{self.path};{location}"
+        return (self.step.value, self.severity.value, location, self.rule_id)
 
     def sort_key(self) -> tuple[object, ...]:
         """Deterministic order within a file: step, line, column, severity, rule, xpath, text.

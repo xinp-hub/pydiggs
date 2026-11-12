@@ -19,7 +19,7 @@ from hypothesis import strategies as st
 
 import pydiggs
 from pydiggs import Finding, Report, Step, validate, validate_bytes
-from pydiggs.findings import _json, run
+from pydiggs.findings import _json, _sarif, run
 
 from .strategies import reports, unreadable_files
 
@@ -292,6 +292,37 @@ def test_the_python_model_enforces_the_same_rules():
         Finding(step="ags4", rule_id="ags4.rule-1", severity="error", message="", path=3)
     with pytest.raises(ValueError, match="not a valid rule id"):
         Finding(step="ags4", rule_id="convert.x", severity="error", message="")
+
+
+def test_path_takes_part_in_the_conformance_key_of_a_finding_with_no_xpath():
+    def at(**where) -> Finding:
+        return Finding(step="ags4", rule_id="ags4.rule-2b", severity="error", message="m", **where)
+
+    geol, loca = at(path="GEOL"), at(path="LOCA")
+    assert geol.conformance_key() != loca.conformance_key()
+    assert geol.conformance_key() == ("ags4", "error", "path:GEOL", "ags4.rule-2b")
+    assert at(path="GEOL/3", line=6).conformance_key()[2] == "path:GEOL/3;line:6"
+    assert at(line=6).conformance_key()[2] == "line:6"
+    assert at().conformance_key()[2] == "file"
+    # An XML finding's key is unchanged, also if it has a path: the xpath wins.
+    xml = {
+        "step": "schema",
+        "rule_id": "schema.cvc-elt.1",
+        "severity": "error",
+        "message": "m",
+        "line": 4,
+        "xpath": "/diggs:Diggs[1]/diggs:Borehole[2]",
+    }
+    expected = ("schema", "error", "xpath:/Diggs[1]/Borehole[2]", "schema.cvc-elt.1")
+    assert Finding(**xml).conformance_key() == expected
+    assert Finding(**xml, path="GEOL").conformance_key() == expected
+    no_xpath = {k: v for k, v in xml.items() if k != "xpath"}
+    assert Finding(**no_xpath).conformance_key()[2] == "line:4"
+    # The SARIF fingerprints of the two AGS4 findings no longer collide.
+    report = _ags4_report(findings=(geol, loca))
+    sarif = _sarif.sarif_log([report], [], tool_version="1")
+    prints = [r["partialFingerprints"] for r in sarif["runs"][0]["results"]]
+    assert len({json.dumps(p, sort_keys=True) for p in prints}) == 2
 
 
 def test_path_takes_part_in_equality_order_and_pickling():

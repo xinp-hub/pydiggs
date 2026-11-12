@@ -177,7 +177,7 @@ def main(argv: list[str]) -> int:
         )
         check(status == 200, (status, document))  # noqa: PLR2004
         check(document.get("format") == "diggs-findings", document)
-        check(document.get("schema_version") == "1.0", document)
+        check(document.get("schema_version") == "1.1", document)
         files = document.get("files")
         check(isinstance(files, list) and len(files) == 1, files)
         entry = files[0]
