@@ -1,0 +1,405 @@
+# AGS4 to DIGGS mapping table: where each AGS4 group and heading goes in DIGGS.
+#
+# Data, not code: a mapping change is a small diff here, reviewed like any other. The format
+# is described by convert-mapping-1.schema.json; docs/convert-mapping.md is generated from
+# this file by scripts/mapping_doc.py (a test fails when it is stale).
+#
+# The table holds only AGS4 group and heading identifiers, key lists and parent groups. It
+# copies nothing else from the AGS4 data dictionary (no descriptions, examples or notes).
+#
+# Every group is `draft` until the owner reviews it; mapping table 1.0 is signed off with
+# pyDIGGS 1.10.0. Until then the table is 0.x and may change where a heading goes.
+#
+# Heading targets (`to`):
+#   key     identifies the record; becomes its gml:id (made a valid XML id) and gml:name
+#   link    a key of the parent record, used to attach this record to it
+#   field   a typed field the converter fills (`target` names it)
+#   param   a simple DIGGS element, `target` = "<Element>/<child>"
+#   column  a result column; `property` is a key of the bundled DIGGS property dictionary
+#   format  AGS4 format information the converter reads; it is not data and is not written
+#   none    not converted; `reason` says why, and each non-null value is reported
+
+mapping_version = "0.1"
+ags_versions = ["4.0.3", "4.0.4", "4.1", "4.1.1", "4.2"]
+diggs_versions = ["3.0.0"]
+
+[[group]]
+name = "PROJ"
+pattern = "project"
+status = "draft"
+keys = ["PROJ_ID"]
+element = "Project"
+heading = [
+  { name = "PROJ_ID", to = "key", target = "gml:name" },
+  { name = "PROJ_NAME", to = "field", target = "name" },
+  { name = "PROJ_LOC", to = "field", target = "locality" },
+  { name = "PROJ_CLNT", to = "none", reason = "a client is a business associate, which the preview writer does not write" },
+  { name = "PROJ_CONT", to = "none", reason = "a contractor is a business associate, which the preview writer does not write" },
+  { name = "PROJ_ENG", to = "none", reason = "an engineer is a business associate, which the preview writer does not write" },
+  { name = "PROJ_MEMO", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "TRAN"
+pattern = "transmission"
+status = "draft"
+keys = []
+element = "DocumentInformation"
+heading = [
+  { name = "TRAN_ISNO", to = "none", reason = "DocumentInformation has no issue number" },
+  { name = "TRAN_DATE", to = "field", target = "creation_date" },
+  { name = "TRAN_PROD", to = "none", reason = "the producer is a business associate, which the preview writer does not write" },
+  { name = "TRAN_STAT", to = "none", reason = "DocumentInformation has no issue status" },
+  { name = "TRAN_DESC", to = "field", target = "description" },
+  { name = "TRAN_AGS", to = "format", reason = "the AGS4 version of the source; it selects how the file is read" },
+  { name = "TRAN_RECV", to = "none", reason = "the recipient is a business associate, which the preview writer does not write" },
+  { name = "TRAN_DLIM", to = "format", reason = "the record link delimiter, an AGS4 format setting" },
+  { name = "TRAN_RCON", to = "format", reason = "the concatenation character, an AGS4 format setting" },
+  { name = "TRAN_REM", to = "none", reason = "DocumentInformation has no remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "ABBR"
+pattern = "lookup"
+status = "draft"
+keys = ["ABBR_HDNG", "ABBR_CODE"]
+heading = [
+  { name = "ABBR_HDNG", to = "format", reason = "abbreviation lists are read by the converter, not converted" },
+  { name = "ABBR_CODE", to = "format", reason = "abbreviation lists are read by the converter, not converted" },
+  { name = "ABBR_DESC", to = "format", reason = "abbreviation lists are read by the converter, not converted" },
+  { name = "ABBR_LIST", to = "format", reason = "abbreviation lists are read by the converter, not converted" },
+  { name = "ABBR_REM", to = "format", reason = "abbreviation lists are read by the converter, not converted" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "UNIT"
+pattern = "lookup"
+status = "draft"
+keys = ["UNIT_UNIT"]
+heading = [
+  { name = "UNIT_UNIT", to = "format", reason = "units are mapped through units.toml, not converted" },
+  { name = "UNIT_DESC", to = "format", reason = "units are mapped through units.toml, not converted" },
+  { name = "UNIT_REM", to = "format", reason = "units are mapped through units.toml, not converted" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "TYPE"
+pattern = "lookup"
+status = "draft"
+keys = ["TYPE_TYPE"]
+heading = [
+  { name = "TYPE_TYPE", to = "format", reason = "data types are AGS4 format information" },
+  { name = "TYPE_DESC", to = "format", reason = "data types are AGS4 format information" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "DICT"
+pattern = "lookup"
+status = "draft"
+keys = ["DICT_TYPE", "DICT_GRP", "DICT_HDNG"]
+heading = [
+  { name = "DICT_TYPE", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_GRP", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_HDNG", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_STAT", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_DTYP", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_DESC", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_UNIT", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_EXMP", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_PGRP", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "DICT_REM", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "LOCA"
+pattern = "feature"
+status = "draft"
+keys = ["LOCA_ID"]
+heading = [
+  { name = "LOCA_ID", to = "key", target = "gml:name" },
+  { name = "LOCA_TYPE", to = "field", target = "element" },
+  { name = "LOCA_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_NATE", to = "field", target = "location.x" },
+  { name = "LOCA_NATN", to = "field", target = "location.y" },
+  { name = "LOCA_GREF", to = "field", target = "location.crs" },
+  { name = "LOCA_GL", to = "field", target = "location.z" },
+  { name = "LOCA_REM", to = "field", target = "remark" },
+  { name = "LOCA_FDEP", to = "field", target = "total_depth" },
+  { name = "LOCA_STAR", to = "field", target = "when_constructed.start" },
+  { name = "LOCA_PURP", to = "none", reason = "boreholePurpose is a code list; AGS4 gives free text" },
+  { name = "LOCA_TERM", to = "none", reason = "no DIGGS 3.0.0 target for the reason a hole was ended" },
+  { name = "LOCA_ENDD", to = "field", target = "when_constructed.end" },
+  { name = "LOCA_LETT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_LOCX", to = "none", reason = "local site coordinates need a local CRS, not in the preview mapping" },
+  { name = "LOCA_LOCY", to = "none", reason = "local site coordinates need a local CRS, not in the preview mapping" },
+  { name = "LOCA_LOCZ", to = "none", reason = "local site coordinates need a local CRS, not in the preview mapping" },
+  { name = "LOCA_LREF", to = "none", reason = "local site coordinates need a local CRS, not in the preview mapping" },
+  { name = "LOCA_DATM", to = "none", reason = "a separate vertical datum is not in the preview mapping" },
+  { name = "LOCA_ETRV", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_NTRV", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_LTRV", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_XTRL", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_YTRL", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_ZTRL", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_LAT", to = "field", target = "location.lat" },
+  { name = "LOCA_LON", to = "field", target = "location.lon" },
+  { name = "LOCA_ELAT", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_ELON", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
+  { name = "LOCA_LLZ", to = "field", target = "location.datum" },
+  { name = "LOCA_LOCM", to = "none", reason = "no DIGGS 3.0.0 target for how a location was found" },
+  { name = "LOCA_LOCA", to = "field", target = "description" },
+  { name = "LOCA_CLNT", to = "none", reason = "a client is a business associate, which the preview writer does not write" },
+  { name = "LOCA_ALID", to = "none", reason = "alignments are not in the preview mapping" },
+  { name = "LOCA_OFFS", to = "none", reason = "alignments are not in the preview mapping" },
+  { name = "LOCA_CNGE", to = "none", reason = "alignments are not in the preview mapping" },
+  { name = "LOCA_TRAN", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_NATD", to = "none", reason = "a separate vertical datum is not in the preview mapping" },
+  { name = "LOCA_ORID", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_ORJO", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_ORCO", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_CHKG", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_APPG", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_PDEP", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "GEOL"
+pattern = "interval-observation"
+status = "draft"
+parent = "LOCA"
+keys = ["LOCA_ID", "GEOL_TOP", "GEOL_BASE"]
+element = "LithologySystem"
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "GEOL_TOP", to = "field", target = "interval.top" },
+  { name = "GEOL_BASE", to = "field", target = "interval.base" },
+  { name = "GEOL_DESC", to = "param", target = "Lithology/lithDescription" },
+  { name = "GEOL_LEG", to = "param", target = "Lithology/legendCode" },
+  { name = "GEOL_GEOL", to = "field", target = "geologic_unit" },
+  { name = "GEOL_GEO2", to = "none", reason = "a second geology code has no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "GEOL_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "GEOL_BGS", to = "none", reason = "a BGS Lexicon code needs a DIGGS code list, not in the preview mapping" },
+  { name = "GEOL_FORM", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "GEOL_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "SAMP"
+pattern = "sample"
+status = "draft"
+parent = "LOCA"
+keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID"]
+element = "Sample"
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "SAMP_TOP", to = "field", target = "interval.top" },
+  { name = "SAMP_REF", to = "param", target = "Sample/internalIdentifier" },
+  { name = "SAMP_TYPE", to = "param", target = "Sample/type" },
+  { name = "SAMP_ID", to = "key", target = "gml:name" },
+  { name = "SAMP_BASE", to = "field", target = "interval.base" },
+  { name = "SAMP_DTIM", to = "field", target = "date" },
+  { name = "SAMP_UBLO", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_CONT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_PREP", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_SDIA", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_WDEP", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_RECV", to = "param", target = "SamplingActivity/totalSampleRecovery" },
+  { name = "SAMP_TECH", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_MATX", to = "none", reason = "sampleMatrix is a code list; not in the preview mapping" },
+  { name = "SAMP_TYPC", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_WHO", to = "none", reason = "a person is a business associate, which the preview writer does not write" },
+  { name = "SAMP_WHY", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_REM", to = "field", target = "remark" },
+  { name = "SAMP_DESC", to = "field", target = "description" },
+  { name = "SAMP_DESD", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_LOG", to = "none", reason = "a person is a business associate, which the preview writer does not write" },
+  { name = "SAMP_COND", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_CLSS", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_BAR", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_TEMP", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_PRES", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_FLOW", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_ETIM", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_DURN", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_CAPT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "SAMP_LINK", to = "none", reason = "record links are not in the preview mapping" },
+  { name = "SAMP_RECL", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "GEOL_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "ISPT"
+pattern = "test-per-row"
+status = "draft"
+parent = "LOCA"
+keys = ["LOCA_ID", "ISPT_TOP"]
+element = "Test"
+procedure = "DrivenPenetrationTest"
+procedure_params = { penetrationTestType = "SPT" }
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "ISPT_TOP", to = "field", target = "location" },
+  { name = "ISPT_SEAT", to = "none", reason = "seating drive blows are not in the preview mapping" },
+  { name = "ISPT_MAIN", to = "none", reason = "main drive blows are not in the preview mapping (the N value is)" },
+  { name = "ISPT_NPEN", to = "param", target = "DrivenPenetrationTest/totalPenetration" },
+  { name = "ISPT_NVAL", to = "column", property = "n_value" },
+  { name = "ISPT_REP", to = "none", reason = "the reported result text has no DIGGS property" },
+  { name = "ISPT_CAS", to = "param", target = "DrivenPenetrationTest/depthCasing" },
+  { name = "ISPT_WAT", to = "param", target = "DrivenPenetrationTest/waterDepth" },
+  { name = "ISPT_TYPE", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "ISPT_HAM", to = "none", reason = "hammer identifiers are not in the preview mapping" },
+  { name = "ISPT_ERAT", to = "param", target = "DrivenPenetrationTest/hammerEfficiency" },
+  { name = "ISPT_INC1", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_INC2", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_INC3", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_INC4", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_INC5", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_INC6", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_PEN1", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_PEN2", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_PEN3", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_PEN4", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_PEN5", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_PEN6", to = "none", reason = "drive sets are not in the preview mapping" },
+  { name = "ISPT_ROCK", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "ISPT_SWP", to = "param", target = "DrivenPenetrationTest/selfWeightPenetration" },
+  { name = "ISPT_REM", to = "field", target = "remark" },
+  { name = "ISPT_ENV", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "ISPT_METH", to = "none", reason = "test method text is not in the preview mapping" },
+  { name = "ISPT_CRED", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "LLPL"
+pattern = "test-per-row"
+status = "draft"
+parent = "SAMP"
+keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH"]
+element = "Test"
+procedure = "AtterbergLimitsTest"
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "SAMP_TOP", to = "link", target = "sampleRef" },
+  { name = "SAMP_REF", to = "link", target = "sampleRef" },
+  { name = "SAMP_TYPE", to = "link", target = "sampleRef" },
+  { name = "SAMP_ID", to = "link", target = "sampleRef" },
+  { name = "SPEC_REF", to = "field", target = "name" },
+  { name = "SPEC_DPTH", to = "field", target = "location" },
+  { name = "SPEC_DESC", to = "field", target = "description" },
+  { name = "SPEC_PREP", to = "none", reason = "specimen preparation text is not in the preview mapping" },
+  { name = "LLPL_LL", to = "column", property = "liquid_limit" },
+  { name = "LLPL_PL", to = "column", property = "plastic_limit" },
+  { name = "LLPL_PI", to = "column", property = "plasticity_index" },
+  { name = "LLPL_425", to = "none", reason = "the percentage passing 425 um has no DIGGS property (DIGGS has percent retained on No. 40)" },
+  { name = "LLPL_PREP", to = "none", reason = "specimen preparation text is not in the preview mapping" },
+  { name = "LLPL_METH", to = "none", reason = "test method text is not in the preview mapping" },
+  { name = "LLPL_LAB", to = "none", reason = "a laboratory is a business associate, which the preview writer does not write" },
+  { name = "LLPL_CRED", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LLPL_REM", to = "field", target = "remark" },
+  { name = "LLPL_DEV", to = "none", reason = "deviations from the method are not in the preview mapping" },
+  { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "LNMC"
+pattern = "test-per-row"
+status = "draft"
+parent = "SAMP"
+keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH"]
+element = "Test"
+procedure = "WaterContentTest"
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "SAMP_TOP", to = "link", target = "sampleRef" },
+  { name = "SAMP_REF", to = "link", target = "sampleRef" },
+  { name = "SAMP_TYPE", to = "link", target = "sampleRef" },
+  { name = "SAMP_ID", to = "link", target = "sampleRef" },
+  { name = "SPEC_REF", to = "field", target = "name" },
+  { name = "SPEC_DPTH", to = "field", target = "location" },
+  { name = "SPEC_DESC", to = "field", target = "description" },
+  { name = "SPEC_PREP", to = "none", reason = "specimen preparation text is not in the preview mapping" },
+  { name = "LNMC_MC", to = "column", property = "water_content_natural" },
+  { name = "LNMC_TEMP", to = "param", target = "WaterContentTest/dryingTemperature" },
+  { name = "LNMC_STAB", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LNMC_ISNT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LNMC_COMM", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LNMC_METH", to = "none", reason = "test method text is not in the preview mapping" },
+  { name = "LNMC_LAB", to = "none", reason = "a laboratory is a business associate, which the preview writer does not write" },
+  { name = "LNMC_CRED", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LNMC_REM", to = "field", target = "remark" },
+  { name = "LNMC_DEV", to = "none", reason = "deviations from the method are not in the preview mapping" },
+  { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "GRAG"
+pattern = "test-table"
+status = "draft"
+parent = "SAMP"
+keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH"]
+element = "Test"
+procedure = "ParticleSizeTest"
+data = "GRAT"
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "SAMP_TOP", to = "link", target = "sampleRef" },
+  { name = "SAMP_REF", to = "link", target = "sampleRef" },
+  { name = "SAMP_TYPE", to = "link", target = "sampleRef" },
+  { name = "SAMP_ID", to = "link", target = "sampleRef" },
+  { name = "SPEC_REF", to = "field", target = "name" },
+  { name = "SPEC_DPTH", to = "field", target = "location" },
+  { name = "SPEC_DESC", to = "field", target = "description" },
+  { name = "SPEC_PREP", to = "none", reason = "specimen preparation text is not in the preview mapping" },
+  { name = "GRAG_UC", to = "column", property = "coef_uniformity" },
+  { name = "GRAG_VCRE", to = "column", property = "percent_cobbles" },
+  { name = "GRAG_GRAV", to = "column", property = "percent_gravel" },
+  { name = "GRAG_SAND", to = "column", property = "percent_sand" },
+  { name = "GRAG_SILT", to = "column", property = "percent_silt" },
+  { name = "GRAG_CLAY", to = "column", property = "clay_percent_2_micron" },
+  { name = "GRAG_FINE", to = "column", property = "percent_fines" },
+  { name = "GRAG_METH", to = "none", reason = "test method text is not in the preview mapping" },
+  { name = "GRAG_LAB", to = "none", reason = "a laboratory is a business associate, which the preview writer does not write" },
+  { name = "GRAG_CRED", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "GRAG_REM", to = "field", target = "remark" },
+  { name = "GRAG_DEV", to = "none", reason = "deviations from the method are not in the preview mapping" },
+  { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "GRAT"
+pattern = "test-table"
+status = "draft"
+parent = "GRAG"
+keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH", "GRAT_SIZE"]
+element = "Grading"
+# GRAT_TYPE selects the method through codes.toml: sieve rows become Grading readings of a
+# SieveAnalysis, hydrometer rows Sedimentation readings of a Hydrometer analysis (where
+# GRAT_SIZE is written as particleDiameter). Other methods are reported, not converted.
+heading = [
+  { name = "LOCA_ID", to = "link", target = "Test" },
+  { name = "SAMP_TOP", to = "link", target = "Test" },
+  { name = "SAMP_REF", to = "link", target = "Test" },
+  { name = "SAMP_TYPE", to = "link", target = "Test" },
+  { name = "SAMP_ID", to = "link", target = "Test" },
+  { name = "SPEC_REF", to = "link", target = "Test" },
+  { name = "SPEC_DPTH", to = "link", target = "Test" },
+  { name = "GRAT_SIZE", to = "param", target = "Grading/particleSize" },
+  { name = "GRAT_PERP", to = "param", target = "Grading/percentPassing" },
+  { name = "GRAT_TYPE", to = "field", target = "method" },
+  { name = "GRAT_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]

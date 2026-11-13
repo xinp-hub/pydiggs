@@ -1,0 +1,58 @@
+# AGS4 codes (abbreviations and reference systems) to DIGGS elements and code lists.
+#
+# Only codes the bundled DIGGS code lists support are given a DIGGS code (a test checks
+# that each `code` is an entry of the named list). A code with no entry here, or an entry
+# with no `code`, is reported as convert.unmapped-code; nothing is guessed.
+
+mapping_version = "0.1"
+#: Where the DIGGS code lists named by `code_list` are published.
+code_list_base = "https://diggsml.org/def/codes/DIGGS/0.1/"
+
+# LOCA_TYPE: the kind of sampling feature, and its boreholeType where DIGGS has one.
+# `exact = true` means the DIGGS element alone says what the code says.
+code = [
+  { heading = "LOCA_TYPE", ags = "CP", element = "Borehole", code_list = "boreholeType", code = "CP" },
+  { heading = "LOCA_TYPE", ags = "RC", element = "Borehole", code_list = "boreholeType", code = "RC" },
+  { heading = "LOCA_TYPE", ags = "CP+RC", element = "Borehole", code_list = "boreholeType", code = "CP-RC" },
+  { heading = "LOCA_TYPE", ags = "HA", element = "Borehole", code_list = "boreholeType", code = "HA" },
+  { heading = "LOCA_TYPE", ags = "RO", element = "Borehole" },
+  { heading = "LOCA_TYPE", ags = "WS", element = "Borehole" },
+  { heading = "LOCA_TYPE", ags = "WLS", element = "Borehole" },
+  { heading = "LOCA_TYPE", ags = "TP", element = "TrialPit", exact = true },
+  { heading = "LOCA_TYPE", ags = "CPT", element = "Sounding" },
+  { heading = "LOCA_TYPE", ags = "DP", element = "Sounding" },
+  # SAMP_TYPE: the sample type, from the DIGGS sampleType list.
+  { heading = "SAMP_TYPE", ags = "U", code_list = "sampleType", code = "open_tube" },
+  { heading = "SAMP_TYPE", ags = "UT", code_list = "sampleType", code = "thin_walled_tube" },
+  { heading = "SAMP_TYPE", ags = "P", code_list = "sampleType", code = "piston" },
+  { heading = "SAMP_TYPE", ags = "D", code_list = "sampleType", code = "small_disturbed" },
+  { heading = "SAMP_TYPE", ags = "B", code_list = "sampleType", code = "bulk" },
+  { heading = "SAMP_TYPE", ags = "LB", code_list = "sampleType", code = "large_bulk" },
+  { heading = "SAMP_TYPE", ags = "BLK", code_list = "sampleType", code = "block" },
+  { heading = "SAMP_TYPE", ags = "C", code_list = "sampleType", code = "rotary_core" },
+  { heading = "SAMP_TYPE", ags = "W", code_list = "sampleType", code = "water_sample" },
+  { heading = "SAMP_TYPE", ags = "WS", code_list = "sampleType", code = "window" },
+  { heading = "SAMP_TYPE", ags = "SPT", code_list = "sampleType", code = "split_barrel" },
+  { heading = "SAMP_TYPE", ags = "G", code_list = "sampleType", code = "gas_sample" },
+  # GRAT_TYPE: how a particle size reading was measured. Sieving becomes a Grading of a
+  # SieveAnalysis, sedimentation by hydrometer a Sedimentation of a Hydrometer analysis.
+  # Any other method (a pipette analysis, or an unlisted code) is reported, not converted.
+  { heading = "GRAT_TYPE", ags = "WS", element = "Grading", exact = true },
+  { heading = "GRAT_TYPE", ags = "DS", element = "Grading", exact = true },
+  { heading = "GRAT_TYPE", ags = "HY", element = "Sedimentation", exact = true },
+]
+
+# LOCA_GREF: the grid reference system of LOCA_NATE and LOCA_NATN. A value of the form
+# EPSG:<number> is also read as that EPSG code. Anything else is reported, and the
+# coordinates are written with no CRS.
+crs = [
+  { heading = "LOCA_GREF", ags = "OSGB", srs = "http://www.opengis.net/def/crs/EPSG/0/27700" },
+  { heading = "LOCA_GREF", ags = "OSGB36", srs = "http://www.opengis.net/def/crs/EPSG/0/27700" },
+  { heading = "LOCA_GREF", ags = "British National Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/27700" },
+  { heading = "LOCA_GREF", ags = "ITM", srs = "http://www.opengis.net/def/crs/EPSG/0/2157" },
+  { heading = "LOCA_GREF", ags = "Irish Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/29903" },
+  # LOCA_LLZ: the datum of LOCA_LAT and LOCA_LON (latitude first, as EPSG states).
+  { heading = "LOCA_LLZ", ags = "WGS84", srs = "http://www.opengis.net/def/crs/EPSG/0/4326" },
+  { heading = "LOCA_LLZ", ags = "WGS 84", srs = "http://www.opengis.net/def/crs/EPSG/0/4326" },
+  { heading = "LOCA_LLZ", ags = "ETRS89", srs = "http://www.opengis.net/def/crs/EPSG/0/4258" },
+]

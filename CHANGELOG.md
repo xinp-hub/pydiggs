@@ -73,6 +73,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AGS4 file). The new schema is packaged and published as
   `diggs-findings-1.1.schema.json`; the 1.0 schema file is unchanged and still packaged
   and published, and every 1.0 document is a valid 1.1 document.
+- **Preview: AGS4 to DIGGS conversion** (`pydiggs.preview.convert`, outside Semantic
+  Versioning). `convert.ags4_to_diggs(source)` reads an AGS4 file (a path, bytes, a
+  stream or an `ags4.File`), writes a DIGGS 3.0.0 document and returns a `Conversion`:
+  `xml`, `model` (the document read back with `pydiggs.read_bytes`), `report` (the AGS4
+  reader's notes and the conversion's findings, as a findings report with `format`
+  `"ags4"`), `losses`, `lossless`, `validation` (the output validated), `trace` (the AGS4
+  row each node came from, as `Origin(group, row, line)`), `mapping_version` and
+  `complete`; `save(path)` writes the XML:
+
+  ```python
+  from pydiggs.preview import convert
+
+  c = convert.ags4_to_diggs("site.ags")
+  c.validation.ok  # True: DIGGS 3.0.0 with no error
+  c.trace["BH01"]  # Origin(group='LOCA', row=1, line=60)
+  for finding in c.losses:  # what did not reach the output, or was written by default
+      print(finding.rule_id, finding.path, finding.message)
+  ```
+
+  It covers the Tier A groups (PROJ, TRAN, the ABBR/UNIT/TYPE/DICT lookups, LOCA, GEOL,
+  SAMP, ISPT, LLPL, GRAG with GRAT, LNMC). Every non-null value of the source is either
+  carried into DIGGS or named by a finding of the new `convert` step:
+  `convert.unmapped-group`, `unmapped-heading`, `user-defined`, `unmapped-code`,
+  `unmapped-unit`, `value-unparsed` and `assumed` (warnings), `orphan-row` and
+  `incomplete` (errors), and `value-reformatted` (information, not a loss). One finding
+  is given per group, heading or reason, with a count, and `location.path` names the
+  first place as `GROUP/row/HEADING`. Values are carried as reported: units are renamed
+  only through the unit table and nothing is converted numerically; codes and grid
+  references are mapped only where the bundled DIGGS code lists support them; nothing
+  the file names is opened; and the same file always gives the same bytes.
+- **The AGS4 to DIGGS mapping table** (version 0.1), data that can be reviewed and
+  corrected: `src/pydiggs/convert/mappings/` (`ags4-diggs.toml`, `units.toml`,
+  `codes.toml`), with its own JSON Schema (`convert-mapping-1.schema.json`) and a
+  generated page, [AGS4 to DIGGS mapping](https://xinp-hub.github.io/pydiggs/convert-mapping/).
+  Every group is a draft; mapping table 1.0 is signed off with pyDIGGS 1.10, when
+  conversion becomes stable in `pydiggs.convert`. `convert.mapping_info()` describes
+  the table. It holds only AGS4 group and heading names, keys and parents, and no text
+  from the AGS4 data dictionary.
 
 ### Changed
 - **Contributions are signed off under the Developer Certificate of Origin.** Every commit
@@ -100,6 +138,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The 26 unused Energistics schemas in DIGGS 2.6's `witsml/2.0/RemovedFromProfile/` are no
   longer bundled: DIGGS 2.6 does not import them, so validation is unchanged, and the
   Energistics agreement does not allow redistributing them unmodified.
+- `pydiggs.preview` warns when one of its deprecated read-API names is used, rather
+  than when it is imported, so that `pydiggs.preview.convert` can be imported without a
+  warning. The deprecated names and their removal in 2.0 are unchanged.
 - Findings documents now declare **diggs-findings 1.1**: `$schema` is the 1.1 URL and
   `schema_version` is `"1.1"` (`FINDINGS_SCHEMA_URL`, `FINDINGS_SCHEMA_VERSION`,
   `findings_schema()`, the HTTP API's OpenAPI document, the sidecar's OpenRPC document

@@ -341,6 +341,17 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
         "No AGS4 data dictionary was supplied; the rules that need one checked only the"
         " file's own DICT group"
     ),
+    # What an AGS4 to DIGGS conversion lost (pydiggs.preview.convert); see convert._ledger.
+    "convert.unmapped-group": "An AGS4 group has no mapping to DIGGS; its rows were not converted",
+    "convert.unmapped-heading": "An AGS4 heading has no DIGGS target; its values are not converted",
+    "convert.user-defined": "A group or heading the file's DICT defines; reported, not converted",
+    "convert.unmapped-code": "An AGS4 code has no DIGGS code; kept as text or left out",
+    "convert.unmapped-unit": "An AGS4 unit has no entry in the unit table; values not converted",
+    "convert.orphan-row": "A row names a parent record that was not converted; not converted",
+    "convert.value-unparsed": "A value does not parse as the number, date or text DIGGS needs",
+    "convert.assumed": "DIGGS needs a value the source lacks; a documented default was written",
+    "convert.value-reformatted": "The same value was written in another form (not a loss)",
+    "convert.incomplete": "Part of the source was not converted: a limit, or a DIGGS requirement",
 }
 
 
@@ -529,6 +540,16 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     "ags4.rule-20": _ERROR,
     "ags4.formula-text": _WARNING,
     "ags4.dictionary-not-checked": _INFO,
+    "convert.unmapped-group": _WARNING,
+    "convert.unmapped-heading": _WARNING,
+    "convert.user-defined": _WARNING,
+    "convert.unmapped-code": _WARNING,
+    "convert.unmapped-unit": _WARNING,
+    "convert.orphan-row": _ERROR,
+    "convert.value-unparsed": _WARNING,
+    "convert.assumed": _WARNING,
+    "convert.value-reformatted": _INFO,
+    "convert.incomplete": _ERROR,
 }
 #: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
 #: keeps them equal): only they can be ``incomplete``.

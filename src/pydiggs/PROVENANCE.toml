@@ -26,6 +26,26 @@ source = "local"
 note = "Element order of DIGGS 3.0.0 for the internal writer: generated from the bundled XSDs by scripts/writer_layout.py (drift-tested)."
 sha256 = "68b1383e102b616bfa5a20c6777ce99a93915cbe8840becff00dd4725a9363d1"
 
+[files."convert/convert-mapping-1.schema.json"]
+source = "local"
+note = "JSON Schema of the AGS4 to DIGGS mapping table (format 1): pyDIGGS's own contract."
+sha256 = "35960a17b5a94ffad91319ca3d9443dd71468df8d7a0cf730fb8c88d3fac566f"
+
+[files."convert/mappings/ags4-diggs.toml"]
+source = "local"
+note = "AGS4 to DIGGS mapping table: pyDIGGS's own data (AGS4 group and heading names, keys and parents only; no AGS4 dictionary text)."
+sha256 = "a24f1ca74416c68fa9759a85957b46662fea9adfde5cd9929e6bb12757f42565"
+
+[files."convert/mappings/codes.toml"]
+source = "local"
+note = "AGS4 codes to DIGGS elements, code-list entries and CRSs: pyDIGGS's own data."
+sha256 = "262bedb806145ef6a5d6cadc3a523e23b73be3425535c7daae9c6b4e1a3860d0"
+
+[files."convert/mappings/units.toml"]
+source = "local"
+note = "AGS4 units to DIGGS units of measure: pyDIGGS's own data."
+sha256 = "80dd939397163755523e80ce97ba96501ee3e681bcbea9c26616c8ae57cd4be3"
+
 [files."deprecation/DeprecationRegistry.xml"]
 source = "schemas"
 path = "deprecation/DeprecationRegistry.xml"
