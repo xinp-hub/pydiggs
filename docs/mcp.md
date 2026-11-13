@@ -77,7 +77,7 @@ them accepts a file path or a URL.
 | Tool | Arguments | Result (`structuredContent`) |
 |---|---|---|
 | `validate_diggs` | `content_base64` (string, required), `name` (string, at most 255 characters), `checks` (array of step names), `diggs_version` (`2.5.a`, `2.6`, `3.0.0`, or the experimental `3.1-dev`) | a whole one-file [diggs-findings 1.1](findings.md) document; the tool's `outputSchema` is the packaged findings schema |
-| `explain_rule` | `rule_id` (string, at most 256 characters) | one `RuleInfo`: `id`, `pattern`, `step`, `description`, `severities`, `help_uri`, `known` |
+| `explain_rule` | `rule_id` (string, at most 256 characters) | one `RuleInfo`: `id`, `pattern`, `step`, `description`, `severities`, `help_uri`, `known`, `guidance` |
 | `list_rules` | `step` (optional step name) | `{"rules": [RuleInfo, ...]}` |
 | `supported_versions` | none | `pydiggs_version`, `findings_schema_version`, `findings_schema_url`, `diggs_versions`, `reference_data` |
 | `list_features` | `content_base64` (required), `kind` (such as `borehole`), `cursor` | one page of the document's [features](model.md): `key`, `kind`, `name`, `location`, `total_depth`, `parent`, and how many `samples` and `measurements` refer to each; `total` and `next_cursor` |
@@ -141,6 +141,14 @@ severity, and the rule ids found, followed by a reminder that finding fields are
 untrusted. It never contains a message, an XPath, a `gml:id` or the file name, so text
 planted in a document does not reach the model through the summary. A client that hands
 `structuredContent` to the model gives it the untrusted fields too.
+
+## Resources
+
+| URI | MIME type | Contents |
+|---|---|---|
+| `pydiggs://capabilities` | `application/json` | a [diggs-capabilities 1.0](capabilities.md) document: every operation the server's pydiggs offers, with its stability, inputs, outputs, options, the extras it needs and whether they are installed |
+
+It holds no text from any document, and reading it runs no worker.
 
 ## Limits
 

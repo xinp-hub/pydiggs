@@ -4,7 +4,9 @@
   and every earlier one, which stays published unchanged);
 - the HTTP API's OpenAPI 3.1 document (``pydiggs/server/openapi.json``);
 - the stdio sidecar's OpenRPC 1.3 document (``pydiggs/sidecar/openrpc.json``);
-- the diggs-model (read API) JSON Schema, at the path its ``$id`` names.
+- the diggs-model (read API) JSON Schema, at the path its ``$id`` names;
+- the diggs-capabilities JSON Schema (``pydiggs.capabilities()``), at the path its
+  ``$id`` names.
 
 It also renders the email sign-up form on the "Stay updated" page from
 ``extra.newsletter.buttondown`` in mkdocs.yml.
@@ -30,12 +32,14 @@ EARLIER_SCHEMAS = (PACKAGE / "findings" / "diggs-findings-1.0.schema.json",)
 OPENAPI = PACKAGE / "server" / "openapi.json"
 OPENRPC = PACKAGE / "sidecar" / "openrpc.json"
 MODEL = PACKAGE / "model" / "diggs-model-1.0.schema.json"
+CAPABILITIES = PACKAGE / "_capabilities" / "diggs-capabilities-1.0.schema.json"
 #: Every published document: packaged source -> path under the site root.
 DOCUMENTS: dict[Path, Path] = {
     SCHEMA: PUBLISHED,
     OPENAPI: Path("schemas") / "openapi.json",
     OPENRPC: Path("schemas") / "openrpc.json",
     MODEL: Path("schemas") / MODEL.name,
+    CAPABILITIES: Path("schemas") / CAPABILITIES.name,
     **{earlier: Path("schemas") / earlier.name for earlier in EARLIER_SCHEMAS},
 }
 
