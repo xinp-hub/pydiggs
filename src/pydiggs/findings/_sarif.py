@@ -108,6 +108,8 @@ def _result(finding: Finding, rule_index: int, artifact: dict[str, Any]) -> dict
         location["physicalLocation"]["region"] = region
     if finding.xpath:
         location["logicalLocations"] = [_logical_location(finding.xpath)]
+    elif finding.path:  # a tabular (AGS4) place: GROUP, GROUP/row or GROUP/row/HEADING
+        location["logicalLocations"] = [{"fullyQualifiedName": finding.path, "kind": "element"}]
     properties: dict[str, str] = {"step": finding.step.value}
     if finding.gml_id:
         properties["gmlId"] = finding.gml_id
