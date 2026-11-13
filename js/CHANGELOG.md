@@ -8,6 +8,8 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-13
+
 ### Added
 
 - `startupSnapshotDir` for `PydiggsNode` (experimental): the first start saves a snapshot
@@ -27,6 +29,10 @@ matching pyDIGGS version number.
   Node server's log: Pyodide's output in the worker thread is routed, and stderr goes to
   `console.warn` marked `[pydiggs]`.
 - The README no longer suggests COEP `credentialless`, which Safari does not support.
+- Runs pyDIGGS 1.9.0 (`PYDIGGS_VERSION`), pinned by the sha256 PyPI published for its
+  wheel. It adds AGS4 reading and checking, diggs-findings 1.1, and the AGS4 to DIGGS
+  conversion preview, and no longer imports networking modules under Python 3.14, so
+  the browser worker loads less.
 
 ## [0.4.0] - 2026-11-12
 
