@@ -148,6 +148,7 @@ nav:
     - Validation checks: usage.md
     - Findings (JSON / SARIF): findings.md
     - Reading files: model.md
+    - Capabilities: capabilities.md
   - Integrate:
     - integrations.md
     - HTTP API: http-api.md

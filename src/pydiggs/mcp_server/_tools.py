@@ -13,6 +13,9 @@ Eight read-only tools on the official SDK's ``MCPServer``:
   one document into diggs-model 1.0 and answer one slice of it, page by page (see
   :mod:`pydiggs.mcp_server._read`).
 
+One resource, ``pydiggs://capabilities``, is the diggs-capabilities document of
+:func:`pydiggs.capabilities`: what this pydiggs can do.
+
 Every request goes through :mod:`pydiggs._service` (bundled reference data only; no
 network, no snippets, no local dictionaries; never a path). Validation and reading
 run in one spawned worker process, one document at a time, under a hard timeout. Business
@@ -40,6 +43,7 @@ import anyio
 import anyio.to_thread
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
+from mcp.server.mcpserver.resources import FunctionResource, Resource
 from mcp.server.mcpserver.tools import Tool
 from mcp.shared.exceptions import MCPError
 from mcp_types import (
@@ -69,6 +73,7 @@ if TYPE_CHECKING:
 __all__ = [
     "MAX_MESSAGE_CHARS",
     "MAX_NAME_CHARS",
+    "RESOURCE_URIS",
     "TOOL_NAMES",
     "Limits",
     "create_server",
@@ -98,6 +103,8 @@ TOOL_NAMES: Final = (
     "list_measurements",
     "get_results",
 )
+#: The resources this server offers, in ``resources/list`` order.
+RESOURCE_URIS: Final = ("pydiggs://capabilities",)
 #: Largest diggs-model document a read tool takes from the worker (it slices it).
 _MAX_READ_RESULT: Final = 256 * 2**20
 
@@ -205,6 +212,16 @@ def _rule_info_schema() -> dict[str, Any]:
             "severities": {"type": "array", "items": {"enum": defs["severity"]["enum"]}},
             "help_uri": {"type": "string"},
             "known": {"type": "boolean"},
+            "guidance": {
+                "type": ["object", "null"],
+                "required": ["title", "meaning", "fix", "locale"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "meaning": {"type": "string"},
+                    "fix": {"type": "string"},
+                    "locale": {"type": "string"},
+                },
+            },
         },
     }
 
@@ -703,6 +720,26 @@ def _tools(runtime: _Runtime) -> list[Tool]:
     return tools
 
 
+def _resources() -> list[Resource]:
+    async def capabilities() -> str:
+        return json.dumps(_service.capabilities(), ensure_ascii=False)
+
+    return [
+        FunctionResource.from_function(
+            capabilities,
+            uri=RESOURCE_URIS[0],
+            name="capabilities",
+            title="What this pydiggs can do",
+            description=(
+                "A diggs-capabilities 1.0 document: every operation this pydiggs offers"
+                " (validate, read, AGS4, exports), with its stability, inputs, outputs,"
+                " options, the extras it needs and whether they are installed here."
+            ),
+            mime_type="application/json",
+        )
+    ]
+
+
 def create_server(
     *,
     max_bytes: int = DEFAULT_MCP_MAX_BYTES,
@@ -710,7 +747,7 @@ def create_server(
     timeout: float = DEFAULT_TIMEOUT,
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "WARNING",
 ) -> MCPServer[Any]:
-    """Build the pydiggs MCP server: eight read-only tools on the official MCP SDK.
+    """Build the pydiggs MCP server: eight read-only tools and one resource on the MCP SDK.
 
     Validation and reading run in one spawned worker process, started when the server
     starts serving and stopped when it stops; one document at a time, killed and
@@ -762,6 +799,7 @@ def create_server(
         ),
         version=__version__,
         tools=_tools(runtime),
+        resources=_resources(),
         log_level=log_level,
         lifespan=lifespan,
     )

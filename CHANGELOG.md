@@ -73,6 +73,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AGS4 file). The new schema is packaged and published as
   `diggs-findings-1.1.schema.json`; the 1.0 schema file is unchanged and still packaged
   and published, and every 1.0 document is a valid 1.1 document.
+- **`pydiggs.capabilities()`: what this pyDIGGS can do, machine-readable.** It returns a
+  `Capabilities` with one `Operation` per thing pyDIGGS offers (`validate`, `read`,
+  `detect`, `rules.list`, `rules.explain`, `ags4.read`, `ags4.write`, `ags4.check`,
+  `export.pandas`, `export.polars`, `gis.transform`, `export.geodataframe`,
+  `export.gpkg`, `export.geoparquet`, `export.geojson`): its stability (`stable`,
+  `preview` or `experimental`; the AGS4 operations are `preview`), inputs and outputs
+  (`diggs-3.0.0`, `ags4-4.1.1`, `diggs-findings-1.1`, `diggs-model-1.0`, media types),
+  its options as `OptionSpec`s (type, default, choices, a plain-language label), the
+  extras it `needs`, and whether they are `available` here. Availability is found
+  without importing anything optional, so the same wheel answers correctly in Pyodide,
+  where only the core is installed. An app can build its menus from it instead of from
+  hand edits per release:
+
+  ```python
+  import pydiggs
+
+  for op in pydiggs.capabilities().operations:
+      print(op.id, op.stability, op.available)
+  ```
+
+  `Capabilities.to_dict()` is a **diggs-capabilities 1.0** document, with its JSON
+  Schema packaged (`pydiggs.capabilities_schema()`, `CAPABILITIES_SCHEMA_VERSION`,
+  `CAPABILITIES_SCHEMA_URL`) and published beside the findings and model schemas. The
+  same document is `pydiggs capabilities --json` on the command line (without `--json`,
+  a short table), `GET /v1/capabilities` on the HTTP server (off, like `/v1/versions`,
+  with `versions_enabled=False`), and the MCP server's new `pydiggs://capabilities`
+  resource. Every name is new; nothing existing changes.
+- **Plain-language rule guidance.** Every rule in `rule_catalogue()` and every id
+  `explain_rule()` knows now has `RuleInfo.guidance`, a new `Guidance` object (`title`,
+  `meaning`, `fix`, `locale`) written for geotechnical and geoenvironmental engineers who
+  are not DIGGS or XML specialists: `explain_rule("dictionary.5").guidance.title` is
+  `'Unknown code'`. The field defaults to `None` (an unknown id), so existing code that
+  builds a `RuleInfo` is unaffected, and `to_dict()` gains a `guidance` key. The common
+  `schema.cvc-*` rules have their own text; other family members get their family's. The
+  HTTP `/v1/rules` routes, the sidecar's `rules.*` methods and the MCP `explain_rule` and
+  `list_rules` tools return it too (`openapi.json` and `openrpc.json` add the optional
+  `guidance` property). Findings documents are unchanged and stay `diggs-findings` 1.1:
+  apps look guidance up by `rule_id`. Only English ships; a test fails if any rule lacks
+  guidance.
 
 ### Changed
 - **Contributions are signed off under the Developer Certificate of Origin.** Every commit

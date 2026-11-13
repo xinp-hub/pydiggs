@@ -69,6 +69,7 @@ app, a reverse proxy or an API gateway for that.
 | `POST /v1/validate` | 200 with a diggs-findings 1.1 document, or SARIF 2.1.0 for `Accept: application/sarif+json` |
 | `POST /v1/read` | 200 with a diggs-model 1.0 document: what is in the file ([Reading files](model.md)) |
 | `GET /v1/versions` | pydiggs, findings schema and DIGGS versions, reference-data commits, `api_version: "1"` (off with `versions_enabled=False`) |
+| `GET /v1/capabilities` | a [diggs-capabilities 1.0](capabilities.md) document: what this server's pydiggs can do (off with `versions_enabled=False`) |
 | `GET /v1/rules?step=` | every rule id pydiggs can emit (open families as patterns) |
 | `GET /v1/rules/{rule_id}` | one rule; a valid id pydiggs does not emit is 200 with `known: false` |
 | `GET /v1/readyz` | 200 once the workers are warm, else 503 `not-ready` |
@@ -194,7 +195,8 @@ Size the host for *ASGI server processes × pydiggs workers × about 2 GiB*.
   `Server` header, a 16 KiB header limit, a 5 s keep-alive and a connection limit of the
   admission slots plus 4. On SIGTERM or SIGINT it stops accepting connections and waits
   at most `timeout_s` plus 5 s for requests in flight, then cancels them and exits.
-- `/v1/versions` and the probes reveal versions to unauthenticated callers.
+- `/v1/versions`, `/v1/capabilities` and the probes reveal versions to unauthenticated
+  callers.
 
 ## Settings
 

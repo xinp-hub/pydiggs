@@ -44,6 +44,7 @@ def test_catalogue_is_stable_ordered_and_serialisable():
             "severities",
             "help_uri",
             "known",
+            "guidance",
         ]
         if info.pattern is None:
             assert is_valid_rule_id(info.id, info.step)

@@ -141,6 +141,10 @@ PACKAGE_FILES = (
 # Package files maintained in this repository rather than synced. They are still
 # digest-checked, so an accidental edit shows up in review.
 PACKAGE_LOCAL = {
+    "_capabilities/diggs-capabilities-1.0.schema.json": (
+        "The diggs-capabilities JSON Schema (pydiggs.capabilities()): pyDIGGS's own output "
+        "contract, checked against the output by tests/test_capabilities.py."
+    ),
     "dictionaries/DIGGSTestPropertyDefinitions.xml": (
         "Legacy pre-def/codes property dictionary; no current upstream equivalent."
     ),
@@ -151,6 +155,10 @@ PACKAGE_LOCAL = {
     "findings/diggs-findings-1.1.schema.json": (
         "The diggs-findings 1.1 JSON Schema (adds the ags4 and convert steps, location.path "
         "and files[].format): pyDIGGS's own output contract, not upstream data."
+    ),
+    "findings/guidance/en.toml": (
+        "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own "
+        "content, kept complete by tests/test_rule_guidance.py."
     ),
     "sidecar/openrpc.json": (
         "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, "

@@ -382,6 +382,31 @@ open families with a `pattern`), and `explain_rule(rule_id)` describes one id; a
 well-formed id pydiggs never emits gets `known=False`. A test keeps the severities here
 and in the catalogue the same.
 
+### Plain-language guidance
+
+Every rule in `rule_catalogue()`, and every id `explain_rule()` knows, also carries
+`guidance`: a short title, what the rule means for the data, and how to fix it, written
+for geotechnical and geoenvironmental engineers rather than DIGGS specialists. It is a
+`Guidance` object (`title`, `meaning`, `fix`, `locale`), and `None` only for an unknown
+id. `explain_rule()` gives an id its own guidance when it has some (the common
+`schema.cvc-*` rules, such as `schema.cvc-complex-type.2.4`), else its family's.
+
+```python
+from pydiggs import explain_rule
+
+g = explain_rule("dictionary.5").guidance
+g.title  # 'Unknown code'
+g.meaning  # 'A value uses a code that is not in the DIGGS code list it names, ...'
+g.fix  # 'Pick a code from the list, checking spelling and capital letters, ...'
+```
+
+The findings document does not carry guidance, so `diggs-findings` stays at 1.1: an app
+shows a finding's guidance by looking up its `rule_id` with `explain_rule()` (or
+`GET /v1/rules/{rule_id}`, `rules.explain`, or the MCP `explain_rule` tool, which return
+the same `guidance` object). The text lives in `pydiggs/findings/guidance/en.toml`; only
+English ships today, and a test fails if a rule has no guidance or an entry matches no
+rule.
+
 #### Dictionary check severities
 
 | Rule id | Severity |

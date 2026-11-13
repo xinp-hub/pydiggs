@@ -4,7 +4,8 @@ A rule id is ``<step>.<name>``: the step a finding belongs to, a dot, then a nam
 starts with a letter or digit and continues with letters, digits, ``.``, ``_`` or ``-``.
 Rule ids are part of the stable output contract: renaming one is a breaking change.
 
-Pure: no lxml, no I/O.
+Pure: no lxml, and no I/O beyond reading the packaged guidance file
+(:mod:`pydiggs.findings.guidance`).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from dataclasses import dataclass
 from functools import cache
 from typing import Any, Final
 
+from pydiggs.findings.guidance import Guidance, guidance_table
 from pydiggs.findings.keys import TRUNCATED_RULE
 from pydiggs.findings.model import RULE_ID_PATTERN, Severity, Step, is_valid_rule_id
 
@@ -589,6 +591,8 @@ class RuleInfo:
     :func:`explain_rule` returns the id asked about, with its family's ``pattern``
     when it belongs to one. ``severities`` lists what a finding with this id can be,
     most serious first; ``known`` is False for a well-formed id pydiggs never emits.
+    ``guidance`` is the plain-language :class:`~pydiggs.Guidance` for engineers who are
+    not DIGGS specialists (title, meaning, fix); it is None only for an unknown id.
 
     Examples:
         >>> from pydiggs import explain_rule
@@ -597,6 +601,8 @@ class RuleInfo:
         (<Step.DICTIONARY: 'dictionary'>, (<Severity.ERROR: 'error'>,), True)
         >>> info.to_dict()["description"]
         'Code is not found in the code list dictionary'
+        >>> info.guidance.title
+        'Unknown code'
     """
 
     id: str
@@ -606,6 +612,7 @@ class RuleInfo:
     severities: tuple[Severity, ...]
     help_uri: str
     known: bool
+    guidance: Guidance | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """A JSON-serialisable dict (enums as their string values), in field order."""
@@ -617,6 +624,7 @@ class RuleInfo:
             "severities": [s.value for s in self.severities],
             "help_uri": self.help_uri,
             "known": self.known,
+            "guidance": None if self.guidance is None else self.guidance.to_dict(),
         }
 
 
@@ -629,6 +637,7 @@ def _fixed(rule_id: str) -> RuleInfo:
         severities=_SEVERITIES[rule_id],
         help_uri=HELP_URI,
         known=True,
+        guidance=guidance_table().get(rule_id),
     )
 
 
@@ -646,6 +655,7 @@ def _catalogue() -> tuple[RuleInfo, ...]:
             severities=severities,
             help_uri=HELP_URI,
             known=True,
+            guidance=guidance_table().get(template),
         )
         for template, regex, severities, description in _FAMILIES
     ]
@@ -660,7 +670,8 @@ def rule_catalogue() -> tuple[RuleInfo, ...]:
     (``schema.cvc-*``, ``schema.libxml2.*``, ``<step>.incomplete``,
     ``schematron.user-*`` and user Schematron ``@id`` rules) follow, each with a
     ``pattern``. The ``<step>.incomplete`` family is listed under ``structure`` but
-    covers every step. A new entry may be added in a minor release.
+    covers every step. A new entry may be added in a minor release. Every entry
+    carries plain-language ``guidance``.
 
     Returns:
         The catalogue, the same tuple on every call.
@@ -680,7 +691,10 @@ def explain_rule(rule_id: str) -> RuleInfo:
     r"""Describe one rule id, such as a finding's ``rule_id``.
 
     A well-formed id that pydiggs never emits (``"crs.unknown"``) is not an error:
-    it gets ``known=False``, no severities and a generic description.
+    it gets ``known=False``, no severities, a generic description and no guidance.
+    A known id gets plain-language ``guidance``: its own when it has some, else its
+    family's (so ``schema.cvc-complex-type.2.4`` is explained more specifically than
+    the ``schema.cvc-<rule>`` family as a whole).
 
     Args:
         rule_id: ``<step>.<name>``, at most 256 characters.
@@ -699,6 +713,10 @@ def explain_rule(rule_id: str) -> RuleInfo:
         'Schematron rule Borehole.totalMeasuredDepth'
         >>> explain_rule("schema.cvc-elt.1").pattern
         '^schema\\.cvc-[A-Za-z0-9][A-Za-z0-9._-]*$'
+        >>> explain_rule("schema.cvc-complex-type.2.4").guidance.title
+        'Missing or misplaced entry'
+        >>> explain_rule("schema.cvc-length-valid").guidance.title
+        'Breaks the DIGGS format'
         >>> explain_rule("crs.unknown").known
         False
         >>> explain_rule("not a rule")
@@ -715,9 +733,10 @@ def explain_rule(rule_id: str) -> RuleInfo:
     step = Step(rule_id.partition(".")[0])
     if rule_id in _SEVERITIES:
         return _fixed(rule_id)
-    for _template, regex, severities, family in _FAMILIES:
+    for template, regex, severities, family in _FAMILIES:
         if re.fullmatch(regex, rule_id):
             text = describe(rule_id)
+            table = guidance_table()
             return RuleInfo(
                 id=rule_id,
                 pattern=f"^{regex}$",
@@ -726,6 +745,7 @@ def explain_rule(rule_id: str) -> RuleInfo:
                 severities=severities,
                 help_uri=HELP_URI,
                 known=True,
+                guidance=table.get(rule_id) or table.get(template),
             )
     return RuleInfo(
         id=rule_id,

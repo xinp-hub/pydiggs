@@ -80,7 +80,8 @@ def run(fixture_dir: str) -> dict[str, str]:
     string for JavaScript to ``JSON.parse``). Then the same through the service layer
     that @pydiggs/client's worker and the HTTP API use: SARIF (``sarif:<name>``), a
     subset of steps (``checks:<name>``), one node's tables (``select:<name>``), and the
-    versions, rule list and one rule (``versions``, ``rules:schema``, ``explain``).
+    versions, rule list and one rule (``versions``, ``rules:schema``, ``explain``), and the core
+    operations of ``capabilities()``.
     """
     import pydiggs  # lazily: see the module docstring
 
@@ -93,6 +94,10 @@ def run(fixture_dir: str) -> dict[str, str]:
     for name in FIXTURES:
         data = Path(fixture_dir, name).read_bytes()
         out[f"read:{name}"] = pydiggs.read_bytes(data, name=name, max_bytes=MAX_BYTES).to_json()
+    # The core operations only: whether an extra is installed differs between the two.
+    caps = pydiggs.capabilities().to_dict()
+    caps["operations"] = [op for op in caps["operations"] if not op["needs"]]
+    out["capabilities"] = json.dumps(caps, ensure_ascii=False, sort_keys=True)
     out.update(service_cases(fixture_dir))
     return out
 
