@@ -1,0 +1,43 @@
+# AGS4 units (as written in a group's UNIT row) to DIGGS units of measure.
+#
+# A unit is renamed only through this table, and every `diggs` symbol must be in the
+# bundled DIGGS unit dictionary (a test checks). Values are never converted: a unit with
+# no entry is kept out of the output and reported as convert.unmapped-unit.
+#
+# Date and time formats (the UNIT of a DT heading, such as yyyy-mm-dd) are not units; the
+# converter reads them itself.
+
+mapping_version = "0.1"
+
+unit = [
+  { ags = "m", diggs = "m" },
+  { ags = "mm", diggs = "mm" },
+  { ags = "cm", diggs = "cm" },
+  { ags = "km", diggs = "km" },
+  { ags = "um", diggs = "um" },
+  { ags = "ft", diggs = "ft" },
+  { ags = "in", diggs = "in" },
+  { ags = "%", diggs = "%" },
+  { ags = "kPa", diggs = "kPa" },
+  { ags = "MPa", diggs = "MPa" },
+  { ags = "kN/m2", diggs = "kN/m2" },
+  { ags = "bar", diggs = "bar" },
+  { ags = "kN", diggs = "kN" },
+  { ags = "N", diggs = "N" },
+  { ags = "kN/m3", diggs = "kN/m3" },
+  { ags = "Mg/m3", diggs = "Mg/m3" },
+  { ags = "g/cm3", diggs = "g/cm3" },
+  { ags = "kg", diggs = "kg" },
+  { ags = "g", diggs = "g" },
+  { ags = "deg", diggs = "dega" },
+  { ags = "DegC", diggs = "degC" },
+  { ags = "degC", diggs = "degC" },
+  { ags = "s", diggs = "s" },
+  { ags = "min", diggs = "min" },
+  { ags = "h", diggs = "h" },
+  { ags = "m/s", diggs = "m/s" },
+  { ags = "mg/kg", diggs = "mg/kg" },
+  { ags = "ppm", diggs = "ppm" },
+  { ags = "l", diggs = "L" },
+  { ags = "ml", diggs = "mL" },
+]

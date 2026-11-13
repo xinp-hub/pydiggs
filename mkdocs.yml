@@ -159,6 +159,7 @@ nav:
     - JavaScript and TypeScript: javascript.md
   - Reference:
     - Python API: reference.md
+    - AGS4 to DIGGS mapping (preview): convert-mapping.md
   - Project:
     - Contributing: contributing.md
     - Authors: authors.md

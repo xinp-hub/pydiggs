@@ -284,6 +284,7 @@ class _Open:
     types: _Values | None = None
     types_line: int = 0
     rows: list[tuple[str, ...]] = field(default_factory=list)
+    row_lines: list[int] = field(default_factory=list)
     stage: int = 0
 
 
@@ -454,6 +455,7 @@ class _Assembler:
                 row=len(group.rows) + 1,
             )
         group.rows.append(values)
+        group.row_lines.append(line)
 
     def _fit(
         self,
@@ -520,6 +522,7 @@ class _Assembler:
             types=header[1],
             rows=tuple(group.rows),
             line=group.line,
+            row_lines=tuple(group.row_lines),
         )
 
 

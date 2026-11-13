@@ -32,11 +32,16 @@ def test_the_read_api_is_top_level():
 
 
 def test_preview_is_a_deprecated_alias():
+    # From 1.9 using a deprecated name warns, not importing the module: importing
+    # pydiggs.preview.convert (the conversion preview) must not warn.
     sys.modules.pop("pydiggs.preview", None)
+    preview = importlib.import_module("pydiggs.preview")
     with pytest.warns(DeprecationWarning, match="pydiggs.preview is deprecated"):
-        preview = importlib.import_module("pydiggs.preview")
-    assert preview.read is pydiggs.read
-    assert preview.Model is pydiggs.Model
+        assert preview.read is pydiggs.read
+    with pytest.warns(DeprecationWarning, match="pydiggs.preview is deprecated"):
+        assert preview.Model is pydiggs.Model
+    with pytest.raises(AttributeError):
+        _ = preview.no_such_name
 
 
 def test_field_provenance_says_where_each_value_was_read():

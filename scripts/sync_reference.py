@@ -178,6 +178,17 @@ PACKAGE_LOCAL = {
         "Element renames between DIGGS versions for the diggs-model reader, beyond the "
         "deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
     ),
+    "convert/convert-mapping-1.schema.json": (
+        "JSON Schema of the AGS4 to DIGGS mapping table (format 1): pyDIGGS's own contract."
+    ),
+    "convert/mappings/ags4-diggs.toml": (
+        "AGS4 to DIGGS mapping table: pyDIGGS's own data (AGS4 group and heading names, keys"
+        " and parents only; no AGS4 dictionary text)."
+    ),
+    "convert/mappings/codes.toml": (
+        "AGS4 codes to DIGGS elements, code-list entries and CRSs: pyDIGGS's own data."
+    ),
+    "convert/mappings/units.toml": "AGS4 units to DIGGS units of measure: pyDIGGS's own data.",
     "_writer/layout-3.0.0.toml": (
         "Element order of DIGGS 3.0.0 for the internal writer: generated from the bundled "
         "XSDs by scripts/writer_layout.py (drift-tested)."
