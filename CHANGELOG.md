@@ -62,6 +62,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   what you may do, what you must do when you redistribute, and what a pyDIGGS check does
   and does not tell you about engineering data. The pyDIGGS licence is unchanged
   (Apache-2.0).
+- **The package's licence metadata now names every licence it contains**:
+  `Apache-2.0 AND MPL-2.0 AND MIT AND LicenseRef-Energistics-PLA AND LicenseRef-POSC-LA
+  AND LicenseRef-OGC-2001 AND LicenseRef-EPSG-TOU AND LicenseRef-DIGGS-Unstated AND
+  LicenseRef-OASIS` (the container image label likewise, without the test-only OASIS
+  entry). If your SBOM or licence scanner allows only SPDX-listed licences, it will now
+  flag pyDIGGS for review; the terms behind each `LicenseRef-` are in `LICENSES/` and on
+  the [Licence and use](https://xinp-hub.github.io/pydiggs/license/) page, which now has
+  a checklist for products that include pyDIGGS. The units dictionary is now recorded as
+  containing Energistics definitions, as it says itself.
+- The 26 unused Energistics schemas in DIGGS 2.6's `witsml/2.0/RemovedFromProfile/` are no
+  longer bundled: DIGGS 2.6 does not import them, so validation is unchanged, and the
+  Energistics agreement does not allow redistributing them unmodified.
 - Findings documents now declare **diggs-findings 1.1**: `$schema` is the 1.1 URL and
   `schema_version` is `"1.1"` (`FINDINGS_SCHEMA_URL`, `FINDINGS_SCHEMA_VERSION`,
   `findings_schema()`, the HTTP API's OpenAPI document, the sidecar's OpenRPC document

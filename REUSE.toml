@@ -46,12 +46,19 @@ SPDX-License-Identifier = "LicenseRef-OGC-2001"
 path = [
   "src/pydiggs/dictionaries/codes/**",
   "src/pydiggs/dictionaries/properties.xml",
-  "src/pydiggs/dictionaries/DiggsUomDictionary.xml",
   "src/pydiggs/crs/lrm.xml",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "The DIGGS project (DIGGSml/def)"
 SPDX-License-Identifier = "MIT"
+
+# DIGGSml/def units dictionary: most definitions are copied unmodified from the Energistics
+# Unit of Measure Dictionary 1.0, as the file itself says.
+[[annotations]]
+path = "src/pydiggs/dictionaries/DiggsUomDictionary.xml"
+precedence = "override"
+SPDX-FileCopyrightText = ["The DIGGS project (DIGGSml/def)", "2014 Energistics"]
+SPDX-License-Identifier = "MIT AND LicenseRef-Energistics-PLA"
 
 # Maintained in pyDIGGS, started from DIGGSml/def docs/validation/whiteList.xml.
 [[annotations]]

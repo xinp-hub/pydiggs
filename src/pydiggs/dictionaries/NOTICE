@@ -6,8 +6,14 @@ https://github.com/DIGGSml/def, at the commit recorded in ../PROVENANCE.toml.
 
 The DIGGSml/def README states: "This project is licensed under the MIT License". At the
 recorded commit the repository contains no LICENSE file and no copyright line; a request
-for one has been raised with the DIGGS project. The MIT License terms the README refers
-to are reproduced below.
+for one has been raised with the DIGGS project (https://github.com/DIGGSml/def/issues/17).
+The MIT License terms the README refers to are reproduced below.
+
+DiggsUomDictionary.xml says that, apart from the DIGGS extensions marked in it, its unit
+and quantity class definitions "derive directly from the Energistics v1.0 dictionary
+without modification". Those definitions are Copyright (c) 2014 Energistics and are
+distributed under the Energistics Product License Agreement
+(https://energistics.org/product-license-agreement); see the pyDIGGS NOTICE file.
 
 DIGGSTestPropertyDefinitions.xml and whiteList.xml are maintained in pyDIGGS
 (Apache-2.0); whiteList.xml started from DIGGSml/def docs/validation/whiteList.xml.
