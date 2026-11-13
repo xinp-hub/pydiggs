@@ -211,6 +211,19 @@ class RuleContexts:
         """The elements ``context`` matches, or None if it may match anything else."""
         found: list[etree._Element] = []
         for branch in _branches(context):
+            named = _NAMED.match(branch)
+            parent = _PARENT.fullmatch(named[2]) if named is not None and named[2] else None
+            if named is not None and (named[2] == "" or parent is not None):
+                # ``*[local-name()='X']``, optionally ``[parent::*[local-name()='Y']]``:
+                # lxml's C-level tag filter finds the same elements, in the same document
+                # order, without libxml2 evaluating local-name() on every node.
+                for el in doc.getroot().iter("{*}" + named[1]):
+                    if parent is not None:
+                        up = el.getparent()
+                        if up is None or etree.QName(up).localname != parent[1]:
+                            continue
+                    found.append(el)
+                continue
             xpath = branch if branch.startswith("/") else f"//{branch}"
             try:
                 result = doc.xpath(xpath, namespaces=self.namespaces)
