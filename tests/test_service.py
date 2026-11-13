@@ -11,6 +11,7 @@ import os
 import site
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import jsonschema
@@ -615,3 +616,78 @@ def test_request_limits_are_checked():
         Ags4CheckRequest(content=b"", max_findings=0)
     with pytest.raises(ValueError, match="max_bytes"):
         Ags4CheckRequest(content=b"", max_bytes=0)
+
+
+def _c2_check_inputs() -> tuple[bytes, bytes]:
+    return (
+        (AGS4_DIR / "c2_user_group.ags").read_bytes(),
+        (AGS4_DIR / "c2_dictionary.ags").read_bytes(),
+    )
+
+
+def test_ags4_check_gives_the_dictionary_and_the_check_one_shared_deadline(monkeypatch):
+    from pydiggs import ags4
+
+    data, dictionary = _c2_check_inputs()
+    real_read, real_check = ags4.read_bytes, ags4.check
+    budgets: dict[str, float | None] = {}
+
+    def slow_read(content, *, time_budget=None, **kwargs):
+        budgets["dictionary"] = time_budget
+        time.sleep(0.3)
+        return real_read(content, time_budget=time_budget, **kwargs)
+
+    def check(path, *, time_budget=None, **kwargs):
+        budgets["check"] = time_budget
+        return real_check(path, time_budget=time_budget, **kwargs)
+
+    monkeypatch.setattr(ags4, "read_bytes", slow_read)
+    monkeypatch.setattr(ags4, "check", check)
+    request = Ags4CheckRequest(content=data, dictionary=dictionary, time_budget=30.0)
+    assert _service.ags4_check(request).ok
+    assert budgets["dictionary"] is not None and 0 < budgets["dictionary"] <= 30.0
+    assert budgets["check"] is not None and 0 < budgets["check"] <= 30.0 - 0.3
+    budgets.clear()
+    assert _service.ags4_check(dataclasses.replace(request, time_budget=None)).ok
+    assert budgets == {"dictionary": None, "check": None}
+
+
+def test_an_interrupted_dictionary_read_is_a_fixed_text_refusal(monkeypatch):
+    from pydiggs import ags4
+
+    data, dictionary = _c2_check_inputs()
+    real_read = ags4.read_bytes
+
+    def interrupted(content, **kwargs):
+        whole = real_read(content, **kwargs)
+        return ags4.File(groups=whole.groups, complete=False, limits_hit=("time_budget",))
+
+    monkeypatch.setattr(ags4, "read_bytes", interrupted)
+    outcome = _service.ags4_check(
+        Ags4CheckRequest(content=data, dictionary=dictionary, time_budget=5.0)
+    )
+    assert outcome.code is Code.INVALID_PARAMETER and outcome.document is None
+    assert outcome.errors == (("dictionary", "could not be read within the time budget"),)
+
+
+def test_the_dictionary_is_held_to_its_own_size_limit():
+    data, dictionary = _c2_check_inputs()
+    assert len(data) < len(dictionary)
+    own = Ags4CheckRequest(
+        content=data,
+        dictionary=dictionary,
+        max_bytes=len(data),
+        dictionary_max_bytes=len(dictionary),
+    )
+    assert _service.ags4_check(own).ok
+    tight = dataclasses.replace(
+        own, max_bytes=10 * len(dictionary), dictionary_max_bytes=len(dictionary) - 1
+    )
+    refused = _service.ags4_check(tight)
+    assert refused.code is Code.INVALID_PARAMETER and [e[0] for e in refused.errors] == [
+        "dictionary"
+    ]
+    shared = dataclasses.replace(own, dictionary_max_bytes=None)  # None: as max_bytes
+    assert [e[0] for e in _service.ags4_check(shared).errors] == ["dictionary"]
+    with pytest.raises(ValueError, match="dictionary_max_bytes"):
+        Ags4CheckRequest(content=b"", dictionary_max_bytes=0)

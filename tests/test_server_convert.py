@@ -227,6 +227,31 @@ def test_check_refuses_an_unusable_dictionary(client):
     assert "not a dictionary" not in response.text
 
 
+def test_check_takes_exactly_one_file_part(client):
+    """Two parts named ``file`` are refused, not "the last one wins"."""
+    clean, other = (AGS4 / "c2_clean.ags").read_bytes(), SITE.read_bytes()
+    two_files = client.post(
+        "/v1/ags4/check",
+        files=[("file", ("a.ags", clean, "text/plain")), ("file", ("b.ags", other, "text/plain"))],
+    )
+    body = _problem(two_files, 400, "invalid-multipart")
+    assert body["detail"] == "Send exactly one part named 'file'."
+    two_dictionaries = client.post(
+        "/v1/ags4/check",
+        files=[
+            ("file", ("a.ags", clean, "text/plain")),
+            ("dictionary", ("d.ags", clean, "text/plain")),
+            ("dictionary", ("e.ags", clean, "text/plain")),
+        ],
+    )
+    _problem(two_dictionaries, 400, "invalid-multipart")
+    stranger = client.post(
+        "/v1/ags4/check",
+        files=[("file", ("a.ags", clean, "text/plain")), ("other", ("o.ags", clean, "text/plain"))],
+    )
+    _problem(stranger, 400, "invalid-multipart")
+
+
 def test_check_of_what_is_not_ags4_is_a_finding(client):
     response = client.post("/v1/ags4/check", content=b"<Diggs/>", headers=TEXT)
     assert response.status_code == 200

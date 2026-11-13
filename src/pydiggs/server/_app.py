@@ -28,7 +28,7 @@ import anyio.to_thread
 from anyio.lowlevel import RunVar
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.datastructures import Headers, UploadFile
+from starlette.datastructures import FormData, Headers, UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.formparsers import MultiPartException, MultiPartParser
 from starlette.requests import ClientDisconnect, Request
@@ -241,8 +241,8 @@ async def _read_multipart(
 ) -> _Upload | Response:
     """Parse the ``file`` part, other ``files`` parts and a few short fields (``allowed``).
 
-    At most :data:`MAX_FIELDS` fields; the parts in ``files`` besides ``file`` are
-    optional.
+    At most :data:`MAX_FIELDS` fields; exactly one ``file`` part, and each other part
+    in ``files`` at most once (optional). Anything else is ``invalid-multipart``.
     The whole body counts against ``limit`` while it streams; each file part against
     ``file_limit``. Spooled parts are closed (and so deleted) before returning.
     """
@@ -258,9 +258,9 @@ async def _read_multipart(
     except MultiPartException:
         return problem("invalid-multipart", "The multipart body could not be parsed.")
     try:
-        upload = form.get("file")
-        if not isinstance(upload, UploadFile):
-            return problem("missing-input", "Send the document in a multipart part named 'file'.")
+        upload = _file_part(form)
+        if isinstance(upload, Response):
+            return upload
         content = await upload.read(file_limit + 1)
         if len(content) > file_limit:
             return _too_large()
@@ -283,6 +283,16 @@ async def _read_multipart(
         )
     finally:
         await form.close()
+
+
+def _file_part(form: FormData) -> UploadFile | Response:
+    """The one ``file`` part: a second one is refused, not "the last one wins"."""
+    parts = form.getlist("file")
+    if len(parts) > 1:
+        return problem("invalid-multipart", "Send exactly one part named 'file'.")
+    if not parts or not isinstance(parts[0], UploadFile):
+        return problem("missing-input", "Send the document in a multipart part named 'file'.")
+    return parts[0]
 
 
 def _too_large() -> Response:

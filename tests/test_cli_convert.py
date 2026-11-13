@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import os
+import re
 import stat
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -104,6 +107,84 @@ def test_a_symlinked_output_is_refused(tmp_path, capsys):
     assert real.read_bytes() == b"keep"
 
 
+def test_without_hard_links_an_output_that_appears_is_never_replaced(tmp_path, capsys, monkeypatch):
+    """Where links are unsupported, another process's new OUT survives a run without --force."""
+    target = tmp_path / "s.xml"
+    created: list[bool] = []
+
+    def no_links(src, dst, *args, **kwargs):
+        raise OSError(errno.EPERM, "links are not supported here")
+
+    real_replace = Path.replace
+
+    def racing_replace(self, other):
+        # Another process creates OUT, exclusively, just before our move.
+        try:
+            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            created.append(False)
+        else:
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(b"theirs")
+            created.append(True)
+        return real_replace(self, other)
+
+    monkeypatch.setattr(_convert_cli.os, "link", no_links)
+    monkeypatch.setattr(Path, "replace", racing_replace)
+    code, _, err = _run(capsys, str(SITE), "-o", str(target))
+    if any(created):  # their file appeared first: it is kept and we refuse
+        assert code == 2 and "--force" in err
+        assert target.read_bytes() == b"theirs"
+    else:  # we claimed the name first: their exclusive create failed, ours is written
+        assert code == 0
+        assert target.read_bytes().startswith(b"<?xml")
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["s.xml"]
+
+
+def test_without_hard_links_an_existing_output_is_refused_and_force_replaces(
+    tmp_path, capsys, monkeypatch
+):
+    def no_links(src, dst, *args, **kwargs):
+        raise OSError(errno.ENOTSUP, "links are not supported here")
+
+    monkeypatch.setattr(_convert_cli.os, "link", no_links)
+    target = tmp_path / "s.xml"
+    assert _run(capsys, str(SITE), "-o", str(target))[0] == 0
+    assert target.read_bytes().startswith(b"<?xml")
+    target.write_bytes(b"keep")
+    with pytest.raises(_convert_cli._UsageError, match="--force"):
+        _convert_cli._write_atomically(target, b"new", force=False)
+    assert target.read_bytes() == b"keep"
+    _convert_cli._write_atomically(target, b"new", force=True)
+    assert target.read_bytes() == b"new"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["s.xml"]
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no FIFOs on this platform")
+def test_a_fifo_input_is_refused_without_blocking(tmp_path, capsys):
+    fifo = tmp_path / "in.ags"
+    os.mkfifo(fifo)
+    outcome: list[object] = []
+
+    def run() -> None:
+        try:
+            _convert_cli._read_input(str(fifo), 1024)
+        except _convert_cli._UsageError as exc:
+            outcome.append(exc)
+
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(10)
+    if worker.is_alive():  # opened without O_NONBLOCK: release it, then fail
+        os.close(os.open(fifo, os.O_WRONLY | os.O_NONBLOCK))
+        worker.join(10)
+        pytest.fail("opening a FIFO input blocked")
+    assert len(outcome) == 1 and "could not be read" in str(outcome[0])
+    code, out, err = _run(capsys, str(fifo), "-o", str(tmp_path / "o.xml"))
+    assert code == 2 and out == "" and "could not be read" in err
+    assert not (tmp_path / "o.xml").exists()
+
+
 @pytest.mark.parametrize(
     ("data", "message"),
     [
@@ -148,7 +229,8 @@ def test_a_tiny_time_budget_gives_a_partial_output_and_exit_1(tmp_path, capsys):
 def test_help_texts(capsys):
     with pytest.raises(SystemExit):
         main(["convert", "--help"])
-    help_text = capsys.readouterr().out
+    # Python 3.14's argparse colours help when FORCE_COLOR is set (as in CI).
+    help_text = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
     for option in ("-o OUT", "--report FILE", "--to {diggs}", "--fail-on", "--force"):
         assert option in help_text
     assert "not an AGS-approved tool" in help_text

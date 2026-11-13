@@ -264,10 +264,12 @@ numbers included (see [AGS4 files](ags4.md#checking)).
 | `dictionary_base64` | string | an AGS4 data dictionary (pyDIGGS bundles none), standard base64 |
 | `dictionary_path` | string | the dictionary by path, under an `--allow-path` root (vetted like `path`) |
 
-At most one of `dictionary_base64` and `dictionary_path`. Each file is held to the same
-limit as the content; both travel in one request line, so with base64 they must fit in
-`max_line_bytes` together. A dictionary that cannot be used is `invalid-params` naming
-`dictionary`. Rule breaks and a file that is not AGS4 at all are normal results with
+At most one of `dictionary_base64` and `dictionary_path`. Each file is held to the limit
+of the way it came: `max_bytes` inline (base64), `max_path_bytes` by path. Inline, both
+travel in one request line, so they must fit in `max_line_bytes` together. A dictionary
+that cannot be used is `invalid-params` naming `dictionary`. `time_budget_s` covers
+reading the dictionary and checking together: a dictionary read it stops is
+`invalid-params` naming `dictionary` ("could not be read within the time budget"). Rule breaks and a file that is not AGS4 at all are normal results with
 findings. The sidecar writes the file to a private temporary folder (mode 0700) for the
 checker and removes it at once.
 

@@ -145,7 +145,9 @@ def _check_targets(args: argparse.Namespace) -> list[Path]:
 def _read_input(path: str, max_bytes: int) -> bytes:
     """The input's bytes; a regular file of at most ``max_bytes`` bytes."""
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+        # O_NONBLOCK: opening a FIFO must not hang; read_fd then refuses anything irregular.
+        flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+        fd = os.open(path, flags)
     except OSError as exc:
         raise _UsageError(f"cannot read {path}: {exc.strerror or 'not readable'}") from None
     try:
@@ -167,8 +169,10 @@ def _umask() -> int:
 def _write_atomically(target: Path, data: bytes, *, force: bool) -> None:
     """Write ``data`` beside ``target`` and move it into place.
 
-    Without ``force`` the move refuses to replace a file that appeared meanwhile
-    (a hard link is exclusive; where links are not supported, it checks first).
+    Without ``force`` the move never replaces a file that appeared meanwhile: a hard
+    link is exclusive, and where links are not supported the name is first claimed
+    with an exclusive create (``O_EXCL``), so a file another process made is refused,
+    never replaced; the claimed, empty file is then replaced by the output.
     """
     folder = target.parent if str(target.parent) else Path()
     fd, name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=folder)
@@ -190,12 +194,26 @@ def _write_atomically(target: Path, data: bytes, *, force: bool) -> None:
         except OSError as exc:
             if exc.errno not in (errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.EXDEV):
                 raise
-            if target.exists():
-                raise _UsageError(f"{target} exists; pass --force to replace it") from None
-            temporary.replace(target)
+            _claim_and_replace(temporary, target)
     finally:
         with contextlib.suppress(FileNotFoundError):
             temporary.unlink()
+
+
+def _claim_and_replace(temporary: Path, target: Path) -> None:
+    """Create ``target`` exclusively, then move ``temporary`` over that claimed file."""
+    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+        claim = os.open(target, flags, 0o600)
+    except FileExistsError:
+        raise _UsageError(f"{target} exists; pass --force to replace it") from None
+    os.close(claim)
+    try:
+        temporary.replace(target)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            target.unlink()  # the empty claim is ours: do not leave it behind
+        raise
 
 
 def _findings(document: dict[str, Any] | None) -> list[dict[str, Any]]:

@@ -208,3 +208,25 @@ def test_a_queued_conversion_can_be_cancelled(session, monkeypatch):
     assert cancelled["id"] == 2 and _slug(cancelled) == "cancelled"
     release.set()
     assert s.recv() == {"jsonrpc": "2.0", "id": 1, "result": {}}
+
+
+def test_each_ags4_check_input_follows_its_own_transports_limit(session, root):
+    """Inline content with a dictionary_path: the dictionary gets the path limit."""
+    data = (AGS4 / "c2_user_group.ags").read_bytes()
+    dictionary = root / "dict.ags"
+    assert len(data) < dictionary.stat().st_size
+    options = ServeOptions(max_bytes=len(data), max_path_bytes=10 * len(data))
+    s = session(options=options, roots=(root,))
+    _initialize(s)
+    reply = s.call("ags4.check", {"content_base64": _b64(data), "dictionary_path": str(dictionary)})
+    assert "result" in reply, reply
+    assert "ags4.dictionary-not-checked" not in {
+        f["rule_id"] for f in reply["result"]["files"][0]["findings"]
+    }
+    (root / "user.ags").write_bytes(data)
+    tight = session(options=ServeOptions(max_bytes=len(data) - 1), roots=(root,))
+    _initialize(tight)
+    inline = tight.call(
+        "ags4.check", {"path": str(root / "user.ags"), "dictionary_base64": _b64(data)}, id=2
+    )
+    assert _slug(inline) == "input-too-large"  # the inline dictionary keeps the inline limit

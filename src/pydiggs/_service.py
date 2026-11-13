@@ -783,8 +783,10 @@ class Ags4CheckRequest:
     """One AGS4 check request. Limits come from the adapter's settings, not the caller.
 
     ``dictionary`` is the bytes of an AGS4 data dictionary the caller supplies (pyDIGGS
-    bundles none); it is held to ``max_bytes`` too. ``name`` is checked by
-    :func:`ags4_check`, which answers ``invalid-parameter`` rather than raising.
+    bundles none); it is held to ``dictionary_max_bytes``, or to ``max_bytes`` when that
+    is None (an adapter whose dictionary can come by another transport than the file,
+    such as the sidecar's ``dictionary_path``, gives that transport's limit). ``name`` is
+    checked by :func:`ags4_check`, which answers ``invalid-parameter`` rather than raising.
 
     Examples:
         >>> Ags4CheckRequest(content=b'"GROUP","PROJ"', name="site.ags").format
@@ -798,11 +800,15 @@ class Ags4CheckRequest:
     max_bytes: int = 25 * 2**20
     max_findings: int | None = run.DEFAULT_MAX_FINDINGS
     time_budget: float | None = None
+    dictionary_max_bytes: int | None = None
 
     def __post_init__(self) -> None:
         _check_limits(self.content, self.max_bytes, self.time_budget)
         if self.dictionary is not None and not isinstance(self.dictionary, bytes):
             raise TypeError(f"dictionary must be bytes, not {type(self.dictionary).__name__}")
+        limit = self.dictionary_max_bytes
+        if limit is not None and (type(limit) is not int or limit < 1):
+            raise ValueError(f"dictionary_max_bytes must be a positive int or None, got {limit!r}")
         if self.format not in ("findings", "sarif"):
             raise ValueError(f"format must be 'findings' or 'sarif', got {self.format!r}")
         if self.max_findings is not None and (
@@ -1011,6 +1017,9 @@ def ags4_check(
     file (line numbers included), reported under ``name``. Content that is not AGS4 at
     all, or is AGS 3, is a report with that one finding, as ``pydiggs ags4 check``
     gives. A ``dictionary`` that cannot be used is ``invalid-parameter``.
+    ``time_budget`` is one deadline for reading the dictionary and checking: the check
+    gets what the dictionary read leaves, and a dictionary read the budget stops is
+    ``invalid-parameter`` (``dictionary``: could not be read within the time budget).
     ``should_stop`` is checked before and after the check.
 
     Args:
@@ -1067,6 +1076,23 @@ def _bad_dictionary() -> Outcome:
     )
 
 
+#: The time budget ran out while the caller's dictionary was being read: a parameter
+#: problem (every surface already declares it), not ``timeout``, which the adapters
+#: keep for their own hard limit.
+_DICTIONARY_TIMEOUT: Final = Outcome(
+    code=Code.INVALID_PARAMETER,
+    detail="invalid parameters",
+    errors=(("dictionary", "could not be read within the time budget"),),
+)
+
+
+def _remaining(deadline: float | None) -> float | None:
+    """Seconds left until ``deadline`` (a ``time.monotonic()`` value); None for no limit."""
+    if deadline is None:
+        return None
+    return max(deadline - time.monotonic(), 1e-9)
+
+
 def _ags4_check_outcome(request: Ags4CheckRequest, shown: str) -> Outcome:
     """:func:`ags4_check` after its parameter checks.
 
@@ -1078,14 +1104,24 @@ def _ags4_check_outcome(request: Ags4CheckRequest, shown: str) -> Outcome:
 
     if len(request.content) > request.max_bytes:
         return Outcome(code=Code.INPUT_TOO_LARGE, detail=f"{shown} is larger than allowed")
+    # One deadline for the whole request: the dictionary read takes what it needs of the
+    # budget and the check gets what is left.
+    budget = request.time_budget
+    deadline = None if budget is None else time.monotonic() + budget
     dictionary = None
     if request.dictionary is not None:
+        limit = request.dictionary_max_bytes or request.max_bytes
         try:
             dictionary = ags4.read_bytes(
-                request.dictionary, name="dictionary.ags", max_bytes=request.max_bytes
+                request.dictionary,
+                name="dictionary.ags",
+                max_bytes=limit,
+                time_budget=_remaining(deadline),
             )
         except (InstanceReadError, ValueError):  # DocumentError is a ValueError
             return _bad_dictionary()
+        if "time_budget" in dictionary.limits_hit:
+            return _DICTIONARY_TIMEOUT
     with tempfile.TemporaryDirectory(prefix="pydiggs-ags4-") as folder:
         path = Path(folder, _AGS4_INPUT_NAME)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -1097,7 +1133,7 @@ def _ags4_check_outcome(request: Ags4CheckRequest, shown: str) -> Outcome:
                 dictionary=dictionary,
                 max_bytes=request.max_bytes,
                 max_findings=request.max_findings,
-                time_budget=request.time_budget,
+                time_budget=_remaining(deadline),
             )
         except DocumentError as exc:
             report = _not_ags4(request.content, shown, exc)

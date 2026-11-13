@@ -594,13 +594,17 @@ class Server:
     def _ags4_check(self, job: _Job) -> None:
         params: _protocol.Ags4CheckParams = job.params
         content, name, limit, should_stop = self._document(job, "ags4.check")
-        dictionary = params.dictionary
+        # Each input keeps its own transport's limit: inline bytes max_bytes, a path
+        # max_path_bytes, whichever way the file itself came.
+        dictionary, dictionary_limit = params.dictionary, self.options.max_bytes
         if params.dictionary_path is not None:
             dictionary = self._read_path(params.dictionary_path)
+            dictionary_limit = self.options.max_path_bytes
         request = _service.Ags4CheckRequest(
             content=content,
             name=name,
             dictionary=dictionary,
+            dictionary_max_bytes=dictionary_limit,
             max_bytes=limit,
             max_findings=self.options.max_findings,
             time_budget=params.time_budget,
