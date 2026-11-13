@@ -256,9 +256,9 @@ meaning = "After converting both to the same unit, a casing's outside diameter i
 fix = "Check both diameters and their units in the casing record; give each a standard unit (for example mm or in). A value entered in the wrong unit is a common cause."
 
 [rules."schematron.AbstractLinearSamplingFeature.plunge"]
-title = "Hole angle out of range"
-meaning = "The plunge (the angle of an inclined hole below horizontal, written as a negative number) is outside the range this rule accepts, -45 to -10 degrees."
-fix = "Check the angle and its sign against the drilling record. If the hole really is steeper or flatter than this range, note it for review rather than changing the value."
+title = "Hole angle outside rule range"
+meaning = "The plunge (the angle of a hole from horizontal) is outside -45 to -10 degrees, the range the official DIGGS rule accepts. DIGGS itself allows -90 to 90 degrees, so a vertical hole is outside this rule's range; this is a known problem in the official rule."
+fix = "Check the angle and its sign against the drilling record. If the value is right, keep it: do not change a correct angle to satisfy this rule."
 
 [rules."schematron.CasagrandeTrial.waterContent"]
 title = "Negative liquid limit moisture"
@@ -269,11 +269,6 @@ fix = "Correct the water content from the lab sheet; it must be zero or more."
 title = "Negative cup blow count"
 meaning = "The number of blows in a liquid limit (Casagrande cup) trial is negative or not a number."
 fix = "Correct the blow count from the lab sheet; it must be zero or more."
-
-[rules."schematron.FieldProperties.plasticity"]
-title = "Negative field plasticity"
-meaning = "A plasticity value recorded in the field description is negative or not a number."
-fix = "Correct the value from the field log; it must be zero or more."
 
 [rules."schematron.Cement.weight"]
 title = "Cement weight not positive"

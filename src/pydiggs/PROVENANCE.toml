@@ -524,7 +524,7 @@ sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
 [files."findings/guidance/en.toml"]
 source = "local"
 note = "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own content, kept complete by tests/test_rule_guidance.py."
-sha256 = "dafe4aa5d515a90d0d0c0bbc7374649a42394dc01495e14f7d8eaa1cb3a835f6"
+sha256 = "88aa9ef3cf4e3f346819164446bf87c151552e774ec1a22feba8f0a1dda3aa84"
 
 [files."model/diggs-model-1.0.schema.json"]
 source = "local"
@@ -1109,7 +1109,7 @@ sha256 = "0aa5b43e96eecced2914eee5493093f5b1378bef141c172b1cd5110852dbf34d"
 [files."schematron/diggs_schematron_rules_2.6.sch"]
 source = "local"
 note = "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); see the file header for the changes."
-sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
+sha256 = "0b4b88c53ba222023d1eb9334db5d0445adcf8a2ec7b4e166324ee8ffc43dbd0"
 
 [files."server/openapi.json"]
 source = "local"
