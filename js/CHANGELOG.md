@@ -8,6 +8,8 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-12
+
 ### Added
 
 - The whole pyDIGGS API from JavaScript, without a server. The worker now runs every
@@ -48,6 +50,10 @@ matching pyDIGGS version number.
   list); `true` and `false` still work. The worker protocol (internal) changed with it.
 - `PoolEngine` and the handler's `PydiggsEngine` include the new methods; an engine of
   your own needs them too.
+- Still pins pyDIGGS 1.8.0. Its service layer imports `urllib.request` (and with it
+  `http.client`, `socket` and `ssl`) when it first tidies a finding text under Python
+  3.14, as Pyodide runs; nothing is sent. Fixed in the next pyDIGGS release, which the
+  client follows.
 
 ## [0.3.0] - 2026-11-12
 
