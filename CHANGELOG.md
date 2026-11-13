@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-13
+
 ### Added
 - **`pydiggs.ags4`: read and write AGS4 files** (the first part of AGS4 and DIGGS
   conversion). `ags4.read(path)` and `ags4.read_bytes(data)` return a `File` of `Group`
@@ -67,7 +69,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   The command takes `--format text|json|sarif`, `--output`, `--fail-on`,
   `--max-findings`, `--max-bytes` and `--time-budget`, with the exit codes of
-  `pydiggs validate`. `rule_catalogue()` and `explain_rule()` describe every new id.
+  `pydiggs validate`. In SARIF, a finding's place in the file is a logical location
+  (`locations[].logicalLocations[]`, with `fullyQualifiedName` such as `XTST/2` and
+  `kind` `element`); SARIF for DIGGS files is unchanged. `rule_catalogue()` and
+  `explain_rule()` describe every new id.
 - **diggs-findings 1.1**, which only adds to 1.0: the steps `ags4` and `convert`
   (`Step.AGS4`, `Step.CONVERT`; `validate()` never runs them), an optional
   `location.path` for a place in a source that is not XML (`Finding.path`, for AGS4
@@ -106,7 +111,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for its element, grid coordinates only in the unit of their CRS's axes, and nothing is
   converted numerically; codes and grid references are mapped only where the bundled
   DIGGS code lists support them; nothing the file names is opened; and the same file
-  always gives the same bytes.
+  always gives the same bytes. `max_bytes` limits the AGS4 input only: the DIGGS XML,
+  often many times larger, is read back and validated whatever its size.
+  `time_budget` is seconds for the whole call (reading, converting, validating and
+  reading back each get what is left). When it runs out, `complete` is False and the
+  output is partial (`convert.incomplete` names what was not converted, or `model`
+  holds the members read back so far), except during validation, which gives
+  `validation` a `structure.timeout` error instead. Writing the XML and a running
+  libxml2 call are not interrupted, so the call can overrun the budget by that much.
 - **The AGS4 to DIGGS mapping table** (version 0.1), data that can be reviewed and
   corrected: `src/pydiggs/convert/mappings/` (`ags4-diggs.toml`, `units.toml`,
   `codes.toml`), with its own JSON Schema (`convert-mapping-1.schema.json`) and a
@@ -868,7 +880,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/xinp-hub/pydiggs/compare/v1.5.0...v1.6.0

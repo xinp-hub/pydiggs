@@ -193,7 +193,10 @@ class File:
     the read) and ``limits_hit`` (which ones).
 
     Two files are equal when their groups are: ``source``, ``notes``, ``complete`` and
-    ``limits_hit`` take no part, so ``read_bytes(dumps(f)) == f``.
+    ``limits_hit`` take no part, so ``read_bytes(dumps(f)) == f``. Equality also ignores
+    the order of the groups (``groups`` compares as a mapping), although ``groups`` keeps
+    and :func:`dumps` writes file order. A ``File`` is not hashable (``hash(f)`` raises
+    ``TypeError``): use it as a value, not as a dict key or set member.
 
     Examples:
         >>> from pydiggs import ags4

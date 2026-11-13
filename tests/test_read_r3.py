@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -42,6 +43,17 @@ def test_preview_is_a_deprecated_alias():
         assert preview.Model is pydiggs.Model
     with pytest.raises(AttributeError):
         _ = preview.no_such_name
+
+
+def test_preview_dir_lists_the_deprecated_names_without_warning():
+    # Until 2.0, dir() and autocomplete keep offering the deprecated names.
+    preview = importlib.import_module("pydiggs.preview")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        listed = dir(preview)
+    assert set(preview.__all__) <= set(listed)
+    assert {"__getattr__", "__doc__"} <= set(listed)
+    assert listed == sorted(listed)
 
 
 def test_field_provenance_says_where_each_value_was_read():

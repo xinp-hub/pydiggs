@@ -7,6 +7,10 @@ import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYDIGGS_WHEEL } from "../src/genera
 import type { InitMessage, ReplyMessage } from "../src/protocol.ts";
 import { ABSOLUTE_MAX_BYTES, createWorkerCore, type PyCallable, type PyodideLike } from "../src/worker-core.ts";
 
+// A pyDIGGS release PR bumps PYDIGGS_VERSION before that release is on PyPI, so no
+// wheel is pinned (PYDIGGS_WHEEL is null) until scripts/follow-pydiggs.mjs pins it.
+const UNPINNED = "no pyDIGGS wheel is pinned yet (scripts/follow-pydiggs.mjs pins it once the release is on PyPI)";
+
 // A Pyodide that records what the worker asks of it. The Python functions are stand-ins:
 // tests/pyodide/worker-smoke.mjs runs the real glue in the real Pyodide.
 function fakePyodide(log: string[], extra: Partial<PyodideLike> = {}): PyodideLike {
@@ -142,7 +146,7 @@ test("the size limit is enforced in the worker, up to the absolute ceiling", asy
   assert.equal(server.log.at(-1), `validate a.xml 1 ${DEFAULT_MAX_BYTES * 4}`, "a server may go above 25 MiB");
 });
 
-test("the pinned wheel is fetched, checked against its sha256 and installed from Pyodide's file system", async () => {
+test("the pinned wheel is fetched, checked against its sha256 and installed from Pyodide's file system", { skip: PYDIGGS_WHEEL ? false : UNPINNED }, async () => {
   assert.ok(PYDIGGS_WHEEL, "the generator pins the wheel for this release");
   const pin = PYDIGGS_WHEEL!;
   const file = pin.url.split("/").at(-1)!;
