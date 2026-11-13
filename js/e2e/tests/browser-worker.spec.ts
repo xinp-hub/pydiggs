@@ -31,6 +31,8 @@ test("the packed package runs pyDIGGS in a Web Worker, as CPython does", async (
   await expect(page.locator("#stages")).toHaveText("runtime,packages,pydiggs,warm-up");
   const versions = JSON.parse((await page.locator("#versions").textContent()) ?? "{}");
   expect(Object.keys(versions).sort()).toEqual(["lxml", "pydiggs", "pyodide"]);
+  // Only a cross-origin isolated page can share the interrupt buffer with its worker.
+  await expect(page.locator("#interruptible")).toHaveText(process.env.PYDIGGS_ISOLATED === "1" ? "true" : "false");
 
   for (const name of FIXTURES) {
     await page.locator("#file").setInputFiles(fileURLToPath(new URL(name, fixtures)));

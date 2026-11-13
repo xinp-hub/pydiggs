@@ -63,12 +63,39 @@ test("the route handler serves pyDIGGS's HTTP API from a worker thread, as CPyth
       expect(await read.json()).toEqual(JSON.parse(goldens[`read:${name}`]!));
     }
   }
-  const refused = await request.post("/api/pydiggs/v1/validate?checks=schema", {
+  // The rest of the API, from the same service layer as CPython's.
+  const name = FIXTURES[1]!;
+  const body = readFileSync(fixture(name));
+  const sarif = await request.post(`/api/pydiggs/v1/validate?name=${name}`, {
+    data: body,
+    headers: { "Content-Type": "application/xml", Accept: "application/sarif+json" },
+  });
+  expect(sarif.status()).toBe(200);
+  const checked = await request.post(`/api/pydiggs/v1/validate?name=${name}&checks=structure,schema`, {
+    data: body,
+    headers: { "Content-Type": "application/xml" },
+  });
+  expect(checked.status()).toBe(200);
+  const select = encodeURIComponent(JSON.stringify({ results: ["ATTERBERG_B-01_4.0"] }));
+  const selected = await request.post(`/api/pydiggs/v1/read?name=${name}&select=${select}`, {
+    data: body,
+    headers: { "Content-Type": "application/xml" },
+  });
+  expect(selected.status()).toBe(200);
+  if (goldens) {
+    expect(await sarif.json()).toEqual(JSON.parse(goldens[`sarif:${name}`]!));
+    expect(await checked.json()).toEqual(JSON.parse(goldens[`checks:${name}`]!));
+    expect(await selected.json()).toEqual(JSON.parse(goldens[`select:${name}`]!));
+  }
+  // pyDIGGS's own refusal of an unknown step.
+  const refused = await request.post("/api/pydiggs/v1/validate?checks=nope", {
     data: "<Diggs/>",
     headers: { "Content-Type": "application/xml" },
   });
   expect(refused.status()).toBe(422);
-  expect((await refused.json()).code).toBe("invalid-parameter");
+  const problem = await refused.json();
+  expect(problem.code).toBe("invalid-parameter");
+  expect(problem.errors[0].parameter).toBe("checks");
 });
 
 test("PydiggsHybrid in a page falls back to the app's own route handler", async ({ page }) => {

@@ -31,6 +31,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import secrets
 import site
 import sys
@@ -42,7 +43,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
-from pathlib import Path
+from pathlib import Path, PurePath, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 import pydiggs
@@ -239,17 +240,41 @@ def _valid_seconds(value: object) -> bool:
 # --- scrubbing --------------------------------------------------------------------------
 
 
+def _file_uri(path: PurePath) -> str | None:
+    """``path`` as a ``file:`` URI, as :meth:`Path.as_uri` spelled it before Python 3.14.
+
+    Built here because from Python 3.14 ``as_uri`` imports ``urllib.request``, and with
+    it ``http.client``, ``socket`` and ``ssl``: networking that the core path never
+    imports (the Pyodide smoke checks this). None for a relative path.
+
+    Examples:
+        >>> from pathlib import PurePosixPath
+        >>> _file_uri(PurePosixPath("/srv/a b/x"))
+        'file:///srv/a%20b/x'
+        >>> _file_uri(PureWindowsPath("C:/Users/x")), _file_uri(PureWindowsPath("//host/share/x"))
+        ('file:///C:/Users/x', 'file://host/share/x')
+        >>> _file_uri(PurePosixPath("relative")) is None
+        True
+    """
+    if not path.is_absolute():
+        return None
+    if isinstance(path, PureWindowsPath):
+        drive, posix = path.drive, path.as_posix()
+        if len(drive) == 2 and drive[1] == ":":  # noqa: PLR2004  # "C:"
+            return f"file:///{drive}" + urllib.parse.quote_from_bytes(posix[2:].encode("utf-8"))
+        return "file:" + urllib.parse.quote_from_bytes(posix.encode("utf-8"))
+    return "file://" + urllib.parse.quote_from_bytes(os.fsencode(path.as_posix()))
+
+
 def _spellings(location: Path) -> set[str]:
     """Ways a message may spell a folder: as is, resolved, POSIX, ``file:`` URI, %-encoded."""
     forms: set[str] = set()
     for path in {location, location.resolve()}:
         posix = path.as_posix()
         forms |= {str(path), posix, urllib.parse.quote(posix)}
-        try:
-            uri = path.as_uri()
-        except ValueError:
-            continue
-        forms |= {uri, urllib.parse.unquote(uri)}
+        uri = _file_uri(path)
+        if uri is not None:
+            forms |= {uri, urllib.parse.unquote(uri)}
     return {f for f in forms if len(f) > 1 and Path(f).anchor != f}
 
 

@@ -39,12 +39,15 @@ test("the worker is configured first, and ready resolves with its versions", asy
     pydiggsWheelUrl: new URL("https://static.test/wheels/pydiggs-1.7.0-py3-none-any.whl"),
     maxBytes: 1000,
   });
-  assert.deepEqual(worker.posted[0].message, {
+  const { interruptBuffer, ...init } = worker.posted[0].message;
+  assert.deepEqual(init, {
     type: "init",
     maxBytes: 1000,
     pyodideBaseUrl: "https://static.test/pyodide/",
     pydiggsWheelUrl: "https://static.test/wheels/pydiggs-1.7.0-py3-none-any.whl",
   });
+  assert.ok(interruptBuffer instanceof SharedArrayBuffer, "Node shares memory, so the worker can be interrupted");
+  assert.equal(client.interruptible, true);
   worker.reply({ type: "ready", versions: VERSIONS });
   assert.deepEqual(await client.ready, VERSIONS);
 });
@@ -88,21 +91,66 @@ async function answerAll(worker: FakeWorker, count: number): Promise<void> {
   }
 }
 
-test("read passes results, true unless asked otherwise, and names a File by its name", async () => {
+test("read sends the table selection pydiggs's service layer takes, and names a File by its name", async () => {
   const { worker, client } = start();
   const file = new File(["<Diggs/>"], "site.xml");
   const all = Promise.all([
     client.read(file),
     client.read(file, { results: false, name: "other.xml" }),
-    client.read(new Blob(["<Diggs/>"])),
+    client.read(new Blob(["<Diggs/>"]), { results: ["hole-1"], diggsVersion: "2.6" }),
+    client.read(file, { results: "none" }),
   ]);
-  await answerAll(worker, 3);
+  await answerAll(worker, 4);
   await all;
-  const [first, second, third] = worker.requests;
-  assert.deepEqual([first.type, first.name, first.results], ["read", "site.xml", true]);
-  assert.deepEqual([second.name, second.results], ["other.xml", false]);
+  const [first, second, third, fourth] = worker.requests;
+  assert.deepEqual([first.type, first.name, first.parameters], ["read", "site.xml", undefined]);
+  assert.deepEqual([second.name, second.parameters], ["other.xml", { select: { results: "none" } }]);
   assert.equal(third.name, "input.xml");
+  assert.deepEqual(third.parameters, { diggs_version: "2.6", select: { results: ["hole-1"] } });
+  assert.deepEqual(fourth.parameters, { select: { results: "none" } });
   assert.notEqual(first.id, second.id);
+});
+
+test("validate passes checks and the DIGGS version; validateSarif asks for SARIF", async () => {
+  const { worker, client } = start();
+  const all = Promise.all([
+    client.validate(new ArrayBuffer(1), { checks: ["structure", "schema"], diggsVersion: "3.0.0" }),
+    client.validateSarif(new ArrayBuffer(1)),
+  ]);
+  await answerAll(worker, 2);
+  await all;
+  const [first, second] = worker.requests;
+  assert.deepEqual(first.parameters, { checks: ["structure", "schema"], diggs_version: "3.0.0" });
+  assert.deepEqual([second.type, second.parameters], ["validate", { format: "sarif" }]);
+});
+
+test("versions, listRules and explainRule ask the worker, with no document", async () => {
+  const { worker, client } = start();
+  const all = Promise.all([client.versions(), client.listRules({ step: "schema" }), client.explainRule("schema.1")]);
+  await answerAll(worker, 3);
+  assert.deepEqual(await all, [{ n: 0 }, { n: 1 }, { n: 2 }]);
+  assert.deepEqual(
+    worker.requests.map((r) => [r.type, r.data, r.parameters]),
+    [
+      ["versions", undefined, undefined],
+      ["rules", undefined, { step: "schema" }],
+      ["explain", undefined, { rule_id: "schema.1" }],
+    ],
+  );
+});
+
+test("a refusal carries pydiggs's problem", async () => {
+  const { worker, client } = start();
+  const promise = client.read(new ArrayBuffer(1));
+  await tick();
+  const problem = { code: "invalid-document", detail: "a.xml is not DIGGS", errors: [], kind: "not-diggs" };
+  worker.reply({ id: worker.requests[0].id, type: "error", message: problem.detail, problem });
+  await assert.rejects(promise, (error: unknown) => {
+    assert.ok(error instanceof PydiggsBrowserError);
+    assert.equal(error.code, undefined);
+    assert.deepEqual(error.problem, problem);
+    return true;
+  });
 });
 
 test("documents go one at a time, and each reply settles its own document", async () => {
@@ -139,8 +187,21 @@ function startRestartable(options: object = {}): { workers: FakeWorker[]; client
   return { workers, client };
 }
 
-test("a document past timeoutMs fails with code timeout; a fresh worker takes the next", async () => {
+// A page that is not cross-origin isolated has no SharedArrayBuffer to give the worker.
+async function notIsolated<T>(body: () => Promise<T>): Promise<T> {
+  const global = globalThis as { crossOriginIsolated?: boolean };
+  global.crossOriginIsolated = false;
+  try {
+    return await body();
+  } finally {
+    delete global.crossOriginIsolated;
+  }
+}
+
+test("where the worker cannot be interrupted, a document past timeoutMs replaces it", () => notIsolated(async () => {
   const { workers, client } = startRestartable({ timeoutMs: 100 });
+  assert.equal(workers[0]!.posted[0]?.message.interruptBuffer, undefined);
+  assert.equal(client.interruptible, false);
   workers[0]!.reply({ type: "ready", versions: VERSIONS });
   await client.ready;
   const slow = client.validate(new ArrayBuffer(1));
@@ -160,6 +221,81 @@ test("a document past timeoutMs fails with code timeout; a fresh worker takes th
   assert.equal(request.data.byteLength, 2, "the waiting document went to the new worker");
   workers[1]!.reply({ id: request.id, type: "result", document: { ok: true } });
   assert.deepEqual(await next, { ok: true });
+  assert.equal(client.restarts, 1);
+}));
+
+test("a document past timeoutMs is interrupted, and the worker kept when it stops in time", async () => {
+  const { workers, client } = startRestartable({ timeoutMs: 50, interruptGraceMs: 1000 });
+  workers[0]!.reply({ type: "ready", versions: VERSIONS });
+  await client.ready;
+  const buffer = new Uint8Array(workers[0]!.posted[0]!.message.interruptBuffer);
+  const slow = client.validate(new ArrayBuffer(1));
+  const next = client.validate(new ArrayBuffer(2));
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.equal(buffer[0], 2, "SIGINT was written for the worker");
+  const [first] = workers[0]!.requests;
+  workers[0]!.reply({ id: first.id, type: "error", message: "cancelled", problem: { code: "cancelled" } });
+  await assert.rejects(slow, (error: unknown) => {
+    assert.ok(error instanceof PydiggsBrowserError);
+    assert.equal(error.code, "timeout");
+    return true;
+  });
+  await tick();
+  const second = workers[0]!.requests[1];
+  assert.equal(second.data.byteLength, 2, "the same worker takes the next document");
+  workers[0]!.reply({ id: second.id, type: "result", document: { ok: true } });
+  assert.deepEqual(await next, { ok: true });
+  assert.equal(workers.length, 1);
+  assert.equal(client.restarts, 0);
+});
+
+test("an interrupted worker that does not stop within the grace period is replaced", async () => {
+  const { workers, client } = startRestartable({ timeoutMs: 30, interruptGraceMs: 30 });
+  workers[0]!.reply({ type: "ready", versions: VERSIONS });
+  await client.ready;
+  await assert.rejects(client.validate(new ArrayBuffer(1)), (error: unknown) => {
+    assert.equal((error as PydiggsBrowserError).code, "timeout");
+    return true;
+  });
+  assert.equal(workers.length, 2);
+  assert.equal(workers[0]!.terminated, true);
+  assert.equal(client.restarts, 1);
+});
+
+test("aborting a running document interrupts the worker", async () => {
+  const { worker, client } = start();
+  worker.reply({ type: "ready", versions: VERSIONS });
+  await client.ready;
+  const buffer = new Uint8Array(worker.posted[0]!.message.interruptBuffer);
+  const controller = new AbortController();
+  const promise = client.validate(new ArrayBuffer(1), { signal: controller.signal });
+  await tick();
+  controller.abort(new Error("stop"));
+  await assert.rejects(promise, /stop/);
+  assert.equal(buffer[0], 2);
+});
+
+test("an idle worker is stopped after idleTimeoutMs and started again by the next request", async () => {
+  const { workers, client } = startRestartable({ idleTimeoutMs: 30 });
+  workers[0]!.reply({ type: "ready", versions: VERSIONS });
+  await client.ready;
+  const first = client.validate(new ArrayBuffer(1));
+  await tick();
+  workers[0]!.reply({ id: workers[0]!.requests[0].id, type: "result", document: { n: 1 } });
+  await first;
+  assert.equal(client.status, "ready");
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(client.status, "idle");
+  assert.equal(workers[0]!.terminated, true);
+  const again = client.validate(new ArrayBuffer(1));
+  await tick();
+  assert.equal(workers.length, 2, "a fresh worker was started");
+  workers[1]!.reply({ type: "ready", versions: VERSIONS });
+  await tick();
+  workers[1]!.reply({ id: workers[1]!.requests[0].id, type: "result", document: { n: 2 } });
+  assert.deepEqual(await again, { n: 2 });
+  assert.equal(client.restarts, 0, "idling is not a restart");
+  client.terminate();
 });
 
 test("loading does not count against timeoutMs", async () => {

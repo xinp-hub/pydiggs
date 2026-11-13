@@ -1,6 +1,6 @@
 {
   "name": "@pydiggs/client",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "TypeScript types and thin clients for pyDIGGS, the DIGGS geotechnical XML validator and reader: its HTTP API, and pydiggs itself in the browser on Pyodide. Not a JavaScript port.",
   "license": "Apache-2.0",
   "author": "Xin Peng",
@@ -60,6 +60,10 @@
     "./browser/worker": {
       "types": "./dist/browser-worker.d.ts",
       "default": "./dist/browser-worker.js"
+    },
+    "./sw": {
+      "types": "./dist/sw.d.ts",
+      "default": "./dist/sw.js"
     },
     "./schemas/*.json": "./schemas/*.json",
     "./package.json": "./package.json"

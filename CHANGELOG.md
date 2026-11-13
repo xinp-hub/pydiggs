@@ -115,6 +115,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GET /v1/rules?step=` and the rule catalogue accept and list the `ags4` step.
 
 ### Fixed
+- The service layer behind `pydiggs serve --http`, the sidecar and `@pydiggs/client` no
+  longer imports networking modules on Python 3.14. Hiding install folders in finding
+  texts called `Path.as_uri()`, which from 3.14 imports `urllib.request` and with it
+  `http.client`, `socket` and `ssl`; nothing was sent, but the core path promises never to
+  import them, and in a browser they were dead weight. The `file:` spelling is now built
+  directly.
 - The source distribution holds only the Python package again. The 1.8.0 sdist also
   carried the npm package's sources (`js/`), `.github/scripts` and an example script,
   because its include patterns matched at any depth. The wheel was not affected.

@@ -5,11 +5,16 @@
 //     then the running versions;
 //   - every `validate` and `read` answer equals CPython's document (goldens from
 //     cases.py, same checkout), so the worker's Python glue adds and loses nothing;
-//   - `read` with results: false keeps the tables and drops their values;
+//   - `read` with select "none" keeps the tables and drops their values;
+//   - the service-layer requests equal CPython's service layer: SARIF, a subset of
+//     checks, one node's tables, versions, the rule list and one rule;
 //   - HTML in an element value comes back verbatim, as data;
-//   - a malformed document is findings for `validate` and an error for `read`;
+//   - a malformed document is findings for `validate` and an invalid-document problem
+//     for `read`; a bad parameter is pydiggs's invalid-parameter problem;
 //   - a document over the limit is refused without reaching Python;
-//   - replies arrive in request order, one per request.
+//   - replies arrive in request order, one per request;
+//   - writing SIGINT to the interrupt buffer stops a long validation with "cancelled",
+//     and the same worker answers the next request.
 // Only the Web Worker shell (js/src/browser-worker.ts: the integrity-checked fetch of
 // pyodide.mjs and the message listener) is not run here; it needs a browser.
 //
@@ -25,6 +30,7 @@ import { readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { Worker } from "node:worker_threads";
 
 import { loadPyodide } from "pyodide";
 
@@ -80,7 +86,8 @@ const arrayBuffer = (buffer) => buffer.buffer.slice(buffer.byteOffset, buffer.by
 const fixture = (name) => arrayBuffer(readFileSync(join(here, "fixtures", name)));
 
 // 1. Configure, load, report.
-handle({ type: "init", maxBytes: MAX_BYTES, pydiggsWheelUrl: `emfs:/smoke/${wheelName}` });
+const interrupt = new Uint8Array(new SharedArrayBuffer(1));
+handle({ type: "init", maxBytes: MAX_BYTES, pydiggsWheelUrl: `emfs:/smoke/${wheelName}`, interruptBuffer: interrupt.buffer });
 const ready = await reply(0);
 assert.equal(ready.type, "ready", `the worker did not load: ${ready.message}`);
 assert.deepEqual(ready.versions, { pyodide: facts.pyodide, pydiggs: wheelMatch[1], lxml: facts.lxml });
@@ -98,8 +105,19 @@ const send = (message) => {
 for (const name of FIXTURES) {
   send({ type: "validate", name, data: fixture(name) });
   send({ type: "read", name, data: fixture(name) });
-  send({ type: "read", name, data: fixture(name), results: false });
+  send({ type: "read", name, data: fixture(name), parameters: { select: { results: "none" } } });
 }
+const service = [];
+for (const name of FIXTURES) {
+  service.push([`sarif:${name}`, send({ type: "validate", name, data: fixture(name), parameters: { format: "sarif" } })]);
+  service.push([`checks:${name}`, send({ type: "validate", name, data: fixture(name), parameters: { checks: ["structure", "schema"] } })]);
+  service.push([`select:${name}`, send({ type: "read", name, data: fixture(name), parameters: { select: { results: ["ATTERBERG_B-01_4.0"] } } })]);
+}
+service.push(["versions", send({ type: "versions" })]);
+service.push(["rules:schema", send({ type: "rules", parameters: { step: "schema" } })]);
+const explainId = JSON.parse(goldens["rules:schema"])[0].id;
+service.push(["explain", send({ type: "explain", parameters: { rule_id: explainId } })]);
+const badChecks = send({ type: "validate", name: "a.xml", data: fixture(FIXTURES[0]), parameters: { checks: ["nope"] } });
 const malformed = arrayBuffer(Buffer.from("<Diggs><unclosed></Diggs>"));
 const badValidate = send({ type: "validate", name: "bad.xml", data: malformed.slice(0) });
 const badRead = send({ type: "read", name: "bad.xml", data: malformed.slice(0) });
@@ -123,22 +141,35 @@ for (const request of requests.slice(0, FIXTURES.length * 3)) {
   if (request.type === "validate") {
     assert.deepEqual(answer.document, JSON.parse(goldens[request.name]));
     console.log(`ok  validate ${request.name}: equal to CPython's report`);
-  } else if (request.results === undefined) {
+  } else if (request.parameters === undefined) {
     assert.deepEqual(answer.document, JSON.parse(goldens[`read:${request.name}`]));
     withValues += tables(answer.document).flatMap((table) => table.columns).filter((c) => c.values.length > 0).length;
     console.log(`ok  read ${request.name}: equal to CPython's model`);
   } else {
     const full = JSON.parse(goldens[`read:${request.name}`]);
     const bare = tables(answer.document);
-    assert.equal(bare.length, tables(full).length, "results: false must keep every table");
+    assert.equal(bare.length, tables(full).length, "select none must keep every table");
     for (const [i, table] of bare.entries()) {
       assert.equal(table.row_count, tables(full)[i].row_count);
-      assert.ok(table.columns.every((column) => column.values.length === 0), "results: false must drop the values");
+      assert.ok(table.columns.every((column) => column.values.length === 0), "select none must drop the values");
     }
-    console.log(`ok  read ${request.name}, results: false: ${bare.length} table(s), no values`);
+    console.log(`ok  read ${request.name}, select none: ${bare.length} table(s), no values`);
   }
 }
-if (withValues === 0) console.log("note: no fixture has result values, so results: false was compared on empty tables only");
+if (withValues === 0) console.log("note: no fixture has result values, so select none was compared on empty tables only");
+
+// 3b. The service layer's other answers, against CPython's service layer.
+for (const [golden, id] of service) {
+  const answer = answers.get(id);
+  assert.equal(answer.type, "result", `${golden}: ${answer.message}`);
+  assert.deepEqual(answer.document, JSON.parse(goldens[golden]), `${golden}: differs from CPython's`);
+  console.log(`ok  ${golden}: equal to CPython's service layer`);
+}
+const checksProblem = answers.get(badChecks);
+assert.equal(checksProblem.type, "error");
+assert.equal(checksProblem.problem.code, "invalid-parameter");
+assert.equal(checksProblem.problem.errors[0].parameter, "checks");
+console.log("ok  an unknown check is pydiggs's invalid-parameter problem");
 
 // 4. Markup in an element value is data: it reaches a message unchanged.
 const markupId = requests.find((r) => r.type === "validate" && r.name === "markup_in_value.xml").id;
@@ -150,14 +181,58 @@ console.log(`ok  markup round-trips verbatim in ${hits[0].rule_id}`);
 const validated = answers.get(badValidate);
 assert.equal(validated.type, "result", "validate must answer a malformed document with findings");
 assert.notEqual(validated.document.files[0].verdict, "valid");
-assert.equal(answers.get(badRead).type, "error", "read must refuse a malformed document");
-console.log(`ok  malformed: validate -> ${validated.document.files[0].verdict}; read -> error`);
+const refusedRead = answers.get(badRead);
+assert.equal(refusedRead.type, "error", "read must refuse a malformed document");
+assert.deepEqual([refusedRead.problem.code, refusedRead.problem.kind], ["invalid-document", "malformed"]);
+console.log(`ok  malformed: validate -> ${validated.document.files[0].verdict}; read -> invalid-document (malformed)`);
 
 // 6. The size limit.
 assert.deepEqual(answers.get(tooLarge), {
   id: tooLarge,
   type: "error",
   message: `the document is larger than ${MAX_BYTES} bytes`,
+  problem: { code: "input-too-large", detail: `larger than ${MAX_BYTES} bytes` },
 });
 console.log("ok  a document over 25 MiB is refused");
+
+// 7. Interrupting: SIGINT in the buffer stops Python with KeyboardInterrupt, the glue
+// answers "cancelled", and the same worker takes the next request. Python checks the
+// buffer between bytecodes, not inside lxml's C code: reading (mostly Python) stops at
+// once, validation finishes the step it is in (schematron, lxml's XSLT, is the long one).
+const slowDoc = (() => {
+  const parts = ['<?xml version="1.0"?>\n<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2">\n'];
+  for (let i = 1; i <= 40000; i++) {
+    parts.push(`<samplingFeature><Borehole gml:id="BH-${i}"><totalMeasuredDepth uom="ft">-1</totalMeasuredDepth></Borehole></samplingFeature>\n`);
+  }
+  parts.push("</Diggs>\n");
+  return Buffer.from(parts.join(""));
+})();
+// Python runs on this thread here, so a timer could not fire until it finished; a page
+// writes from its own thread, and so does this helper.
+const stopAfter = (ms) =>
+  new Worker(
+    "const { workerData } = require('node:worker_threads');" +
+      `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${ms});` +
+      "Atomics.store(new Uint8Array(workerData), 0, 2);",
+    { eval: true, workerData: interrupt.buffer },
+  );
+for (const [type, limit] of [["read", 5000], ["validate", 60000]]) {
+  const before = replies.length;
+  const began = performance.now();
+  const id = send({ type, name: "slow.xml", data: arrayBuffer(slowDoc) });
+  const stopper = stopAfter(1000);
+  const stopped = await reply(before);
+  const took = performance.now() - began;
+  await stopper.terminate();
+  assert.equal(stopped.id, id);
+  assert.equal(stopped.type, "error", `the interrupted ${type} must not produce a document`);
+  assert.equal(stopped.problem.code, "cancelled");
+  assert.ok(took < limit, `${type} took ${took} ms to stop`);
+  console.log(`ok  SIGINT at 1 s stopped ${type} of a ${(slowDoc.byteLength / 1024 / 1024).toFixed(1)} MiB document at ${(took / 1000).toFixed(1)} s with "cancelled"`);
+  const nextId = send({ type: "validate", name: FIXTURES[0], data: fixture(FIXTURES[0]) });
+  const next = await reply(before + 1);
+  assert.equal(next.id, nextId);
+  assert.deepEqual(next.document, JSON.parse(goldens[FIXTURES[0]]));
+  console.log("ok  the same worker answers the next request, equal to CPython's");
+}
 console.log(`worker smoke passed (${elapsed()})`);

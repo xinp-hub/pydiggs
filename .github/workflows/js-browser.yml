@@ -5,8 +5,10 @@
 # - vite: a Vite app (js/e2e) installs the tarball. Its production build runs under the
 #   CSP docs/browser.md documents in Chromium, Firefox and WebKit; the Vite dev server
 #   runs in Chromium.
-#   Then again self-hosted: `pydiggs-client vendor` fills a folder, and the CSP allows
-#   this origin only, so any file the folder lacks fails the test.
+#   Then again cross-origin isolated (COOP and COEP), where a long request is interrupted
+#   instead of costing a worker; and self-hosted: `pydiggs-client vendor` fills a folder,
+#   and the CSP allows this origin only, so any file the folder lacks fails the test. The
+#   offline recipe (a service worker using @pydiggs/client/sw) runs in Chromium.
 # - nextjs: a Next.js app (js/e2e-next) installs the tarball and runs the browser worker
 #   in a client component, built by Turbopack and by webpack and from `next dev`, and
 #   PydiggsNode behind a route handler on the Node runtime.
@@ -120,6 +122,13 @@ jobs:
         env:
           PYDIGGS_GOLDENS: ${{ runner.temp }}/out/goldens.json
         run: npx playwright test
+      # COOP and COEP: the worker shares an interrupt buffer with the page, and Pyodide,
+      # lxml and the wheel still load from their CDNs under require-corp.
+      - name: Run cross-origin isolated
+        env:
+          PYDIGGS_GOLDENS: ${{ runner.temp }}/out/goldens.json
+          PYDIGGS_ISOLATED: "1"
+        run: npx playwright test --project chromium --project firefox --project webkit
       - name: Vendor Pyodide and the wheel with pydiggs-client
         run: |
           set -euo pipefail

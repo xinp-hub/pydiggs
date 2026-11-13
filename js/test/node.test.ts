@@ -17,8 +17,8 @@ test("a worker thread loads, reports progress, and answers in order", async () =
       node.validate(Buffer.from("<Diggs/>"), { name: "a.xml" }),
       node.read(new Uint8Array(3), { results: false }),
     ]);
-    assert.deepEqual(validated, { type: "validate", name: "a.xml", size: 8, results: undefined });
-    assert.deepEqual(read, { type: "read", name: "input.xml", size: 3, results: false });
+    assert.deepEqual(validated, { type: "validate", name: "a.xml", size: 8, parameters: undefined });
+    assert.deepEqual(read, { type: "read", name: "input.xml", size: 3, parameters: { select: { results: "none" } } });
   } finally {
     node.terminate();
   }
@@ -78,7 +78,7 @@ test("a thread that dies on a document fails that document, and a fresh worker t
       type: "validate",
       name: "b.xml",
       size: 2,
-      results: undefined,
+      parameters: undefined,
     });
   } finally {
     node.terminate();
@@ -86,7 +86,8 @@ test("a thread that dies on a document fails that document, and a fresh worker t
 });
 
 test("a document past timeoutMs fails with code timeout; the documents behind it still run", async () => {
-  const node = new PydiggsNode({ workerUrl: fakeWorker, timeoutMs: 300 });
+  // slow.xml ignores the interrupt, so after the grace period its thread is replaced.
+  const node = new PydiggsNode({ workerUrl: fakeWorker, timeoutMs: 300, interruptGraceMs: 100 });
   try {
     await node.ready;
     const slow = node.validate(new Uint8Array(1), { name: "slow.xml" });
@@ -129,4 +130,35 @@ test("terminate rejects waiting documents, and nothing runs after it", async () 
   await assert.rejects(waiting, /terminated/);
   await assert.rejects(node.read(new Uint8Array(1)), /terminated/);
   assert.equal(node.status, "failed");
+});
+
+test("a worker thread shares an interrupt buffer, and a document past timeoutMs stops without a restart", async () => {
+  const node = new PydiggsNode({ workerUrl: fakeWorker, timeoutMs: 50, interruptGraceMs: 2000 });
+  try {
+    const versions = (await node.ready) as unknown as { interruptible: boolean };
+    assert.equal(versions.interruptible, true);
+    assert.equal(node.interruptible, true);
+    await assert.rejects(node.validate(new Uint8Array(1), { name: "stoppable.xml" }), (error: unknown) => {
+      assert.ok(error instanceof PydiggsNodeError);
+      assert.equal(error.code, "timeout");
+      return true;
+    });
+    assert.equal(node.restarts, 0, "the worker stopped when asked, so it was kept");
+    const after = (await node.versions()) as unknown as { type: string };
+    assert.equal(after.type, "versions");
+  } finally {
+    node.terminate();
+  }
+});
+
+test("rules and explain go to the worker with their parameters", async () => {
+  const node = new PydiggsNode({ workerUrl: fakeWorker });
+  try {
+    const rules = (await node.listRules({ step: "crs" })) as unknown as { type: string; parameters: unknown };
+    assert.deepEqual([rules.type, rules.parameters], ["rules", { step: "crs" }]);
+    const rule = (await node.explainRule("crs.1")) as unknown as { type: string; parameters: unknown };
+    assert.deepEqual([rule.type, rule.parameters], ["explain", { rule_id: "crs.1" }]);
+  } finally {
+    node.terminate();
+  }
 });

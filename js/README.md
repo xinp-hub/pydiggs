@@ -95,16 +95,40 @@ input.addEventListener("change", async () => {
 ```
 
 The worker downloads Pyodide (about 12 MB), lxml and pydiggs (about 1.5 MB) on the
-first visit; the browser caches them. Requests run one at a time, and a document may
-be at most 25 MiB. `signal` stops the wait for one document, and `terminate()` stops
+first visit; the browser caches them. The pydiggs wheel is checked against the sha256
+PyPI published for it before it is installed. Requests run one at a time, and a document
+may be at most 25 MiB. `signal` stops the wait for one document, and `terminate()` stops
 the worker.
 
+It takes what the HTTP client takes, and answers the same way, because both run
+pyDIGGS's own service layer:
+
+```ts
+await pydiggs.validate(file, { checks: ["structure", "schema"], diggsVersion: "2.6" });
+await pydiggs.validateSarif(file);                       // a SARIF 2.1.0 log
+await pydiggs.read(file, { results: "none" });           // tables without their values
+await pydiggs.read(file, { results: ["ATTERBERG_B-01_4.0"] }); // one test's values, fast
+await pydiggs.listRules({ step: "schematron" });
+await pydiggs.explainRule("dictionary.5");
+await pydiggs.versions();
+```
+
+A refusal is a `PydiggsBrowserError` whose `problem` is pyDIGGS's own: `code`
+(`invalid-document`, `invalid-parameter`, `input-too-large`, ...), its fixed `detail`,
+and `errors` or `kind` where they apply.
+
 **Time limit.** A document that runs past `timeoutMs` (default 120 s; the largest
-document the tab accepts takes about 40 s on a fast laptop) stops its worker and fails
-with `code: "timeout"`; a fresh worker, loaded from the browser's cache in seconds,
-takes the documents still waiting. A worker that dies on a document (out of memory)
-is replaced the same way, with `code: "crashed"`. In `PydiggsHybrid`, both send the
-document to your server if you configured one.
+document the tab accepts takes about 40 s on a fast laptop) fails with
+`code: "timeout"`. On a page served cross-origin isolated
+(`Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy:
+require-corp` or `credentialless`), the worker is first interrupted, the way Ctrl-C
+stops Python, and kept: reading stops at once, validation after the lxml step it is in.
+If it has not stopped within `interruptGraceMs` (2 s), or the page is not isolated, the
+worker is replaced by a fresh one, loaded from the browser's cache in seconds. An
+aborted `signal` interrupts the same way. A worker that dies on a document (out of
+memory) is replaced, with `code: "crashed"`. In `PydiggsHybrid`, a timeout or a crash
+sends the document to your server if you configured one. `idleTimeoutMs` stops an idle
+worker to give its memory back; the next document starts it again.
 
 CI runs the packed package in Chromium, Firefox and WebKit, built by Vite and served
 under the Content Security Policy below, and compares every answer with CPython's
@@ -302,13 +326,34 @@ const pydiggs = new PydiggsBrowser({
 and the worker's CSP needs no third-party origin (`connect-src 'self'`). CI runs this
 set-up in Chromium, Firefox and WebKit with exactly that policy.
 
+### Offline
+
+`@pydiggs/client/sw` keeps Pyodide, lxml, micropip and the pydiggs wheel in the Cache
+API from your own service worker, so after one visit the page validates with no network:
+
+```ts
+// sw.ts, bundled into your service worker
+import { cachePydiggs } from "@pydiggs/client/sw";
+
+cachePydiggs(self as unknown as ServiceWorkerGlobalScope, {
+  // the same values you pass to PydiggsBrowser, if you self-host:
+  // pyodideBaseUrl: "/pydiggs/", pydiggsWheelUrl: "/pydiggs/pydiggs-1.8.0-py3-none-any.whl",
+  // precache: true,   // download everything at install, not on first use
+});
+```
+
+Every file is pinned to a version, so it is served from the cache without asking the
+network; a new release of this package uses a new cache and deletes the old one. The
+worker still checks the loader's integrity hash and the wheel's sha256. Your page's own
+files are yours to cache. Tested in Chromium (`js/e2e`, `offline.html`).
+
 ### Content Security Policy
 
 A worker takes its policy from the HTTP headers of the worker script, not from the
-page. It needs `'wasm-unsafe-eval'` and `blob:` in `script-src`, and the hosts it
-downloads from in `script-src` and `connect-src`. The exact policies, for the CDN and
-for self-hosting, are in the
-[browser guide](https://xinp-hub.github.io/pydiggs/browser/#content-security-policy).
+page. It needs `'wasm-unsafe-eval'` and `blob:` in `script-src`, `https://cdn.jsdelivr.net`
+in `script-src` and `connect-src`, and `https://files.pythonhosted.org` (the pydiggs
+wheel) in `connect-src`; self-hosted, `'self'` alone. The page and worker policies are
+in the [browser guide](https://xinp-hub.github.io/pydiggs/browser/#content-security-policy).
 
 ## Node: pyDIGGS in a JavaScript server
 
@@ -395,9 +440,12 @@ functions), not in edge functions. Four things decide whether it runs well there
 
 ### Serving pyDIGGS's HTTP API
 
-`createPydiggsHandler` turns an engine into a standard Fetch handler for
-`/v1/validate`, `/v1/read` and `/v1/readyz`, with pyDIGGS's own status codes and problem
-documents, including 504 `timeout` and 503 `busy` with `Retry-After`. `PydiggsHttpClient`
+`createPydiggsHandler` turns an engine into a standard Fetch handler for pyDIGGS's
+`/v1` API: `/v1/validate` (with `checks`, `diggs_version`, and SARIF for
+`Accept: application/sarif+json`), `/v1/read` (with `diggs_version` and `select`,
+node keys included), `/v1/versions`, `/v1/rules`, `/v1/rules/{rule_id}` and
+`/v1/readyz`, with pyDIGGS's own status codes and problem documents, including 504
+`timeout` and 503 `busy` with `Retry-After`. `PydiggsHttpClient`
 and `PydiggsHybrid` work against it unchanged. In a
 Next.js route handler (`app/api/pydiggs/[...path]/route.ts`):
 
@@ -420,9 +468,8 @@ export const GET = (request: Request) => handler()(request);
 With `serverExternalPackages` set as in [Frameworks and bundlers](#frameworks-and-bundlers).
 The tested version is `js/e2e-next/app/api/pydiggs/[...path]/route.js`.
 
-It answers `validate` and `read` with `select` of `all` or `none`; SARIF, `checks`,
-`diggs_version` and node-key selection need `pydiggs serve --http` and are refused with
-422 `invalid-parameter`. It adds no authentication: put it behind your own.
+Every answer comes from the same service layer as `pydiggs serve --http`; CI compares
+them with CPython's. It adds no authentication: put it behind your own.
 
 ## Sizing
 
@@ -443,6 +490,25 @@ includes the 90 MiB a loaded worker holds, and covers validating and then readin
   better. On phones and tablets, set `maxBrowserBytes` to 5 or 10 MiB.
 - **Node server:** up to `ABSOLUTE_MAX_BYTES` (256 MiB). Plan on about 14 times the
   largest document in memory per instance, and timeouts of minutes at 100 MiB.
+- **Cloudflare Workers:** Python Workers run Pyodide too, but an isolate has 128 MB
+  including WebAssembly, and a loaded pyDIGGS holds about 90 MiB before the document's
+  14 times its size, so only files of a megabyte or two would fit. Use a Node function
+  or the container for anything larger.
+
+Where the time goes: reading spends about a third of its time writing the model out as
+JSON (`tests/pyodide/profile-read.mjs`; 2 MiB synthetic document: 6.7 s, of which 2.4 s
+in the model encoder). That is the next thing to speed up in pyDIGGS itself.
+
+### Watched upstream
+
+- **Start-up snapshots.** Pyodide can restore a memory snapshot of the bare runtime in
+  about 0.1 s instead of 1.7 s, which would halve a cold start
+  (`tests/pyodide/snapshot-probe.mjs`), but the API is private, and a snapshot with lxml
+  loaded is refused. Adopted when Pyodide makes it public.
+- **Memory.** 32-bit WebAssembly caps a worker at 4 GiB, and browsers often give a tab
+  less. 64-bit WebAssembly (memory64) would lift this; Pyodide does not build for it
+  yet. Capping one Pyodide instance's memory was taken up upstream
+  (pyodide/pyodide#6482); it is adopted here once a pinned Pyodide release has it.
 
 ## Versions
 

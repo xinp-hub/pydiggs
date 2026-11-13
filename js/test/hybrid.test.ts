@@ -34,7 +34,7 @@ class FakeBrowser {
     if (this.fail) throw this.fail;
     return { from: "browser" };
   }
-  async read(_input: unknown, options: { name: string; results: boolean }) {
+  async read(_input: unknown, options: { name: string; results: unknown }) {
     this.calls.push(`read ${options.name} ${options.results}`);
     if (this.fail) throw this.fail;
     return { from: "browser" };
@@ -173,13 +173,14 @@ test("with no browser, everything goes to the server", async () => {
   assert.deepEqual(server.calls, ["read x.xml none"]);
 });
 
-test("read maps results to each client's form", async () => {
+test("read passes the same results choice to either route", async () => {
   const browser = new FakeBrowser();
   const server = new FakeServer();
   await hybrid({ browser, server }).read(doc(1));
   await hybrid({ browser, server, maxBrowserBytes: 0 }).read(doc(1), { results: false });
   await hybrid({ browser, server, maxBrowserBytes: 0 }).read(doc(1));
-  assert.deepEqual(browser.calls, ["read BH-01.xml true"]);
+  await hybrid({ browser, server }).read(doc(1), { results: ["k"] });
+  assert.deepEqual(browser.calls, ["read BH-01.xml all", "read BH-01.xml k"]);
   assert.deepEqual(server.calls, ["read BH-01.xml none", "read BH-01.xml all"]);
 });
 
