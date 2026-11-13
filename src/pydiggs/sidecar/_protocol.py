@@ -920,6 +920,16 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                         "severities": {"type": "array", "items": _STR},
                         "help_uri": {"type": ["string", "null"]},
                         "known": {"type": "boolean"},
+                        "guidance": {
+                            "type": ["object", "null"],
+                            "required": ["title", "meaning", "fix", "locale"],
+                            "properties": {
+                                "title": _STR,
+                                "meaning": _STR,
+                                "fix": _STR,
+                                "locale": _STR,
+                            },
+                        },
                     },
                 },
                 "ServerCapabilities": {

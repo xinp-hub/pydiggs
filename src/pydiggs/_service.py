@@ -69,6 +69,8 @@ __all__ = [
     "Outcome",
     "ReadRequest",
     "Request",
+    "capabilities",
+    "capabilities_schema",
     "explain",
     "make_pool",
     "model_info",
@@ -878,6 +880,30 @@ def versions() -> dict[str, Any]:
         '1.1'
     """
     return version_info().to_dict()
+
+
+def capabilities() -> dict[str, Any]:
+    """:func:`pydiggs.capabilities` as a diggs-capabilities document, for adapters.
+
+    Examples:
+        >>> capabilities()["schema_version"]
+        '1.0'
+    """
+    from pydiggs._capabilities import capabilities as describe  # noqa: PLC0415
+
+    return describe().to_dict()
+
+
+def capabilities_schema() -> dict[str, Any]:
+    """The packaged diggs-capabilities JSON Schema, a fresh dict (for adapters' schemas).
+
+    Examples:
+        >>> capabilities_schema()["title"]
+        'diggs-capabilities 1.0'
+    """
+    from pydiggs._capabilities import capabilities_schema as packaged  # noqa: PLC0415
+
+    return packaged()
 
 
 def rules(step: str | None = None) -> list[dict[str, Any]] | Outcome:

@@ -2,7 +2,8 @@
 
 :func:`create_server` builds an MCP server with four read-only tools
 (``validate_diggs``, ``explain_rule``, ``list_rules`` and ``supported_versions``) on
-the official MCP Python SDK. ``serve_mcp`` runs it on stdin/stdout.
+the official MCP Python SDK, plus the read tools and the ``pydiggs://capabilities``
+resource (see :mod:`pydiggs.mcp_server._tools`). ``serve_mcp`` runs it on stdin/stdout.
 
 Importing this package without the ``mcp`` extra raises :class:`ImportError` naming
 the extra; any other import error propagates unchanged.

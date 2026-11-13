@@ -647,6 +647,10 @@ def _build_router(state: _State) -> APIRouter:
         del request
         return _json({"api_version": "1", **_service.versions()})
 
+    async def capabilities(request: Request) -> Response:
+        del request
+        return _json(_service.capabilities())
+
     async def rules(request: Request) -> Response:
         answer = _service.rules(request.query_params.get("step"))
         if isinstance(answer, Outcome):
@@ -695,6 +699,14 @@ def _build_router(state: _State) -> APIRouter:
             summary="Versions of pydiggs, the findings schema and the bundled data",
             operation_id="versions",
             responses=_schemas.versions_responses(),
+        )
+        router.add_api_route(
+            "/capabilities",
+            _guarded(state, capabilities),
+            methods=["GET"],
+            summary="What this pydiggs can do: operations, options, stability, extras",
+            operation_id="capabilities",
+            responses=_schemas.capabilities_responses(),
         )
     router.add_api_route(
         "/rules",
@@ -747,7 +759,8 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
         settings: Limits and switches; default ``ServerSettings()``.
 
     Returns:
-        The router: ``POST /v1/validate``, ``GET /v1/versions`` (if enabled),
+        The router: ``POST /v1/validate``, ``POST /v1/read``, ``GET /v1/versions``
+        and ``GET /v1/capabilities`` (if ``versions_enabled``),
         ``GET /v1/rules``, ``GET /v1/rules/{rule_id}`` and ``GET /v1/readyz``.
 
     Examples:
@@ -755,7 +768,7 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
         >>> from pydiggs.server import ServerSettings, create_router
         >>> app = FastAPI()
         >>> app.include_router(create_router(ServerSettings(workers=1)))
-        >>> sorted(app.openapi()["paths"])[:2]
+        >>> sorted(app.openapi()["paths"])[1:3]
         ['/v1/read', '/v1/readyz']
     """
     settings = settings if settings is not None else ServerSettings()

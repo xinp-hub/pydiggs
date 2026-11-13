@@ -227,7 +227,7 @@ same bytes. Validate it against its own `$schema` and tolerate unknown fields.
 ### `rules.list`, `rules.explain`
 
 `rules.list {step?}` returns every rule pydiggs can emit (`RuleInfo` objects: `id`,
-`pattern`, `step`, `description`, `severities`, `help_uri`, `known`), optionally for one
+`pattern`, `step`, `description`, `severities`, `help_uri`, `known`, `guidance`), optionally for one
 step; open families appear as patterns. `rules.explain {rule_id}` (at most 256 characters)
 describes one id; a well-formed unknown id returns `known: false`, a malformed one is
 `-32602`.

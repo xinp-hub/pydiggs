@@ -27,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
         from pydiggs.ags4 import _cli as ags4_cli  # noqa: PLC0415  # loads AGS4 on demand
 
         return ags4_cli.main(args_in[1:])
+    if args_in[:1] == ["capabilities"]:
+        from pydiggs._capabilities import _cli as capabilities_cli  # noqa: PLC0415
+
+        return capabilities_cli.main(args_in[1:])
 
     parser = argparse.ArgumentParser(
         description=(

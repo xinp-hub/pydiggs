@@ -24,6 +24,7 @@ __all__ = [
     "MAX_CHECKS_CHARS",
     "SARIF_MEDIA_TYPE",
     "XML_MEDIA_TYPES",
+    "capabilities_responses",
     "components",
     "error_responses",
     "lift_components",
@@ -248,8 +249,26 @@ def _rule_info() -> _JsonSchema:
             },
             "help_uri": {"type": "string"},
             "known": {"type": "boolean"},
+            "guidance": _GUIDANCE,
         },
     }
+
+
+#: RuleInfo.guidance: not required, as servers older than the guidance never send it.
+_GUIDANCE: Final[_JsonSchema] = {
+    "type": ["object", "null"],
+    "description": (
+        "Plain-language guidance for engineers: a short title, what the rule means for"
+        " the data, and how to fix it. Null for an unknown rule id."
+    ),
+    "required": ["title", "meaning", "fix", "locale"],
+    "properties": {
+        "title": {"type": "string"},
+        "meaning": {"type": "string"},
+        "fix": {"type": "string"},
+        "locale": {"type": "string", "examples": ["en"]},
+    },
+}
 
 
 _VERSIONS: Final[_JsonSchema] = {
@@ -274,6 +293,20 @@ _VERSIONS: Final[_JsonSchema] = {
     },
 }
 
+
+@cache
+def _capabilities_inline() -> _JsonSchema:
+    """The packaged diggs-capabilities schema with its ``$defs`` inlined (no cycles)."""
+    schema = _service.capabilities_schema()
+    defs = schema.get("$defs", {})
+
+    def inline(name: str) -> Any:
+        return _rewrite(defs[name], inline)
+
+    inlined: _JsonSchema = _rewrite(_root(schema), inline)
+    return inlined
+
+
 _READY: Final[_JsonSchema] = {
     "title": "Ready",
     "type": "object",
@@ -291,6 +324,7 @@ def _named() -> dict[str, _JsonSchema]:
         "Problem": _PROBLEM,
         "RuleInfo": _rule_info(),
         "Versions": _VERSIONS,
+        "Capabilities": _capabilities_inline(),
         "Ready": _READY,
     }
 
@@ -299,7 +333,7 @@ def components() -> dict[str, _JsonSchema]:
     """Every component :func:`lift_components` refers to, sorted by name.
 
     Examples:
-        >>> sorted(components())[:3]
+        >>> sorted(components())[1:4]
         ['DiggsFindingsCommit', 'DiggsFindingsCounts', 'DiggsFindingsDocument']
     """
     inlined = ("DiggsFindingsDocument", "DiggsModelDocument")
@@ -520,6 +554,20 @@ def versions_responses() -> dict[int | str, dict[str, Any]]:
         200: {
             "description": "Versions",
             "content": {FINDINGS_MEDIA_TYPE: {"schema": _VERSIONS}},
+        },
+        **error_responses(403, 500),
+    }
+
+
+def capabilities_responses() -> dict[int | str, dict[str, Any]]:
+    """The responses of ``GET /v1/capabilities``."""
+    return {
+        200: {
+            "description": (
+                "A diggs-capabilities 1.0 document: what pydiggs.capabilities() returns"
+                " in the server's own interpreter"
+            ),
+            "content": {FINDINGS_MEDIA_TYPE: {"schema": _capabilities_inline()}},
         },
         **error_responses(403, 500),
     }

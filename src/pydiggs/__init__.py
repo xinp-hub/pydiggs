@@ -10,6 +10,15 @@ For more information about DIGGS, visit: http://www.diggsml.org/
 
 from __future__ import annotations
 
+from ._capabilities import (
+    CAPABILITIES_SCHEMA_URL,
+    CAPABILITIES_SCHEMA_VERSION,
+    Capabilities,
+    Operation,
+    OptionSpec,
+    capabilities,
+    capabilities_schema,
+)
 from ._reader import read, read_bytes
 from ._versions import VersionInfo, version_info
 from .detect import detect_diggs_version
@@ -21,6 +30,7 @@ from .findings.export import (
     findings_json,
     findings_schema,
 )
+from .findings.guidance import Guidance
 from .findings.model import Finding, Report, Severity, Step
 from .findings.rules import RuleInfo, explain_rule, rule_catalogue
 from .findings.run import validate, validate_bytes, warm_up
@@ -34,14 +44,20 @@ __version__ = "1.9.0"
 # The adapters (pydiggs.server, pydiggs.sidecar, pydiggs.mcp_server) are never imported
 # here: ``import pydiggs`` stays free of their dependencies (and of rich).
 __all__ = [
+    "CAPABILITIES_SCHEMA_URL",
+    "CAPABILITIES_SCHEMA_VERSION",
     "FINDINGS_SCHEMA_URL",
     "FINDINGS_SCHEMA_VERSION",
     "MODEL_SCHEMA_URL",
     "MODEL_SCHEMA_VERSION",
+    "Capabilities",
     "DocumentError",
     "Finding",
+    "Guidance",
     "InstanceReadError",
     "Model",
+    "Operation",
+    "OptionSpec",
     "PydiggsError",
     "Report",
     "ResourceError",
@@ -49,6 +65,8 @@ __all__ = [
     "Severity",
     "Step",
     "VersionInfo",
+    "capabilities",
+    "capabilities_schema",
     "detect_diggs_version",
     "explain_rule",
     "findings_document",

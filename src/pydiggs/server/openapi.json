@@ -500,6 +500,47 @@
         }
       }
     },
+    "/v1/capabilities": {
+      "get": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "What this pydiggs can do: operations, options, stability, extras",
+        "operationId": "capabilities",
+        "responses": {
+          "200": {
+            "description": "A diggs-capabilities 1.0 document: what pydiggs.capabilities() returns in the server's own interpreter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/rules": {
       "get": {
         "tags": [
@@ -748,6 +789,154 @@
   },
   "components": {
     "schemas": {
+      "Capabilities": {
+        "title": "diggs-capabilities 1.0",
+        "description": "What one pydiggs install can do, as pydiggs.capabilities().to_dict() returns it (pydiggs capabilities --json, GET /v1/capabilities, MCP resource pydiggs://capabilities): each operation with its stability, inputs, outputs, options, the extras it needs and whether they are installed. Open for consumers: objects accept unknown fields, so a 1.0 consumer accepts any 1.x document. A new optional field or a new token in inputs, outputs or needs is a minor version; a new stability or option type, or anything else, is a new major.",
+        "type": "object",
+        "required": [
+          "$schema",
+          "schema_version",
+          "pydiggs_version",
+          "operations"
+        ],
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "description": "URL of the schema the document follows."
+          },
+          "schema_version": {
+            "type": "string",
+            "pattern": "^1\\.[0-9]+$",
+            "description": "Major.minor of diggs-capabilities."
+          },
+          "pydiggs_version": {
+            "type": "string",
+            "description": "The pydiggs version that wrote the document."
+          },
+          "operations": {
+            "type": "array",
+            "description": "Every operation this pydiggs offers, available here or not.",
+            "items": {
+              "type": "object",
+              "description": "One thing pydiggs can do.",
+              "required": [
+                "id",
+                "label",
+                "stability",
+                "inputs",
+                "outputs",
+                "options",
+                "needs",
+                "available"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$",
+                  "description": "Stable identifier, such as validate, read, ags4.check or export.gpkg."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "What the operation does, in plain language."
+                },
+                "stability": {
+                  "enum": [
+                    "stable",
+                    "preview",
+                    "experimental"
+                  ],
+                  "description": "stable follows Semantic Versioning; preview may change in a minor release; experimental may change or go at any time."
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "What it reads: a DIGGS version (diggs-2.6), an AGS4 version (ags4-4.1.1), a pydiggs document (diggs-model-1.0) or an in-memory Python type."
+                },
+                "outputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "What it gives: a pydiggs document (diggs-findings-1.1, diggs-model-1.0), a media type (application/geo+json), an AGS4 version or an in-memory Python type (pandas.DataFrame)."
+                },
+                "options": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "description": "One option of an operation.",
+                    "required": [
+                      "type",
+                      "label",
+                      "default",
+                      "choices",
+                      "required"
+                    ],
+                    "properties": {
+                      "type": {
+                        "enum": [
+                          "boolean",
+                          "integer",
+                          "number",
+                          "string",
+                          "string[]",
+                          "file"
+                        ],
+                        "description": "The value type; file is a second file (a path in Python)."
+                      },
+                      "label": {
+                        "type": "string",
+                        "description": "What the option does, in plain language."
+                      },
+                      "default": {
+                        "type": [
+                          "string",
+                          "integer",
+                          "number",
+                          "boolean",
+                          "array",
+                          "null"
+                        ],
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "The default; null means not given, and the operation then decides."
+                      },
+                      "choices": {
+                        "type": [
+                          "array",
+                          "null"
+                        ],
+                        "items": {
+                          "type": "string"
+                        },
+                        "description": "The values accepted (each item of a string[] option), or null for any."
+                      },
+                      "required": {
+                        "type": "boolean",
+                        "description": "Whether the option must be given."
+                      }
+                    }
+                  },
+                  "description": "Option name (the keyword argument and request parameter) -> its description."
+                },
+                "needs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The pydiggs extras it needs (pip install 'pydiggs[gis]'); empty for the core."
+                },
+                "available": {
+                  "type": "boolean",
+                  "description": "Whether everything it needs is installed in the interpreter that answered."
+                }
+              }
+            }
+          }
+        }
+      },
       "DiggsFindingsCommit": {
         "type": "string",
         "pattern": "^[0-9a-f]{7,64}$"
@@ -2788,6 +2977,36 @@
           },
           "known": {
             "type": "boolean"
+          },
+          "guidance": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Plain-language guidance for engineers: a short title, what the rule means for the data, and how to fix it. Null for an unknown rule id.",
+            "required": [
+              "title",
+              "meaning",
+              "fix",
+              "locale"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "meaning": {
+                "type": "string"
+              },
+              "fix": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string",
+                "examples": [
+                  "en"
+                ]
+              }
+            }
           }
         }
       },

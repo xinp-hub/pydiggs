@@ -1,0 +1,619 @@
+# Plain-language guidance for every pyDIGGS rule id, in English.
+#
+# Readers are geotechnical and geoenvironmental engineers: they know boreholes, samples
+# and lab tests, not XML, schemas or code. For each rule:
+#   title    2 to 5 words
+#   meaning  one or two sentences: what is wrong with the data, and why it matters
+#   fix      one or two sentences: what to do, in their software or with their supplier
+#
+# Keys are rule ids, or the template of an open family ("schema.cvc-<rule>"). A key may
+# also be one member of a family (such as "schema.cvc-complex-type.2.4"), which then
+# overrides the family's text for that id. tests/test_rule_guidance.py fails when a rule
+# has no entry or an entry matches no rule. Avoid the words XML, element, attribute,
+# namespace, XPath, schema and GML; where one cannot be avoided, explain it once.
+
+# --- File structure --------------------------------------------------------------------
+
+[rules."structure.well-formed"]
+title = "File is damaged"
+meaning = "The file breaks the basic text layout every DIGGS file must follow, for example a tag that is opened but never closed, so no software can read it reliably and nothing else was checked."
+fix = "Export the file again from the software that made it, and check it was not cut short or edited by hand. If it came from someone else, ask them for a fresh copy."
+
+[rules."structure.diggs-root"]
+title = "Not a complete DIGGS file"
+meaning = "The file does not start as a DIGGS file must, or its document information block (who made the file, and when) is missing or given more than once."
+fix = "Check that you opened the DIGGS export and not another file. If it is the right file, ask the software vendor or data supplier to include exactly one document information block."
+
+[rules."structure.markup-entity"]
+title = "Unsafe file content"
+meaning = "The file defines a text shortcut (an entity) whose content would inject more file structure when expanded, a trick used to attack software. For safety nothing else was checked."
+fix = "Do not use this file. Ask the supplier for a normal export; DIGGS files never need these shortcuts."
+
+[rules."structure.entity-expansion"]
+title = "File expands too much"
+meaning = "Text shortcuts defined at the top of the file would make it more than twice its size when read, a pattern used to overload software. For safety nothing else was checked."
+fix = "Do not use this file. Ask the supplier for a normal export without these shortcuts."
+
+[rules."structure.namespace-too-long"]
+title = "Oversized format label"
+meaning = "One of the web addresses that label the file's format is longer than 1,024 characters, which no real DIGGS file needs. For safety nothing else was checked."
+fix = "Ask the supplier for a fresh export from their software; the file may be damaged or crafted."
+
+[rules."structure.read-limit"]
+title = "File only partly read"
+meaning = "Reading stopped at a safety limit because the file holds far more objects, or far deeper nesting, than a file of its size should. What was read is incomplete."
+fix = "Check the file is a genuine export and not damaged. If it is genuine, split the project into smaller files or ask the pyDIGGS maintainers about the limit."
+
+[rules."structure.duplicate-gml-id"]
+title = "Duplicate identifier"
+meaning = "Two or more items in the file share the same identifier, so a link to that identifier is ambiguous; links go to the first one, which may not be the one meant."
+fix = "Give every item its own identifier in the software that made the file, or ask the data supplier to fix the export."
+
+[rules."structure.value-unparsed"]
+title = "Number could not be read"
+meaning = "A result or quantity that should be a number holds text instead (for example \"<0.5\" or \"n/a\"), so it is shown as blank in charts and tables."
+fix = "Enter the value as a plain number, and record qualifiers such as \"less than\" or \"not tested\" in the remarks. Ask your supplier to do the same."
+
+[rules."structure.timeout"]
+title = "Check ran out of time"
+meaning = "Checking did not finish within the time allowed, so some checks did not run and the result is incomplete."
+fix = "Run the check again with a longer time limit, or on a faster computer. Very large projects may need to be split into smaller files."
+
+[rules."structure.internal-error"]
+title = "Checker failed"
+meaning = "pyDIGGS hit an unexpected problem with this file, so some checks did not run. This is a fault in pyDIGGS, not necessarily in your data."
+fix = "Report it to the pyDIGGS maintainers with the message shown (share the file only if you may). Other files in the batch were still checked."
+
+[rules."structure.findings-truncated"]
+title = "Too many problems to list"
+meaning = "The file has more problems than the report shows. The rest were counted but not listed; this entry is as serious as the worst of them."
+fix = "Fix the problems listed, often one cause repeated many times, and check again; or raise the limit on the number of findings."
+
+[rules."<step>.incomplete"]
+title = "Check did not finish"
+meaning = "One stage of checking stopped part way, usually because the file passed a safety or size limit or a code list could not be read. The file cannot count as passing until every stage finishes."
+fix = "Read the message for the reason. Fix or split the file, or supply the missing code list, and check again."
+
+# --- Format rules (the published DIGGS file format) --------------------------------------
+
+[rules."schema.unreleased-profile"]
+title = "Checked against a draft"
+meaning = "The file was checked against a draft of a future DIGGS version, chosen on purpose. Passing it does not mean the file meets any released DIGGS version."
+fix = "Use this only to try out the draft. For delivery, check against a released DIGGS version."
+
+[rules."schema.cvc-<rule>"]
+title = "Breaks the DIGGS format"
+meaning = "Part of the file does not follow the published DIGGS format rules, for example a missing or misplaced entry or a value of the wrong kind, so other software may reject the file or misread it."
+fix = "Use the location and message to find the item, then correct it in the software that made the file. If you cannot edit it there, send the report to your data supplier or software vendor."
+
+[rules."schema.cvc-complex-type.2.4"]
+title = "Missing or misplaced entry"
+meaning = "An item is missing, appears where the DIGGS format does not allow it, or is out of the required order. Software that follows the format may reject the file."
+fix = "Check the item named in the message: add what is expected, remove what is not allowed, or put the entries in the order DIGGS requires. This is usually fixed in the exporting software, so tell your vendor or data supplier."
+
+[rules."schema.cvc-elt.1"]
+title = "Unknown file type"
+meaning = "The checker does not recognise the main entry of the file for the DIGGS version chosen, so the file could not be checked against the format. Often the file is a different DIGGS version, or not DIGGS at all."
+fix = "Check which DIGGS version the file says it uses, and check it against that version. If it is not a DIGGS file, use the right file."
+
+[rules."schema.cvc-datatype-valid.1.2.1"]
+title = "Value of the wrong kind"
+meaning = "A value does not have the form DIGGS requires, for example text where a number is needed, or a date not written as year-month-day."
+fix = "Correct the value in your software: numbers as plain numbers, dates as YYYY-MM-DD. Put notes such as \"approx.\" in the remarks."
+
+[rules."schema.cvc-enumeration-valid"]
+title = "Value not in allowed list"
+meaning = "A value is not one of the fixed choices DIGGS allows at that point, so other software may not understand it."
+fix = "Pick one of the allowed values listed in the message. Spelling and capital letters must match exactly."
+
+[rules."schema.cvc-pattern-valid"]
+title = "Value in wrong format"
+meaning = "A value does not follow the pattern DIGGS requires for it, such as the form of an identifier or code."
+fix = "Rewrite the value in the required form shown in the message, or ask your software vendor to fix the export."
+
+[rules."schema.cvc-minInclusive-valid"]
+title = "Value below allowed minimum"
+meaning = "A number is smaller than the lowest value DIGGS allows for it, such as a negative count."
+fix = "Check the value against your field or lab records and correct it; a sign or unit error is a common cause."
+
+[rules."schema.cvc-maxInclusive-valid"]
+title = "Value above allowed maximum"
+meaning = "A number is larger than the highest value DIGGS allows for it."
+fix = "Check the value against your field or lab records and correct it; a unit or decimal-point error is a common cause."
+
+[rules."schema.cvc-complex-type.4"]
+title = "Required detail missing"
+meaning = "An item lacks a detail DIGGS requires on it, such as its identifier or a unit, so it cannot be read or linked correctly."
+fix = "Add the missing detail named in the message in your software, or ask your data supplier to include it."
+
+[rules."schema.cvc-complex-type.3.2.2"]
+title = "Detail not allowed here"
+meaning = "An item carries a detail (a named setting written inside its tag) that DIGGS does not allow on it, so other software may reject the file."
+fix = "Remove the detail named in the message, or move the information to where DIGGS expects it. This usually needs a fix in the exporting software."
+
+[rules."schema.libxml2.<TYPE>"]
+title = "Format check problem"
+meaning = "The format checker reported a problem with the file or with checking it that has no standard rule name. The file may not follow the DIGGS format."
+fix = "Read the message for details and correct the file in the software that made it. If the message looks like a checker fault, report it to the pyDIGGS maintainers."
+
+# --- Code lists and property definitions (DIGGS dictionaries) ----------------------------
+
+[rules."dictionary.1"]
+title = "Code not checked"
+meaning = "A code is labelled with an authority (such as a standards body or your company) rather than a DIGGS code list, so pyDIGGS cannot confirm it is a valid term. This is for information only."
+fix = "Make sure the value is a real term of the authority named. Where a DIGGS code list covers it, use that list instead so the code can be checked."
+
+[rules."dictionary.2"]
+title = "Untrusted code list"
+meaning = "A code refers to a code list at a web address that is not on the list of trusted code lists, so the code was not checked."
+fix = "Use the official DIGGS code list where one exists. If your organisation publishes its own list, ask whoever runs the check to add its address to the trusted list."
+
+[rules."dictionary.3"]
+title = "Code list unavailable"
+meaning = "A code list the file refers to could not be opened (it may be offline, moved, or a local file that is missing), so codes that use it were not checked."
+fix = "Check the code list address for typos and that it is reachable, or place the local code list file next to the DIGGS file, then check again."
+
+[rules."dictionary.4"]
+title = "Not a code list"
+meaning = "A code points to a web address or file that is not a DIGGS code list, so the code cannot be confirmed and other software may not understand it."
+fix = "Correct the code list address so it points to the right DIGGS code list, or ask the data supplier which list they meant."
+
+[rules."dictionary.5"]
+title = "Unknown code"
+meaning = "A value uses a code that is not in the DIGGS code list it names, so other software may not understand it."
+fix = "Pick a code from the list, checking spelling and capital letters, or ask your data supplier which code they meant."
+
+[rules."dictionary.6"]
+title = "Code used in wrong place"
+meaning = "The code exists, but DIGGS does not allow it in this part of the file, for example a laboratory property recorded where a field property belongs."
+fix = "Use a code meant for this place (the message lists where this code is allowed), or move the value to the right part of the record."
+
+[rules."dictionary.7"]
+title = "Name differs from code"
+meaning = "The readable name written next to a code is not one of the names its definition gives, so a reader may be unsure which property was meant. This is for information only."
+fix = "Check the name is a true synonym of the code. If it is not, correct either the code or the name."
+
+[rules."dictionary.8"]
+title = "Property not allowed for test"
+meaning = "A result property is recorded under a type of test or measurement it does not belong to, for example a soil group symbol inside an Atterberg limits test."
+fix = "Move the result to a test where it belongs (the message lists the allowed tests), or choose the property code meant for this test."
+
+[rules."dictionary.9"]
+title = "Wrong data type"
+meaning = "A result property is declared with a different kind of value (for example text instead of a decimal number) than its definition requires, so its values may be misread."
+fix = "Set the property's data type to the one named in the message, in your software or with your data supplier."
+
+[rules."dictionary.10"]
+title = "Unit given for unitless value"
+meaning = "A unit is given for a property that has no unit, such as a count or a classification, which suggests the wrong property or a mistaken unit."
+fix = "Remove the unit, or check that the right property code was used."
+
+[rules."dictionary.11"]
+title = "Unit missing"
+meaning = "A measured property is given without its unit, so its values cannot be interpreted safely. For a ratio or percentage this is a warning; otherwise it is an error."
+fix = "Add the unit the values were measured in, in your software or with your data supplier."
+
+[rules."dictionary.12"]
+title = "Unit does not fit"
+meaning = "The unit given cannot measure this property, for example a pressure unit on a length, or pyDIGGS has no list of units for the property's quantity so could not check it."
+fix = "Use one of the units the message suggests for this kind of quantity, and check the values were not entered against the wrong property."
+
+[rules."dictionary.13"]
+title = "Result not an allowed term"
+meaning = "Some result values in a table column are not terms of the code list that column's property requires (for example a misspelled soil description), so other software may not understand them."
+fix = "Replace the values listed in the message with terms from the code list (the message shows some valid ones), or ask your data supplier to correct them."
+
+[rules."dictionary.offline"]
+title = "Code list not checked offline"
+meaning = "A trusted code list is published online but not bundled with pyDIGGS, and network access was turned off, so codes that use it were not checked. This is for information only."
+fix = "If you need these codes checked, run the check again with network access allowed."
+
+# --- Data value checks (DIGGS business rules) ----------------------------------------------
+
+[rules."schematron.Borehole.totalMeasuredDepth"]
+title = "Borehole depth not positive"
+meaning = "A borehole's total depth is zero, negative or not a number, so its logs, samples and tests cannot be placed correctly."
+fix = "Enter the final depth of the borehole as a positive number, measured along the hole from the top."
+
+[rules."schematron.DriveSet.penetration"]
+title = "Negative drive penetration"
+meaning = "The penetration of a drive increment (for example one 150 mm SPT increment) is negative or not a number, which is not physically possible."
+fix = "Correct the penetration from the field log; it must be zero or more, and record refusal as a remark rather than a negative number."
+
+[rules."schematron.DrivenPenetrationTest.hammerEfficiency"]
+title = "Hammer efficiency out of range"
+meaning = "The hammer energy efficiency of a driven penetration test (such as an SPT) is not between 0 and 100 percent, so corrected blow counts such as N60 would be wrong."
+fix = "Enter the efficiency as a percentage from 0 to 100, for example 60 or 82, not as a ratio such as 0.82 entered with a percent unit."
+
+[rules."schematron.Casing.casingOutsideDiameter"]
+title = "Casing outside diameter invalid"
+meaning = "A casing's outside diameter is zero, negative or not a number."
+fix = "Enter the outside diameter of the casing as a positive number with its unit."
+
+[rules."schematron.Casing.casingInsideDiameter"]
+title = "Casing inside diameter invalid"
+meaning = "A casing's inside diameter is zero, negative or not a number."
+fix = "Enter the inside diameter of the casing as a positive number with its unit."
+
+[rules."schematron.Casing.diameters-numeric"]
+title = "Casing diameter not a number"
+meaning = "A casing has an outside and an inside diameter, but at least one of them is not a number, so they cannot be compared."
+fix = "Enter both casing diameters as plain numbers with their units."
+
+[rules."schematron.Casing.outside-gt-inside"]
+title = "Casing diameters reversed"
+meaning = "A casing's outside diameter is not larger than its inside diameter (both in the same unit), which is not physically possible; the two values are often swapped."
+fix = "Check the casing record and make the outside diameter the larger of the two."
+
+[rules."schematron.Casing.diameters-numeric-converted"]
+title = "Casing diameter not a number"
+meaning = "A casing's outside or inside diameter is not a number, so the two cannot be compared."
+fix = "Enter both casing diameters as plain numbers, each with its unit."
+
+[rules."schematron.Casing.outside-gt-inside-converted"]
+title = "Casing diameters do not compare"
+meaning = "After converting both to the same unit, a casing's outside diameter is not larger than its inside diameter, which is not physically possible; or a diameter has no unit, or a unit pyDIGGS cannot convert, so they could not be compared."
+fix = "Check both diameters and their units in the casing record; give each a standard unit (for example mm or in). A value entered in the wrong unit is a common cause."
+
+[rules."schematron.AbstractLinearSamplingFeature.plunge"]
+title = "Hole angle out of range"
+meaning = "The plunge (the angle of an inclined hole below horizontal, written as a negative number) is outside the range this rule accepts, -45 to -10 degrees."
+fix = "Check the angle and its sign against the drilling record. If the hole really is steeper or flatter than this range, note it for review rather than changing the value."
+
+[rules."schematron.CasagrandeTrial.waterContent"]
+title = "Negative liquid limit moisture"
+meaning = "The water content of a liquid limit (Casagrande cup) trial is negative or not a number, which is not physically possible."
+fix = "Correct the water content from the lab sheet; it must be zero or more."
+
+[rules."schematron.CasagrandeTrial.blowCount"]
+title = "Negative cup blow count"
+meaning = "The number of blows in a liquid limit (Casagrande cup) trial is negative or not a number."
+fix = "Correct the blow count from the lab sheet; it must be zero or more."
+
+[rules."schematron.FieldProperties.plasticity"]
+title = "Negative field plasticity"
+meaning = "A plasticity value recorded in the field description is negative or not a number."
+fix = "Correct the value from the field log; it must be zero or more."
+
+[rules."schematron.Cement.weight"]
+title = "Cement weight not positive"
+meaning = "The weight of cement in a grout record is zero, negative or not a number."
+fix = "Enter the cement weight as a positive number with its unit."
+
+[rules."schematron.Cement.specificGravity"]
+title = "Cement specific gravity invalid"
+meaning = "The specific gravity of the cement is zero, negative or not a number; cement is typically about 3.1."
+fix = "Enter the specific gravity as a positive number, with no unit."
+
+[rules."schematron.SpecimenConditions.voidRatio"]
+title = "Negative void ratio"
+meaning = "A test specimen's void ratio is negative or not a number, which is not physically possible."
+fix = "Correct the void ratio from the lab sheet; it must be zero or more."
+
+[rules."schematron.Grading.percentPassing"]
+title = "Negative percent passing"
+meaning = "A particle size distribution result has a negative or non-numeric percent passing."
+fix = "Correct the percent passing for that sieve from the lab sheet; it must be zero or more."
+
+[rules."schematron.Grading.percentRetained"]
+title = "Negative percent retained"
+meaning = "A particle size distribution result has a negative or non-numeric percent retained."
+fix = "Correct the percent retained for that sieve from the lab sheet; it must be zero or more."
+
+[rules."schematron.Grading.weightRetained"]
+title = "Negative weight retained"
+meaning = "A particle size distribution result has a negative or non-numeric weight retained on a sieve."
+fix = "Correct the weight retained from the lab sheet; it must be zero or more."
+
+[rules."schematron.Grading.particleSize"]
+title = "Particle size not positive"
+meaning = "A particle size distribution result has a sieve or particle size that is zero, negative or not a number."
+fix = "Enter the sieve opening or particle size as a positive number with its unit."
+
+[rules."schematron.AbstractTrialGroutBatch.specificGravityMix"]
+title = "Grout mix too light"
+meaning = "The specific gravity of a trial grout mix is not more than 1.0 (water), which a cement grout cannot be."
+fix = "Check the measured mix specific gravity; it must be greater than 1.0. A value entered as a density in the wrong unit is a common cause."
+
+[rules."schematron.user-<hash>"]
+title = "Your own rule failed"
+meaning = "The data broke a rule from your organisation's own rule file. The rule has no name, so it is shown by a code made from its content."
+fix = "Read the rule's message, and fix the data as your organisation's guidance requires. Ask whoever wrote the rule file to give the rule a name."
+
+[rules."schematron.<id>"]
+title = "Your own rule failed"
+meaning = "The data broke a rule from your organisation's own rule file, named in the rule id."
+fix = "Read the rule's message, and fix the data as your organisation's guidance requires, or ask whoever wrote the rule file."
+
+# --- Locations and coordinates -----------------------------------------------------------
+
+[rules."geometry.srs-attributes"]
+title = "Coordinate system not stated"
+meaning = "A location does not state its coordinate system and number of dimensions where DIGGS expects them, so mapping software may place it wrongly or not at all."
+fix = "Set the coordinate system (for example EPSG:4326 or your state plane system) on each location in your software, or ask your data supplier to include it."
+
+[rules."geometry.reported-depth-mismatch"]
+title = "Depth and hole length differ"
+meaning = "The total depth recorded for a borehole and the length of its drawn path differ by more than 2 percent, so one of them is probably wrong."
+fix = "Check the total depth and the top and bottom positions of the hole against the field log, and correct whichever is wrong."
+
+[rules."geometry.crs-axis-order-suspect"]
+title = "Latitude and longitude swapped"
+meaning = "Coordinates in a latitude-longitude system have a first value beyond 90 degrees, so longitude was probably written first. The site would be mapped in the wrong place."
+fix = "Write coordinates as latitude then longitude for this coordinate system, or ask your data supplier to fix the export."
+
+[rules."geometry.crs-unresolvable"]
+title = "Unknown coordinate system"
+meaning = "A location names a coordinate system that pyDIGGS does not recognise and the file does not define, so the location cannot be mapped reliably."
+fix = "Use a standard reference, such as an EPSG code, for the coordinate system, or define the local system in the file."
+
+# --- Outdated content ----------------------------------------------------------------------
+
+[rules."deprecation.deprecated"]
+title = "Outdated DIGGS content"
+meaning = "The file uses something DIGGS has marked as outdated. It still works today but will be removed in a later DIGGS version."
+fix = "Follow the replacement named in the message, or ask your software vendor to update the export."
+
+[rules."deprecation.removed"]
+title = "Removed DIGGS content"
+meaning = "The file uses something DIGGS has removed from this version, so software following the current DIGGS may ignore it or reject the file."
+fix = "Replace it with what the message names, or ask your software vendor to update the export."
+
+# --- Links and tables ----------------------------------------------------------------------
+
+[rules."context.xlink-href-resolves"]
+title = "Broken link"
+meaning = "An item links to another item in the same file (for example a test to its borehole or sample) that does not exist, so the two cannot be connected."
+fix = "Check the identifier in the link for typos, or add the missing item. If the file came from someone else, ask them to fix the export."
+
+[rules."context.xlink-remote-unresolved"]
+title = "Link to another file"
+meaning = "The file links to something in another file or on the web. pyDIGGS never follows such links, so what they point to was not checked. This is for information only."
+fix = "Make sure the linked file is delivered with this one, or include the linked information in this file."
+
+[rules."context.datablock-arity"]
+title = "Result row has wrong count"
+meaning = "A row of a results table has a different number of values than the table has columns, so values may be read against the wrong property."
+fix = "Check the results table in your software: every row needs one value per column, with a blank or null value where nothing was measured."
+
+# --- AGS4 files --------------------------------------------------------------------------
+
+[rules."ags4.rule-1"]
+title = "Non-standard characters"
+meaning = "The AGS4 file contains characters outside plain ASCII text (such as accented letters or symbols like the degree sign), or begins with a hidden byte order mark. Some software may misread them."
+fix = "Save the file as plain ASCII text, and replace special characters with plain ones (for example \"deg\" for the degree sign)."
+
+[rules."ags4.rule-2"]
+title = "Rows outside any group"
+meaning = "Rows appear before the first GROUP row, or the file has no GROUP row at all, so those rows (or the whole file) could not be read."
+fix = "Make sure every row belongs to a group that starts with a GROUP row. Remove stray lines at the top of the file."
+
+[rules."ags4.rule-2a"]
+title = "Wrong line endings"
+meaning = "Lines do not end with the carriage return and line feed pair AGS4 requires, which some software expects."
+fix = "Save the file with Windows (CR LF) line endings; most text editors and AGS tools have this option."
+
+[rules."ags4.rule-2b"]
+title = "Group header rows wrong"
+meaning = "A group's HEADING, UNIT or TYPE row is missing, repeated or out of order, or the group has no DATA rows."
+fix = "Give each group one GROUP, HEADING, UNIT and TYPE row in that order, followed by its DATA rows, and remove empty groups."
+
+[rules."ags4.rule-3"]
+title = "Unknown row type"
+meaning = "A row does not start with GROUP, HEADING, UNIT, TYPE or DATA, so it was not read."
+fix = "Correct the first field of the row, or remove the row if it is a stray note."
+
+[rules."ags4.rule-4"]
+title = "Row has wrong count"
+meaning = "A row has more or fewer values than its group's HEADING row, or a GROUP row does not hold exactly one name, so values may land in the wrong columns."
+fix = "Make every row in the group have one value per heading, with empty quotes where there is no value."
+
+[rules."ags4.rule-5"]
+title = "Values not in quotes"
+meaning = "A field is not enclosed in double quotes, or a quote inside a value is not doubled, as AGS4 requires."
+fix = "Export the file again from your AGS software, which quotes every field; if editing by hand, put each value in double quotes."
+
+[rules."ags4.rule-6"]
+title = "Line break in a value"
+meaning = "A value contains a line break, which splits its row in two for other AGS software."
+fix = "Remove the line break from the value (often in a long remark), or replace it with a space."
+
+[rules."ags4.rule-7"]
+title = "Headings out of order"
+meaning = "A group's headings are not in the order the AGS4 data dictionary gives, which some software relies on."
+fix = "Reorder the columns to the dictionary order, or let your AGS software export the group again."
+
+[rules."ags4.rule-8"]
+title = "Value in wrong format"
+meaning = "A value is not written as its column's data type requires, for example the wrong number of decimal places, a date not in the stated format, or text where Y or N is expected."
+fix = "Correct the value to match the column's TYPE (and, for dates and times, its UNIT), or fix the TYPE if the values are right."
+
+[rules."ags4.rule-9"]
+title = "Unknown group or heading"
+meaning = "A group or heading name is in neither the AGS4 data dictionary nor the file's own DICT group, or a user-defined heading comes before the standard ones."
+fix = "Use the standard AGS4 name, or define the new name in the DICT group and put user-defined headings after the standard ones."
+
+[rules."ags4.rule-10a"]
+title = "Key field missing or repeated"
+meaning = "A key heading (such as LOCA_ID or a sample reference) is missing, or two rows have the same key values, so rows cannot be told apart."
+fix = "Add the missing key heading, and make each row's key values unique, for example by correcting a repeated sample reference or depth."
+
+[rules."ags4.rule-10b"]
+title = "Required field empty"
+meaning = "A heading the AGS4 dictionary marks as required is missing or has an empty value."
+fix = "Fill in the required value in your software, or ask your data supplier for it."
+
+[rules."ags4.rule-10c"]
+title = "Row has no parent"
+meaning = "A row refers to a parent record that is not in the file, for example a sample whose borehole is not in the LOCA group, or the parent group is missing."
+fix = "Add the missing parent record or group, or correct the key values (such as LOCA_ID) so they match an existing parent."
+
+[rules."ags4.rule-11"]
+title = "Record link malformed"
+meaning = "A record link value is not written as a group name followed by that group's key values, so it cannot be followed."
+fix = "Rewrite the link as the group name and key values, separated by the file's delimiter and joining characters (TRAN_DLIM and TRAN_RCON)."
+
+[rules."ags4.rule-11a"]
+title = "Record link delimiter invalid"
+meaning = "The TRAN_DLIM value, which separates parts of a record link, is not a single character."
+fix = "Set TRAN_DLIM in the TRAN group to one character, usually \"|\"."
+
+[rules."ags4.rule-11b"]
+title = "Record link joiner invalid"
+meaning = "The TRAN_RCON value, which joins items in a record link, is not a single character."
+fix = "Set TRAN_RCON in the TRAN group to one character, usually \"+\"."
+
+[rules."ags4.rule-11c"]
+title = "Record link points nowhere"
+meaning = "A record link refers to a row or group that is not in the file, so the linked information is missing."
+fix = "Add the linked record, or correct the link to point at an existing row."
+
+[rules."ags4.rule-13"]
+title = "Project record missing"
+meaning = "The file has no PROJ group, or the group has more than one row, so the project the data belongs to is unclear."
+fix = "Include a PROJ group with exactly one row describing the project."
+
+[rules."ags4.rule-14"]
+title = "Transmission record missing"
+meaning = "The file has no TRAN group, or the group has more than one row, so who sent the file, and which AGS4 version it follows, is unclear."
+fix = "Include a TRAN group with exactly one row, giving the AGS version and the issuer."
+
+[rules."ags4.rule-15"]
+title = "Unit not listed"
+meaning = "A unit is used in the file but not listed in the UNIT group, or the UNIT group is missing."
+fix = "Add every unit used to the UNIT group; most AGS software does this when exporting."
+
+[rules."ags4.rule-16"]
+title = "Abbreviation not defined"
+meaning = "An abbreviation (a short code such as a sample type) is used but not defined in the ABBR group, or the ABBR group is missing, so its meaning is unknown."
+fix = "Define every abbreviation used in the ABBR group, with its description."
+
+[rules."ags4.rule-16a"]
+title = "Combined code part undefined"
+meaning = "One part of a combined abbreviation (several codes joined together) is not defined in the ABBR group."
+fix = "Define each part of the combined abbreviation in the ABBR group."
+
+[rules."ags4.rule-17"]
+title = "Data type not listed"
+meaning = "A data type is used in a TYPE row but not listed in the TYPE group, or the TYPE group is missing."
+fix = "Add every data type used to the TYPE group."
+
+[rules."ags4.rule-18"]
+title = "Custom names not defined"
+meaning = "The file uses groups or headings outside the AGS4 dictionary without a DICT group to define them, or a DICT row does not say what it defines."
+fix = "Add a DICT group that defines each non-standard group and heading, and complete any DICT row that is unclear."
+
+[rules."ags4.rule-18a"]
+title = "Custom headings out of order"
+meaning = "User-defined headings are not in the order the DICT group gives."
+fix = "Reorder the user-defined columns to match the DICT group, or reorder the DICT rows."
+
+[rules."ags4.rule-19"]
+title = "Group name invalid"
+meaning = "A group name is not 1 to 4 uppercase letters or digits, as AGS4 requires."
+fix = "Rename the group to the standard AGS4 name, or to a 4-character uppercase name defined in the DICT group."
+
+[rules."ags4.rule-19a"]
+title = "Heading name invalid"
+meaning = "A heading name is not 1 to 9 uppercase letters, digits or underscores, as AGS4 requires."
+fix = "Rename the heading to a valid AGS4 name, and update the DICT group to match."
+
+[rules."ags4.rule-19b"]
+title = "Heading prefix wrong"
+meaning = "A heading does not start with its group's name and an underscore, or it borrows a heading from another group that has no such heading."
+fix = "Rename the heading to start with the group name (for example SAMP_ in the SAMP group), or use a heading that exists in the group it refers to."
+
+[rules."ags4.rule-20"]
+title = "Attached file not listed"
+meaning = "A file set named in the data is not listed in the FILE group, or a file name is written as a folder path. The attached files themselves were not opened."
+fix = "List each file set in the FILE group, and give plain file names without folders."
+
+[rules."ags4.duplicate-group"]
+title = "Group appears twice"
+meaning = "The same group appears more than once in the file, and only the first was read, so data in the later copy is missing."
+fix = "Merge the copies into one group with all its rows."
+
+[rules."ags4.encoding-assumed"]
+title = "Text encoding guessed"
+meaning = "The file is not in standard UTF-8 text encoding, so pyDIGGS read it as Windows-1252 text. Special characters may show up wrongly."
+fix = "Check that names and remarks look right. Save the file as plain ASCII or UTF-8 text to be sure."
+
+[rules."ags4.version-unknown"]
+title = "Unknown AGS4 version"
+meaning = "The file states an AGS4 version pyDIGGS does not know, so it was read as the newest version pyDIGGS knows. Newer groups or headings may not be understood."
+fix = "Check the TRAN_AGS version is typed correctly, or update pyDIGGS."
+
+[rules."ags4.unsupported-version"]
+title = "AGS 3 file not supported"
+meaning = "The file is AGS 3 or older, and pyDIGGS reads AGS4 files only, so it was not read."
+fix = "Export the data as AGS4 from your software, or ask your data supplier for an AGS4 file."
+
+[rules."ags4.limit"]
+title = "AGS4 file only partly read"
+meaning = "Reading stopped at a safety limit because the file is unusually large or complex, so the data read is incomplete."
+fix = "Check the file is a genuine export and not damaged. If it is genuine, split it into smaller files."
+
+[rules."ags4.timeout"]
+title = "AGS4 check timed out"
+meaning = "Reading or checking the AGS4 file did not finish in the time allowed, so the result is incomplete."
+fix = "Run it again with a longer time limit or on a faster computer, or split the file."
+
+[rules."ags4.formula-text"]
+title = "Text looks like a formula"
+meaning = "A text value starts with =, +, - or @, so a spreadsheet would treat it as a formula and could change it or run it. The value is kept exactly as written."
+fix = "Take care when opening the file in a spreadsheet. If the value is not meant to start that way, correct it at the source."
+
+[rules."ags4.dictionary-not-checked"]
+title = "Dictionary checks limited"
+meaning = "No AGS4 data dictionary was supplied, so rules that need one were checked only for the groups and headings the file defines itself. This is for information only."
+fix = "To check standard groups too, run the check again with the AGS4 data dictionary file supplied."
+
+[rules."convert.unmapped-group"]
+title = "Group not converted"
+meaning = "An AGS4 group in the file has no equivalent in DIGGS yet, so none of its rows are in the converted file. The loss is listed in the conversion report."
+fix = "Check whether you need that data in DIGGS. If you do, keep the AGS4 file alongside the DIGGS file, or ask for the group to be added to the mapping."
+
+[rules."convert.unmapped-heading"]
+title = "Column not converted"
+meaning = "An AGS4 heading (column) has no place in DIGGS yet, so its values are not in the converted file. The rest of the row is converted."
+fix = "Check whether that column matters for your use. If it does, keep the AGS4 file as well, or ask for the heading to be added to the mapping."
+
+[rules."convert.user-defined"]
+title = "User-defined data not converted"
+meaning = "The file defines its own group or heading in its DICT group. It is reported but not converted, because DIGGS has no agreed place for it."
+fix = "If the data matters, ask your data supplier whether a standard AGS4 group or heading can hold it, and keep the AGS4 file alongside the DIGGS file."
+
+[rules."convert.unmapped-code"]
+title = "Code has no DIGGS match"
+meaning = "An AGS4 code, such as a sample or test type, has no matching DIGGS code. It was kept as plain text or left out, so other software may not recognise it."
+fix = "Check the code's spelling against the AGS4 abbreviations list, or use a standard code. If the code is correct, report it so it can be added to the mapping."
+
+[rules."convert.unmapped-unit"]
+title = "Unit not recognised"
+meaning = "A value's unit is not in the unit table, so values in that unit were not converted, to avoid writing a wrong number."
+fix = "Use a standard AGS4 unit (for example m, kPa or %) in the UNIT row, or report the unit so it can be added to the table."
+
+[rules."convert.orphan-row"]
+title = "Row has no converted parent"
+meaning = "A row belongs to a parent record, such as a borehole or sample, that was not converted, so the row was left out too."
+fix = "Fix the problem reported for the parent record first, for example a missing LOCA_ID, then convert again."
+
+[rules."convert.value-unparsed"]
+title = "Value could not be read"
+meaning = "A value is not a valid number, date or text of the kind DIGGS needs, so it was not converted."
+fix = "Correct the value at the source, for example a depth written with text in it, or a date not in the format the AGS4 TYPE row declares."
+
+[rules."convert.assumed"]
+title = "Default value filled in"
+meaning = "DIGGS requires a value that the AGS4 file does not give, such as a project name or a date, so a documented default was written instead. The converted file is valid but contains a placeholder."
+fix = "Add the missing information to the AGS4 file and convert again, or edit the placeholder in the DIGGS file before you share it."
+
+[rules."convert.value-reformatted"]
+title = "Value written differently"
+meaning = "A value was written in another form that means the same thing, for example a date in a standard format. Nothing was lost. This is for information only."
+fix = "No action needed."
+
+[rules."convert.incomplete"]
+title = "Part not converted"
+meaning = "Part of the file could not be converted, because a size or time limit was reached or because DIGGS requires something the source lacks, such as a location name (LOCA_ID)."
+fix = "Read the message for which part was skipped, supply what is missing (for example LOCA_ID on every location row), or split a very large file, then convert again."
