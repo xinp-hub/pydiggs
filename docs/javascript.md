@@ -83,7 +83,9 @@ validation after its current lxml step); otherwise, or if it does not stop withi
 memory back.
 
 For offline use, `cachePydiggs(self)` from `@pydiggs/client/sw`, called in your own
-service worker, keeps Pyodide and the wheel in the Cache API after one visit.
+service worker, keeps Pyodide and the wheel in the Cache API after one visit. Desktop and installable apps (a PWA, Tauri 2, Electron) vendor everything into the
+app's assets; the package's README has the
+[recipes](https://github.com/xinp-hub/pydiggs/tree/master/js#standalone-offline-apps).
 
 ### Frameworks
 
@@ -147,7 +149,8 @@ const handle = createPydiggsHandler(new PydiggsNode(), { basePath: "/api/pydiggs
 // a Fetch handler: (request: Request) => Promise<Response>
 ```
 
-Point `PydiggsHybrid`'s `server` at that path, and large documents, weak devices and a
+`startupSnapshotDir` (experimental) halves later starts by restoring a saved snapshot of
+the Pyodide runtime. Point `PydiggsHybrid`'s `server` at that path, and large documents, weak devices and a
 worker that fails to load all fall back to your own server, with no Python anywhere.
 Use the [Python server](http-api.md) or the [container](container.md) where you want
 pyDIGGS's process pool, its own limits and logging, or documents above 256 MiB.

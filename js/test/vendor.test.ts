@@ -66,16 +66,17 @@ function fixture(options: { version?: string; lockName?: string } = {}) {
 test("vendor brings Pyodide's files, the packages with their dependencies, and the pydiggs wheel", async () => {
   const { base, outDir, fetched } = fixture();
   const result = await vendor({ ...base, pydiggs: { version: "1.8.0" } });
-  for (const name of ["pyodide.mjs", "pyodide.asm.wasm", "pyodide-lock.json", "lxml-6.wasm.whl", "dep-1.whl", "micropip-0.whl", "pydiggs-1.8.0-py3-none-any.whl", "pydiggs-vendor.json"]) {
+  for (const name of ["pyodide.mjs", "pyodide.asm.wasm", "pyodide-lock.json", "lxml-6.wasm.whl", "dep-1.whl", "pydiggs-1.8.0-py3-none-any.whl", "pydiggs-vendor.json"]) {
     assert.ok(existsSync(join(outDir, name)), `${name} is in the folder`);
   }
+  assert.equal(existsSync(join(outDir, "micropip-0.whl")), false, "the worker unpacks the wheel itself");
   assert.equal(existsSync(join(outDir, "package.json")), false);
   assert.equal(existsSync(join(outDir, "pyodide.d.ts")), false);
   assert.equal(result.pydiggsWheel, "pydiggs-1.8.0-py3-none-any.whl");
   const manifest = JSON.parse(readFileSync(join(outDir, "pydiggs-vendor.json"), "utf8"));
   assert.equal(manifest.pyodideVersion, "9.9.9");
   assert.ok(manifest.files.every((f: { sha256: string }) => /^[0-9a-f]{64}$/.test(f.sha256)));
-  assert.equal(fetched.filter((url) => url.startsWith("https://cdn.test/")).length, 3);
+  assert.equal(fetched.filter((url) => url.startsWith("https://cdn.test/")).length, 2, "lxml and its dependency");
 });
 
 test("a second run keeps files whose hash already matches", async () => {

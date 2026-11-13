@@ -10,7 +10,9 @@
 //     a subset of checks, one node's tables, versions, the rules and one rule included;
 //   - a limit above the browser's 25 MiB is honoured on a server;
 //   - a read past timeoutMs is interrupted and the worker thread kept; a validation past
-//     it fails with code "timeout" too, and the next document gets the same answers.
+//     it fails with code "timeout" too, and the next document gets the same answers;
+//   - with startupSnapshotDir, the first start saves a snapshot of the runtime and the
+//     next one restores it, and both give CPython's answers.
 //
 //   cd tests/pyodide && npm ci --ignore-scripts
 //   uv build --wheel && uv run --no-sync python tests/pyodide/cases.py goldens.json
@@ -20,7 +22,7 @@
 // worker thread too. Pyodide fetches lxml and micropip from its CDN on first start.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -150,5 +152,36 @@ try {
   console.log(`ok  the next document equals CPython's (${timed.restarts === 0 ? "same thread" : "fresh thread"}, ${elapsed()})`);
 } finally {
   timed.terminate();
+}
+// 6. The start-up snapshot (experimental): saved by the first start, restored by the next.
+const snapshots = mkdtempSync(join(tmpdir(), "pyodide-snapshot-"));
+for (const round of ["saves the snapshot", "restores it", "replaces a corrupt one"]) {
+  if (round === "replaces a corrupt one") {
+    // A damaged file must cost only the time it saves: a normal start, and a new snapshot.
+    const file = readdirSync(snapshots).find((f) => f.endsWith(".snapshot"));
+    writeFileSync(join(snapshots, file), Buffer.from("not a snapshot"));
+  }
+  const began = performance.now();
+  const snap = new PydiggsNode({
+    workerUrl: new URL("../../js/src/node-worker.ts", import.meta.url),
+    pyodideModule: join(here, "node_modules", "pyodide", "pyodide.mjs"),
+    pydiggsWheelPath: resolve(args.wheel),
+    packageCacheDir: cache,
+    startupSnapshotDir: snapshots,
+  });
+  try {
+    await snap.ready;
+    const readyMs = performance.now() - began;
+    const name = FIXTURES[1];
+    const data = readFileSync(join(here, "fixtures", name));
+    assert.deepEqual(await snap.validate(data, { name }), JSON.parse(goldens[name]));
+    assert.deepEqual(await snap.read(data, { name }), JSON.parse(goldens[`read:${name}`]));
+    const saved = readdirSync(snapshots).filter((f) => f.endsWith(".snapshot"));
+    assert.equal(saved.length, 1);
+    assert.ok(statSync(join(snapshots, saved[0])).size > 1024 * 1024, "a real snapshot is on disk");
+    console.log(`ok  startupSnapshotDir: the start that ${round} was ready in ${(readyMs / 1000).toFixed(1)} s, answers equal CPython's`);
+  } finally {
+    snap.terminate();
+  }
 }
 console.log(`node smoke passed (${elapsed()})`);

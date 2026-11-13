@@ -95,8 +95,9 @@ input.addEventListener("change", async () => {
 ```
 
 The worker downloads Pyodide (about 12 MB), lxml and pydiggs (about 1.5 MB) on the
-first visit; the browser caches them. The pydiggs wheel is checked against the sha256
-PyPI published for it before it is installed. Requests run one at a time, and a document
+first visit; the browser caches them. The pydiggs wheel downloads while Pyodide starts,
+is checked against the sha256 PyPI published for it, and is unpacked directly, with no
+package installer to fetch or run. Requests run one at a time, and a document
 may be at most 25 MiB. `signal` stops the wait for one document, and `terminate()` stops
 the worker.
 
@@ -121,7 +122,7 @@ and `errors` or `kind` where they apply.
 document the tab accepts takes about 40 s on a fast laptop) fails with
 `code: "timeout"`. On a page served cross-origin isolated
 (`Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy:
-require-corp` or `credentialless`), the worker is first interrupted, the way Ctrl-C
+require-corp`; Safari does not support `credentialless`), the worker is first interrupted, the way Ctrl-C
 stops Python, and kept: reading stops at once, validation after the lxml step it is in.
 If it has not stopped within `interruptGraceMs` (2 s), or the page is not isolated, the
 worker is replaced by a fresh one, loaded from the browser's cache in seconds. An
@@ -310,8 +311,8 @@ npm install -D pyodide@314.0.7
 npx pydiggs-client vendor public/pydiggs
 ```
 
-It copies Pyodide's own files from the npm `pyodide` package, downloads lxml, micropip
-and what they need, and the pinned pydiggs wheel from PyPI (or `--pydiggs-wheel PATH`).
+It copies Pyodide's own files from the npm `pyodide` package, downloads lxml and what it
+needs, and the pinned pydiggs wheel from PyPI (or `--pydiggs-wheel PATH`).
 Each download must match the sha256 in Pyodide's lock file or on PyPI, and the loader
 must match the integrity hash the worker checks, or nothing is written. The folder
 lists what is in it, with hashes, in `pydiggs-vendor.json`. Then:
@@ -328,7 +329,7 @@ set-up in Chromium, Firefox and WebKit with exactly that policy.
 
 ### Offline
 
-`@pydiggs/client/sw` keeps Pyodide, lxml, micropip and the pydiggs wheel in the Cache
+`@pydiggs/client/sw` keeps Pyodide, lxml and the pydiggs wheel in the Cache
 API from your own service worker, so after one visit the page validates with no network:
 
 ```ts
@@ -346,6 +347,29 @@ Every file is pinned to a version, so it is served from the cache without asking
 network; a new release of this package uses a new cache and deletes the old one. The
 worker still checks the loader's integrity hash and the wheel's sha256. Your page's own
 files are yours to cache. Tested in Chromium (`js/e2e`, `offline.html`).
+
+### Standalone offline apps
+
+The same packages run in desktop and installable apps, with nothing fetched at run time:
+vendor everything with `npx pydiggs-client vendor` into the app's assets and pass
+`pyodideBaseUrl` and `pydiggsWheelUrl`, as in [Hosting everything yourself](#hosting-everything-yourself).
+
+- **Installable web app (PWA)**, on every OS: add `cachePydiggs` to the app's service
+  worker ([Offline](#offline)). Tested in Chromium.
+- **Tauri 2** (WebView2 on Windows, WebKit on macOS and Linux): serve the vendored folder
+  from the app's assets. To be able to interrupt long documents, make the webview
+  cross-origin isolated with `app.security.headers` (Tauri 2.1 or later):
+  `"Cross-Origin-Opener-Policy": "same-origin"` and
+  `"Cross-Origin-Embedder-Policy": "require-corp"`; with everything served by the app,
+  require-corp needs nothing else. Add `'wasm-unsafe-eval'` and `blob:` to the CSP's
+  `script-src`. Not tested in this repository's CI.
+- **Electron:** run `PydiggsNode` in the main process (it works in its own worker
+  thread) and reach it from the renderer over IPC; unpack `pyodide` and
+  `@pydiggs/client` from the asar archive (`asarUnpack`), since Pyodide reads its files
+  from disk, and pass a `pydiggsWheelPath` and a vendored `packageCacheDir`
+  (`--packages-only`). To use `PydiggsBrowser` in a renderer instead, serve it from a
+  custom protocol with COOP and COEP, on Electron 41.5.1 or later: 41.0 to 41.5.0 lose
+  cross-origin isolation on custom-scheme pages. Not tested in this repository's CI.
 
 ### Content Security Policy
 
@@ -368,7 +392,7 @@ npm install @pydiggs/client pyodide@314.0.7
 import { PydiggsNode } from "@pydiggs/client/node";
 
 const pydiggs = new PydiggsNode({
-  packageCacheDir: "/var/cache/pyodide", // keep lxml and micropip across restarts
+  packageCacheDir: "/var/cache/pyodide", // keep lxml across restarts
   maxBytes: 100 * 1024 * 1024,           // a server may go above the browser's 25 MiB
 });
 const findings = await pydiggs.validate(await readFile("BH-01.xml"), { name: "BH-01.xml" });
@@ -376,14 +400,20 @@ const findings = await pydiggs.validate(await readFile("BH-01.xml"), { name: "BH
 
 - **The `pyodide` version must be the one exported as `PYODIDE_VERSION`;** the worker
   refuses any other, because CI proves pyDIGGS's answers for that release only.
-- **First start downloads** lxml and micropip from Pyodide's CDN, and pyDIGGS from PyPI.
-  With `packageCacheDir` and `pydiggsWheelPath` (a wheel on disk), later starts need no
-  network.
+- **First start downloads** lxml from Pyodide's CDN, and pyDIGGS from PyPI (checked
+  against its pinned sha256). With `packageCacheDir` and `pydiggsWheelPath` (a wheel on
+  disk), later starts need no network.
+- **Faster starts (experimental).** `startupSnapshotDir: "/var/cache/pydiggs"` saves a
+  snapshot of the freshly started Pyodide runtime on the first start and restores it on
+  every later one, including the restart after a timeout: ready in about 1.2 s instead of
+  2.5 s on a laptop. It relies on Pyodide options that are not public yet, so it is tied
+  to the pinned Pyodide, and any snapshot that cannot be used is replaced by a normal
+  start. Use a directory only your server writes.
 - **One request at a time per instance,** off the event loop. Run a few instances for
   more throughput, and size the server's memory with the table below.
 - **A time limit, as in pyDIGGS's own server.** A document that runs past `timeoutMs`
-  (default 60 s) stops its worker thread and fails with `code: "timeout"`; a fresh
-  worker takes the documents still waiting. A worker that dies on a document is
+  (default 60 s) fails with `code: "timeout"`: the worker is interrupted, and replaced
+  if it has not stopped within `interruptGraceMs`. A worker that dies on a document is
   replaced the same way (`code: "crashed"`). `timeoutMs: 0` turns the limit off.
 - **Node runtime only.** Edge runtimes cannot hold Pyodide.
 - **Bun and Deno** run the Node engine too: CI runs the same Node smoke (worker thread,
@@ -501,10 +531,10 @@ in the model encoder). That is the next thing to speed up in pyDIGGS itself.
 
 ### Watched upstream
 
-- **Start-up snapshots.** Pyodide can restore a memory snapshot of the bare runtime in
-  about 0.1 s instead of 1.7 s, which would halve a cold start
-  (`tests/pyodide/snapshot-probe.mjs`), but the API is private, and a snapshot with lxml
-  loaded is refused. Adopted when Pyodide makes it public.
+- **Start-up snapshots.** Offered in Node as the experimental `startupSnapshotDir`
+  (the bare runtime; a snapshot with lxml loaded is refused by Pyodide 314). Made the
+  default, and offered in browsers (cached like the other files), once Pyodide makes its
+  snapshot options public.
 - **Memory.** 32-bit WebAssembly caps a worker at 4 GiB, and browsers often give a tab
   less. 64-bit WebAssembly (memory64) would lift this; Pyodide does not build for it
   yet. Capping one Pyodide instance's memory was taken up upstream
