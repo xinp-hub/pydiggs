@@ -1,12 +1,18 @@
 # Licence and use
 
-pyDIGGS is free and open-source software under the
-[Apache License 2.0](https://github.com/xinp-hub/pydiggs/blob/master/LICENSE). You can
-use it for any purpose, including commercial work and closed-source products, at no
-cost and without asking.
+pyDIGGS's own code is free and open-source software under the
+[Apache License 2.0](https://github.com/xinp-hub/pydiggs/blob/master/LICENSE): you can use
+it for any purpose, including commercial work and closed-source products, at no cost and
+without asking.
+
+To validate offline, pyDIGGS also bundles reference data that it did not write: the DIGGS
+schemas and dictionaries and, inside them, schemas and unit definitions from
+Energistics, OGC and the EPSG Dataset. That material keeps its own terms, and some of
+them are not open-source licences (see [Third-party material](#third-party-material-inside-pydiggs)).
+They allow ordinary use of pyDIGGS, and the notices below are what they ask for.
 
 This page explains what that means in practice. It is not legal advice; the licence
-text decides.
+texts decide.
 
 ## What you can do
 
@@ -23,8 +29,8 @@ patent.
 
 ## What you must do when you redistribute it
 
-Using pyDIGGS, including running it as a service, carries no conditions. If you
-**distribute** it, in source form or built into your product, you must:
+Using pyDIGGS's own code, including running it as a service, carries no conditions. If
+you **distribute** pyDIGGS, in source form or built into your product, you must:
 
 1. Include a copy of the [licence](https://github.com/xinp-hub/pydiggs/blob/master/LICENSE).
 2. Include the attribution notices in the
@@ -34,8 +40,33 @@ Using pyDIGGS, including running it as a service, carries no conditions. If you
 3. Keep existing copyright notices, and mark any files you changed.
 
 The wheel on PyPI carries `LICENSE`, `NOTICE` and the third-party licence texts in its
-`.dist-info/licenses/` folder, so a tool that builds a software bill of materials (SBOM)
-or a third-party notices page finds them automatically.
+`.dist-info/licenses/` folder, and its licence metadata names every licence involved:
+
+```text
+Apache-2.0 AND MPL-2.0 AND MIT AND LicenseRef-Energistics-PLA AND LicenseRef-POSC-LA
+AND LicenseRef-OGC-2001 AND LicenseRef-EPSG-TOU AND LicenseRef-DIGGS-Unstated
+AND LicenseRef-OASIS
+```
+
+A tool that builds a software bill of materials (SBOM) or a third-party notices page
+finds all of this automatically. The `LicenseRef-` entries are terms that are not on the
+SPDX list; their texts are in
+[`LICENSES/`](https://github.com/xinp-hub/pydiggs/tree/master/LICENSES).
+`LicenseRef-OASIS` covers a test file in the source distribution only.
+
+### Checklist for products that include pyDIGGS
+
+If you ship pyDIGGS inside an application, appliance, container image or installer:
+
+- [ ] Your third-party notices include the pyDIGGS `LICENSE` and `NOTICE` (the `NOTICE`
+      already carries the Energistics, OGC and EPSG attributions those terms ask for).
+- [ ] Your SBOM lists pyDIGGS with its version and full licence expression, as above.
+- [ ] Your licence review has looked at the non-SPDX terms: the
+      [Energistics Product License Agreement](https://energistics.org/product-license-agreement)
+      and the [EPSG Dataset Terms of Use](https://epsg.org/terms-of-use.html). The EPSG
+      terms allow the data in commercial products as long as you charge for your own
+      product, not for the EPSG data.
+- [ ] You do not use the DIGGS, Energistics, OGC or IOGP names to suggest endorsement.
 
 ## Third-party material inside pyDIGGS
 
@@ -46,6 +77,7 @@ That material keeps its own licence:
 | --- | --- | --- |
 | DIGGS XML schemas, deprecation registry | [DIGGSml/schemas](https://github.com/DIGGSml/schemas), [DIGGSml/schema-dev](https://github.com/DIGGSml/schema-dev) | MPL-2.0 |
 | DIGGS dictionaries (code lists, properties, units) | [DIGGSml/def](https://github.com/DIGGSml/def) | MIT, as its README states |
+| Energistics unit definitions in the DIGGS units dictionary | Energistics, via DIGGSml/def | [Energistics Product License Agreement](https://energistics.org/product-license-agreement) |
 | DIGGS Schematron rules (adapted) | [DIGGSml/validation](https://github.com/DIGGSml/validation) | Not stated upstream; pyDIGGS's changes are Apache-2.0 |
 | Energistics and WITSML schemas used by the DIGGS profile | Energistics, via the DIGGS schemas | [Energistics Product License Agreement](https://energistics.org/product-license-agreement) |
 | OGC XLink schema | OGC, via the DIGGS schemas | OGC copyright notice |

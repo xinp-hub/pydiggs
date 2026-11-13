@@ -1,7 +1,10 @@
 Energistics Product License Agreement
 
 The Energistics schema files bundled in pyDIGGS (the energistics/ and witsml/2.0/ folders
-of the DIGGS schemas) carry this notice in their headers:
+of the DIGGS schemas, as profiled by DIGGS) carry this notice in their headers, and the
+Energistics definitions in src/pydiggs/dictionaries/DiggsUomDictionary.xml carry a
+similar one ("Copyright (c) 2014 Energistics", "distributed under the Energistics License
+Agreement"):
 
     Copyright (c) 2014 Energistics. All rights reserved.
     Copyright (c) 2016 Energistics. All rights reserved.
@@ -13,7 +16,10 @@ The agreement is published by the Energistics Consortium at:
 
     https://energistics.org/product-license-agreement
 
-That page is the authoritative text; it is not reproduced here. pyDIGGS redistributes
+That page is the authoritative text; it is not reproduced here. The agreement asks that
+each work using Energistics products say so; the pyDIGGS NOTICE file carries that
+statement. pyDIGGS does not bundle the unmodified Energistics schemas that DIGGS keeps
+but does not use (DIGGS 2.6 witsml/2.0/RemovedFromProfile). pyDIGGS redistributes
 these files as received from the DIGGS project (https://github.com/DIGGSml/schemas and
 https://github.com/DIGGSml/schema-dev), which ships them as part of its DIGGS profile.
 They are not covered by the pyDIGGS Apache-2.0 licence.
