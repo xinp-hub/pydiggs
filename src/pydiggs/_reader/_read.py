@@ -157,6 +157,11 @@ _MAX_ID_NOTES: Final = 100
 _FLOAT: Final = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
 
 
+#: The keys that mark an interval and a result table for :meth:`_Reader._fill_units`.
+_INTERVAL_KEYS: Final = frozenset({"top", "base", "lrs"})
+_TABLE_KEYS: Final = frozenset({"shape", "index", "crs"})
+
+
 @lru_cache(maxsize=4096)
 def _local(tag: object) -> str:
     """The local name of a tag (cached, bounded: tags repeat, but come from the file)."""
@@ -592,11 +597,12 @@ class _Reader:
             self.srs_first[srs] = (xpath, el.sourceline)
         if gml_id and _local(el.tag) in _LOCAL_CRS:
             self.local_crs.setdefault(gml_id, _local_crs(el))
-        counts: Counter[tuple[str | None, str]] = Counter()
+        # A plain dict: this runs for every element, and a Counter costs more to make.
+        counts: dict[tuple[str | None, str], int] = {}
         for child in _elements(el):
             key = (child.prefix, _local(child.tag))
-            counts[key] += 1
-            self._scan(child, f"{xpath}/{_qname(child)}[{counts[key]}]", owner, nested)
+            counts[key] = position = counts.get(key, 0) + 1
+            self._scan(child, f"{xpath}/{_qname(child)}[{position}]", owner, nested)
 
     # --- mappers --------------------------------------------------------------------
 
@@ -1487,10 +1493,10 @@ class _Reader:
             return
         if not isinstance(value, dict):
             return
-        if {"top", "base", "lrs"} <= value.keys():
+        if value.keys() >= _INTERVAL_KEYS:
             self._interval_units(value, _local_unit(table.get(value["lrs"] or "")))
             return
-        if {"shape", "index", "crs"} <= value.keys():
+        if value.keys() >= _TABLE_KEYS:
             _index_units(value["index"], _local_unit(table.get(value["crs"] or "")))
             return
         for name, item in value.items():

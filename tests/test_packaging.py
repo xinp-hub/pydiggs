@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import tomllib
 import types
 from importlib import metadata, resources
+from pathlib import Path
 
 import pydiggs as pkg
 
@@ -132,3 +134,12 @@ def test_ships_the_ags4_subpackage():
     ]
     for module in ("_check", "_cli", "_dictionary", "_emit", "_io", "_parse", "_rules", "_table"):
         assert resources.files(pkg).joinpath(f"ags4/{module}.py").is_file()
+
+
+def test_the_sdist_takes_only_root_level_paths():
+    """A bare "src" or "README.md" also matches js/src and js/README.md (1.8.0 shipped them)."""
+    pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    include = tomllib.loads(pyproject.read_text("utf-8"))["tool"]["hatch"]["build"]["targets"][
+        "sdist"
+    ]["include"]
+    assert include and all(pattern.startswith("/") for pattern in include)

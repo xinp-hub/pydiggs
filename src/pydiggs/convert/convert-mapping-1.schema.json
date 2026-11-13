@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/convert-mapping-1.schema.json",
+  "title": "pyDIGGS conversion mapping table, format 1",
+  "description": "The AGS4 to DIGGS mapping table (mappings/ags4-diggs.toml, read as TOML). The unit table (units.toml) and the code table (codes.toml) are $defs/units_table and $defs/codes_table. The table holds only AGS4 group and heading identifiers, keys and parents; never text from the AGS4 data dictionary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mapping_version", "ags_versions", "diggs_versions", "group"],
+  "properties": {
+    "mapping_version": {"$ref": "#/$defs/mapping_version"},
+    "ags_versions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["4.0.3", "4.0.4", "4.1", "4.1.1", "4.2"]}
+    },
+    "diggs_versions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["3.0.0"]}
+    },
+    "group": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/group"}
+    }
+  },
+  "$defs": {
+    "mapping_version": {
+      "description": "major.minor, versioned separately from pyDIGGS. A minor adds groups, headings or codes; changing where a heading goes is a major.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "group_name": {"type": "string", "pattern": "^[A-Z0-9]{4}$"},
+    "heading_name": {"type": "string", "pattern": "^[A-Z0-9]{4}_[A-Z0-9]{1,4}$"},
+    "element": {"type": "string", "pattern": "^[A-Z][A-Za-z0-9]*$"},
+    "text": {"type": "string", "minLength": 1, "maxLength": 200},
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "pattern", "status", "keys", "heading"],
+      "properties": {
+        "name": {"$ref": "#/$defs/group_name"},
+        "pattern": {
+          "description": "How the group is converted; a closed set the code implements.",
+          "enum": [
+            "project",
+            "transmission",
+            "lookup",
+            "feature",
+            "interval-observation",
+            "sample",
+            "test-per-row",
+            "test-table"
+          ]
+        },
+        "status": {"enum": ["draft", "reviewed"]},
+        "keys": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/heading_name"}},
+        "parent": {"$ref": "#/$defs/group_name"},
+        "element": {"$ref": "#/$defs/element"},
+        "procedure": {"$ref": "#/$defs/element"},
+        "procedure_params": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[a-z][A-Za-z0-9]*$"},
+          "additionalProperties": {"$ref": "#/$defs/text"}
+        },
+        "data": {"$ref": "#/$defs/group_name"},
+        "heading": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/heading"}}
+      }
+    },
+    "heading": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "to"],
+      "properties": {
+        "name": {"$ref": "#/$defs/heading_name"},
+        "to": {"enum": ["key", "link", "field", "param", "column", "format", "none"]},
+        "target": {"$ref": "#/$defs/text"},
+        "property": {"type": "string", "pattern": "^[A-Za-z0-9_.]+$"},
+        "reason": {"$ref": "#/$defs/text"},
+        "direction": {"enum": ["both", "to-diggs", "to-ags4"]},
+        "quantity": {
+          "description": "For a param that is a DIGGS measure: its quantity; the element is a diggs:<quantity>MeasureType and is written only with a unit DIGGS allows for it.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z]*$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"to": {"enum": ["key", "link", "field"]}}},
+          "then": {"required": ["target"], "not": {"anyOf": [{"required": ["property"]}, {"required": ["reason"]}, {"required": ["quantity"]}]}}
+        },
+        {
+          "if": {"properties": {"to": {"const": "param"}}},
+          "then": {
+            "required": ["target"],
+            "properties": {"target": {"pattern": "^[A-Z][A-Za-z0-9]*/[a-z][A-Za-z0-9]*$"}},
+            "not": {"anyOf": [{"required": ["property"]}, {"required": ["reason"]}]}
+          }
+        },
+        {
+          "if": {"properties": {"to": {"const": "column"}}},
+          "then": {"required": ["property"], "not": {"anyOf": [{"required": ["target"]}, {"required": ["reason"]}, {"required": ["quantity"]}]}}
+        },
+        {
+          "if": {"properties": {"to": {"enum": ["format", "none"]}}},
+          "then": {"required": ["reason"], "not": {"anyOf": [{"required": ["target"]}, {"required": ["property"]}, {"required": ["quantity"]}]}}
+        }
+      ]
+    },
+    "units_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapping_version", "unit"],
+      "properties": {
+        "mapping_version": {"$ref": "#/$defs/mapping_version"},
+        "unit": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ags", "diggs"],
+            "properties": {
+              "ags": {"type": "string", "minLength": 1, "maxLength": 40},
+              "diggs": {"type": "string", "minLength": 1, "maxLength": 40}
+            }
+          }
+        }
+      }
+    },
+    "codes_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapping_version", "code_list_base", "code", "crs"],
+      "properties": {
+        "mapping_version": {"$ref": "#/$defs/mapping_version"},
+        "code_list_base": {"type": "string", "pattern": "^https://diggsml\\.org/def/codes/"},
+        "code": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["heading", "ags"],
+            "properties": {
+              "heading": {"$ref": "#/$defs/heading_name"},
+              "ags": {"type": "string", "minLength": 1, "maxLength": 40},
+              "element": {"$ref": "#/$defs/element"},
+              "code_list": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"},
+              "code": {"type": "string", "minLength": 1, "maxLength": 80},
+              "exact": {"type": "boolean"}
+            },
+            "dependentRequired": {"code": ["code_list"], "code_list": ["code"]}
+          }
+        },
+        "crs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["heading", "ags", "srs"],
+            "properties": {
+              "heading": {"$ref": "#/$defs/heading_name"},
+              "ags": {"type": "string", "minLength": 1, "maxLength": 80},
+              "srs": {"type": "string", "pattern": "^http://www\\.opengis\\.net/def/crs/EPSG/0/[0-9]+$"},
+              "unit": {"description": "The unit of the CRS's axes, a DIGGS uom.", "type": "string", "minLength": 1, "maxLength": 40}
+            }
+          }
+        }
+      }
+    }
+  }
+}

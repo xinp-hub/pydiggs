@@ -499,6 +499,39 @@ def _catalogue() -> tuple[_Entry, ...]:
         ),
         _Entry(
             Operation(
+                id="convert.ags4-to-diggs",
+                label=(
+                    "Convert an AGS4 file to DIGGS 3.0.0, listing everything not carried over"
+                    " (preview: the mapping table is a draft)"
+                ),
+                stability="preview",
+                inputs=(*ags, ags4_file),
+                outputs=("diggs-3.0.0", findings, model),
+                options={
+                    "diggs_version": OptionSpec(
+                        type="string",
+                        label="DIGGS version to write",
+                        default="3.0.0",
+                        choices=("3.0.0",),
+                    ),
+                    "validate": OptionSpec(
+                        type="boolean",
+                        label="Check the converted file against DIGGS before returning it",
+                        default=True,
+                    ),
+                    "name": OptionSpec(type="string", label="File name to report the source as"),
+                    "encoding": encoding,
+                    "max_bytes": OptionSpec(
+                        type="integer",
+                        label="Largest file accepted, in bytes",
+                        default=AGS4_MAX_BYTES,
+                    ),
+                    "time_budget": time_budget,
+                },
+            )
+        ),
+        _Entry(
+            Operation(
                 id="export.pandas",
                 label="Tables of a read file as a pandas data frame",
                 stability="stable",

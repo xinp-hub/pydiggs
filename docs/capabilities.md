@@ -94,6 +94,7 @@ about the server's own interpreter.
 | `ags4.read` | preview | | `pydiggs.ags4.read()`, `read_bytes()` |
 | `ags4.write` | preview | | `pydiggs.ags4.dumps()`, `write()` |
 | `ags4.check` | preview | | `pydiggs.ags4.check()` |
+| `convert.ags4-to-diggs` | preview | | `pydiggs.preview.convert.ags4_to_diggs()` |
 | `export.pandas` | stable | `frames` | `pydiggs.frames.to_pandas()` |
 | `export.polars` | stable | `polars` | `pydiggs.frames.to_polars()` |
 | `gis.transform` | stable | `gis` | `pydiggs.gis.transform()` |

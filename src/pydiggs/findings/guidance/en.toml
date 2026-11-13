@@ -567,3 +567,53 @@ fix = "Take care when opening the file in a spreadsheet. If the value is not mea
 title = "Dictionary checks limited"
 meaning = "No AGS4 data dictionary was supplied, so rules that need one were checked only for the groups and headings the file defines itself. This is for information only."
 fix = "To check standard groups too, run the check again with the AGS4 data dictionary file supplied."
+
+[rules."convert.unmapped-group"]
+title = "Group not converted"
+meaning = "An AGS4 group in the file has no equivalent in DIGGS yet, so none of its rows are in the converted file. The loss is listed in the conversion report."
+fix = "Check whether you need that data in DIGGS. If you do, keep the AGS4 file alongside the DIGGS file, or ask for the group to be added to the mapping."
+
+[rules."convert.unmapped-heading"]
+title = "Column not converted"
+meaning = "An AGS4 heading (column) has no place in DIGGS yet, so its values are not in the converted file. The rest of the row is converted."
+fix = "Check whether that column matters for your use. If it does, keep the AGS4 file as well, or ask for the heading to be added to the mapping."
+
+[rules."convert.user-defined"]
+title = "User-defined data not converted"
+meaning = "The file defines its own group or heading in its DICT group. It is reported but not converted, because DIGGS has no agreed place for it."
+fix = "If the data matters, ask your data supplier whether a standard AGS4 group or heading can hold it, and keep the AGS4 file alongside the DIGGS file."
+
+[rules."convert.unmapped-code"]
+title = "Code has no DIGGS match"
+meaning = "An AGS4 code, such as a sample or test type, has no matching DIGGS code. It was kept as plain text or left out, so other software may not recognise it."
+fix = "Check the code's spelling against the AGS4 abbreviations list, or use a standard code. If the code is correct, report it so it can be added to the mapping."
+
+[rules."convert.unmapped-unit"]
+title = "Unit not recognised"
+meaning = "A value's unit is not in the unit table, so values in that unit were not converted, to avoid writing a wrong number."
+fix = "Use a standard AGS4 unit (for example m, kPa or %) in the UNIT row, or report the unit so it can be added to the table."
+
+[rules."convert.orphan-row"]
+title = "Row has no converted parent"
+meaning = "A row belongs to a parent record, such as a borehole or sample, that was not converted, so the row was left out too."
+fix = "Fix the problem reported for the parent record first, for example a missing LOCA_ID, then convert again."
+
+[rules."convert.value-unparsed"]
+title = "Value could not be read"
+meaning = "A value is not a valid number, date or text of the kind DIGGS needs, so it was not converted."
+fix = "Correct the value at the source, for example a depth written with text in it, or a date not in the format the AGS4 TYPE row declares."
+
+[rules."convert.assumed"]
+title = "Default value filled in"
+meaning = "DIGGS requires a value that the AGS4 file does not give, such as a project name or a date, so a documented default was written instead. The converted file is valid but contains a placeholder."
+fix = "Add the missing information to the AGS4 file and convert again, or edit the placeholder in the DIGGS file before you share it."
+
+[rules."convert.value-reformatted"]
+title = "Value written differently"
+meaning = "A value was written in another form that means the same thing, for example a date in a standard format. Nothing was lost. This is for information only."
+fix = "No action needed."
+
+[rules."convert.incomplete"]
+title = "Part not converted"
+meaning = "Part of the file could not be converted, because a size or time limit was reached or because DIGGS requires something the source lacks, such as a location name (LOCA_ID)."
+fix = "Read the message for which part was skipped, supply what is missing (for example LOCA_ID on every location row), or split a very large file, then convert again."

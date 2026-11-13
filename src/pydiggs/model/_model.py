@@ -240,15 +240,45 @@ def _walk(component: Component) -> Iterator[Component]:
 # --- codec --------------------------------------------------------------------------
 
 
+#: Values written to JSON as they are; checked by exact type, the commonest case.
+_SCALARS: Final = frozenset({str, int, float, bool, type(None)})
+_FINDING: Final = "finding"
+_OTHER: Final = "other"
+#: Per class: the dataclass fields to write, or _FINDING, or _OTHER. A model has a few
+#: dozen classes and hundreds of thousands of values, so looking each class up once
+#: instead of calling ``is_dataclass`` and ``fields`` per value is most of the speed.
+_PLANS: dict[type, tuple[str, ...] | str] = {}
+
+
+def _plan(kind: type) -> tuple[str, ...] | str:
+    plan = _PLANS.get(kind)
+    if plan is None:
+        if issubclass(kind, Finding):
+            plan = _FINDING
+        elif is_dataclass(kind):
+            plan = tuple(f.name for f in fields(kind) if not f.name.startswith("_"))
+        else:
+            plan = _OTHER
+        _PLANS[kind] = plan  # the same answer every time, so a race only repeats work
+    return plan
+
+
 def _encode(value: Any) -> Any:
-    if isinstance(value, Finding):
+    kind = type(value)
+    if kind in _SCALARS:
+        return value
+    if kind is tuple or kind is list:
+        return [_encode(v) for v in value]
+    plan = _plan(kind)
+    if plan is _FINDING:
         return finding_entry(value)
-    if is_dataclass(value) and not isinstance(value, type):
-        return {
-            f.name: _encode(getattr(value, f.name))
-            for f in fields(value)
-            if not f.name.startswith("_")
-        }
+    if plan is not _OTHER:
+        return {name: _encode(getattr(value, name)) for name in plan}
+    return _encode_other(value)
+
+
+def _encode_other(value: Any) -> Any:
+    """The rare values: tuple and list subclasses, mappings, enums, anything else."""
     if isinstance(value, tuple | list):
         return [_encode(v) for v in value]
     if isinstance(value, Mapping):
@@ -256,7 +286,7 @@ def _encode(value: Any) -> Any:
     return value
 
 
-def _finding(data: Any, where: str) -> Finding:
+def _finding(data: Any, where: Where) -> Finding:
     if not isinstance(data, Mapping):
         raise ValueError(f"{where}: a finding is an object")
     missing = [k for k in ("step", "rule_id", "severity", "message") if k not in data]
@@ -281,17 +311,35 @@ def _finding(data: Any, where: str) -> Finding:
         raise ValueError(f"{where}: {exc}") from exc
 
 
-Decoder = Callable[[Any, str], Any]
+class _Path:
+    """Where a value sits (``$.features.name``), spelled out only if an error needs it.
+
+    A model has hundreds of thousands of fields; formatting each path up front cost more
+    than decoding the values.
+    """
+
+    __slots__ = ("name", "parent")
+
+    def __init__(self, parent: Where, name: str) -> None:
+        self.parent = parent
+        self.name = name
+
+    def __str__(self) -> str:
+        return f"{self.parent}.{self.name}"
+
+
+Where = str | _Path
+Decoder = Callable[[Any, Where], Any]
 #: A ``Mapping[K, V]`` has two type arguments.
 _KEY_AND_VALUE: Final = 2
 
 
-def _decode(tp: Any, value: Any, where: str) -> Any:
+def _decode(tp: Any, value: Any, where: Where) -> Any:
     """Decode ``value`` as type ``tp`` (``where`` names the place in error messages)."""
     return _compile(tp)(value, where)
 
 
-def _check(ok: bool, where: str, expected: str) -> None:
+def _check(ok: bool, where: Where, expected: str) -> None:
     if not ok:
         raise ValueError(f"{where}: expected {expected}")
 
@@ -301,28 +349,28 @@ def _primitive(tp: Any) -> Decoder | None:  # noqa: PLR0911 - one return per pri
         return lambda value, _where: value
     if tp is bool:
 
-        def boolean(value: Any, where: str) -> Any:
+        def boolean(value: Any, where: Where) -> Any:
             _check(isinstance(value, bool), where, "a boolean")
             return value
 
         return boolean
     if tp is int:
 
-        def integer(value: Any, where: str) -> Any:
+        def integer(value: Any, where: Where) -> Any:
             _check(type(value) is int, where, "an integer")
             return value
 
         return integer
     if tp is float:
 
-        def number(value: Any, where: str) -> Any:
+        def number(value: Any, where: Where) -> Any:
             _check(type(value) is float or type(value) is int, where, "a number")
             return float(value)
 
         return number
     if tp is str:
 
-        def string(value: Any, where: str) -> Any:
+        def string(value: Any, where: Where) -> Any:
             _check(isinstance(value, str), where, "a string")
             return value
 
@@ -341,7 +389,7 @@ def _plain_union(options: list[Any], nullable: bool) -> Decoder:
     accepted = frozenset(options)
     widen = float in accepted and int not in accepted
 
-    def plain(value: Any, where: str) -> Any:
+    def plain(value: Any, where: Where) -> Any:
         kind = type(value)
         if kind in accepted:
             return value
@@ -362,7 +410,7 @@ def _union(tp: Any) -> Decoder:
     decoders = [_compile(o) for o in options]
     single = decoders[0] if len(decoders) == 1 else None
 
-    def union(value: Any, where: str) -> Any:
+    def union(value: Any, where: Where) -> Any:
         if value is None:
             _check(nullable, where, "a value, not null")
             return None
@@ -381,7 +429,7 @@ def _union(tp: Any) -> Decoder:
 def _sequence(tp: Any) -> Decoder:
     item = _compile(get_args(tp)[0])
 
-    def sequence(value: Any, where: str) -> Any:
+    def sequence(value: Any, where: Where) -> Any:
         _check(isinstance(value, list | tuple), where, "an array")
         return tuple([item(v, where) for v in value])
 
@@ -392,7 +440,7 @@ def _mapping(tp: Any) -> Decoder:
     args = get_args(tp)
     item = _compile(args[1] if len(args) == _KEY_AND_VALUE else Any)
 
-    def mapping(value: Any, where: str) -> Any:
+    def mapping(value: Any, where: Where) -> Any:
         _check(isinstance(value, Mapping), where, "an object")
         return types.MappingProxyType({str(k): item(v, where) for k, v in value.items()})
 
@@ -401,29 +449,32 @@ def _mapping(tp: Any) -> Decoder:
 
 def _record(tp: type) -> Decoder:
     """A dataclass decoder; field decoders are compiled on first use (types recurse)."""
-    plans: list[tuple[tuple[str, Any, bool], ...]] = []
-    compiled: dict[str, Decoder] = {}
+    plans: list[tuple[tuple[str, Decoder, bool], ...]] = []
 
-    def record(value: Any, where: str) -> Any:
+    def record(value: Any, where: Where) -> Any:
         if not plans:
             hints = get_type_hints(tp)
             # Built whole, then published in one step: another thread decoding at the
             # same moment sees no plan or all of it, never a part (building twice is fine).
+            # _compile only builds decoders, it never runs one, so a type that contains
+            # itself is fine here.
             plans.append(
                 tuple(
-                    (f.name, hints[f.name], f.default is MISSING and f.default_factory is MISSING)
+                    (
+                        f.name,
+                        _compile(hints[f.name]),
+                        f.default is MISSING and f.default_factory is MISSING,
+                    )
                     for f in fields(tp)
                     if f.init
                 )
             )
-        _check(isinstance(value, Mapping), where, f"an object for {tp.__name__}")
+        if not isinstance(value, Mapping):
+            raise ValueError(f"{where}: expected an object for {tp.__name__}")
         kwargs: dict[str, Any] = {}
-        for name, hint, required in plans[0]:
+        for name, decoder, required in plans[0]:
             if name in value:
-                decoder = compiled.get(name)
-                if decoder is None:
-                    decoder = compiled[name] = _compile(hint)
-                kwargs[name] = decoder(value[name], f"{where}.{name}")
+                kwargs[name] = decoder(value[name], _Path(where, name))
             elif required:
                 raise ValueError(f"{where}: missing {name!r}")
         return tp(**kwargs)

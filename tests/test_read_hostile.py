@@ -259,3 +259,15 @@ def test_the_document_grows_with_the_input_not_faster():
     large = len(_read_body(_unknown(4_000)).to_json())
     assert large < 2.2 * small
     assert small / 2_000 < 400  # bytes of JSON per untyped element
+
+
+def test_a_decoding_error_names_where_it_is():
+    # The decoder spells the location out only when it fails; it must still be exact.
+    document = json.loads(_read_body("").to_json())
+    document["features"] = [{**f, "name": 5} for f in document["features"]] or [{"name": 5}]
+    with pytest.raises(ValueError, match=r"^\$\.features(\.name: expected a string|: missing )"):
+        Model.from_dict(document)
+    nested = json.loads(_read_body("").to_json())
+    nested["source"] = {**nested["source"], "name": 5}
+    with pytest.raises(ValueError, match=r"^\$\.source\.name: expected a string"):
+        Model.from_dict(nested)

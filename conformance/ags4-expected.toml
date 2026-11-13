@@ -4355,6 +4355,241 @@ fyi = 3
 [file.check.lines]
 
 [[file]]
+key = "fixtures/convert_tier_a.ags"
+path = "tests/fixtures/ags4/convert_tier_a.ags"
+sha256 = "0761a5e02ef13aac4fe446629265e716ba576c631151a8e1bb92a022e7fac78d"
+size = 5766
+encoding = "utf-8"
+ags_version = "4.1.1"
+readable = true
+
+[[file.group]]
+name = "PROJ"
+headings = ["PROJ_ID", "PROJ_NAME", "PROJ_LOC", "PROJ_CLNT", "PROJ_MEMO"]
+units = ["", "", "", "", ""]
+types = ["ID", "X", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "5b270c2be8ff1ed0ccb73ee0dab795395660291bbb1cf537745c2213bd0e8148"
+rows = [
+  ["PX-100", "Riverside Test Site", "Exampletown", "Example Client Ltd", "Synthetic data written for pyDIGGS tests"],
+]
+
+[[file.group]]
+name = "TRAN"
+headings = ["TRAN_ISNO", "TRAN_DATE", "TRAN_PROD", "TRAN_STAT", "TRAN_DESC", "TRAN_AGS", "TRAN_RECV", "TRAN_DLIM", "TRAN_RCON"]
+units = ["", "yyyy-mm-dd", "", "", "", "", "", "", ""]
+types = ["X", "DT", "X", "X", "X", "X", "X", "X", "X"]
+row_count = 1
+rows_sha256 = "a0c038e854f9872dcd966b8e2a40ad64eb3c67d4853fff9cd1a1d53c9dfe02eb"
+rows = [
+  ["1", "2026-11-12", "pyDIGGS tests", "Draft", "Tier A conversion fixture", "4.1.1", "Nobody", "|", "+"],
+]
+
+[[file.group]]
+name = "UNIT"
+headings = ["UNIT_UNIT", "UNIT_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 6
+rows_sha256 = "aa309f2431f364fa7cdf82e6c2a550b9bc71b5b3df88b1b4f2f00782f5bbbf57"
+rows = [
+  ["m", "metre"],
+  ["mm", "millimetre"],
+  ["%", "percent"],
+  ["DegC", "degree Celsius"],
+  ["yyyy-mm-dd", "date"],
+  ["yyyy-mm-ddThh:mm", "date and time"],
+]
+
+[[file.group]]
+name = "TYPE"
+headings = ["TYPE_TYPE", "TYPE_DESC"]
+units = ["", ""]
+types = ["X", "X"]
+row_count = 8
+rows_sha256 = "4ba06aaf1fdd006d249fe98ae477bd462be14b7c11f84fd58287f041702b2230"
+rows = [
+  ["ID", "Identifier"],
+  ["PA", "Abbreviation"],
+  ["X", "Text"],
+  ["DT", "Date"],
+  ["0DP", "0 decimal places"],
+  ["1DP", "1 decimal place"],
+  ["2DP", "2 decimal places"],
+  ["3SF", "3 significant figures"],
+]
+
+[[file.group]]
+name = "ABBR"
+headings = ["ABBR_HDNG", "ABBR_CODE", "ABBR_DESC"]
+units = ["", "", ""]
+types = ["X", "X", "X"]
+row_count = 5
+rows_sha256 = "eb7f94823b17d9312dd9313847b77c761e0e70ac51bf745f795fad230ec7f6ac"
+rows = [
+  ["LOCA_TYPE", "CP", "Cable percussion"],
+  ["LOCA_TYPE", "RC", "Rotary core"],
+  ["LOCA_TYPE", "TP", "Trial pit"],
+  ["SAMP_TYPE", "D", "Small disturbed"],
+  ["SAMP_TYPE", "U", "Undisturbed"],
+]
+
+[[file.group]]
+name = "DICT"
+headings = ["DICT_TYPE", "DICT_GRP", "DICT_HDNG", "DICT_STAT", "DICT_DTYP", "DICT_DESC"]
+units = ["", "", "", "", "", ""]
+types = ["PA", "X", "X", "PA", "PA", "X"]
+row_count = 4
+rows_sha256 = "71c961c06a605f197d6b263a5e31a348381451bd9d5d7ea9d7296dc1fe1170cc"
+rows = [
+  ["GROUP", "XNOT", "", "", "", "User-defined notes"],
+  ["HEADING", "XNOT", "LOCA_ID", "KEY", "ID", "Location"],
+  ["HEADING", "XNOT", "XNOT_TEXT", "OTHER", "X", "Note"],
+  ["HEADING", "LOCA", "LOCA_XCOL", "OTHER", "X", "User column"],
+]
+
+[[file.group]]
+name = "LOCA"
+headings = ["LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GREF", "LOCA_GL", "LOCA_FDEP", "LOCA_STAR", "LOCA_ENDD", "LOCA_PURP", "LOCA_REM", "LOCA_XCOL"]
+units = ["", "", "m", "m", "", "m", "m", "yyyy-mm-dd", "yyyy-mm-dd", "", "", ""]
+types = ["ID", "PA", "2DP", "2DP", "PA", "2DP", "2DP", "DT", "DT", "X", "X", "X"]
+row_count = 3
+rows_sha256 = "351e0e9759e077c884b0e81b919e61d0aa95eaa6bb9fe2e244b11d07d34455ea"
+rows = [
+  ["BH01", "CP", "451200.00", "206500.00", "OSGB", "12.50", "15.00", "2026-03-02", "2026-03-04", "Ground investigation", "", ""],
+  ["BH02", "RC", "451260.50", "206480.25", "OSGB", "11.80", "10.00", "2026-03-05", "2026-03-05", "", "Stopped on an obstruction", "user value"],
+  ["TP01", "TP", "451230.00", "206520.00", "OSGB", "12.10", "3.20", "2026-03-06", "", "", "", ""],
+]
+
+[[file.group]]
+name = "GEOL"
+headings = ["LOCA_ID", "GEOL_TOP", "GEOL_BASE", "GEOL_DESC", "GEOL_LEG", "GEOL_GEOL", "GEOL_REM"]
+units = ["", "m", "m", "", "", "", ""]
+types = ["ID", "2DP", "2DP", "X", "PA", "X", "X"]
+row_count = 5
+rows_sha256 = "0800fe20260ac45b5073a8d229d4fd79cc9567a194e39904268fedfe040cfcaf"
+rows = [
+  ["BH01", "0.00", "1.20", "MADE GROUND: brown sandy gravel", "102", "MG", ""],
+  ["BH01", "1.20", "6.50", "Soft grey silty CLAY", "201", "ALV", "Organic odour"],
+  ["BH01", "6.50", "15.00", "Dense grey SAND", "401", "", ""],
+  ["BH02", "0.00", "10.00", "Firm brown CLAY", "201", "", ""],
+  ["TP01", "0.00", "3.20", "Firm brown CLAY with gravel", "201", "", ""],
+]
+
+[[file.group]]
+name = "SAMP"
+headings = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SAMP_BASE", "SAMP_DTIM", "SAMP_RECV", "SAMP_DESC"]
+units = ["", "m", "", "", "", "m", "yyyy-mm-ddThh:mm", "%", ""]
+types = ["ID", "2DP", "X", "PA", "ID", "2DP", "DT", "0DP", "X"]
+row_count = 3
+rows_sha256 = "c14c65b125f2d3f2d5ed6fa4b00529602a4b53b54d929fe298febccb2e1dac37"
+rows = [
+  ["BH01", "2.00", "1", "U", "BH01-U1", "2.45", "2026-03-02T10:15", "85", "Grey silty CLAY"],
+  ["BH01", "7.00", "2", "D", "BH01-D2", "7.50", "2026-03-03T09:00", "", ""],
+  ["BH02", "1.00", "1", "D", "BH02-D1", "1.20", "", "", ""],
+]
+
+[[file.group]]
+name = "ISPT"
+headings = ["LOCA_ID", "ISPT_TOP", "ISPT_NPEN", "ISPT_NVAL", "ISPT_REP", "ISPT_ERAT", "ISPT_REM"]
+units = ["", "m", "mm", "", "", "%", ""]
+types = ["ID", "2DP", "0DP", "0DP", "X", "0DP", "X"]
+row_count = 2
+rows_sha256 = "8b9950d1f51b5dc461dfb0cf9e152304ece6a6e3a360b6a88eb636975abcbe06"
+rows = [
+  ["BH01", "7.00", "450", "32", "N=32", "72", ""],
+  ["BH01", "9.00", "450", "41", "N=41", "72", "Hard driving"],
+]
+
+[[file.group]]
+name = "LLPL"
+headings = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH", "LLPL_LL", "LLPL_PL", "LLPL_PI", "LLPL_425"]
+units = ["", "m", "", "", "", "", "m", "%", "%", "%", "%"]
+types = ["ID", "2DP", "X", "PA", "ID", "X", "2DP", "0DP", "0DP", "0DP", "0DP"]
+row_count = 2
+rows_sha256 = "bc87b37edaf7f44fd46998e37bde60e7e961eadb7a19480ede65f7aa678afa4c"
+rows = [
+  ["BH01", "2.00", "1", "U", "BH01-U1", "A", "2.10", "48", "22", "26", "100"],
+  ["BH02", "1.00", "1", "D", "BH02-D1", "A", "1.05", "NP", "NP", "NP", ""],
+]
+
+[[file.group]]
+name = "LNMC"
+headings = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH", "LNMC_MC", "LNMC_TEMP"]
+units = ["", "m", "", "", "", "", "m", "%", "DegC"]
+types = ["ID", "2DP", "X", "PA", "ID", "X", "2DP", "1DP", "0DP"]
+row_count = 2
+rows_sha256 = "c2b0af7aab887576dd42a6975457a8abff030fd847f9059aef8ddc1104b751d5"
+rows = [
+  ["BH01", "2.00", "1", "U", "BH01-U1", "A", "2.10", "31.5", "105"],
+  ["BH01", "7.00", "2", "D", "BH01-D2", "A", "7.20", "18.2", "105"],
+]
+
+[[file.group]]
+name = "GRAG"
+headings = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH", "GRAG_UC", "GRAG_GRAV", "GRAG_SAND", "GRAG_FINE"]
+units = ["", "m", "", "", "", "", "m", "", "%", "%", "%"]
+types = ["ID", "2DP", "X", "PA", "ID", "X", "2DP", "3SF", "0DP", "0DP", "0DP"]
+row_count = 1
+rows_sha256 = "d3b5082e8bdcbee51cd0d604c2b232b88d33fdcf3e5c119bb9eb423195d915f2"
+rows = [
+  ["BH01", "7.00", "2", "D", "BH01-D2", "A", "7.20", "4.50", "12", "70", "18"],
+]
+
+[[file.group]]
+name = "GRAT"
+headings = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH", "GRAT_SIZE", "GRAT_PERP", "GRAT_TYPE"]
+units = ["", "m", "", "", "", "", "m", "mm", "%", ""]
+types = ["ID", "2DP", "X", "PA", "ID", "X", "2DP", "3SF", "0DP", "PA"]
+row_count = 5
+rows_sha256 = "526ddc5c8e0a1c8490dab0649accbfd94a77b30a532f693d5438f4bb60d8844e"
+rows = [
+  ["BH01", "7.00", "2", "D", "BH01-D2", "A", "7.20", "20.0", "100", "WS"],
+  ["BH01", "7.00", "2", "D", "BH01-D2", "A", "7.20", "2.00", "88", "DS"],
+  ["BH01", "7.00", "2", "D", "BH01-D2", "A", "7.20", "0.063", "18", ""],
+  ["BH01", "7.00", "2", "D", "BH01-D2", "A", "7.20", "0.020", "12", "HY"],
+  ["BH01", "7.00", "2", "D", "BH01-D2", "A", "7.20", "0.006", "8", "PP"],
+]
+
+[[file.group]]
+name = "HDPH"
+headings = ["LOCA_ID", "HDPH_TOP", "HDPH_BASE", "HDPH_TYPE"]
+units = ["", "m", "m", ""]
+types = ["ID", "2DP", "2DP", "PA"]
+row_count = 2
+rows_sha256 = "31c7dae4be246c4eb2d055bb6351769ef9d5235e5cc40487c62183b30538a3fb"
+rows = [
+  ["BH01", "0.00", "1.20", "IP"],
+  ["BH01", "1.20", "15.00", "CP"],
+]
+
+[[file.group]]
+name = "XNOT"
+headings = ["LOCA_ID", "XNOT_TEXT"]
+units = ["", ""]
+types = ["ID", "X"]
+row_count = 1
+rows_sha256 = "2c2a7b0b641a68a9f8ed0e6a77aadadd70d3ddcf72aeb4955d2afff3e874d1a3"
+rows = [
+  ["BH01", "A user-defined note"],
+]
+
+[file.check]
+dictionary = "Standard_dictionary_v4_1_1.ags"
+errors = 24
+fyi = 5
+
+[file.check.rules]
+"ags4.rule-7" = 1
+"ags4.rule-8" = 6
+"ags4.rule-10c" = 1
+"ags4.rule-16" = 16
+
+[file.check.lines]
+"ags4.rule-7" = [57]
+"ags4.rule-8" = [94, 115, 116, 117]
+
+[[file]]
 key = "fixtures/cp1252.ags"
 path = "tests/fixtures/ags4/cp1252.ags"
 sha256 = "bc7a82aeae093ccd15921057121dec99d3f3779554fc018d21330eda34d00bca"

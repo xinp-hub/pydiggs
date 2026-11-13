@@ -35,12 +35,14 @@ from pydiggs.cli import main as cli_main
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.findings.model import Step
 from pydiggs.findings.run import NATIVE_STEPS
+from pydiggs.preview import convert as preview_convert
 
 ROOT = Path(__file__).resolve().parent.parent
 
 # --- what every public operation and surface maps to ------------------------------------
 #
-# Each public function (pydiggs, pydiggs.ags4, pydiggs.frames, pydiggs.gis), HTTP route,
+# Each public function (pydiggs, pydiggs.ags4, pydiggs.frames, pydiggs.gis, and the
+# previews in pydiggs.preview), HTTP route,
 # MCP tool, sidecar method and CLI command is listed here with the operation it is, or
 # in a META set with the reason it is not one. A new name anywhere fails a test below
 # until it is listed, so a new operation cannot ship without a capabilities entry.
@@ -61,6 +63,7 @@ PUBLIC_FUNCTIONS: dict[str, tuple[str, ...]] = {
     "pydiggs.ags4.dumps": ("ags4.write",),
     "pydiggs.ags4.write": ("ags4.write",),
     "pydiggs.ags4.check": ("ags4.check",),
+    "pydiggs.preview.convert.ags4_to_diggs": ("convert.ags4-to-diggs",),
     "pydiggs.frames.to_pandas": ("export.pandas",),
     "pydiggs.frames.to_polars": ("export.polars",),
     "pydiggs.gis.transform": ("gis.transform",),
@@ -76,6 +79,7 @@ META_FUNCTIONS = {
     "pydiggs.version_info": "versions",
     "pydiggs.warm_up": "a performance helper",
     "pydiggs.validator": "the legacy one-check-at-a-time class; validate covers its checks",
+    "pydiggs.preview.convert.mapping_info": "describes the mapping table, converts nothing",
 }
 #: The function whose signature each operation's options must match.
 SIGNATURES: dict[str, tuple[str, ...]] = {
@@ -87,6 +91,7 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
     "ags4.read": ("pydiggs.ags4.read", "pydiggs.ags4.read_bytes"),
     "ags4.write": ("pydiggs.ags4.dumps",),
     "ags4.check": ("pydiggs.ags4.check",),
+    "convert.ags4-to-diggs": ("pydiggs.preview.convert.ags4_to_diggs",),
     "export.pandas": ("pydiggs.frames.to_pandas",),
     "export.polars": ("pydiggs.frames.to_polars",),
     "gis.transform": ("pydiggs.gis.transform",),
@@ -141,6 +146,7 @@ def _resolve(dotted: str):
         "pydiggs.frames": frames,
         "pydiggs.gis": gis,
         "pydiggs._service": _service,
+        "pydiggs.preview.convert": preview_convert,
     }[module]
     return getattr(owner, name)
 
@@ -246,6 +252,7 @@ def _public_functions() -> set[str]:
         ("pydiggs.ags4", ags4),
         ("pydiggs.frames", frames),
         ("pydiggs.gis", gis),
+        ("pydiggs.preview.convert", preview_convert),
     ):
         for name in module.__all__:
             obj = getattr(module, name)
@@ -343,7 +350,7 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
 
 def test_stability_matches_what_the_docs_promise(by_id):
     preview = {i for i, op in by_id.items() if op.stability == "preview"}
-    assert preview == {"ags4.read", "ags4.write", "ags4.check"}
+    assert preview == {"ags4.read", "ags4.write", "ags4.check", "convert.ags4-to-diggs"}
     assert not {i for i, op in by_id.items() if op.stability == "experimental"}
 
 
@@ -363,6 +370,7 @@ def test_needs_name_real_extras(by_id):
         "ags4.read",
         "ags4.write",
         "ags4.check",
+        "convert.ags4-to-diggs",
     }
 
 

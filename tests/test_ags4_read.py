@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import csv
+import dataclasses
 import doctest
 import hashlib
 import inspect
@@ -552,6 +553,35 @@ def test_a_file_refuses_groups_it_cannot_key():
             ags4.File(groups=bad)
     with pytest.raises(ValueError, match="line"):
         ags4.Group(name="A", headings=(), line=0)
+
+
+def test_each_data_row_keeps_its_own_line():
+    data = (
+        b'"GROUP","LOCA"\r\n"HEADING","LOCA_ID"\r\n"TYPE","ID"\r\n'
+        b'"DATA","BH1"\r\n\r\n\r\n"DATA","BH2"\r\n \r\n"DATA","BH3"\r\n'
+        b'"GROUP","PROJ"\r\n"HEADING","PROJ_ID"\r\n"UNIT",""\r\n"TYPE","ID"\r\n'
+        b'"DATA","P1"\r\n'
+    )
+    f = ags4.read_bytes(data)
+    assert f.groups["LOCA"].row_lines == (4, 7, 9)
+    assert f.groups["PROJ"].row_lines == (14,)
+    assert ags4.read_bytes(ags4.dumps(f)) == f  # row lines take no part in equality
+    assert "row_lines" not in repr(f.groups["LOCA"])
+
+
+def test_row_lines_are_checked_and_kept_only_when_they_fit_the_rows():
+    rows = [("BH1",), ("BH2",)]
+    group = ags4.Group(name="A", headings=("H",), rows=rows, row_lines=[3, 5])
+    assert group.row_lines == (3, 5)
+    assert group == ags4.Group(name="A", headings=("H",), rows=rows)
+    assert hash(group) == hash(ags4.Group(name="A", headings=("H",), rows=rows))
+    assert ags4.Group(name="A", headings=("H",), rows=rows, row_lines=(3,)).row_lines == ()
+    assert dataclasses.replace(group, rows=rows[:1]).row_lines == ()
+    for bad in ((0, 1), (1, True), (1, 2.0)):
+        with pytest.raises(ValueError, match="row_lines"):
+            ags4.Group(name="A", headings=("H",), rows=rows, row_lines=bad)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="row_lines"):
+        ags4.Group(name="A", headings=("H",), rows=rows, row_lines=5)  # type: ignore[arg-type]
 
 
 def test_equality_is_about_the_tables_only():

@@ -115,19 +115,21 @@ path = "src/pydiggs/__init__.py"
 packages = ["src/pydiggs"]
 
 [tool.hatch.build.targets.sdist]
+# Anchored at the repository root: a bare "src" or "README.md" is a gitignore-style
+# pattern that also matches js/src, js/README.md, .github/scripts and so on.
 include = [
-  "src",
-  "tests",
-  "scripts",
-  "conformance",
-  "docs",
-  "README.md",
-  "CHANGELOG.md",
-  "LICENSE",
-  "LICENSES",
-  "NOTICE",
-  "REUSE.toml",
-  "pyproject.toml",
+  "/src",
+  "/tests",
+  "/scripts",
+  "/conformance",
+  "/docs",
+  "/README.md",
+  "/CHANGELOG.md",
+  "/LICENSE",
+  "/LICENSES",
+  "/NOTICE",
+  "/REUSE.toml",
+  "/pyproject.toml",
 ]
 
 [tool.ruff]
@@ -188,6 +190,8 @@ module = [
   "pydiggs._reader",
   "pydiggs._reader.*",
   "pydiggs._compat",
+  "pydiggs.convert",
+  "pydiggs.convert.*",
   "pydiggs._pool",
   "pydiggs._serve_cli",
   "pydiggs._service",
@@ -206,6 +210,7 @@ module = [
   "pydiggs.model",
   "pydiggs.model.*",
   "pydiggs.preview",
+  "pydiggs.preview.*",
   "pydiggs.server",
   "pydiggs.server.*",
   "pydiggs.sidecar",
