@@ -44,13 +44,14 @@ code = [
 
 # LOCA_GREF: the grid reference system of LOCA_NATE and LOCA_NATN. A value of the form
 # EPSG:<number> is also read as that EPSG code. Anything else is reported, and the
-# coordinates are written with no CRS.
+# coordinates are written with no CRS. `unit` is the unit of the CRS's axes (a DIGGS uom):
+# grid coordinates and ground levels whose UNIT is another unit are not written.
 crs = [
-  { heading = "LOCA_GREF", ags = "OSGB", srs = "http://www.opengis.net/def/crs/EPSG/0/27700" },
-  { heading = "LOCA_GREF", ags = "OSGB36", srs = "http://www.opengis.net/def/crs/EPSG/0/27700" },
-  { heading = "LOCA_GREF", ags = "British National Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/27700" },
-  { heading = "LOCA_GREF", ags = "ITM", srs = "http://www.opengis.net/def/crs/EPSG/0/2157" },
-  { heading = "LOCA_GREF", ags = "Irish Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/29903" },
+  { heading = "LOCA_GREF", ags = "OSGB", srs = "http://www.opengis.net/def/crs/EPSG/0/27700", unit = "m" },
+  { heading = "LOCA_GREF", ags = "OSGB36", srs = "http://www.opengis.net/def/crs/EPSG/0/27700", unit = "m" },
+  { heading = "LOCA_GREF", ags = "British National Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/27700", unit = "m" },
+  { heading = "LOCA_GREF", ags = "ITM", srs = "http://www.opengis.net/def/crs/EPSG/0/2157", unit = "m" },
+  { heading = "LOCA_GREF", ags = "Irish Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/29903", unit = "m" },
   # LOCA_LLZ: the datum of LOCA_LAT and LOCA_LON (latitude first, as EPSG states).
   { heading = "LOCA_LLZ", ags = "WGS84", srs = "http://www.opengis.net/def/crs/EPSG/0/4326" },
   { heading = "LOCA_LLZ", ags = "WGS 84", srs = "http://www.opengis.net/def/crs/EPSG/0/4326" },

@@ -14,7 +14,9 @@
 #   key     identifies the record; becomes its gml:id (made a valid XML id) and gml:name
 #   link    a key of the parent record, used to attach this record to it
 #   field   a typed field the converter fills (`target` names it)
-#   param   a simple DIGGS element, `target` = "<Element>/<child>"
+#   param   a simple DIGGS element, `target` = "<Element>/<child>"; a measure also gives its
+#           `quantity` (the element is a diggs:<quantity>MeasureType), and is written only
+#           with a unit that DIGGS 3.0.0 allows for that measure
 #   column  a result column; `property` is a key of the bundled DIGGS property dictionary
 #   format  AGS4 format information the converter reads; it is not data and is not written
 #   none    not converted; `reason` says why, and each non-null value is reported
@@ -211,7 +213,7 @@ heading = [
   { name = "SAMP_PREP", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "SAMP_SDIA", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "SAMP_WDEP", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
-  { name = "SAMP_RECV", to = "param", target = "SamplingActivity/totalSampleRecovery" },
+  { name = "SAMP_RECV", to = "param", target = "SamplingActivity/totalSampleRecovery", quantity = "Dimensionless" },
   { name = "SAMP_TECH", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "SAMP_MATX", to = "none", reason = "sampleMatrix is a code list; not in the preview mapping" },
   { name = "SAMP_TYPC", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
@@ -250,14 +252,14 @@ heading = [
   { name = "ISPT_TOP", to = "field", target = "location" },
   { name = "ISPT_SEAT", to = "none", reason = "seating drive blows are not in the preview mapping" },
   { name = "ISPT_MAIN", to = "none", reason = "main drive blows are not in the preview mapping (the N value is)" },
-  { name = "ISPT_NPEN", to = "param", target = "DrivenPenetrationTest/totalPenetration" },
+  { name = "ISPT_NPEN", to = "param", target = "DrivenPenetrationTest/totalPenetration", quantity = "Length" },
   { name = "ISPT_NVAL", to = "column", property = "n_value" },
   { name = "ISPT_REP", to = "none", reason = "the reported result text has no DIGGS property" },
-  { name = "ISPT_CAS", to = "param", target = "DrivenPenetrationTest/depthCasing" },
-  { name = "ISPT_WAT", to = "param", target = "DrivenPenetrationTest/waterDepth" },
+  { name = "ISPT_CAS", to = "param", target = "DrivenPenetrationTest/depthCasing", quantity = "Length" },
+  { name = "ISPT_WAT", to = "param", target = "DrivenPenetrationTest/waterDepth", quantity = "Length" },
   { name = "ISPT_TYPE", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "ISPT_HAM", to = "none", reason = "hammer identifiers are not in the preview mapping" },
-  { name = "ISPT_ERAT", to = "param", target = "DrivenPenetrationTest/hammerEfficiency" },
+  { name = "ISPT_ERAT", to = "param", target = "DrivenPenetrationTest/hammerEfficiency", quantity = "Dimensionless" },
   { name = "ISPT_INC1", to = "none", reason = "drive sets are not in the preview mapping" },
   { name = "ISPT_INC2", to = "none", reason = "drive sets are not in the preview mapping" },
   { name = "ISPT_INC3", to = "none", reason = "drive sets are not in the preview mapping" },
@@ -271,7 +273,7 @@ heading = [
   { name = "ISPT_PEN5", to = "none", reason = "drive sets are not in the preview mapping" },
   { name = "ISPT_PEN6", to = "none", reason = "drive sets are not in the preview mapping" },
   { name = "ISPT_ROCK", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
-  { name = "ISPT_SWP", to = "param", target = "DrivenPenetrationTest/selfWeightPenetration" },
+  { name = "ISPT_SWP", to = "param", target = "DrivenPenetrationTest/selfWeightPenetration", quantity = "Length" },
   { name = "ISPT_REM", to = "field", target = "remark" },
   { name = "ISPT_ENV", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "ISPT_METH", to = "none", reason = "test method text is not in the preview mapping" },
@@ -331,7 +333,7 @@ heading = [
   { name = "SPEC_DESC", to = "field", target = "description" },
   { name = "SPEC_PREP", to = "none", reason = "specimen preparation text is not in the preview mapping" },
   { name = "LNMC_MC", to = "column", property = "water_content_natural" },
-  { name = "LNMC_TEMP", to = "param", target = "WaterContentTest/dryingTemperature" },
+  { name = "LNMC_TEMP", to = "param", target = "WaterContentTest/dryingTemperature", quantity = "ThermodynamicTemperature" },
   { name = "LNMC_STAB", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "LNMC_ISNT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "LNMC_COMM", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
@@ -397,8 +399,8 @@ heading = [
   { name = "SAMP_ID", to = "link", target = "Test" },
   { name = "SPEC_REF", to = "link", target = "Test" },
   { name = "SPEC_DPTH", to = "link", target = "Test" },
-  { name = "GRAT_SIZE", to = "param", target = "Grading/particleSize" },
-  { name = "GRAT_PERP", to = "param", target = "Grading/percentPassing" },
+  { name = "GRAT_SIZE", to = "param", target = "Grading/particleSize", quantity = "ParticleSize" },
+  { name = "GRAT_PERP", to = "param", target = "Grading/percentPassing", quantity = "MassPerMass" },
   { name = "GRAT_TYPE", to = "field", target = "method" },
   { name = "GRAT_REM", to = "field", target = "remark" },
   { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },

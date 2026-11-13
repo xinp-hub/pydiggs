@@ -8,6 +8,7 @@ parse, so the caller can report it.
 
 from __future__ import annotations
 
+import datetime
 import math
 import re
 from typing import Final
@@ -23,22 +24,31 @@ __all__ = [
 
 #: Longest number text accepted (longer text is not a number here).
 MAX_NUMBER_CHARS: Final = 64
-_NUMBER: Final = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d{1,3})?")
-_ISO_DATE: Final = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+_NUMBER: Final = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d{1,3})?", re.ASCII)
+_ISO_DATE: Final = re.compile(r"(\d{4})-(\d{2})-(\d{2})", re.ASCII)
 _ISO_TIME: Final = re.compile(
-    r"(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?"
+    r"(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?", re.ASCII
 )
-_ZONE: Final = re.compile(r"(?:Z|[+-]\d{2}:\d{2})?")
-_DMY: Final = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
-_DMS: Final = re.compile(r"(\d{1,3}):(\d{1,2}):(\d{1,2}(?:\.\d+)?)([NSEW])")
-#: Characters XML 1.0 forbids (C0 controls but tab, LF and CR; surrogates; U+FFFE/U+FFFF).
-_FORBIDDEN: Final = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff￾￿]")
+_ZONE: Final = re.compile(r"Z|([+-])(\d{2}):(\d{2})", re.ASCII)
+_DMY: Final = re.compile(r"(\d{2})/(\d{2})/(\d{4})", re.ASCII)
+_DMS: Final = re.compile(r"(\d{1,3}):(\d{1,2}):(\d{1,2}(?:\.\d+)?)([NSEW])", re.ASCII)
+#: Code points XML 1.0 forbids in text: the C0 controls but tab, LF and CR; the
+#: surrogates; U+FFFE and U+FFFF. Listed one by one (no character ranges), for
+#: :meth:`str.translate`, which deletes each.
+_FORBIDDEN: Final[dict[int, None]] = dict.fromkeys(
+    [
+        *(code for code in range(0x20) if code not in (0x09, 0x0A, 0x0D)),
+        *range(0xD800, 0xE000),
+        0xFFFE,
+        0xFFFF,
+    ]
+)
 _NOT_NAME: Final = re.compile(r"[^\w.\-]", re.ASCII)
 _MAX_ID_CHARS: Final = 64
 _HOURS: Final = 24
 _MINUTES: Final = 60
-_MONTHS: Final = 12
-_DAYS: Final = 31
+#: The widest zone offset ``xs:dateTime`` allows, in minutes (14:00).
+_MAX_ZONE_MINUTES: Final = 14 * 60
 
 
 def parse_number(text: str) -> float | None:
@@ -57,7 +67,25 @@ def parse_number(text: str) -> float | None:
 
 
 def _valid(year: str, month: str, day: str) -> bool:
-    return 1 <= int(month) <= _MONTHS and 1 <= int(day) <= _DAYS and int(year) > 0
+    """True for a real calendar day (leap years counted) of a year after 0."""
+    try:
+        datetime.date(int(year), int(month), int(day))
+    except ValueError:
+        return False
+    return True
+
+
+def _zone(text: str) -> bool:
+    """True for no zone, ``Z``, or an offset ``xs:dateTime`` allows (up to 14:00)."""
+    if text == "":
+        return True
+    match = _ZONE.fullmatch(text)
+    if match is None:
+        return False
+    if text == "Z":
+        return True
+    _sign, hours, minutes = match.groups()
+    return int(minutes) < _MINUTES and int(hours) * 60 + int(minutes) <= _MAX_ZONE_MINUTES
 
 
 def parse_date(text: str, unit: str = "") -> str | None:
@@ -72,14 +100,16 @@ def parse_date(text: str, unit: str = "") -> str | None:
         ('2026-03-04', '2026-03-04T10:15:00')
         >>> parse_date("04/03/2026", "dd/mm/yyyy"), parse_date("04/03/2026")
         ('2026-03-04', None)
-        >>> parse_date("2026-13-01"), parse_date("yesterday")
-        (None, None)
+        >>> parse_date("2026-13-01"), parse_date("2026-02-30"), parse_date("yesterday")
+        (None, None, None)
+        >>> parse_date("2024-02-29T23:59+14:00"), parse_date("2026-03-04T10:15+15:00")
+        ('2024-02-29T23:59:00+14:00', None)
     """
     match = _ISO_DATE.fullmatch(text)
     if match is not None:
         return text if _valid(*match.groups()) else None
     match = _ISO_TIME.match(text)
-    if match is not None and _ZONE.fullmatch(text[match.end() :]):
+    if match is not None and _zone(text[match.end() :]):
         year, month, day, hour, minute, second, fraction = match.groups()
         if not _valid(year, month, day) or int(hour) >= _HOURS or int(minute) >= _MINUTES:
             return None
@@ -123,7 +153,7 @@ def xml_text(text: str) -> str:
         >>> xml_text(" Soft\x01 CLAY ")
         'Soft CLAY'
     """
-    return _FORBIDDEN.sub("", text).strip()
+    return text.translate(_FORBIDDEN).strip()
 
 
 class IdMaker:

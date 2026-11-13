@@ -56,7 +56,8 @@ group defines as `convert.user-defined`.
 **Targets.** *key*: identifies the record; it becomes the `gml:id` (made a valid XML id)
 and the `gml:name`. *link*: a key of the parent record, used to attach this record to it.
 *field*: a value the converter places itself (named in the table). *param*: a DIGGS
-element, as `Element/child`. *column*: a result column, named by its key in the
+element, as `Element/child`; a *measure* is written only with a unit DIGGS 3.0.0 allows
+for it, and is reported otherwise. *column*: a result column, named by its key in the
 [DIGGS property dictionary]({properties}). *format*: AGS4 format information the
 converter reads; it is not data. *not converted*: with the reason.
 
@@ -75,6 +76,8 @@ def _target(heading: HeadingRule) -> str:
     if heading.to in ("format", "none"):
         word = "format" if heading.to == "format" else "not converted"
         return f"{word}: {_escape(heading.reason or '')}"
+    if heading.quantity is not None:
+        return f"{heading.to} `{heading.target}` ({heading.quantity} measure)"
     return f"{heading.to} `{heading.target}`"
 
 
@@ -142,13 +145,16 @@ def render(mapping: MappingTable) -> str:
         "",
         "`LOCA_GREF` names the CRS of `LOCA_NATE` and `LOCA_NATN`; `EPSG:<number>` is read"
         " as that EPSG code. `LOCA_LLZ` names the datum of `LOCA_LAT` and `LOCA_LON`. Any"
-        " other value is reported, and nothing is guessed from the coordinates.",
+        " other value is reported, and nothing is guessed from the coordinates. Grid"
+        " coordinates and ground levels are written only in the unit of the CRS's axes.",
         "",
-        "| AGS4 heading | AGS4 value | DIGGS srsName |",
-        "|---|---|---|",
+        "| AGS4 heading | AGS4 value | DIGGS srsName | Axis unit |",
+        "|---|---|---|---|",
     ]
     for (heading, ags), srs in mapping.crs.items():
-        lines.append(f"| `{heading}` | `{_escape(ags)}` | `{srs}` |")
+        unit = mapping.crs_units.get(srs) if heading == "LOCA_GREF" else None
+        shown = f"`{unit}`" if unit else ""
+        lines.append(f"| `{heading}` | `{_escape(ags)}` | `{srs}` | {shown} |")
     return "\n".join(lines) + "\n"
 
 

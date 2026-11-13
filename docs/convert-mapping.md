@@ -22,7 +22,8 @@ group defines as `convert.user-defined`.
 **Targets.** *key*: identifies the record; it becomes the `gml:id` (made a valid XML id)
 and the `gml:name`. *link*: a key of the parent record, used to attach this record to it.
 *field*: a value the converter places itself (named in the table). *param*: a DIGGS
-element, as `Element/child`. *column*: a result column, named by its key in the
+element, as `Element/child`; a *measure* is written only with a unit DIGGS 3.0.0 allows
+for it, and is reported otherwise. *column*: a result column, named by its key in the
 [DIGGS property dictionary](https://diggsml.org/def/codes/DIGGS/0.1/properties.xml). *format*: AGS4 format information the
 converter reads; it is not data. *not converted*: with the reason.
 
@@ -203,7 +204,7 @@ pattern `sample`; status **draft**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_REF`, `SAM
 | `SAMP_PREP` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
 | `SAMP_SDIA` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
 | `SAMP_WDEP` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
-| `SAMP_RECV` | param `SamplingActivity/totalSampleRecovery` | draft |
+| `SAMP_RECV` | param `SamplingActivity/totalSampleRecovery` (Dimensionless measure) | draft |
 | `SAMP_TECH` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
 | `SAMP_MATX` | not converted: sampleMatrix is a code list; not in the preview mapping | draft |
 | `SAMP_TYPC` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
@@ -237,14 +238,14 @@ pattern `test-per-row`; status **draft**; keys `LOCA_ID`, `ISPT_TOP`; parent `LO
 | `ISPT_TOP` | field `location` | draft |
 | `ISPT_SEAT` | not converted: seating drive blows are not in the preview mapping | draft |
 | `ISPT_MAIN` | not converted: main drive blows are not in the preview mapping (the N value is) | draft |
-| `ISPT_NPEN` | param `DrivenPenetrationTest/totalPenetration` | draft |
+| `ISPT_NPEN` | param `DrivenPenetrationTest/totalPenetration` (Length measure) | draft |
 | `ISPT_NVAL` | column `n_value` | draft |
 | `ISPT_REP` | not converted: the reported result text has no DIGGS property | draft |
-| `ISPT_CAS` | param `DrivenPenetrationTest/depthCasing` | draft |
-| `ISPT_WAT` | param `DrivenPenetrationTest/waterDepth` | draft |
+| `ISPT_CAS` | param `DrivenPenetrationTest/depthCasing` (Length measure) | draft |
+| `ISPT_WAT` | param `DrivenPenetrationTest/waterDepth` (Length measure) | draft |
 | `ISPT_TYPE` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
 | `ISPT_HAM` | not converted: hammer identifiers are not in the preview mapping | draft |
-| `ISPT_ERAT` | param `DrivenPenetrationTest/hammerEfficiency` | draft |
+| `ISPT_ERAT` | param `DrivenPenetrationTest/hammerEfficiency` (Dimensionless measure) | draft |
 | `ISPT_INC1` | not converted: drive sets are not in the preview mapping | draft |
 | `ISPT_INC2` | not converted: drive sets are not in the preview mapping | draft |
 | `ISPT_INC3` | not converted: drive sets are not in the preview mapping | draft |
@@ -258,7 +259,7 @@ pattern `test-per-row`; status **draft**; keys `LOCA_ID`, `ISPT_TOP`; parent `LO
 | `ISPT_PEN5` | not converted: drive sets are not in the preview mapping | draft |
 | `ISPT_PEN6` | not converted: drive sets are not in the preview mapping | draft |
 | `ISPT_ROCK` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
-| `ISPT_SWP` | param `DrivenPenetrationTest/selfWeightPenetration` | draft |
+| `ISPT_SWP` | param `DrivenPenetrationTest/selfWeightPenetration` (Length measure) | draft |
 | `ISPT_REM` | field `remark` | draft |
 | `ISPT_ENV` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
 | `ISPT_METH` | not converted: test method text is not in the preview mapping | draft |
@@ -310,7 +311,7 @@ pattern `test-per-row`; status **draft**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_REF`
 | `SPEC_DESC` | field `description` | draft |
 | `SPEC_PREP` | not converted: specimen preparation text is not in the preview mapping | draft |
 | `LNMC_MC` | column `water_content_natural` | draft |
-| `LNMC_TEMP` | param `WaterContentTest/dryingTemperature` | draft |
+| `LNMC_TEMP` | param `WaterContentTest/dryingTemperature` (ThermodynamicTemperature measure) | draft |
 | `LNMC_STAB` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
 | `LNMC_ISNT` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
 | `LNMC_COMM` | not converted: no DIGGS 3.0.0 target in the preview mapping | draft |
@@ -365,8 +366,8 @@ pattern `test-table`; status **draft**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_REF`, 
 | `SAMP_ID` | link `Test` | draft |
 | `SPEC_REF` | link `Test` | draft |
 | `SPEC_DPTH` | link `Test` | draft |
-| `GRAT_SIZE` | param `Grading/particleSize` | draft |
-| `GRAT_PERP` | param `Grading/percentPassing` | draft |
+| `GRAT_SIZE` | param `Grading/particleSize` (ParticleSize measure) | draft |
+| `GRAT_PERP` | param `Grading/percentPassing` (MassPerMass measure) | draft |
 | `GRAT_TYPE` | field `method` | draft |
 | `GRAT_REM` | field `remark` | draft |
 | `FILE_FSET` | not converted: files named in the FILE group are never opened or converted | draft |
@@ -442,15 +443,15 @@ An AGS4 code with no row here, or with no DIGGS code, is reported as `convert.un
 
 ## Coordinate reference systems
 
-`LOCA_GREF` names the CRS of `LOCA_NATE` and `LOCA_NATN`; `EPSG:<number>` is read as that EPSG code. `LOCA_LLZ` names the datum of `LOCA_LAT` and `LOCA_LON`. Any other value is reported, and nothing is guessed from the coordinates.
+`LOCA_GREF` names the CRS of `LOCA_NATE` and `LOCA_NATN`; `EPSG:<number>` is read as that EPSG code. `LOCA_LLZ` names the datum of `LOCA_LAT` and `LOCA_LON`. Any other value is reported, and nothing is guessed from the coordinates. Grid coordinates and ground levels are written only in the unit of the CRS's axes.
 
-| AGS4 heading | AGS4 value | DIGGS srsName |
-|---|---|---|
-| `LOCA_GREF` | `OSGB` | `http://www.opengis.net/def/crs/EPSG/0/27700` |
-| `LOCA_GREF` | `OSGB36` | `http://www.opengis.net/def/crs/EPSG/0/27700` |
-| `LOCA_GREF` | `British National Grid` | `http://www.opengis.net/def/crs/EPSG/0/27700` |
-| `LOCA_GREF` | `ITM` | `http://www.opengis.net/def/crs/EPSG/0/2157` |
-| `LOCA_GREF` | `Irish Grid` | `http://www.opengis.net/def/crs/EPSG/0/29903` |
-| `LOCA_LLZ` | `WGS84` | `http://www.opengis.net/def/crs/EPSG/0/4326` |
-| `LOCA_LLZ` | `WGS 84` | `http://www.opengis.net/def/crs/EPSG/0/4326` |
-| `LOCA_LLZ` | `ETRS89` | `http://www.opengis.net/def/crs/EPSG/0/4258` |
+| AGS4 heading | AGS4 value | DIGGS srsName | Axis unit |
+|---|---|---|---|
+| `LOCA_GREF` | `OSGB` | `http://www.opengis.net/def/crs/EPSG/0/27700` | `m` |
+| `LOCA_GREF` | `OSGB36` | `http://www.opengis.net/def/crs/EPSG/0/27700` | `m` |
+| `LOCA_GREF` | `British National Grid` | `http://www.opengis.net/def/crs/EPSG/0/27700` | `m` |
+| `LOCA_GREF` | `ITM` | `http://www.opengis.net/def/crs/EPSG/0/2157` | `m` |
+| `LOCA_GREF` | `Irish Grid` | `http://www.opengis.net/def/crs/EPSG/0/29903` | `m` |
+| `LOCA_LLZ` | `WGS84` | `http://www.opengis.net/def/crs/EPSG/0/4326` |  |
+| `LOCA_LLZ` | `WGS 84` | `http://www.opengis.net/def/crs/EPSG/0/4326` |  |
+| `LOCA_LLZ` | `ETRS89` | `http://www.opengis.net/def/crs/EPSG/0/4258` |  |

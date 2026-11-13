@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **`pydiggs.ags4`: read and write AGS4 files** (the first part of AGS4 and DIGGS
   conversion). `ags4.read(path)` and `ags4.read_bytes(data)` return a `File` of `Group`
-  tables (`name`, `headings`, `units`, `types`, `rows`), with every value kept as the
-  text the file holds; `ags4.dumps(file)` and `ags4.write(file, path)` write one back the
-  same way every time (every field quoted, CR LF, groups in the order given), so a file
-  that follows the rules is written back byte for byte. `File` and `Group` have public
-  constructors, and `ags4.AGS_VERSIONS` lists the versions read and written (4.0.3 to
-  4.2). The module is new and nothing at the top level changes:
+  tables (`name`, `headings`, `units`, `types`, `rows`, and for a group that was read
+  the source `line` of its GROUP row and `row_lines` of its DATA rows, which take no part
+  in equality), with every value kept as the text the file holds; `ags4.dumps(file)` and
+  `ags4.write(file, path)` write one back the same way every time (every field quoted,
+  CR LF, groups in the order given), so a file that follows the rules is written back
+  byte for byte. `File` and `Group` have public constructors, and `ags4.AGS_VERSIONS`
+  lists the versions read and written (4.0.3 to 4.2). The module is new and nothing at
+  the top level changes:
 
   ```python
   from pydiggs import ags4
@@ -100,9 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `incomplete` (errors), and `value-reformatted` (information, not a loss). One finding
   is given per group, heading or reason, with a count, and `location.path` names the
   first place as `GROUP/row/HEADING`. Values are carried as reported: units are renamed
-  only through the unit table and nothing is converted numerically; codes and grid
-  references are mapped only where the bundled DIGGS code lists support them; nothing
-  the file names is opened; and the same file always gives the same bytes.
+  only through the unit table, a measure is written only with a unit DIGGS 3.0.0 allows
+  for its element, grid coordinates only in the unit of their CRS's axes, and nothing is
+  converted numerically; codes and grid references are mapped only where the bundled
+  DIGGS code lists support them; nothing the file names is opened; and the same file
+  always gives the same bytes.
 - **The AGS4 to DIGGS mapping table** (version 0.1), data that can be reviewed and
   corrected: `src/pydiggs/convert/mappings/` (`ags4-diggs.toml`, `units.toml`,
   `codes.toml`), with its own JSON Schema (`convert-mapping-1.schema.json`) and a

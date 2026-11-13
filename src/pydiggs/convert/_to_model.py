@@ -26,6 +26,7 @@ from pydiggs.convert._mapping import (
     PROPERTIES_URL,
     GroupRule,
     MappingTable,
+    measure_facts,
     property_facts,
 )
 from pydiggs.convert._values import IdMaker, parse_date, parse_degrees, parse_number, xml_text
@@ -172,6 +173,9 @@ class _Row:
     def use(self, heading: str, owner: str) -> None:
         self.mapper.ledger.use(self.group.name, self.index, heading, owner)
 
+    def unuse(self, heading: str, owner: str) -> None:
+        self.mapper.ledger.unuse(self.group.name, self.index, heading, owner)
+
     def lose(self, rule: str, heading: str | None, template: str) -> None:
         self.mapper.ledger.lose(rule, self.group.name, self.index, heading, template)
 
@@ -275,11 +279,30 @@ class _Row:
             self.lose(L.UNMAPPED_UNIT, heading, template)
         return mapped
 
-    def quantity(self, heading: str, owner: str) -> Quantity | None:
+    def measure(self, heading: str, owner: str, quantity: str) -> Quantity | str | None:
+        """The value as a ``diggs:<quantity>MeasureType``; None (reported) when it cannot be.
+
+        The unit must be one DIGGS 3.0.0 allows for that measure: a length is not
+        written as a hammer efficiency, nor a value without a unit as a particle size.
+        A number with no UNIT is written as it is, with no unit, where the measure's
+        unit is optional; it is never given one.
+        """
         if self.get(heading) == "":
             return None
+        facts = measure_facts(quantity)
+        if self.unit(heading) == "" and not facts.required:
+            found = self.number_text(heading, owner)
+            return None if found is None else found[1]
         uom = self.uom(heading)
         if uom is None:
+            return None
+        if uom not in facts.uoms:
+            self.lose(
+                L.UNMAPPED_UNIT,
+                heading,
+                "Values of {heading} in {group} are in a unit DIGGS 3.0.0 does not allow for"
+                " the element they map to; not converted ({values}).",
+            )
             return None
         found = self.number_text(heading, owner)
         if found is None:
@@ -334,6 +357,8 @@ class _Mapper:
         self.mapping = mapping
         self.ledger = Ledger(file)
         self.ids = IdMaker()
+        #: The document information's key, taken first so no record can take it.
+        self.document_key = self.ids.make("document")
         self.deadline = deadline
         self.clock = clock
         self.ticks = 0
@@ -405,8 +430,8 @@ class _Mapper:
             target_element, _, child = heading.target.partition("/")
             if target_element != element or row.get(heading.name) == "":
                 continue
-            if row.unit(heading.name):
-                quantity = row.quantity(heading.name, owner)
+            if heading.quantity is not None:
+                quantity = row.measure(heading.name, owner, heading.quantity)
                 if quantity is not None:
                     out[child] = quantity
             else:
@@ -468,7 +493,7 @@ class _Mapper:
 
     def transmission(self) -> None:
         rule = self.mapping.groups["TRAN"]
-        key = "document"
+        key = self.document_key
         date: str | None = None
         description: str | None = None
         tran = self.file.groups.get("TRAN")
@@ -485,17 +510,21 @@ class _Mapper:
                         "Rows of {group} after the first: DIGGS has one document information; not"
                         " converted ({rows}).",
                     )
+        self.document = self.document_info(date, description)
+
+    def document_info(self, date: str | None, description: str | None) -> DocumentInfo:
+        """The document information, with the default creation date when there is none."""
         if date is None:
             date = DATE_DEFAULT
             self.ledger.note(
                 L.ASSUMED,
-                "TRAN" if tran is not None else next(iter(self.file.groups)),
+                "TRAN" if "TRAN" in self.file.groups else next(iter(self.file.groups)),
                 "DIGGS requires a creation date and TRAN_DATE gives none that can be read;"
                 f" {DATE_DEFAULT} was written.",
             )
-        self.document = _node(
+        return _node(
             DocumentInfo,
-            key,
+            self.document_key,
             "DocumentInformation",
             gml_id=None,
             kind="document_info",
@@ -553,7 +582,7 @@ class _Mapper:
             element, params = self.feature_kind(row, key)
             location = self.location(row, key)
             project = self.project()
-            lrs = f"#{key}-lrs"
+            lrs = f"#{self.ids.make(f'{key}-lrs')}"
             if location is None:
                 location = Position(coordinates=(0.0,), dim=1, crs=lrs)
                 self.ledger.note(
@@ -667,18 +696,57 @@ class _Mapper:
         return self.geographic(row, key)
 
     def grid(self, row: _Row, key: str) -> Position | None:
-        found = [row.number(h, key) for h in ("LOCA_NATE", "LOCA_NATN")]
-        if found[0] is None or found[1] is None:
+        """LOCA_NATE, LOCA_NATN (and LOCA_GL) in the CRS LOCA_GREF names; None when not written.
+
+        A coordinate is written only in the unit of the CRS's axes (the code table gives
+        it): a value in another unit is reported, never relabelled. When one coordinate
+        cannot be written, neither is, and both are reported.
+        """
+        _known, srs = self.grid_crs(row, "LOCA_GREF")
+        axis = None if srs is None else self.mapping.crs_units.get(srs)
+        headings = ("LOCA_NATE", "LOCA_NATN")
+        units_ok = [self.axis_unit(row, heading, axis) for heading in headings]
+        if not all(units_ok):
+            for heading, ok in zip(headings, units_ok, strict=True):
+                if ok:
+                    row.lose(
+                        L.UNMAPPED_HEADING,
+                        heading,
+                        "Values of {heading} in {group} were not converted: the other grid"
+                        " coordinate of the row could not be written ({values}).",
+                    )
             return None
-        known, srs = self.grid_crs(row, "LOCA_GREF")
+        found = [row.number(heading, key) for heading in headings]
+        if found[0] is None or found[1] is None:
+            for heading, value in zip(headings, found, strict=True):
+                if value is not None:
+                    row.unuse(heading, key)
+                    row.lose(
+                        L.UNMAPPED_HEADING,
+                        heading,
+                        "Values of {heading} in {group} were not converted: the other grid"
+                        " coordinate of the row could not be written ({values}).",
+                    )
+            return None
+        self.grid_reference(row, key, srs, axis)
+        coordinates = [found[0], found[1]]
+        if row.get("LOCA_GL") and self.axis_unit(row, "LOCA_GL", axis):
+            level = row.number("LOCA_GL", key)
+            if level is not None:
+                coordinates.append(level)
+        return Position(coordinates=tuple(coordinates), dim=len(coordinates), crs=srs)
+
+    def grid_reference(self, row: _Row, key: str, srs: str | None, axis: str | None) -> None:
+        """Use or report LOCA_GREF, and say what is assumed about the coordinates' unit."""
+        known = srs is not None
         if known:
             row.use("LOCA_GREF", key)
-        elif srs is None and row.get("LOCA_GREF").strip() == "":
+        elif row.get("LOCA_GREF").strip() == "":
             self.ledger.note(
                 L.ASSUMED,
                 "LOCA",
-                "LOCA rows with an empty LOCA_GREF: the grid coordinates were written with no CRS"
-                " ({times}).",
+                "LOCA rows with an empty LOCA_GREF: the grid coordinates were written with no CRS,"
+                " so neither their reference system nor their unit is stated ({times}).",
                 row.index,
             )
         else:
@@ -686,13 +754,48 @@ class _Mapper:
                 L.UNMAPPED_CODE,
                 "LOCA_GREF",
                 "Values of {heading} in {group} name no CRS the code table lists; the coordinates"
-                " were written with no CRS ({values}).",
+                " were written with no CRS, so their unit is not stated ({values}).",
             )
-        coordinates = [found[0], found[1]]
-        level = row.number("LOCA_GL", key) if row.get("LOCA_GL") else None
-        if level is not None:
-            coordinates.append(level)
-        return Position(coordinates=tuple(coordinates), dim=len(coordinates), crs=srs)
+        if known and axis is None:
+            self.ledger.note(
+                L.ASSUMED,
+                "LOCA",
+                "LOCA rows whose LOCA_GREF is an EPSG code the code table does not list: the"
+                " grid coordinates were written as given in that CRS, without checking their"
+                " unit against its axes ({times}).",
+                row.index,
+            )
+
+    def axis_unit(self, row: _Row, heading: str, axis: str | None) -> bool:
+        """True when ``heading``'s UNIT can be written in a CRS whose axes are in ``axis``.
+
+        An empty UNIT is taken as the CRS's (reported); a UNIT with no entry in the unit
+        table, or another unit than the axes', is reported and False. When the axis
+        unit is not known (no CRS, or one the code table does not list), a unit the
+        table lists is accepted, and :meth:`grid_reference` says it was not checked.
+        """
+        unit = row.unit(heading)
+        if unit == "":
+            if axis is not None:
+                self.ledger.note(
+                    L.ASSUMED,
+                    "LOCA",
+                    "Grid coordinates or ground levels of {group} have no unit; they were"
+                    " written as given, in the unit of the axes of their CRS ({times}).",
+                    row.index,
+                )
+            return True
+        mapped = self.mapping.units.get(unit)
+        if mapped is not None and axis in (None, mapped):
+            return True
+        row.lose(
+            L.UNMAPPED_UNIT,
+            heading,
+            "Values of {heading} in {group} are in a unit that is not the unit of the axes of"
+            " the CRS LOCA_GREF names (or has no entry in the unit table); values are never"
+            " converted, so they were not written ({values}).",
+        )
+        return False
 
     def geographic(self, row: _Row, key: str) -> Position | None:
         lat_text, lon_text = row.get("LOCA_LAT").strip(), row.get("LOCA_LON").strip()
@@ -1012,7 +1115,9 @@ class _Mapper:
         lrs = feature.lrs
         depth: float | None = None
         for heading in (*self.fields(rule, "location"), "SAMP_TOP"):
-            if row.get(heading) and (depth := row.number(heading, key)) is not None:
+            found = row.depth(heading, key) if row.get(heading) else None
+            if found is not None:
+                depth = found.value
                 break
         columns = self.columns(row, rule, key)
         if depth is None or not columns:
@@ -1195,9 +1300,10 @@ class _Mapper:
                 continue
             headings = self.file.groups[group].headings
             for column in columns:
-                self.leftover(rule, group, row, headings[column])
+                self.leftover(rule, group, row, headings[column], column)
 
-    def leftover(self, rule: GroupRule, group: str, row: int, heading: str) -> None:
+    def leftover(self, rule: GroupRule, group: str, row: int, heading: str, column: int) -> None:
+        """Name the value in ``column`` (a heading may be repeated, so not by its name)."""
         listed = rule.headings.get(heading)
         if listed is not None and listed.to == "none":
             template = (
@@ -1205,7 +1311,7 @@ class _Mapper:
                 + str(listed.reason)
                 + "); not converted ({values})."
             )
-            self.ledger.lose(L.UNMAPPED_HEADING, group, row, heading, template)
+            self.ledger.lose(L.UNMAPPED_HEADING, group, row, heading, template, column=column)
         elif listed is not None:
             self.ledger.lose(
                 L.UNMAPPED_HEADING,
@@ -1214,6 +1320,7 @@ class _Mapper:
                 heading,
                 "Values of {heading} in {group} were not converted: the record they belong to was"
                 " written without them ({values}).",
+                column=column,
             )
         elif (group, heading) in self.user_headings:
             self.ledger.lose(
@@ -1223,6 +1330,7 @@ class _Mapper:
                 heading,
                 "Heading {heading} of {group} is user-defined (in DICT): reported, never"
                 " interpreted; not converted ({values}).",
+                column=column,
             )
         else:
             self.ledger.lose(
@@ -1232,6 +1340,7 @@ class _Mapper:
                 heading,
                 "Heading {heading} of {group} is not in the mapping table; not converted"
                 " ({values}).",
+                column=column,
             )
 
     # --- the whole file -----------------------------------------------------------------
@@ -1253,6 +1362,7 @@ class _Mapper:
                     self.tests(name)
         except _Stop:
             self.complete = False
+            self.stopped()
             self.ledger.note(
                 L.INCOMPLETE,
                 next(iter(self.file.groups)),
@@ -1271,8 +1381,39 @@ class _Mapper:
         if self.complete:
             self.finish()
 
+    def stopped(self) -> None:
+        """After the deadline: keep only what is in the model, so nothing is claimed unwritten.
+
+        A step stopped part way may hold nodes it had not yet added to the model (the
+        layers of a feature, the readings of a test) and the cells they used. Those
+        cells are released, so the time-budget finding names them; the document
+        information is made (with no source value) if the stop came before it.
+        """
+        if self.document is None:
+            self.ledger.forget(self.document_key)
+            self.document = self.document_info(None, None)
+        written = self.written()
+        for owners in self.ledger.used.values():
+            owners.intersection_update(written)
+        self.trace = {key: origin for key, origin in self.trace.items() if key in written}
+
+    def written(self) -> set[str]:
+        """The key of every node and component the model will hold, and "" (format)."""
+        nodes: list[Node] = [
+            *self.projects,
+            *self.features,
+            *self.activities,
+            *self.samples,
+            *self.observations,
+            *self.measurements,
+        ]
+        nodes += [layer for observation in self.observations for layer in observation.layers]
+        keys = {"", self.document_key, *(node.key for node in nodes)}
+        keys |= {component.key for node in nodes for component in components_of(node)}
+        return keys
+
     def model(self, name: str | None) -> Model:
-        if self.document is None:  # pragma: no cover - transmission() always makes one
+        if self.document is None:  # pragma: no cover - run() always makes one
             raise AssertionError
         return Model(
             schema_version="1.0",

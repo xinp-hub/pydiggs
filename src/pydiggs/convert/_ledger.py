@@ -160,6 +160,12 @@ class Ledger:
         if column is not None and self.value(group, row, heading) != "":
             self.used.setdefault((group, row, column), set()).add(owner)
 
+    def unuse(self, group: str, row: int, heading: str, owner: str) -> None:
+        """Node ``owner`` no longer carries the value under ``heading`` (it was not written)."""
+        column = self.column(group, heading)
+        if column is not None:
+            self.used.get((group, row, column), set()).discard(owner)
+
     def is_done(self, cell: Cell) -> bool:
         """True when ``cell`` is used by a node or named by an issue."""
         return bool(self.used.get(cell)) or cell in self.named
@@ -188,10 +194,21 @@ class Ledger:
         if row is not None:
             issue.rows.add(row)
 
-    def lose(self, rule: str, group: str, row: int, heading: str | None, template: str) -> None:
+    def lose(
+        self,
+        rule: str,
+        group: str,
+        row: int,
+        heading: str | None,
+        template: str,
+        *,
+        column: int | None = None,
+    ) -> None:
         """Name one value (or, with ``heading`` None, one whole row) as not converted.
 
-        ``template`` may use ``{group}``, ``{heading}``, ``{values}`` and ``{rows}``.
+        The value is the one in ``column`` when it is given (a heading may be repeated),
+        else the one under the first ``heading`` of that name. ``template`` may use
+        ``{group}``, ``{heading}``, ``{values}`` and ``{rows}``.
         """
         index = self._issue(rule, group, heading, row, template)
         issue = self._issues[index]
@@ -200,9 +217,11 @@ class Ledger:
         if heading is None:
             cells = list(self._row_cells(group, row))
         else:
-            column = self.column(group, heading)
-            cells = [] if column is None else [(group, row, column)]
-            cells = [cell for cell in cells if self.value(group, row, heading) != ""]
+            if column is None:
+                column = self.column(group, heading)
+            values = self.file.groups[group].rows[row]
+            found = column is not None and column < len(values) and values[column] != ""
+            cells = [(group, row, column)] if found and column is not None else []
         for cell in cells:
             if cell not in self.named:
                 self.named[cell] = index
@@ -277,12 +296,10 @@ def _path(group: str, row: int | None, heading: str | None) -> str:
 def row_line(group: Group, row: int | None) -> int | None:
     """The source line of DATA row ``row`` (from 0) of ``group``; its GROUP line for None.
 
-    AGS4 puts a group's GROUP, HEADING, UNIT, TYPE and DATA rows on consecutive lines, so
-    a DATA row's line follows from the GROUP row's. None for a group built in code.
+    The line is the one the reader recorded for that row (``Group.row_lines``), so blank
+    lines and missing header rows are counted right. None for a group built in code.
     """
-    if group.line is None:
-        return None
     if row is None:
         return group.line
-    header = 1 + (1 if group.units else 0) + (1 if group.types else 0)
-    return group.line + header + 1 + row
+    lines = group.row_lines
+    return lines[row] if 0 <= row < len(lines) else None

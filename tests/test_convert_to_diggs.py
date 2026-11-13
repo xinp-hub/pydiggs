@@ -91,9 +91,9 @@ def errors(report: pydiggs.Report | None) -> list[tuple[str, str]]:
 # --- property 4: every cell used by a written node, or named by a finding ----------------
 
 
-def accounted(file: ags4.File) -> tuple[bytes, Built]:
+def accounted(file: ags4.File, **kw: Any) -> tuple[bytes, Built]:
     """Convert ``file`` as ags4_to_diggs does, and check every cell is accounted for."""
-    built = map_file(file, load_mapping())
+    built = map_file(file, load_mapping(), **kw)
     xml, built = _api._write(built, "3.0.0")
     ledger, model = built.ledger, built.model
     findings = ledger.findings()
@@ -615,6 +615,293 @@ def test_a_time_budget_gives_a_partial_conversion():
     assert errors(c.validation) == []
 
 
+# --- review of the preview (PR 335): one test per finding --------------------------------
+
+SAMP_KEYS: Spec = [
+    ("LOCA_ID", "", "ID"),
+    ("SAMP_TOP", "m", "2DP"),
+    ("SAMP_REF", "", "X"),
+    ("SAMP_TYPE", "", "PA"),
+    ("SAMP_ID", "", "ID"),
+]
+SAMP = group("SAMP", SAMP_KEYS, [("BH1", "1.00", "1", "D", "S1")])
+GRAG = group(
+    "GRAG", [*SAMP_KEYS, ("GRAG_SAND", "%", "0DP")], [("BH1", "1.00", "1", "D", "S1", "40")]
+)
+
+
+def _ispt(spec: Spec, rows: Sequence[Sequence[str]]) -> ags4.Group:
+    return group("ISPT", [("LOCA_ID", "", "ID"), *spec], rows)
+
+
+def _cell(built: Built, group_name: str, row: int, heading: str) -> tuple[str, int, int]:
+    column = built.ledger.column(group_name, heading)
+    assert column is not None
+    return group_name, row, column
+
+
+def _paths(c: convert.Conversion, rule_id: str) -> set[str | None]:
+    return {f.path for f in c.report.findings if f.rule_id == rule_id}
+
+
+def _xml_char(code: int) -> bool:
+    """The XML 1.0 ``Char`` production."""
+    return (
+        code in (0x09, 0x0A, 0x0D)
+        or 0x20 <= code <= 0xD7FF
+        or 0xE000 <= code <= 0xFFFD
+        or 0x10000 <= code <= 0x10FFFF
+    )
+
+
+def test_xml_text_removes_exactly_the_characters_xml_1_0_forbids():
+    # Finding 1 (CodeQL, a character-class range): the class is now a list of code points;
+    # what is removed is exactly the complement of XML 1.0's Char, as before.
+    for code in [*range(0x11000), 0x10FFFF]:
+        text = f"a{chr(code)}b"
+        assert _values.xml_text(text) == (text if _xml_char(code) else "ab"), hex(code)
+
+
+def test_a_param_is_written_only_in_a_unit_diggs_allows_for_its_element():
+    # Finding 2: ISPT_ERAT in m is not a hammer efficiency.
+    spec: Spec = [("ISPT_TOP", "m", "2DP"), ("ISPT_NVAL", "", "0DP"), ("ISPT_ERAT", "m", "0DP")]
+    c = convert_file(ags_file(PROJ, TRAN, LOCA, _ispt(spec, [("BH1", "1.50", "12", "60")])))
+    assert errors(c.validation) == []
+    assert _paths(c, "convert.unmapped-unit") == {"ISPT/1/ISPT_ERAT"}
+    assert b"hammerEfficiency" not in c.xml
+    spec = [("ISPT_TOP", "m", "2DP"), ("ISPT_NVAL", "", "0DP"), ("ISPT_ERAT", "%", "0DP")]
+    c = convert_file(ags_file(PROJ, TRAN, LOCA, _ispt(spec, [("BH1", "1.50", "12", "60")])))
+    assert b'uom="%"' in c.xml and "convert.unmapped-unit" not in rules(c)
+
+
+def test_grid_coordinates_are_written_only_in_the_unit_of_the_crs_axes():
+    # Finding 3: OSGB grid coordinates in ft are not EPSG:27700 metres.
+    spec = [(h, "ft" if u == "m" else u, t) for h, u, t in LOCA_SPEC]
+    loca = group("LOCA", spec, [("BH1", "CP", "451200", "206500", "OSGB", "12", "")])
+    file = ags_file(PROJ, TRAN, loca)
+    accounted(file)
+    c = convert_file(file)
+    assert errors(c.validation) == []
+    assert c.model.features[0].location is not None
+    assert c.model.features[0].location.crs != OSGB
+    assert b"451200" not in c.xml and b"206500" not in c.xml
+    assert _paths(c, "convert.unmapped-unit") == {"LOCA/1/LOCA_NATE", "LOCA/1/LOCA_NATN"}
+    # A ground level in another unit than the axes is left out; the grid position is kept.
+    spec = [*LOCA_SPEC[:5], ("LOCA_GL", "ft", "2DP"), LOCA_SPEC[6]]
+    loca = group("LOCA", spec, [("BH1", "CP", "451200", "206500", "OSGB", "12", "")])
+    c = convert_file(ags_file(PROJ, TRAN, loca))
+    location = c.model.features[0].location
+    assert location is not None and location.coordinates == (451200.0, 206500.0)
+    assert location.crs == OSGB
+    assert _paths(c, "convert.unmapped-unit") == {"LOCA/1/LOCA_GL"}
+
+
+def test_a_grid_coordinate_whose_pair_cannot_be_written_is_not_claimed():
+    # Finding 4: LOCA_NATE parses, LOCA_NATN does not; the feature is written without
+    # either, so LOCA_NATE must be named, not held by the feature.
+    loca = group("LOCA", LOCA_SPEC, [("BH1", "CP", "451200", "abc", "OSGB", "12", "15")])
+    xml, built = accounted(ags_file(PROJ, TRAN, loca))
+    easting = _cell(built, "LOCA", 0, "LOCA_NATE")
+    assert not built.ledger.used.get(easting) and easting in built.ledger.named
+    assert built.ledger.used.get(_cell(built, "LOCA", 0, "LOCA_ID"))
+    assert b"451200" not in xml
+    assert built.model.features[0].total_depth is not None
+
+
+def test_a_test_depth_is_read_as_a_depth():
+    # Finding 5: a test depth in ft is not written as metres; one with no unit is assumed m.
+    spec: Spec = [("ISPT_TOP", "ft", "2DP"), ("ISPT_NVAL", "", "0DP")]
+    c = convert_file(ags_file(PROJ, TRAN, LOCA, _ispt(spec, [("BH1", "5.00", "12")])))
+    assert c.model.measurements == ()
+    assert "ISPT/1/ISPT_TOP" in _paths(c, "convert.unmapped-unit")
+    assert errors(c.validation) == []
+    spec = [("ISPT_TOP", "", "2DP"), ("ISPT_NVAL", "", "0DP")]
+    c = convert_file(ags_file(PROJ, TRAN, LOCA, _ispt(spec, [("BH1", "5.00", "12")])))
+    assert len(c.model.measurements) == 1
+    assert any("Depths of ISPT have no unit" in f.message for f in c.losses)
+
+
+def test_a_measure_with_no_unit_is_written_without_one_only_when_diggs_allows_it():
+    # Findings 2 and 6, the other side: dryingTemperature may have no uom, so a number
+    # with no UNIT is carried as written; a value that is not a number is reported (it
+    # used to be written as text into a numeric element, which DIGGS 3.0.0 refuses).
+    spec = [*SAMP_KEYS, ("LNMC_MC", "%", "0DP"), ("LNMC_TEMP", "", "0DP")]
+    rows = [
+        ("BH1", "1.00", "1", "D", "S1", "20", "105"),
+        ("BH1", "1.00", "1", "D", "S1", "21", "hot"),
+    ]
+    file = ags_file(PROJ, TRAN, LOCA, SAMP, group("LNMC", spec, rows))
+    accounted(file)
+    c = convert_file(file)
+    assert errors(c.validation) == []
+    assert b">105</" in c.xml and b"hot" not in c.xml
+    assert _paths(c, "convert.value-unparsed") == {"LNMC/2/LNMC_TEMP"}
+
+
+def test_a_grading_size_without_a_unit_is_not_written():
+    # Finding 6: particleSize requires a uom.
+    grat = group(
+        "GRAT",
+        [*SAMP_KEYS, ("GRAT_SIZE", "", "3SF"), ("GRAT_PERP", "%", "0DP")],
+        [("BH1", "1.00", "1", "D", "S1", "2", "50")],
+    )
+    file = ags_file(PROJ, TRAN, LOCA, SAMP, GRAG, grat)
+    accounted(file)
+    c = convert_file(file)
+    assert errors(c.validation) == []
+    assert b"particleSize" not in c.xml
+    assert "GRAT/1/GRAT_SIZE" in _paths(c, "convert.unmapped-unit")
+
+
+def test_a_deadline_in_geology_or_gradings_releases_what_was_not_written(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # Finding 7: layers and readings still buffered when the deadline passes are not in
+    # the model, so the cells they used must be named convert.incomplete.
+    geol = group(
+        "GEOL",
+        [
+            ("LOCA_ID", "", "ID"),
+            ("GEOL_TOP", "m", "2DP"),
+            ("GEOL_BASE", "m", "2DP"),
+            ("GEOL_DESC", "", "X"),
+        ],
+        [("BH1", str(i), str(i + 1), "CLAY") for i in range(10)],
+    )
+    monkeypatch.setattr(_to_model, "_CHECK_EVERY", 6)
+    _, built = accounted(ags_file(PROJ, TRAN, LOCA, geol), deadline=5.0, clock=lambda: 10.0)
+    assert not built.complete and built.model.observations == ()
+    assert built.ledger.named.get(_cell(built, "GEOL", 0, "GEOL_DESC")) is not None
+    assert not any(key.startswith("BH1-GEOL") for key in built.trace)
+    grat = group(
+        "GRAT",
+        [*SAMP_KEYS, ("GRAT_SIZE", "mm", "3SF"), ("GRAT_PERP", "%", "0DP")],
+        [("BH1", "1.00", "1", "D", "S1", str(i + 1), "50") for i in range(10)],
+    )
+    monkeypatch.setattr(_to_model, "_CHECK_EVERY", 8)
+    _, built = accounted(
+        ags_file(PROJ, TRAN, LOCA, SAMP, GRAG, grat), deadline=5.0, clock=lambda: 10.0
+    )
+    assert not built.complete and built.model.measurements == ()
+    assert not any(key.startswith("GRAT") for key in built.trace)
+
+
+def test_a_repeated_heading_is_accounted_for_in_every_column():
+    # Finding 8: the second LOCA_REM is named, not hidden behind the first.
+    loca = ags4.Group(
+        name="LOCA",
+        headings=("LOCA_ID", "LOCA_REM", "LOCA_REM"),
+        units=("", "", ""),
+        types=("ID", "X", "X"),
+        rows=[("BH1", "", "second")],
+    )
+    _, built = accounted(ags_file(PROJ, TRAN, loca))
+    assert (("LOCA", 0, 2)) in built.ledger.named
+
+
+BLANK_LINES = (
+    b'"GROUP","PROJ"\r\n"HEADING","PROJ_ID"\r\n"UNIT",""\r\n"TYPE","ID"\r\n"DATA","P1"\r\n\r\n'
+    b'"GROUP","TRAN"\r\n"HEADING","TRAN_ISNO","TRAN_AGS"\r\n"UNIT","",""\r\n"TYPE","X","X"\r\n'
+    b'"DATA","1","4.1.1"\r\n\r\n'
+    b'"GROUP","LOCA"\r\n"HEADING","LOCA_ID","LOCA_STAT"\r\n"UNIT","",""\r\n"TYPE","ID","X"\r\n'
+    b'"DATA","BH1","x"\r\n\r\n\r\n'
+    b'"DATA","BH2",""\r\n'
+    b"\r\n"
+    b'"DATA","BH3","y"\r\n'
+)
+
+
+def test_trace_and_findings_give_the_real_line_of_each_data_row():
+    # Finding 9: blank lines between DATA rows; lines are 17, 20 and 22.
+    c = convert.ags4_to_diggs(BLANK_LINES, name="blank.ags")
+    assert [c.trace[k].line for k in ("BH1", "BH2", "BH3")] == [17, 20, 22]
+    stat = [f for f in c.losses if f.path is not None and f.path.endswith("LOCA_STAT")]
+    assert [f.line for f in stat] == [17]
+    lines = BLANK_LINES.split(b"\r\n")
+    assert all(lines[n - 1].startswith(b'"DATA"') for n in (17, 20, 22))
+    assert _ledger.row_line(ags4.read_bytes(BLANK_LINES).groups["LOCA"], 2) == 22
+    assert _ledger.row_line(LOCA, 0) is None  # built in code: no line
+
+
+def test_a_record_may_be_named_document():
+    # Finding 10: the document information's key is taken first.
+    loca = group("LOCA", LOCA_SPEC, [("document", "CP", "451200", "206500", "OSGB", "12", "15")])
+    file = ags_file(PROJ, TRAN, loca)
+    accounted(file)
+    c = convert_file(file)
+    assert [f.name for f in c.model.features] == ["document"]
+    assert errors(c.validation) == []
+
+
+def test_lrs_ids_do_not_collide_with_feature_ids():
+    # Finding 11: BH1's LRS and the feature BH1-lrs.
+    for order in (("BH1", "BH1-lrs"), ("BH1-lrs", "BH1")):
+        rows = [(name, "CP", "1", "2", "OSGB", "", "") for name in order]
+        file = ags_file(PROJ, TRAN, group("LOCA", LOCA_SPEC, rows))
+        accounted(file)
+        c = convert_file(file)
+        assert [f.name for f in c.model.features] == list(order)
+        assert errors(c.validation) == []
+
+
+@pytest.mark.parametrize("where", ["lookups", "transmission"])
+def test_a_deadline_before_the_document_gives_a_partial_conversion(
+    where: str, monkeypatch: pytest.MonkeyPatch
+):
+    # Finding 12: a deadline in lookups() or transmission() still gives document information.
+    abbr = group(
+        "ABBR",
+        [("ABBR_HDNG", "", "X"), ("ABBR_CODE", "", "X"), ("ABBR_DESC", "", "X")],
+        [("SAMP_TYPE", f"C{i}", "code") for i in range(10)],
+    )
+    tran = group(
+        "TRAN",
+        [("TRAN_DATE", "yyyy-mm-dd", "DT"), ("TRAN_AGS", "", "X")],
+        [("2026-11-12", "4.1.1")] * 10,
+    )
+    file = ags_file(abbr, PROJ, TRAN, LOCA) if where == "lookups" else ags_file(PROJ, tran, LOCA)
+    monkeypatch.setattr(_to_model, "_CHECK_EVERY", 5)
+    xml, built = accounted(file, deadline=5.0, clock=lambda: 10.0)
+    assert not built.complete
+    assert built.model.document.creation_date == _to_model.DATE_DEFAULT
+    assert built.ledger.named.get(("TRAN", 0, 0)) is not None
+    assert not built.ledger.used.get(("TRAN", 0, 0))
+    valid(xml)
+
+
+@pytest.mark.parametrize(
+    ("text", "parsed"),
+    [
+        ("2026-02-30", None),
+        ("2025-02-29", None),
+        ("2024-02-29", "2024-02-29"),
+        ("2026-04-31", None),
+        ("2026-00-10", None),
+        ("0000-01-01", None),
+        ("2026-03-04T10:15+99:99", None),
+        ("2026-03-04T10:15+14:00", "2026-03-04T10:15:00+14:00"),
+        ("2026-03-04T10:15-14:00", "2026-03-04T10:15:00-14:00"),
+        ("2026-03-04T10:15+14:01", None),
+        ("2026-03-04T10:15+13:60", None),
+        ("2026-03-04T10:15Z", "2026-03-04T10:15:00Z"),
+        ("2026-02-30T10:15", None),
+        ("30/02/2026", None),
+        ("٢٠٢٦-01-01", None),
+    ],
+)
+def test_dates_are_real_calendar_days_with_a_bounded_zone(text: str, parsed: str | None):
+    # Finding 13.
+    assert _values.parse_date(text, "dd/mm/yyyy") == parsed
+
+
+def test_an_impossible_date_is_reported_as_unparsed():
+    spec = [*SAMP_KEYS, ("SAMP_DTIM", "yyyy-mm-dd", "DT")]
+    samp = group("SAMP", spec, [("BH1", "1.00", "1", "D", "S1", "2026-02-30")])
+    c = convert_file(ags_file(PROJ, TRAN, LOCA, samp))
+    assert _paths(c, "convert.value-unparsed") == {"SAMP/1/SAMP_DTIM"}
+    assert errors(c.validation) == []
+
+
 # --- generated files ------------------------------------------------------------------
 
 _VALUES = st.sampled_from(
@@ -728,6 +1015,142 @@ def _files(draw: st.DrawFn) -> ags4.File:
 def test_generated_files_are_accounted_for_and_valid(file: ags4.File):
     xml, _ = accounted(file)
     valid(xml)
+
+
+# --- hostile inputs: the whole contract, end to end ---------------------------------------
+
+_HOSTILE_UNITS = st.sampled_from(["", "m", "ft", "mm", "%", "kPa", "furlong", "deg", "dd/mm/yyyy"])
+_HOSTILE_IDS = st.sampled_from(
+    ["BH1", "BH1-lrs", "BH1-lrs-2", "document", "project", "BH1-GEOL", "ISPT-1", "1 2", ""]
+)
+_HOSTILE_VALUES = st.sampled_from(
+    [
+        "",
+        "1",
+        "2.50",
+        "-3",
+        "abc",
+        "NP",
+        "2026-02-30",
+        "2025-02-29",
+        "2024-02-29",
+        "2026-04-31",
+        "2026-03-04T10:15+99:99",
+        "2026-03-04T10:15+14:00",
+        "31/04/2026",
+        "OSGB",
+        "EPSG:2263",
+        "WGS84",
+        "CP",
+        "HY",
+        "D",
+        "S1",
+        "١٢",
+        'say "x"',
+    ]
+)
+_HOSTILE_GROUPS: dict[str, Spec] = {
+    **_GROUPS,
+    "LOCA": [
+        *LOCA_SPEC,
+        ("LOCA_REM", "", "X"),
+        ("LOCA_LAT", "", "X"),
+        ("LOCA_LON", "", "X"),
+        ("LOCA_LLZ", "", "PA"),
+    ],
+    "ISPT": [
+        ("LOCA_ID", "", "ID"),
+        ("ISPT_TOP", "m", "2DP"),
+        ("ISPT_NVAL", "", "0DP"),
+        ("ISPT_ERAT", "%", "0DP"),
+        ("ISPT_NPEN", "mm", "0DP"),
+    ],
+    "GRAT": [*_GROUPS["GRAT"], ("GRAT_TYPE", "", "PA")],
+    "ABBR": [("ABBR_HDNG", "", "X"), ("ABBR_CODE", "", "X")],
+}
+
+
+@st.composite
+def _hostile(draw: st.DrawFn) -> tuple[bytes, int]:
+    """AGS4 text with odd units, repeated headings, blank lines, colliding ids and bad dates;
+    and how many looks at the clock pass before the deadline (-1: none)."""
+    groups = [PROJ, TRAN] if draw(st.booleans()) else []
+    for name, spec in _HOSTILE_GROUPS.items():
+        if name != "LOCA" and not draw(st.booleans()):
+            continue
+        headings = [(h, draw(_HOSTILE_UNITS) if u else u, t) for h, u, t in spec]
+        if draw(st.booleans()):
+            headings.append(draw(st.sampled_from(headings[1:])))  # a repeated heading
+        rows = []
+        for _ in range(draw(st.integers(0 if name != "LOCA" else 1, 3))):
+            row = [draw(_HOSTILE_IDS)] + [draw(_HOSTILE_VALUES) for _ in headings[1:]]
+            if name == "LOCA" and draw(st.booleans()):
+                row[1:5] = ["CP", "451200", "206500", "OSGB"]
+            rows.append(row)
+        groups.append(group(name, headings, rows))
+    lines = ags4.dumps(ags_file(*groups)).split(b"\r\n")
+    blanks = draw(st.lists(st.integers(0, len(lines)), max_size=4))
+    for at in sorted(blanks, reverse=True):
+        lines.insert(at, b"")
+    return b"\r\n".join(lines), draw(st.integers(-1, 12))
+
+
+class _Clock:
+    """``time.monotonic`` for :mod:`pydiggs.convert._api`: past the deadline after ``looks``."""
+
+    def __init__(self, looks: int) -> None:
+        self.looks = looks
+
+    def monotonic(self) -> float:
+        self.looks -= 1
+        return 0.0 if self.looks >= 0 else 1e9
+
+
+@settings(
+    max_examples=30,
+    deadline=None,
+    suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large],
+)
+@given(_hostile())
+def test_hostile_files_convert_to_valid_diggs_with_every_cell_accounted_for(
+    case: tuple[bytes, int],
+):
+    data, looks = case
+    captured: list[Built] = []
+    write = _api._write
+
+    def keep(built: Built, version: str) -> tuple[bytes, Built]:
+        xml, built = write(built, version)
+        captured.append(built)
+        return xml, built
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(_api, "_write", keep)
+        patch.setattr(_to_model, "_CHECK_EVERY", 1)
+        if looks >= 0:
+            patch.setattr(_api, "time", _Clock(looks + 1))  # +1: the start of the budget
+        try:
+            c = convert.ags4_to_diggs(data, name="hostile.ags", time_budget=1.0)
+        except (DocumentError, pydiggs.InstanceReadError):
+            return  # the reader's documented refusals
+    assert errors(c.validation) == []
+    (built,) = captured
+    ledger = built.ledger
+    for cell in ledger.cells():
+        owners = ledger.used.get(cell, set())
+        assert owners or cell in ledger.named, f"cell {cell} is neither used nor named"
+        for owner in owners - {""}:
+            assert built.model.get(owner) is not None or any(
+                component.key == owner
+                for node in built.model.nodes()
+                for component in _to_model.components_of(node)
+            ), f"cell {cell} is held by {owner!r}, which is not written"
+    lines = data.split(b"\r\n")
+    for origin in c.trace.values():
+        assert origin.line is not None and lines[origin.line - 1].startswith(b'"DATA"')
+    for finding in c.report.findings:
+        if finding.step is pydiggs.Step.CONVERT and finding.line is not None:
+            assert lines[finding.line - 1].startswith((b'"DATA"', b'"GROUP"'))
 
 
 # --- surfaces ---------------------------------------------------------------------------

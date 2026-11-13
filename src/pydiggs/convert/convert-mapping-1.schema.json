@@ -79,12 +79,17 @@
         "target": {"$ref": "#/$defs/text"},
         "property": {"type": "string", "pattern": "^[A-Za-z0-9_.]+$"},
         "reason": {"$ref": "#/$defs/text"},
-        "direction": {"enum": ["both", "to-diggs", "to-ags4"]}
+        "direction": {"enum": ["both", "to-diggs", "to-ags4"]},
+        "quantity": {
+          "description": "For a param that is a DIGGS measure: its quantity; the element is a diggs:<quantity>MeasureType and is written only with a unit DIGGS allows for it.",
+          "type": "string",
+          "pattern": "^[A-Z][A-Za-z]*$"
+        }
       },
       "allOf": [
         {
           "if": {"properties": {"to": {"enum": ["key", "link", "field"]}}},
-          "then": {"required": ["target"], "not": {"anyOf": [{"required": ["property"]}, {"required": ["reason"]}]}}
+          "then": {"required": ["target"], "not": {"anyOf": [{"required": ["property"]}, {"required": ["reason"]}, {"required": ["quantity"]}]}}
         },
         {
           "if": {"properties": {"to": {"const": "param"}}},
@@ -96,11 +101,11 @@
         },
         {
           "if": {"properties": {"to": {"const": "column"}}},
-          "then": {"required": ["property"], "not": {"anyOf": [{"required": ["target"]}, {"required": ["reason"]}]}}
+          "then": {"required": ["property"], "not": {"anyOf": [{"required": ["target"]}, {"required": ["reason"]}, {"required": ["quantity"]}]}}
         },
         {
           "if": {"properties": {"to": {"enum": ["format", "none"]}}},
-          "then": {"required": ["reason"], "not": {"anyOf": [{"required": ["target"]}, {"required": ["property"]}]}}
+          "then": {"required": ["reason"], "not": {"anyOf": [{"required": ["target"]}, {"required": ["property"]}, {"required": ["quantity"]}]}}
         }
       ]
     },
@@ -157,7 +162,8 @@
             "properties": {
               "heading": {"$ref": "#/$defs/heading_name"},
               "ags": {"type": "string", "minLength": 1, "maxLength": 80},
-              "srs": {"type": "string", "pattern": "^http://www\\.opengis\\.net/def/crs/EPSG/0/[0-9]+$"}
+              "srs": {"type": "string", "pattern": "^http://www\\.opengis\\.net/def/crs/EPSG/0/[0-9]+$"},
+              "unit": {"description": "The unit of the CRS's axes, a DIGGS uom.", "type": "string", "minLength": 1, "maxLength": 40}
             }
           }
         }

@@ -271,7 +271,7 @@ def mapping_info() -> dict[str, Any]:
         ``diggs_versions``, ``rules`` (each ``convert`` rule id and its severity) and
         ``groups``, each with its ``name``, ``pattern``, ``status`` (``draft`` or
         ``reviewed``), ``keys``, ``parent`` and ``headings`` (``name``, ``to``,
-        ``target``, ``property``, ``reason``).
+        ``target``, ``property``, ``reason``, and ``quantity`` for a measure).
 
     Examples:
         >>> from pydiggs.preview import convert
@@ -301,6 +301,7 @@ def mapping_info() -> dict[str, Any]:
                         "target": h.target,
                         "property": h.property,
                         "reason": h.reason,
+                        "quantity": h.quantity,
                     }
                     for h in group.headings.values()
                 ],

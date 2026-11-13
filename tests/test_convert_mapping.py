@@ -82,6 +82,7 @@ def test_the_tables_validate_against_their_schema():
         (lambda g: g["heading"][0].update(to="none"), "reason"),
         (lambda g: g["heading"][0].update(description="text from the dictionary"), "Additional"),
         (lambda g: g.update(name="loca"), "does not match"),
+        (lambda g: g["heading"][0].update(quantity="Length"), "should not be valid"),
     ],
 )
 def test_the_schema_refuses_a_bad_table(change: Any, message: str):
@@ -147,6 +148,77 @@ def test_every_element_and_param_exists_in_diggs_3_0_0():
                 assert child in LAYOUT.element(element).by_local, (group.name, heading.name)
 
 
+SCHEMA_3 = ROOT / "src" / "pydiggs" / "schemas" / "diggs-schema-3.0.0"
+XS = "{http://www.w3.org/2001/XMLSchema}"
+
+
+def _complex_types() -> dict[str, list[Any]]:
+    """Every named complex type of the bundled DIGGS 3.0.0 schema (core, extended, ...)."""
+    found: dict[str, list[Any]] = {}
+    for path in sorted(SCHEMA_3.rglob("*.xsd")):
+        if "energistics" in path.parts or "deprecated" in path.parts:
+            continue
+        for node in _xml.parse(path).getroot().iter(f"{XS}complexType"):
+            if node.get("name"):
+                found.setdefault(str(node.get("name")), []).append(node)
+    return found
+
+
+def _child_types(types: dict[str, list[Any]], name: str, child: str) -> set[str]:
+    """The types child element ``child`` has in complex type ``name`` and its bases."""
+    out: set[str] = set()
+    for node in types.get(name, []):
+        for element in node.iter(f"{XS}element"):
+            if element.get("name") == child:
+                out.add(str(element.get("type")))
+        for extension in node.iter(f"{XS}extension"):
+            base = str(extension.get("base")).partition(":")[2]
+            if base != name:
+                out |= _child_types(types, base, child)
+    return out
+
+
+def test_every_measure_param_names_the_quantity_of_its_diggs_element():
+    types = _complex_types()
+    seen = set()
+    for group in load_mapping().groups.values():
+        for heading in group.headings.values():
+            if heading.to != "param":
+                continue
+            element, _, child = str(heading.target).partition("/")
+            found = _child_types(types, f"{element}Type", child)
+            # A measure is always resolved; some text children come from a group or a
+            # base this small walk does not follow, and have no quantity.
+            assert found or heading.quantity is None, (group.name, heading.name)
+            measures = {t for t in found if t.endswith("MeasureType")}
+            if heading.quantity is None:
+                assert not measures, (group.name, heading.name, measures)
+            else:
+                assert found == {f"diggs:{heading.quantity}MeasureType"}, (heading.name, found)
+                facts = _mapping.measure_facts(heading.quantity)
+                assert facts.uoms, heading.quantity
+                seen.add(heading.quantity)
+    assert seen >= {"Length", "Dimensionless", "ParticleSize", "MassPerMass"}
+
+
+def test_measure_units_come_from_the_bundled_schema():
+    dimensionless = _mapping.measure_facts("Dimensionless")
+    assert "%" in dimensionless.uoms and "m" not in dimensionless.uoms
+    assert not dimensionless.required
+    size = _mapping.measure_facts("ParticleSize")
+    assert size.required and {"mm", "um", "phi"} <= size.uoms
+    with pytest.raises(ResourceError, match="NoSuchMeasureType"):
+        _mapping.measure_facts("NoSuch")
+
+
+def test_every_crs_axis_unit_is_a_diggs_unit_of_the_unit_table():
+    mapping = load_mapping()
+    assert mapping.crs_units
+    for srs, unit in mapping.crs_units.items():
+        assert srs in mapping.crs.values()
+        assert unit in mapping.units.values(), (srs, unit)
+
+
 def test_every_diggs_unit_is_in_the_bundled_unit_dictionary():
     converter = UnitConverter()
     for ags, diggs in load_mapping().units.items():
@@ -186,6 +258,15 @@ def test_every_code_is_an_entry_of_its_bundled_code_list():
         lambda t: t["units.toml"].update(mapping_version="9.9"),
         lambda t: t["codes.toml"]["code"].append({"heading": "LOCA_TYPE", "ags": "X", "code": "Y"}),
         lambda t: t["ags4-diggs.toml"]["group"][0]["heading"][0].update(to="param", target="x"),
+        lambda t: t["ags4-diggs.toml"]["group"][0]["heading"][0].update(quantity="Length"),
+        lambda t: t["codes.toml"]["crs"].append(
+            {
+                "heading": "LOCA_GREF",
+                "ags": "X",
+                "srs": t["codes.toml"]["crs"][0]["srs"],
+                "unit": "ft",
+            }
+        ),
     ],
 )
 def test_a_broken_bundled_table_is_a_resource_error(monkeypatch: pytest.MonkeyPatch, break_it: Any):
@@ -212,6 +293,7 @@ def test_mapping_info_describes_the_table():
         "target": None,
         "property": "n_value",
         "reason": None,
+        "quantity": None,
     }
     assert info["rules"]["convert.orphan-row"] == "error"
 

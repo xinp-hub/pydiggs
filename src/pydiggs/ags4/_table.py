@@ -47,7 +47,9 @@ class Group:
     none for it. A row that is there but empty holds one ``""`` per heading.
 
     ``line`` is the 1-based line of the GROUP row in the file the group was
-    read from, None for a group built in code; it takes no part in equality.
+    read from, None for a group built in code; ``row_lines`` holds the 1-based line
+    of each DATA row, in the order of ``rows`` (empty for a group built in code, and
+    dropped when it does not hold one line per row). Neither takes part in equality.
 
     A group built in code may be ragged (a row shorter than ``headings``): it is
     :func:`pydiggs.ags4.write` that refuses it. A group that :func:`pydiggs.ags4.read`
@@ -75,6 +77,7 @@ class Group:
     types: tuple[str, ...] = ()
     rows: tuple[tuple[str, ...], ...] = ()
     line: int | None = field(default=None, compare=False)
+    row_lines: tuple[int, ...] = field(default=(), compare=False, repr=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str):
@@ -88,6 +91,13 @@ class Group:
         object.__setattr__(self, "rows", tuple(_strings("a row", row) for row in rows))
         if self.line is not None and (type(self.line) is not int or self.line < 1):
             raise ValueError(f"line must be a positive int or None, got {self.line!r}")
+        lines: object = self.row_lines
+        if isinstance(lines, str) or not isinstance(lines, Iterable):
+            raise TypeError(f"row_lines must be a sequence of int, got {type(lines).__name__}")
+        found = tuple(lines)
+        if any(type(n) is not int or n < 1 for n in found):
+            raise ValueError("row_lines must hold only positive ints")
+        object.__setattr__(self, "row_lines", found if len(found) == len(self.rows) else ())
 
     @classmethod
     def _trusted(
@@ -99,6 +109,7 @@ class Group:
         types: tuple[str, ...],
         rows: tuple[tuple[str, ...], ...],
         line: int | None,
+        row_lines: tuple[int, ...] = (),
     ) -> Group:
         """Build from tuples of str the reader made itself, without re-checking each cell."""
         group = object.__new__(cls)
@@ -108,6 +119,7 @@ class Group:
         object.__setattr__(group, "types", types)
         object.__setattr__(group, "rows", rows)
         object.__setattr__(group, "line", line)
+        object.__setattr__(group, "row_lines", row_lines if len(row_lines) == len(rows) else ())
         return group
 
     def records(self) -> list[dict[str, str]]:

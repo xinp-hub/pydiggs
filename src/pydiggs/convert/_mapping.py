@@ -20,7 +20,7 @@ from typing import Any, Final
 from lxml import etree
 
 from pydiggs import _xml
-from pydiggs._bundled import _DEFAULT_DICTIONARY
+from pydiggs._bundled import _DEFAULT_DICTIONARY, _PACKAGE_DIR
 from pydiggs.errors import ResourceError
 
 __all__ = [
@@ -31,8 +31,10 @@ __all__ = [
     "GroupRule",
     "HeadingRule",
     "MappingTable",
+    "MeasureFacts",
     "PropertyFacts",
     "load_mapping",
+    "measure_facts",
     "property_facts",
 ]
 
@@ -57,6 +59,14 @@ _STATUSES: Final = frozenset({"draft", "reviewed"})
 PROPERTIES_URL: Final = "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml"
 _GML_ID: Final = "{http://www.opengis.net/gml/3.2}id"
 _TABLES: Final = ("ags4-diggs.toml", "units.toml", "codes.toml")
+_XS: Final = "{http://www.w3.org/2001/XMLSchema}"
+_SCHEMA_3: Final = _PACKAGE_DIR / "schemas" / "diggs-schema-3.0.0"
+#: The DIGGS 3.0.0 measure types, and the Energistics unit lists they draw on.
+_MEASURE_TYPES: Final = _SCHEMA_3 / "core" / "MeasureTypes.xsd"
+_COMMON_TYPES: Final = _SCHEMA_3 / "core" / "Common.xsd"
+_QUANTITY_CLASSES: Final = (
+    _SCHEMA_3 / "energistics/2.0/data/common/v2.1/xsd_schemas/QuantityClass.xsd"
+)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -69,6 +79,9 @@ class HeadingRule:
     property: str | None = None
     reason: str | None = None
     direction: str = "both"
+    #: For a ``param`` that is a DIGGS measure: its quantity, the measure element being
+    #: of type ``diggs:<quantity>MeasureType`` (for example ``Length``).
+    quantity: str | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -111,6 +124,8 @@ class MappingTable:
     codes: Mapping[tuple[str, str], CodeRule]
     crs: Mapping[tuple[str, str], str]
     code_list_base: str
+    #: The unit (a DIGGS uom) of the axes of each CRS the code table gives one for.
+    crs_units: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
 
     def code_space(self, code_list: str) -> str:
         """The URL of the DIGGS code list ``code_list``."""
@@ -123,6 +138,19 @@ class PropertyFacts:
 
     data_type: str
     has_unit: bool
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MeasureFacts:
+    """What DIGGS 3.0.0 allows as the unit of one measure type.
+
+    ``uoms`` are the enumerated units of its ``uom`` attribute (the ``Other: ...``
+    escape the schema also allows is never written by the converter); ``required`` says
+    whether the attribute is required.
+    """
+
+    uoms: frozenset[str]
+    required: bool
 
 
 def _text(entry: Mapping[str, Any], key: str, where: str, *, required: bool = True) -> str | None:
@@ -147,7 +175,10 @@ def _heading(entry: Mapping[str, Any], where: str) -> HeadingRule:
         property=_text(entry, "property", where, required=to == "column"),
         reason=_text(entry, "reason", where, required=to in ("none", "format")),
         direction=str(entry.get("direction", "both")),
+        quantity=_text(entry, "quantity", where, required=False),
     )
+    if rule.quantity is not None and to != "param":
+        raise ValueError(f"{where}: only a param has a quantity")
     if rule.direction not in _DIRECTIONS:
         raise ValueError(f"{where}: unknown direction {rule.direction!r}")
     if to == "param" and (rule.target or "").count("/") != 1:
@@ -200,7 +231,7 @@ def _units(table: Mapping[str, Any]) -> dict[str, str]:
 
 def _codes(
     table: Mapping[str, Any],
-) -> tuple[dict[tuple[str, str], CodeRule], dict[tuple[str, str], str]]:
+) -> tuple[dict[tuple[str, str], CodeRule], dict[tuple[str, str], str], dict[str, str]]:
     code_map: dict[tuple[str, str], CodeRule] = {}
     for item in table["code"]:
         rule = CodeRule(
@@ -217,12 +248,17 @@ def _codes(
             raise ValueError(f"code {rule.heading}={rule.ags!r} is listed twice")
         code_map[(rule.heading, rule.ags)] = rule
     crs_map: dict[tuple[str, str], str] = {}
+    crs_units: dict[str, str] = {}
     for item in table["crs"]:
         key = (str(_text(item, "heading", "crs")), str(_text(item, "ags", "crs")))
         if key in crs_map:
             raise ValueError(f"crs {key!r} is listed twice")
-        crs_map[key] = str(_text(item, "srs", "crs"))
-    return code_map, crs_map
+        srs = str(_text(item, "srs", "crs"))
+        crs_map[key] = srs
+        unit = _text(item, "unit", "crs", required=False)
+        if unit is not None and crs_units.setdefault(srs, unit) != unit:
+            raise ValueError(f"crs {srs!r} is listed with two units")
+    return code_map, crs_map, crs_units
 
 
 def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
@@ -242,7 +278,7 @@ def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
             if other is not None and other not in groups:
                 raise ValueError(f"group {group.name}: {other} is not a listed group")
     unit_map = _units(units)
-    code_map, crs_map = _codes(codes)
+    code_map, crs_map, crs_units = _codes(codes)
     return MappingTable(
         mapping_version=str(version),
         ags_versions=tuple(str(v) for v in main["ags_versions"]),
@@ -252,6 +288,7 @@ def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
         codes=MappingProxyType(code_map),
         crs=MappingProxyType(crs_map),
         code_list_base=str(_text(codes, "code_list_base", "codes.toml")),
+        crs_units=MappingProxyType(crs_units),
     )
 
 
@@ -307,3 +344,62 @@ def property_facts() -> Mapping[str, PropertyFacts]:
             has_unit=quantity is not None and bool((quantity.text or "").strip()),
         )
     return MappingProxyType(facts)
+
+
+def _enumerated(
+    name: str, types: Mapping[str, Any], seen: frozenset[str] = frozenset()
+) -> set[str]:
+    """The values simple type ``name`` (``prefix:local``) enumerates, through unions."""
+    if name in seen:
+        return set()
+    found = types.get(name)
+    if found is None:
+        raise ValueError(f"no simple type {name}")
+    out = {str(e.get("value")) for e in found.iter(f"{_XS}enumeration")}
+    for union in found.iter(f"{_XS}union"):
+        for member in (union.get("memberTypes") or "").split():
+            out |= _enumerated(member, types, seen | {name})
+    return out
+
+
+@cache
+def _measure_types() -> tuple[Mapping[str, Any], Mapping[str, Any]]:
+    """The DIGGS 3.0.0 measure types by local name, and every simple type by prefixed name."""
+    complex_types: dict[str, Any] = {}
+    simple_types: dict[str, Any] = {}
+    sources = (("diggs", _MEASURE_TYPES), ("diggs", _COMMON_TYPES), ("eml", _QUANTITY_CLASSES))
+    for prefix, path in sources:
+        for node in _xml.parse(path).getroot():
+            name = node.get("name")
+            if node.tag == f"{_XS}simpleType" and name:
+                simple_types[f"{prefix}:{name}"] = node
+            elif node.tag == f"{_XS}complexType" and name and prefix == "diggs":
+                complex_types[name] = node
+    return MappingProxyType(complex_types), MappingProxyType(simple_types)
+
+
+@cache
+def measure_facts(quantity: str) -> MeasureFacts:
+    """The units DIGGS 3.0.0 allows for ``diggs:<quantity>MeasureType``, from the bundled XSD.
+
+    Raises:
+        ResourceError: The bundled schema is unreadable or has no such measure type.
+
+    Examples:
+        >>> facts = measure_facts("Dimensionless")
+        >>> "%" in facts.uoms, "m" in facts.uoms, facts.required
+        (True, False, False)
+        >>> measure_facts("ParticleSize").required, "mm" in measure_facts("ParticleSize").uoms
+        (True, True)
+    """
+    try:
+        complex_types, simple_types = _measure_types()
+        found = complex_types.get(f"{quantity}MeasureType")
+        attributes = [] if found is None else list(found.iter(f"{_XS}attribute"))
+        uom = next((a for a in attributes if a.get("name") == "uom"), None)
+        if uom is None:
+            raise ValueError(f"DIGGS 3.0.0 has no {quantity}MeasureType with a uom")
+        uoms = _enumerated(str(uom.get("type")), simple_types)
+    except (OSError, etree.XMLSyntaxError, ValueError) as exc:
+        raise ResourceError(f"bundled DIGGS measure types are unreadable: {exc}") from exc
+    return MeasureFacts(uoms=frozenset(uoms), required=uom.get("use") == "required")
