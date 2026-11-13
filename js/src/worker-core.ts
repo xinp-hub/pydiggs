@@ -44,6 +44,8 @@ export interface WorkerCoreOptions {
   loadPyodide: (init: InitMessage) => Promise<PyodideLike>;
   /** Advanced, for tests: the fetch used for the pinned wheel. */
   fetch?: typeof globalThis.fetch;
+  /** Advanced, for tests: the pinned wheel. Default: `PYDIGGS_WHEEL`. */
+  pin?: { url: string; sha256: string } | null;
 }
 
 // One string goes back to JavaScript, never a proxy of the Python object graph: "D" and
@@ -159,7 +161,7 @@ export function wheelSource(
 async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Loaded> {
   if (init.pydiggsWheelUrl !== undefined) checkWheelUrl(init.pydiggsWheelUrl); // before any download
   const stage = (name: LoadStage): void => options.post({ type: "progress", stage: name });
-  const source = wheelSource(init, options.fetch ?? globalThis.fetch);
+  const source = wheelSource(init, options.fetch ?? globalThis.fetch, options.pin === undefined ? PYDIGGS_WHEEL : options.pin);
   // Awaited below; until then a failed download must not count as unhandled.
   if ("bytes" in source) source.bytes.catch(() => {});
   stage("runtime");

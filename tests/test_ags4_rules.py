@@ -826,6 +826,43 @@ def test_cli_usage_errors(capsys):
     assert "--dictionary" in capsys.readouterr().out
 
 
+def test_cli_sarif_names_each_ags4_path_as_a_logical_location(capsys):
+    code, out, _ = run_cli(capsys, RULE_10A, "--format", "sarif")
+    assert code == 1
+    results = json.loads(out)["runs"][0]["results"]
+    names = [
+        loc["fullyQualifiedName"]
+        for result in results
+        for loc in result["locations"][0].get("logicalLocations", [])
+    ]
+    assert "XTST/2" in names
+
+
+def test_cli_a_file_gone_before_it_is_hashed_is_unreadable(capsys, monkeypatch, tmp_path):
+    text = tmp_path / "notes.ags"
+    text.write_bytes(b"just some text\r\n")
+    check = ags4.check
+
+    def check_then_vanish(path, **kw):
+        try:
+            return check(path, **kw)
+        finally:
+            Path(path).unlink()
+
+    monkeypatch.setattr(ags4, "check", check_then_vanish)
+    code, out, _ = run_cli(capsys, text)
+    assert code == 2
+    assert "notes.ags: unreadable" in out
+
+
+def test_cli_a_write_error_is_reported_safely(capsys, tmp_path):
+    target = tmp_path / "no\x1b[31mdir" / "out.sarif"
+    code, _, err = run_cli(capsys, CLEAN, "--format", "sarif", "--output", target)
+    assert code == 2
+    assert "cannot write" in err
+    assert "\x1b" not in err
+
+
 # --- rule parity with python-ags4 (the recorded oracle of work package C0) --------------
 
 #: Rules that need nothing but the file; python-ags4 ran its check with the standard

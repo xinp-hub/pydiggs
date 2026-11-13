@@ -106,7 +106,12 @@ def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.N
 
 
 def _not_ags4(path: str, exc: DocumentError, max_bytes: int) -> Report:
-    """A report for a file that has no AGS4 table at all: its one finding is the reason."""
+    """A report for a file that has no AGS4 table at all: its one finding is the reason.
+
+    Raises:
+        OSError: The file can no longer be opened to hash it (the caller reports it as
+            unreadable).
+    """
     shown, absolute = display_paths(path)
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:  # read() just read it, within max_bytes
@@ -140,7 +145,17 @@ def _run(
                 )
             )
         except DocumentError as exc:
-            reports.append(_not_ags4(path, exc, args.max_bytes))
+            try:
+                reports.append(_not_ags4(path, exc, args.max_bytes))
+            except OSError as gone:  # changed or removed since it was read: unreadable
+                shown, absolute = display_paths(path)
+                unreadable.append(
+                    UnreadableFile(
+                        path=shown,
+                        error=gone.strerror or "not readable",
+                        absolute_path=absolute,
+                    )
+                )
         except (InstanceReadError, ValueError) as exc:
             shown, absolute = display_paths(path)
             why = exc.strerror if isinstance(exc, InstanceReadError) else None
@@ -228,7 +243,8 @@ def main(argv: Sequence[str]) -> int:
             with _open_output(args.output) as stream:
                 stream.write(body)
         except OSError as exc:
-            print(f"{_PROG} check: cannot write {args.output}: {exc}", file=sys.stderr)
+            message = _safe(f"cannot write {args.output}: {exc}")
+            print(f"{_PROG} check: {message}", file=sys.stderr)
             return 2
     else:
         sys.stdout.write(body)

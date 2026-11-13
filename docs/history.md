@@ -1,5 +1,24 @@
 # History
 
+## 1.9.0 (2026-11-13)
+
+pyDIGGS now reads, writes and checks AGS4 files, and converts them to DIGGS 3.0.0 as a
+preview:
+
+- `pydiggs.ags4` reads and writes AGS4 files (versions 4.0.3 to 4.2) as tables of the
+  text they hold, and `ags4.check` / `pydiggs ags4 check` report the AGS4 rules as
+  findings, with line numbers and places in the file. No AGS data dictionary is bundled:
+  pass your own copy for the rules that need one.
+- `pydiggs.preview.convert.ags4_to_diggs` converts the common groups (projects,
+  locations, geology, samples, SPT, Atterberg limits, moisture content and particle
+  size) to DIGGS 3.0.0. Every value is either written or named by a `convert.*` finding,
+  and the output is validated. The mapping table is a draft and may change before 1.10.0.
+- Findings documents are now diggs-findings 1.1, which only adds to 1.0.
+- The licences of everything pyDIGGS bundles are named file by file (`NOTICE`,
+  `REUSE.toml`), and contributions are signed off under the DCO.
+
+See the CHANGELOG for the full list.
+
 ## 1.8.0 (2026-11-11)
 
 AI assistants can now read a DIGGS file, not only validate it:

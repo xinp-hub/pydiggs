@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { createHash } from "node:crypto";
 
-import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYDIGGS_WHEEL } from "../src/generated/pins.ts";
+import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION } from "../src/generated/pins.ts";
 import type { InitMessage, ReplyMessage } from "../src/protocol.ts";
 import {
   ABSOLUTE_MAX_BYTES,
@@ -13,11 +13,14 @@ import {
   wheelSource,
 } from "../src/worker-core.ts";
 
-// The wheel every fake download serves; this file pins its hash, so the worker's
-// sha256 check passes for it (the pinned-wheel test also serves one that fails).
+// The wheel every fake download serves, and a pin that matches it, passed to the worker
+// as its pinned wheel. The real pin is null between a pyDIGGS release PR and the
+// release reaching PyPI, so these tests never depend on it.
 const WHEEL = new TextEncoder().encode("not really a wheel");
-const realSha256 = PYDIGGS_WHEEL!.sha256;
-(PYDIGGS_WHEEL as { sha256: string }).sha256 = createHash("sha256").update(WHEEL).digest("hex");
+const PIN = {
+  url: "https://files.pythonhosted.org/packages/xx/pydiggs-9.9.9-py3-none-any.whl",
+  sha256: createHash("sha256").update(WHEEL).digest("hex"),
+};
 const fetched: string[] = [];
 const fakeFetch = (async (url: string) => {
   fetched.push(String(url));
@@ -62,6 +65,7 @@ function start(loadPyodide?: (init: InitMessage) => Promise<PyodideLike>, fetch?
     post: (message) => (message.type === "progress" ? stages.push(message.stage) : replies.push(message)),
     loadPyodide: loadPyodide ?? (async () => fakePyodide(log)),
     fetch: fetch ?? fakeFetch,
+    pin: PIN,
   });
   return { log, replies, stages, handle };
 }
@@ -75,7 +79,7 @@ test("init unpacks the pinned wheel, without micropip, and reports ready", async
   fetched.length = 0;
   handle({ type: "init", maxBytes: 1000 });
   await settle();
-  assert.deepEqual(fetched, [PYDIGGS_WHEEL!.url]);
+  assert.deepEqual(fetched, [PIN.url]);
   assert.deepEqual(log, ["loadPackage lxml", `unpackArchive ${WHEEL.byteLength} wheel`, "runPython"]);
   assert.deepEqual(replies, [
     { type: "ready", versions: { pyodide: "314.0.7", pydiggs: "1.7.0", lxml: "6.1.3" } },
@@ -93,7 +97,7 @@ test("the wheel download starts before Pyodide has loaded", async () => {
   });
   worker.handle({ type: "init", maxBytes: 1 });
   await settle();
-  assert.deepEqual(fetched, [PYDIGGS_WHEEL!.url], "fetched while the runtime was still loading");
+  assert.deepEqual(fetched, [PIN.url], "fetched while the runtime was still loading");
   release();
   await settle();
   assert.equal(worker.replies[0]?.type, "ready");
@@ -194,7 +198,6 @@ test("a pinned wheel that fails its sha256 is never installed", async () => {
   assert.equal(worker.replies[0]?.type, "failed");
   assert.match((worker.replies[0] as { message: string }).message, /does not match its pinned sha256/);
   assert.equal(log.some((line) => line.startsWith("unpackArchive")), false);
-  assert.notEqual(realSha256, PYDIGGS_WHEEL!.sha256, "this file pins the fake wheel, not the real one");
 });
 
 test("an interrupt buffer is handed to Pyodide, and cleared before each request", async () => {

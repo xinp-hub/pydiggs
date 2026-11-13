@@ -88,6 +88,14 @@ def errors(report: pydiggs.Report | None) -> list[tuple[str, str]]:
     return [(f.rule_id, f.message) for f in report.findings if f.severity is pydiggs.Severity.ERROR]
 
 
+def output_errors(c: convert.Conversion) -> list[tuple[str, str]]:
+    """The errors of ``c.validation``, or of validating ``c.xml`` again when the time
+    budget ran out during validation (the budget, not the output, failed it then)."""
+    if any(rule == "structure.timeout" for rule, _ in errors(c.validation)):
+        return errors(pydiggs.validate_bytes(c.xml))
+    return errors(c.validation)
+
+
 # --- property 4: every cell used by a written node, or named by a finding ----------------
 
 
@@ -612,7 +620,7 @@ def test_a_time_budget_gives_a_partial_conversion():
     assert any(f.rule_id == "convert.incomplete" for f in built.ledger.findings())
     c = convert.ags4_to_diggs(file, time_budget=1e-9)
     assert c.complete in (True, False)  # a fast machine may finish within one check
-    assert errors(c.validation) == []
+    assert output_errors(c) == []
 
 
 # --- review of the preview (PR 335): one test per finding --------------------------------
@@ -1133,7 +1141,7 @@ def test_hostile_files_convert_to_valid_diggs_with_every_cell_accounted_for(
             c = convert.ags4_to_diggs(data, name="hostile.ags", time_budget=1.0)
         except (DocumentError, pydiggs.InstanceReadError):
             return  # the reader's documented refusals
-    assert errors(c.validation) == []
+    assert output_errors(c) == []
     (built,) = captured
     ledger = built.ledger
     for cell in ledger.cells():
@@ -1211,3 +1219,119 @@ def test_docstring_examples_run(module: Any, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(ROOT)
     result = doctest.testmod(module, optionflags=doctest.ELLIPSIS)
     assert result.failed == 0
+
+
+# --- 1.9.0 pre-release review: limits on the read-back and the time budget -------------
+
+
+def _sites(n: int) -> ags4.File:
+    """``n`` boreholes with one sample each."""
+    loca = [(f"BH{i}", "CP", "451200", "206500", "OSGB", "12", "15") for i in range(n)]
+    samp = [(f"BH{i}", "1.00", "1", "D", "S1") for i in range(n)]
+    return ags_file(PROJ, TRAN, group("LOCA", LOCA_SPEC, loca), group("SAMP", SAMP_KEYS, samp))
+
+
+def test_output_larger_than_the_default_limit_is_still_read_back_and_validated(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # The XML is pyDIGGS's own, often ~19 times the AGS4 input: the readers' default
+    # 100 MiB limit (made small here) must not refuse it.
+    assert _api.validate_bytes.__kwdefaults__ is not None
+    assert _api.read_model.__kwdefaults__ is not None
+    monkeypatch.setitem(_api.validate_bytes.__kwdefaults__, "max_bytes", 1_000)
+    monkeypatch.setitem(_api.read_model.__kwdefaults__, "max_bytes", 1_000)
+    c = convert.ags4_to_diggs(_sites(3))
+    assert len(c.xml) > 1_000
+    assert c.complete
+    assert errors(c.validation) == []
+    assert {"BH0", "BH1", "BH2"} <= {f.key for f in c.model.features}
+
+
+class _SteppedClock:
+    """``time.monotonic`` for :mod:`pydiggs.convert._api` that only moves when told to."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+def _timed(monkeypatch: pytest.MonkeyPatch, writing: float) -> dict[str, float | None]:
+    """Make writing take ``writing`` seconds and validating 3; record the budgets passed."""
+    clock = _SteppedClock()
+    budgets: dict[str, float | None] = {}
+    write, validate, read = _api._write, _api.validate_bytes, _api.read_model
+
+    def slow_write(built: Built, version: str) -> tuple[bytes, Built]:
+        clock.now += writing
+        return write(built, version)
+
+    def slow_validate(xml: bytes, **kw: Any) -> pydiggs.Report:
+        budgets["validate"] = kw.get("time_budget")
+        clock.now += 3.0
+        return validate(xml, **kw)
+
+    def spy_read(xml: bytes, **kw: Any) -> pydiggs.Model:
+        budgets["read"] = kw.get("time_budget")
+        return read(xml, **kw)
+
+    monkeypatch.setattr(_api, "time", clock)
+    monkeypatch.setattr(_api, "_write", slow_write)
+    monkeypatch.setattr(_api, "validate_bytes", slow_validate)
+    monkeypatch.setattr(_api, "read_model", spy_read)
+    return budgets
+
+
+def test_the_time_budget_also_covers_validation_and_the_read_back(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    budgets = _timed(monkeypatch, writing=2.0)
+    c = convert.ags4_to_diggs(_sites(2), time_budget=10.0)
+    assert budgets == {"validate": pytest.approx(8.0), "read": pytest.approx(5.0)}
+    assert c.complete
+    assert errors(c.validation) == []
+
+
+def test_a_spent_time_budget_gives_a_partial_model_and_a_timed_out_validation(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    budgets = _timed(monkeypatch, writing=20.0)
+    c = convert.ags4_to_diggs(_sites(2), time_budget=10.0)
+    assert budgets["validate"] is not None and 0 < budgets["validate"] < 1e-6
+    assert budgets["read"] is not None and 0 < budgets["read"] < 1e-6
+    assert not c.complete
+    assert c.validation is not None
+    assert "structure.timeout" in {f.rule_id for f in c.validation.findings}
+    assert not c.model.complete
+    assert errors(pydiggs.validate_bytes(c.xml)) == []  # the XML itself is whole
+    no_budget = convert.ags4_to_diggs(_sites(2))
+    assert c.xml == no_budget.xml
+
+
+def _convert_work(file: ags4.File) -> int:
+    """Lines of pydiggs.convert code executed to convert ``file``: a deterministic count."""
+    count = 0
+    folder = str(Path(_api.__file__).parent)
+
+    def tracer(frame: Any, event: str, arg: Any) -> Any:
+        nonlocal count
+        if not frame.f_code.co_filename.startswith(folder):
+            return None
+        if event == "line":
+            count += 1
+        return tracer
+
+    previous = sys.gettrace()
+    sys.settrace(tracer)
+    try:
+        convert.ags4_to_diggs(file, validate=False)
+    finally:
+        sys.settrace(previous)
+    return count
+
+
+@pytest.mark.scaling
+def test_conversion_work_is_linear_in_the_number_of_rows():
+    small, large = _convert_work(_sites(100)), _convert_work(_sites(200))
+    assert large <= 2.3 * small, (small, large)

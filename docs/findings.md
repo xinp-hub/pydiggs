@@ -496,7 +496,7 @@ against the official OASIS errata01 schema):
 | `artifacts[]` | each file, `uriBaseId: SRCROOT`, with its `sha-256`; a `file:` URI only with absolute paths |
 | `results[].level` | `error` → `error`, `warning` → `warning`, `info` → `note` |
 | `results[].locations[].physicalLocation.region` | only when the line is known (`startLine`, and `startColumn` for syntax errors) |
-| `results[].locations[].logicalLocations[]` | `{fullyQualifiedName: xpath, kind: "element"}` (`"attribute"` for an attribute path) |
+| `results[].locations[].logicalLocations[]` | `{fullyQualifiedName: xpath, kind: "element"}` (`"attribute"` for an attribute path); for a finding with no xpath but a `location.path` (AGS4), `{fullyQualifiedName: path, kind: "element"}` |
 | `results[].partialFingerprints["diggsConformanceKey/v1"]` | the conformance key, `step|severity|location|rule_id` |
 | `invocations[].toolExecutionNotifications` | one error per unreadable input |
 
