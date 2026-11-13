@@ -25,6 +25,19 @@ function fakeEngine(index: number, log: string[], options: { status?: PoolEngine
     async read(_input: unknown, opts?: { name?: string }) {
       return this.validate(_input, opts) as never;
     },
+    async validateSarif(_input: unknown, opts?: { name?: string }) {
+      return this.validate(_input, opts) as never;
+    },
+    async versions() {
+      log.push(`${index}:versions`);
+      return { api_version: "1" } as never;
+    },
+    async listRules() {
+      return [] as never;
+    },
+    async explainRule(id: string) {
+      return { id } as never;
+    },
     terminate() {
       engine.terminated = true;
     },

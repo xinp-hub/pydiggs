@@ -1,10 +1,23 @@
 // Everything the worker does except fetching Pyodide: configuration, installing
 // pydiggs, the Python glue, the request queue and the replies. It is separate from
-// browser-worker.ts so that tests/pyodide/worker-smoke.mjs can run it under Node
-// against the real, pinned Pyodide, which a Web Worker file cannot be.
+// browser-worker.ts and node-worker.ts so that tests/pyodide/worker-smoke.mjs can run
+// it under Node against the real, pinned Pyodide.
+//
+// Every request goes through pydiggs's own service layer (pydiggs._service), the one
+// `pydiggs serve --http` and the stdio sidecar use: the same parameter checks with the
+// same fixed texts, the same documents byte for byte, the same error codes, and its
+// cache of recently read models, so asking again for some result tables of the same
+// file does not read it again.
 
-import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION } from "./generated/pins.ts";
-import type { InitMessage, LoadStage, ReplyMessage, RequestMessage, RuntimeVersions } from "./protocol.ts";
+import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYDIGGS_WHEEL } from "./generated/pins.ts";
+import type {
+  InitMessage,
+  LoadStage,
+  ReplyMessage,
+  RequestMessage,
+  RuntimeVersions,
+  ServiceProblem,
+} from "./protocol.ts";
 
 /** A Python function as Pyodide hands it to JavaScript. */
 export interface PyCallable {
@@ -19,6 +32,8 @@ export interface PyodideLike {
   pyimport(name: string): unknown;
   runPython(code: string): unknown;
   globals: { get(name: string): unknown };
+  FS?: { mkdirTree(path: string): void; writeFile(path: string, data: Uint8Array): void };
+  setInterruptBuffer?(buffer: Uint8Array | Int32Array): void;
 }
 
 export interface WorkerCoreOptions {
@@ -26,39 +41,68 @@ export interface WorkerCoreOptions {
   post: (message: ReplyMessage) => void;
   /** Loads Pyodide for this configuration. Called once, on the "init" message. */
   loadPyodide: (init: InitMessage) => Promise<PyodideLike>;
+  /** Advanced, for tests: the fetch used for the pinned wheel. */
+  fetch?: typeof globalThis.fetch;
 }
 
-// One JSON string goes back to JavaScript, never a proxy of the Python object graph.
+// One string goes back to JavaScript, never a proxy of the Python object graph: "D" and
+// the document's JSON, as the service layer wrote it, or "E" and a problem as JSON.
+// KeyboardInterrupt is how setInterruptBuffer stops Python; it is a BaseException, so
+// the service layer's own `except Exception` lets it through to here.
 const PYTHON_SETUP = `
 import json
 import pydiggs
 
+try:
+    from pydiggs import _service as _svc
+except ImportError:  # pydiggs before 1.7
+    _svc = None
+
 pydiggs.warm_up()
 
-def validate(data, name, max_bytes):
-    try:
-        report = pydiggs.validate_bytes(data.to_bytes(), name=name, max_bytes=max_bytes)
-    except pydiggs.InstanceReadError as exc:
-        return json.dumps({"error": str(exc)})
-    return report.to_json(indent=None)
+def _problem(code, detail="", errors=(), kind=None):
+    return "E" + json.dumps({"code": code, "detail": detail,
+                             "errors": [{"parameter": p, "problem": q} for p, q in errors],
+                             "kind": kind})
 
-def read(data, name, max_bytes, results):
-    read_bytes = getattr(pydiggs, "read_bytes", None)
-    if read_bytes is None:
-        return json.dumps({"error": "this pydiggs has no read API (needs 1.7.0 or later)"})
+def _outcome(out):
+    if out.ok:
+        return "D" + out.document.decode("utf-8")
+    return _problem(out.code.value, out.detail, out.errors, out.kind)
+
+def run(kind, data, name, max_bytes, parameters):
+    if _svc is None:
+        return _problem("internal", "this pydiggs is too old for @pydiggs/client (needs 1.7.0 or later)")
+    p = json.loads(parameters) if parameters else {}
     try:
-        model = read_bytes(data.to_bytes(), name=name, results=bool(results), max_bytes=max_bytes)
-    except (pydiggs.InstanceReadError, ValueError) as exc:  # DocumentError is a ValueError
-        return json.dumps({"error": str(exc)})
-    return model.to_json()
+        if kind == "validate":
+            return _outcome(_svc.validate(_svc.Request(
+                content=data.to_bytes(), name=name, checks=p.get("checks"),
+                diggs_version=p.get("diggs_version"), format=p.get("format", "findings"),
+                max_bytes=max_bytes)))
+        if kind == "read":
+            return _outcome(_svc.read(_svc.ReadRequest(
+                content=data.to_bytes(), name=name, diggs_version=p.get("diggs_version"),
+                select=p.get("select"), max_bytes=max_bytes)))
+        if kind == "rules":
+            answer = _svc.rules(p.get("step"))
+        elif kind == "explain":
+            answer = _svc.explain(p.get("rule_id"))
+        elif kind == "versions":
+            answer = {"api_version": "1", **_svc.versions()}
+        else:
+            return _problem("invalid-parameter", "unknown request")
+        return _outcome(answer) if isinstance(answer, _svc.Outcome) else "D" + json.dumps(answer)
+    except KeyboardInterrupt:
+        return _problem("cancelled", "The request was cancelled.")
 
 versions = json.dumps({"pydiggs": pydiggs.__version__, "lxml": __import__("lxml").__version__})
 `;
 
 interface Loaded {
   maxBytes: number;
-  validate: PyCallable;
-  read: PyCallable;
+  run: PyCallable;
+  interrupt: Uint8Array | undefined;
 }
 
 /**
@@ -69,58 +113,84 @@ interface Loaded {
  */
 export const ABSOLUTE_MAX_BYTES: number = 256 * 1024 * 1024;
 
+const WHEEL_DIR = "/pydiggs-wheel";
 const text = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+const hex = (buffer: ArrayBuffer): string =>
+  [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
-function wheelSpec(init: InitMessage): string {
-  const wheel = init.pydiggsWheelUrl;
-  if (wheel === undefined) return `pydiggs==${PYDIGGS_VERSION}`;
+function checkWheelUrl(wheel: string): void {
   if (!/\/pydiggs-[^/]+-py3-none-any\.whl$/.test(new URL(wheel).pathname)) {
     throw new Error("pydiggsWheelUrl must name a pure pydiggs wheel (pydiggs-X.Y.Z-py3-none-any.whl)");
   }
-  return wheel;
+}
+
+// What micropip installs: a wheel URL the page chose, else the pinned release fetched
+// here and checked against its sha256 (written to Pyodide's file system first), else
+// the release by version, checked by micropip against PyPI's index.
+async function installSpec(init: InitMessage, pyodide: PyodideLike, fetch: typeof globalThis.fetch): Promise<string> {
+  if (init.pydiggsWheelUrl !== undefined) return init.pydiggsWheelUrl;
+  if (!PYDIGGS_WHEEL || !pyodide.FS) return `pydiggs==${PYDIGGS_VERSION}`;
+  const response = await fetch(PYDIGGS_WHEEL.url, { credentials: "omit", referrerPolicy: "no-referrer" });
+  if (!response.ok) throw new Error(`the pydiggs wheel: HTTP ${response.status}`);
+  const bytes = await response.arrayBuffer();
+  if (hex(await crypto.subtle.digest("SHA-256", bytes)) !== PYDIGGS_WHEEL.sha256) {
+    throw new Error("the pydiggs wheel does not match its pinned sha256; refusing to install it");
+  }
+  const file = PYDIGGS_WHEEL.url.split("/").at(-1)!;
+  pyodide.FS.mkdirTree(WHEEL_DIR);
+  pyodide.FS.writeFile(`${WHEEL_DIR}/${file}`, new Uint8Array(bytes));
+  return `emfs:${WHEEL_DIR}/${file}`;
 }
 
 async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Loaded> {
-  const spec = wheelSpec(init); // refuse a bad wheel URL before downloading anything
+  if (init.pydiggsWheelUrl !== undefined) checkWheelUrl(init.pydiggsWheelUrl); // before any download
   const stage = (name: LoadStage): void => options.post({ type: "progress", stage: name });
   stage("runtime");
   const pyodide = await options.loadPyodide(init);
   stage("packages");
   await pyodide.loadPackage(["lxml", "micropip"]);
   stage("pydiggs");
+  const spec = await installSpec(init, pyodide, options.fetch ?? globalThis.fetch);
   const micropip = pyodide.pyimport("micropip") as { install: PyCallable };
-  // deps=False: rich and the extras are not needed in the browser.
+  // deps=False: rich and the extras are not needed in a worker.
   await micropip.install.callKwargs(spec, { deps: false });
   stage("warm-up");
   pyodide.runPython(PYTHON_SETUP);
+  let interrupt: Uint8Array | undefined;
+  if (init.interruptBuffer && pyodide.setInterruptBuffer) {
+    interrupt = new Uint8Array(init.interruptBuffer);
+    pyodide.setInterruptBuffer(interrupt);
+  }
   const versions = JSON.parse(pyodide.globals.get("versions") as string) as Omit<RuntimeVersions, "pyodide">;
   // The page side sets the limit for its platform (25 MiB at most in a browser). This
   // ceiling only keeps a document inside what 32-bit WebAssembly can address at all.
   const limit = Number.isFinite(init.maxBytes) && init.maxBytes > 0 ? init.maxBytes : DEFAULT_MAX_BYTES;
   const loaded: Loaded = {
     maxBytes: Math.min(limit, ABSOLUTE_MAX_BYTES),
-    validate: pyodide.globals.get("validate") as PyCallable,
-    read: pyodide.globals.get("read") as PyCallable,
+    run: pyodide.globals.get("run") as PyCallable,
+    interrupt,
   };
   options.post({ type: "ready", versions: { pyodide: pyodide.version, ...versions } });
   return loaded;
 }
 
+const NEEDS_DOCUMENT = new Set(["validate", "read"]);
+
 function answer(loaded: Loaded, request: RequestMessage): ReplyMessage {
-  const { id, type, data } = request;
-  if (data.byteLength > loaded.maxBytes) {
-    return { id, type: "error", message: `the document is larger than ${loaded.maxBytes} bytes` };
+  const { id, type } = request;
+  if (NEEDS_DOCUMENT.has(type) && request.data!.byteLength > loaded.maxBytes) {
+    const problem: ServiceProblem = { code: "input-too-large", detail: `larger than ${loaded.maxBytes} bytes` };
+    return { id, type: "error", message: `the document is larger than ${loaded.maxBytes} bytes`, problem };
   }
   const name = typeof request.name === "string" && request.name !== "" ? request.name : "input.xml";
-  const bytes = new Uint8Array(data);
-  const result =
-    type === "read"
-      ? loaded.read(bytes, name, loaded.maxBytes, request.results !== false)
-      : loaded.validate(bytes, name, loaded.maxBytes);
-  const parsed = JSON.parse(result as string) as { error?: unknown };
-  return typeof parsed.error === "string"
-    ? { id, type: "error", message: parsed.error }
-    : { id, type: "result", document: parsed };
+  const bytes = request.data ? new Uint8Array(request.data) : undefined;
+  const parameters = request.parameters ? JSON.stringify(request.parameters) : "";
+  // A stop meant for an earlier request that finished first must not stop this one.
+  if (loaded.interrupt) Atomics.store(loaded.interrupt, 0, 0);
+  const result = loaded.run(type, bytes, name, loaded.maxBytes, parameters) as string;
+  if (result.startsWith("D")) return { id, type: "result", document: JSON.parse(result.slice(1)) };
+  const problem = JSON.parse(result.slice(1)) as ServiceProblem;
+  return { id, type: "error", message: problem.detail || problem.code, problem };
 }
 
 /**
@@ -142,9 +212,12 @@ export function createWorkerCore(options: WorkerCoreOptions): (message: unknown)
       loading.catch((error: unknown) => options.post({ type: "failed", message: text(error) }));
       return;
     }
-    if (type !== "validate" && type !== "read") return;
+    if (type !== "validate" && type !== "read" && type !== "rules" && type !== "explain" && type !== "versions") {
+      return;
+    }
     const request = message as RequestMessage;
-    if (typeof request.id !== "number" || !(request.data instanceof ArrayBuffer)) return;
+    if (typeof request.id !== "number") return;
+    if (NEEDS_DOCUMENT.has(type) && !(request.data instanceof ArrayBuffer)) return;
     const ready = loading;
     queue = queue.then(async () => {
       try {

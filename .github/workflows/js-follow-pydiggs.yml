@@ -1,0 +1,75 @@
+# Notices when @pydiggs/client lags pyDIGGS: PyPI has a newer pyDIGGS than the client
+# targets, or the client targets a release whose wheel is not pinned yet. It then opens
+# one issue with the steps, unless that issue is already open; it never commits, pushes
+# or opens a pull request. A person runs `node js/scripts/follow-pydiggs.mjs`, reviews the
+# pin, and releases the client the usual way.
+name: npm package follows pyDIGGS
+
+on:
+  schedule:
+    - cron: "41 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: js-follow-pydiggs
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: does the client lag pyDIGGS?
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+      - name: Compare with PyPI
+        id: status
+        run: |
+          set -uo pipefail
+          node js/scripts/follow-pydiggs.mjs --check > status.json
+          code=$?
+          cat status.json
+          if [ "$code" -eq 3 ]; then
+            echo "lags=true" >> "$GITHUB_OUTPUT"
+          elif [ "$code" -ne 0 ]; then
+            exit "$code"
+          fi
+      - name: Open the issue, once
+        if: steps.status.outputs.lags == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          latest=$(node -e 'console.log(JSON.parse(require("fs").readFileSync("status.json","utf8")).pypi_latest)')
+          case "$latest" in
+            *[!0-9A-Za-z.+-]*|"") echo "unexpected version: $latest"; exit 1 ;;
+          esac
+          title="@pydiggs/client: follow pyDIGGS $latest"
+          {
+            echo "PyPI has pyDIGGS $latest; the npm client is not on it yet."
+            echo
+            echo '```json'
+            cat status.json
+            echo '```'
+            echo
+            echo "1. If \`examples/browser-worker/worker.mjs\` does not name $latest yet, the pyDIGGS release PR has not merged."
+            echo "2. \`node js/scripts/follow-pydiggs.mjs\` pins the wheel from PyPI's record and regenerates \`js/src/generated/pins.ts\`."
+            echo "3. Release the client as usual: version bump and changelog PR, then the signed \`js-vX.Y.Z\` tag."
+          } > body.md
+          number=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            echo "issue #$number is already open"
+          else
+            gh issue create --title "$title" --body-file body.md
+          fi

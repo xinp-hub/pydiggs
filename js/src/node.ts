@@ -14,7 +14,7 @@ import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 
 import { DEFAULT_MAX_BYTES } from "./generated/pins.ts";
-import type { InitMessage, LoadStage } from "./protocol.ts";
+import type { InitMessage, LoadStage, ServiceProblem } from "./protocol.ts";
 import { ABSOLUTE_MAX_BYTES } from "./worker-core.ts";
 import {
   PydiggsWorkerError,
@@ -24,9 +24,24 @@ import {
   type WorkerLike,
 } from "./worker-client.ts";
 
-export type { DocumentBytes, WorkerReadOptions, WorkerRequestOptions, WorkerStatus } from "./worker-client.ts";
+export type {
+  DiggsVersion,
+  DocumentBytes,
+  RuleInfo,
+  RuleStep,
+  SarifLog,
+  ServiceProblem,
+  ValidateCheck,
+  Versions,
+  WorkerCallOptions,
+  WorkerReadOptions,
+  WorkerRequestOptions,
+  WorkerRulesOptions,
+  WorkerStatus,
+  WorkerValidateOptions,
+} from "./worker-client.ts";
 export type { LoadStage, RuntimeVersions } from "./protocol.ts";
-export { PydiggsWorkerError } from "./worker-client.ts";
+export { DEFAULT_INTERRUPT_GRACE_MS, PydiggsWorkerError } from "./worker-client.ts";
 export { PydiggsError } from "./errors.ts";
 export { defaultPoolSize, type PoolEngine, PydiggsPool, type PydiggsPoolOptions } from "./pool.ts";
 export { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYODIDE_VERSION } from "./generated/pins.ts";
@@ -62,10 +77,23 @@ export interface PydiggsNodeOptions {
   onProgress?: (stage: LoadStage) => void;
   /**
    * Longest a document may run, in milliseconds. Default: 60 000, as in pyDIGGS's own
-   * server. Past it the worker thread is stopped and replaced, and the document fails
-   * with code "timeout". `0` or `Infinity` turns the limit off.
+   * server. Past it the document fails with code "timeout": the worker is interrupted,
+   * and replaced if it has not stopped within `interruptGraceMs`. `0` or `Infinity`
+   * turns the limit off.
    */
   timeoutMs?: number;
+  /**
+   * After a request runs past `timeoutMs`, how long to wait for the interrupted worker
+   * to stop before replacing it, in milliseconds. Default: 2 000. Only used where the
+   * worker can be interrupted.
+   */
+  interruptGraceMs?: number;
+  /**
+   * Stop the worker after this long with nothing to do, in milliseconds, to give its
+   * memory back (about 90 MiB, more after a large document); the next request starts
+   * it again in about two seconds. Default: `Infinity`, never.
+   */
+  idleTimeoutMs?: number;
   /** Advanced: the worker file. Default: this package's `node-worker.js`. */
   workerUrl?: URL;
 }
@@ -112,8 +140,10 @@ export const DEFAULT_TIMEOUT_MS: number = 60_000;
  * is constructed; documents made meanwhile wait. Documents run one at a time, in
  * arrival order, so for more throughput use a `PydiggsPool`.
  *
- * Pyodide cannot be interrupted, so a document that runs past `timeoutMs` stops its
- * worker thread: that document fails with code "timeout", and a fresh worker takes the
+ * A document that runs past `timeoutMs` fails with code "timeout". The worker is
+ * interrupted first (Pyodide's `setInterruptBuffer`): reading, which is Python, stops at
+ * once and the worker is kept; validation finishes the lxml step it is in, and if that
+ * takes longer than `interruptGraceMs` the thread is replaced and a fresh one takes the
  * documents still waiting. A worker that dies on a document is replaced the same way.
  * A worker that fails to load is not retried: that is a setup problem, reported by
  * `ready` and by every request.
@@ -131,18 +161,20 @@ export class PydiggsNode extends SupervisedWorker {
     if (options.pydiggsWheelPath !== undefined) init.pydiggsWheelPath = options.pydiggsWheelPath;
     const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const workerUrl = options.workerUrl ?? new URL("./node-worker.js", import.meta.url);
-    const makeError = (message: string, code?: WorkerErrorCode): PydiggsNodeError =>
-      new PydiggsNodeError(message, code);
+    const makeError = (message: string, code?: WorkerErrorCode, problem?: ServiceProblem): PydiggsNodeError =>
+      new PydiggsNodeError(message, code, problem);
     super({
       label: "PydiggsNode",
       timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : Number.POSITIVE_INFINITY,
       makeError,
+      ...(options.interruptGraceMs !== undefined ? { interruptGraceMs: options.interruptGraceMs } : {}),
+      ...(options.idleTimeoutMs !== undefined ? { idleTimeoutMs: options.idleTimeoutMs } : {}),
       start: () =>
         new WorkerClient({
           worker: adapt(new Worker(workerUrl)),
           init: { ...init },
           onProgress: options.onProgress,
-          makeError: (message) => makeError(message),
+          makeError: (message, problem) => makeError(message, undefined, problem),
         }),
     });
   }

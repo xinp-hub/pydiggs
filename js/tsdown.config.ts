@@ -11,6 +11,7 @@ export default defineConfig({
     node: "src/node.ts",
     cli: "src/cli.ts",
     "browser-worker": "src/browser-worker.ts",
+    sw: "src/sw.ts",
     "node-worker": "src/node-worker.ts",
   },
   // Node's built-ins and Pyodide stay imports: the Node entries run where both exist,

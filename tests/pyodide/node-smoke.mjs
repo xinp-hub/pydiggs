@@ -6,10 +6,11 @@
 //     load stages in order;
 //   - every validate and read equals CPython's document (goldens from cases.py);
 //   - PydiggsHttpClient, talking to createPydiggsHandler(PydiggsNode), gets the same
-//     documents, so a JavaScript server can stand in for `pydiggs serve --http`;
+//     documents, so a JavaScript server can stand in for `pydiggs serve --http`: SARIF,
+//     a subset of checks, one node's tables, versions, the rules and one rule included;
 //   - a limit above the browser's 25 MiB is honoured on a server;
-//   - a document past timeoutMs fails with code "timeout", and the next document runs
-//     on a fresh worker thread with the same answers.
+//   - a read past timeoutMs is interrupted and the worker thread kept; a validation past
+//     it fails with code "timeout" too, and the next document gets the same answers.
 //
 //   cd tests/pyodide && npm ci --ignore-scripts
 //   uv build --wheel && uv run --no-sync python tests/pyodide/cases.py goldens.json
@@ -80,8 +81,22 @@ try {
     const data = readFileSync(join(here, "fixtures", name));
     assert.deepEqual(await client.validate(data, { name }), JSON.parse(goldens[name]));
     assert.deepEqual(await client.read(data, { name }), JSON.parse(goldens[`read:${name}`]));
-    console.log(`ok  handler + PydiggsHttpClient ${name}: equal CPython's`);
+    assert.deepEqual(await client.validateSarif(data, { name }), JSON.parse(goldens[`sarif:${name}`]));
+    assert.deepEqual(await client.validate(data, { name, checks: ["structure", "schema"] }), JSON.parse(goldens[`checks:${name}`]));
+    assert.deepEqual(
+      await client.read(data, { name, results: ["ATTERBERG_B-01_4.0"] }),
+      JSON.parse(goldens[`select:${name}`]),
+    );
+    console.log(`ok  handler + PydiggsHttpClient ${name}: findings, model, SARIF, checks and select equal CPython's`);
   }
+  assert.deepEqual(await client.versions(), JSON.parse(goldens.versions));
+  assert.deepEqual(await client.listRules({ step: "schema" }), JSON.parse(goldens["rules:schema"]));
+  const explained = JSON.parse(goldens.explain);
+  assert.deepEqual(await client.explainRule(explained.id), explained);
+  console.log("ok  handler + PydiggsHttpClient: versions, rules and one rule equal CPython's");
+  await assert.rejects(client.read("<Diggs><unclosed></Diggs>"), (error) => error.code === "invalid-document" && error.problem.kind === "malformed");
+  await assert.rejects(client.validate("<Diggs/>", { checks: ["nope"] }), (error) => error.code === "invalid-parameter" && error.problem.errors[0].parameter === "checks");
+  console.log("ok  handler: pydiggs's own problems for a malformed document and an unknown check");
 
   // 4. A server may take more than the browser's 25 MiB.
   const big = Buffer.concat([
@@ -97,6 +112,9 @@ try {
 }
 
 // 5. The timeout: a document with many features takes seconds, so a 1 s limit stops it.
+// Reading is Python, so the interrupt stops it and the worker thread is kept; validation
+// spends most of its time in lxml's C code (schematron), which finishes its step first,
+// so past the grace period its thread may be replaced instead.
 const slowDoc = (() => {
   const parts = ['<?xml version="1.0"?>\n<Diggs xmlns="http://diggsml.org/schemas/2.6" xmlns:gml="http://www.opengis.net/gml/3.2">\n'];
   for (let i = 1; i <= 40000; i++) {
@@ -114,13 +132,22 @@ const timed = new PydiggsNode({
 });
 try {
   await timed.ready;
+  assert.equal(timed.interruptible, true);
+  const sample = () => readFileSync(join(here, "fixtures", FIXTURES[0]));
+  const slowRead = timed.read(slowDoc, { name: "slow.xml" });
+  const afterRead = timed.validate(sample(), { name: FIXTURES[0] });
+  await assert.rejects(slowRead, (error) => error.code === "timeout");
+  assert.equal(timed.restarts, 0, "an interrupted read keeps its worker thread");
+  assert.deepEqual(await afterRead, JSON.parse(goldens[FIXTURES[0]]));
+  console.log(`ok  a read past timeoutMs was interrupted; the same thread answered the next document (${elapsed()})`);
+
   const slow = timed.validate(slowDoc, { name: "slow.xml" });
-  const after = timed.validate(readFileSync(join(here, "fixtures", FIXTURES[0])), { name: FIXTURES[0] });
+  const after = timed.validate(sample(), { name: FIXTURES[0] });
   await assert.rejects(slow, (error) => error.code === "timeout");
-  console.log(`ok  a ${(slowDoc.byteLength / MiB).toFixed(1)} MiB document past timeoutMs fails with code "timeout" (${elapsed()})`);
+  console.log(`ok  a ${(slowDoc.byteLength / MiB).toFixed(1)} MiB validation past timeoutMs fails with code "timeout" (${elapsed()})`);
   assert.deepEqual(await after, JSON.parse(goldens[FIXTURES[0]]));
   assert.equal(timed.status, "ready");
-  console.log(`ok  the next document ran on a fresh worker thread and equals CPython's (${elapsed()})`);
+  console.log(`ok  the next document equals CPython's (${timed.restarts === 0 ? "same thread" : "fresh thread"}, ${elapsed()})`);
 } finally {
   timed.terminate();
 }
