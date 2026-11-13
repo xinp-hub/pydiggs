@@ -52,7 +52,7 @@ Without installing it first, [uv](https://docs.astral.sh/uv/) can fetch and run 
 }
 ```
 
-Pin a version (`pydiggs[mcp]==1.8.0`) for a repeatable setup. The exact file and key
+Pin a version (`pydiggs[mcp]==1.9.0`) for a repeatable setup. The exact file and key
 names depend on the host; check its documentation for "MCP servers" or "stdio servers".
 
 Options go after `--mcp`:

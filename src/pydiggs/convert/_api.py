@@ -26,6 +26,7 @@ from pydiggs.convert._ledger import RULES
 from pydiggs.convert._mapping import MappingTable, load_mapping
 from pydiggs.convert._to_model import Built, Origin, components_of, drop, map_file
 from pydiggs.findings.model import Finding, Report, Severity, Step, StepStatus
+from pydiggs.findings.run import DEFAULT_MAX_BYTES as XML_MAX_BYTES
 from pydiggs.findings.run import validate_bytes
 from pydiggs.model import Model
 
@@ -41,6 +42,9 @@ DEFAULT_MAX_BYTES: Final = 100 * 1024 * 1024
 _NAME_SEPARATORS: Final = re.compile(r"[/\\]")
 _CONTROL: Final = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_NAME_CHARS: Final = 255
+#: The budget passed on once the time budget is spent: the readers take only a positive
+#: one, and this one runs out at their first look at the clock.
+_SPENT: Final = 1e-9
 #: Where the writer names the node it refuses: ``<Element> '<key>'`` at the start.
 _REFUSED: Final = re.compile(r"^[A-Za-z][\w.-]* '((?:[^'\\]|\\.)*)'")
 
@@ -59,7 +63,8 @@ class Conversion:
     written by default; ``lossless`` is True when there are none. ``validation`` is
     :func:`pydiggs.validate_bytes` on ``xml`` (None when not asked for). ``trace`` maps a
     node's key in ``model`` to the AGS4 row it came from. ``complete`` is False when a
-    size or time limit stopped reading or converting; the output is then partial.
+    size or time limit stopped reading, converting or reading back: ``xml`` or ``model``
+    is then partial (see ``time_budget`` of :func:`ags4_to_diggs`).
     """
 
     xml: bytes
@@ -196,9 +201,18 @@ def ags4_to_diggs(
         name: A file name to report for bytes, a stream or a ``File``.
         encoding: As for :func:`pydiggs.ags4.read`.
         max_bytes: As for :func:`pydiggs.ags4.read`.
-        time_budget: Seconds for reading and converting; when they run out the output
-            holds what was converted, ``complete`` is False and ``convert.incomplete``
-            says so.
+        time_budget: Seconds for the whole call, measured from its start: reading,
+            converting, validating and reading back are each given what is left. When
+            it runs out while reading or converting, ``xml`` holds what was converted
+            and ``convert.incomplete`` (or an ``ags4`` note) says what was not; while
+            validating, ``validation`` has a ``structure.timeout`` error, as
+            :func:`pydiggs.validate_bytes` gives; while reading back, ``model`` holds
+            the members read so far (``model.complete`` is False, with a
+            ``structure.timeout`` note) while ``xml`` stays whole. ``complete`` is False
+            in every case but a validation timeout (check ``validation`` for that).
+            Writing the XML is not stopped part way (it runs to its end), and none of
+            the steps can interrupt a running libxml2 call, so the call can overrun
+            the budget by up to one write and one such call.
 
     Returns:
         The :class:`Conversion`.
@@ -228,16 +242,20 @@ def ags4_to_diggs(
     mapping: MappingTable = load_mapping()
     shown = _shown(name) or (file.source.name if file.source else None) or _DEFAULT_NAME
     deadline = None if time_budget is None else started + time_budget
+
+    def left() -> float | None:
+        return None if deadline is None else max(deadline - time.monotonic(), _SPENT)
+
     if not file.groups:  # pragma: no cover - the reader refuses a file with no group
         raise ValueError("an AGS4 file with no group cannot be converted")
     built = map_file(file, mapping, name=shown, deadline=deadline, clock=time.monotonic)
     xml, built = _write(built, diggs_version)
-    complete = file.complete and built.complete
+    limit = max(len(xml), XML_MAX_BYTES)  # pyDIGGS's own XML, often ~19x the input
     findings = built.ledger.findings()
     stem = shown.rsplit(".", 1)[0] or "output"
     validation = None
     if validate:
-        validation = validate_bytes(xml, name=f"{stem}.xml")
+        validation = validate_bytes(xml, name=f"{stem}.xml", max_bytes=limit, time_budget=left())
     report = Report(
         path=shown,
         sha256=_sha256(file),
@@ -250,7 +268,8 @@ def ags4_to_diggs(
         tool_version=pydiggs.__version__,
         format="ags4",
     )
-    model = read_model(xml, name=f"{stem}.xml")
+    model = read_model(xml, name=f"{stem}.xml", max_bytes=limit, time_budget=left())
+    complete = file.complete and built.complete and model.complete
     trace = {key: origin for key, origin in built.trace.items() if model.get(key) is not None}
     return Conversion(
         xml=xml,

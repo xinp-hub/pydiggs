@@ -8,6 +8,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **`pydiggs.capabilities()`: what this pyDIGGS can do, machine-readable.** It returns a
+  `Capabilities` with one `Operation` per thing pyDIGGS offers (`validate`, `read`,
+  `detect`, `rules.list`, `rules.explain`, `ags4.read`, `ags4.write`, `ags4.check`,
+  `convert.ags4-to-diggs`, `export.pandas`, `export.polars`, `gis.transform`,
+  `export.geodataframe`, `export.gpkg`, `export.geoparquet`, `export.geojson`): its
+  stability (`stable`, `preview` or `experimental`; the AGS4 and conversion operations
+  are `preview`), inputs and outputs
+  (`diggs-3.0.0`, `ags4-4.1.1`, `diggs-findings-1.1`, `diggs-model-1.0`, media types),
+  its options as `OptionSpec`s (type, default, choices, a plain-language label), the
+  extras it `needs`, and whether they are `available` here. Availability is found
+  without importing anything optional, so the same wheel answers correctly in Pyodide,
+  where only the core is installed. An app can build its menus from it instead of from
+  hand edits per release:
+
+  ```python
+  import pydiggs
+
+  for op in pydiggs.capabilities().operations:
+      print(op.id, op.stability, op.available)
+  ```
+
+  `Capabilities.to_dict()` is a **diggs-capabilities 1.0** document, with its JSON
+  Schema packaged (`pydiggs.capabilities_schema()`, `CAPABILITIES_SCHEMA_VERSION`,
+  `CAPABILITIES_SCHEMA_URL`) and published beside the findings and model schemas. The
+  same document is `pydiggs capabilities --json` on the command line (without `--json`,
+  a short table), `GET /v1/capabilities` on the HTTP server (off, like `/v1/versions`,
+  with `versions_enabled=False`), and the MCP server's new `pydiggs://capabilities`
+  resource. Every name is new; nothing existing changes.
+- **Plain-language rule guidance.** Every rule in `rule_catalogue()` and every id
+  `explain_rule()` knows now has `RuleInfo.guidance`, a new `Guidance` object (`title`,
+  `meaning`, `fix`, `locale`) written for geotechnical and geoenvironmental engineers who
+  are not DIGGS or XML specialists: `explain_rule("dictionary.5").guidance.title` is
+  `'Unknown code'`. The field defaults to `None` (an unknown id), so existing code that
+  builds a `RuleInfo` is unaffected, and `to_dict()` gains a `guidance` key. The common
+  `schema.cvc-*` rules have their own text; other family members get their family's. The
+  HTTP `/v1/rules` routes, the sidecar's `rules.*` methods and the MCP `explain_rule` and
+  `list_rules` tools return it too (`openapi.json` and `openrpc.json` add the optional
+  `guidance` property). Findings documents are unchanged and stay `diggs-findings` 1.1:
+  apps look guidance up by `rule_id`. Only English ships; a test fails if any rule lacks
+  guidance.
+
+## [1.9.0] - 2026-11-13
+
+### Added
 - **`pydiggs.ags4`: read and write AGS4 files** (the first part of AGS4 and DIGGS
   conversion). `ags4.read(path)` and `ags4.read_bytes(data)` return a `File` of `Group`
   tables (`name`, `headings`, `units`, `types`, `rows`, and for a group that was read
@@ -67,7 +112,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   The command takes `--format text|json|sarif`, `--output`, `--fail-on`,
   `--max-findings`, `--max-bytes` and `--time-budget`, with the exit codes of
-  `pydiggs validate`. `rule_catalogue()` and `explain_rule()` describe every new id.
+  `pydiggs validate`. In SARIF, a finding's place in the file is a logical location
+  (`locations[].logicalLocations[]`, with `fullyQualifiedName` such as `XTST/2` and
+  `kind` `element`); SARIF for DIGGS files is unchanged. `rule_catalogue()` and
+  `explain_rule()` describe every new id.
 - **diggs-findings 1.1**, which only adds to 1.0: the steps `ags4` and `convert`
   (`Step.AGS4`, `Step.CONVERT`; `validate()` never runs them), an optional
   `location.path` for a place in a source that is not XML (`Finding.path`, for AGS4
@@ -75,46 +123,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AGS4 file). The new schema is packaged and published as
   `diggs-findings-1.1.schema.json`; the 1.0 schema file is unchanged and still packaged
   and published, and every 1.0 document is a valid 1.1 document.
-- **`pydiggs.capabilities()`: what this pyDIGGS can do, machine-readable.** It returns a
-  `Capabilities` with one `Operation` per thing pyDIGGS offers (`validate`, `read`,
-  `detect`, `rules.list`, `rules.explain`, `ags4.read`, `ags4.write`, `ags4.check`,
-  `convert.ags4-to-diggs`, `export.pandas`, `export.polars`, `gis.transform`,
-  `export.geodataframe`, `export.gpkg`, `export.geoparquet`, `export.geojson`): its
-  stability (`stable`, `preview` or `experimental`; the AGS4 and conversion operations
-  are `preview`), inputs and outputs
-  (`diggs-3.0.0`, `ags4-4.1.1`, `diggs-findings-1.1`, `diggs-model-1.0`, media types),
-  its options as `OptionSpec`s (type, default, choices, a plain-language label), the
-  extras it `needs`, and whether they are `available` here. Availability is found
-  without importing anything optional, so the same wheel answers correctly in Pyodide,
-  where only the core is installed. An app can build its menus from it instead of from
-  hand edits per release:
-
-  ```python
-  import pydiggs
-
-  for op in pydiggs.capabilities().operations:
-      print(op.id, op.stability, op.available)
-  ```
-
-  `Capabilities.to_dict()` is a **diggs-capabilities 1.0** document, with its JSON
-  Schema packaged (`pydiggs.capabilities_schema()`, `CAPABILITIES_SCHEMA_VERSION`,
-  `CAPABILITIES_SCHEMA_URL`) and published beside the findings and model schemas. The
-  same document is `pydiggs capabilities --json` on the command line (without `--json`,
-  a short table), `GET /v1/capabilities` on the HTTP server (off, like `/v1/versions`,
-  with `versions_enabled=False`), and the MCP server's new `pydiggs://capabilities`
-  resource. Every name is new; nothing existing changes.
-- **Plain-language rule guidance.** Every rule in `rule_catalogue()` and every id
-  `explain_rule()` knows now has `RuleInfo.guidance`, a new `Guidance` object (`title`,
-  `meaning`, `fix`, `locale`) written for geotechnical and geoenvironmental engineers who
-  are not DIGGS or XML specialists: `explain_rule("dictionary.5").guidance.title` is
-  `'Unknown code'`. The field defaults to `None` (an unknown id), so existing code that
-  builds a `RuleInfo` is unaffected, and `to_dict()` gains a `guidance` key. The common
-  `schema.cvc-*` rules have their own text; other family members get their family's. The
-  HTTP `/v1/rules` routes, the sidecar's `rules.*` methods and the MCP `explain_rule` and
-  `list_rules` tools return it too (`openapi.json` and `openrpc.json` add the optional
-  `guidance` property). Findings documents are unchanged and stay `diggs-findings` 1.1:
-  apps look guidance up by `rule_id`. Only English ships; a test fails if any rule lacks
-  guidance.
 - **Preview: AGS4 to DIGGS conversion** (`pydiggs.preview.convert`, outside Semantic
   Versioning). `convert.ags4_to_diggs(source)` reads an AGS4 file (a path, bytes, a
   stream or an `ags4.File`), writes a DIGGS 3.0.0 document and returns a `Conversion`:
@@ -146,7 +154,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for its element, grid coordinates only in the unit of their CRS's axes, and nothing is
   converted numerically; codes and grid references are mapped only where the bundled
   DIGGS code lists support them; nothing the file names is opened; and the same file
-  always gives the same bytes.
+  always gives the same bytes. `max_bytes` limits the AGS4 input only: the DIGGS XML,
+  often many times larger, is read back and validated whatever its size.
+  `time_budget` is seconds for the whole call (reading, converting, validating and
+  reading back each get what is left). When it runs out, `complete` is False and the
+  output is partial (`convert.incomplete` names what was not converted, or `model`
+  holds the members read back so far), except during validation, which gives
+  `validation` a `structure.timeout` error instead. Writing the XML and a running
+  libxml2 call are not interrupted, so the call can overrun the budget by that much.
 - **The AGS4 to DIGGS mapping table** (version 0.1), data that can be reviewed and
   corrected: `src/pydiggs/convert/mappings/` (`ags4-diggs.toml`, `units.toml`,
   `codes.toml`), with its own JSON Schema (`convert-mapping-1.schema.json`) and a
@@ -908,7 +923,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/xinp-hub/pydiggs/compare/v1.5.0...v1.6.0

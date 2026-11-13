@@ -4,6 +4,10 @@ import { test } from "node:test";
 import { PYDIGGS_WHEEL, PYODIDE_VERSION } from "../src/generated/pins.ts";
 import { CACHE_NAME, cachePydiggs, type ServiceWorkerScopeLike } from "../src/sw.ts";
 
+// A pyDIGGS release PR bumps PYDIGGS_VERSION before that release is on PyPI, so no
+// wheel is pinned (PYDIGGS_WHEEL is null) until scripts/follow-pydiggs.mjs pins it.
+const UNPINNED = "no pyDIGGS wheel is pinned yet (scripts/follow-pydiggs.mjs pins it once the release is on PyPI)";
+
 // A service worker scope with an in-memory Cache API and a network that counts requests.
 function scope(network: Record<string, () => Response>) {
   const stores = new Map<string, Map<string, Response>>([["pydiggs-pyodide-0-pydiggs-0", new Map()], ["app", new Map()]]);
@@ -55,7 +59,7 @@ function scope(network: Record<string, () => Response>) {
 
 const CDN = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 
-test("Pyodide's files and the wheel are fetched once, then served from the cache", async () => {
+test("Pyodide's files and the wheel are fetched once, then served from the cache", { skip: PYDIGGS_WHEEL ? false : UNPINNED }, async () => {
   const wasm = `${CDN}pyodide.asm.wasm`;
   const { fake, fire, fetched } = scope({ [wasm]: () => new Response("wasm"), [PYDIGGS_WHEEL!.url]: () => new Response("whl") });
   const routes = cachePydiggs(fake);
@@ -99,7 +103,7 @@ test("activate deletes older pydiggs caches and nothing else", async () => {
   assert.deepEqual([...stores.keys()].sort(), ["app"]);
 });
 
-test("precache downloads the core files, the packages with their dependencies, and the wheel", async () => {
+test("precache downloads the core files, the packages with their dependencies, and the wheel", { skip: PYDIGGS_WHEEL ? false : UNPINNED }, async () => {
   const lock = {
     packages: {
       lxml: { file_name: "lxml.whl", depends: ["six"] },

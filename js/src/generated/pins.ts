@@ -5,12 +5,12 @@ export const PYODIDE_VERSION: string = "314.0.7";
 /** Subresource Integrity hash of that release's pyodide.mjs loader. */
 export const PYODIDE_SRI: string = "sha384-Lp79fMwxa4n2BLtugpUAoQMlbxIdg8iCUiP1r3h7nJLkQjwlXT1JzZTeHVL+f4Dg";
 /** The pydiggs release the worker installs from PyPI unless given a wheel URL. */
-export const PYDIGGS_VERSION: string = "1.8.0";
+export const PYDIGGS_VERSION: string = "1.9.0";
 /**
  * The published wheel of PYDIGGS_VERSION and its sha256, from PyPI; null until
  * js/pydiggs-wheel.json names that version (then micropip installs it by version).
  */
-export const PYDIGGS_WHEEL: { url: string; sha256: string } | null = { url: "https://files.pythonhosted.org/packages/da/21/a1adff1b3ca99e5be89868e90a8fd500e7665c5be35a24f10612991df166/pydiggs-1.8.0-py3-none-any.whl", sha256: "bb6434633aac06248cdcb364fcb6d1f2a87e15905aa8d6dd09809a2d67ba0cac" };
+export const PYDIGGS_WHEEL: { url: string; sha256: string } | null = null;
 /** Largest document the worker accepts, in bytes, unless configured lower. */
 export const DEFAULT_MAX_BYTES: number = 25 * 1024 * 1024;
 /** The diggs-findings schema these types were generated from. */

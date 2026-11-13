@@ -64,3 +64,8 @@ def __getattr__(name: str) -> Any:
         )
         return _DEPRECATED[name]
     raise AttributeError(f"module 'pydiggs.preview' has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    """The module's names and the deprecated ones, so ``dir()`` lists them until 2.0."""
+    return sorted({*globals(), *_DEPRECATED})

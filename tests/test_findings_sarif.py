@@ -149,3 +149,26 @@ def test_one_run_per_layer():
     assert [r["properties"]["layer"] for r in log["runs"]] == ["native", "official"]
     assert [len(r["results"]) for r in log["runs"]] == [1, 1]
     assert _report(native).to_sarif()["runs"][0]["results"][0]["ruleId"] == "schema.x"
+
+
+def test_an_ags4_path_is_a_logical_location_when_there_is_no_xpath():
+    tabular = Finding(
+        step="ags4", rule_id="ags4.rule-4", severity="error", message="", line=12, path="GEOL/3"
+    )
+    both = Finding(
+        step="ags4", rule_id="ags4.rule-4", severity="error", message="", xpath="/a[1]", path="X/1"
+    )
+    nowhere = Finding(step="ags4", rule_id="ags4.rule-4", severity="error", message="")
+    log = _sarif.sarif_log([_report(tabular, both, nowhere)], [], tool_version="1")
+    _validate(log)
+    located = {
+        json.dumps(r["locations"][0].get("logicalLocations")): r["locations"][0]
+        for r in log["runs"][0]["results"]
+    }
+    assert set(located) == {
+        json.dumps([{"fullyQualifiedName": "GEOL/3", "kind": "element"}]),
+        json.dumps([{"fullyQualifiedName": "/a[1]", "kind": "element"}]),  # xpath wins
+        "null",  # no place: no logical location
+    }
+    tabular_location = located[json.dumps([{"fullyQualifiedName": "GEOL/3", "kind": "element"}])]
+    assert tabular_location["physicalLocation"]["region"] == {"startLine": 12}
