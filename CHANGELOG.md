@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The source distribution holds only the Python package again. The 1.8.0 sdist also
+  carried the npm package's sources (`js/`), `.github/scripts` and an example script,
+  because its include patterns matched at any depth. The wheel was not affected.
+
 ## [1.8.0] - 2026-11-11
 
 ### Added
