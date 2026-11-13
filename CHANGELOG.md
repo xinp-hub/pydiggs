@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Validation is about a fifth faster on documents with many Schematron hits (40,000
+  boreholes: 3.4 s to 2.6 s), with the same findings byte for byte. Placing each
+  Schematron failure on its element evaluated rule contexts such as
+  `*[local-name()='X'][parent::*[local-name()='Y']]` as XPath over the whole document;
+  lxml's tag filter now finds the same elements, in the same order.
+
 ## [1.9.0] - 2026-11-13
 
 ### Added
