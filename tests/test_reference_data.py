@@ -122,3 +122,29 @@ def test_root_tree_rule_skips_excluded_dirs_and_listings():
     rule = next(r for r in sync.PACKAGE_TREES if r.source == "schema-dev")
     assert rule.src_dir == ""
     assert upstream.tree(rule) == ["Diggs.xsd", "LICENSE", "README.md", "core/Core.xsd"]
+
+
+@pytest.mark.skipif(not _SCRIPT.is_file(), reason="scripts/ is not in this tree")
+def test_tree_rule_leaves_unused_energistics_schemas_behind():
+    """DIGGS 2.6 does not import witsml/2.0/RemovedFromProfile; its unmodified
+    Energistics files must not be vendored (see REUSE.toml and NOTICE)."""
+    sync = _load_sync_module()
+    upstream = object.__new__(sync.Upstream)
+    upstream.key = "schemas"
+    upstream.commit = "0" * 40
+    upstream._blobs = dict.fromkeys(
+        [
+            "2.6/Diggs.xsd",
+            "2.6/witsml/2.0/data/witsml/v2.0/xsd_schemas/Log.xsd",
+            "2.6/witsml/2.0/RemovedFromProfile/Activities.xsd",
+            "2.6/witsml/2.0/RemovedFromProfileNot/Kept.xsd",
+        ],
+        "100644",
+    )
+    rule = next(r for r in sync.PACKAGE_TREES if r.dest == "schemas/diggs-schema-2.6")
+    assert upstream.tree(rule) == [
+        "Diggs.xsd",
+        "witsml/2.0/RemovedFromProfileNot/Kept.xsd",
+        "witsml/2.0/data/witsml/v2.0/xsd_schemas/Log.xsd",
+    ]
+    assert not (_PKG / "schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile").exists()

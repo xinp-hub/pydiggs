@@ -16,6 +16,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+# ...but the npm package's Next.js test app keeps its React hook in lib/.
+!js/e2e-next/lib/
 lib64/
 parts/
 sdist/

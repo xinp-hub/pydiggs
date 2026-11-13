@@ -7,6 +7,12 @@ export interface RuntimeVersions {
   lxml: string;
 }
 
+/**
+ * What the worker is doing while it loads, in order: downloading and starting the
+ * Python runtime, loading lxml, installing pydiggs, compiling its schemas.
+ */
+export type LoadStage = "runtime" | "packages" | "pydiggs" | "warm-up";
+
 /** page -> worker, once, before anything else. */
 export interface InitMessage {
   type: "init";
@@ -16,6 +22,12 @@ export interface InitMessage {
   pydiggsWheelUrl?: string;
   /** Largest document accepted, in bytes. */
   maxBytes: number;
+  /** Node only: import specifier or file URL of Pyodide's `pyodide.mjs`. Default: "pyodide". */
+  pyodideModuleUrl?: string;
+  /** Node only: directory where Pyodide keeps the packages it downloads. */
+  packageCacheDir?: string;
+  /** Node only: path of a pure pydiggs wheel on disk, installed with no download. */
+  pydiggsWheelPath?: string;
 }
 
 /** page -> worker. `data` is transferred. */
@@ -30,6 +42,7 @@ export interface RequestMessage {
 
 /** worker -> page. */
 export type ReplyMessage =
+  | { type: "progress"; stage: LoadStage }
   | { type: "ready"; versions: RuntimeVersions }
   | { type: "failed"; message: string }
   | { id: number; type: "result"; document: unknown }

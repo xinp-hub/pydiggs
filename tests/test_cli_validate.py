@@ -155,6 +155,7 @@ def test_help_mentions_validate_and_legacy_commands_still_work(capsys):
     top_help = " ".join(capsys.readouterr().out.split())
     assert "pydiggs validate --help" in top_help
     assert "pydiggs serve --help" in top_help
+    assert "pydiggs ags4 check --help" in top_help
     with pytest.raises(SystemExit):
         main(["validate", "--help"])
     help_text = capsys.readouterr().out

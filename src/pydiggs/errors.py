@@ -55,14 +55,25 @@ class ResourceError(PydiggsError):
 
 
 class DocumentError(PydiggsError, ValueError):
-    """The bytes are not a readable DIGGS document (raised by the read API only).
+    """The bytes are not a readable document of the expected format (read APIs only).
 
-    ``kind`` says why: ``malformed`` (not well-formed XML), ``not-diggs`` (the root is
-    not a DIGGS ``Diggs`` element), ``unsafe-entity`` (the internal DTD declares an
-    entity whose value contains markup) or ``namespace-too-long`` (a namespace URI of
-    more than 1,024 characters). The set may grow in a minor release. ``finding`` is the
-    same ``structure.*`` finding :func:`pydiggs.validate` reports for that file. It is
-    also a :class:`ValueError`.
+    ``kind`` says why. From :func:`pydiggs.read`: ``malformed`` (not well-formed XML),
+    ``not-diggs`` (the root is not a DIGGS ``Diggs`` element), ``unsafe-entity`` (the
+    internal DTD declares an entity whose value contains markup) or
+    ``namespace-too-long`` (a namespace URI of more than 1,024 characters). From
+    :func:`pydiggs.ags4.read`: ``not-ags4`` (no AGS4 structure was found, or the content
+    is binary) or ``unsupported-version`` (an AGS 3 or older file). The set may grow in
+    a minor release. ``finding`` is the matching finding: for DIGGS the ``structure.*``
+    finding :func:`pydiggs.validate` reports for that file, for AGS4 an ``ags4.*``
+    finding. It is also a :class:`ValueError`.
+
+    Examples:
+        >>> from pydiggs import DocumentError, ags4
+        >>> try:
+        ...     ags4.read_bytes(b"not an AGS4 file")
+        ... except DocumentError as exc:
+        ...     print(exc.kind, exc.finding.rule_id)
+        not-ags4 ags4.rule-2
     """
 
     def __init__(self, kind: str, message: str, finding: Finding | None = None) -> None:

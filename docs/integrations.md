@@ -1,7 +1,7 @@
 # Choose an integration
 
 Every integration runs the same checks and returns the same
-[diggs-findings 1.0](findings.md) document, so you can start with one and move to
+[diggs-findings 1.1](findings.md) document, so you can start with one and move to
 another later. Pick by where your code runs:
 
 | You are building | Use | Install | Start it |

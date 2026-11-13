@@ -11,7 +11,8 @@
 
 A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 
-* Licensed under the Apache License 2.0
+* Licensed under the Apache License 2.0; see [Licence and use](https://xinp-hub.github.io/pydiggs/license/)
+  for redistribution, bundled third-party material and professional use
 * Documentation: [https://xinp-hub.github.io/pydiggs](https://xinp-hub.github.io/pydiggs)
 * GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
 * PyPI: [https://pypi.org/project/pydiggs](https://pypi.org/project/pydiggs)
@@ -23,6 +24,13 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
 
 * **Project lead:** Xin Peng (<xin_peng@outlook.com>)
 * **Contributor:** Asitha Senanayake (<asitha.senanayake@utexas.edu>)
+
+## Contributing
+
+Contributions are welcome under the project's Apache-2.0 licence, with each commit signed
+off (`git commit -s`) under the
+[Developer Certificate of Origin](https://developercertificate.org/). See
+[CONTRIBUTING.md](https://github.com/xinp-hub/pydiggs/blob/master/CONTRIBUTING.md).
 
 ## Features
 
@@ -41,7 +49,7 @@ A Python package for Data Interchange for Geotechnical and Geoenvironmental Spec
   `pydiggs.crs`, `pydiggs.frames` and `pydiggs.gis`.
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
-      JSON (diggs-findings 1.0) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)
+      JSON (diggs-findings 1.1) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)
     * Write validation errors to log files
     * Print validation errors directly to console
 * Command-line interface (CLI) for easy integration
@@ -130,7 +138,7 @@ validation.schematron_check()
 
 Every check at once, as machine-readable findings:
 ```bash
-# JSON (diggs-findings 1.0); exit 0 = no errors, 1 = errors, 2 = usage/unreadable input
+# JSON (diggs-findings 1.1); exit 0 = no errors, 1 = errors, 2 = usage/unreadable input
 pydiggs validate --format json "path/to/your/diggs_file.xml"
 
 # A whole folder as SARIF 2.1.0 for code-scanning tools

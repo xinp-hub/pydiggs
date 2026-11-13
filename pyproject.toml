@@ -9,9 +9,16 @@ dynamic = ["version"]
 description = "Offline validation for DIGGS geotechnical XML instances (XSD, dictionary, Schematron)."
 readme = "README.md"
 requires-python = ">=3.11"
-license = "Apache-2.0 AND MPL-2.0 AND MIT"
+license = "Apache-2.0 AND MPL-2.0 AND MIT AND LicenseRef-Energistics-PLA AND LicenseRef-POSC-LA AND LicenseRef-OGC-2001 AND LicenseRef-EPSG-TOU AND LicenseRef-DIGGS-Unstated AND LicenseRef-OASIS"
 license-files = [
   "LICENSE",
+  "NOTICE",
+  "LICENSES/LicenseRef-DIGGS-Unstated.txt",
+  "LICENSES/LicenseRef-EPSG-TOU.txt",
+  "LICENSES/LicenseRef-Energistics-PLA.txt",
+  "LICENSES/LicenseRef-OASIS.txt",
+  "LICENSES/LicenseRef-OGC-2001.txt",
+  "LICENSES/LicenseRef-POSC-LA.txt",
   "src/pydiggs/schemas/LICENSE",
   "src/pydiggs/dictionaries/NOTICE",
 ]
@@ -119,6 +126,9 @@ include = [
   "/README.md",
   "/CHANGELOG.md",
   "/LICENSE",
+  "/LICENSES",
+  "/NOTICE",
+  "/REUSE.toml",
   "/pyproject.toml",
 ]
 
@@ -173,6 +183,8 @@ module = [
   "pydiggs.__main__",
   "pydiggs._bundled",
   "pydiggs._geo_checks",
+  "pydiggs.ags4",
+  "pydiggs.ags4.*",
   "pydiggs._reader",
   "pydiggs._reader.*",
   "pydiggs._compat",
@@ -181,6 +193,8 @@ module = [
   "pydiggs._service",
   "pydiggs._versions",
   "pydiggs._views",
+  "pydiggs._writer",
+  "pydiggs._writer.*",
   "pydiggs.frames",
   "pydiggs.gis",
   "pydiggs.crs",

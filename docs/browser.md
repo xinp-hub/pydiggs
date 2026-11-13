@@ -60,7 +60,7 @@ Then it answers messages. Each request carries an `id` that its reply repeats:
 | page → worker | `{id, type: "validate", name, data}` with `data` an `ArrayBuffer` (transfer it) |
 | page → worker | `{id, type: "read", name, data}`: read the file instead (pydiggs 1.7.0 or later) |
 | worker → page | `{type: "ready", versions}` once loaded, or `{type: "failed", message}` |
-| worker → page | `{id, type: "result", document}`: a [diggs-findings 1.0](findings.md) document, or for `read` a [diggs-model 1.0](model.md) document |
+| worker → page | `{id, type: "result", document}`: a [diggs-findings 1.1](findings.md) document, or for `read` a [diggs-model 1.0](model.md) document |
 | worker → page | `{id, type: "error", message}`: refused (too large, gzip-compressed, not a DIGGS document, …) |
 
 `document` is exactly what `validate_bytes(data, name=name, max_bytes=25 MiB).to_json()`

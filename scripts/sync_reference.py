@@ -77,8 +77,8 @@ class TreeRule:
     """Mirror ``source:src_dir`` into ``dest``, relative to the package.
 
     Files under ``dest`` that upstream no longer has are deleted. ``src_dir`` ``""`` is
-    the repository root; ``exclude`` lists top-level directories under ``src_dir`` to
-    leave behind.
+    the repository root; ``exclude`` lists directories under ``src_dir`` (paths relative
+    to it, such as ``tools`` or ``witsml/2.0/RemovedFromProfile``) to leave behind.
     """
 
     source: str
@@ -100,7 +100,17 @@ class FileRule:
 
 PACKAGE_TREES = (
     TreeRule("schemas", "2.5.a", "schemas/diggs-schema-2.5.a", _SCHEMA_SUFFIXES, _SCHEMA_NAMES),
-    TreeRule("schemas", "2.6", "schemas/diggs-schema-2.6", _SCHEMA_SUFFIXES, _SCHEMA_NAMES),
+    # witsml/2.0/RemovedFromProfile holds unmodified Energistics schemas that DIGGS 2.6
+    # does not import. The Energistics Product License Agreement does not allow
+    # redistributing its files unmodified, and nothing needs them, so they stay behind.
+    TreeRule(
+        "schemas",
+        "2.6",
+        "schemas/diggs-schema-2.6",
+        _SCHEMA_SUFFIXES,
+        _SCHEMA_NAMES,
+        exclude=("witsml/2.0/RemovedFromProfile",),
+    ),
     TreeRule("schemas", "3.0.0", "schemas/diggs-schema-3.0.0", _SCHEMA_SUFFIXES, _SCHEMA_NAMES),
     # The schema-dev repository root is the schema tree; tools/ holds generator scripts.
     TreeRule(
@@ -138,6 +148,10 @@ PACKAGE_LOCAL = {
     "findings/diggs-findings-1.0.schema.json": (
         "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
     ),
+    "findings/diggs-findings-1.1.schema.json": (
+        "The diggs-findings 1.1 JSON Schema (adds the ags4 and convert steps, location.path "
+        "and files[].format): pyDIGGS's own output contract, not upstream data."
+    ),
     "sidecar/openrpc.json": (
         "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, "
         "generated from pydiggs.sidecar._protocol and drift-tested."
@@ -163,6 +177,10 @@ PACKAGE_LOCAL = {
     "_reader/aliases.toml": (
         "Element renames between DIGGS versions for the diggs-model reader, beyond the "
         "deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
+    ),
+    "_writer/layout-3.0.0.toml": (
+        "Element order of DIGGS 3.0.0 for the internal writer: generated from the bundled "
+        "XSDs by scripts/writer_layout.py (drift-tested)."
     ),
     "schematron/diggs_schematron_rules_2.6.sch": (
         "Adapted from DIGGSml/validation diggs_schematron_rules.sch for lxml (xslt1); "
@@ -379,7 +397,7 @@ class Upstream:
             name = rel.rsplit("/", 1)[-1]
             if any(part.startswith(".") for part in rel.split("/")):
                 continue
-            if rel.split("/", 1)[0] in rule.exclude:
+            if any(rel.startswith(f"{skip}/") for skip in rule.exclude):
                 continue
             if name.endswith(rule.suffixes) or name in rule.names:
                 found.append(rel)

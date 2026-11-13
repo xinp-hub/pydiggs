@@ -1,7 +1,8 @@
 // Pyodide smoke for the npm package's worker (js/src/worker-core.ts): drive it with the
 // messages a page sends, against the pinned Pyodide and the locally built wheel, and
 // check that
-//   - "init" with a wheel URL installs that wheel and reports the running versions;
+//   - "init" with a wheel URL installs that wheel, reports each load stage in order, and
+//     then the running versions;
 //   - every `validate` and `read` answer equals CPython's document (goldens from
 //     cases.py, same checkout), so the worker's Python glue adds and loses nothing;
 //   - `read` with results: false keeps the tables and drops their values;
@@ -49,9 +50,14 @@ const elapsed = () => `${((performance.now() - started) / 1000).toFixed(1)} s`;
 
 // The page's side: every reply in arrival order, and a promise for the next one.
 const replies = [];
+const stages = [];
 let wake = () => {};
 const handle = createWorkerCore({
   post: (message) => {
+    if (message.type === "progress") {
+      stages.push(message.stage);
+      return;
+    }
     replies.push(message);
     wake();
   },
@@ -78,6 +84,7 @@ handle({ type: "init", maxBytes: MAX_BYTES, pydiggsWheelUrl: `emfs:/smoke/${whee
 const ready = await reply(0);
 assert.equal(ready.type, "ready", `the worker did not load: ${ready.message}`);
 assert.deepEqual(ready.versions, { pyodide: facts.pyodide, pydiggs: wheelMatch[1], lxml: facts.lxml });
+assert.deepEqual(stages, ["runtime", "packages", "pydiggs", "warm-up"], "load stages out of order");
 console.log(`ok  ready: pyodide ${facts.pyodide}, pydiggs ${wheelMatch[1]}, lxml ${facts.lxml} (${elapsed()})`);
 
 // 2. Send everything at once, as a page may; the worker queues.

@@ -21,6 +21,11 @@ source = "local"
 note = "Element renames between DIGGS versions for the diggs-model reader, beyond the deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
 sha256 = "bb908f53cd8dc4c122a2c77a23450c0c3c509c0439508441af032ad0ab8a95bb"
 
+[files."_writer/layout-3.0.0.toml"]
+source = "local"
+note = "Element order of DIGGS 3.0.0 for the internal writer: generated from the bundled XSDs by scripts/writer_layout.py (drift-tested)."
+sha256 = "68b1383e102b616bfa5a20c6777ce99a93915cbe8840becff00dd4725a9363d1"
+
 [files."deprecation/DeprecationRegistry.xml"]
 source = "schemas"
 path = "deprecation/DeprecationRegistry.xml"
@@ -44,7 +49,7 @@ sha256 = "1a3b8d47e60365b09e2563138178153abd9be4b83d74b8c42157d355b5931e71"
 [files."dictionaries/NOTICE"]
 source = "local"
 note = "Licence notice for the DIGGSml/def dictionaries."
-sha256 = "d43b48db054d4dd7ef2e9875dc585738ea69711a340024595797c17e3db69160"
+sha256 = "7cb1df5685f3d35add7ee92a8c02814b2a33b929e60f457592f3533072d3676f"
 
 [files."dictionaries/codes/USCSSoilComponents.xml"]
 source = "def"
@@ -486,6 +491,11 @@ source = "local"
 note = "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
 sha256 = "8442ad9b40d927b9dcba6dccd70bff8da96b7c13c13cf7c9fc093f92fcb31246"
 
+[files."findings/diggs-findings-1.1.schema.json"]
+source = "local"
+note = "The diggs-findings 1.1 JSON Schema (adds the ags4 and convert steps, location.path and files[].format): pyDIGGS's own output contract, not upstream data."
+sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
+
 [files."model/diggs-model-1.0.schema.json"]
 source = "local"
 note = "The diggs-model JSON Schema (read API): pyDIGGS's own output contract, kept equal to the model classes by tests/test_read_preview.py."
@@ -680,136 +690,6 @@ sha256 = "8dc892cf28ca1f83b7bc5946d991e1604aa41012e6323fc0171c672d1c72e191"
 source = "schemas"
 path = "2.6/witsml/1.3.1.1/typ_quantityClass.xsd"
 sha256 = "b53985dbac1d283d2e9929a60e48724be8f161d0dbfb043b0461fbe183919ead"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/Activities.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/Activities.xsd"
-sha256 = "04e191fff6c5b18702ee59b1b2aefc2bbcc1a27e8622af2b083ef9e0afbaa2bb"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/Attachment.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/Attachment.xsd"
-sha256 = "2552d53115c5e6626f334f2eeabd8aa0c1b8344ab7ffe175c050cc01640fab77"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/BhaRun.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/BhaRun.xsd"
-sha256 = "96e12b644115620b9172fcfb4dc6c44995479e773d30be84dd8570e1ed281764"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/CRS.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/CRS.xsd"
-sha256 = "fce50ca95744ea98b19bf3e6511c31f39ee1349ce86ca88a4506b5d609afa414"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/CementJob.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/CementJob.xsd"
-sha256 = "8c3c0ced3063f3a68aff344b3ceafc2d0de85f704b8d6539273a2ac011ea370a"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/DepthRegImage.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/DepthRegImage.xsd"
-sha256 = "d041965b656603269ab8636ff6f41f07a73597307fef0de0d7610544932c21ed"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/DownholeComponent.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/DownholeComponent.xsd"
-sha256 = "6acce0da35ac1d5c03e436be4ea1f16e0f888e3c074acbf055548c68d97d6053"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/DrillReport.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/DrillReport.xsd"
-sha256 = "bdcb6828674d580341e1e8ff757b15684cf8c0cb888fa62bbf1719d8000ac683"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/FluidsReport.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/FluidsReport.xsd"
-sha256 = "fd3de0ccb9dafaefa7068517bf8aa8f1a0906852d0d257beb00ba3b0ebbd542d"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/GraphicalInformation.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/GraphicalInformation.xsd"
-sha256 = "fcd5b167d1f3a40e8025a6e25b252707c01e0990231b51a09d039562485a096c"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/MudLogReport.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/MudLogReport.xsd"
-sha256 = "53157899b25d22336c613b2a6170811eb71a4663ee38cd2ea2948059fd95eed4"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/OpsReport.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/OpsReport.xsd"
-sha256 = "656267be4b9fd834c5786553c8791ebae73f02a7dc93cc000159e077846b4257"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/Rig.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/Rig.xsd"
-sha256 = "c64c255d5312038d4a74b72b00df99bab091ccbc2c6b05ad8ea8af45f32765fc"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/Risk.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/Risk.xsd"
-sha256 = "911161dae44dfaa38e5875c82ca5d913f11a0f34c9955063b0c4bebfc302d596"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/StimJob.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/StimJob.xsd"
-sha256 = "3dbb25a2b19f05ef67e6a0cd4850036f7e4f415ddad1eddd1d3ac96b377f99cd"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/SurveyProgram.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/SurveyProgram.xsd"
-sha256 = "8653fd2eee5357e7093a0598ab33af76317f4fa4c0cb29cc18ce965c70f0eb68"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/ToolErrorModel.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/ToolErrorModel.xsd"
-sha256 = "b2ef24c570484a4cf799876a7e6ccf6fa94a6a961e313b4a235fed3176a61c1d"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/ToolErrorTermSet.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/ToolErrorTermSet.xsd"
-sha256 = "c244b03667b3d2c66a8784751b5a14948525b594f266005503cabd4fbfe48bf7"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/Well.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/Well.xsd"
-sha256 = "dcf44f41f41679647afc53c685821ad85eda0ac9600e5f1a2fcecf41da989b80"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/WellCMLedger.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/WellCMLedger.xsd"
-sha256 = "a5aa478a067aaa605a850996125c75d9f9ea9f7a049c1687bff21f817066626d"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/WellCompletion.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/WellCompletion.xsd"
-sha256 = "093cb79faae94704c5ddcc8b0fb582b97e321e90fee19529d15a8edf4d98eeee"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/Wellbore.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/Wellbore.xsd"
-sha256 = "6639ac31826d374fe700b301766c17670d41d4be32a192bb051a072e107777bb"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/WellboreCompletion.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/WellboreCompletion.xsd"
-sha256 = "71abc0fe09c2af917ba4f26377939245460d3cd7a2e583e84cfabc44bb44b7b9"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/WellboreGeology.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/WellboreGeology.xsd"
-sha256 = "3fc36dcd5b9a2a614501281cd62e35ef10872303a5657f0a9ef7cd77867f414a"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/WellboreGeometry.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/WellboreGeometry.xsd"
-sha256 = "57dbe060b077d15ace2187b1c9501f82293237fc4410c418593b131edff97e31"
-
-[files."schemas/diggs-schema-2.6/witsml/2.0/RemovedFromProfile/WellboreMarkers.xsd"]
-source = "schemas"
-path = "2.6/witsml/2.0/RemovedFromProfile/WellboreMarkers.xsd"
-sha256 = "18794f4594555f50eb08a0030a42ea9458c96b1b9b07b8a675471b69648bbde2"
 
 [files."schemas/diggs-schema-2.6/witsml/2.0/data/common/v2.1/xsd_schemas/Abstract.xsd"]
 source = "schemas"
@@ -1204,9 +1084,9 @@ sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "b4a271f81a019d4214f4907b65654d92f419d088fa7d968904c45fe373cf7768"
+sha256 = "d369ba541c0b75828cb3b75e1449749b53220df712ffa93eccb1f2eeabc8852c"
 
 [files."sidecar/openrpc.json"]
 source = "local"
 note = "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, generated from pydiggs.sidecar._protocol and drift-tested."
-sha256 = "c937da17b199f0e2435143e16cd424c015234cd65d8360aaa87b96b84e8b4055"
+sha256 = "a0606f1f6d99fd2f936b9a980f10c1a810887223bc1ee5dd5fa6a1eca624f972"

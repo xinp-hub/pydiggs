@@ -41,6 +41,26 @@ jobs:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
 
+  # Contributions come in under the Developer Certificate of Origin (CONTRIBUTING.md):
+  # every commit of a pull request needs a Signed-off-by line naming its author or
+  # committer. Dependabot's commits are exempt (EXEMPT_BOTS in the script). The script is
+  # standard-library Python reading git history: no token, so it works for forks.
+  dco:
+    name: DCO sign-off
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Every commit is signed off
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 .github/scripts/dco_check.py "$BASE_SHA" "$HEAD_SHA"
+
   lint:
     name: lint & types
     runs-on: ubuntu-latest
@@ -222,6 +242,12 @@ jobs:
       # sends, against the same Pyodide, wheel and goldens.
       - name: Smoke the npm package's worker in Pyodide
         run: node tests/pyodide/worker-smoke.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json"
+      # The npm package's Node side: PydiggsNode in a worker thread and the Fetch handler
+      # serving pyDIGGS's HTTP API, against the same Pyodide, wheel and goldens.
+      # With source maps on, as `next dev` runs Node: Pyodide must not find its folder from
+      # a stack trace, which source maps rewrite.
+      - name: Smoke the npm package's Node engine and HTTP handler in Pyodide
+        run: node --enable-source-maps tests/pyodide/node-smoke.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json"
 
   # The container image (docs/container.md), built from this checkout's wheel and uv.lock
   # for amd64 and loaded locally; nothing is pushed. It is run with the documented
@@ -330,7 +356,9 @@ jobs:
 
   # The conformance corpus (conformance/README.md): the vendored DIGGSml examples plus
   # external real-world files pinned by commit and sha256, each with an expected outcome.
-  # The test jobs check the vendored files; this job also fetches and checks the others.
+  # The test jobs check the vendored files; this job also fetches and checks the others,
+  # and the external AGS4 files, which it reads with pydiggs.ags4 against the python-ags4
+  # record (conformance/ags4-expected.toml).
   conformance:
     name: conformance corpus
     runs-on: ubuntu-latest
@@ -350,6 +378,37 @@ jobs:
         run: uv run --no-sync python scripts/conformance.py check
       - name: Compare every corpus file with the reader census in conformance/model.toml
         run: uv run --no-sync python scripts/conformance.py check --model
+      - name: Fetch the external AGS4 files (pinned commit, size and sha256 checked)
+        run: uv run --no-sync python scripts/conformance.py fetch --set ags4
+      - name: Compare every AGS4 file with the oracle record in conformance/ags4-expected.toml
+        run: uv run --no-sync python scripts/conformance.py check --set ags4
+      - run: uv sync
+      - name: Read every AGS4 file as the python-ags4 record says (a file not fetched fails)
+        env:
+          PYDIGGS_AGS4_CORPUS: required
+        run: uv run --no-sync pytest -q -p no:randomly --no-cov tests/test_ags4_read.py -k oracle
+
+  # The AGS4 reader's fuzz target (tests/test_ags4_hostile.py): random bytes, mixes of
+  # AGS4 pieces and mutations of the fixtures must each give a File or one of the two
+  # documented errors, and never anything else. The test jobs run it on a small budget;
+  # this job runs it alone on a large one.
+  ags4-fuzz:
+    name: ags4 fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - run: uv sync --all-groups --all-extras
+      - name: Fuzz the AGS4 reader
+        env:
+          PYDIGGS_FUZZ_EXAMPLES: "20000"
+        run: uv run --no-sync pytest -q -p no:randomly --no-cov tests/test_ags4_hostile.py
 
   # The npm package (js/): TypeScript types and clients for the contracts this repository
   # owns. Its types, pins and schema copies are generated from the JSON Schemas, the
@@ -384,10 +443,31 @@ jobs:
       - name: Check the packed tarball (publint, Are the Types Wrong)
         run: npm run lint:package
 
+  # The site is deployed from master by docs.yml, which is too late to learn that a page
+  # has a broken link. This builds it the same way on every pull request and publishes
+  # nothing.
+  docs:
+    name: docs build (strict)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.12"
+      - run: uv sync --group docs --group dev
+      - name: Build (strict, a broken link fails the build)
+        run: uv run --group docs mkdocs build --strict
+
   all-green:
     name: all green
     if: always()
-    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, js]
+    # dco is not listed yet: it reports on every pull request, and joins this list once a
+    # Dependabot pull request has passed it (plan risk R13).
+    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, ags4-fuzz, js, docs]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

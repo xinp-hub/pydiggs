@@ -77,7 +77,7 @@ def version_info() -> VersionInfo:
         >>> info.pydiggs_version == pydiggs.__version__, info.diggs_versions
         (True, ('2.5.a', '2.6', '3.0.0', '3.1-dev'))
         >>> info.findings_schema_version
-        '1.0'
+        '1.1'
     """
     import pydiggs  # noqa: PLC0415  # the package imports this module
     from pydiggs.detect import SCHEMA_PATHS  # noqa: PLC0415

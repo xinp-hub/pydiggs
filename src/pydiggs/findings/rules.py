@@ -288,6 +288,59 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     "context.xlink-remote-unresolved": "xlink:href into another document, not fetched or checked",
     SCHEMATRON_CASING_UNITS: "Casing outside diameter must exceed inside diameter (any unit)",
     SCHEMATRON_CASING_NUMERIC: "Casing diameters must be numeric",
+    # Notes of the AGS4 reader (pydiggs.ags4.read) and findings of the AGS4 checker
+    # (pydiggs.ags4.check); the constants live in pydiggs.ags4._parse and ._rules. Rule
+    # numbers follow section 4.1.1 of the AGS4 specification, Edition 4.2.
+    "ags4.rule-1": "AGS4 Rule 1: the file is ASCII text (a byte order mark is noted too)",
+    "ags4.rule-2": "AGS4 Rule 2: a file is made of groups, and every row belongs to one",
+    "ags4.rule-2a": "AGS4 Rule 2a: every row ends with CR LF",
+    "ags4.rule-2b": "AGS4 Rule 2b: a group has GROUP, HEADING, UNIT and TYPE rows, in that order",
+    "ags4.rule-3": "AGS4 Rule 3: every row starts with GROUP, HEADING, UNIT, TYPE or DATA",
+    "ags4.rule-4": "AGS4 Rule 4: a GROUP row holds one name; other rows match the HEADING row",
+    "ags4.rule-5": "AGS4 Rule 5: every field is in double quotes, a quote inside it doubled",
+    "ags4.duplicate-group": "A group name is used by more than one GROUP row (AGS4 read note)",
+    "ags4.encoding-assumed": "The file is not UTF-8 and was read as Windows-1252 (AGS4 read note)",
+    "ags4.version-unknown": "TRAN_AGS names an AGS4 version pyDIGGS does not know (AGS4 read note)",
+    "ags4.unsupported-version": "An AGS 3 or older file; pyDIGGS reads AGS4 only",
+    "ags4.limit": "Reading stopped at a work limit; the AGS4 file is incomplete (AGS4 read note)",
+    "ags4.timeout": "Reading or checking the AGS4 file did not finish within its time budget",
+    "ags4.rule-6": "AGS4 Rule 6: fields are separated by commas, with no line break in a value",
+    "ags4.rule-7": "AGS4 Rule 7: headings are in the order the data dictionary gives",
+    "ags4.rule-8": "AGS4 Rule 8: values are written as their TYPE (and a DT value as its UNIT)",
+    "ags4.rule-9": (
+        "AGS4 Rule 9: names come from the data dictionary or the DICT group; user-defined"
+        " headings go last"
+    ),
+    "ags4.rule-10a": "AGS4 Rule 10a: KEY headings are present and no two rows share KEY values",
+    "ags4.rule-10b": "AGS4 Rule 10b: REQUIRED headings are present and never null",
+    "ags4.rule-10c": "AGS4 Rule 10c: each row's KEY values match a row of its parent group",
+    "ags4.rule-11": "AGS4 Rule 11: a Record Link (RL) value is a GROUP name and KEY values",
+    "ags4.rule-11a": "AGS4 Rule 11a: TRAN_DLIM, when given, is one delimiter character",
+    "ags4.rule-11b": "AGS4 Rule 11b: TRAN_RCON, when given, is one concatenation character",
+    "ags4.rule-11c": "AGS4 Rule 11c: a record link refers to a row that is in the file",
+    "ags4.rule-13": "AGS4 Rule 13: the file has a PROJ group with exactly one DATA row",
+    "ags4.rule-14": "AGS4 Rule 14: the file has a TRAN group with exactly one DATA row",
+    "ags4.rule-15": "AGS4 Rule 15: a UNIT group lists every unit used (UNIT rows, PU values)",
+    "ags4.rule-16": "AGS4 Rule 16: an ABBR group defines every abbreviation used (PA values)",
+    "ags4.rule-16a": "AGS4 Rule 16a: each part of a combined abbreviation is defined in ABBR",
+    "ags4.rule-17": "AGS4 Rule 17: a TYPE group lists every data type used (TYPE rows, PT values)",
+    "ags4.rule-18": "AGS4 Rule 18: a DICT group defines the non-standard groups and headings",
+    "ags4.rule-18a": "AGS4 Rule 18a: user-defined headings are in the order the DICT group gives",
+    "ags4.rule-19": "AGS4 Rule 19: a group name is 1 to 4 uppercase letters and digits",
+    "ags4.rule-19a": "AGS4 Rule 19a: a heading is 1 to 9 uppercase letters, digits and underscores",
+    "ags4.rule-19b": (
+        "AGS4 Rule 19b: a heading starts with its group's name and an underscore, or is a"
+        " heading of the group it names"
+    ),
+    "ags4.rule-20": (
+        "AGS4 Rule 20: the FILE group lists the file sets named and gives file names (the"
+        " FILE folder is never opened)"
+    ),
+    "ags4.formula-text": "AGS4 text that a spreadsheet would read as a formula; kept as written",
+    "ags4.dictionary-not-checked": (
+        "No AGS4 data dictionary was supplied; the rules that need one checked only the"
+        " file's own DICT group"
+    ),
 }
 
 
@@ -438,6 +491,44 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     "geometry.crs-axis-order-suspect": _WARNING,
     "geometry.crs-unresolvable": _WARNING,
     "context.xlink-remote-unresolved": _INFO,
+    "ags4.rule-1": _ERROR,
+    "ags4.rule-2": _ERROR,
+    "ags4.rule-2a": _ERROR,
+    "ags4.rule-2b": _ERROR,
+    "ags4.rule-3": _ERROR,
+    "ags4.rule-4": _ERROR,
+    "ags4.rule-5": _ERROR,
+    "ags4.duplicate-group": _ERROR,
+    "ags4.encoding-assumed": _WARNING,
+    "ags4.version-unknown": _WARNING,
+    "ags4.unsupported-version": _ERROR,
+    "ags4.limit": _ERROR,
+    "ags4.timeout": _ERROR,
+    "ags4.rule-6": _ERROR,
+    "ags4.rule-7": _ERROR,
+    "ags4.rule-8": _ERROR,
+    "ags4.rule-9": _ERROR,
+    "ags4.rule-10a": _ERROR,
+    "ags4.rule-10b": _ERROR,
+    "ags4.rule-10c": _ERROR,
+    "ags4.rule-11": _ERROR,
+    "ags4.rule-11a": _ERROR,
+    "ags4.rule-11b": _ERROR,
+    "ags4.rule-11c": _ERROR,
+    "ags4.rule-13": _ERROR,
+    "ags4.rule-14": _ERROR,
+    "ags4.rule-15": _ERROR,
+    "ags4.rule-16": _ERROR,
+    "ags4.rule-16a": _ERROR,
+    "ags4.rule-17": _ERROR,
+    "ags4.rule-18": _ERROR,
+    "ags4.rule-18a": _ERROR,
+    "ags4.rule-19": _ERROR,
+    "ags4.rule-19a": _ERROR,
+    "ags4.rule-19b": _ERROR,
+    "ags4.rule-20": _ERROR,
+    "ags4.formula-text": _WARNING,
+    "ags4.dictionary-not-checked": _INFO,
 }
 #: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
 #: keeps them equal): only they can be ``incomplete``.

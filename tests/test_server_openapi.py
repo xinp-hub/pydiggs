@@ -96,7 +96,7 @@ def test_a_mounted_router_publishes_a_self_contained_document():
     for ref in set(_refs(document)):
         _resolves(document, ref)  # no dangling DiggsFindings* reference
     response = document["paths"]["/v1/validate"]["post"]["responses"]["200"]
-    assert response["content"]["application/json"]["schema"]["title"] == "diggs-findings 1.0"
+    assert response["content"]["application/json"]["schema"]["title"] == "diggs-findings 1.1"
     read = document["paths"]["/v1/read"]["post"]["responses"]["200"]
     assert read["content"]["application/json"]["schema"]["title"] == "diggs-model 1.0"
 

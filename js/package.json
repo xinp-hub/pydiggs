@@ -1,6 +1,6 @@
 {
   "name": "@pydiggs/client",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "TypeScript types and thin clients for pyDIGGS, the DIGGS geotechnical XML validator and reader: its HTTP API, and pydiggs itself in the browser on Pyodide. Not a JavaScript port.",
   "license": "Apache-2.0",
   "author": "Xin Peng",
@@ -23,10 +23,14 @@
   ],
   "type": "module",
   "sideEffects": [
-    "./dist/browser-worker.js"
+    "./dist/browser-worker.js",
+    "./dist/node-worker.js"
   ],
   "engines": {
     "node": ">=22"
+  },
+  "bin": {
+    "pydiggs-client": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -45,6 +49,14 @@
       "types": "./dist/browser.d.ts",
       "default": "./dist/browser.js"
     },
+    "./hybrid": {
+      "types": "./dist/hybrid.d.ts",
+      "default": "./dist/hybrid.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
     "./browser/worker": {
       "types": "./dist/browser-worker.d.ts",
       "default": "./dist/browser-worker.js"
@@ -61,6 +73,14 @@
     "lint:package": "publint --strict && attw --pack . --profile esm-only",
     "check": "npm run generate:check && npm run typecheck && npm test && npm run build && npm run lint:package",
     "prepublishOnly": "npm run check"
+  },
+  "peerDependencies": {
+    "pyodide": "314.0.7"
+  },
+  "peerDependenciesMeta": {
+    "pyodide": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

@@ -67,7 +67,7 @@ LABEL org.opencontainers.image.title="pydiggs" \
       org.opencontainers.image.source="https://github.com/xinp-hub/pydiggs" \
       org.opencontainers.image.url="https://xinp-hub.github.io/pydiggs/container/" \
       org.opencontainers.image.documentation="https://xinp-hub.github.io/pydiggs/container/" \
-      org.opencontainers.image.licenses="Apache-2.0 AND MPL-2.0 AND MIT" \
+      org.opencontainers.image.licenses="Apache-2.0 AND MPL-2.0 AND MIT AND LicenseRef-Energistics-PLA AND LicenseRef-POSC-LA AND LicenseRef-OGC-2001 AND LicenseRef-EPSG-TOU AND LicenseRef-DIGGS-Unstated" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"
 

@@ -17,6 +17,7 @@ from pydiggs.findings.keys import ConformanceKey, location_key
 
 __all__ = [
     "RULE_ID_PATTERN",
+    "FileFormat",
     "FileStatus",
     "Finding",
     "Layer",
@@ -58,7 +59,9 @@ class Step(StrEnum):
 
     The names follow DIGGSml/validation's steps (``DIGGS Structure``, ``Schema
     Location``, ``CodeType Validation`` ...), plus ``context`` for pydiggs's
-    cross-reference checks. New steps may be added in a minor release.
+    cross-reference checks. ``ags4`` (reading and checking an AGS4 file) and ``convert``
+    (what a conversion lost) are not validation steps: :func:`pydiggs.validate` never
+    runs them. New steps may be added in a minor release.
 
     Examples:
         >>> [s.value for s in Step][:4]
@@ -77,6 +80,8 @@ class Step(StrEnum):
     COORDINATE = "coordinate"
     DEPRECATION = "deprecation"
     CONTEXT = "context"
+    AGS4 = "ags4"
+    CONVERT = "convert"
 
     @property
     def order(self) -> int:
@@ -100,11 +105,16 @@ FileStatus = Literal["checked", "not-diggs"]
 Verdict = Literal[
     "valid", "valid-with-warnings", "not-valid", "partly-checked", "not-diggs", "unreadable"
 ]
+#: What kind of file a report is about (``files[].format``, diggs-findings 1.1).
+FileFormat = Literal["diggs", "ags4"]
 _STEP_STATUSES: Final = frozenset(get_args(StepStatus))
+_FILE_FORMATS: Final = frozenset(get_args(FileFormat))
+#: Longest ``Finding.path`` (the schema's ``maxLength``).
+MAX_PATH_CHARS: Final = 1024
 _FILE_STATUSES: Final = frozenset(get_args(FileStatus))
 
 #: Every rule id matches this; the part before the first dot is a :class:`Step` value.
-RULE_ID_PATTERN: Final = re.compile(r"^(?P<step>[A-Za-z]+)\.[A-Za-z0-9][A-Za-z0-9._-]*$")
+RULE_ID_PATTERN: Final = re.compile(r"^(?P<step>[A-Za-z][A-Za-z0-9]*)\.[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def is_valid_rule_id(rule_id: str, step: Step | str | None = None) -> bool:
@@ -135,7 +145,9 @@ class Finding:
     errors. ``xpath`` is the official ``diggs:get-path`` form
     (``/diggs:Diggs[1]/diggs:samplingFeature[2]``). ``gml_id`` is the ``gml:id`` of
     the nearest element at or above the problem. ``source_snippet`` is the offending
-    element's XML, only when snippets were asked for.
+    element's XML, only when snippets were asked for. ``path`` is the place in a source
+    that is not XML (diggs-findings 1.1): for AGS4, ``GROUP``, ``GROUP/row`` or
+    ``GROUP/row/HEADING``, with DATA rows counted from 1.
 
     Examples:
         >>> f = Finding(
@@ -152,6 +164,16 @@ class Finding:
         Traceback (most recent call last):
         ...
         ValueError: rule_id 'dictionary.5' is not a valid rule id for step 'schema'
+        >>> note = Finding(
+        ...     step="ags4",
+        ...     rule_id="ags4.rule-4",
+        ...     severity="error",
+        ...     message="A DATA row has fewer fields than the HEADING row.",
+        ...     line=12,
+        ...     path="GEOL/3",
+        ... )
+        >>> note.path
+        'GEOL/3'
     """
 
     layer: Layer = "native"
@@ -164,6 +186,7 @@ class Finding:
     xpath: str | None = None
     gml_id: str | None = None
     source_snippet: str | None = None
+    path: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "step", Step(self.step))
@@ -178,23 +201,25 @@ class Finding:
             raise TypeError(f"message must be str, got {type(self.message).__name__}")
         _positive("line", self.line)
         _positive("column", self.column)
-        for name in ("xpath", "gml_id", "source_snippet"):
+        for name in ("xpath", "gml_id", "source_snippet", "path"):
             value = getattr(self, name)
             if value is not None and not isinstance(value, str):
                 raise TypeError(f"{name} must be str or None, got {type(value).__name__}")
+        if self.path is not None and not 0 < len(self.path) <= MAX_PATH_CHARS:
+            raise ValueError(f"path must be 1 to {MAX_PATH_CHARS} characters or None")
 
     def conformance_key(self) -> ConformanceKey:
         """``(step, severity, location, rule_id)`` used to match findings across layers.
 
-        The location is ``"xpath:"`` plus the normalised xpath when there is one, else
-        ``"line:<n>"``, else ``"file"``. The message is deliberately left out.
+        The location is ``"xpath:"`` plus the normalised xpath when there is one. A
+        finding with no xpath but a ``path`` (a source that is not XML) has
+        ``"path:<path>"``, followed by ``";line:<n>"`` when the line is known. Otherwise
+        it is ``"line:<n>"``, else ``"file"``. The message is deliberately left out.
         """
-        return (
-            self.step.value,
-            self.severity.value,
-            location_key(self.xpath, self.line),
-            self.rule_id,
-        )
+        location = location_key(self.xpath, self.line)
+        if self.path is not None and not self.xpath:
+            location = f"path:{self.path}" if self.line is None else f"path:{self.path};{location}"
+        return (self.step.value, self.severity.value, location, self.rule_id)
 
     def sort_key(self) -> tuple[object, ...]:
         """Deterministic order within a file: step, line, column, severity, rule, xpath, text.
@@ -218,6 +243,8 @@ class Finding:
             self.gml_id or "",
             self.source_snippet is not None,
             self.source_snippet or "",
+            self.path is not None,
+            self.path or "",
         )
 
 
@@ -232,7 +259,9 @@ class Report:
     ``path`` is the path as reported: relative to the working directory when the file
     is under it, else the bare file name. ``absolute_path`` is only written out when
     asked for (``absolute_paths=True``). ``steps`` says what happened to each native
-    step, in pipeline order; ``findings`` are sorted deterministically.
+    step, in pipeline order; ``findings`` are sorted deterministically. ``format`` is
+    ``"diggs"`` unless the report is about an AGS4 file (``"ags4"``, diggs-findings 1.1),
+    which has no ``diggs_version``.
 
     Examples:
         >>> r = Report(
@@ -266,10 +295,15 @@ class Report:
     reference_data: Mapping[str, str] = field(default_factory=dict, hash=False)
     absolute_path: str | None = None
     status: FileStatus = "checked"
+    format: FileFormat = "diggs"
 
     def __post_init__(self) -> None:
         if self.status not in _FILE_STATUSES:
             raise ValueError(f"unknown file status {self.status!r}")
+        if self.format not in _FILE_FORMATS:
+            raise ValueError(f"unknown file format {self.format!r}")
+        if self.format == "ags4" and self.diggs_version is not None:
+            raise ValueError("an ags4 report has no diggs_version")
         if self.status == "not-diggs" and self.diggs_version is not None:
             raise ValueError("a not-diggs report has no diggs_version")
         steps = {Step(k): v for k, v in self.steps.items()}
@@ -337,7 +371,7 @@ class Report:
         return _json.file_entry(self, absolute_paths=absolute_paths)
 
     def to_document(self, *, absolute_paths: bool = False) -> dict[str, Any]:
-        """Return this report as a whole one-file ``diggs-findings`` 1.0 document.
+        """Return this report as a whole one-file ``diggs-findings`` 1.1 document.
 
         The dict form of :meth:`to_json`: dumping it with :func:`pydiggs.findings_json`'s
         settings gives the same bytes. :meth:`to_dict` is just its ``files[0]`` entry.
@@ -354,7 +388,7 @@ class Report:
             >>> from pydiggs import validate_bytes
             >>> doc = validate_bytes(b"<Diggs/>", name="a.xml").to_document()
             >>> doc["format"], doc["schema_version"], doc["files"][0]["path"]
-            ('diggs-findings', '1.0', 'a.xml')
+            ('diggs-findings', '1.1', 'a.xml')
         """
         from pydiggs.findings import _json  # noqa: PLC0415  # _json imports this module
 
@@ -365,7 +399,7 @@ class Report:
         )
 
     def to_json(self, indent: int | None = 2, *, absolute_paths: bool = False) -> str:
-        """A complete ``diggs-findings`` 1.0 JSON document for this one file.
+        """A complete ``diggs-findings`` 1.1 JSON document for this one file.
 
         The text form of :meth:`to_document`.
         """

@@ -7,6 +7,113 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`pydiggs.ags4`: read and write AGS4 files** (the first part of AGS4 and DIGGS
+  conversion). `ags4.read(path)` and `ags4.read_bytes(data)` return a `File` of `Group`
+  tables (`name`, `headings`, `units`, `types`, `rows`), with every value kept as the
+  text the file holds; `ags4.dumps(file)` and `ags4.write(file, path)` write one back the
+  same way every time (every field quoted, CR LF, groups in the order given), so a file
+  that follows the rules is written back byte for byte. `File` and `Group` have public
+  constructors, and `ags4.AGS_VERSIONS` lists the versions read and written (4.0.3 to
+  4.2). The module is new and nothing at the top level changes:
+
+  ```python
+  from pydiggs import ags4
+
+  f = ags4.read("site.ags")
+  f.version  # '4.1.1', from TRAN_AGS
+  f.groups["LOCA"].records()  # [{'LOCA_ID': 'BH01', ...}, ...]
+  f.notes  # what reading had to work around, as findings
+  ags4.write(f, "copy.ags")
+  ```
+
+  Reading is lenient, like `pydiggs.read`: a file that breaks the AGS4 rules still reads
+  and each workaround is a note (`ags4.rule-4` for a short row, `ags4.rule-5` for an
+  unquoted field, and so on; a missing UNIT or TYPE row is an empty `units` or `types`
+  and an `ags4.rule-2b` note, never a row invented, and `dumps` writes no row for it);
+  `DocumentError` (`kind` `not-ags4` or `unsupported-version`) is raised only when no
+  table can be built. Text is read as UTF-8, and as Windows-1252 with an
+  `ags4.encoding-assumed` warning when it is not.
+  Every file is treated as untrusted: size, groups, headings, rows, cells, value length
+  and time (`max_bytes`, `time_budget`) are limited, a limit gives a partial file with
+  `complete=False`, nothing a file names is opened, and there is no network access.
+  The reader is written for pyDIGGS from the published AGS4 rules, with no new
+  dependency; no AGS data dictionary or AGS example file is bundled, and pyDIGGS is not
+  an AGS-approved tool. Conversion follows.
+- **`pydiggs.ags4.check` and `pydiggs ags4 check`: the AGS4 rules as findings.**
+  `ags4.check(path_or_file, dictionary=None)` returns a `Report` (`format="ags4"`, step
+  `ags4`) with one rule id per rule of section 4.1.1 of the AGS4 specification, Edition
+  4.2 (`ags4.rule-1` to `ags4.rule-20`, including `2a`, `2b`, `10a` to `10c`, `11` to
+  `11c`, `16a`, `18a`, `19a`, `19b`), each with its line and its place in the file
+  (`Finding.path`, such as `LOCA/3/LOCA_TYPE`), plus `ags4.formula-text` (warning) for
+  text a spreadsheet would read as a formula. Messages name groups and headings, never a
+  value from the file. The rules that need the AGS4 data dictionary (7, 9, 10a, 10b,
+  10c, 18, and parts of 11c, 13, 14 and 19b) run for what the file's own DICT group
+  defines, and for standard groups only when you pass your own copy of the dictionary
+  with `dictionary=` (`--dictionary`); none is bundled, and an `ags4.dictionary-not-checked`
+  info finding says so. Rule 20's FILE folder is never opened. On the fixtures and the
+  14 BGS files python-ags4 checks in full, the rules that need no dictionary agree with
+  it, with two differences: pyDIGGS notes a UTF-8 byte order mark under Rule 1, and
+  reports a missing part of a combined abbreviation as Rule 16a where python-ags4 says
+  Rule 16.
+
+  ```console
+  $ pydiggs ags4 check site.ags --dictionary Standard_dictionary_v4_1_1.ags
+  site.ags: not-valid: 1 error(s), 0 warning(s), 0 info
+    site.ags:77: error ags4.rule-10a [XTST/2]: DATA row 2 of group XTST has the same KEY values as row 1.
+  ```
+
+  The command takes `--format text|json|sarif`, `--output`, `--fail-on`,
+  `--max-findings`, `--max-bytes` and `--time-budget`, with the exit codes of
+  `pydiggs validate`. `rule_catalogue()` and `explain_rule()` describe every new id.
+- **diggs-findings 1.1**, which only adds to 1.0: the steps `ags4` and `convert`
+  (`Step.AGS4`, `Step.CONVERT`; `validate()` never runs them), an optional
+  `location.path` for a place in a source that is not XML (`Finding.path`, for AGS4
+  `GROUP/row/HEADING`), and an optional `files[].format` (`Report.format`, `"ags4"` for an
+  AGS4 file). The new schema is packaged and published as
+  `diggs-findings-1.1.schema.json`; the 1.0 schema file is unchanged and still packaged
+  and published, and every 1.0 document is a valid 1.1 document.
+
+### Changed
+- **Contributions are signed off under the Developer Certificate of Origin.** Every commit
+  in a pull request needs a `Signed-off-by` line (`git commit -s`), checked by a new
+  `DCO sign-off` job; there is still no contributor licence agreement. The terms are in
+  the new `CONTRIBUTING.md`, and pull requests get a short checklist template.
+- **Licensing is now documented file by file.** A top-level `NOTICE` file lists the
+  attributions to keep when you redistribute pyDIGGS, including the bundled Energistics,
+  OGC and EPSG material that the licence metadata did not name before. The wheel ships it
+  with the third-party licence texts in `.dist-info/licenses/`. Every file in the
+  repository has its copyright and licence recorded in `REUSE.toml` (REUSE 3.3), checked
+  in CI. A new [Licence and use](https://xinp-hub.github.io/pydiggs/license/) page says
+  what you may do, what you must do when you redistribute, and what a pyDIGGS check does
+  and does not tell you about engineering data. The pyDIGGS licence is unchanged
+  (Apache-2.0).
+- **The package's licence metadata now names every licence it contains**:
+  `Apache-2.0 AND MPL-2.0 AND MIT AND LicenseRef-Energistics-PLA AND LicenseRef-POSC-LA
+  AND LicenseRef-OGC-2001 AND LicenseRef-EPSG-TOU AND LicenseRef-DIGGS-Unstated AND
+  LicenseRef-OASIS` (the container image label likewise, without the test-only OASIS
+  entry). If your SBOM or licence scanner allows only SPDX-listed licences, it will now
+  flag pyDIGGS for review; the terms behind each `LicenseRef-` are in `LICENSES/` and on
+  the [Licence and use](https://xinp-hub.github.io/pydiggs/license/) page, which now has
+  a checklist for products that include pyDIGGS. The units dictionary is now recorded as
+  containing Energistics definitions, as it says itself.
+- The 26 unused Energistics schemas in DIGGS 2.6's `witsml/2.0/RemovedFromProfile/` are no
+  longer bundled: DIGGS 2.6 does not import them, so validation is unchanged, and the
+  Energistics agreement does not allow redistributing them unmodified.
+- Findings documents now declare **diggs-findings 1.1**: `$schema` is the 1.1 URL and
+  `schema_version` is `"1.1"` (`FINDINGS_SCHEMA_URL`, `FINDINGS_SCHEMA_VERSION`,
+  `findings_schema()`, the HTTP API's OpenAPI document, the sidecar's OpenRPC document
+  and the MCP `outputSchema` follow). Nothing else in a document about DIGGS files
+  changes: the two new fields are written only for AGS4. If you check documents against
+  the 1.0 schema, move to the 1.1 schema, because the 1.0 schema accepts only its own
+  `$schema` URL:
+
+  ```python
+  jsonschema.validate(document, schema_1_0)  # 1.8.0
+  jsonschema.validate(document, pydiggs.findings_schema())  # 1.9.0
+  ```
+- `GET /v1/rules?step=` and the rule catalogue accept and list the `ags4` step.
+
 ### Fixed
 - The source distribution holds only the Python package again. The 1.8.0 sdist also
   carried the npm package's sources (`js/`), `.github/scripts` and an example script,

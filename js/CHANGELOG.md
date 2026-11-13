@@ -8,6 +8,75 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-12
+
+### Added
+
+- `PydiggsPool`: several engines (`PydiggsBrowser` or `PydiggsNode`) behind one
+  `validate` and `read`, each document going to the least busy engine; usable as
+  `PydiggsHybrid`'s `browser` and with `createPydiggsHandler`.
+- `pydiggs-client vendor <dir>`: assembles Pyodide, its packages and the pydiggs wheel
+  into one folder, every file checked against Pyodide's lock file, PyPI and the worker's
+  integrity hash, for self-hosting in a browser (`pyodideBaseUrl`) or as a complete
+  `packageCacheDir` for Node and serverless functions (`--packages-only`). Also
+  `vendor()` from `@pydiggs/client/node`.
+- Tested: self-hosted with no CDN allowed by the CSP, in Chromium, Firefox and WebKit;
+  the Vue recipe; the Node engine under Bun and Deno. The README has recipes for Vue,
+  serverless functions and batches.
+
+## [0.2.0] - 2026-11-12
+
+### Added
+
+- `@pydiggs/client/hybrid`: `PydiggsHybrid` runs each document in the browser when it
+  can and on your server when it cannot: the document is over `maxBrowserBytes`, the
+  worker failed to load or died on the document, or (with `whileLoading: "server"`) the
+  worker is still loading. Every result says where it ran and why. Without a `server`,
+  nothing is ever uploaded.
+- `@pydiggs/client/node`: `PydiggsNode` runs pyDIGGS in a Node worker thread on the
+  npm `pyodide` package (an optional peer dependency, pinned to `PYODIDE_VERSION`), with
+  `packageCacheDir`, `pydiggsWheelPath` and limits above 25 MiB up to
+  `ABSOLUTE_MAX_BYTES` (256 MiB, from measured memory use). A document that runs past
+  `timeoutMs` (default 60 s, as in pyDIGGS's server) stops its worker thread and fails
+  with `code: "timeout"` (504 from the handler); a fresh worker takes the documents
+  still waiting, and a worker that dies on a document is replaced the same way. `createPydiggsHandler` serves pyDIGGS's HTTP API (`/v1/validate`,
+  `/v1/read`, `/v1/readyz`) from it as a standard Fetch handler, for Next.js route
+  handlers, Hono, Bun, Deno and others.
+- `PydiggsBrowser`: a time limit, `timeoutMs` (default 120 s). A document that runs past
+  it, or kills the worker, fails alone (`code: "timeout"` or `"crashed"`) and a fresh
+  worker takes the documents still waiting, as in `PydiggsNode`. `PydiggsHybrid` sends
+  such a document to the server (`reason: "browser-timeout"` or `"browser-unavailable"`).
+  Documents now go to the worker one at a time; the worker already ran them one at a
+  time.
+- `PydiggsNode` tells Pyodide where it is installed, so it loads under
+  `node --enable-source-maps` and `next dev`, where Pyodide's own guess from a stack
+  trace pointed at its original sources.
+- Tested set-ups, with the packed package: Vite production builds in Chromium, Firefox
+  and WebKit; the Vite dev server; Next.js with Turbopack and with webpack, and `next
+  dev`, with `PydiggsNode` behind a route handler. The README has the configuration
+  each needs.
+- `PydiggsBrowser`: `onProgress` reports the load stages (`runtime`, `packages`,
+  `pydiggs`, `warm-up`), and `status` says whether the worker is loading, ready or failed.
+
+### Changed
+
+- The findings types follow **diggs-findings 1.1** (pyDIGGS 1.9.0), which only adds to
+  1.0: `DiggsFindingsStep` gains `"ags4"` and `"convert"`, a finding's `location` may
+  have a `path` (the place in a source that is not XML), and a file entry may have a
+  `format` (`"ags4"`; absent for DIGGS). A 1.0 document still fits the types.
+  `FINDINGS_SCHEMA_URL` is the 1.1 schema, shipped as
+  `@pydiggs/client/schemas/diggs-findings-1.1.schema.json`; the 1.0 schema file is still
+  shipped, unchanged. Code that switches over every `DiggsFindingsStep` needs the two new
+  cases.
+
+## [0.1.1] - 2026-11-11
+
+### Changed
+
+- Released by the repository's release workflow from a signed tag, staged on npm and
+  approved by a maintainer, where 0.1.0 was published by hand. The code is the same as
+  0.1.0.
+
 ## [0.1.0] - 2026-11-11
 
 ### Added

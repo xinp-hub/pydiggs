@@ -9,6 +9,6 @@ export const PYDIGGS_VERSION: string = "1.8.0";
 /** Largest document the worker accepts, in bytes, unless configured lower. */
 export const DEFAULT_MAX_BYTES: number = 25 * 1024 * 1024;
 /** The diggs-findings schema these types were generated from. */
-export const FINDINGS_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json";
+export const FINDINGS_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json";
 /** The diggs-model schema these types were generated from. */
 export const MODEL_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json";

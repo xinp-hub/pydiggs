@@ -1,0 +1,17 @@
+EPSG Dataset Terms of Use
+
+src/pydiggs/crs/epsg-subset.json holds facts (name, type, axis order, unit, datum,
+components) extracted unmodified from the EPSG Geodetic Parameter Dataset v12.029
+(2025-10-02) with PROJ 9.8.1.
+
+The EPSG Dataset is owned by the International Association of Oil & Gas Producers (IOGP)
+and is used under the EPSG Dataset Terms of Use:
+
+    https://epsg.org/terms-of-use.html
+
+That page is the authoritative text; it is not reproduced here. Among other things the
+terms require that IOGP's ownership of the dataset be acknowledged in any publication or
+transmission of it, and that anyone to whom it is provided be told of the terms. This
+file and the pyDIGGS NOTICE file do both. The full dataset is at https://epsg.org.
+
+The extract is not covered by the pyDIGGS Apache-2.0 licence.
