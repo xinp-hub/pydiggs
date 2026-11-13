@@ -332,11 +332,32 @@ function workerConstant(name, pattern) {
   return match[1];
 }
 
+// js/pydiggs-wheel.json pins the published wheel of PYDIGGS_VERSION by its sha256, so
+// the worker can check what it downloads. It is written after a pyDIGGS release, by
+// scripts/follow-pydiggs.mjs from PyPI's own record. Until it names PYDIGGS_VERSION
+// (between a pyDIGGS release PR and that update), the worker falls back to micropip,
+// which checks the wheel against PyPI's index instead.
+function pinnedWheel(pydiggs) {
+  const path = join(JS_ROOT, "pydiggs-wheel.json");
+  if (!existsSync(path)) return null;
+  const pin = JSON.parse(readFileSync(path, "utf8"));
+  if (pin.version !== pydiggs) return null;
+  const url = new URL(pin.url);
+  if (url.protocol !== "https:" || url.hostname !== "files.pythonhosted.org" || !url.pathname.endsWith(`/${pin.filename}`)) {
+    throw new Error("pydiggs-wheel.json: url must be the https://files.pythonhosted.org/ URL of its filename");
+  }
+  if (pin.filename !== `pydiggs-${pydiggs}-py3-none-any.whl` || !/^[0-9a-f]{64}$/.test(pin.sha256)) {
+    throw new Error("pydiggs-wheel.json: filename or sha256 is malformed");
+  }
+  return { url: pin.url, sha256: pin.sha256 };
+}
+
 function emitPins() {
   const pyodide = workerConstant("PYODIDE_VERSION", '"([0-9.]+)"');
   const sri = workerConstant("PYODIDE_SRI", '"(sha384-[A-Za-z0-9+/=]+)"');
   const pydiggs = workerConstant("PYDIGGS_VERSION", '"([0-9A-Za-z.+-]+)"');
   const maxBytes = workerConstant("MAX_BYTES", "(25 \\* 1024 \\* 1024)");
+  const wheel = pinnedWheel(pydiggs);
   return [
     HEADER(WORKER),
     "/** The Pyodide release this package is tested with. */",
@@ -345,6 +366,11 @@ function emitPins() {
     `export const PYODIDE_SRI: string = ${JSON.stringify(sri)};`,
     "/** The pydiggs release the worker installs from PyPI unless given a wheel URL. */",
     `export const PYDIGGS_VERSION: string = ${JSON.stringify(pydiggs)};`,
+    "/**",
+    " * The published wheel of PYDIGGS_VERSION and its sha256, from PyPI; null until",
+    " * js/pydiggs-wheel.json names that version (then micropip installs it by version).",
+    " */",
+    `export const PYDIGGS_WHEEL: { url: string; sha256: string } | null = ${wheel ? `{ url: ${JSON.stringify(wheel.url)}, sha256: ${JSON.stringify(wheel.sha256)} }` : "null"};`,
     "/** Largest document the worker accepts, in bytes, unless configured lower. */",
     `export const DEFAULT_MAX_BYTES: number = ${maxBytes};`,
     "/** The diggs-findings schema these types were generated from. */",

@@ -8,6 +8,47 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Added
+
+- The whole pyDIGGS API from JavaScript, without a server. The worker now runs every
+  request through pyDIGGS's own service layer, the one `pydiggs serve --http` uses, so
+  `PydiggsBrowser`, `PydiggsNode` and `PydiggsPool` take what the HTTP client takes:
+  `validate(doc, { checks, diggsVersion })`, `validateSarif(doc)` (a SARIF 2.1.0 log),
+  `read(doc, { diggsVersion, results })` where `results` may be `"all"`, `"none"` or a
+  list of node keys (reading the same file again for other tables is fast: pyDIGGS
+  keeps the last few models it read), `versions()`, `listRules({ step })` and
+  `explainRule(id)`. CI checks each answer against CPython's service layer.
+- `createPydiggsHandler` serves the full `/v1` API: `checks`, `diggs_version`, SARIF by
+  `Accept` (negotiated as pyDIGGS does), `select` with node keys, `/v1/versions`,
+  `/v1/rules` and `/v1/rules/{rule_id}`. Refusals are pyDIGGS's own problem documents,
+  with its `errors` and `kind`.
+- Errors carry `problem`: pyDIGGS's code (`invalid-document`, `invalid-parameter`,
+  `input-too-large`, ...), its fixed text, `errors` and `kind`.
+- Interrupting instead of restarting. Where memory can be shared with the worker (Node,
+  and pages served cross-origin isolated), a request past `timeoutMs`, or one whose
+  `signal` aborts, is stopped with Pyodide's interrupt buffer, and the worker is kept.
+  Reading, which is Python, stops at once; validation finishes the lxml step it is in
+  (schematron can take seconds), and a worker that has not stopped within
+  `interruptGraceMs` (default 2 s) is replaced as before. New: `interruptible`,
+  `restarts`.
+- `idleTimeoutMs`: stop an idle worker to give its memory back; the next request starts
+  it again. Status `"idle"`. Off by default.
+- `@pydiggs/client/sw`: `cachePydiggs(self)` in your own service worker keeps Pyodide's
+  files, lxml, micropip and the pydiggs wheel in the Cache API, so pyDIGGS loads and runs
+  offline after one visit (tested in Chromium). `precache: true` downloads everything at
+  install.
+
+### Changed
+
+- The worker installs the pinned pydiggs wheel itself and checks it against the sha256
+  PyPI published for it (`PYDIGGS_WHEEL`), instead of asking micropip to find the
+  release. A tampered or truncated wheel is refused, and the browser no longer contacts
+  `pypi.org`: the worker CSP needs only `cdn.jsdelivr.net` and `files.pythonhosted.org`.
+- `read`'s `results` option takes the HTTP client's values (`"all"`, `"none"`, a key
+  list); `true` and `false` still work. The worker protocol (internal) changed with it.
+- `PoolEngine` and the handler's `PydiggsEngine` include the new methods; an engine of
+  your own needs them too.
+
 ## [0.3.0] - 2026-11-12
 
 ### Added

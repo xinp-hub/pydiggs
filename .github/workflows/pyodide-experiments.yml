@@ -1,0 +1,81 @@
+# Experiments with the pinned Pyodide, run by hand; nothing here gates a merge. Each
+# writes its findings to the job summary:
+# - snapshot: can a memory snapshot shorten start-up, and does a restored interpreter
+#   still give CPython's answers (tests/pyodide/snapshot-probe.mjs);
+# - profile-read: where reading spends its time in Pyodide (tests/pyodide/profile-read.mjs);
+# - memory: WebAssembly memory for validate and read by document size
+#   (tests/pyodide/memory-probe.mjs).
+name: Pyodide experiments
+
+on:
+  workflow_dispatch:
+    inputs:
+      experiment:
+        description: Which experiment to run
+        type: choice
+        options: [all, snapshot, profile-read, memory]
+        default: all
+      mib:
+        description: Size of the synthetic document for profile-read, in MiB
+        type: string
+        default: "5"
+      sizes:
+        description: Sizes for memory, in MiB, comma-separated
+        type: string
+        default: "5,10,25"
+
+permissions:
+  contents: read
+
+jobs:
+  experiment:
+    name: ${{ inputs.experiment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EXPERIMENT: ${{ inputs.experiment }}
+      MIB: ${{ inputs.mib }}
+      SIZES: ${{ inputs.sizes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.14"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tests/pyodide/package-lock.json
+      - name: Install the pinned Pyodide (no install scripts)
+        working-directory: tests/pyodide
+        run: npm ci --ignore-scripts
+      - name: Check the inputs
+        run: |
+          set -euo pipefail
+          [[ "$MIB" =~ ^[0-9]{1,3}$ ]] || { echo "mib must be a whole number up to 999"; exit 1; }
+          [[ "$SIZES" =~ ^[0-9]{1,3}(,[0-9]{1,3}){0,9}$ ]] || { echo "sizes must be up to ten whole numbers"; exit 1; }
+      - name: Build the wheel and the CPython goldens
+        run: |
+          uv build --wheel
+          uv sync --no-dev
+          uv run --no-sync python tests/pyodide/cases.py "$RUNNER_TEMP/goldens.json"
+      - name: Memory snapshots
+        if: env.EXPERIMENT == 'all' || env.EXPERIMENT == 'snapshot'
+        run: node tests/pyodide/snapshot-probe.mjs --wheel dist/pydiggs-*-py3-none-any.whl --goldens "$RUNNER_TEMP/goldens.json" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Read profile
+        if: env.EXPERIMENT == 'all' || env.EXPERIMENT == 'profile-read'
+        run: node tests/pyodide/profile-read.mjs --wheel dist/pydiggs-*-py3-none-any.whl --mib "$MIB" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Memory by document size
+        if: env.EXPERIMENT == 'all' || env.EXPERIMENT == 'memory'
+        run: |
+          set -euo pipefail
+          {
+            echo "### WebAssembly memory by document size"
+            echo
+            echo '```text'
+            node tests/pyodide/memory-probe.mjs --wheel dist/pydiggs-*-py3-none-any.whl --sizes "$SIZES"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

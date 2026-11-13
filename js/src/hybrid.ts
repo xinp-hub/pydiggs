@@ -12,7 +12,7 @@ import { PydiggsError } from "./errors.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import { DEFAULT_MAX_BYTES } from "./generated/pins.ts";
-import type { PydiggsHttpClient } from "./http.ts";
+import type { DiggsVersion, PydiggsHttpClient, ValidateCheck } from "./http.ts";
 
 export { PydiggsError } from "./errors.ts";
 
@@ -63,11 +63,21 @@ export interface HybridRequestOptions {
   name?: string;
   /** Stops waiting for the answer. */
   signal?: AbortSignal;
+  /** DIGGS version to use. Default: detected. */
+  diggsVersion?: DiggsVersion;
+}
+
+export interface HybridValidateOptions extends HybridRequestOptions {
+  /** Steps to run. Default: all. */
+  checks?: readonly ValidateCheck[];
 }
 
 export interface HybridReadOptions extends HybridRequestOptions {
-  /** Whether result tables keep their values. Default: true. */
-  results?: boolean;
+  /**
+   * Which result tables keep their values: `"all"` (the default), `"none"`, or a list
+   * of node keys. `true` and `false` mean "all" and "none".
+   */
+  results?: boolean | "all" | "none" | readonly string[];
 }
 
 interface Decision {
@@ -124,8 +134,13 @@ export class PydiggsHybrid {
    * Validates a document where it can run. A malformed or invalid document is not an
    * error: it comes back as findings, with the verdict in `files[0].verdict`.
    */
-  validate(input: BrowserDocumentInput, options: HybridRequestOptions = {}): Promise<HybridResult<DiggsFindingsDocument>> {
-    const request = { name: nameOf(input, options), ...(options.signal ? { signal: options.signal } : {}) };
+  validate(input: BrowserDocumentInput, options: HybridValidateOptions = {}): Promise<HybridResult<DiggsFindingsDocument>> {
+    const request = {
+      name: nameOf(input, options),
+      ...(options.signal ? { signal: options.signal } : {}),
+      ...(options.checks ? { checks: options.checks } : {}),
+      ...(options.diggsVersion ? { diggsVersion: options.diggsVersion } : {}),
+    };
     return this.#run(
       input,
       options.signal,
@@ -140,14 +155,18 @@ export class PydiggsHybrid {
    * `PydiggsError`s.
    */
   read(input: BrowserDocumentInput, options: HybridReadOptions = {}): Promise<HybridResult<DiggsModelDocument>> {
-    const name = nameOf(input, options);
-    const signal = options.signal ? { signal: options.signal } : {};
-    const results = options.results ?? true;
+    const shared = {
+      name: nameOf(input, options),
+      ...(options.signal ? { signal: options.signal } : {}),
+      ...(options.diggsVersion ? { diggsVersion: options.diggsVersion } : {}),
+    };
+    const choice = options.results ?? "all";
+    const results = choice === true ? "all" : choice === false ? "none" : choice;
     return this.#run(
       input,
       options.signal,
-      () => this.#browser!.read(input, { name, results, ...signal }),
-      () => this.#server!.read(input, { name, results: results ? "all" : "none", ...signal }),
+      () => this.#browser!.read(input, { ...shared, results }),
+      () => this.#server!.read(input, { ...shared, results }),
     );
   }
 

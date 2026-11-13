@@ -27,6 +27,7 @@ pydiggs.ready.then(
   (versions) => {
     $("status").textContent = "ready";
     $("versions").textContent = JSON.stringify(versions);
+    $("interruptible").textContent = String(pydiggs.interruptible);
   },
   (error: unknown) => {
     $("status").textContent = "failed";

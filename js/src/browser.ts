@@ -6,7 +6,7 @@
 // it to the page with `textContent` or DOM nodes, never with `innerHTML`.
 
 import { DEFAULT_MAX_BYTES } from "./generated/pins.ts";
-import type { InitMessage, LoadStage } from "./protocol.ts";
+import type { InitMessage, LoadStage, ServiceProblem } from "./protocol.ts";
 import {
   type DocumentBytes,
   PydiggsWorkerError,
@@ -17,11 +17,25 @@ import {
   type WorkerReadOptions,
   type WorkerRequestOptions,
   type WorkerStatus,
+  type WorkerValidateOptions,
 } from "./worker-client.ts";
 
 export type { LoadStage, RuntimeVersions } from "./protocol.ts";
-export type { WorkerErrorCode, WorkerLike } from "./worker-client.ts";
-export { PydiggsWorkerError } from "./worker-client.ts";
+export type {
+  DiggsVersion,
+  RuleInfo,
+  RuleStep,
+  SarifLog,
+  ServiceProblem,
+  ValidateCheck,
+  Versions,
+  WorkerCallOptions,
+  WorkerErrorCode,
+  WorkerLike,
+  WorkerRulesOptions,
+  WorkerValidateOptions,
+} from "./worker-client.ts";
+export { canInterrupt, DEFAULT_INTERRUPT_GRACE_MS, PydiggsWorkerError } from "./worker-client.ts";
 export { PydiggsError } from "./errors.ts";
 export { defaultPoolSize, type PoolEngine, PydiggsPool, type PydiggsPoolOptions } from "./pool.ts";
 export { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYODIDE_SRI, PYODIDE_VERSION } from "./generated/pins.ts";
@@ -31,6 +45,7 @@ export type BrowserStatus = WorkerStatus;
 /** A DIGGS document held in the page. */
 export type BrowserDocumentInput = DocumentBytes;
 export type BrowserRequestOptions = WorkerRequestOptions;
+export type BrowserValidateOptions = WorkerValidateOptions;
 export type BrowserReadOptions = WorkerReadOptions;
 
 export interface PydiggsBrowserOptions {
@@ -65,11 +80,24 @@ export interface PydiggsBrowserOptions {
   onProgress?: (stage: LoadStage) => void;
   /**
    * Longest a document may run, in milliseconds, once the worker is loaded. Default:
-   * 120 000. Past it the worker is stopped and replaced (the browser keeps Pyodide in
-   * its cache, so the replacement loads in seconds), and the document fails with code
-   * "timeout". `0` or `Infinity` turns the limit off.
+   * 120 000. Past it the document fails with code "timeout". On a cross-origin isolated
+   * page the worker is interrupted first and kept if it stops within
+   * `interruptGraceMs`; otherwise it is replaced (the browser keeps Pyodide in its
+   * cache, so the replacement loads in seconds). `0` or `Infinity` turns the limit off.
    */
   timeoutMs?: number;
+  /**
+   * After a request runs past `timeoutMs`, how long to wait for the interrupted worker
+   * to stop before replacing it, in milliseconds. Default: 2 000. Only used where the
+   * worker can be interrupted (a page that is cross-origin isolated).
+   */
+  interruptGraceMs?: number;
+  /**
+   * Stop the worker after this long with nothing to do, in milliseconds, to give its
+   * memory back (about 90 MiB, more after a large document); the next request starts
+   * it again, from the browser's cache, in a few seconds. Default: `Infinity`, never.
+   */
+  idleTimeoutMs?: number;
 }
 
 /**
@@ -97,7 +125,10 @@ function absoluteUrl(url: string | URL): string {
  * One Web Worker running pydiggs, with a supervisor around it. Loading starts when it
  * is constructed and takes a few seconds; documents sent meanwhile wait for it.
  * Documents run one at a time. A document that runs past `timeoutMs`, or kills its
- * worker, fails alone: a fresh worker takes the documents still waiting.
+ * worker, fails alone, and the documents still waiting run. Serve the page cross-origin
+ * isolated (`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy:
+ * require-corp` or `credentialless`) and a long document, or an aborted one, is
+ * interrupted instead of costing a worker restart.
  */
 export class PydiggsBrowser extends SupervisedWorker {
   constructor(options: PydiggsBrowserOptions = {}) {
@@ -115,18 +146,20 @@ export class PydiggsBrowser extends SupervisedWorker {
       init.pydiggsWheelUrl = absoluteUrl(options.pydiggsWheelUrl);
     }
     const timeout = options.timeoutMs ?? DEFAULT_BROWSER_TIMEOUT_MS;
-    const makeError = (message: string, code?: WorkerErrorCode): PydiggsBrowserError =>
-      new PydiggsBrowserError(message, code);
+    const makeError = (message: string, code?: WorkerErrorCode, problem?: ServiceProblem): PydiggsBrowserError =>
+      new PydiggsBrowserError(message, code, problem);
     super({
       label: "PydiggsBrowser",
       timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : Number.POSITIVE_INFINITY,
       makeError,
+      ...(options.interruptGraceMs !== undefined ? { interruptGraceMs: options.interruptGraceMs } : {}),
+      ...(options.idleTimeoutMs !== undefined ? { idleTimeoutMs: options.idleTimeoutMs } : {}),
       start: () =>
         new WorkerClient({
           worker: create() as WorkerLike,
           init: { ...init },
           onProgress: options.onProgress,
-          makeError: (message) => makeError(message),
+          makeError: (message, problem) => makeError(message, undefined, problem),
         }),
     });
   }

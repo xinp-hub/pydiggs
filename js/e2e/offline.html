@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@pydiggs/client offline</title>
+  </head>
+  <body>
+    <main>
+      <h1>@pydiggs/client offline</h1>
+      <p>Service worker: <output id="sw">none</output></p>
+      <p>Worker: <output id="status">loading</output></p>
+      <label>DIGGS file <input id="file" type="file" accept=".xml" /></label>
+      <p>Result: <output id="result-status"></output></p>
+      <pre id="findings" hidden></pre>
+      <pre id="cached" hidden></pre>
+      <p><output id="error"></output></p>
+    </main>
+    <script type="module" src="/offline.ts"></script>
+  </body>
+</html>

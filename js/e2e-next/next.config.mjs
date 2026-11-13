@@ -13,7 +13,7 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 const workerCsp = [
   "default-src 'none'",
   "script-src 'self' blob: https://cdn.jsdelivr.net 'wasm-unsafe-eval'",
-  "connect-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org",
+  "connect-src 'self' https://cdn.jsdelivr.net https://files.pythonhosted.org",
 ].join("; ");
 
 /** @type {import("next").NextConfig} */

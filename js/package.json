@@ -61,6 +61,10 @@
       "types": "./dist/browser-worker.d.ts",
       "default": "./dist/browser-worker.js"
     },
+    "./sw": {
+      "types": "./dist/sw.d.ts",
+      "default": "./dist/sw.js"
+    },
     "./schemas/*.json": "./schemas/*.json",
     "./package.json": "./package.json"
   },

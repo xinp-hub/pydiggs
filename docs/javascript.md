@@ -62,15 +62,28 @@ const findings = await pydiggs.validate(file); // a File from an <input type="fi
 ```
 
 The worker is the one described in [Browser (Pyodide)](browser.md), packaged: the same
-pinned Pyodide and integrity check, the same 25 MiB limit, one request at a time. To keep
-every download on your own origin, pass `pyodideBaseUrl` and `pydiggsWheelUrl`. The
-[Content Security Policy](browser.md#content-security-policy) on that page applies
-unchanged.
+pinned Pyodide and integrity check, the same 25 MiB limit, one request at a time, and
+the pydiggs wheel checked against the sha256 PyPI published for it. To keep every
+download on your own origin, pass `pyodideBaseUrl` and `pydiggsWheelUrl`. The
+[Content Security Policy](browser.md#content-security-policy) on that page applies,
+except that the package's worker never contacts `pypi.org`.
+
+It takes what the [HTTP client](#against-a-server) takes, because the worker runs
+pyDIGGS's own service layer, as `pydiggs serve --http` does: `checks` and `diggsVersion`
+for `validate`, `validateSarif`, `results` of `"all"`, `"none"` or a list of node keys
+for `read`, `versions()`, `listRules()` and `explainRule()`. Refusals carry pyDIGGS's
+problem (`error.problem.code`, `detail`, `errors`, `kind`).
 
 Create the worker when the page opens, so its first-visit download (about 14 MB, cached
 afterwards) overlaps with the user finding a file, and show its `onProgress` stages.
-A document that runs past `timeoutMs` (default 120 s) stops its worker and fails alone;
-a fresh worker takes the next one.
+A document that runs past `timeoutMs` (default 120 s) fails alone. On a page served
+cross-origin isolated, the worker is interrupted and kept (reading stops at once,
+validation after its current lxml step); otherwise, or if it does not stop within
+2 s, a fresh worker takes the next document. `idleTimeoutMs` gives an idle worker's
+memory back.
+
+For offline use, `cachePydiggs(self)` from `@pydiggs/client/sw`, called in your own
+service worker, keeps Pyodide and the wheel in the Cache API after one visit.
 
 ### Frameworks
 
@@ -123,8 +136,9 @@ ran and why. Without a `server`, nothing is ever uploaded.
 
 For apps whose server is JavaScript (Next.js, Express, Fastify, Hono, a serverless
 function on the Node runtime), `PydiggsNode` runs pyDIGGS in a worker thread on Pyodide
-from npm, and `createPydiggsHandler` serves the same `/v1/validate` and `/v1/read` as
-`pydiggs serve --http`:
+from npm, and `createPydiggsHandler` serves the same `/v1` API as `pydiggs serve --http`
+(validate with `checks`, `diggs_version` and SARIF, read with `select`, versions and
+rules), answered by the same service layer:
 
 ```ts
 import { createPydiggsHandler, PydiggsNode } from "@pydiggs/client/node";
@@ -135,8 +149,8 @@ const handle = createPydiggsHandler(new PydiggsNode(), { basePath: "/api/pydiggs
 
 Point `PydiggsHybrid`'s `server` at that path, and large documents, weak devices and a
 worker that fails to load all fall back to your own server, with no Python anywhere.
-The handler covers `validate` and `read`; SARIF, `checks`, `diggs_version` and node-key
-selection need the [Python server](http-api.md) or the [container](container.md).
+Use the [Python server](http-api.md) or the [container](container.md) where you want
+pyDIGGS's process pool, its own limits and logging, or documents above 256 MiB.
 
 ## Types only
 
