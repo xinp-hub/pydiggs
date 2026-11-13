@@ -124,10 +124,11 @@ def test_ships_the_ags4_subpackage():
         "AGS_VERSIONS",
         "File",
         "Group",
+        "check",
         "dumps",
         "read",
         "read_bytes",
         "write",
     ]
-    for module in ("_emit", "_io", "_parse", "_table"):
+    for module in ("_check", "_cli", "_dictionary", "_emit", "_io", "_parse", "_rules", "_table"):
         assert resources.files(pkg).joinpath(f"ags4/{module}.py").is_file()

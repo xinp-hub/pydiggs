@@ -31,10 +31,13 @@ from pydiggs.findings.model import Finding
 __all__ = [
     "DEFAULT_MAX_BYTES",
     "MAX_NAME_CHARS",
+    "deadline",
     "dump",
     "load",
     "load_bytes",
     "load_path",
+    "load_path_text",
+    "load_text",
     "save",
 ]
 
@@ -222,6 +225,18 @@ def _decode(data: bytes, codec: str | None) -> tuple[str, str, list[Finding]]:
     return text, "cp1252", [*notes, note(ENCODING_ASSUMED, message)]
 
 
+def deadline(time_budget: float | None) -> Callable[[], bool] | None:
+    """A ``should_stop`` that turns True ``time_budget`` seconds from now; None for no budget."""
+    if time_budget is None:
+        return None
+    end = time.monotonic() + time_budget
+
+    def should_stop() -> bool:
+        return time.monotonic() > end
+
+    return should_stop
+
+
 def load(
     data: bytes,
     *,
@@ -231,16 +246,23 @@ def load(
     limits: Limits | None = None,
 ) -> File:
     """Read checked bytes into a :class:`File` (the shared core of ``read`` and ``read_bytes``)."""
-    should_stop = None
-    if time_budget is not None:
-        deadline = time.monotonic() + time_budget
+    return load_text(
+        data, name=name, codec=codec, should_stop=deadline(time_budget), limits=limits
+    )[0]
 
-        def should_stop() -> bool:
-            return time.monotonic() > deadline
 
+def load_text(
+    data: bytes,
+    *,
+    name: str | None,
+    codec: str | None,
+    should_stop: Callable[[], bool] | None,
+    limits: Limits | None = None,
+) -> tuple[File, str]:
+    """:func:`load`, also returning the decoded text (the checker finds row lines in it)."""
     text, encoding, notes = _decode(data, codec)
     parsed = parse(text, limits=limits, should_stop=should_stop)
-    return File(
+    file = File(
         groups=parsed.groups,
         source=SourceInfo(
             name=name, sha256=hashlib.sha256(data).hexdigest(), size=len(data), encoding=encoding
@@ -249,6 +271,7 @@ def load(
         complete=parsed.complete,
         limits_hit=parsed.limits_hit,
     )
+    return file, text
 
 
 def load_path(
@@ -266,6 +289,24 @@ def load_path(
     except OSError as exc:
         raise InstanceReadError(exc.errno or 0, exc.strerror or "could not be read", shown) from exc
     return load(data, name=_shown_name(Path(shown).name), codec=codec, time_budget=time_budget)
+
+
+def load_path_text(
+    path: str | os.PathLike[str],
+    *,
+    encoding: str | None,
+    max_bytes: int,
+    time_budget: float | None,
+    should_stop: Callable[[], bool] | None,
+) -> tuple[File, str]:
+    """:func:`load_path` with a shared ``should_stop``, also returning the decoded text."""
+    codec = _check_arguments(encoding, max_bytes, time_budget)
+    shown = os.fspath(path)
+    try:
+        data = _read_path(shown, max_bytes)
+    except OSError as exc:
+        raise InstanceReadError(exc.errno or 0, exc.strerror or "could not be read", shown) from exc
+    return load_text(data, name=_shown_name(Path(shown).name), codec=codec, should_stop=should_stop)
 
 
 def load_bytes(

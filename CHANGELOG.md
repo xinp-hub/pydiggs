@@ -39,7 +39,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `complete=False`, nothing a file names is opened, and there is no network access.
   The reader is written for pyDIGGS from the published AGS4 rules, with no new
   dependency; no AGS data dictionary or AGS example file is bundled, and pyDIGGS is not
-  an AGS-approved tool. Checking the AGS4 rules (`ags4.check`) and conversion follow.
+  an AGS-approved tool. Conversion follows.
+- **`pydiggs.ags4.check` and `pydiggs ags4 check`: the AGS4 rules as findings.**
+  `ags4.check(path_or_file, dictionary=None)` returns a `Report` (`format="ags4"`, step
+  `ags4`) with one rule id per rule of section 4.1.1 of the AGS4 specification, Edition
+  4.2 (`ags4.rule-1` to `ags4.rule-20`, including `2a`, `2b`, `10a` to `10c`, `11` to
+  `11c`, `16a`, `18a`, `19a`, `19b`), each with its line and its place in the file
+  (`Finding.path`, such as `LOCA/3/LOCA_TYPE`), plus `ags4.formula-text` (warning) for
+  text a spreadsheet would read as a formula. Messages name groups and headings, never a
+  value from the file. The rules that need the AGS4 data dictionary (7, 9, 10a, 10b,
+  10c, 18, and parts of 11c, 13, 14 and 19b) run for what the file's own DICT group
+  defines, and for standard groups only when you pass your own copy of the dictionary
+  with `dictionary=` (`--dictionary`); none is bundled, and an `ags4.dictionary-not-checked`
+  info finding says so. Rule 20's FILE folder is never opened. On the fixtures and the
+  14 BGS files python-ags4 checks in full, the rules that need no dictionary agree with
+  it, with two differences: pyDIGGS notes a UTF-8 byte order mark under Rule 1, and
+  reports a missing part of a combined abbreviation as Rule 16a where python-ags4 says
+  Rule 16.
+
+  ```console
+  $ pydiggs ags4 check site.ags --dictionary Standard_dictionary_v4_1_1.ags
+  site.ags: not-valid: 1 error(s), 0 warning(s), 0 info
+    site.ags:77: error ags4.rule-10a [XTST/2]: DATA row 2 of group XTST has the same KEY values as row 1.
+  ```
+
+  The command takes `--format text|json|sarif`, `--output`, `--fail-on`,
+  `--max-findings`, `--max-bytes` and `--time-budget`, with the exit codes of
+  `pydiggs validate`. `rule_catalogue()` and `explain_rule()` describe every new id.
 - **diggs-findings 1.1**, which only adds to 1.0: the steps `ags4` and `convert`
   (`Step.AGS4`, `Step.CONVERT`; `validate()` never runs them), an optional
   `location.path` for a place in a source that is not XML (`Finding.path`, for AGS4

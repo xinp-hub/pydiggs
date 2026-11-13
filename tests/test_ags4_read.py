@@ -37,7 +37,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures" / "ags4"
 CLEAN = sorted(FIXTURES.glob("clean_*.ags"))
 CONFORMING = [*CLEAN, FIXTURES / "quoting.ags"]
-SITE_GROUPS = ["PROJ", "TRAN", "TYPE", "UNIT", "LOCA", "GEOL", "SAMP", "ISPT"]
+SITE_GROUPS = ["PROJ", "TRAN", "ABBR", "TYPE", "UNIT", "LOCA", "GEOL", "SAMP", "ISPT"]
 EXPECTED = ROOT / "conformance" / "ags4-expected.toml"
 
 HEADER = b'"GROUP","PROJ"\r\n"HEADING","PROJ_ID","PROJ_NAME"\r\n"UNIT","",""\r\n"TYPE","ID","X"\r\n'
@@ -64,8 +64,17 @@ def _csv_tables(data: bytes) -> dict[str, dict[str, list[list[str]]]]:
 # --- the public surface ---------------------------------------------------------------
 
 
-def test_the_public_names_are_the_seven_of_work_package_c1():
-    assert ags4.__all__ == ["AGS_VERSIONS", "File", "Group", "dumps", "read", "read_bytes", "write"]
+def test_the_public_names_are_those_of_work_packages_c1_and_c2():
+    assert ags4.__all__ == [
+        "AGS_VERSIONS",
+        "File",
+        "Group",
+        "check",
+        "dumps",
+        "read",
+        "read_bytes",
+        "write",
+    ]
     assert ags4.AGS_VERSIONS == ("4.0.3", "4.0.4", "4.1", "4.1.1", "4.2")
     for name in ags4.__all__:
         assert getattr(ags4, name) is not None
@@ -172,15 +181,15 @@ def test_the_tables_are_strings_as_written():
         "LOCA_NATE",
         "LOCA_NATN",
         "LOCA_GL",
-        "LOCA_FDEP",
         "LOCA_REM",
+        "LOCA_FDEP",
     )
-    assert loca.units == ("", "", "m", "m", "m", "m", "")
-    assert loca.types == ("ID", "PA", "2DP", "2DP", "2DP", "2DP", "X")
-    assert loca.rows[0] == ("BH01", "CP", "451200.00", "206500.00", "12.50", "15.00", "")
-    assert loca.rows[1][-1] == "Stopped on an obstruction"
+    assert loca.units == ("", "", "m", "m", "m", "", "m")
+    assert loca.types == ("ID", "PA", "2DP", "2DP", "2DP", "X", "2DP")
+    assert loca.rows[0] == ("BH01", "CP", "451200.00", "206500.00", "12.50", "", "15.00")
+    assert loca.rows[1][-2] == "Stopped on an obstruction"
     assert len(loca.rows) == 3
-    assert loca.line == 31
+    assert loca.line == 43
     assert loca.records()[2]["LOCA_FDEP"] == "3.20"  # the trailing zero is kept: no conversion
     assert loca.column("LOCA_ID") == ("BH01", "BH02", "TP01")
     assert all(type(value) is str for row in loca.rows for value in row)
@@ -386,7 +395,7 @@ def test_line_endings_other_than_crlf_are_read_and_counted_once():
     assert f == ags4.read(FIXTURES / "clean_4_1_1.ags")
     (note,) = f.notes
     assert (note.rule_id, note.line) == ("ags4.rule-2a", 1)
-    assert note.message == "Lines that do not end with CR LF: 60; the first is line 1."
+    assert note.message == "Lines that do not end with CR LF: 72; the first is line 1."
     mac = (FIXTURES / "clean_4_1_1.ags").read_bytes().replace(b"\r\n", b"\r")
     assert ags4.read_bytes(mac) == f
     assert _rules(ags4.read_bytes(mac)) == ["ags4.rule-2a"]
@@ -616,8 +625,10 @@ def test_every_reader_rule_id_is_in_the_catalogue_at_its_severity():
         assert info.known, rule_id
         assert info.step is Step.AGS4
         assert info.severities == (_parse.note(rule_id, "x").severity,), rule_id
+    from pydiggs.ags4 import _rules  # the checker's ids (C2)
+
     catalogued = {r.id for r in pydiggs.rule_catalogue() if r.step is Step.AGS4}
-    assert catalogued == set(ids)
+    assert catalogued == set(ids) | set(_rules.CHECKER_RULES)
 
 
 # --- the recorded oracle (work package C0) ---------------------------------------------

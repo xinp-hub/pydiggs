@@ -18,7 +18,7 @@ Examples:
     >>> from pydiggs import ags4
     >>> f = ags4.read("tests/fixtures/ags4/clean_4_1_1.ags")
     >>> f.version, list(f.groups)[:3]
-    ('4.1.1', ['PROJ', 'TRAN', 'TYPE'])
+    ('4.1.1', ['PROJ', 'TRAN', 'ABBR'])
     >>> ags4.dumps(f) == open("tests/fixtures/ags4/clean_4_1_1.ags", "rb").read()
     True
 """
@@ -26,13 +26,19 @@ Examples:
 from __future__ import annotations
 
 import os
-from typing import BinaryIO, Literal
+from typing import TYPE_CHECKING, BinaryIO, Literal
 
 from pydiggs.ags4 import _io
 from pydiggs.ags4._io import DEFAULT_MAX_BYTES
 from pydiggs.ags4._table import AGS_VERSIONS, File, Group
 
-__all__ = ["AGS_VERSIONS", "File", "Group", "dumps", "read", "read_bytes", "write"]
+if TYPE_CHECKING:
+    from pydiggs.findings.model import Report
+
+__all__ = ["AGS_VERSIONS", "File", "Group", "check", "dumps", "read", "read_bytes", "write"]
+
+#: Most findings :func:`check` reports by default, as for ``pydiggs.validate``.
+_DEFAULT_MAX_FINDINGS = 10_000
 
 
 def read(
@@ -216,3 +222,85 @@ def write(
         True
     """
     _io.save(file, path, line_ending)
+
+
+def check(
+    source: str | os.PathLike[str] | File,
+    *,
+    dictionary: str | os.PathLike[str] | File | None = None,
+    encoding: str | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    max_findings: int | None = _DEFAULT_MAX_FINDINGS,
+    time_budget: float | None = None,
+) -> Report:
+    """Check an AGS4 file against the AGS4 rules (Rules 1 to 20) and report the findings.
+
+    The rules are those of section 4.1.1 of the AGS4 specification, Edition 4.2
+    (December 2025), which are unchanged from 4.1.1 and serve every version in
+    :data:`AGS_VERSIONS`. Each finding has step ``ags4`` and the rule id
+    ``ags4.rule-<number>`` (``ags4.rule-10a`` and so on); its ``path`` is the place in
+    the file, ``GROUP``, ``GROUP/row`` or ``GROUP/row/HEADING`` with DATA rows counted
+    from 1, and its ``line`` the line in the file when known. The report also holds
+    what reading had to work around (``file.notes``), and ``ags4.formula-text``
+    warnings for text a spreadsheet would read as a formula. Messages are fixed
+    templates: they name groups and headings, never a value from the file.
+
+    Most rules need nothing but the file. Rules 7, 9, 10a, 10b, 10c and 18, and parts
+    of 11c, 13, 14 and 19b, need the AGS4 data dictionary: they run for the groups and
+    headings the file's own DICT group defines, and for the standard groups only when
+    ``dictionary`` is given. pyDIGGS bundles no AGS dictionary; without one the report
+    says so in an ``ags4.dictionary-not-checked`` info finding. Rule 20's FILE folder
+    is never opened: only the FILE group's own consistency is checked.
+
+    pyDIGGS implements the published rules independently; it is not an AGS-approved
+    validator.
+
+    Args:
+        source: The file's path, or a :class:`File` already read or built in code (its
+            rows then have no line numbers).
+        dictionary: An AGS4 data dictionary (an AGS4 file whose DICT group defines the
+            groups and headings, such as the standard dictionary of the file's version),
+            as a path or a :class:`File`. None checks without one.
+        encoding: As for :func:`read`.
+        max_bytes: Largest file accepted, for the source and the dictionary (default
+            100 MiB).
+        max_findings: Most findings to report (default 10,000); one more finding,
+            ``structure.findings-truncated``, counts the rest. None for no limit.
+        time_budget: Seconds for reading and checking together. When they run out, the
+            report holds what was found so far, an ``ags4.timeout`` error, and the step
+            is ``incomplete``.
+
+    Returns:
+        A :class:`pydiggs.Report` with ``format="ags4"``, no ``diggs_version``, and the
+        one step ``ags4``.
+
+    Raises:
+        InstanceReadError: The source is missing, unreadable, too large, compressed or
+            not a regular file.
+        DocumentError: No table can be built from the source (``not-ags4`` or
+            ``unsupported-version``).
+        ResourceError: ``dictionary`` cannot be read, was read only in part (a limit
+            stopped the read), or has no DICT group that defines groups.
+        ValueError: An argument is out of range, or the source is not valid text in
+            the ``encoding`` asked for.
+        TypeError: ``source`` or ``dictionary`` is of the wrong type.
+
+    Examples:
+        >>> from pydiggs import ags4
+        >>> report = ags4.check("tests/fixtures/ags4/c2_clean.ags")
+        >>> report.ok, report.format, [f.rule_id for f in report.findings]
+        (True, 'ags4', ['ags4.dictionary-not-checked'])
+        >>> bad = ags4.check("tests/fixtures/ags4/c2_rule_10a.ags")
+        >>> [(f.rule_id, f.line, f.path) for f in bad.findings if f.severity == "error"]
+        [('ags4.rule-10a', 77, 'XTST/2')]
+    """
+    from pydiggs.ags4 import _check  # noqa: PLC0415  # the checker loads on first use
+
+    return _check.run(
+        source,
+        dictionary=dictionary,
+        encoding=encoding,
+        max_bytes=max_bytes,
+        max_findings=max_findings,
+        time_budget=time_budget,
+    )
