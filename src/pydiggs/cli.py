@@ -27,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
         from pydiggs.ags4 import _cli as ags4_cli  # noqa: PLC0415  # loads AGS4 on demand
 
         return ags4_cli.main(args_in[1:])
+    if args_in[:1] == ["convert"]:
+        from pydiggs import _convert_cli  # noqa: PLC0415  # loads the converter on demand
+
+        return _convert_cli.main(args_in[1:])
 
     parser = argparse.ArgumentParser(
         description=(
@@ -38,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
             " pydiggs validate --help. Validation for other programs"
             " (stdio sidecar, HTTP, MCP): pydiggs serve --help."
             " AGS4 files against the AGS4 rules: pydiggs ags4 check --help."
+            " AGS4 to DIGGS: pydiggs convert --help."
             " Installed version: pydiggs --version."
         ),
     )

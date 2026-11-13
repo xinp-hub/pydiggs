@@ -36,7 +36,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from pydiggs import _service
-from pydiggs._service import Outcome, ReadRequest
+from pydiggs._service import Ags4CheckRequest, ConvertRequest, Outcome, ReadRequest
 from pydiggs._service import Request as ValidationRequest
 from pydiggs.server import _schemas
 from pydiggs.server._problems import (
@@ -54,7 +54,8 @@ if TYPE_CHECKING:
 
 __all__ = ["create_app", "create_router", "openapi_text"]
 
-#: Multipart limits: one file, a few short fields.
+#: Multipart limits: one file (two for an AGS4 check: the file and a dictionary), a
+#: few short fields.
 MAX_FILES: Final = 1
 MAX_FIELDS: Final = 8
 MAX_PART_SIZE: Final = 64 * 2**10
@@ -68,6 +69,10 @@ _MAX_ACCEPT_ITEMS: Final = 32
 _RETRY_AFTER: Final = {"Retry-After": "1"}
 _FORM_FIELDS: Final = frozenset({"name", "checks", "diggs_version"})
 _READ_FIELDS: Final = frozenset({"name", "diggs_version", "select"})
+_CONVERT_FIELDS: Final = frozenset({"name", "to", "diggs_version"})
+_CHECK_FIELDS: Final = frozenset({"name"})
+#: The file parts an AGS4 check takes: the file and, optionally, a data dictionary.
+_CHECK_FILES: Final = ("file", "dictionary")
 
 Format = Literal["findings", "sarif"]
 _MEDIA: Final[dict[Format, str]] = {
@@ -223,20 +228,28 @@ class _Upload:
     content: bytes
     filename: str | None
     fields: dict[str, list[str]]
+    #: Other file parts (an AGS4 check's ``dictionary``), by part name.
+    attachments: dict[str, bytes] = dataclasses.field(default_factory=dict)
 
 
 async def _read_multipart(
-    request: Request, limit: int, file_limit: int, allowed: frozenset[str]
+    request: Request,
+    limit: int,
+    file_limit: int,
+    allowed: frozenset[str],
+    files: Sequence[str] = ("file",),
 ) -> _Upload | Response:
-    """Parse one ``file`` part and up to :data:`MAX_FIELDS` short fields (``allowed``).
+    """Parse the ``file`` part, other ``files`` parts and a few short fields (``allowed``).
 
-    The whole body counts against ``limit`` while it streams; the file part against
+    At most :data:`MAX_FIELDS` fields; the parts in ``files`` besides ``file`` are
+    optional.
+    The whole body counts against ``limit`` while it streams; each file part against
     ``file_limit``. Spooled parts are closed (and so deleted) before returning.
     """
     parser = MultiPartParser(
         request.headers,
         _counted(request, limit),
-        max_files=MAX_FILES,
+        max_files=len(files),
         max_fields=MAX_FIELDS,
         max_part_size=MAX_PART_SIZE,
     )
@@ -251,15 +264,23 @@ async def _read_multipart(
         content = await upload.read(file_limit + 1)
         if len(content) > file_limit:
             return _too_large()
+        attachments: dict[str, bytes] = {}
         fields: dict[str, list[str]] = {}
         for key, value in form.multi_items():
             if key == "file":
                 continue
+            if key in files and isinstance(value, UploadFile) and key not in attachments:
+                attachments[key] = await value.read(file_limit + 1)
+                if len(attachments[key]) > file_limit:
+                    return _too_large()
+                continue
             if key not in allowed or not isinstance(value, str):
-                names = ", ".join(sorted(allowed))
-                return problem("invalid-multipart", f"Only the fields file, {names} are accepted.")
+                names = ", ".join(sorted({*files, *allowed}))
+                return problem("invalid-multipart", f"Only the fields {names} are accepted.")
             fields.setdefault(key, []).append(value)
-        return _Upload(content=content, filename=upload.filename, fields=fields)
+        return _Upload(
+            content=content, filename=upload.filename, fields=fields, attachments=attachments
+        )
     finally:
         await form.close()
 
@@ -289,18 +310,24 @@ def _checks(values: Sequence[str]) -> list[str] | None:
 
 
 def _precheck(
-    request: Request, settings: ServerSettings, *, sarif: bool = True
+    request: Request,
+    settings: ServerSettings,
+    *,
+    sarif: bool = True,
+    json_text: str = "Accept application/json (diggs-model).",
+    raw_media: Sequence[str] = _schemas.XML_MEDIA_TYPES,
 ) -> tuple[Format, bool] | Response:
     """Checks that need only the headers: Accept, media type, encoding, Content-Length.
 
     Returns the chosen format and whether the body is multipart, or the refusal.
-    ``sarif=False`` is for an endpoint that only sends ``application/json``.
+    ``sarif=False`` is for an endpoint that only sends ``application/json``
+    (``json_text`` is its refusal); ``raw_media`` are the media types of a raw body.
     """
     accept = request.headers.get("accept")
     fmt: Format | None = negotiate(accept) if sarif else None
     if not sarif:
         if not accepts_json(accept):
-            return problem("not-acceptable", "Accept application/json (diggs-model).")
+            return problem("not-acceptable", json_text)
         fmt = "findings"
     if fmt is None:
         return problem(
@@ -309,9 +336,9 @@ def _precheck(
         )
     media = _media_type(request)
     multipart = media == "multipart/form-data"
-    if not multipart and media not in _schemas.XML_MEDIA_TYPES:
+    if not multipart and media not in raw_media:
         return problem(
-            "unsupported-media-type", "Send application/xml, text/xml or multipart/form-data."
+            "unsupported-media-type", f"Send {', '.join(raw_media)} or multipart/form-data."
         )
     encoding = request.headers.get("content-encoding", "").strip().lower()
     if encoding not in ("", "identity"):
@@ -368,7 +395,26 @@ def _read_parameters(
     )
 
 
-_Job: TypeAlias = ValidationRequest | ReadRequest
+def _convert_parameters(
+    content: bytes, params: dict[str, list[str]], filename: str | None
+) -> ConvertRequest:
+    names, targets, versions = (params.get(k, []) for k in ("name", "to", "diggs_version"))
+    return ConvertRequest(
+        content=content,
+        name=names[-1] if names else filename,
+        to=targets[-1] if targets else _service.CONVERT_TARGETS[0],
+        diggs_version=versions[-1] if versions else None,
+    )
+
+
+def _check_parameters(
+    content: bytes, params: dict[str, list[str]], filename: str | None, fmt: Format
+) -> Ags4CheckRequest:
+    names = params.get("name", [])
+    return Ags4CheckRequest(content=content, name=names[-1] if names else filename, format=fmt)
+
+
+_Job: TypeAlias = ValidationRequest | ReadRequest | ConvertRequest | Ags4CheckRequest
 _Build: TypeAlias = Callable[[bytes, dict[str, list[str]], str | None], _Job]
 
 
@@ -379,31 +425,29 @@ async def _read_input(
     multipart: bool,
     fields: frozenset[str],
     build: _Build,
+    files: Sequence[str] = ("file",),
 ) -> _Job | Response:
     """Read the body (streamed, counted) and the parameters into a service request.
 
     A multipart request may give each parameter in the query or in the form; the
     form wins, but both must be valid (``invalid-parameter``). The ``name`` parameter
-    wins over the part's file name. Repeated values: the last ``name``,
-    ``diggs_version`` and ``select`` count; ``checks`` values are joined.
+    wins over the part's file name. Repeated values: the last ``name``, ``to``,
+    ``diggs_version`` and ``select`` count; ``checks`` values are joined. An AGS4
+    check's ``dictionary`` part (``files``) goes into the request as bytes.
     """
     params = {key: request.query_params.getlist(key) for key in fields}
     filename: str | None = None
+    attachments: dict[str, bytes] = {}
     limit = _body_limit(settings, multipart=multipart)
     try:
         if multipart:
-            upload = await _read_multipart(request, limit, settings.max_body_bytes, fields)
+            upload = await _read_multipart(request, limit, settings.max_body_bytes, fields, files)
             if isinstance(upload, Response):
                 return upload
-            content, filename = upload.content, upload.filename
+            content, filename, attachments = upload.content, upload.filename, upload.attachments
             overridden = {k: v for k, v in params.items() if k in upload.fields and v}
             if overridden:
-                shadowed = build(b"", overridden, None)
-                errors = (
-                    _service._read_parameter_errors(shadowed)
-                    if isinstance(shadowed, ReadRequest)
-                    else _service._parameter_errors(shadowed)
-                )
+                errors = _service.parameter_errors(build(b"", overridden, None))
                 if errors:
                     return problem("invalid-parameter", "invalid parameters", errors=errors)
             params.update(upload.fields)
@@ -412,9 +456,11 @@ async def _read_input(
     except _TooLargeError:
         return _too_large()
     job = dataclasses.replace(build(content, params, filename), max_bytes=settings.max_body_bytes)
-    if isinstance(job, ReadRequest):
+    if isinstance(job, ReadRequest | ConvertRequest):
         limit = RESULT_FACTOR * settings.max_body_bytes
         job = dataclasses.replace(job, max_result_bytes=limit)
+    if isinstance(job, Ags4CheckRequest) and "dictionary" in attachments:
+        job = dataclasses.replace(job, dictionary=attachments["dictionary"])
     return job
 
 
@@ -514,20 +560,23 @@ class _State:
     async def run(self, request: _Job) -> Outcome:
         timeout = self.settings.timeout_s
         job: Callable[[], Outcome]
-        if isinstance(request, ReadRequest):
-            if self.isolation == "process":
-                job = functools.partial(
-                    _service.read_in_pool, self._job_pool(), request, timeout=timeout
-                )
-            else:
-                job = functools.partial(_service.read, request)
-        elif self.isolation == "process":
-            job = functools.partial(
-                _service.validate_in_pool, self._job_pool(), request, timeout=timeout
-            )
+        in_thread, in_pool = _RUNNERS[type(request)]
+        if self.isolation == "process":
+            pooled = getattr(_service, in_pool)
+            job = functools.partial(pooled, self._job_pool(), request, timeout=timeout)
         else:
-            job = functools.partial(_service.validate, request)
+            job = functools.partial(getattr(_service, in_thread), request)
         return await anyio.to_thread.run_sync(job, limiter=self.limiter())
+
+
+#: For each request type: the service call in this thread, and in the worker pool (names
+#: in ``_service``, looked up per request).
+_RUNNERS: Final[dict[type, tuple[str, str]]] = {
+    ValidationRequest: ("validate", "validate_in_pool"),
+    ReadRequest: ("read", "read_in_pool"),
+    ConvertRequest: ("convert", "convert_in_pool"),
+    Ags4CheckRequest: ("ags4_check", "ags4_check_in_pool"),
+}
 
 
 # --- routes ------------------------------------------------------------------------------
@@ -555,7 +604,13 @@ def _guarded(state: _State, endpoint: _Endpoint) -> _Endpoint:
 
 
 async def _admitted(
-    state: _State, request: Request, *, multipart: bool, fields: frozenset[str], build: _Build
+    state: _State,
+    request: Request,
+    *,
+    multipart: bool,
+    fields: frozenset[str],
+    build: _Build,
+    files: Sequence[str] = ("file",),
 ) -> Outcome | Response:
     """Read the request's input and run it, within the admission and body limits."""
     settings = state.settings
@@ -569,7 +624,7 @@ async def _admitted(
         try:
             with anyio.fail_after(settings.body_timeout_s):
                 job = await _read_input(
-                    request, settings, multipart=multipart, fields=fields, build=build
+                    request, settings, multipart=multipart, fields=fields, build=build, files=files
                 )
         except TimeoutError:
             return problem(
@@ -591,6 +646,87 @@ def _json(body: Any, status: int = 200) -> Response:
         json.dumps(body, ensure_ascii=False, allow_nan=False).encode("utf-8"),
         status_code=status,
         media_type=_schemas.FINDINGS_MEDIA_TYPE,
+    )
+
+
+def _add_ags4_routes(router: APIRouter, state: _State) -> None:
+    """``POST /v1/convert`` and ``POST /v1/ags4/check``."""
+    settings = state.settings
+
+    async def convert(request: Request) -> Response:
+        checked = _precheck(
+            request,
+            settings,
+            sarif=False,
+            json_text="Accept application/json (a conversion result).",
+            raw_media=_schemas.AGS4_MEDIA_TYPES,
+        )
+        if isinstance(checked, Response):
+            return checked
+        outcome = await _admitted(
+            state,
+            request,
+            multipart=checked[1],
+            fields=_CONVERT_FIELDS,
+            build=_convert_parameters,
+        )
+        if isinstance(outcome, Response):
+            return outcome
+        if not outcome.ok or outcome.document is None:
+            return from_outcome(outcome)
+        return Response(
+            outcome.document, media_type=_schemas.FINDINGS_MEDIA_TYPE, headers={"Vary": "Accept"}
+        )
+
+    async def ags4_check(request: Request) -> Response:
+        checked = _precheck(request, settings, raw_media=_schemas.AGS4_MEDIA_TYPES)
+        if isinstance(checked, Response):
+            return checked
+        fmt, multipart = checked
+
+        def build(
+            content: bytes, params: dict[str, list[str]], filename: str | None
+        ) -> Ags4CheckRequest:
+            job = _check_parameters(content, params, filename, fmt)
+            return dataclasses.replace(job, max_findings=settings.max_findings)
+
+        outcome = await _admitted(
+            state,
+            request,
+            multipart=multipart,
+            fields=_CHECK_FIELDS,
+            build=build,
+            files=_CHECK_FILES,
+        )
+        if isinstance(outcome, Response):
+            return outcome
+        if not outcome.ok or outcome.document is None:
+            return from_outcome(outcome)
+        return Response(outcome.document, media_type=_MEDIA[fmt], headers={"Vary": "Accept"})
+
+    router.add_api_route(
+        "/convert",
+        _guarded(state, convert),
+        methods=["POST"],
+        summary="Convert one AGS4 file to DIGGS 3.0.0 (preview mapping), with every loss",
+        operation_id="convert",
+        responses=_schemas.convert_responses(),
+        openapi_extra={
+            "parameters": _schemas.convert_parameters(),
+            "requestBody": _schemas.convert_request_body(),
+        },
+    )
+    router.add_api_route(
+        "/ags4/check",
+        _guarded(state, ags4_check),
+        methods=["POST"],
+        summary="Check one AGS4 file against the AGS4 rules (Rules 1 to 20)",
+        operation_id="ags4Check",
+        responses=_schemas.ags4_check_responses(),
+        openapi_extra={
+            "parameters": _schemas.ags4_check_parameters(),
+            "requestBody": _schemas.ags4_check_request_body(),
+        },
     )
 
 
@@ -687,6 +823,7 @@ def _build_router(state: _State) -> APIRouter:
             "requestBody": _schemas.read_request_body(),
         },
     )
+    _add_ags4_routes(router, state)
     if settings.versions_enabled:
         router.add_api_route(
             "/versions",
@@ -747,7 +884,8 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
         settings: Limits and switches; default ``ServerSettings()``.
 
     Returns:
-        The router: ``POST /v1/validate``, ``GET /v1/versions`` (if enabled),
+        The router: ``POST /v1/validate``, ``POST /v1/read``, ``POST /v1/convert``,
+        ``POST /v1/ags4/check``, ``GET /v1/versions`` (if enabled),
         ``GET /v1/rules``, ``GET /v1/rules/{rule_id}`` and ``GET /v1/readyz``.
 
     Examples:
@@ -755,8 +893,8 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
         >>> from pydiggs.server import ServerSettings, create_router
         >>> app = FastAPI()
         >>> app.include_router(create_router(ServerSettings(workers=1)))
-        >>> sorted(app.openapi()["paths"])[:2]
-        ['/v1/read', '/v1/readyz']
+        >>> sorted(app.openapi()["paths"])[:3]
+        ['/v1/ags4/check', '/v1/convert', '/v1/read']
     """
     settings = settings if settings is not None else ServerSettings()
     isolation = settings.isolation or "thread"
@@ -829,7 +967,10 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
     app = FastAPI(
         title="pydiggs HTTP API",
         version="1",
-        summary="Validate DIGGS documents (XSD, dictionaries, Schematron).",
+        summary=(
+            "Validate and read DIGGS documents (XSD, dictionaries, Schematron); check AGS4"
+            " files and convert them to DIGGS."
+        ),
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,
         openapi_url="/openapi.json" if docs else None,

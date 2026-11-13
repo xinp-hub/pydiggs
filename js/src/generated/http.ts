@@ -12,7 +12,7 @@ export interface Problem {
     problem: string;
   }[];
   correlation_id?: string;
-  /** For invalid-document: why the bytes are not a DIGGS document. Examples: "malformed", "not-diggs", "unsafe-entity", "namespace-too-long". */
+  /** For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, or AGS4 for a conversion). Examples: "malformed", "not-diggs", "unsafe-entity", "namespace-too-long", "not-ags4", "unsupported-version". */
   kind?: string;
 }
 

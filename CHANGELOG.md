@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`pydiggs convert`: AGS4 to DIGGS on the command line.** `pydiggs convert site.ags -o
+  site.xml [--report findings.json] [--format text|json] [--fail-on error|loss] [--force]`
+  writes the DIGGS 3.0.0 document of the preview converter (mapping table 0.1) and
+  prints every loss. Exit codes follow `pydiggs validate`: 0, 1 for findings at or above
+  `--fail-on` (`error`, the default, includes an output that fails validation; `loss`
+  adds any loss), 2 for a usage error, an input that cannot be read or is not AGS4, or an
+  output that cannot be written. Outputs are written to a temporary file and moved into
+  place; an existing output is replaced only with `--force`, and the input is never
+  overwritten.
+- **HTTP API: `POST /v1/convert` and `POST /v1/ags4/check`.** `/v1/convert` takes an
+  AGS4 file (raw `application/octet-stream`, `text/plain` or `text/csv`, or multipart)
+  and answers one JSON object, `ConversionResult`: the DIGGS XML as `output_base64` with
+  `media_type`, `output_name` and `output_sha256`, the findings `report` about the
+  source, the `validation` of the output, `complete`, `lossless`, `diggs_version` and
+  `mapping_version`. `/v1/ags4/check` answers the diggs-findings 1.1 (or SARIF) report of
+  the AGS4 rules, and takes an optional `dictionary` part, since pyDIGGS bundles no AGS
+  data dictionary. Both have the limits of `/v1/read`; a file that is not AGS4 is 422
+  `invalid-document` with `kind` `not-ags4` or `unsupported-version` for a conversion,
+  and a finding for a check. The OpenAPI document describes both.
+- **Stdio sidecar protocol 1.2: `convert` and `ags4.check`.** A host that negotiates 1.2
+  gets both methods, advertised as `capabilities.convert` and
+  `capabilities.ags4_check`; 1.0 and 1.1 sessions are unchanged and answer
+  `method-not-found` for them. `convert` answers the same `ConversionResult` as the HTTP
+  API; `ags4.check` takes `dictionary_base64` or `dictionary_path`. `openrpc.json`
+  describes protocol 1.2.
+- The conversion and the check run in the browser (Pyodide) and give CPython's bytes;
+  the Pyodide smoke now converts an AGS4 file and compares.
+- Documentation: [AGS4 files](https://xinp-hub.github.io/pydiggs/ags4/) and
+  [AGS4 to DIGGS](https://xinp-hub.github.io/pydiggs/convert/).
+
 ## [1.9.0] - 2026-11-13
 
 ### Added

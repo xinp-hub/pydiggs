@@ -55,6 +55,8 @@ def test_the_document_is_openapi_3_1_with_every_reference_resolving():
     assert set(document["paths"]) == {
         "/v1/validate",
         "/v1/read",
+        "/v1/convert",
+        "/v1/ags4/check",
         "/v1/versions",
         "/v1/rules",
         "/v1/rules/{rule_id}",
@@ -77,8 +79,9 @@ def test_findings_components_are_derived_from_the_packaged_schema():
     assert set(document["properties"]) == set(packaged["properties"])
     assert document["required"] == packaged["required"]
     assert "$id" not in document and "$defs" not in document
+    # ConversionResult refers to the whole document (its report and validation)
     assert {r for r in _refs(components) if "DiggsFindings" in r} <= {
-        f"#/components/schemas/{n}" for n in names
+        f"#/components/schemas/{n}" for n in names | {"DiggsFindingsDocument"}
     }
 
     def component_ref(match):
@@ -99,6 +102,10 @@ def test_a_mounted_router_publishes_a_self_contained_document():
     assert response["content"]["application/json"]["schema"]["title"] == "diggs-findings 1.1"
     read = document["paths"]["/v1/read"]["post"]["responses"]["200"]
     assert read["content"]["application/json"]["schema"]["title"] == "diggs-model 1.0"
+    convert = document["paths"]["/v1/convert"]["post"]["responses"]["200"]
+    result = convert["content"]["application/json"]["schema"]
+    assert result["title"] == "ConversionResult"
+    assert result["properties"]["report"]["title"] == "diggs-findings 1.1"
 
 
 def test_model_components_are_derived_from_the_packaged_schema():
@@ -164,7 +171,10 @@ def test_the_api_conforms_to_its_openapi_document(case):
         excluded.append(positive_data_acceptance)
     # /v1/read answers 422 invalid-document for bytes that are not a DIGGS document
     # (/v1/validate reports the same as findings); OpenAPI cannot say "a DIGGS file".
-    if case.operation.path == "/v1/read" and positive_data_acceptance not in excluded:
+    # Likewise /v1/convert for bytes that are not AGS4, and /v1/ags4/check for a
+    # dictionary part that is not an AGS4 dictionary.
+    unparseable = ("/v1/read", "/v1/convert", "/v1/ags4/check")
+    if case.operation.path in unparseable and positive_data_acceptance not in excluded:
         excluded.append(positive_data_acceptance)
     # Multipart fields are text on the wire: a "negative" null, boolean or number value
     # goes out as text (or not at all), which can be a valid value.

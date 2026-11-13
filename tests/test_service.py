@@ -334,6 +334,7 @@ _FORBIDDEN_NAMES = {
     "detect_diggs_version",
     "read_limited",
     "warm_up",
+    "ags4_to_diggs",
 }
 
 
@@ -537,4 +538,80 @@ def test_the_cache_weighs_a_model_by_its_document(fresh_cache, monkeypatch):
     data = _many_unknown_members(2_000)
     outcome = _service.read(ReadRequest(content=data))
     assert seen == [len(outcome.document)] and seen[0] > len(data)
-    assert _service.DOCUMENT_KINDS[-1] == "namespace-too-long"
+    assert "namespace-too-long" in _service.DOCUMENT_KINDS
+
+
+# --- AGS4: conversion and checking --------------------------------------------------------------
+
+from pydiggs._service import Ags4CheckRequest, ConvertRequest  # noqa: E402 - this section's own
+
+AGS4_DIR = ROOT / "tests" / "fixtures" / "ags4"
+
+
+def test_convert_and_check_through_the_pool_frames():
+    data = (AGS4_DIR / "site_tier_a.ags").read_bytes()
+    for request, in_pool, direct in (
+        (ConvertRequest(content=data, name="s.ags"), _service.convert_in_pool, _service.convert),
+        (
+            Ags4CheckRequest(content=data, name="s.ags"),
+            _service.ags4_check_in_pool,
+            _service.ags4_check,
+        ),
+    ):
+        frame = _service._pooled(request)
+        assert in_pool(_Pool(frame), request, timeout=5) == direct(request)
+    timed_out = _service.convert_in_pool(
+        _Pool(JobTimeoutError("late")), ConvertRequest(content=data), timeout=3
+    )
+    assert (
+        timed_out.code is Code.TIMEOUT
+        and timed_out.detail == "Conversion did not finish within 3 s."
+    )
+
+
+def test_convert_refusals_never_echo_the_value():
+    data = (AGS4_DIR / "site_tier_a.ags").read_bytes()
+    bad = _service.convert(ConvertRequest(content=data, to="<script>", diggs_version="9.9"))
+    assert bad.code is Code.INVALID_PARAMETER
+    assert [e[0] for e in bad.errors] == ["to", "diggs_version"]
+    assert "<script>" not in repr(bad)
+    assert _service.convert(ConvertRequest(content=data, max_bytes=10)).code is Code.INPUT_TOO_LARGE
+    zipped = _service.convert(ConvertRequest(content=b"PK\x03\x04" + data))
+    assert zipped.code is Code.COMPRESSED_INPUT
+    ags3 = _service.convert(ConvertRequest(content=(AGS4_DIR / "ags3.ags").read_bytes()))
+    assert (ags3.code, ags3.kind) == (Code.INVALID_DOCUMENT, "unsupported-version")
+    tight = _service.convert(ConvertRequest(content=data, max_result_bytes=1000))
+    assert tight.code is Code.RESULT_TOO_LARGE
+
+
+def test_convert_and_check_honour_cancellation():
+    data = (AGS4_DIR / "site_tier_a.ags").read_bytes()
+    assert _service.convert(ConvertRequest(content=data), should_stop=lambda: True).code is (
+        Code.CANCELLED
+    )
+    assert _service.ags4_check(Ags4CheckRequest(content=data), should_stop=lambda: True).code is (
+        Code.CANCELLED
+    )
+
+
+def test_parameter_errors_dispatches_on_the_request_type():
+    assert _service.parameter_errors(Request(content=b"", checks=["x"]))[0][0] == "checks"
+    assert _service.parameter_errors(ReadRequest(content=b"", select=5))[0][0] == "select"
+    assert _service.parameter_errors(Ags4CheckRequest(content=b"", name="x" * 5000))[0][0] == "name"
+    with pytest.raises(TypeError):
+        _service.parameter_errors(object())
+
+
+def test_request_limits_are_checked():
+    with pytest.raises(TypeError):
+        ConvertRequest(content="text")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="max_result_bytes"):
+        ConvertRequest(content=b"", max_result_bytes=0)
+    with pytest.raises(TypeError):
+        Ags4CheckRequest(content=b"", dictionary="text")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="format"):
+        Ags4CheckRequest(content=b"", format="xml")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="max_findings"):
+        Ags4CheckRequest(content=b"", max_findings=0)
+    with pytest.raises(ValueError, match="max_bytes"):
+        Ags4CheckRequest(content=b"", max_bytes=0)
