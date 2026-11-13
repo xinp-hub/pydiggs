@@ -1,5 +1,5 @@
-// Offline use for PydiggsBrowser, from your own service worker: Pyodide's files, lxml,
-// micropip and the pydiggs wheel are kept in the Cache API the first time the worker
+// Offline use for PydiggsBrowser, from your own service worker: Pyodide's files, lxml
+// and the pydiggs wheel are kept in the Cache API the first time the worker
 // downloads them, so later visits load with no network at all.
 //
 //     // sw.ts, bundled into your service worker
@@ -37,7 +37,7 @@ export interface CachePydiggsOptions {
    * load can go offline. Default: false: files are kept as the page first uses them.
    */
   precache?: boolean;
-  /** Pyodide packages to precache, with what they depend on. Default: lxml and micropip. */
+  /** Pyodide packages to precache, with what they depend on. Default: lxml. */
   packages?: string[];
 }
 
@@ -102,7 +102,7 @@ export function cachePydiggs(
 
   scope.addEventListener("install", (event: ExtendableEventLike) => {
     if (options.precache && wheel) {
-      event.waitUntil(precacheAll(scope, base, wheel, options.packages ?? ["lxml", "micropip"]));
+      event.waitUntil(precacheAll(scope, base, wheel, options.packages ?? ["lxml"]));
     }
   });
 

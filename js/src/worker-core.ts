@@ -28,11 +28,12 @@ export interface PyCallable {
 /** The few parts of Pyodide's API the worker uses. */
 export interface PyodideLike {
   version: string;
-  loadPackage(names: string[]): Promise<unknown>;
+  loadPackage(names: string[], options?: { messageCallback?: (message: string) => void }): Promise<unknown>;
   pyimport(name: string): unknown;
   runPython(code: string): unknown;
   globals: { get(name: string): unknown };
-  FS?: { mkdirTree(path: string): void; writeFile(path: string, data: Uint8Array): void };
+  FS?: { mkdirTree(path: string): void; writeFile(path: string, data: Uint8Array): void; readFile(path: string): Uint8Array };
+  unpackArchive(buffer: Uint8Array, format: string): void;
   setInterruptBuffer?(buffer: Uint8Array | Int32Array): void;
 }
 
@@ -43,6 +44,8 @@ export interface WorkerCoreOptions {
   loadPyodide: (init: InitMessage) => Promise<PyodideLike>;
   /** Advanced, for tests: the fetch used for the pinned wheel. */
   fetch?: typeof globalThis.fetch;
+  /** Advanced, for tests: the pinned wheel. Default: `PYDIGGS_WHEEL`. */
+  pin?: { url: string; sha256: string } | null;
 }
 
 // One string goes back to JavaScript, never a proxy of the Python object graph: "D" and
@@ -113,7 +116,6 @@ interface Loaded {
  */
 export const ABSOLUTE_MAX_BYTES: number = 256 * 1024 * 1024;
 
-const WHEEL_DIR = "/pydiggs-wheel";
 const text = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 const hex = (buffer: ArrayBuffer): string =>
   [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -124,36 +126,59 @@ function checkWheelUrl(wheel: string): void {
   }
 }
 
-// What micropip installs: a wheel URL the page chose, else the pinned release fetched
-// here and checked against its sha256 (written to Pyodide's file system first), else
-// the release by version, checked by micropip against PyPI's index.
-async function installSpec(init: InitMessage, pyodide: PyodideLike, fetch: typeof globalThis.fetch): Promise<string> {
-  if (init.pydiggsWheelUrl !== undefined) return init.pydiggsWheelUrl;
-  if (!PYDIGGS_WHEEL || !pyodide.FS) return `pydiggs==${PYDIGGS_VERSION}`;
-  const response = await fetch(PYDIGGS_WHEEL.url, { credentials: "omit", referrerPolicy: "no-referrer" });
+// Where the wheel comes from, decided before Pyodide loads so that a download overlaps
+// with the runtime's own (on a first visit both are network-bound):
+// - bytes: a wheel URL the page chose, or the pinned release checked against its sha256;
+//   unpacked straight into site-packages, so micropip is never downloaded or imported;
+// - a file in Pyodide's file system (emfs:, Node's pydiggsWheelPath), read once loaded;
+// - otherwise the release by version, which needs micropip and PyPI's index.
+export type WheelSource = { bytes: Promise<Uint8Array> } | { file: string } | { spec: string };
+
+async function download(url: string, fetch: typeof globalThis.fetch, sha256?: string): Promise<Uint8Array> {
+  const response = await fetch(url, sha256 ? { credentials: "omit", referrerPolicy: "no-referrer" } : {});
   if (!response.ok) throw new Error(`the pydiggs wheel: HTTP ${response.status}`);
   const bytes = await response.arrayBuffer();
-  if (hex(await crypto.subtle.digest("SHA-256", bytes)) !== PYDIGGS_WHEEL.sha256) {
+  if (sha256 && hex(await crypto.subtle.digest("SHA-256", bytes)) !== sha256) {
     throw new Error("the pydiggs wheel does not match its pinned sha256; refusing to install it");
   }
-  const file = PYDIGGS_WHEEL.url.split("/").at(-1)!;
-  pyodide.FS.mkdirTree(WHEEL_DIR);
-  pyodide.FS.writeFile(`${WHEEL_DIR}/${file}`, new Uint8Array(bytes));
-  return `emfs:${WHEEL_DIR}/${file}`;
+  return new Uint8Array(bytes);
+}
+
+/** Exported for tests: where the wheel comes from for this configuration and pin. */
+export function wheelSource(
+  init: InitMessage,
+  fetch: typeof globalThis.fetch,
+  pin: { url: string; sha256: string } | null = PYDIGGS_WHEEL,
+): WheelSource {
+  const url = init.pydiggsWheelUrl;
+  if (url !== undefined) {
+    return url.startsWith("emfs:") ? { file: url.slice("emfs:".length) } : { bytes: download(url, fetch) };
+  }
+  if (pin) return { bytes: download(pin.url, fetch, pin.sha256) };
+  return { spec: `pydiggs==${PYDIGGS_VERSION}` };
 }
 
 async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Loaded> {
   if (init.pydiggsWheelUrl !== undefined) checkWheelUrl(init.pydiggsWheelUrl); // before any download
   const stage = (name: LoadStage): void => options.post({ type: "progress", stage: name });
+  const source = wheelSource(init, options.fetch ?? globalThis.fetch, options.pin === undefined ? PYDIGGS_WHEEL : options.pin);
+  // Awaited below; until then a failed download must not count as unhandled.
+  if ("bytes" in source) source.bytes.catch(() => {});
   stage("runtime");
   const pyodide = await options.loadPyodide(init);
   stage("packages");
-  await pyodide.loadPackage(["lxml", "micropip"]);
+  // The page hears about loading through "progress"; Pyodide's own "Loading lxml" lines
+  // would only clutter the console or a server's log.
+  await pyodide.loadPackage("spec" in source ? ["lxml", "micropip"] : ["lxml"], { messageCallback: () => {} });
   stage("pydiggs");
-  const spec = await installSpec(init, pyodide, options.fetch ?? globalThis.fetch);
-  const micropip = pyodide.pyimport("micropip") as { install: PyCallable };
-  // deps=False: rich and the extras are not needed in a worker.
-  await micropip.install.callKwargs(spec, { deps: false });
+  if ("spec" in source) {
+    const micropip = pyodide.pyimport("micropip") as { install: PyCallable };
+    // deps=False: rich and the extras are not needed in a worker.
+    await micropip.install.callKwargs(source.spec, { deps: false });
+  } else {
+    const bytes = "bytes" in source ? await source.bytes : pyodide.FS!.readFile(source.file);
+    pyodide.unpackArchive(bytes, "wheel");
+  }
   stage("warm-up");
   pyodide.runPython(PYTHON_SETUP);
   let interrupt: Uint8Array | undefined;

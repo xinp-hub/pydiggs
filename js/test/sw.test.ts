@@ -123,7 +123,6 @@ test("precache downloads the core files, the packages with their dependencies, a
   assert.deepEqual(cached, [
     PYDIGGS_WHEEL!.url,
     "lxml.whl",
-    "micropip.whl",
     "pyodide-lock.json",
     "pyodide.asm.mjs",
     "pyodide.asm.wasm",

@@ -8,6 +8,26 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Added
+
+- `startupSnapshotDir` for `PydiggsNode` (experimental): the first start saves a snapshot
+  of the freshly started Pyodide runtime, and later starts and restarts restore it, ready
+  in about half the time (1.2 s against 2.5 s on a laptop). Tied to the pinned Pyodide,
+  whose snapshot options are not public yet; a snapshot that cannot be used is replaced by
+  a normal start.
+- README recipes for standalone offline apps: installable web apps, Tauri 2 and Electron.
+
+### Changed
+
+- Faster start. The worker unpacks the pydiggs wheel itself instead of loading micropip
+  to install it (installing took 0.8 s, now 0.3 s), and downloads the wheel while Pyodide
+  starts rather than after. micropip is no longer downloaded, vendored or precached,
+  except when no wheel is pinned.
+- No more "The fd argument must be of type number" errors and "Loading lxml" lines in a
+  Node server's log: Pyodide's output in the worker thread is routed, and stderr goes to
+  `console.warn` marked `[pydiggs]`.
+- The README no longer suggests COEP `credentialless`, which Safari does not support.
+
 ## [0.4.0] - 2026-11-12
 
 ### Added

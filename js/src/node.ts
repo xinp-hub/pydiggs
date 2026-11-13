@@ -59,7 +59,7 @@ export interface PydiggsNodeOptions {
   maxBytes?: number;
   /**
    * Directory where Pyodide keeps the packages it downloads on first start (lxml and
-   * micropip). Set it to a persistent directory so a restart downloads nothing.
+   * its dependencies). Set it to a persistent directory so a restart downloads nothing.
    */
   packageCacheDir?: string;
   /**
@@ -73,6 +73,15 @@ export interface PydiggsNodeOptions {
    * path or file URL of its `pyodide.mjs`. Default: the `pyodide` package.
    */
   pyodideModule?: string | URL;
+  /**
+   * Experimental. A directory where the first start saves a snapshot of the freshly
+   * started Pyodide runtime (about 30 MiB), so later starts, and restarts after a
+   * timeout, restore it instead of starting the runtime again: about a second faster.
+   * It uses Pyodide options that are not public yet, so it is tied to the pinned Pyodide
+   * and falls back to a normal start whenever the snapshot cannot be used. Use a
+   * directory only this server writes: a snapshot is the runtime's memory.
+   */
+  startupSnapshotDir?: string;
   /** Called as loading moves on: "runtime", "packages", "pydiggs", "warm-up". */
   onProgress?: (stage: LoadStage) => void;
   /**
@@ -159,6 +168,7 @@ export class PydiggsNode extends SupervisedWorker {
     if (options.pyodideModule !== undefined) init.pyodideModuleUrl = fileUrl(options.pyodideModule);
     if (options.packageCacheDir !== undefined) init.packageCacheDir = options.packageCacheDir;
     if (options.pydiggsWheelPath !== undefined) init.pydiggsWheelPath = options.pydiggsWheelPath;
+    if (options.startupSnapshotDir !== undefined) init.startupSnapshotDir = options.startupSnapshotDir;
     const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const workerUrl = options.workerUrl ?? new URL("./node-worker.js", import.meta.url);
     const makeError = (message: string, code?: WorkerErrorCode, problem?: ServiceProblem): PydiggsNodeError =>
