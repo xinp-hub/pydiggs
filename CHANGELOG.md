@@ -113,6 +113,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   jsonschema.validate(document, pydiggs.findings_schema())  # 1.9.0
   ```
 - `GET /v1/rules?step=` and the rule catalogue accept and list the `ags4` step.
+- Reading into JSON is about a fifth faster (`/v1/read`, `@pydiggs/client`): writing a
+  model out as JSON (`Model.to_json`) takes half the time, and reading a tenth less,
+  with the same bytes as before. The JSON encoder looked up each class's fields for
+  every value it wrote, the decoder spelled out a location string for every field in
+  case of an error, and the reader made a counter for every element; each now does that
+  work once.
 
 ### Fixed
 - The service layer behind `pydiggs serve --http`, the sidecar and `@pydiggs/client` no
