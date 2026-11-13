@@ -8,6 +8,7 @@ import doctest
 import inspect
 import json
 import pickle
+import re
 import subprocess
 import sys
 from importlib import resources
@@ -434,7 +435,9 @@ def test_cli_usage_error_exits_2(capsys):
     with pytest.raises(SystemExit) as exc:
         cli_main(["capabilities", "--nope"])
     assert exc.value.code == 2
-    assert "usage: pydiggs capabilities" in capsys.readouterr().err
+    # Python 3.14's argparse colours its usage line when FORCE_COLOR is set (as in CI).
+    err = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().err)
+    assert "usage: pydiggs capabilities" in err
 
 
 def test_service_answers_the_document():
