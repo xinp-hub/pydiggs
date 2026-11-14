@@ -8,7 +8,7 @@
 # copies nothing else from the AGS4 data dictionary (no descriptions, examples or notes).
 #
 # Every group is `draft` until the owner reviews it; mapping table 1.0 is signed off with
-# pyDIGGS 1.10.0. Until then the table is 0.x and may change where a heading goes.
+# pyDIGGS 1.11.0. Until then the table is 0.x and may change where a heading goes.
 #
 # Heading targets (`to`):
 #   key     identifies the record; becomes its gml:id (made a valid XML id) and gml:name

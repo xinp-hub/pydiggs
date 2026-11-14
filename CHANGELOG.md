@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-14
+
 ### Added
 - **`pydiggs convert`: AGS4 to DIGGS on the command line.** `pydiggs convert site.ags -o
   site.xml [--report findings.json] [--format text|json] [--fail-on error|loss] [--force]`
@@ -975,7 +977,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...v1.7.0
