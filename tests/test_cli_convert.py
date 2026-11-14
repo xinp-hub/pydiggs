@@ -120,7 +120,7 @@ def test_without_hard_links_an_output_that_appears_is_never_replaced(tmp_path, c
     def racing_replace(self, other):
         # Another process creates OUT, exclusively, just before our move.
         try:
-            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+            fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         except FileExistsError:
             created.append(False)
         else:
