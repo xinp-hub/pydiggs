@@ -123,9 +123,15 @@ def test_the_residual_file_holds_exactly_what_was_not_converted(tier_b: convert.
     residual = tier_b.residual
     assert residual is not None
     assert "HORN" in residual.groups and "HDIA" not in residual.groups
-    loca = residual.groups["LOCA"]  # only the CPT location's code, which has no DIGGS code
-    assert loca.headings == ("LOCA_ID", "LOCA_TYPE")
-    assert loca.rows == (("CPT01", "CPT"),)
+    # the CPT location's code, which has no DIGGS code, and the grid coordinates, whose
+    # unit (m) DIGGS cannot state with no CRS: the residual keeps them with that unit
+    loca = residual.groups["LOCA"]
+    assert loca.headings == ("LOCA_ID", "LOCA_TYPE", "LOCA_NATE", "LOCA_NATN", "LOCA_GL")
+    assert loca.units == ("", "", "m", "m", "m")
+    assert loca.rows == (
+        ("BH01", "", "451200.00", "206500.00", "12.50"),
+        ("CPT01", "CPT", "451210.00", "206510.00", "12.40"),
+    )
     horn = residual.groups["HORN"]
     assert horn.headings == ("LOCA_ID", "HORN_TOP", "HORN_BASE", "HORN_ORNT", "HORN_INCL")
     cdia = residual.groups["CDIA"]
@@ -156,6 +162,32 @@ def test_a_lossless_conversion_has_an_empty_residual_file():
 
 
 # --- DIGGS to AGS4 ------------------------------------------------------------------
+
+
+def test_the_keys_of_grading_readings_keep_their_units():
+    # Round-trip review: GRAT rows copy their keys from GRAG, and the depth keys
+    # (SAMP_TOP, SPEC_DPTH) are in m there; they were written with no unit.
+    out = convert.model_to_ags4(convert.ags4_to_diggs(TIER_A).model).ags4
+    assert out is not None
+    for name in ("GRAG", "GRAT"):
+        found = out.groups[name]
+        units = dict(zip(found.headings, found.units, strict=True))
+        assert (units["SAMP_TOP"], units["SPEC_DPTH"]) == ("m", "m"), name
+
+
+def test_depths_along_a_feature_are_written_in_the_unit_of_its_lrs():
+    # Round-trip review: a water strike's depth is a position along the hole, in the unit
+    # of its linear referencing system (ft here); it was always labelled m.
+    model = pydiggs.read(OFFICIAL_3 / "Borehole-CPT_Example_Annotated.xml")
+    (feature,) = [f for f in model.features if f.water_strikes]
+    assert model.crs[str(feature.lrs)].unit == "ft"
+    reading = feature.water_strikes[0].components[0]
+    assert reading.location is not None
+    out = convert.model_to_ags4(model).ags4
+    assert out is not None
+    wstg = out.groups["WSTG"]
+    assert dict(zip(wstg.headings, wstg.units, strict=True))["WSTG_DPTH"] == "ft"
+    assert float(wstg.records()[0]["WSTG_DPTH"]) == reading.location.coordinates[0]
 
 
 def test_model_to_ags4_writes_a_file_that_passes_the_check(tier_b: convert.Conversion):

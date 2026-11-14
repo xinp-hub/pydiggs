@@ -74,6 +74,16 @@ AGS4_CODE_SPACE: Final = "urn:x-pydiggs:ags4:"
 CLASSIFICATION_DEFAULT: Final = "unspecified"
 #: Written for the project when the file has no PROJ row.
 PROJECT_DEFAULT: Final = "unnamed project"
+#: A unit the converter cannot write with its value: the value is carried, the unit named.
+_NO_PROPERTY_UNIT: Final = (
+    "The unit of {heading} in {group} was not written: the DIGGS property it maps to has no"
+    " unit, so the values were written without it ({values})."
+)
+_NO_AXIS_UNIT: Final = (
+    "The unit of {heading} in {group} was not written: the coordinates are in no CRS whose"
+    " axes the code table gives a unit for, so the values were written without it"
+    " ({values})."
+)
 #: How the creation date is written when TRAN_DATE is missing or unreadable: as unknown
 #: (``indeterminatePosition="unknown"``), which the model holds as no date.
 DATE_UNKNOWN: Final = "unknown"
@@ -191,6 +201,14 @@ class _Row:
 
     def lose(self, rule: str, heading: str | None, template: str) -> None:
         self.mapper.ledger.lose(rule, self.group.name, self.index, heading, template)
+
+    def unit_lost(self, heading: str, template: str) -> None:
+        """Name the UNIT of a value written without it (the value itself is carried).
+
+        The cell is named as well as used, so the residual file keeps it with its unit.
+        """
+        if self.unit(heading).strip():
+            self.lose(L.UNMAPPED_UNIT, heading, template)
 
     def key(self, headings: Iterable[str]) -> tuple[str, ...]:
         return tuple(self.get(heading) for heading in headings)
@@ -755,11 +773,16 @@ class _Mapper:
         else:
             self.national_reference(row, key, srs, gref, axis)
         coordinates = [found[0], found[1]]
+        written = list(headings)
         if row.get("LOCA_GL") and self.axis_unit(row, "LOCA_GL", axis):
             level = row.number("LOCA_GL", key)
             if level is not None:
                 coordinates.append(level)
+                written.append("LOCA_GL")
                 srs = self.vertical(row, key, srs)
+        if axis is None:  # no CRS states the axes' unit, so the UNIT is not carried
+            for heading in written:
+                row.unit_lost(heading, _NO_AXIS_UNIT)
         return Position(coordinates=tuple(coordinates), dim=len(coordinates), crs=srs)
 
     def epsg_heading(self, row: _Row, heading: str) -> int | None:
@@ -1382,6 +1405,8 @@ class _Mapper:
             found = row.number(heading.name, key)
             if found is None:
                 continue
+            if uom is None:
+                row.unit_lost(heading.name, _NO_PROPERTY_UNIT)
             out.append(
                 Column(
                     name=heading.name,
@@ -1627,6 +1652,8 @@ class _Mapper:
                     if unit is not None:
                         value = reading.number(heading.name, key)
                         uom = unit or None
+                        if value is not None and not unit:
+                            reading.unit_lost(heading.name, _NO_PROPERTY_UNIT)
                 values.append(value)
             if any(v is not None for v in values):
                 columns.append(

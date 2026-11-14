@@ -43,6 +43,7 @@ from pydiggs.model import (
     Column,
     Component,
     DocumentInfo,
+    ExtraNode,
     Feature,
     Interval,
     LithologyLayer,
@@ -118,6 +119,7 @@ _PA_HEADINGS: Final = frozenset({"LOCA_TYPE", "SAMP_TYPE", "GRAT_TYPE"})
 #: The one limit AGS4 lets hold NP for a non-plastic soil (type XN; LL and PI are 0DP).
 _NP_HEADING: Final = "LLPL_PL"
 _DIGGS_NS: Final = "http://diggsml.org/schemas/3"
+_GML_NS: Final = "http://www.opengis.net/gml/3.2"
 #: The EPSG code at the end of an srsName.
 _EPSG_URI: Final = re.compile(r"http://www\.opengis\.net/def/crs/EPSG/0/(\d{1,6})")
 #: Descriptions of the data types the converter writes (its own words).
@@ -325,15 +327,25 @@ def _table_items(prefix: str, table: ResultTable) -> Iterator[str]:
         yield from _value_items(f"{prefix}.extent", table.extent)
 
 
-def _helper(node: Node, qname: str) -> bool:
+def _local(extra: ExtraNode, ns: str) -> str | None:
+    """The local name of an ``extra`` element in namespace ``ns`` (None in another one).
+
+    Reading keeps the prefix the source used (``diggs:`` or none, ``gml:`` or ``geom:``):
+    an element is known by its namespace and local name, never by its prefix.
+    """
+    return extra.qname.rpartition(":")[2] if extra.ns == ns else None
+
+
+def _helper(node: Node, extra: ExtraNode) -> bool:
     """True for an ``extra`` element that is structure, or a typed field read twice.
 
     A feature's linear referencing system and a sampling activity's ``sampleProduced``
     are what the AGS4 keys carry; a project's ``locality`` is also its typed field.
     """
-    if qname in _HELPER_EXTRA:
+    local = _local(extra, _DIGGS_NS)
+    if local in _HELPER_EXTRA:
         return True
-    return qname == "locality" and isinstance(node, Project) and node.locality is not None
+    return local == "locality" and isinstance(node, Project) and node.locality is not None
 
 
 def _items(node: Node) -> Iterator[str]:
@@ -350,9 +362,7 @@ def _items(node: Node) -> Iterator[str]:
         if name == "params":
             yield from (f"params.{param}" for param in value)
         elif name == "extra":
-            yield from (
-                f"extra[{n}]" for n, extra in enumerate(value) if not _helper(node, extra.qname)
-            )
+            yield from (f"extra[{n}]" for n, extra in enumerate(value) if not _helper(node, extra))
         elif name == "procedure" and value is not None:
             yield from (f"procedure.params.{param}" for param in value.params)
             yield from (f"procedure.extra[{n}]" for n in range(len(value.extra)))
@@ -584,11 +594,22 @@ class _Exporter:
                 value = value.value
             self.put_item(row, table, heading.name, node, f"{prefix}.{child}", value)
 
-    def position_depth(self, position: Position | None) -> str | None:
-        """The depth a one-dimensional position along a feature gives, as written text."""
+    def position_depth(self, position: Position | None) -> tuple[str, str] | None:
+        """The depth a one-dimensional position along a feature gives, and its AGS4 unit.
+
+        The unit is that of the position's CRS (the feature's linear referencing
+        system); "" when that states none. None when it is not a depth, or its unit has
+        no entry in the unit table.
+        """
         if position is None or position.dim != 1 or not position.coordinates:
             return None
-        return written_number(position.coordinates[0])
+        return self.lrs_depth(written_number(position.coordinates[0]), position.crs)
+
+    def lrs_depth(self, depth: str, lrs: str | None) -> tuple[str, str] | None:
+        """``depth`` along ``lrs`` with the AGS4 unit of its axis (see position_depth)."""
+        ref = self.model.crs.get(lrs or "")
+        unit = self.unit(None if ref is None else ref.unit)
+        return None if unit is None else (depth, unit)
 
     # --- the document and the project -------------------------------------------------------
 
@@ -923,7 +944,15 @@ class _Exporter:
         heading = self.first(rule, "strike.location")
         if heading is None:  # pragma: no cover - the table lists it
             return
-        self.put(row, table, heading, depth, kind="number", unit="m")
+        if not self.put(row, table, heading, depth[0], kind="number", unit=depth[1]):
+            self.ledger.lose(
+                L.UNMAPPED_UNIT,
+                component,
+                None,
+                "Water strikes whose depth is in another unit than the rest of their AGS4"
+                " heading, which has one unit; not converted ({values}).",
+            )
+            return
         self.ledger.use(reading, "location")
         when = reading.params.get("dateTime")
         heading = self.first(rule, "strike.dateTime")
@@ -933,14 +962,22 @@ class _Exporter:
         seal = self.position_depth(component.location)
         heading = self.first(rule, "location")
         if heading is not None and seal is not None:
-            self.put(row, table, heading, seal, kind="number", unit="m")
-            self.ledger.use(component, "location")
+            if self.put(row, table, heading, seal[0], kind="number", unit=seal[1]):
+                self.ledger.use(component, "location")
+            else:
+                self._clash(component, "location")
         self.places(row, table, rule, component)
         self.text_fields(row, table, component)
         table.rows.append(row)
         data = self.mapping.groups.get(str(rule.data))
         if data is None:  # pragma: no cover - the table lists it
             return
+        self.strike_readings(data, row["LOCA_ID"], reading, depth)
+
+    def strike_readings(
+        self, data: GroupRule, loca_id: str, reading: Component, depth: tuple[str, str]
+    ) -> None:
+        """The later readings of one water strike: a data row each, keyed by its depth."""
         later = self.table(data.name)
         for linked in reading.components:
             if linked.element != data.element:
@@ -956,13 +993,17 @@ class _Exporter:
                     " needs; not converted ({values}).",
                 )
                 continue
-            out = {"LOCA_ID": row["LOCA_ID"], "WSTG_DPTH": depth}
-            later.units["WSTG_DPTH"] = "m"
+            out = {"LOCA_ID": loca_id}
+            if not self.put(out, later, "WSTG_DPTH", depth[0], kind="number", unit=depth[1]):
+                self._clash(linked, "location")
+                continue
             self.params(out, later, str(data.element), linked, linked.params)
             heading = self.first(data, "location")
             if heading is not None:
-                self.put(out, later, heading, post, kind="number", unit="m")
-                self.ledger.use(linked, "location")
+                if self.put(out, later, heading, post[0], kind="number", unit=post[1]):
+                    self.ledger.use(linked, "location")
+                else:
+                    self._clash(linked, "location")
             self.text_fields(out, later, linked)
             later.rows.append(out)
 
@@ -971,17 +1012,24 @@ class _Exporter:
     ) -> None:
         """Further point locations of a record that the table names (``bottomCasing``)."""
         for number, extra in enumerate(component.extra):
-            heading = self.first(rule, extra.qname)
-            if heading is None or extra.ns != _DIGGS_NS or len(extra.children) != 1:
+            local = _local(extra, _DIGGS_NS)
+            heading = None if local is None else self.first(rule, local)
+            if heading is None or len(extra.children) != 1:
                 continue
             point = extra.children[0]
-            pos = [c for c in point.children if c.qname == "gml:pos"]
+            pos = [c for c in point.children if _local(c, _GML_NS) == "pos"]
             depth = None if len(pos) != 1 or pos[0].text is None else _depth(pos[0].text)
             lrs = point.attrs.get("srsName")
-            if point.qname != "PointLocation" or depth is None or lrs != self.lrs_of(component):
+            kind = _local(point, _DIGGS_NS)
+            if kind != "PointLocation" or depth is None or lrs != self.lrs_of(component):
                 continue
-            self.put(row, table, heading, depth, kind="number", unit="m")
-            self.ledger.use(component, f"extra[{number}]")
+            place = self.lrs_depth(depth, lrs)
+            if place is not None and self.put(
+                row, table, heading, place[0], kind="number", unit=place[1]
+            ):
+                self.ledger.use(component, f"extra[{number}]")
+            else:
+                self._clash(component, f"extra[{number}]")
 
     def lrs_of(self, component: Component) -> str | None:
         """The linear referencing system the record's own point location is in."""
@@ -1193,8 +1241,10 @@ class _Exporter:
         place = self.first(rule, "location")
         depth = self.position_depth(result.location)
         if place is not None and depth is not None:
-            self.put(row, table, place, depth, kind="number", unit="m")
-            self.ledger.use(measurement, "results[0].location")
+            if self.put(row, table, place, depth[0], kind="number", unit=depth[1]):
+                self.ledger.use(measurement, "results[0].location")
+            else:
+                self._clash(measurement, "results[0].location")
         elif place is not None and result.extent is not None and result.extent.top is not None:
             self.put_item(
                 row, table, place, measurement, "results[0].extent.top", result.extent.top
@@ -1297,6 +1347,10 @@ class _Exporter:
         if procedure is None:  # pragma: no cover - the caller checked
             return
         table = self.table(data.name)
+        general = self.table(rule.name)
+        for key in rule.keys:  # the keys are copied from the general row, units too
+            if key in general.units:
+                table.units.setdefault(key, general.units[key])
         exact = {
             rule_.element: ags
             for (heading, ags), rule_ in self.mapping.codes.items()

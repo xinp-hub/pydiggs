@@ -206,6 +206,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it had no other point, so a water strike that gave only its casing depth came back with
   that depth as its seal depth. Those two elements now stay in the component's `extra`.
   Only files with such components read differently.
+- AGS4 to DIGGS no longer drops a unit without saying so. Grid coordinates written with
+  no CRS whose axes the code table gives a unit for (an empty or unlisted `LOCA_GREF`),
+  and values whose DIGGS property has no unit (the `%` of the LLPL limits), are written
+  as before, and their UNIT is now reported as `convert.unmapped-unit`; the residual file
+  keeps those values with their unit.
+- DIGGS to AGS4 wrote a water strike's depth, its seal and casing depths, and a test's
+  depth as metres whatever the unit of the hole's linear referencing system: they are
+  now written in that unit (`ft` where the hole is measured in feet). The depth keys of
+  GRAT rows (`SAMP_TOP`, `SPEC_DPTH`) now carry the unit GRAG gives them.
+- A component's `extra` element read from a document that binds GML (or another
+  namespace) to its own prefix, such as a `bottomCasing` with `geom:id`, is written by
+  namespace: writing it raised `KeyError`, and its id was not reserved. DIGGS to AGS4
+  also finds `bottomCasing` and the linear referencing system by namespace, not prefix.
 
 ## [1.9.0] - 2026-11-13
 

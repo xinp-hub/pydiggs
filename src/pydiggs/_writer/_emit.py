@@ -169,6 +169,23 @@ def _set_param(value: Param, where: str, el: etree._Element) -> None:
         _set_text(value, where, el)
 
 
+def _prefixes(extra: ExtraNode) -> Iterator[tuple[str, str]]:
+    """The ``(prefix, namespace)`` pairs the element names of an ``extra`` tree show."""
+    prefix, _, _ = extra.qname.rpartition(":")
+    if prefix and extra.ns is not None:
+        yield prefix, extra.ns
+    for child in extra.children:
+        yield from _prefixes(child)
+
+
+def _scope(extra: ExtraNode) -> dict[str, str]:
+    """Each prefix of an ``extra`` tree and its namespace, the first one met where two."""
+    scope: dict[str, str] = {}
+    for prefix, uri in _prefixes(extra):
+        scope.setdefault(prefix, uri)
+    return scope
+
+
 class _Emitter:
     """One write: ``gml:id`` assignment, then the tree, member by member."""
 
@@ -190,6 +207,12 @@ class _Emitter:
         self.produced: dict[str, list[str]] = {}
         #: A feature's lrs -> the unit reading back gives bare depths along it.
         self.lrs_unit: dict[str, str | None] = {}
+        #: Prefix -> the namespaces the model's ``extra`` elements give it in their source.
+        self.source_prefixes: dict[str, set[str]] = {}
+        for node in model.nodes():
+            for extra in node.extra:
+                for prefix, uri in _prefixes(extra):
+                    self.source_prefixes.setdefault(prefix, set()).add(uri)
 
     # --- ids ------------------------------------------------------------------------
 
@@ -201,7 +224,7 @@ class _Emitter:
             if node.extra and not isinstance(node, Component):
                 raise ValueError(f"{where}: `extra` is not empty; this writer does not write it")
             for extra in node.extra:
-                self._claim_extra(extra, where)
+                self._claim_extra(extra, _scope(extra), where)
             if node.gml_id is not None:
                 if self.layout.element(node.element).id is None:
                     raise ValueError(f"{where}: {node.element} takes no gml:id")
@@ -283,13 +306,38 @@ class _Emitter:
             self.ids.claim(given, f"{where} linearElement link")
             self.line_id[feature.key] = given
 
-    def _claim_extra(self, extra: ExtraNode, where: str) -> None:
-        """Take the ``gml:id`` values a component's ``extra`` elements give."""
-        given = extra.attrs.get("gml:id")
-        if given is not None:
-            self.ids.claim(given, f"{where} extra {extra.qname!r:.80}")
+    def _claim_extra(self, extra: ExtraNode, scope: dict[str, str], where: str) -> None:
+        """Take the ``gml:id`` values a component's ``extra`` elements give (any prefix)."""
+        for name, given in extra.attrs.items():
+            if self._attr_tag(name, extra, scope, where) == self.gml_id:
+                self.ids.claim(given, f"{where} extra {extra.qname!r:.80}")
         for child in extra.children:
-            self._claim_extra(child, where)
+            self._claim_extra(child, scope, where)
+
+    def _attr_tag(self, name: str, extra: ExtraNode, scope: dict[str, str], where: str) -> str:
+        """An ``extra`` attribute name in Clark notation, by namespace, not by prefix.
+
+        Reading keeps the prefix the source used (``geom:id`` where a document binds
+        ``geom`` to GML), or Clark notation when the namespace had no prefix. A prefix is
+        resolved by the element that carries it, then by the ``extra`` tree it is in, then
+        by the other ``extra`` elements of the model, then as the writer's own prefixes.
+        """
+        if name.startswith("{") or ":" not in name:
+            return name
+        prefix, _, local = name.partition(":")
+        own_prefix, _, _ = extra.qname.rpartition(":")
+        uri = extra.ns if own_prefix == prefix else scope.get(prefix)
+        if uri is None:
+            found = self.source_prefixes.get(prefix, set())
+            uri = next(iter(found)) if len(found) == 1 else None
+        if uri is None:
+            uri = self.layout.namespaces.get(prefix)
+        if uri is None:
+            raise ValueError(
+                f"{where}: extra {extra.qname!r:.80} has an attribute {name!r:.80} whose prefix"
+                " names no namespace the model gives"
+            )
+        return f"{{{uri}}}{local}"
 
     def _made(self, lay: ElementLayout, base: str) -> str | None:
         return self.ids.new(base) if lay.id == "required" else None
@@ -607,26 +655,28 @@ class _Emitter:
         tag = self._child(lay, local, where)
         if etree.QName(tag).namespace != extra.ns:
             raise ValueError(f"{where}: extra {extra.qname!r:.80} is not in the namespace of {tag}")
-        return tag, partial(self._extra, extra, f"{base}.{local}", where)
+        return tag, partial(self._extra, extra, _scope(extra), f"{base}.{local}", where)
 
-    def _extra(self, extra: ExtraNode, base: str, where: str, el: etree._Element) -> None:
+    def _extra(
+        self, extra: ExtraNode, scope: dict[str, str], base: str, where: str, el: etree._Element
+    ) -> None:
         """Fill ``el`` from ``extra``: its attributes, text and child elements, as given.
 
         An object element the layout says takes a required ``gml:id`` gets a new one when
         ``extra`` gives none.
         """
         for name, value in extra.attrs.items():
-            el.set(self.layout.tag(name) if ":" in name else name, value)
+            el.set(self._attr_tag(name, extra, scope, where), value)
         local = extra.qname.rpartition(":")[2]
         found = self.layout.elements.get(local)
-        if "gml:id" not in extra.attrs and found is not None and found.id == "required":
+        if el.get(self.gml_id) is None and found is not None and found.id == "required":
             el.set(self.gml_id, self.ids.new(base))
         if extra.text is not None:
             el.text = _checked(extra.text, where)
         for child in extra.children:
             name = child.qname.rpartition(":")[2]
             tag = name if child.ns is None else f"{{{child.ns}}}{name}"
-            self._extra(child, f"{base}.{name}", where, etree.SubElement(el, tag))
+            self._extra(child, scope, f"{base}.{name}", where, etree.SubElement(el, tag))
 
     def _document(self, node: DocumentInfo, prop: etree._Element) -> None:
         """The document information; no creation date is written as an unknown one.

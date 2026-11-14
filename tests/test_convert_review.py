@@ -6,6 +6,7 @@ release") it checks, and failed before that change was made.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import replace
 
@@ -88,7 +89,10 @@ def test_default_ags4_version_is_4_2_and_4_1_1_is_selectable():
     old = convert.model_to_ags4(c.model, ags_version="4.1.1").ags4
     assert old is not None and old.version == "4.1.1"
     assert "4.1.1" in (convert.model_to_ags4.__doc__ or "")
-    assert "agsapi.bgs.ac.uk" in (convert.diggs_to_ags4.__doc__ or "")
+    # the docstring names the BGS validator by its host: compared whole, not as a substring
+    doc = " ".join((convert.diggs_to_ags4.__doc__ or "").split())
+    named = re.search(r"The BGS AGS validator \(([^)]*)\) and python-ags4 1\.2\.0", doc)
+    assert named is not None and named.group(1) == "agsapi.bgs.ac.uk"
 
 
 # --- change 1: LOCA_TYPE codes ------------------------------------------------------------

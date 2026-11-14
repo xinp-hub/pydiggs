@@ -28,7 +28,7 @@ from hypothesis import strategies as st
 from lxml import etree
 
 import pydiggs
-from pydiggs import _writer, _xml
+from pydiggs import _writer, _xml, convert
 from pydiggs._writer import _emit, _layout, write_model
 from pydiggs._writer._layout import Ids, load_layout
 from pydiggs.errors import ResourceError
@@ -1049,6 +1049,52 @@ def test_a_component_extra_element_is_written_as_given_and_read_back() -> None:
     assert point.attrs["gml:id"]  # made up: the schema requires one
     given = write_model(_strike_with((_bottom_casing("casing-1"),)), "3.0.0")
     assert b'gml:id="casing-1"' in given
+
+
+def test_a_component_extra_element_read_with_another_gml_prefix_round_trips() -> None:
+    """Extra elements are written by namespace, not by the prefix the source used.
+
+    Reading keeps the source's prefixes in ``extra`` (``geom:id``); writing them back
+    raised KeyError, and the id was not claimed. Read -> write -> validate -> read.
+    """
+    xml = write_model(_strike_with((_bottom_casing("casing-1"),)), "3.0.0")
+    alt = xml.replace(b"xmlns:gml=", b"xmlns:geom=").replace(b"gml:", b"geom:")
+    assert b'geom:id="casing-1"' in alt and b"gml:" not in alt
+    read = pydiggs.read_bytes(alt)
+    # the feature's linear referencing system is `extra` the writer makes itself
+    feature = replace(read.features[0], extra=())
+    model = replace(read, features=(feature,))
+    (strike,) = feature.water_strikes
+    point = strike.extra[0].children[0]
+    assert point.attrs["geom:id"] == "casing-1"  # as the source wrote it
+    again = write_model(model, "3.0.0")
+    assert _errors(pydiggs.validate_bytes(again)) == []
+    assert again.count(b'gml:id="casing-1"') == 1
+    back = pydiggs.read_bytes(again).features[0].water_strikes[0].extra[0]
+    assert (back.qname, back.children[0].qname) == ("bottomCasing", "PointLocation")
+    assert back.children[0].attrs["gml:id"] == "casing-1"
+    assert back.children[0].children[0].text == "4"
+    # the id is claimed whatever its prefix: another node cannot take it too
+    clash = replace(point, attrs={**point.attrs, "geom:id": "BH1"})
+    taken = replace(strike.extra[0], children=(clash,))
+    with pytest.raises(ValueError, match="used more than once"):
+        write_model(_strike_with((taken,)), "3.0.0")
+    # the converter reads the casing depth by namespace too
+    out = convert.model_to_ags4(model).ags4
+    assert out is not None and out.groups["WSTG"].records()[0]["WSTG_CAS"] == "4"
+
+
+def test_a_component_extra_attribute_in_clark_notation_is_written() -> None:
+    gml = "http://www.opengis.net/gml/3.2"
+    casing = _bottom_casing()
+    point = casing.children[0]
+    clark = replace(point, attrs={**point.attrs, f"{{{gml}}}id": "casing-2"})
+    xml = write_model(_strike_with((replace(casing, children=(clark,)),)), "3.0.0")
+    assert _errors(pydiggs.validate_bytes(xml)) == []
+    assert xml.count(b'gml:id="casing-2"') == 1
+    with pytest.raises(ValueError, match="used more than once"):
+        bad = replace(point, attrs={**point.attrs, f"{{{gml}}}id": "BH1"})
+        write_model(_strike_with((replace(casing, children=(bad,)),)), "3.0.0")
 
 
 def test_a_component_extra_element_that_is_not_its_child_is_refused() -> None:

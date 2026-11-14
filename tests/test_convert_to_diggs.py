@@ -240,6 +240,7 @@ def test_tier_a_losses_are_listed(tier_a: convert.Conversion):
         "convert.user-defined",
         "convert.unmapped-group",
         "convert.unmapped-code",
+        "convert.unmapped-unit",  # the % of LLPL limits, which DIGGS gives no unit
         "convert.assumed",
     }
     assert {f.path for f in by_rule["convert.user-defined"]} == {"LOCA/2/LOCA_XCOL", "XNOT/1"}
@@ -711,6 +712,46 @@ def test_grid_coordinates_are_written_only_in_the_unit_of_the_crs_axes():
     assert location is not None and location.coordinates == (451200.0, 206500.0)
     assert location.crs == OSGB
     assert _paths(c, "convert.unmapped-unit") == {"LOCA/1/LOCA_GL"}
+
+
+def test_grid_coordinates_written_with_no_crs_name_the_unit_they_lose():
+    # Round-trip review: with no CRS the coordinates are written, but DIGGS has nowhere
+    # to state their unit; the unit is reported, and the residual file keeps the values.
+    loca = group("LOCA", LOCA_SPEC, [("BH1", "CP", "451200", "206500", "", "12", "15")])
+    c = convert_file(ags_file(PROJ, TRAN, loca))
+    assert errors(c.validation) == []
+    location = c.model.features[0].location
+    assert location is not None and location.coordinates == (451200.0, 206500.0, 12.0)
+    assert location.crs is None
+    assert _paths(c, "convert.unmapped-unit") == {
+        "LOCA/1/LOCA_NATE",
+        "LOCA/1/LOCA_NATN",
+        "LOCA/1/LOCA_GL",
+    }
+    assert c.residual is not None
+    kept = c.residual.groups["LOCA"]
+    assert dict(zip(kept.headings, kept.units, strict=True))["LOCA_NATE"] == "m"
+    # in a CRS whose axes the code table lists, the unit is stated and nothing is named
+    listed = convert_file(ags_file(PROJ, TRAN, LOCA))
+    assert _paths(listed, "convert.unmapped-unit") == set()
+
+
+def test_a_unit_the_diggs_property_has_no_place_for_is_named():
+    # Round-trip review: DIGGS liquid and plastic limits have no unit, so the % of LLPL
+    # is not written; the values are, and the unit is reported (not dropped silently).
+    tier_a = convert_file(ags4.read(TIER_A))
+    assert _paths(tier_a, "convert.unmapped-unit") >= {
+        "LLPL/1/LLPL_LL",
+        "LLPL/1/LLPL_PL",
+        "LLPL/1/LLPL_PI",
+    }
+    limits = tier_a.model.get("LLPL-1")
+    assert isinstance(limits, pydiggs.model.Measurement)
+    assert limits.results[0].to_records() == [
+        {"liquid_limit": 48.0, "plastic_limit": 22.0, "plasticity_index": 26.0}
+    ]
+    # NP is not a quantity: it has no unit to lose
+    assert "LLPL/2/LLPL_PL" not in _paths(tier_a, "convert.unmapped-unit")
 
 
 def test_a_grid_coordinate_whose_pair_cannot_be_written_is_not_claimed():
