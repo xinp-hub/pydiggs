@@ -34,22 +34,22 @@ sha256 = "68b1383e102b616bfa5a20c6777ce99a93915cbe8840becff00dd4725a9363d1"
 [files."convert/convert-mapping-1.schema.json"]
 source = "local"
 note = "JSON Schema of the AGS4 to DIGGS mapping table (format 1): pyDIGGS's own contract."
-sha256 = "b9aba9bb127a2702bf2a571b8fecd5c73d01c6afea1cd4d949fe79e2c66ecb13"
+sha256 = "23cd9fe27fe0791ff1c8bc284a52d75e6d7bbae1cb6ecc6a62cd6740fdbc9ec2"
 
 [files."convert/mappings/ags4-diggs.toml"]
 source = "local"
 note = "AGS4 to DIGGS mapping table: pyDIGGS's own data (AGS4 group and heading names, keys and parents only; no AGS4 dictionary text)."
-sha256 = "dcac3dd7cd216286d3da08e00f09200280b3ba43de0c2d4eb9ef93df2fea03e3"
+sha256 = "0af7a297bece046f3ac91d44670ba0c3119b6fd374712f1023d6dca615203139"
 
 [files."convert/mappings/codes.toml"]
 source = "local"
 note = "AGS4 codes to DIGGS elements, code-list entries and CRSs: pyDIGGS's own data."
-sha256 = "d2d220db7bdfe578e452bb46d4a7ebc96f1307554445a2366616a4c96bd39b69"
+sha256 = "4e33a82a1cbb9d9b7bca6c03a1983babcf9f1e3c49b642d1c7a677f581baf35e"
 
 [files."convert/mappings/units.toml"]
 source = "local"
 note = "AGS4 units to DIGGS units of measure: pyDIGGS's own data."
-sha256 = "80dd939397163755523e80ce97ba96501ee3e681bcbea9c26616c8ae57cd4be3"
+sha256 = "72286c4a02beebc8665c4654b7abc3ead5845669e4aa99d843d4ede8ea6e28a0"
 
 [files."deprecation/DeprecationRegistry.xml"]
 source = "schemas"
@@ -524,7 +524,7 @@ sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
 [files."findings/guidance/en.toml"]
 source = "local"
 note = "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own content, kept complete by tests/test_rule_guidance.py."
-sha256 = "dafe4aa5d515a90d0d0c0bbc7374649a42394dc01495e14f7d8eaa1cb3a835f6"
+sha256 = "564d0850b2afd930819c69f6d8a39b3c78e3578bfd3cfb88b163ac6aa3e6272f"
 
 [files."model/diggs-model-1.0.schema.json"]
 source = "local"
@@ -1114,9 +1114,9 @@ sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "dea836541ca8852a5a67373620e659afc9c09a12ad2b609ee64f6f10d1d9f524"
+sha256 = "bee09cfd9d4a4b30b2a78c15e4e35946d3b6b1c236b28962f8f1bbbe2ba22dda"
 
 [files."sidecar/openrpc.json"]
 source = "local"
 note = "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, generated from pydiggs.sidecar._protocol and drift-tested."
-sha256 = "f3700987d3f3b51078da4e6adc7a43a1b9d7dee04efa5ac1c00e7491c55a258d"
+sha256 = "772a59933df5c5124a18e507a3d542d45cfa0896d34bfc962ed3e5438ffb490e"

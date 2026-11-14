@@ -25,8 +25,11 @@ from pathlib import Path
 from typing import Any
 
 FIXTURES = ("casing_units.xml", "markup_in_value.xml")
-# AGS4 files: checked and converted to DIGGS (pyDIGGS 1.10). Not validated or read as XML.
+# AGS4 files: checked, converted to DIGGS and that DIGGS back to AGS4 (pyDIGGS 1.10). Not
+# validated or read as XML.
 AGS4_FIXTURES = ("site_tier_a.ags",)
+# The AGS4 versions DIGGS to AGS4 writes (4.2 is the default).
+AGS_VERSIONS = ("4.2", "4.1.1")
 # The service-layer cases (what @pydiggs/client's worker and `pydiggs serve --http` run):
 # a subset of steps, and the result tables of one node only.
 CHECKS = ("structure", "schema")
@@ -107,29 +110,50 @@ def run(fixture_dir: str) -> dict[str, str]:
 
 
 def ags4_cases(fixture_dir: str) -> dict[str, str]:
-    """AGS4 checking and AGS4 to DIGGS conversion, through the API and the service layer.
+    """AGS4 checking and conversion both ways, through the API and the service layer.
 
     ``convert:<name>`` is the DIGGS XML the converter writes (UTF-8 text),
-    ``convert-report:<name>`` its report, ``ags4-check:<name>`` the AGS4 check report,
-    and ``service-convert:<name>`` / ``service-ags4-check:<name>`` the documents the HTTP
-    API and the sidecar send for the same bytes.
+    ``convert-report:<name>`` its report, ``residual:<name>`` the residual AGS4 file,
+    ``ags4-check:<name>`` the AGS4 check report, and ``service-convert:<name>`` /
+    ``service-ags4-check:<name>`` the documents the HTTP API and the sidecar send for the
+    same bytes. That DIGGS converted back to AGS4 is ``to-ags4:<version>:<name>`` (the
+    AGS4 file), ``to-ags4-report:<version>:<name>`` and ``to-ags4-check:<version>:<name>``
+    (its report and its ``ags4.check``), and ``service-to-ags4:<version>:<name>``.
     """
     from pydiggs import _service as svc  # lazily: see the module docstring
-    from pydiggs import ags4
-    from pydiggs.preview import convert
+    from pydiggs import ags4, convert
 
     out: dict[str, str] = {}
     for name in AGS4_FIXTURES:
         data = Path(fixture_dir, name).read_bytes()
         conversion = convert.ags4_to_diggs(data, name=name)
+        assert conversion.xml is not None and conversion.residual is not None
         out[f"convert:{name}"] = conversion.xml.decode("utf-8")
         out[f"convert-report:{name}"] = conversion.report.to_json()
+        out[f"residual:{name}"] = ags4.dumps(conversion.residual).decode("utf-8")
         out[f"ags4-check:{name}"] = ags4.check(ags4.read_bytes(data, name=name)).to_json()
         converted = svc.convert(svc.ConvertRequest(content=data, name=name, max_bytes=MAX_BYTES))
         checked = svc.ags4_check(svc.Ags4CheckRequest(content=data, name=name, max_bytes=MAX_BYTES))
         for key, outcome in (("service-convert", converted), ("service-ags4-check", checked)):
             assert outcome.ok and outcome.document is not None, outcome
             out[f"{key}:{name}"] = outcome.document.decode("utf-8")
+        xml_name = name.rsplit(".", 1)[0] + ".xml"
+        for version in AGS_VERSIONS:
+            back = convert.diggs_to_ags4(conversion.xml, name=xml_name, ags_version=version)
+            assert back.ags4 is not None and back.validation is not None
+            out[f"to-ags4:{version}:{name}"] = ags4.dumps(back.ags4).decode("utf-8")
+            out[f"to-ags4-report:{version}:{name}"] = back.report.to_json()
+            out[f"to-ags4-check:{version}:{name}"] = back.validation.to_json()
+            request = svc.ConvertRequest(
+                content=conversion.xml,
+                name=xml_name,
+                to="ags4",
+                ags_version=version,
+                max_bytes=MAX_BYTES,
+            )
+            outcome = svc.convert(request)
+            assert outcome.ok and outcome.document is not None, outcome
+            out[f"service-to-ags4:{version}:{name}"] = outcome.document.decode("utf-8")
     return out
 
 

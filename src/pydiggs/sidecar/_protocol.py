@@ -21,7 +21,13 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Final
 
-from pydiggs._service import CONVERT_DIGGS_VERSIONS, CONVERT_TARGETS, MAX_NAME_INPUT_CHARS, Code
+from pydiggs._service import (
+    CONVERT_AGS_VERSIONS,
+    CONVERT_DIGGS_VERSIONS,
+    CONVERT_TARGETS,
+    MAX_NAME_INPUT_CHARS,
+    Code,
+)
 
 __all__ = [
     "PROTOCOL_VERSION",
@@ -133,8 +139,8 @@ _MESSAGES: Final = {
     ErrorCode.RESOURCE_ERROR: "pydiggs's bundled reference data could not be loaded.",
     ErrorCode.CANCELLED: "The request was cancelled.",
     ErrorCode.UNSUPPORTED_PROTOCOL_VERSION: "Unsupported protocol version.",
-    ErrorCode.INVALID_DOCUMENT: "The bytes are not a DIGGS document.",
-    ErrorCode.RESULT_TOO_LARGE: "The result is larger than allowed; ask for less with select.",
+    ErrorCode.INVALID_DOCUMENT: "The bytes are not a document of the expected format.",
+    ErrorCode.RESULT_TOO_LARGE: "The result is larger than allowed.",
 }
 
 _FROM_SERVICE: Final = {
@@ -645,13 +651,16 @@ class ConvertParams:
     diggs_version: str | None
     time_budget: float
     to: str
+    ags_version: str | None = None
 
 
 def check_convert(params: dict[str, Any], *, max_bytes: int, time_limit: float) -> ConvertParams:
     """Check ``convert`` parameters (protocol 1.2) and decode ``content_base64``.
 
-    ``to`` is the target format, ``"diggs"`` (the default; the content is then AGS4).
-    The service checks ``to`` and ``diggs_version`` against what it converts.
+    ``to`` is the target format: ``"diggs"`` (the default; the content is AGS4) or
+    ``"ags4"`` (the content is DIGGS XML; ``ags_version`` 4.2, the default, or 4.1.1).
+    The service checks ``to``, ``diggs_version`` and ``ags_version`` against what it
+    converts.
 
     Raises:
         ProtocolError: ``invalid-params`` or ``input-too-large``.
@@ -663,13 +672,26 @@ def check_convert(params: dict[str, Any], *, max_bytes: int, time_limit: float) 
     """
     _only(
         params,
-        frozenset({"content_base64", "path", "name", "to", "diggs_version", "time_budget_s"}),
+        frozenset(
+            {
+                "content_base64",
+                "path",
+                "name",
+                "to",
+                "diggs_version",
+                "ags_version",
+                "time_budget_s",
+            }
+        ),
     )
     to = _optional_str(params, "to", 64)
+    ags_version = _optional_str(params, "ags_version", 64)
     content, path, name, version, budget = _check_document(
         params, max_bytes=max_bytes, time_limit=time_limit
     )
-    return ConvertParams(content, path, name, version, budget, to or CONVERT_TARGETS[0])
+    return ConvertParams(
+        content, path, name, version, budget, to or CONVERT_TARGETS[0], ags_version
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -976,8 +998,10 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
         ),
         _method(
             "convert",
-            "Convert one AGS4 file to DIGGS 3.0.0 (protocol 1.2; preview mapping table), with"
-            " every loss reported. The result carries the output as base64.",
+            "Convert one AGS4 file to DIGGS 3.0.0 (to: diggs, the default), or one DIGGS"
+            " document to an AGS4 file (to: ags4), with every loss reported (protocol 1.2)."
+            " The result carries the output as base64, and for AGS4 to DIGGS the residual"
+            " AGS4 file of what was not converted.",
             [
                 _param("content_base64", {"type": "string", "contentEncoding": "base64"}),
                 _param("path", {"type": "string", "maxLength": MAX_PATH_CHARS}),
@@ -985,9 +1009,25 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                 _param(
                     "to",
                     {"enum": list(CONVERT_TARGETS)},
-                    summary="The format to convert to (default diggs; the content is AGS4).",
+                    summary=(
+                        "The format to convert to: diggs (the default; the content is AGS4)"
+                        " or ags4 (the content is DIGGS XML)."
+                    ),
                 ),
-                _param("diggs_version", {"enum": list(CONVERT_DIGGS_VERSIONS)}),
+                _param(
+                    "diggs_version",
+                    {"enum": list(CONVERT_DIGGS_VERSIONS)},
+                    summary="to: diggs only. The DIGGS version to write (default 3.0.0).",
+                ),
+                _param(
+                    "ags_version",
+                    {"enum": list(CONVERT_AGS_VERSIONS)},
+                    summary=(
+                        "to: ags4 only. The AGS4 version to write (default 4.2). The BGS AGS"
+                        " validator and python-ags4 1.2.0 accept AGS4 only up to 4.1.1"
+                        " (November 2026)."
+                    ),
+                ),
                 _param("time_budget_s", {"type": "number", "exclusiveMinimum": 0}),
             ],
             {"$ref": "#/components/schemas/ConversionResult"},
@@ -1087,13 +1127,16 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                     "type": "object",
                     "description": (
                         "As POST /v1/convert answers: the output (base64) with its media type"
-                        " and sha256, and the findings about the source and the output."
+                        " and sha256, the findings about the source and the output, and for"
+                        " AGS4 to DIGGS the residual AGS4 file (null when nothing was left"
+                        " over, and for DIGGS to AGS4)."
                     ),
                     "required": [
                         "to",
                         "media_type",
                         "output_name",
                         "diggs_version",
+                        "ags_version",
                         "mapping_version",
                         "complete",
                         "lossless",
@@ -1101,12 +1144,16 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                         "validation",
                         "output_sha256",
                         "output_base64",
+                        "residual_base64",
                     ],
                     "properties": {
                         "to": {"enum": list(CONVERT_TARGETS)},
                         "media_type": _STR,
                         "output_name": _STR,
                         "diggs_version": {"type": ["string", "null"]},
+                        "ags_version": {
+                            "anyOf": [{"enum": list(CONVERT_AGS_VERSIONS)}, {"type": "null"}]
+                        },
                         "mapping_version": _STR,
                         "complete": {"type": "boolean"},
                         "lossless": {"type": "boolean"},
@@ -1114,6 +1161,10 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                         "validation": {"anyOf": [{"$ref": findings_schema_url}, {"type": "null"}]},
                         "output_sha256": _STR,
                         "output_base64": {"type": "string", "contentEncoding": "base64"},
+                        "residual_base64": {
+                            "type": ["string", "null"],
+                            "contentEncoding": "base64",
+                        },
                     },
                 },
                 "ServerCapabilities": {
@@ -1142,6 +1193,8 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                                 "content": {"type": "boolean"},
                                 "path": {"type": "boolean"},
                                 "to": {"type": "array", "items": _STR},
+                                "ags_versions": {"type": "array", "items": _STR},
+                                "residual": {"type": "boolean"},
                             },
                         },
                         "ags4_check": {

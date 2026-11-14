@@ -94,14 +94,17 @@ about the server's own interpreter.
 | `ags4.read` | preview | | `pydiggs.ags4.read()`, `read_bytes()` |
 | `ags4.write` | preview | | `pydiggs.ags4.dumps()`, `write()` |
 | `ags4.check` | preview | | `pydiggs.ags4.check()` |
-| `convert.ags4-to-diggs` | preview | | `pydiggs.preview.convert.ags4_to_diggs()` |
+| `convert.ags4-to-diggs` | stable | | `pydiggs.convert.ags4_to_diggs()` |
+| `convert.diggs-to-ags4` | stable | | `pydiggs.convert.diggs_to_ags4()`, `model_to_ags4()` |
 | `export.pandas` | stable | `frames` | `pydiggs.frames.to_pandas()` |
 | `export.polars` | stable | `polars` | `pydiggs.frames.to_polars()` |
 | `gis.transform` | stable | `gis` | `pydiggs.gis.transform()` |
 | `export.geodataframe` | stable | `gis` | `pydiggs.gis.to_geodataframe()` |
 | `export.gpkg`, `export.geoparquet`, `export.geojson` | stable | `gis` | `pydiggs.gis.write()` |
 
-The AGS4 operations are a preview while AGS4 to DIGGS conversion is being built. The
+The AGS4 reading, writing and checking operations are a preview; conversion
+(`pydiggs.convert`) is stable from pyDIGGS 1.10, both ways. `POST /v1/convert` and the
+sidecar's `convert` are either conversion operation, chosen by their `to` parameter. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).
 

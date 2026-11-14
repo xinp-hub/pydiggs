@@ -151,7 +151,7 @@ Result:
   "capabilities": {
     "validate": {"content": true, "path": false},
     "read": {"content": true, "path": false, "select": true},
-    "convert": {"content": true, "path": false, "to": ["diggs"]},
+    "convert": {"content": true, "path": false, "to": ["diggs", "ags4"], "ags_versions": ["4.2", "4.1.1"], "residual": true},
     "ags4_check": {"content": true, "path": false, "dictionary": true},
     "cancel": true, "progress": false, "rules": true, "ping": true
   },
@@ -221,36 +221,43 @@ same bytes. Validate it against its own `$schema` and tolerate unknown fields.
   is a result with `complete: false`, not an error.
 - A `select` key that matches no measurement is ignored.
 - Bytes that are not a DIGGS document are the error `invalid-document`; a result over
-  `limits.max_result_bytes` is `result-too-large` (ask for less with `select`).
+  `limits.max_result_bytes` is `result-too-large` (ask for fewer tables with `select`).
 
 ### `convert` {#convert}
 
-Protocol 1.2. Converts one **AGS4** file to **DIGGS 3.0.0** (preview: mapping table 0.1,
-see [AGS4 to DIGGS](convert.md)), with every loss reported.
+Protocol 1.2. Converts one **AGS4** file to **DIGGS 3.0.0** (`to: "diggs"`, the default),
+or one **DIGGS** document to an **AGS4** file (`to: "ags4"`), by the stable
+`pydiggs.convert` and mapping table 1.0 (see [AGS4 and DIGGS conversion](convert.md)),
+with every loss reported.
 
 | param | type | notes |
 |---|---|---|
-| `content_base64` | string | the AGS4 file, as for `validate` |
+| `content_base64` | string | the AGS4 file (or the DIGGS document for `to: "ags4"`), as for `validate` |
 | `path` | string | as for `validate` |
-| `name` | string ≤ 4096 | the name to report; reduced to a basename (default `input.ags`, or the path's basename) |
-| `to` | string | the format to convert to: `"diggs"` (the default and only value so far) |
-| `diggs_version` | string | the DIGGS version to write: `"3.0.0"` (the default) |
+| `name` | string ≤ 4096 | the name to report; reduced to a basename (default `input.ags`, `input.xml` for `to: "ags4"`, or the path's basename) |
+| `to` | string | the format to convert to: `"diggs"` (the default; the content is AGS4) or `"ags4"` (the content is DIGGS XML) |
+| `diggs_version` | string | `to: "diggs"` only: the DIGGS version to write, `"3.0.0"` (the default) |
+| `ags_version` | string | `to: "ags4"` only: the AGS4 version to write, `"4.2"` (the default) or `"4.1.1"`; as of November 2026 the BGS AGS validator and python-ags4 1.2.0 accept AGS4 only up to 4.1.1 |
 | `time_budget_s` | number | `0 < t ≤ --timeout` |
 
 The result is the conversion result that `POST /v1/convert` answers, byte for byte: the
-DIGGS bytes as `output_base64` with `media_type`, `output_name` and `output_sha256`, the
-`report` about the source and the `validation` of the output (both diggs-findings 1.1),
-and `diggs_version`, `mapping_version`, `complete` and `lossless` (the fields are in
-[AGS4 to DIGGS](convert.md#converting)).
+output bytes as `output_base64` with `media_type`, `output_name` and `output_sha256`, the
+`report` about the source and the `validation` of the output (both diggs-findings 1.1;
+the output's is `pydiggs.ags4.check` for AGS4), `diggs_version`, `ags_version`,
+`mapping_version`, `complete` and `lossless`, and `residual_base64`: the residual AGS4
+file of what an AGS4 to DIGGS conversion did not convert, or null (the fields are in
+[AGS4 and DIGGS conversion](convert.md#converting)). `capabilities.convert` lists the
+targets, the AGS4 versions written and `residual: true`.
 
-- Losses, an output that fails validation and an exhausted `time_budget_s`
-  (`complete: false`) are normal results.
-- Bytes that are not AGS4 are the error `invalid-document` with `kind` `not-ags4` (or
-  `unsupported-version` for AGS 3); a result over `limits.max_result_bytes` is
+- Losses, an output that fails validation or the AGS4 check, and an exhausted
+  `time_budget_s` (`complete: false`) are normal results.
+- Bytes that are not AGS4 (for `to: "diggs"`) are the error `invalid-document` with
+  `kind` `not-ags4` (or `unsupported-version` for AGS 3); bytes that are not DIGGS (for
+  `to: "ags4"`) are `invalid-document` with the `kind` of `read`. A parameter given for
+  the other direction is `invalid-params`; a result over `limits.max_result_bytes` is
   `result-too-large`.
 - A `convert` shares the queue with `validate` and `read`. A queued one can be cancelled;
   a running one is checked for cancellation only when it ends.
-- DIGGS to AGS4 will be `to: "ags4"` with DIGGS content; nothing else changes.
 
 ### `ags4.check` {#ags4check}
 
@@ -328,8 +335,8 @@ it with LSP or MCP meanings.
 | -32007 | `resource-error` | the bundled reference data could not be loaded | `correlation_id` |
 | -32008 | `cancelled` | cancelled by `$/cancelRequest` | |
 | -32009 | `unsupported-protocol-version` | major version mismatch | `supported` |
-| -32010 | `invalid-document` | `read`: the bytes are not a DIGGS document; `convert`: not AGS4 | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long`; for `convert` `not-ags4` or `unsupported-version` |
-| -32011 | `result-too-large` | `read`, `convert`: the result is over `max_result_bytes` | `max_result_bytes` |
+| -32010 | `invalid-document` | `read` and `convert` to AGS4: the bytes are not a DIGGS document; `convert` to DIGGS: not AGS4 | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long`; for `convert` to DIGGS `not-ags4` or `unsupported-version` |
+| -32011 | `result-too-large` | `read`, `convert`: the result is over `max_result_bytes` (for `read`, ask for fewer tables with `select`) | `max_result_bytes` |
 
 Errors for unparseable lines carry `"id": null`. A broken notification gets no answer.
 Messages never echo request values; at most they name the reported basename.

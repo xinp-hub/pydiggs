@@ -19,6 +19,7 @@ from dataclasses import dataclass, field, replace
 from types import MappingProxyType
 from typing import Any, Final, TypeVar
 
+from pydiggs._writer._layout import load_layout
 from pydiggs.ags4 import File, Group
 from pydiggs.convert import _ledger as L  # noqa: N812 - rule-id constants
 from pydiggs.convert._ledger import Ledger
@@ -37,6 +38,7 @@ from pydiggs.model import (
     CrsRef,
     DocumentInfo,
     Domain,
+    ExtraNode,
     Feature,
     Interval,
     Link,
@@ -62,6 +64,8 @@ __all__ = ["Built", "Origin", "components_of", "drop", "map_file", "written_numb
 
 _N = TypeVar("_N", bound=Node)
 
+#: The DIGGS version the converter writes.
+DIGGS_VERSION: Final = "3.0.0"
 #: The unit of every depth along a feature (the AGS4 depth unit).
 DEPTH_UNIT: Final = "m"
 #: ``codeSpace`` of the AGS4 identifiers DIGGS holds as a coded identifier.
@@ -70,14 +74,23 @@ AGS4_CODE_SPACE: Final = "urn:x-pydiggs:ags4:"
 CLASSIFICATION_DEFAULT: Final = "unspecified"
 #: Written for the project when the file has no PROJ row.
 PROJECT_DEFAULT: Final = "unnamed project"
-#: Written for the creation date when TRAN_DATE is missing or unreadable.
-DATE_DEFAULT: Final = "1970-01-01"
+#: How the creation date is written when TRAN_DATE is missing or unreadable: as unknown
+#: (``indeterminatePosition="unknown"``), which the model holds as no date.
+DATE_UNKNOWN: Final = "unknown"
+#: The owner of a cell read before the node that will hold it is made.
+_PENDING: Final = "\x00pending"
 #: How many rows pass between two looks at the deadline.
 _CHECK_EVERY: Final = 256
 _EPSG: Final = "http://www.opengis.net/def/crs/EPSG/0/"
 #: Values of a limit heading that mean "non-plastic" (the property non_plastic).
 _NON_PLASTIC: Final = frozenset({"NP"})
 _LIMITS: Final = frozenset({"liquid_limit", "plastic_limit", "plasticity_index"})
+#: Penetrometer types (SCPG_TYPE, CPTG_TYPE) whose resistance is not a cone resistance.
+_NOT_CONES: Final = frozenset({"BALL", "T-BAR"})
+#: The length of a full SPT test drive, in mm (DIGGS n_value is blows per foot).
+_TEST_DRIVE_MM: Final = 300.0
+_DIGGS_NS: Final = "http://diggsml.org/schemas/3"
+_GML_NS: Final = "http://www.opengis.net/gml/3.2"
 #: The element a GRAT row is written as -> the name of its particle size there.
 _SIZE_FIELDS: Final = {"Grading": "particleSize", "Sedimentation": "particleDiameter"}
 #: Reading element -> (the analysis that holds it, that analysis's role, the reading's role).
@@ -145,7 +158,7 @@ def _node(cls: type[_N], key: str, element: str, **fields: Any) -> _N:
         remarks=tuple(fields.pop("remarks", ())),
         params=fields.pop("params", {}),
         provenance=Provenance(xpath=""),
-        extra=(),
+        extra=tuple(fields.pop("extra", ())),
         **fields,
     )
 
@@ -320,7 +333,7 @@ class _Row:
                 L.UNMAPPED_UNIT,
                 heading,
                 "Values of {heading} in {group} are depths in a unit other than m, which the"
-                " preview does not write; not converted ({values}).",
+                " converter does not write; not converted ({values}).",
             )
             return None
         found = self.number_text(heading, owner)
@@ -378,6 +391,14 @@ class _Mapper:
         self.complete = True
         self.user_groups: set[str] = set()
         self.user_headings: set[tuple[str, str]] = set()
+        #: The base of the last section of a group along a feature (for interval_top).
+        self.previous_base: dict[tuple[str, str], Quantity] = {}
+        #: True when the last test row's results were all left out on purpose (withheld).
+        self.only_withheld = False
+        #: The concatenation character of joined codes (TRAN_RCON, "+" by default).
+        tran = file.groups.get("TRAN")
+        records = tran.records() if tran is not None else []
+        self.joiner = (records[0].get("TRAN_RCON", "") if records else "") or "+"
 
     # --- plumbing -----------------------------------------------------------------------
 
@@ -515,12 +536,11 @@ class _Mapper:
     def document_info(self, date: str | None, description: str | None) -> DocumentInfo:
         """The document information, with the default creation date when there is none."""
         if date is None:
-            date = DATE_DEFAULT
             self.ledger.note(
                 L.ASSUMED,
                 "TRAN" if "TRAN" in self.file.groups else next(iter(self.file.groups)),
-                "DIGGS requires a creation date and TRAN_DATE gives none that can be read;"
-                f" {DATE_DEFAULT} was written.",
+                "DIGGS requires a creation date and TRAN_DATE gives none that can be read; the"
+                f' creation date was written as unknown (indeterminatePosition="{DATE_UNKNOWN}").',
             )
         return _node(
             DocumentInfo,
@@ -642,7 +662,7 @@ class _Mapper:
                 row.index,
             )
             return "Borehole", {}
-        rule = self.mapping.codes.get(("LOCA_TYPE", code))
+        rule = self.mapping.code("LOCA_TYPE", code, self.joiner)
         if rule is None or rule.element is None:
             row.lose(
                 L.UNMAPPED_CODE,
@@ -672,7 +692,7 @@ class _Mapper:
         text = row.get(heading).strip()
         if text == "":
             return False, None
-        srs = self.mapping.crs.get((heading, text))
+        srs = self.mapping.crs_of(heading, text)
         if srs is None:
             prefix, _, code = text.partition(":")
             if prefix.upper() == "EPSG" and code.isdigit() and 0 < len(code) <= 6:  # noqa: PLR2004
@@ -684,7 +704,7 @@ class _Mapper:
         if easting and northing:
             grid = self.grid(row, key)
             if grid is not None:
-                for heading in ("LOCA_LAT", "LOCA_LON", "LOCA_LLZ"):
+                for heading in ("LOCA_LAT", "LOCA_LON", "LOCA_LLZ", "LOCA_LLSI"):
                     if row.get(heading):
                         row.lose(
                             L.UNMAPPED_HEADING,
@@ -702,7 +722,9 @@ class _Mapper:
         it): a value in another unit is reported, never relabelled. When one coordinate
         cannot be written, neither is, and both are reported.
         """
-        _known, srs = self.grid_crs(row, "LOCA_GREF")
+        _known, gref = self.grid_crs(row, "LOCA_GREF")
+        nsri = self.epsg_heading(row, "LOCA_NSRI")
+        srs = gref if nsri is None else f"{_EPSG}{nsri}"
         axis = None if srs is None else self.mapping.crs_units.get(srs)
         headings = ("LOCA_NATE", "LOCA_NATN")
         units_ok = [self.axis_unit(row, heading, axis) for heading in headings]
@@ -728,13 +750,92 @@ class _Mapper:
                         " coordinate of the row could not be written ({values}).",
                     )
             return None
-        self.grid_reference(row, key, srs, axis)
+        if nsri is None:
+            self.grid_reference(row, key, srs, axis)
+        else:
+            self.national_reference(row, key, srs, gref, axis)
         coordinates = [found[0], found[1]]
         if row.get("LOCA_GL") and self.axis_unit(row, "LOCA_GL", axis):
             level = row.number("LOCA_GL", key)
             if level is not None:
                 coordinates.append(level)
+                srs = self.vertical(row, key, srs)
         return Position(coordinates=tuple(coordinates), dim=len(coordinates), crs=srs)
+
+    def epsg_heading(self, row: _Row, heading: str) -> int | None:
+        """An AGS4 4.2 EPSG-code heading (LOCA_NSRI, LOCA_LLSI) as a number; None when empty.
+
+        A value that is not a whole positive number of at most six digits is reported.
+        """
+        text = row.get(heading).strip()
+        if text == "":
+            return None
+        if text.isascii() and text.isdigit() and len(text) <= 6 and int(text) > 0:  # noqa: PLR2004
+            return int(text)
+        row.lose(
+            L.UNPARSED,
+            heading,
+            "Values of {heading} in {group} are not EPSG codes; not converted ({values}).",
+        )
+        return None
+
+    def national_reference(
+        self, row: _Row, key: str, srs: str | None, gref: str | None, axis: str | None
+    ) -> None:
+        """Use LOCA_NSRI, and LOCA_GREF where it names the same CRS (else report it)."""
+        row.use("LOCA_NSRI", key)
+        if row.get("LOCA_GREF").strip():
+            if gref == srs:
+                row.use("LOCA_GREF", key)
+            else:
+                row.lose(
+                    L.UNMAPPED_CODE,
+                    "LOCA_GREF",
+                    "Values of {heading} in {group} disagree with LOCA_NSRI, whose EPSG code"
+                    " was used; not converted ({values}).",
+                )
+        if axis is None:
+            self.ledger.note(
+                L.ASSUMED,
+                "LOCA",
+                "LOCA rows whose LOCA_NSRI is an EPSG code the code table does not list: the"
+                " grid coordinates were written as given in that CRS, without checking their"
+                " unit against its axes ({times}).",
+                row.index,
+            )
+
+    def vertical(self, row: _Row, key: str, srs: str | None) -> str | None:
+        """The CRS of a point with a ground level: a compound one when LOCA_NATD allows it.
+
+        With a vertical datum the code table lists for the grid CRS (Ordnance Datum Newlyn
+        with British National Grid), the point is written in the compound CRS. Otherwise it
+        is written in the grid CRS, which does not state the datum of the ground level, and
+        that is reported.
+        """
+        datum = row.get("LOCA_NATD").strip()
+        compound = self.mapping.crs_of("LOCA_NATD", datum) if datum else None
+        if (
+            compound is not None
+            and srs is not None
+            and self.mapping.crs_horizontal.get(compound) == srs
+        ):
+            row.use("LOCA_NATD", key)
+            return compound
+        if datum:
+            row.lose(
+                L.UNMAPPED_CODE,
+                "LOCA_NATD",
+                "Values of {heading} in {group} name no vertical datum the code table lists"
+                " for the grid CRS of the row; not converted ({values}).",
+            )
+        self.ledger.note(
+            L.ASSUMED,
+            "LOCA",
+            "Ground levels (LOCA_GL) of {group} were written as the third coordinate of a CRS"
+            " that does not state their vertical datum ({times}).",
+            row.index,
+        )
+        return srs
 
     def grid_reference(self, row: _Row, key: str, srs: str | None, axis: str | None) -> None:
         """Use or report LOCA_GREF, and say what is assumed about the coordinates' unit."""
@@ -822,7 +923,10 @@ class _Mapper:
                 row.index,
             )
         known, srs = self.grid_crs(row, "LOCA_LLZ")
-        if known:
+        llsi = self.geographic_srs(row, key, known, srs)
+        if llsi is not None:
+            srs = llsi
+        elif known:
             row.use("LOCA_LLZ", key)
         else:
             if row.get("LOCA_LLZ").strip():
@@ -848,6 +952,37 @@ class _Mapper:
                 " only with grid coordinates ({values}).",
             )
         return Position(coordinates=(lat, lon), dim=2, crs=srs)
+
+    def geographic_srs(self, row: _Row, key: str, known: bool, llz: str | None) -> str | None:
+        """The CRS LOCA_LLSI names, when it is a datum the code table lists (else None).
+
+        LOCA_LLZ is used too when it names the same datum, and reported when it does not.
+        """
+        number = self.epsg_heading(row, "LOCA_LLSI")
+        if number is None:
+            return None
+        srs = f"{_EPSG}{number}"
+        listed = {s for (h, _), s in self.mapping.crs.items() if h == "LOCA_LLZ"}
+        if srs not in listed:
+            row.lose(
+                L.UNMAPPED_CODE,
+                "LOCA_LLSI",
+                "Values of {heading} in {group} name no latitude and longitude datum the code"
+                " table lists; not converted ({values}).",
+            )
+            return None
+        row.use("LOCA_LLSI", key)
+        if row.get("LOCA_LLZ").strip():
+            if known and llz == srs:
+                row.use("LOCA_LLZ", key)
+            else:
+                row.lose(
+                    L.UNMAPPED_CODE,
+                    "LOCA_LLZ",
+                    "Values of {heading} in {group} disagree with LOCA_LLSI, whose EPSG code was"
+                    " used; not converted ({values}).",
+                )
+        return srs
 
     # --- observations and samples -------------------------------------------------------
 
@@ -1018,8 +1153,18 @@ class _Mapper:
         code = row.text("SAMP_TYPE", key)
         if code is None:
             return None
-        rule = self.mapping.codes.get(("SAMP_TYPE", code))
+        rule = self.mapping.code("SAMP_TYPE", code, self.joiner)
         if rule is not None and rule.code is not None and rule.code_list is not None:
+            if (rule.heading, rule.ags) in self.mapping.shared:
+                row.unuse("SAMP_TYPE", key)
+                row.lose(
+                    L.UNMAPPED_CODE,
+                    "SAMP_TYPE",
+                    "Values of {heading} in {group} are AGS4 codes that share their DIGGS sample"
+                    " type with another AGS4 code (such as TW and UT); the DIGGS code was"
+                    " written, and the AGS4 code is reported because DIGGS does not tell them"
+                    " apart ({values}).",
+                )
             return Code(value=rule.code, code_space=self.mapping.code_space(rule.code_list))
         self.ledger.note(
             L.UNMAPPED_CODE,
@@ -1034,6 +1179,9 @@ class _Mapper:
 
     def tests(self, group: str) -> None:
         rule = self.mapping.groups[group]
+        if rule.data is not None and self.is_series(rule):
+            self.series_tests(rule)
+            return
         gradings = self.gradings(rule) if rule.data is not None else {}
         for row in self.rows(group):
             parent = self.parent_of(row, rule)
@@ -1043,6 +1191,15 @@ class _Mapper:
             key = self.ids.make(f"{group}-{row.ordinal}")
             components = gradings.pop(row.key(rule.keys), ())
             measurement = self.test(row, rule, key, (feature, sample), components)
+            if measurement is None and self.only_withheld:
+                self.abandon(key, components)
+                row.lose(
+                    L.UNMAPPED_HEADING,
+                    None,
+                    "Rows of {group} whose results were all left out (each is reported) have no"
+                    " other result DIGGS can hold as a test; not converted ({rows}).",
+                )
+                continue
             if measurement is None:
                 self.abandon(key, components)
                 row.lose(
@@ -1114,10 +1271,19 @@ class _Mapper:
         feature, sample = parent
         lrs = feature.lrs
         depth: float | None = None
-        for heading in (*self.fields(rule, "location"), "SAMP_TOP"):
+        placed = self.fields(rule, "location")
+        for heading in (*placed, "SAMP_TOP"):
             found = row.depth(heading, key) if row.get(heading) else None
             if found is not None:
                 depth = found.value
+                if heading == "SAMP_TOP" and placed:
+                    self.ledger.note(
+                        L.ASSUMED,
+                        row.group.name,
+                        "Tests of {group} with no depth of their own were placed at the top of"
+                        " their sample (SAMP_TOP) ({times}).",
+                        row.index,
+                    )
                 break
         columns = self.columns(row, rule, key)
         if depth is None or not columns:
@@ -1149,12 +1315,58 @@ class _Mapper:
             ),
         )
 
+    def withheld(self, row: _Row, rule: GroupRule) -> dict[str, str]:
+        """Result headings of ``row`` not written on purpose, each with its finding's template.
+
+        A water content or bulk density that AGS4 says is not natural (LNMC_ISNT = N, a
+        recompacted LDEN specimen) is not written as the DIGGS property for natural
+        conditions; an SPT N from a test drive that stopped short of 300 mm is not written
+        as DIGGS n_value, which is blows per foot.
+        """
+        out: dict[str, str] = {}
+        if rule.name == "LNMC" and row.get("LNMC_ISNT").strip().upper() == "N":
+            out["LNMC_MC"] = (
+                "Values of {heading} in {group} are not natural water contents (LNMC_ISNT is"
+                " N), and DIGGS water_content_natural is for natural conditions; not converted"
+                " ({values})."
+            )
+        if rule.name == "LDEN" and row.get("LDEN_COND").strip().upper() == "RECOMPACTED":
+            for heading in ("LDEN_BDEN", "LDEN_MC"):
+                out[heading] = (
+                    "Values of {heading} in {group} are of a recompacted specimen (LDEN_COND),"
+                    " and the DIGGS property is for natural conditions; not converted ({values})."
+                )
+        if rule.name == "ISPT" and self.short_drive(row):
+            for heading in ("ISPT_NVAL", "ISPT_N60"):
+                out[heading] = (
+                    "Values of {heading} in {group} are from a test drive that stopped short of"
+                    " 300 mm (ISPT_PEN3 to ISPT_PEN6), and DIGGS n_value and n60 are blows per"
+                    " 300 mm; not converted, the drive is described in ISPT_REP ({values})."
+                )
+        return out
+
+    @staticmethod
+    def short_drive(row: _Row) -> bool:
+        """True when the test drive increments are given and sum to less than 300 mm."""
+        given = [row.get(f"ISPT_PEN{n}").strip() for n in range(3, 7)]
+        given = [text for text in given if text]
+        numbers = [parse_number(text) for text in given]
+        if not given or any(n is None for n in numbers):
+            return False
+        return sum(n for n in numbers if n is not None) < _TEST_DRIVE_MM
+
     def columns(self, row: _Row, rule: GroupRule, key: str) -> list[Column]:
         facts = property_facts()
         out: list[Column] = []
         non_plastic = False
+        withheld = self.withheld(row, rule)
+        self.only_withheld = False
         for heading in rule.headings.values():
             if heading.to != "column" or heading.property is None or not row.get(heading.name):
+                continue
+            if heading.name in withheld:
+                row.lose(L.UNMAPPED_HEADING, heading.name, withheld[heading.name])
+                self.only_withheld = True
                 continue
             prop = heading.property
             if prop in _LIMITS and row.get(heading.name).strip().upper() in _NON_PLASTIC:
@@ -1180,6 +1392,8 @@ class _Mapper:
                     values=(found,),
                 )
             )
+        if out or non_plastic:
+            self.only_withheld = False
         if non_plastic:
             out.append(
                 Column(
@@ -1210,7 +1424,7 @@ class _Mapper:
                 row.index,
             )
             return "Grading"
-        found = self.mapping.codes.get(("GRAT_TYPE", code))
+        found = self.mapping.code("GRAT_TYPE", code, self.joiner)
         if found is None or found.element not in _SIZE_FIELDS:
             row.lose(
                 L.UNMAPPED_CODE,
@@ -1219,7 +1433,16 @@ class _Mapper:
                 " code table (such as a pipette analysis) were not converted ({rows}).",
             )
             return None
-        row.use("GRAT_TYPE", key)
+        if found.exact:
+            row.use("GRAT_TYPE", key)
+        else:
+            row.lose(
+                L.UNMAPPED_CODE,
+                "GRAT_TYPE",
+                "Values of {heading} in {group} name a method DIGGS does not tell apart (such as"
+                " wet or dry sieving); those rows were written as sieve gradings, without the"
+                " code ({values}).",
+            )
         return found.element
 
     def gradings(self, rule: GroupRule) -> dict[tuple[str, ...], tuple[Component, ...]]:
@@ -1266,6 +1489,471 @@ class _Mapper:
                 key = self.ids.make(f"{readings[0].key}-{role}")
                 holders.append(_node(Component, key, holder, role=role, components=tuple(readings)))
             out[test_key] = tuple(holders)
+        return out
+
+    # --- a test and its readings: a cone test ---------------------------------------------
+
+    def is_series(self, rule: GroupRule) -> bool:
+        """True when ``rule``'s data group holds result columns: one row per reading."""
+        data = self.mapping.groups[str(rule.data)]
+        return any(h.to == "column" for h in data.headings.values())
+
+    def readings(self, rule: GroupRule) -> dict[tuple[str, ...], list[tuple[_Row, float]]]:
+        """The data-group rows that can be written, with their depth, by test key."""
+        data = self.mapping.groups[str(rule.data)]
+        index = next(h.name for h in data.headings.values() if h.target == "index.position")
+        columns = [h.name for h in data.headings.values() if h.to == "column"]
+        out: dict[tuple[str, ...], list[tuple[_Row, float]]] = {}
+        for row in self.rows(data.name):
+            depth = row.depth(index, _PENDING) if row.get(index) else None
+            if depth is None or not any(row.get(h) for h in columns):
+                row.unuse(index, _PENDING)
+                row.lose(
+                    L.INCOMPLETE,
+                    None,
+                    "Rows of {group} have no depth or no reading that can be written, and DIGGS"
+                    " requires both of a result row; not converted ({rows}).",
+                )
+                continue
+            out.setdefault(row.key(rule.keys), []).append((row, float(depth.value or 0.0)))
+        return out
+
+    def series_tests(self, rule: GroupRule) -> None:
+        data = self.mapping.groups[str(rule.data)]
+        found = self.readings(rule)
+        for row in self.rows(rule.name):
+            parent = self.parent_of(row, rule)
+            if parent is None:
+                continue
+            _sample, feature = parent
+            key = self.ids.make(f"{rule.name}-{row.ordinal}")
+            readings = found.pop(row.key(rule.keys), [])
+            kind = next((h for h in rule.headings if h.endswith("_TYPE")), None)
+            if kind is not None and row.get(kind).strip().upper() in _NOT_CONES:
+                self.not_a_cone(row, data, readings)
+                continue
+            table = self.series_table(data, readings, key, feature.lrs)
+            if table is None:
+                for reading, _depth in readings:
+                    self.forget_pending(reading, data)
+                    reading.lose(
+                        L.INCOMPLETE,
+                        None,
+                        "Rows of {group} belong to a test that was not converted; not converted"
+                        " ({rows}).",
+                    )
+                row.lose(
+                    L.INCOMPLETE,
+                    None,
+                    "Rows of {group} have no reading that can be written, and DIGGS requires a"
+                    " test result; not converted ({rows}).",
+                )
+                continue
+            for heading in rule.keys:
+                row.use(heading, key)
+            name = self.first_text(row, rule, "name", key)
+            self.measurements.append(
+                _node(
+                    Measurement,
+                    key,
+                    "Test",
+                    names=() if name is None else (name,),
+                    remarks=self.remarks(row, rule, key),
+                    feature=feature.key,
+                    procedure=Procedure(
+                        type=str(rule.procedure),
+                        params={
+                            **rule.procedure_params,
+                            **self.params(row, rule, str(rule.procedure), key),
+                        },
+                    ),
+                    results=(table,),
+                )
+            )
+            self.link(key, "project", self.project())
+            self.link(key, "samplingFeature", feature.key)
+            self.origin(key, row)
+            for reading, _depth in readings:
+                for heading in data.keys:
+                    reading.use(heading, key)
+        for left in found.values():
+            for reading, _depth in left:
+                self.forget_pending(reading, data)
+                reading.lose(
+                    L.ORPHAN_ROW,
+                    None,
+                    "Rows of {group} name a test that no converted row of its general group has;"
+                    " not converted ({rows}).",
+                )
+
+    def not_a_cone(self, row: _Row, data: GroupRule, readings: list[tuple[_Row, float]]) -> None:
+        """Report a ball or T-bar test and its readings: their resistance is not a cone's."""
+        for reading, _depth in readings:
+            self.forget_pending(reading, data)
+            reading.lose(
+                L.UNMAPPED_CODE,
+                None,
+                "Rows of {group} are readings of a ball or T-bar penetrometer test, whose"
+                " resistance (q_m) is not the cone resistance DIGGS tip_resistance holds; not"
+                " converted ({rows}).",
+            )
+        row.lose(
+            L.UNMAPPED_CODE,
+            None,
+            "Rows of {group} are ball or T-bar penetrometer tests, whose resistance (q_m) is not"
+            " the cone resistance DIGGS tip_resistance holds; not converted ({rows}).",
+        )
+
+    def series_table(
+        self, data: GroupRule, readings: list[tuple[_Row, float]], key: str, lrs: str
+    ) -> ResultTable | None:
+        """The result table of one test: a row per reading, indexed by depth."""
+        if not readings:
+            return None
+        facts = property_facts()
+        index = next(h.name for h in data.headings.values() if h.target == "index.position")
+        columns: list[Column] = []
+        for heading in data.headings.values():
+            if heading.to != "column" or heading.property is None:
+                continue
+            prop = heading.property
+            values: list[float | None] = []
+            uom: str | None = None
+            for reading, _depth in readings:
+                value: float | None = None
+                if reading.get(heading.name):
+                    fact = facts.get(prop)
+                    unit = reading.uom(heading.name) if fact is not None and fact.has_unit else ""
+                    if unit is not None:
+                        value = reading.number(heading.name, key)
+                        uom = unit or None
+                values.append(value)
+            if any(v is not None for v in values):
+                columns.append(
+                    Column(
+                        name=heading.name,
+                        key=prop,
+                        definition=f"{PROPERTIES_URL}#{prop}",
+                        uom=uom,
+                        type="number",
+                        values=tuple(values),
+                    )
+                )
+        if not columns:
+            return None
+        depths: list[float] = []
+        for reading, depth in readings:
+            reading.unuse(index, _PENDING)
+            reading.number(index, key)
+            depths.append(depth)
+        position = Column(
+            name="position", key="position", uom=DEPTH_UNIT, type="number", values=tuple(depths)
+        )
+        return ResultTable(
+            domain=Domain(shape="point", index=(position,), crs=lrs),
+            columns=tuple(columns),
+            row_count=len(readings),
+        )
+
+    def forget_pending(self, row: _Row, data: GroupRule) -> None:
+        """Release the cells a reading held while its test was not yet made."""
+        for heading in data.headings:
+            row.unuse(heading, _PENDING)
+
+    # --- records a feature holds: hole diameter, casing, backfill, water strikes --------
+
+    def point(self, row: _Row, heading: str, key: str, lrs: str) -> Position | None:
+        """A depth along the feature as a point in its linear referencing system."""
+        found = row.depth(heading, key)
+        if found is None or found.value is None:
+            return None
+        if written_number(found.value) != found.text:
+            self.ledger.note(
+                L.REFORMATTED,
+                row.group.name,
+                "Numbers of {group} were written in a shorter form, the same value ({times}).",
+                row.index,
+            )
+        return Position(coordinates=(found.value,), dim=1, crs=lrs)
+
+    def feature_components(self) -> None:
+        """Hole diameters, casings, backfill and water strikes, onto the features."""
+        held: dict[str, list[Component]] = {}
+        strikes: dict[str, list[Component]] = {}
+        for name, rule in self.mapping.groups.items():
+            if rule.pattern != "feature-component" or rule.element is None:
+                continue
+            if rule.parent != "LOCA" or name not in self.file.groups:
+                continue
+            target = strikes if rule.role == "waterStrike" else held
+            for feature_key, component in self.components(rule):
+                target.setdefault(feature_key, []).append(component)
+        self.features = [
+            replace(
+                feature,
+                construction=tuple(held.get(feature.key, ())),
+                water_strikes=tuple(strikes.get(feature.key, ())),
+            )
+            for feature in self.features
+        ]
+
+    def holds(self, feature: str, role: str) -> bool:
+        element = next(f.element for f in self.features if f.key == feature)
+        return role in load_layout(DIGGS_VERSION).element(element).by_local
+
+    def components(self, rule: GroupRule) -> list[tuple[str, Component]]:
+        """The components of ``rule``'s rows, by the key of the feature that holds each."""
+        by_feature: dict[str, list[_Row]] = {}
+        for row in self.rows(rule.name):
+            feature = self.feature_of(row)
+            if feature is None:
+                continue
+            if not self.holds(feature.key, rule.holder_role or str(rule.role)):
+                row.lose(
+                    L.INCOMPLETE,
+                    None,
+                    "Rows of {group} belong to a location whose DIGGS element cannot hold them;"
+                    " not converted ({rows}).",
+                )
+                continue
+            by_feature.setdefault(feature.key, []).append(row)
+        out: list[tuple[str, Component]] = []
+        readings = self.strike_readings(rule) if rule.data is not None else {}
+        for feature_key, rows in by_feature.items():
+            lrs = self.feature_lrs(feature_key)
+            made = [
+                c
+                for c in (
+                    self.component(rule, row, lrs, readings) for row in self.ordered(rule, rows)
+                )
+                if c is not None
+            ]
+            if rule.holder is not None and made:
+                key = self.ids.make(f"{feature_key}-{rule.holder_role}")
+                holder = _node(
+                    Component, key, rule.holder, role=str(rule.holder_role), components=tuple(made)
+                )
+                out.append((feature_key, holder))
+            else:
+                out.extend((feature_key, c) for c in made)
+        for left in readings.values():
+            for reading in left:
+                reading.lose(
+                    L.ORPHAN_ROW,
+                    None,
+                    "Rows of {group} name a water strike that no converted row of its general"
+                    " group has; not converted ({rows}).",
+                )
+        return out
+
+    def feature_lrs(self, feature_key: str) -> str:
+        return next(f.lrs for f in self.feature_by_id.values() if f.key == feature_key)
+
+    def ordered(self, rule: GroupRule, rows: list[_Row]) -> list[_Row]:
+        """Rows by depth when the interval starts at the previous row's base, else as given."""
+        if rule.interval_top != "previous-base":
+            return rows
+        base = self.fields(rule, "interval.base")[0]
+
+        def depth(row: _Row) -> float:
+            value = parse_number(row.get(base).strip())
+            return float("inf") if value is None else value
+
+        return sorted(rows, key=depth)
+
+    def component(
+        self,
+        rule: GroupRule,
+        row: _Row,
+        lrs: str,
+        readings: dict[tuple[str, ...], list[_Row]],
+    ) -> Component | None:
+        key = self.ids.make(f"{row.get('LOCA_ID')}-{rule.name}-{row.ordinal}")
+        params = self.params(row, rule, str(rule.element), key)
+        interval: Interval | None = None
+        location: Position | None = None
+        components: tuple[Component, ...] = ()
+        complete = True
+        if self.fields(rule, "interval.base"):
+            interval = self.component_interval(rule, row, key, lrs)
+            complete = interval is not None
+        if self.fields(rule, "location"):
+            heading = self.fields(rule, "location")[0]
+            location = self.point(row, heading, key, lrs) if row.get(heading) else None
+        extra: tuple[ExtraNode, ...] = ()
+        if rule.role == "waterStrike":
+            strike = self.strike(rule, row, key, lrs)
+            complete = strike is not None
+            if strike is not None:
+                later = tuple(self.later_readings(rule, row, readings, lrs))
+                components = (replace(strike, components=later),)
+                extra = self.places(rule, row, key, lrs)
+        required = [p.split("/")[1] for p in self.required_params(rule)]
+        if not complete or any(name not in params for name in required):
+            self.ledger.forget(key)
+            for component in (*components, *(c for x in components for c in x.components)):
+                self.ledger.forget(component.key)
+                self.trace.pop(component.key, None)
+            row.lose(
+                L.INCOMPLETE,
+                None,
+                "Rows of {group} lack a value DIGGS requires of the record (a depth, or "
+                + (", ".join(required) or "a reading")
+                + "); not converted ({rows}).",
+            )
+            return None
+        for heading in rule.keys:
+            row.use(heading, key)
+        self.origin(key, row)
+        return _node(
+            Component,
+            key,
+            str(rule.element),
+            role=str(rule.role),
+            remarks=self.remarks(row, rule, key),
+            params=params,
+            interval=interval,
+            location=location,
+            components=components,
+            extra=extra,
+        )
+
+    def places(self, rule: GroupRule, row: _Row, key: str, lrs: str) -> tuple[ExtraNode, ...]:
+        """Depths along the feature that DIGGS holds as a further point location of a record.
+
+        The table names each by its DIGGS element (WSTG_CAS: ``bottomCasing``). The model
+        has no typed field for them, so each is written as the element itself, as
+        :func:`pydiggs.read` gives it back in ``extra``.
+        """
+        out: list[ExtraNode] = []
+        for heading in rule.headings.values():
+            if heading.to != "field" or heading.target != "bottomCasing":
+                continue
+            point = self.point(row, heading.name, key, lrs) if row.get(heading.name) else None
+            if point is None:
+                continue
+            pos = ExtraNode(qname="gml:pos", ns=_GML_NS, text=written_number(point.coordinates[0]))
+            location = ExtraNode(
+                qname="PointLocation",
+                ns=_DIGGS_NS,
+                attrs={"srsName": lrs, "srsDimension": "1"},
+                children=(pos,),
+            )
+            out.append(ExtraNode(qname=heading.target, ns=_DIGGS_NS, children=(location,)))
+        return tuple(out)
+
+    def required_params(self, rule: GroupRule) -> list[str]:
+        """The ``param`` targets of ``rule`` its DIGGS element requires."""
+        lay = load_layout(DIGGS_VERSION).element(str(rule.element))
+        needed = {tag for need in lay.required for tag in need}
+        out = []
+        for heading in rule.headings.values():
+            if heading.to == "param" and heading.target is not None:
+                child = heading.target.split("/")[1]
+                if lay.by_local.get(child) in needed:
+                    out.append(heading.target)
+        return out
+
+    def component_interval(self, rule: GroupRule, row: _Row, key: str, lrs: str) -> Interval | None:
+        base = row.depth(self.fields(rule, "interval.base")[0], key)
+        if base is None:
+            return None
+        tops = self.fields(rule, "interval.top")
+        if tops:
+            top = row.depth(tops[0], key)
+            return None if top is None else Interval(top=top, base=base, lrs=lrs)
+        top = (
+            self.previous_base.get((rule.name, lrs))
+            if rule.interval_top == "previous-base"
+            else None
+        )
+        if top is None:
+            top = Quantity(text="0", value=0.0, uom=DEPTH_UNIT)
+            self.ledger.note(
+                L.ASSUMED,
+                rule.name,
+                "AGS4 gives only the base depth of each section of {group}; "
+                + (
+                    "each casing was taken to run from the surface (0) to that depth"
+                    if rule.interval_top == "surface"
+                    else "each section was taken to start at the base of the previous one, the"
+                    " first at the surface (0)"
+                )
+                + " ({times}).",
+                row.index,
+            )
+        if rule.interval_top == "previous-base":
+            self.previous_base[(rule.name, lrs)] = base
+        return Interval(top=top, base=base, lrs=lrs)
+
+    def strike(self, rule: GroupRule, row: _Row, key: str, lrs: str) -> Component | None:
+        """The first reading of a water strike: the water at the strike depth, when struck."""
+        depth = self.fields(rule, "strike.location")[0]
+        location = self.point(row, depth, key, lrs) if row.get(depth) else None
+        if location is None:
+            return None
+        reading_key = self.ids.make(f"{key}-strike")
+        params: dict[str, Param] = {}
+        for heading in self.fields(rule, "strike.dateTime"):
+            date = row.date(heading, key)
+            if date is not None:
+                params["dateTime"] = date
+        self.origin(reading_key, row)
+        return _node(
+            Component,
+            reading_key,
+            "WaterStrikeReading",
+            role="waterStrikeReadings",
+            params=params,
+            location=location,
+        )
+
+    def strike_readings(self, rule: GroupRule) -> dict[tuple[str, ...], list[_Row]]:
+        data = self.mapping.groups[str(rule.data)]
+        out: dict[tuple[str, ...], list[_Row]] = {}
+        for row in self.rows(data.name):
+            out.setdefault(row.key(rule.keys), []).append(row)
+        return out
+
+    def later_readings(
+        self,
+        rule: GroupRule,
+        row: _Row,
+        readings: dict[tuple[str, ...], list[_Row]],
+        lrs: str,
+    ) -> list[Component]:
+        """The readings after the strike: one per WSTD row of the same strike."""
+        data = self.mapping.groups[str(rule.data)]
+        out: list[Component] = []
+        for reading in readings.pop(row.key(rule.keys), []):
+            key = self.ids.make(f"{row.get('LOCA_ID')}-{data.name}-{reading.ordinal}")
+            heading = self.fields(data, "location")[0]
+            location = self.point(reading, heading, key, lrs) if reading.get(heading) else None
+            if location is None:
+                self.ledger.forget(key)
+                reading.lose(
+                    L.INCOMPLETE,
+                    None,
+                    "Rows of {group} give no depth to water that can be written, which DIGGS"
+                    " requires of a water strike reading; not converted ({rows}).",
+                )
+                continue
+            params = self.params(reading, data, "LinkedWSReading", key)
+            for name in data.keys:
+                if name in rule.keys or reading.get(name) == "":
+                    reading.use(name, key)
+            self.origin(key, reading)
+            out.append(
+                _node(
+                    Component,
+                    key,
+                    "LinkedWSReading",
+                    role="linkedReading",
+                    remarks=self.remarks(reading, data, key),
+                    params=params,
+                    location=location,
+                )
+            )
         return out
 
     # --- what is left -------------------------------------------------------------------
@@ -1351,6 +2039,7 @@ class _Mapper:
             self.transmission()
             self.projects_()
             self.features_()
+            self.feature_components()
             if "GEOL" in self.file.groups:
                 self.geology()
             if "SAMP" in self.file.groups:
