@@ -1,7 +1,7 @@
 """Preview: AGS4 to DIGGS conversion with every loss listed (pyDIGGS 1.9).
 
 **Outside Semantic Versioning.** Names, output and the mapping table may change in any
-release; the stable API arrives in ``pydiggs.convert`` with pyDIGGS 1.10, when the owner
+release; the stable API arrives in ``pydiggs.convert`` with pyDIGGS 1.11, when the owner
 signs off mapping table 1.0. Every group mapping in this preview is a draft; see
 `AGS4 to DIGGS mapping <https://xinp-hub.github.io/pydiggs/convert-mapping/>`_.
 

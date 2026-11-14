@@ -8,7 +8,7 @@ in the stdio sidecar and in the browser: the same input gives the same bytes eve
     The conversion uses mapping table **0.1**, and every group mapping in it is a draft
     (see the [AGS4 to DIGGS mapping](convert-mapping.md)). In Python it lives in
     `pydiggs.preview.convert`, outside Semantic Versioning; the stable
-    `pydiggs.convert` API and mapping table 1.0 are planned for pyDIGGS 1.10. Output may
+    `pydiggs.convert` API and mapping table 1.0 are planned for pyDIGGS 1.11. Output may
     change between releases while the table is reviewed. Corrections from DIGGS and AGS
     practitioners are welcome.
 
@@ -130,7 +130,7 @@ A group-level finding stands for every cell in the group; findings are not repea
 cell. Each finding has the source `line` and, in `location.path`, the place in the file
 (`GROUP/row/HEADING`). The full list is in [Findings](findings.md#rule-ids).
 
-**Coming in pyDIGGS 1.10:** a *residual* AGS4 file holding exactly the groups and
+**Coming in pyDIGGS 1.11:** a *residual* AGS4 file holding exactly the groups and
 headings that were not converted (so DIGGS output plus residual is everything the source
 held), DIGGS to AGS4, and more groups (Tier B). This branch does not have them yet.
 
