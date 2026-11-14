@@ -117,6 +117,24 @@ What this pyDIGGS can do; see [Capabilities](capabilities.md).
 
 ::: pydiggs.CAPABILITIES_SCHEMA_URL
 
+## AGS4 and DIGGS conversion
+
+Stable from pyDIGGS 1.10; see [AGS4 and DIGGS conversion](convert.md).
+
+::: pydiggs.convert.ags4_to_diggs
+
+::: pydiggs.convert.diggs_to_ags4
+
+::: pydiggs.convert.model_to_ags4
+
+::: pydiggs.convert.Conversion
+
+::: pydiggs.convert.Origin
+
+::: pydiggs.convert.mapping_info
+
+::: pydiggs.convert.MAPPING_VERSION
+
 ## Errors
 
 ::: pydiggs.PydiggsError

@@ -9,10 +9,12 @@ preview:
   text they hold, and `ags4.check` / `pydiggs ags4 check` report the AGS4 rules as
   findings, with line numbers and places in the file. No AGS data dictionary is bundled:
   pass your own copy for the rules that need one.
-- `pydiggs.preview.convert.ags4_to_diggs` converts the common groups (projects,
+- `pydiggs.preview.convert.ags4_to_diggs` converted the common groups (projects,
   locations, geology, samples, SPT, Atterberg limits, moisture content and particle
-  size) to DIGGS 3.0.0. Every value is either written or named by a `convert.*` finding,
-  and the output is validated. The mapping table is a draft and may change before 1.10.0.
+  size) to DIGGS 3.0.0, as a preview with a draft mapping table (0.1). Every value was
+  either written or named by a `convert.*` finding, and the output was validated. From
+  1.10 the stable `pydiggs.convert` replaces it, and `pydiggs.preview.convert` is a
+  deprecated alias.
 - Findings documents are now diggs-findings 1.1, which only adds to 1.0.
 - The licences of everything pyDIGGS bundles are named file by file (`NOTICE`,
   `REUSE.toml`), and contributions are signed off under the DCO.

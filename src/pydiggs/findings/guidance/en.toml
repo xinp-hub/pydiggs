@@ -584,14 +584,14 @@ meaning = "The file defines its own group or heading in its DICT group. It is re
 fix = "If the data matters, ask your data supplier whether a standard AGS4 group or heading can hold it, and keep the AGS4 file alongside the DIGGS file."
 
 [rules."convert.unmapped-code"]
-title = "Code has no DIGGS match"
-meaning = "An AGS4 code, such as a sample or test type, has no matching DIGGS code. It was kept as plain text or left out, so other software may not recognise it."
-fix = "Check the code's spelling against the AGS4 abbreviations list, or use a standard code. If the code is correct, report it so it can be added to the mapping."
+title = "Code has no match"
+meaning = "A code, such as a sample or test type, has no matching code in the other format (DIGGS for an AGS4 file, AGS4 for a DIGGS file). It was kept as plain text or left out, so other software may not recognise it."
+fix = "Check the code's spelling against the AGS4 abbreviations list or the DIGGS code lists, or use a standard code. If the code is correct, report it so it can be added to the mapping."
 
 [rules."convert.unmapped-unit"]
 title = "Unit not recognised"
 meaning = "A value's unit is not in the unit table, so values in that unit were not converted, to avoid writing a wrong number."
-fix = "Use a standard AGS4 unit (for example m, kPa or %) in the UNIT row, or report the unit so it can be added to the table."
+fix = "Use a standard unit (for example m, kPa or %; in an AGS4 file, in the UNIT row), or report the unit so it can be added to the table."
 
 [rules."convert.orphan-row"]
 title = "Row has no converted parent"
@@ -605,13 +605,18 @@ fix = "Correct the value at the source, for example a depth written with text in
 
 [rules."convert.assumed"]
 title = "Default value filled in"
-meaning = "DIGGS requires a value that the AGS4 file does not give, such as a project name or a date, so a documented default was written instead. The converted file is valid but contains a placeholder."
-fix = "Add the missing information to the AGS4 file and convert again, or edit the placeholder in the DIGGS file before you share it."
+meaning = "The output format requires a value that the source file does not give, such as a project name or a date, so a documented default was written instead (or, where AGS4 has no default, the field was left empty). The converted file contains a placeholder."
+fix = "Add the missing information to the source file and convert again, or edit the placeholder in the converted file before you share it."
 
 [rules."convert.value-reformatted"]
 title = "Value written differently"
 meaning = "A value was written in another form that means the same thing, for example a date in a standard format. Nothing was lost. This is for information only."
 fix = "No action needed."
+
+[rules."convert.unmapped-element"]
+title = "DIGGS value not converted"
+meaning = "A value in the DIGGS file, such as a remark, a property or a detail pyDIGGS does not model, has no place in AGS4 in the mapping table, so it is not in the AGS4 file. The loss is listed in the conversion report."
+fix = "Check whether that value matters for your use. If it does, keep the DIGGS file alongside the AGS4 file, or ask for it to be added to the mapping."
 
 [rules."convert.incomplete"]
 title = "Part not converted"

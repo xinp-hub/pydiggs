@@ -7,8 +7,17 @@
 # The table holds only AGS4 group and heading identifiers, key lists and parent groups. It
 # copies nothing else from the AGS4 data dictionary (no descriptions, examples or notes).
 #
-# Every group is `draft` until the owner reviews it; mapping table 1.0 is signed off with
-# pyDIGGS 1.10.0. Until then the table is 0.x and may change where a heading goes.
+# Mapping table 1.0 (pyDIGGS 1.10.0). A group's `status` is `draft` until the owner has
+# reviewed its rows, and `reviewed` after: every group of table 1.0 was reviewed against
+# the AGS4 4.1.1 and 4.2 dictionaries and DIGGS 3.0.0 (owner review, 2026-11-13). Changing
+# where an existing heading goes is a major version of the table; adding groups, headings
+# or codes is a minor.
+#
+# One table drives both directions. A heading's `direction` (both, to-diggs, to-ags4)
+# says which way it is used; DIGGS to AGS4 writes each heading from the DIGGS value it is
+# read into here. A group's `to_ags4_versions` lists the AGS4 versions it is written for
+# (all of them when absent), so that SCPG/SCPT are written for 4.1.1 and CPTG/CPTT, which
+# replace them in 4.2, for 4.2.
 #
 # Heading targets (`to`):
 #   key     identifies the record; becomes its gml:id (made a valid XML id) and gml:name
@@ -20,15 +29,21 @@
 #   column  a result column; `property` is a key of the bundled DIGGS property dictionary
 #   format  AGS4 format information the converter reads; it is not data and is not written
 #   none    not converted; `reason` says why, and each non-null value is reported
+#
+# Group patterns: project, transmission, lookup, feature, feature-component (a record
+# held by a feature: hole diameter, casing, backfill, water strike; `element` and `role`
+# name it, `holder` and `holder_role` the record that holds it where there is one),
+# interval-observation, sample, test-per-row, and test-table (a general group and its
+# data group, joined by key: GRAG with GRAT, or a cone test with its readings).
 
-mapping_version = "0.1"
+mapping_version = "1.0"
 ags_versions = ["4.0.3", "4.0.4", "4.1", "4.1.1", "4.2"]
 diggs_versions = ["3.0.0"]
 
 [[group]]
 name = "PROJ"
 pattern = "project"
-status = "draft"
+status = "reviewed"
 keys = ["PROJ_ID"]
 element = "Project"
 heading = [
@@ -45,7 +60,7 @@ heading = [
 [[group]]
 name = "TRAN"
 pattern = "transmission"
-status = "draft"
+status = "reviewed"
 keys = []
 element = "DocumentInformation"
 heading = [
@@ -65,7 +80,7 @@ heading = [
 [[group]]
 name = "ABBR"
 pattern = "lookup"
-status = "draft"
+status = "reviewed"
 keys = ["ABBR_HDNG", "ABBR_CODE"]
 heading = [
   { name = "ABBR_HDNG", to = "format", reason = "abbreviation lists are read by the converter, not converted" },
@@ -79,7 +94,7 @@ heading = [
 [[group]]
 name = "UNIT"
 pattern = "lookup"
-status = "draft"
+status = "reviewed"
 keys = ["UNIT_UNIT"]
 heading = [
   { name = "UNIT_UNIT", to = "format", reason = "units are mapped through units.toml, not converted" },
@@ -91,7 +106,7 @@ heading = [
 [[group]]
 name = "TYPE"
 pattern = "lookup"
-status = "draft"
+status = "reviewed"
 keys = ["TYPE_TYPE"]
 heading = [
   { name = "TYPE_TYPE", to = "format", reason = "data types are AGS4 format information" },
@@ -102,7 +117,7 @@ heading = [
 [[group]]
 name = "DICT"
 pattern = "lookup"
-status = "draft"
+status = "reviewed"
 keys = ["DICT_TYPE", "DICT_GRP", "DICT_HDNG"]
 heading = [
   { name = "DICT_TYPE", to = "format", reason = "the file's dictionary; user-defined groups and headings are reported, never interpreted" },
@@ -121,7 +136,7 @@ heading = [
 [[group]]
 name = "LOCA"
 pattern = "feature"
-status = "draft"
+status = "reviewed"
 keys = ["LOCA_ID"]
 heading = [
   { name = "LOCA_ID", to = "key", target = "gml:name" },
@@ -155,26 +170,28 @@ heading = [
   { name = "LOCA_ELON", to = "none", reason = "traverse end coordinates are not in the preview mapping" },
   { name = "LOCA_LLZ", to = "field", target = "location.datum" },
   { name = "LOCA_LOCM", to = "none", reason = "no DIGGS 3.0.0 target for how a location was found" },
-  { name = "LOCA_LOCA", to = "field", target = "description" },
-  { name = "LOCA_CLNT", to = "none", reason = "a client is a business associate, which the preview writer does not write" },
+  { name = "LOCA_LOCA", to = "none", reason = "a grouping of locations by site sub-division (a tag, often a code in ABBR), not a description of the location" },
+  { name = "LOCA_CLST", to = "none", reason = "a grouping of locations, typically by investigation phase; DIGGS 3.0.0 has no target for it" },
   { name = "LOCA_ALID", to = "none", reason = "alignments are not in the preview mapping" },
   { name = "LOCA_OFFS", to = "none", reason = "alignments are not in the preview mapping" },
   { name = "LOCA_CNGE", to = "none", reason = "alignments are not in the preview mapping" },
   { name = "LOCA_TRAN", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
-  { name = "LOCA_NATD", to = "none", reason = "a separate vertical datum is not in the preview mapping" },
+  { name = "LOCA_NATD", to = "field", target = "location.vertical_datum" },
   { name = "LOCA_ORID", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "LOCA_ORJO", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "LOCA_ORCO", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
-  { name = "LOCA_CHKG", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
-  { name = "LOCA_APPG", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
-  { name = "LOCA_PDEP", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LOCA_GLDT", to = "none", reason = "DIGGS 3.0.0 has no date for a ground level" },
+  { name = "LOCA_VSSL", to = "none", reason = "a survey vessel has no DIGGS 3.0.0 target" },
+  { name = "LOCA_NSRI", to = "field", target = "location.crs" },
+  { name = "LOCA_LSRI", to = "none", reason = "local site coordinates need a local CRS, which the converter does not write" },
+  { name = "LOCA_LLSI", to = "field", target = "location.datum" },
   { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
 ]
 
 [[group]]
 name = "GEOL"
 pattern = "interval-observation"
-status = "draft"
+status = "reviewed"
 parent = "LOCA"
 keys = ["LOCA_ID", "GEOL_TOP", "GEOL_BASE"]
 element = "LithologySystem"
@@ -184,11 +201,12 @@ heading = [
   { name = "GEOL_BASE", to = "field", target = "interval.base" },
   { name = "GEOL_DESC", to = "param", target = "Lithology/lithDescription" },
   { name = "GEOL_LEG", to = "param", target = "Lithology/legendCode" },
-  { name = "GEOL_GEOL", to = "field", target = "geologic_unit" },
+  { name = "GEOL_GEOL", to = "none", reason = "a project geology code; its meaning is in the file's ABBR group, not a unit name" },
   { name = "GEOL_GEO2", to = "none", reason = "a second geology code has no DIGGS 3.0.0 target in the preview mapping" },
   { name = "GEOL_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "GEOL_BGS", to = "none", reason = "a BGS Lexicon code needs a DIGGS code list, not in the preview mapping" },
-  { name = "GEOL_FORM", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "GEOL_FORM", to = "field", target = "geologic_unit" },
+  { name = "GEOL_BNDF", to = "none", reason = "the base boundary definition is not in the mapping (DIGGS baseBoundary is a candidate for a later table)" },
   { name = "GEOL_REM", to = "field", target = "remark" },
   { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
 ]
@@ -196,7 +214,7 @@ heading = [
 [[group]]
 name = "SAMP"
 pattern = "sample"
-status = "draft"
+status = "reviewed"
 parent = "LOCA"
 keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID"]
 element = "Sample"
@@ -241,7 +259,7 @@ heading = [
 [[group]]
 name = "ISPT"
 pattern = "test-per-row"
-status = "draft"
+status = "reviewed"
 parent = "LOCA"
 keys = ["LOCA_ID", "ISPT_TOP"]
 element = "Test"
@@ -254,6 +272,7 @@ heading = [
   { name = "ISPT_MAIN", to = "none", reason = "main drive blows are not in the preview mapping (the N value is)" },
   { name = "ISPT_NPEN", to = "param", target = "DrivenPenetrationTest/totalPenetration", quantity = "Length" },
   { name = "ISPT_NVAL", to = "column", property = "n_value" },
+  { name = "ISPT_N60", to = "column", property = "n60" },
   { name = "ISPT_REP", to = "none", reason = "the reported result text has no DIGGS property" },
   { name = "ISPT_CAS", to = "param", target = "DrivenPenetrationTest/depthCasing", quantity = "Length" },
   { name = "ISPT_WAT", to = "param", target = "DrivenPenetrationTest/waterDepth", quantity = "Length" },
@@ -285,7 +304,7 @@ heading = [
 [[group]]
 name = "LLPL"
 pattern = "test-per-row"
-status = "draft"
+status = "reviewed"
 parent = "SAMP"
 keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH"]
 element = "Test"
@@ -308,6 +327,16 @@ heading = [
   { name = "LLPL_METH", to = "none", reason = "test method text is not in the preview mapping" },
   { name = "LLPL_LAB", to = "none", reason = "a laboratory is a business associate, which the preview writer does not write" },
   { name = "LLPL_CRED", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LLPL_TYPE", to = "none", reason = "the test method (fall cone or Casagrande) is not in the mapping; DIGGS fallConeTrial and casagrandeTrial are candidates for a later table" },
+  { name = "LLPL_POIN", to = "none", reason = "the number of points of a test is not in the mapping" },
+  { name = "LLPL_CONE", to = "none", reason = "the type of fall cone is not in the mapping" },
+  { name = "LLPL_1PRE", to = "none", reason = "one-point test readings are not in the mapping" },
+  { name = "LLPL_1PCF", to = "none", reason = "one-point test readings are not in the mapping" },
+  { name = "LLPL_SIZE", to = "none", reason = "the sieve size is not in the mapping (values are never converted to DIGGS percentRetainedNo40)" },
+  { name = "LLPL_PASS", to = "none", reason = "the percentage passing the sieve is not in the mapping (values are never converted to DIGGS percentRetainedNo40)" },
+  { name = "LLPL_WC", to = "none", reason = "a water content before particles were removed has no DIGGS 3.0.0 property" },
+  { name = "LLPL_STAB", to = "none", reason = "stabiliser details have no DIGGS 3.0.0 target" },
+  { name = "LLPL_STYP", to = "none", reason = "stabiliser details have no DIGGS 3.0.0 target" },
   { name = "LLPL_REM", to = "field", target = "remark" },
   { name = "LLPL_DEV", to = "none", reason = "deviations from the method are not in the preview mapping" },
   { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
@@ -317,7 +346,7 @@ heading = [
 [[group]]
 name = "LNMC"
 pattern = "test-per-row"
-status = "draft"
+status = "reviewed"
 parent = "SAMP"
 keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH"]
 element = "Test"
@@ -335,11 +364,12 @@ heading = [
   { name = "LNMC_MC", to = "column", property = "water_content_natural" },
   { name = "LNMC_TEMP", to = "param", target = "WaterContentTest/dryingTemperature", quantity = "ThermodynamicTemperature" },
   { name = "LNMC_STAB", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
-  { name = "LNMC_ISNT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LNMC_ISNT", to = "none", reason = "read to decide whether LNMC_MC is a natural water content (DIGGS water_content_natural is written only when it is not N); the flag itself is not written" },
   { name = "LNMC_COMM", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
   { name = "LNMC_METH", to = "none", reason = "test method text is not in the preview mapping" },
   { name = "LNMC_LAB", to = "none", reason = "a laboratory is a business associate, which the preview writer does not write" },
   { name = "LNMC_CRED", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "LNMC_STYP", to = "none", reason = "stabiliser details have no DIGGS 3.0.0 target" },
   { name = "LNMC_REM", to = "field", target = "remark" },
   { name = "LNMC_DEV", to = "none", reason = "deviations from the method are not in the preview mapping" },
   { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
@@ -349,7 +379,7 @@ heading = [
 [[group]]
 name = "GRAG"
 pattern = "test-table"
-status = "draft"
+status = "reviewed"
 parent = "SAMP"
 keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH"]
 element = "Test"
@@ -366,15 +396,20 @@ heading = [
   { name = "SPEC_DESC", to = "field", target = "description" },
   { name = "SPEC_PREP", to = "none", reason = "specimen preparation text is not in the preview mapping" },
   { name = "GRAG_UC", to = "column", property = "coef_uniformity" },
-  { name = "GRAG_VCRE", to = "column", property = "percent_cobbles" },
-  { name = "GRAG_GRAV", to = "column", property = "percent_gravel" },
-  { name = "GRAG_SAND", to = "column", property = "percent_sand" },
-  { name = "GRAG_SILT", to = "column", property = "percent_silt" },
+  { name = "GRAG_VCRE", to = "none", reason = "AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way" },
+  { name = "GRAG_GRAV", to = "none", reason = "AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way" },
+  { name = "GRAG_SAND", to = "none", reason = "AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way" },
+  { name = "GRAG_SILT", to = "none", reason = "AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way" },
   { name = "GRAG_CLAY", to = "column", property = "clay_percent_2_micron" },
-  { name = "GRAG_FINE", to = "column", property = "percent_fines" },
+  { name = "GRAG_CC", to = "column", property = "coef_curvature" },
+  { name = "GRAG_FINE", to = "none", reason = "AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way" },
   { name = "GRAG_METH", to = "none", reason = "test method text is not in the preview mapping" },
   { name = "GRAG_LAB", to = "none", reason = "a laboratory is a business associate, which the preview writer does not write" },
   { name = "GRAG_CRED", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
+  { name = "GRAG_PRET", to = "none", reason = "the pre-treatment method is not in the mapping" },
+  { name = "GRAG_SUFF", to = "none", reason = "whether the specimen mass was sufficient has no DIGGS 3.0.0 target" },
+  { name = "GRAG_EXCL", to = "none", reason = "how excluded material was measured has no DIGGS 3.0.0 target" },
+  { name = "GRAG_PDEN", to = "none", reason = "the particle density used is not in the mapping" },
   { name = "GRAG_REM", to = "field", target = "remark" },
   { name = "GRAG_DEV", to = "none", reason = "deviations from the method are not in the preview mapping" },
   { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target in the preview mapping" },
@@ -384,7 +419,7 @@ heading = [
 [[group]]
 name = "GRAT"
 pattern = "test-table"
-status = "draft"
+status = "reviewed"
 parent = "GRAG"
 keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH", "GRAT_SIZE"]
 element = "Grading"
@@ -403,5 +438,358 @@ heading = [
   { name = "GRAT_PERP", to = "param", target = "Grading/percentPassing", quantity = "MassPerMass" },
   { name = "GRAT_TYPE", to = "field", target = "method" },
   { name = "GRAT_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "HORN"
+pattern = "feature-component"
+status = "reviewed"
+parent = "LOCA"
+keys = ["LOCA_ID", "HORN_TOP", "HORN_BASE"]
+heading = [
+  { name = "LOCA_ID", to = "none", reason = "hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted" },
+  { name = "HORN_TOP", to = "none", reason = "hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted" },
+  { name = "HORN_BASE", to = "none", reason = "hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted" },
+  { name = "HORN_ORNT", to = "none", reason = "hole orientation is not converted: DIGGS 3.0.0 gives one bearing per feature, AGS4 one per section" },
+  { name = "HORN_INCL", to = "none", reason = "hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted" },
+  { name = "HORN_REM", to = "none", reason = "hole orientation is not converted" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "HDIA"
+pattern = "feature-component"
+status = "reviewed"
+parent = "LOCA"
+keys = ["LOCA_ID", "HDIA_DPTH"]
+element = "BoreholeDiameter"
+role = "holeDiameter"
+interval_top = "previous-base"
+# HDIA_DPTH is the base of the section drilled at HDIA_DIAM; the section starts at the
+# base of the hole's previous HDIA row (by depth), the first at 0 (reported as assumed).
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "HDIA_DPTH", to = "field", target = "interval.base" },
+  { name = "HDIA_DIAM", to = "param", target = "BoreholeDiameter/diameter", quantity = "Length" },
+  { name = "HDIA_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "CDIA"
+pattern = "feature-component"
+status = "reviewed"
+parent = "LOCA"
+keys = ["LOCA_ID", "CDIA_DPTH"]
+element = "Casing"
+role = "casing"
+interval_top = "surface"
+# CDIA_DPTH is the base of a casing; each casing is taken to run from the surface (0) to
+# that depth (reported as assumed).
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "CDIA_DPTH", to = "field", target = "interval.base" },
+  { name = "CDIA_DIAM", to = "none", reason = "AGS4 gives a casing diameter without saying inside or outside; DIGGS 3.0.0 has casingOutsideDiameter and casingInsideDiameter, and the converter does not choose" },
+  { name = "CDIA_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "BKFL"
+pattern = "feature-component"
+status = "reviewed"
+parent = "LOCA"
+keys = ["LOCA_ID", "BKFL_TOP"]
+element = "BackfillLayer"
+role = "backfillLayer"
+holder = "Backfill"
+holder_role = "backfill"
+# Every BKFL row of a hole is one BackfillLayer of the hole's one Backfill.
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "BKFL_TOP", to = "field", target = "interval.top" },
+  { name = "BKFL_BASE", to = "field", target = "interval.base" },
+  { name = "BKFL_DESC", to = "param", target = "BackfillLayer/backfillMaterial" },
+  { name = "BKFL_LEG", to = "none", reason = "a backfill legend code has no DIGGS 3.0.0 target" },
+  { name = "BKFL_DATE", to = "none", reason = "AGS4 gives the date the backfill was completed; DIGGS 3.0.0 gives the interval a layer was placed in" },
+  { name = "BKFL_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "WSTG"
+pattern = "feature-component"
+status = "reviewed"
+parent = "LOCA"
+keys = ["LOCA_ID", "WSTG_DPTH"]
+element = "WaterStrike"
+role = "waterStrike"
+data = "WSTD"
+# One WaterStrike per WSTG row. DIGGS 3.0.0 gives a water strike one reading: here the
+# strike itself, water at WSTG_DPTH at WSTG_DTIM. Each WSTD row is one of that reading's
+# linked readings, WSTD_NMIN after the strike.
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "WSTG_DPTH", to = "field", target = "strike.location" },
+  { name = "WSTG_DTIM", to = "field", target = "strike.dateTime" },
+  { name = "WSTG_SEAL", to = "field", target = "location" },
+  { name = "WSTG_CAS", to = "field", target = "bottomCasing" },
+  { name = "WSTG_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "WSTD"
+pattern = "feature-component"
+status = "reviewed"
+parent = "WSTG"
+keys = ["LOCA_ID", "WSTG_DPTH", "WSTD_NMIN"]
+element = "LinkedWSReading"
+role = "linkedReading"
+heading = [
+  { name = "LOCA_ID", to = "link", target = "WaterStrike" },
+  { name = "WSTG_DPTH", to = "link", target = "WaterStrike" },
+  { name = "WSTD_NMIN", to = "param", target = "LinkedWSReading/elapsedTime", quantity = "Time" },
+  { name = "WSTD_POST", to = "field", target = "location" },
+  { name = "WSTD_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "LDEN"
+pattern = "test-per-row"
+status = "reviewed"
+parent = "SAMP"
+keys = ["LOCA_ID", "SAMP_TOP", "SAMP_REF", "SAMP_TYPE", "SAMP_ID", "SPEC_REF", "SPEC_DPTH"]
+element = "Test"
+procedure = "LabDensityTest"
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "SAMP_TOP", to = "link", target = "sampleRef" },
+  { name = "SAMP_REF", to = "link", target = "sampleRef" },
+  { name = "SAMP_TYPE", to = "link", target = "sampleRef" },
+  { name = "SAMP_ID", to = "link", target = "sampleRef" },
+  { name = "SPEC_REF", to = "field", target = "name" },
+  { name = "SPEC_DPTH", to = "field", target = "location" },
+  { name = "SPEC_DESC", to = "field", target = "description" },
+  { name = "SPEC_PREP", to = "none", reason = "specimen preparation text is not in the mapping" },
+  { name = "SPEC_BASE", to = "none", reason = "the base of a specimen has no target on a test located at a point" },
+  { name = "LDEN_TYPE", to = "none", reason = "the kind of density test is an AGS4 abbreviation with no DIGGS code" },
+  { name = "LDEN_COND", to = "none", reason = "read to leave out LDEN_BDEN and LDEN_MC of a recompacted specimen (DIGGS bulk_density and water_content_natural are natural conditions); the condition itself has no DIGGS code" },
+  { name = "LDEN_SMTY", to = "none", reason = "the sample type is an AGS4 abbreviation with no DIGGS code" },
+  { name = "LDEN_MC", to = "column", property = "water_content_natural" },
+  { name = "LDEN_BDEN", to = "column", property = "bulk_density" },
+  { name = "LDEN_DDEN", to = "column", property = "dry_density" },
+  { name = "LDEN_METH", to = "none", reason = "test method text is not in the mapping" },
+  { name = "LDEN_LAB", to = "none", reason = "a laboratory is a business associate, which the converter does not write" },
+  { name = "LDEN_CRED", to = "none", reason = "no DIGGS 3.0.0 target for an accreditation" },
+  { name = "LDEN_REM", to = "field", target = "remark" },
+  { name = "LDEN_DEV", to = "none", reason = "deviations from the method are not in the mapping" },
+  { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target for a test status" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "SCPG"
+pattern = "test-table"
+status = "reviewed"
+parent = "LOCA"
+keys = ["LOCA_ID", "SCPG_TESN"]
+element = "Test"
+procedure = "StaticConePenetrationTest"
+data = "SCPT"
+to_ags4_versions = ["4.0.3", "4.0.4", "4.1", "4.1.1"]
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "SCPG_TESN", to = "field", target = "name" },
+  { name = "SCPG_TYPE", to = "none", reason = "read to leave out ball and T-bar tests (their resistance is not a cone resistance); the penetrometer type itself is not written" },
+  { name = "SCPG_REF", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_CSA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_RATE", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_FILT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_FRIC", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_WAT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_WATA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_ENV", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_CONT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_METH", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_CRED", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_CAR", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_SLAR", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_OPER", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "SCPG_REM", to = "field", target = "remark" },
+  { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target for a test status" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "SCPT"
+pattern = "test-table"
+status = "reviewed"
+parent = "SCPG"
+keys = ["LOCA_ID", "SCPG_TESN", "SCPT_DPTH"]
+element = "Test"
+# Each row is one row of the test's result table, at the depth SCPT_DPTH gives.
+heading = [
+  { name = "LOCA_ID", to = "link", target = "Test" },
+  { name = "SCPG_TESN", to = "link", target = "Test" },
+  { name = "SCPT_DPTH", to = "field", target = "index.position" },
+  { name = "SCPT_RES", to = "column", property = "tip_resistance" },
+  { name = "SCPT_FRES", to = "column", property = "sleeve_friction" },
+  { name = "SCPT_PWP1", to = "column", property = "pore_pressure_u1" },
+  { name = "SCPT_PWP2", to = "column", property = "pore_pressure_u2" },
+  { name = "SCPT_PWP3", to = "column", property = "pore_pressure_u3" },
+  { name = "SCPT_QT", to = "column", property = "tip_resistance_corrected" },
+  { name = "SCPT_CON", to = "none", reason = "DIGGS has conductivity, but uS/cm has no entry in the unit table" },
+  { name = "SCPT_TEMP", to = "column", property = "temperature" },
+  { name = "SCPT_PH", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "SCPT_SLP1", to = "none", reason = "a slope indicator reading; DIGGS inclination_x and inclination_y are per axis, and the converter does not choose" },
+  { name = "SCPT_SLP2", to = "none", reason = "a slope indicator reading; DIGGS inclination_x and inclination_y are per axis, and the converter does not choose" },
+  { name = "SCPT_REDX", to = "none", reason = "DIGGS has redox_potential, but mV has no entry in the unit table" },
+  { name = "SCPT_MAGT", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "SCPT_MAGX", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "SCPT_MAGY", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "SCPT_MAGZ", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "SCPT_SMP", to = "column", property = "soil_moisture_content" },
+  { name = "SCPT_NGAM", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "SCPT_FRR", to = "column", property = "friction_ratio" },
+  { name = "SCPT_FT", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_QE", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_BDEN", to = "none", reason = "an assumed bulk density used in the derived values; no DIGGS property for this reading" },
+  { name = "SCPT_CPO", to = "none", reason = "an in situ stress used in the derived values; no DIGGS property for this reading" },
+  { name = "SCPT_CPOD", to = "none", reason = "an in situ stress used in the derived values; no DIGGS property for this reading" },
+  { name = "SCPT_ISPP", to = "none", reason = "an in situ pore pressure used in the derived values; no DIGGS property for this reading" },
+  { name = "SCPT_QNET", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_FRRC", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_EXPP", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_BQ", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_NQT", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_NFR", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "SCPT_REM", to = "field", target = "remark" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "CPTG"
+pattern = "test-table"
+status = "reviewed"
+parent = "LOCA"
+keys = ["LOCA_ID", "CPTG_TESN"]
+element = "Test"
+procedure = "StaticConePenetrationTest"
+data = "CPTT"
+to_ags4_versions = ["4.2"]
+heading = [
+  { name = "LOCA_ID", to = "link", target = "samplingFeatureRef" },
+  { name = "CPTG_TESN", to = "field", target = "name" },
+  { name = "CPTG_TYPE", to = "none", reason = "read to leave out ball and T-bar tests (their resistance is not a cone resistance); the penetrometer type itself is not written" },
+  { name = "CPTG_APCL", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CAR", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CDDT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CFOA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CFOS", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CORR", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CPC", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CPCL", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CRDT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CSA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CSAN", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_DATE", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_DAZV", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_EQPT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_FILL", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_FILT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_FPC", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_FRIC", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_FRID", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_FRIS", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_LCA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_MAN", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_ORNT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_PED", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_RATE", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_REF", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_RLOC", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_SAT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_SHA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_SLA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_SLAN", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_SLAR", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_TBD", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_TBL", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_TERM", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_UPC", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_WAT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_WATA", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_OPER", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CRED", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_METH", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_ENV", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_CONT", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_ANBY", to = "none", reason = "cone test details are not in the mapping" },
+  { name = "CPTG_DEV", to = "none", reason = "deviations from the method are not in the mapping" },
+  { name = "CPTG_REM", to = "field", target = "remark" },
+  { name = "TEST_STAT", to = "none", reason = "no DIGGS 3.0.0 target for a test status" },
+  { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
+]
+
+[[group]]
+name = "CPTT"
+pattern = "test-table"
+status = "reviewed"
+parent = "CPTG"
+keys = ["LOCA_ID", "CPTG_TESN", "CPTT_REDN"]
+element = "Test"
+# Each row is one row of the test's result table, at the depth CPTT_DPTH gives.
+heading = [
+  { name = "LOCA_ID", to = "link", target = "Test" },
+  { name = "CPTG_TESN", to = "link", target = "Test" },
+  { name = "CPTT_REDN", to = "none", reason = "a reading number is not held: the readings are ordered by depth (DIGGS to AGS4 numbers them 1, 2, 3 ...)" },
+  { name = "CPTT_DPTH", to = "field", target = "index.position" },
+  { name = "CPTT_QC", to = "column", property = "tip_resistance" },
+  { name = "CPTT_FS", to = "column", property = "sleeve_friction" },
+  { name = "CPTT_U1", to = "column", property = "pore_pressure_u1" },
+  { name = "CPTT_U2", to = "column", property = "pore_pressure_u2" },
+  { name = "CPTT_U3", to = "column", property = "pore_pressure_u3" },
+  { name = "CPTT_QT", to = "column", property = "tip_resistance_corrected" },
+  { name = "CPTT_PLEN", to = "none", reason = "the penetration length; the readings are indexed by depth (the PLEN index is a candidate for a later table)" },
+  { name = "CPTT_INCX", to = "column", property = "inclination_x" },
+  { name = "CPTT_INCY", to = "column", property = "inclination_y" },
+  { name = "CPTT_TIME", to = "none", reason = "a clock time; the converter writes result columns as numbers" },
+  { name = "CPTT_DUR", to = "column", property = "elapsed_time" },
+  { name = "CPTT_TF", to = "none", reason = "the total thrust has no DIGGS 3.0.0 property" },
+  { name = "CPTT_RF", to = "column", property = "friction_ratio" },
+  { name = "CPTT_BDEN", to = "none", reason = "an assumed bulk density used in the derived values; no DIGGS property for this reading" },
+  { name = "CPTT_CPO", to = "none", reason = "an in situ stress used in the derived values; no DIGGS property for this reading" },
+  { name = "CPTT_ISPP", to = "none", reason = "an in situ pore pressure used in the derived values; no DIGGS property for this reading" },
+  { name = "CPTT_CPOD", to = "none", reason = "an in situ stress used in the derived values; no DIGGS property for this reading" },
+  { name = "CPTT_FT", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_QNET", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_QE", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_RFT", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_EXPP", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_BQ", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_NQT", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_NFR", to = "none", reason = "a value derived from the readings; the bundled DIGGS 3.0.0 property dictionary has no property for it" },
+  { name = "CPTT_MAGX", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_MAGY", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_MAGZ", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_MAGT", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_MAGG", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_CON", to = "none", reason = "DIGGS has conductivity, but uS/cm has no entry in the unit table" },
+  { name = "CPTT_TEMP", to = "column", property = "temperature" },
+  { name = "CPTT_TPQC", to = "none", reason = "a sensor temperature; DIGGS temperature is the soil temperature (CPTT_TEMP)" },
+  { name = "CPTT_TPFS", to = "none", reason = "a sensor temperature; DIGGS temperature is the soil temperature (CPTT_TEMP)" },
+  { name = "CPTT_TPU", to = "none", reason = "a sensor temperature; DIGGS temperature is the soil temperature (CPTT_TEMP)" },
+  { name = "CPTT_PH", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_REDX", to = "none", reason = "DIGGS has redox_potential, but mV has no entry in the unit table" },
+  { name = "CPTT_SMP", to = "column", property = "soil_moisture_content" },
+  { name = "CPTT_NGAM", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_FFD1", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_FFD2", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_PID", to = "none", reason = "the bundled DIGGS 3.0.0 property dictionary has no property for this reading" },
+  { name = "CPTT_FID", to = "none", reason = "DIGGS has flame_ionization_measurement, but uV has no entry in the unit table" },
+  { name = "CPTT_REM", to = "none", reason = "a reading remark has no place in a DIGGS result table" },
   { name = "FILE_FSET", to = "none", reason = "files named in the FILE group are never opened or converted" },
 ]

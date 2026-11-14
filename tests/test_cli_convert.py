@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import errno
 import json
 import os
@@ -14,13 +15,13 @@ from pathlib import Path
 import pytest
 
 import pydiggs
-from pydiggs import _convert_cli
+from pydiggs import _convert_cli, ags4, convert
 from pydiggs.cli import main
-from pydiggs.preview import convert as preview
 
 ROOT = Path(__file__).resolve().parent.parent
 AGS4 = ROOT / "tests" / "fixtures" / "ags4"
-SITE = AGS4 / "site_tier_a.ags"
+#: Converts with losses but no error (mapping table 1.0).
+SITE = AGS4 / "convert_tier_a.ags"
 
 
 def _run(capsys, *argv: str) -> tuple[int, str, str]:
@@ -33,10 +34,10 @@ def test_the_c6_acceptance_command(tmp_path, capsys):
     out_xml, report = tmp_path / "site.xml", tmp_path / "r.json"
     code, out, err = _run(capsys, str(SITE), "-o", str(out_xml), "--report", str(report))
     assert (code, err) == (0, "")
-    assert out_xml.read_bytes() == preview.ags4_to_diggs(SITE).xml
+    assert out_xml.read_bytes() == convert.ags4_to_diggs(SITE).xml
     assert main(["validate", str(out_xml)]) == 0
     document = json.loads(report.read_text("utf-8"))
-    assert document["files"][0]["path"] == "site_tier_a.ags"
+    assert document["files"][0]["path"] == "convert_tier_a.ags"
     assert document["files"][0]["format"] == "ags4"
     assert "loss(es)" in out and "output valid" in out
     assert "convert.unmapped-heading" in out
@@ -208,8 +209,12 @@ def test_missing_large_and_bad_options_exit_2(tmp_path, capsys):
     for argv in (
         ["--max-bytes", "0"],
         ["--time-budget", "0"],
-        ["--to", "ags4"],
+        ["--to", "csv"],
         ["--diggs-version", "2.6"],
+        ["--ags-version", "4.0"],
+        ["--ags-version", "4.2"],  # only with --to ags4
+        ["--to", "ags4", "--diggs-version", "3.0.0"],  # only with --to diggs
+        ["--to", "ags4", "--residual", str(tmp_path / "r.ags")],  # AGS4 to DIGGS only
     ):
         with pytest.raises(SystemExit) as exc:
             main(["convert", str(SITE), "-o", str(tmp_path / "o.xml"), *argv])
@@ -231,7 +236,15 @@ def test_help_texts(capsys):
         main(["convert", "--help"])
     # Python 3.14's argparse colours help when FORCE_COLOR is set (as in CI).
     help_text = re.sub(r"\x1b\[[0-9;]*m", "", capsys.readouterr().out)
-    for option in ("-o OUT", "--report FILE", "--to {diggs}", "--fail-on", "--force"):
+    for option in (
+        "-o OUT",
+        "--report FILE",
+        "--to {diggs,ags4}",
+        "--ags-version {4.2,4.1.1}",
+        "--residual FILE",
+        "--fail-on",
+        "--force",
+    ):
         assert option in help_text
     assert "not an AGS-approved tool" in help_text
     assert "Exit status: 0" in help_text
@@ -245,3 +258,89 @@ def test_the_version_in_the_report_is_this_pydiggs(tmp_path, capsys):
     report = tmp_path / "r.json"
     _run(capsys, str(SITE), "-o", str(tmp_path / "s.xml"), "--report", str(report))
     assert json.loads(report.read_text())["tool"]["version"] == pydiggs.__version__
+
+
+# --- DIGGS to AGS4 and the residual file -------------------------------------------------
+
+
+@pytest.fixture
+def site_xml(tmp_path) -> Path:
+    path = tmp_path / "in" / "site.xml"
+    path.parent.mkdir()
+    xml = convert.ags4_to_diggs(SITE).xml
+    assert xml is not None
+    path.write_bytes(xml)
+    return path
+
+
+@pytest.mark.parametrize("version", [None, "4.2", "4.1.1"])
+def test_diggs_to_ags4(site_xml, tmp_path, capsys, version):
+    out = tmp_path / "site.ags"
+    extra = [] if version is None else ["--ags-version", version]
+    code, text, err = _run(capsys, str(site_xml), "-o", str(out), "--to", "ags4", *extra)
+    expected = convert.diggs_to_ags4(site_xml, ags_version=version or "4.2")
+    assert expected.ags4 is not None
+    assert out.read_bytes() == ags4.dumps(expected.ags4)
+    assert err == ""
+    assert f"AGS4 {version or '4.2'}" in text and "loss(es)" in text
+    assert code == (1 if expected.validation and not expected.validation.ok else 0)
+
+
+def test_diggs_to_ags4_json_summary(site_xml, tmp_path, capsys):
+    out = tmp_path / "site.ags"
+    _, text, _ = _run(capsys, str(site_xml), "-o", str(out), "--to", "ags4", "--format", "json")
+    summary = json.loads(text)
+    assert "output_base64" not in summary and "residual_base64" not in summary
+    assert (summary["to"], summary["ags_version"], summary["output_path"]) == (
+        "ags4",
+        "4.2",
+        str(out),
+    )
+    assert summary["residual_path"] is None
+
+
+def test_what_is_not_diggs_exits_2(tmp_path, capsys):
+    code, _, err = _run(capsys, str(SITE), "-o", str(tmp_path / "o.ags"), "--to", "ags4")
+    assert code == 2 and "not well-formed XML" in err
+    assert not (tmp_path / "o.ags").exists()
+
+
+def test_the_residual_file(tmp_path, capsys):
+    out, residual = tmp_path / "site.xml", tmp_path / "left.ags"
+    code, text, _ = _run(capsys, str(SITE), "-o", str(out), "--residual", str(residual))
+    assert code == 0
+    expected = convert.ags4_to_diggs(SITE)
+    assert expected.residual is not None
+    assert residual.read_bytes() == ags4.dumps(expected.residual)
+    assert f"residual: {residual}" in text
+    # It is an output like the others: never over the input, replaced only with --force.
+    code, _, err = _run(capsys, str(SITE), "-o", str(out), "--residual", str(residual), "--force")
+    assert code == 0
+    code, _, err = _run(capsys, str(SITE), "-o", str(tmp_path / "x.xml"), "--residual", str(SITE))
+    assert code == 2 and "over the input" in err
+    code, _, err = _run(capsys, str(SITE), "-o", str(tmp_path / "x.xml"), "--residual", str(out))
+    assert code == 2 and "--force" in err
+
+
+def test_no_residual_file_when_nothing_is_left_over(tmp_path, capsys, monkeypatch):
+    real = convert.ags4_to_diggs
+    monkeypatch.setattr(
+        convert,
+        "ags4_to_diggs",
+        lambda *a, **k: dataclasses.replace(real(*a, **k), residual=ags4.File(groups=[])),
+    )
+    residual = tmp_path / "left.ags"
+    code, text, _ = _run(
+        capsys, str(SITE), "-o", str(tmp_path / "s.xml"), "--residual", str(residual)
+    )
+    assert code == 0 and not residual.exists()
+    assert "residual: none" in text
+
+
+def test_an_error_in_the_source_exits_1(tmp_path, capsys):
+    # site_tier_a has a GRAG row with fractions only: mapping table 1.0 converts no GRAG
+    # fraction, so the row and its GRAT readings are reported incomplete (an error).
+    out = tmp_path / "s.xml"
+    code, text, _ = _run(capsys, str(AGS4 / "site_tier_a.ags"), "-o", str(out))
+    assert code == 1 and out.exists()
+    assert "error convert.incomplete" in text and "output valid" in text

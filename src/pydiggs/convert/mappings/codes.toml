@@ -3,8 +3,14 @@
 # Only codes the bundled DIGGS code lists support are given a DIGGS code (a test checks
 # that each `code` is an entry of the named list). A code with no entry here, or an entry
 # with no `code`, is reported as convert.unmapped-code; nothing is guessed.
+#
+# Codes are matched as AGS4 says abbreviations are: not case sensitive. A value joined by
+# the file's TRAN_RCON ("+" by default) matches the row that joins the same codes, in
+# either order. When two AGS4 codes share one DIGGS code, the first row is the one DIGGS
+# to AGS4 writes; a value matching a later row is written as the DIGGS code and the AGS4
+# code itself is reported, because DIGGS does not tell the two apart.
 
-mapping_version = "0.1"
+mapping_version = "1.0"
 #: Where the DIGGS code lists named by `code_list` are published.
 code_list_base = "https://diggsml.org/def/codes/DIGGS/0.1/"
 
@@ -20,7 +26,15 @@ code = [
   { heading = "LOCA_TYPE", ags = "WLS", element = "Borehole" },
   { heading = "LOCA_TYPE", ags = "TP", element = "TrialPit", exact = true },
   { heading = "LOCA_TYPE", ags = "CPT", element = "Sounding" },
+  { heading = "LOCA_TYPE", ags = "SCP", element = "Sounding" },
   { heading = "LOCA_TYPE", ags = "DP", element = "Sounding" },
+  { heading = "LOCA_TYPE", ags = "SNC", element = "Borehole", code_list = "boreholeType", code = "SNC" },
+  { heading = "LOCA_TYPE", ags = "VE", element = "Borehole", code_list = "boreholeType", code = "VE" },
+  { heading = "LOCA_TYPE", ags = "VC", element = "Borehole", code_list = "boreholeType", code = "VC" },
+  { heading = "LOCA_TYPE", ags = "AUGH", element = "Borehole", code_list = "boreholeType", code = "HSA" },
+  { heading = "LOCA_TYPE", ags = "AUGS", element = "Borehole", code_list = "boreholeType", code = "SSA" },
+  # A trial trench is a DIGGS TrialPit, but so is TP: the code itself is reported.
+  { heading = "LOCA_TYPE", ags = "TT", element = "TrialPit" },
   # SAMP_TYPE: the sample type, from the DIGGS sampleType list.
   { heading = "SAMP_TYPE", ags = "U", code_list = "sampleType", code = "open_tube" },
   { heading = "SAMP_TYPE", ags = "UT", code_list = "sampleType", code = "thin_walled_tube" },
@@ -31,28 +45,43 @@ code = [
   { heading = "SAMP_TYPE", ags = "BLK", code_list = "sampleType", code = "block" },
   { heading = "SAMP_TYPE", ags = "C", code_list = "sampleType", code = "rotary_core" },
   { heading = "SAMP_TYPE", ags = "W", code_list = "sampleType", code = "water_sample" },
-  { heading = "SAMP_TYPE", ags = "WS", code_list = "sampleType", code = "window" },
-  { heading = "SAMP_TYPE", ags = "SPT", code_list = "sampleType", code = "split_barrel" },
   { heading = "SAMP_TYPE", ags = "G", code_list = "sampleType", code = "gas_sample" },
+  { heading = "SAMP_TYPE", ags = "L", code_list = "sampleType", code = "windowless" },
+  { heading = "SAMP_TYPE", ags = "SPTLS", code_list = "sampleType", code = "split_barrel_liner" },
+  { heading = "SAMP_TYPE", ags = "M", code_list = "sampleType", code = "triple_tube_soil" },
+  # These share their DIGGS code with UT and W above (written back as UT and W).
+  { heading = "SAMP_TYPE", ags = "TW", code_list = "sampleType", code = "thin_walled_tube" },
+  { heading = "SAMP_TYPE", ags = "EW", code_list = "sampleType", code = "water_sample" },
   # GRAT_TYPE: how a particle size reading was measured. Sieving becomes a Grading of a
   # SieveAnalysis, sedimentation by hydrometer a Sedimentation of a Hydrometer analysis.
   # Any other method (a pipette analysis, or an unlisted code) is reported, not converted.
-  { heading = "GRAT_TYPE", ags = "WS", element = "Grading", exact = true },
-  { heading = "GRAT_TYPE", ags = "DS", element = "Grading", exact = true },
+  # DIGGS does not say whether sieving was wet or dry, so WS and DS rows are written as
+  # sieve gradings and the code itself is reported (it is not `exact`).
+  { heading = "GRAT_TYPE", ags = "WS", element = "Grading" },
+  { heading = "GRAT_TYPE", ags = "DS", element = "Grading" },
   { heading = "GRAT_TYPE", ags = "HY", element = "Sedimentation", exact = true },
 ]
 
 # LOCA_GREF: the grid reference system of LOCA_NATE and LOCA_NATN. A value of the form
-# EPSG:<number> is also read as that EPSG code. Anything else is reported, and the
-# coordinates are written with no CRS. `unit` is the unit of the CRS's axes (a DIGGS uom):
-# grid coordinates and ground levels whose UNIT is another unit are not written.
+# EPSG:<number> is also read as that EPSG code, and an AGS4 4.2 LOCA_NSRI (an EPSG code)
+# is read before LOCA_GREF. Anything else is reported, and the coordinates are written
+# with no CRS. `unit` is the unit of the CRS's axes (a DIGGS uom): grid coordinates and
+# ground levels whose UNIT is another unit are not written.
 crs = [
   { heading = "LOCA_GREF", ags = "OSGB", srs = "http://www.opengis.net/def/crs/EPSG/0/27700", unit = "m" },
   { heading = "LOCA_GREF", ags = "OSGB36", srs = "http://www.opengis.net/def/crs/EPSG/0/27700", unit = "m" },
   { heading = "LOCA_GREF", ags = "British National Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/27700", unit = "m" },
   { heading = "LOCA_GREF", ags = "ITM", srs = "http://www.opengis.net/def/crs/EPSG/0/2157", unit = "m" },
   { heading = "LOCA_GREF", ags = "Irish Grid", srs = "http://www.opengis.net/def/crs/EPSG/0/29903", unit = "m" },
-  # LOCA_LLZ: the datum of LOCA_LAT and LOCA_LON (latitude first, as EPSG states).
+  { heading = "LOCA_GREF", ags = "OSI", srs = "http://www.opengis.net/def/crs/EPSG/0/29903", unit = "m" },
+  # LOCA_NATD: the vertical datum of LOCA_GL. With the `horizontal` CRS from LOCA_GREF, a
+  # ground level in this datum is written in the compound CRS `srs` (EPSG:7405 is
+  # OSGB36 / British National Grid + ODN height). DIGGS to AGS4 writes the first row.
+  { heading = "LOCA_NATD", ags = "OD Newlyn", srs = "http://www.opengis.net/def/crs/EPSG/0/7405", unit = "m", horizontal = "http://www.opengis.net/def/crs/EPSG/0/27700" },
+  { heading = "LOCA_NATD", ags = "ODN", srs = "http://www.opengis.net/def/crs/EPSG/0/7405", unit = "m", horizontal = "http://www.opengis.net/def/crs/EPSG/0/27700" },
+  { heading = "LOCA_NATD", ags = "Ordnance Datum Newlyn", srs = "http://www.opengis.net/def/crs/EPSG/0/7405", unit = "m", horizontal = "http://www.opengis.net/def/crs/EPSG/0/27700" },
+  # LOCA_LLZ: the datum of LOCA_LAT and LOCA_LON (latitude first, as EPSG states). An AGS4
+  # 4.2 LOCA_LLSI is read before LOCA_LLZ when it is one of these EPSG codes.
   { heading = "LOCA_LLZ", ags = "WGS84", srs = "http://www.opengis.net/def/crs/EPSG/0/4326" },
   { heading = "LOCA_LLZ", ags = "WGS 84", srs = "http://www.opengis.net/def/crs/EPSG/0/4326" },
   { heading = "LOCA_LLZ", ags = "ETRS89", srs = "http://www.opengis.net/def/crs/EPSG/0/4258" },

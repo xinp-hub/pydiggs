@@ -4,8 +4,9 @@
 //   - the running Pyodide matches pyodide-facts.json (Pyodide, CPython and lxml versions);
 //   - every report is byte-identical to CPython's (goldens from cases.py, same checkout);
 //   - HTML in an element value comes back verbatim, as data;
-//   - an AGS4 fixture converts to the same DIGGS bytes as on CPython, and the service
-//     layer's conversion result carries exactly those bytes;
+//   - an AGS4 fixture converts to the same DIGGS bytes as on CPython, that DIGGS converts
+//     back to the same AGS4 bytes (4.2 and 4.1.1), and the service layer's conversion
+//     results carry exactly those bytes (and the same residual file);
 //   - the core path (import, warm_up, validation) executed no import of rich,
 //     multiprocessing, fastapi, mcp or subprocess, and started no thread;
 //   - the bundled UoM dictionary is on the Emscripten filesystem and in use;
@@ -121,9 +122,22 @@ for (const name of convertNames) {
   const result = JSON.parse(out.results[`service-convert:${fixture}`]);
   assert.ok(Buffer.from(result.output_base64, "base64").equals(xml), `${fixture}: service bytes differ`);
   assert.equal(result.diggs_version, "3.0.0");
+  const residual = Buffer.from(out.results[`residual:${fixture}`], "utf8");
+  assert.ok(Buffer.from(result.residual_base64, "base64").equals(residual), `${fixture}: residual differs`);
   const check = JSON.parse(out.results[`ags4-check:${fixture}`]);
   assert.equal(check.files[0].format, "ags4", `${fixture}: not an AGS4 report`);
   console.log(`ok  ${fixture}: ${xml.length} bytes of DIGGS ${result.diggs_version}, as on CPython`);
+  // DIGGS to AGS4: the same AGS4 bytes as CPython (step 1), carried by the service result.
+  for (const version of ["4.2", "4.1.1"]) {
+    const ags = Buffer.from(out.results[`to-ags4:${version}:${fixture}`], "utf8");
+    assert.ok(ags.subarray(0, 9).equals(Buffer.from('"GROUP","')), `${fixture}: not AGS4`);
+    const back = JSON.parse(out.results[`service-to-ags4:${version}:${fixture}`]);
+    assert.equal(back.to, "ags4");
+    assert.equal(back.ags_version, version);
+    assert.equal(back.residual_base64, null);
+    assert.ok(Buffer.from(back.output_base64, "base64").equals(ags), `${fixture} ${version}: service bytes differ`);
+    console.log(`ok  ${fixture}: back to ${ags.length} bytes of AGS4 ${version}, as on CPython`);
+  }
 }
 
 // 3. The interpreter after validation, reading and conversion.

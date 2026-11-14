@@ -1,4 +1,4 @@
-"""AGS4 to DIGGS 3.0.0 (the 1.9 preview, ``pydiggs.preview.convert``).
+"""AGS4 to DIGGS 3.0.0 (``pydiggs.convert.ags4_to_diggs``; the 1.9 preview home is an alias).
 
 Property 4 of the conversion-core brief for this direction: every non-null source cell
 of a Tier A file is carried into DIGGS by a node that is written, or named by a
@@ -26,12 +26,12 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 import pydiggs
-from pydiggs import ags4
-from pydiggs.convert import _api, _ledger, _mapping, _to_model, _values
+from pydiggs import ags4, convert
+from pydiggs.convert import _api, _from_model, _ledger, _mapping, _to_model, _values
 from pydiggs.convert._mapping import load_mapping
 from pydiggs.convert._to_model import Built, drop, map_file
 from pydiggs.errors import DocumentError
-from pydiggs.preview import convert
+from pydiggs.preview import convert as preview_convert
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures" / "ags4"
@@ -164,7 +164,7 @@ def test_tier_a_converts_to_valid_diggs_3_0_0(tier_a: convert.Conversion):
     assert errors(tier_a.validation) == []
     assert tier_a.model.source.diggs_version == "3.0.0"
     assert tier_a.xml.startswith(b"<?xml version='1.0' encoding='UTF-8'?>")
-    assert tier_a.mapping_version == "0.1"
+    assert tier_a.mapping_version == "1.0"
     model = tier_a.model
     assert [(f.key, f.element) for f in model.features] == [
         ("BH01", "Borehole"),
@@ -308,7 +308,10 @@ def test_input_that_is_not_ags4_raises_what_the_reader_raises():
 
 
 def test_a_fully_mapped_file_is_lossless():
-    c = convert_file(ags_file(PROJ, TRAN, LOCA))
+    # the ground level's vertical datum is stated: the point is in OSGB36 + ODN height
+    datum = [*LOCA_SPEC, ("LOCA_NATD", "", "X")]
+    loca = group("LOCA", datum, [("BH1", "CP", "451200", "206500", "OSGB", "12", "15", "ODN")])
+    c = convert_file(ags_file(PROJ, TRAN, loca))
     assert c.lossless, c.losses
     assert errors(c.validation) == []
     assert [f.rule_id for f in c.report.findings] == ["convert.value-reformatted"] or (
@@ -326,8 +329,8 @@ def test_no_proj_and_no_tran_date_are_written_as_documented_defaults():
     c = convert_file(ags_file(LOCA))
     messages = [f.message for f in c.losses if f.rule_id == "convert.assumed"]
     assert any("'unnamed project'" in m for m in messages)
-    assert any("1970-01-01" in m for m in messages)
-    assert c.model.document is not None and c.model.document.creation_date == "1970-01-01"
+    assert any('indeterminatePosition="unknown"' in m for m in messages)
+    assert c.model.document is not None and c.model.document.creation_date is None
     assert errors(c.validation) == []
 
 
@@ -415,7 +418,9 @@ def test_rows_without_their_parent_are_orphans():
     assert orphans == {"SAMP/2", "LNMC/2"}
     assert [s.key for s in c.model.samples] == ["S1"]
     assert c.model.measurements[0].samples == ("S1",)
-    assert "SAMP_TOP to SAMP_TOP" in _one(c, "convert.assumed").message
+    assumed = [f.message for f in c.losses if f.rule_id == "convert.assumed"]
+    assert any("SAMP_TOP to SAMP_TOP" in m for m in assumed)
+    assert any("placed at the top of their sample" in m for m in assumed)
     assert errors(c.validation) == []
     assert c.report.steps[pydiggs.Step.CONVERT] == "failed"
 
@@ -466,7 +471,10 @@ def test_grading_rows_are_written_only_under_the_method_they_were_measured_by(
     }
     assert tier_a.trace["GRAT-4"].row == 4
     assert "GRAT-5" not in tier_a.trace  # the pipette row
-    pipette = _one(tier_a, "convert.unmapped-code")
+    codes = [f for f in tier_a.losses if f.rule_id == "convert.unmapped-code"]
+    wet_or_dry = [f for f in codes if f.path == "GRAT/1/GRAT_TYPE"]
+    assert len(wet_or_dry) == 1 and "(2 values)" in wet_or_dry[0].message
+    (pipette,) = [f for f in codes if f.path == "GRAT/5"]
     assert (
         pipette.path == "GRAT/5" and "pipette" in pipette.message and "(1 row)" in pipette.message
     )
@@ -484,7 +492,7 @@ def test_an_unlisted_grading_method_is_not_filed_as_a_sieve_reading():
     ]
     samp = group("SAMP", keys, [("BH1", "1.00", "1", "B", "S1")])
     grag = group(
-        "GRAG", [*keys, ("GRAG_GRAV", "%", "0DP")], [("BH1", "1.00", "1", "B", "S1", "20")]
+        "GRAG", [*keys, ("GRAG_CLAY", "%", "0DP")], [("BH1", "1.00", "1", "B", "S1", "20")]
     )
     grat = group(
         "GRAT",
@@ -549,10 +557,11 @@ def test_lat_lon_are_used_without_grid_coordinates():
 def test_text_is_cleaned_of_what_xml_cannot_hold():
     loca = group(
         "LOCA",
-        [*LOCA_SPEC, ("LOCA_REM", "", "X"), ("LOCA_LOCA", "", "X")],
-        [("BH1", "CP", "1", "2", "OSGB", "", "", " note\x01 <b>&amp; ", "\x02")],
+        [*LOCA_SPEC, ("LOCA_REM", "", "X")],
+        [("BH1", "CP", "1", "2", "OSGB", "", "", " note\x01 <b>&amp; ")],
     )
-    c = convert_file(ags_file(PROJ, TRAN, loca))
+    proj = group("PROJ", [("PROJ_ID", "", "ID"), ("PROJ_NAME", "", "X")], [("P1", "\x02")])
+    c = convert_file(ags_file(proj, TRAN, loca))
     assert c.model.features[0].remarks == ("note <b>&amp;",)
     assert {f.rule_id for f in c.report.findings} >= {
         "convert.value-reformatted",
@@ -871,7 +880,7 @@ def test_a_deadline_before_the_document_gives_a_partial_conversion(
     monkeypatch.setattr(_to_model, "_CHECK_EVERY", 5)
     xml, built = accounted(file, deadline=5.0, clock=lambda: 10.0)
     assert not built.complete
-    assert built.model.document.creation_date == _to_model.DATE_DEFAULT
+    assert built.model.document.creation_date is None  # written as unknown
     assert built.ledger.named.get(("TRAN", 0, 0)) is not None
     assert not built.ledger.used.get(("TRAN", 0, 0))
     valid(xml)
@@ -1172,6 +1181,7 @@ def test_importing_pydiggs_or_the_preview_does_not_import_or_warn():
         "print('pydiggs.convert' in sys.modules, 'pydiggs.ags4' in sys.modules)\n"
         "from pydiggs.preview import convert\n"
         "print(sorted(convert.__all__))\n"
+        "from pydiggs import convert as stable\n"
     )
     result = subprocess.run(  # noqa: S603 - our own interpreter, fixed code
         [sys.executable, "-c", code],
@@ -1192,15 +1202,32 @@ def test_importing_pydiggs_or_the_preview_does_not_import_or_warn():
     ]
 
 
-def test_the_stable_convert_package_exports_nothing_yet():
+def test_the_stable_convert_package_exports_its_public_names():
     import pydiggs.convert
 
-    assert pydiggs.convert.__all__ == []
+    assert pydiggs.convert.__all__ == [
+        "MAPPING_VERSION",
+        "Conversion",
+        "Origin",
+        "ags4_to_diggs",
+        "diggs_to_ags4",
+        "mapping_info",
+        "model_to_ags4",
+    ]
+    assert pydiggs.convert is convert
+
+
+def test_the_1_9_preview_names_are_deprecated_aliases_of_the_stable_ones():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        from pydiggs.preview import convert as again
+        from pydiggs.preview import convert as preview  # importing does not warn
 
-    assert again is convert
+    for name in preview.__all__:
+        with pytest.warns(DeprecationWarning, match=f"pydiggs.convert.{name}"):
+            assert getattr(preview, name) is getattr(convert, name)
+    assert set(preview.__all__) <= set(dir(preview))
+    with pytest.raises(AttributeError):
+        preview.nothing  # noqa: B018
 
 
 def test_the_convert_rules_are_in_the_catalogue():
@@ -1212,7 +1239,7 @@ def test_the_convert_rules_are_in_the_catalogue():
 
 @pytest.mark.parametrize(
     "module",
-    [convert, _api, _ledger, _mapping, _values, _to_model],
+    [convert, _api, _ledger, _mapping, _values, _to_model, _from_model, preview_convert],
     ids=lambda m: m.__name__,
 )
 def test_docstring_examples_run(module: Any, monkeypatch: pytest.MonkeyPatch):
@@ -1335,3 +1362,17 @@ def _convert_work(file: ags4.File) -> int:
 def test_conversion_work_is_linear_in_the_number_of_rows():
     small, large = _convert_work(_sites(100)), _convert_work(_sites(200))
     assert large <= 2.3 * small, (small, large)
+
+
+def test_a_depth_in_another_unit_is_reported_without_preview_wording():
+    loca = group("LOCA", LOCA_SPEC, [("BH1", "", "1", "2", "", "", "")])
+    ispt = group(
+        "ISPT",
+        [("LOCA_ID", "", "ID"), ("ISPT_TOP", "ft", "2DP"), ("ISPT_NVAL", "", "0DP")],
+        [("BH1", "3.00", "12")],
+    )
+    c = convert_file(ags_file(PROJ, TRAN, loca, ispt))
+    found = [f for f in c.losses if f.path == "ISPT/1/ISPT_TOP"]
+    assert [f.rule_id for f in found] == ["convert.unmapped-unit"]
+    assert "preview" not in found[0].message
+    assert "the converter does not write" in found[0].message

@@ -3,8 +3,9 @@
 AGS4 is the quoted, comma-separated exchange format for ground-investigation data
 published by the Association of Geotechnical and Geoenvironmental Specialists (AGS).
 `pydiggs.ags4` reads AGS4 files into tables of strings, writes them back the same way
-every time, and checks them against the AGS4 rules. To turn an AGS4 file into DIGGS, see
-[AGS4 to DIGGS](convert.md).
+every time, and checks them against the AGS4 rules. To turn an AGS4 file into DIGGS, or a
+DIGGS file into AGS4, see [AGS4 and DIGGS conversion](convert.md) (`pydiggs.convert`,
+stable from pyDIGGS 1.10).
 
 !!! note "Not an AGS-approved tool; no AGS files bundled"
     pyDIGGS implements the published AGS4 rules (section 4.1.1 of the AGS4 specification,
@@ -66,6 +67,29 @@ line between groups, CR LF after every row. Reading a file that follows the rule
 writing it again gives the same bytes. Values are written exactly as held; a value a
 spreadsheet would read as a formula is not changed (the checker reports it as
 `ags4.formula-text`).
+
+### From DIGGS
+
+`pydiggs.convert.diggs_to_ags4` (and `model_to_ags4` for a `pydiggs.Model` in memory)
+writes an AGS4 file from a DIGGS document by the bundled mapping table, and checks it
+with `ags4.check`:
+
+```python
+from pydiggs import convert
+
+c = convert.diggs_to_ags4("site.xml")  # AGS4 4.2
+c = convert.diggs_to_ags4("site.xml", ags_version="4.1.1")
+c.ags4, c.validation.ok, c.losses  # the File, ags4.check, what was not written
+c.save("site.ags")  # as ags4.write(c.ags4, "site.ags")
+```
+
+The command line is `pydiggs convert site.xml -o site.ags --to ags4 [--ags-version
+4.1.1]`. **4.2 is the default**, the edition AGS lists as current. As of November 2026
+the BGS AGS validator (agsapi.bgs.ac.uk) and python-ags4 1.2.0 accept AGS4 only up to
+4.1.1: write 4.1.1 for files meant for them. The versions differ in `TRAN_AGS`, in the
+static cone test groups (CPTG/CPTT in 4.2, SCPG/SCPT in 4.1.1) and in the EPSG code 4.2
+adds for the CRS (`LOCA_NSRI`, `LOCA_LLSI`). See [AGS4 and DIGGS
+conversion](convert.md#ags4-versions-written).
 
 ## Checking
 

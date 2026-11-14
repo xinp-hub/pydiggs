@@ -20,12 +20,11 @@ import jsonschema
 import pytest
 from lxml import etree
 
-from pydiggs import _xml
+from pydiggs import _xml, convert
 from pydiggs._writer._layout import load_layout
 from pydiggs.convert import _mapping
 from pydiggs.convert._mapping import load_mapping, property_facts
 from pydiggs.errors import ResourceError
-from pydiggs.preview import convert
 from pydiggs.units import UnitConverter
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -93,19 +92,33 @@ def test_the_schema_refuses_a_bad_table(change: Any, message: str):
     assert any(message in error.message or message in str(error) for error in errors)
 
 
-def test_the_table_is_versioned_and_preview_names_its_version():
+def test_the_table_is_versioned_and_convert_names_its_version():
     mapping = load_mapping()
-    assert mapping.mapping_version == convert.MAPPING_VERSION == "0.1"
+    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.0"
     assert mapping.diggs_versions == ("3.0.0",)
     assert mapping.ags_versions == ("4.0.3", "4.0.4", "4.1", "4.1.1", "4.2")
     for name in ("units.toml", "codes.toml"):
         assert _mapping.read_table(name)["mapping_version"] == mapping.mapping_version
 
 
-def test_tier_a_is_covered_and_every_group_is_a_draft():
+#: Tier B (brief Q13), mapped in pyDIGGS 1.10 with mapping table 1.0.
+TIER_B = {"HORN", "HDIA", "CDIA", "BKFL", "WSTG", "WSTD", "LDEN", "SCPG", "SCPT", "CPTG", "CPTT"}
+
+
+def test_tiers_a_and_b_are_covered_and_every_group_is_reviewed():
+    """Table 1.0 is signed off whole: every group reviewed (owner review, HG3 of 1.10.0)."""
     mapping = load_mapping()
-    assert set(mapping.groups) == TIER_A
-    assert {group.status for group in mapping.groups.values()} == {"draft"}
+    assert set(mapping.groups) == TIER_A | TIER_B
+    assert {group.status for group in mapping.groups.values()} == {"reviewed"}
+    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.0"
+    assert mapping.groups["WSTG"].data == "WSTD"
+    assert mapping.groups["SCPG"].data == "SCPT" and mapping.groups["CPTG"].data == "CPTT"
+    assert mapping.groups["SCPG"].written_for("4.1.1") and not mapping.groups["SCPG"].written_for(
+        "4.2"
+    )
+    assert mapping.groups["CPTG"].written_for("4.2") and not mapping.groups["CPTG"].written_for(
+        "4.1.1"
+    )
     assert mapping.groups["GRAG"].data == "GRAT"
     assert mapping.groups["GRAT"].parent == "GRAG"
 
@@ -294,8 +307,15 @@ def test_mapping_info_describes_the_table():
         "property": "n_value",
         "reason": None,
         "quantity": None,
+        "direction": "both",
     }
     assert info["rules"]["convert.orphan-row"] == "error"
+    assert info["rules"]["convert.unmapped-element"] == "warning"
+    cone = {
+        g["name"]: g["to_ags4_versions"] for g in info["groups"] if g["name"][1:3] in ("CP", "PT")
+    }
+    assert cone["SCPG"] == ["4.0.3", "4.0.4", "4.1", "4.1.1"] and cone["CPTG"] == ["4.2"]
+    assert next(g for g in info["groups"] if g["name"] == "LOCA")["to_ags4_versions"] is None
 
 
 def test_the_table_ships_and_is_recorded_in_provenance():

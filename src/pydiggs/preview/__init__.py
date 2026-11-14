@@ -1,6 +1,7 @@
 """Previews of new APIs, outside Semantic Versioning, and the deprecated 1.6 read API.
 
-``pydiggs.preview.convert`` is the pyDIGGS 1.9 preview of AGS4 to DIGGS conversion.
+``pydiggs.preview.convert`` was the pyDIGGS 1.9 preview of AGS4 to DIGGS conversion; from
+1.10 it is a deprecated alias of the stable :mod:`pydiggs.convert` (using a name warns).
 
 The other names here are a deprecated alias of the read API, kept for code written
 against pyDIGGS 1.6, which shipped the read API here as a preview. From 1.7.0 the same

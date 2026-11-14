@@ -69,7 +69,7 @@ def main(argv: list[str] | None = None) -> int:
             " pydiggs validate --help. Validation for other programs"
             " (stdio sidecar, HTTP, MCP): pydiggs serve --help."
             " AGS4 files against the AGS4 rules: pydiggs ags4 check --help."
-            " AGS4 to DIGGS: pydiggs convert --help."
+            " AGS4 to DIGGS and DIGGS to AGS4: pydiggs convert --help."
             " Installed version: pydiggs --version."
         ),
     )

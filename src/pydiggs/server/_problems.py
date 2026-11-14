@@ -59,7 +59,7 @@ PROBLEMS: Final[Mapping[str, tuple[int, str]]] = {
     "compressed-input": (415, "Compressed input refused"),
     "unsupported-media-type": (415, "Unsupported media type"),
     "input-unreadable": (422, "Input unreadable"),
-    "invalid-document": (422, "Not a DIGGS document"),
+    "invalid-document": (422, "Invalid document"),
     "invalid-parameter": (422, "Invalid parameter"),
     "result-too-large": (422, "Result too large"),
     "resource-error": (500, "Bundled reference data unavailable"),
@@ -115,7 +115,8 @@ def problem(
         detail: A fixed, safe text (never a client value or a path).
         errors: ``(parameter, problem)`` pairs; at most :data:`MAX_ERRORS` are sent.
         correlation_id: Ties a 500 answer to the log line with the real text.
-        kind: For ``invalid-document``: why the bytes are not a DIGGS document.
+        kind: For ``invalid-document``: why the bytes are not a document of the expected
+            format (DIGGS XML, or AGS4 for a conversion to DIGGS).
         headers: Extra headers (``Retry-After``, ``Allow``).
 
     Returns:

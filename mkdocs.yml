@@ -149,7 +149,7 @@ nav:
     - Findings (JSON / SARIF): findings.md
     - Reading files: model.md
     - AGS4 files: ags4.md
-    - AGS4 to DIGGS (preview): convert.md
+    - AGS4 and DIGGS conversion: convert.md
     - Capabilities: capabilities.md
   - Integrate:
     - integrations.md
@@ -162,7 +162,7 @@ nav:
     - JavaScript and TypeScript: javascript.md
   - Reference:
     - Python API: reference.md
-    - AGS4 to DIGGS mapping (preview): convert-mapping.md
+    - AGS4 and DIGGS mapping: convert-mapping.md
   - Project:
     - Contributing: contributing.md
     - Authors: authors.md

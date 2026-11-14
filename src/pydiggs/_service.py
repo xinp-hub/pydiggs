@@ -4,11 +4,11 @@
 documents through :func:`validate` (in the calling thread) or :func:`validate_in_pool`
 (in a worker process with a hard timeout), read them into diggs-model documents
 through :func:`read` or :func:`read_in_pool`, check AGS4 files through
-:func:`ags4_check` or :func:`ags4_check_in_pool`, convert AGS4 to DIGGS through
-:func:`convert` or :func:`convert_in_pool`, and answer rule and version questions
+:func:`ags4_check` or :func:`ags4_check_in_pool`, convert AGS4 to DIGGS and DIGGS to
+AGS4 through :func:`convert` or :func:`convert_in_pool`, and answer rule and version questions
 through :func:`rules`, :func:`explain` and :func:`versions`. They never call
 :func:`pydiggs.validate`, :func:`pydiggs.validate_bytes`, :func:`pydiggs.read`,
-:func:`pydiggs.read_bytes`, :func:`pydiggs.ags4.check`, the converter or the legacy
+:func:`pydiggs.read_bytes`, :func:`pydiggs.ags4.check`, :mod:`pydiggs.convert` or the legacy
 validator themselves (a test enforces this), so every remote caller gets the same
 pinned settings:
 
@@ -64,9 +64,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from pydiggs._pool import WorkerPool
+    from pydiggs.convert import Conversion
     from pydiggs.model import Model
 
 __all__ = [
+    "AGS4_MEDIA_TYPE",
+    "CONVERT_AGS_VERSIONS",
     "CONVERT_DIGGS_VERSIONS",
     "CONVERT_TARGETS",
     "DIGGS_MEDIA_TYPE",
@@ -111,7 +114,8 @@ MAX_SECONDS: Final = 86_400
 #: The extra CPU seconds a pooled job may use past its timeout before the kernel stops it.
 _CPU_SLACK: Final = 5.0
 #: Why a read or a conversion may answer ``invalid-document`` (``Outcome.kind``; an
-#: open set). The last two are a conversion's: the source is not AGS4, or is AGS 3.
+#: open set). The last two are an AGS4 to DIGGS conversion's: the source is not AGS4,
+#: or is AGS 3; the others are those of DIGGS input (a read, or DIGGS to AGS4).
 DOCUMENT_KINDS: Final = (
     "malformed",
     "not-diggs",
@@ -729,15 +733,23 @@ def _read_outcome(
 
 # --- AGS4: checking and conversion ------------------------------------------------------
 
-#: The formats :func:`convert` converts to (``to``). AGS4 to DIGGS only so far; DIGGS to
-#: AGS4 will be ``"ags4"``, with DIGGS XML as the content.
-CONVERT_TARGETS: Final = ("diggs",)
+#: The formats :func:`convert` converts to (``to``): ``"diggs"`` (the default; the
+#: content is AGS4) and ``"ags4"`` (the content is DIGGS XML).
+CONVERT_TARGETS: Final = ("diggs", "ags4")
 #: The DIGGS versions the converter writes (the converter's own list; a test holds them equal).
 CONVERT_DIGGS_VERSIONS: Final = ("3.0.0",)
+#: The AGS4 versions DIGGS to AGS4 writes, the default first (a test holds them equal to
+#: the converter's own list).
+CONVERT_AGS_VERSIONS: Final = ("4.2", "4.1.1")
 #: The name reported for AGS4 content sent without one.
 _AGS4_INPUT_NAME: Final = "input.ags"
+#: The name reported for DIGGS content (``to="ags4"``) sent without one.
+_DIGGS_INPUT_NAME: Final = "input.xml"
 #: The media type of the DIGGS output, as :func:`convert` reports it.
 DIGGS_MEDIA_TYPE: Final = "application/xml"
+#: The media type of the AGS4 output (and of the residual file): AGS4 has no registered
+#: media type, and the converter writes UTF-8 text (ASCII for a file that follows Rule 1).
+AGS4_MEDIA_TYPE: Final = "text/plain; charset=utf-8"
 _DICTIONARY_PROBLEM: Final = (
     "dictionary",
     "is not a usable AGS4 data dictionary (an AGS4 file whose DICT group defines groups)",
@@ -748,10 +760,12 @@ _DICTIONARY_PROBLEM: Final = (
 class ConvertRequest:
     """One conversion request. Limits come from the adapter's settings, not the caller.
 
-    ``name``, ``to`` and ``diggs_version`` may come from the caller; they are checked
-    by :func:`convert`, which answers ``invalid-parameter`` rather than raising.
-    ``to`` is the target format: ``"diggs"`` (AGS4 content in, DIGGS XML out) is the
-    only one so far. ``diggs_version`` None means the converter's default, 3.0.0.
+    ``name``, ``to``, ``diggs_version`` and ``ags_version`` may come from the caller;
+    they are checked by :func:`convert`, which answers ``invalid-parameter`` rather
+    than raising. ``to`` is the target format: ``"diggs"`` (AGS4 content in, DIGGS XML
+    out; the default) or ``"ags4"`` (DIGGS XML in, an AGS4 file out).
+    ``diggs_version`` is for ``"diggs"`` only (None: the converter's default, 3.0.0)
+    and ``ags_version`` for ``"ags4"`` only (None: the default, 4.2; or 4.1.1).
 
     Examples:
         >>> ConvertRequest(content=b'"GROUP","PROJ"').to
@@ -766,6 +780,7 @@ class ConvertRequest:
     name: str | None = None
     to: str = "diggs"
     diggs_version: str | None = None
+    ags_version: str | None = None
     max_bytes: int = 25 * 2**20
     time_budget: float | None = None
     max_result_bytes: int | None = 256 * 2**20
@@ -831,10 +846,10 @@ def _check_limits(content: object, max_bytes: object, time_budget: object) -> No
         raise ValueError(f"time_budget must be a positive number of seconds, at most {MAX_SECONDS}")
 
 
-def _ags4_name(name: str | None) -> str:
-    """The reported name of AGS4 content: its basename, or ``input.ags``."""
+def _ags4_name(name: str | None, default: str = _AGS4_INPUT_NAME) -> str:
+    """The reported name of AGS4 (or DIGGS) content: its basename, or ``default``."""
     if name is None or run._NAME_SEPARATORS.split(name)[-1] in ("", ".", ".."):
-        return _AGS4_INPUT_NAME
+        return default
     return run._input_name(name)
 
 
@@ -847,13 +862,25 @@ def _name_errors(name: object) -> list[tuple[str, str]]:
 def _convert_parameter_errors(request: ConvertRequest) -> tuple[tuple[str, str], ...]:
     """Check the caller-supplied parameters; fixed texts that never echo the value."""
     errors = _name_errors(request.name)
-    if not isinstance(request.to, str) or request.to not in CONVERT_TARGETS:
+    to = request.to if isinstance(request.to, str) and request.to in CONVERT_TARGETS else None
+    if to is None:
         errors.append(("to", f"expected one of {', '.join(CONVERT_TARGETS)}"))
-    if request.diggs_version is not None and (
-        not isinstance(request.diggs_version, str)
-        or request.diggs_version not in CONVERT_DIGGS_VERSIONS
-    ):
-        errors.append(("diggs_version", f"expected one of {', '.join(CONVERT_DIGGS_VERSIONS)}"))
+    if request.diggs_version is not None:
+        if to == "ags4":
+            errors.append(("diggs_version", "applies only to to=diggs"))
+        elif (
+            not isinstance(request.diggs_version, str)
+            or request.diggs_version not in CONVERT_DIGGS_VERSIONS
+        ):
+            errors.append(("diggs_version", f"expected one of {', '.join(CONVERT_DIGGS_VERSIONS)}"))
+    if request.ags_version is not None:
+        if to == "diggs":
+            errors.append(("ags_version", "applies only to to=ags4"))
+        elif (
+            not isinstance(request.ags_version, str)
+            or request.ags_version not in CONVERT_AGS_VERSIONS
+        ):
+            errors.append(("ags_version", f"expected one of {', '.join(CONVERT_AGS_VERSIONS)}"))
     return tuple(errors)
 
 
@@ -866,8 +893,10 @@ def parameter_errors(request: object) -> tuple[tuple[str, str], ...]:
     """The caller-supplied parameter problems of any request type (for adapters' pre-checks).
 
     Examples:
-        >>> parameter_errors(ConvertRequest(content=b"", to="ags4"))
-        (('to', 'expected one of diggs'),)
+        >>> parameter_errors(ConvertRequest(content=b"", to="csv"))
+        (('to', 'expected one of diggs, ags4'),)
+        >>> parameter_errors(ConvertRequest(content=b"", to="ags4", ags_version="4.0"))
+        (('ags_version', 'expected one of 4.2, 4.1.1'),)
     """
     if isinstance(request, Request):
         return _parameter_errors(request)
@@ -906,31 +935,38 @@ def _read_ags4(content: bytes, shown: str, max_bytes: int, time_budget: float | 
 
 
 def convert(request: ConvertRequest, *, should_stop: Callable[[], bool] | None = None) -> Outcome:
-    """Convert AGS4 content to DIGGS, in the calling thread, with the pinned settings.
+    """Convert AGS4 content to DIGGS, or DIGGS to AGS4, in the calling thread.
 
-    The document is one line of JSON: ``to``, ``media_type`` and ``output_name`` (the
-    output's suggested name), ``diggs_version``, ``mapping_version``, ``complete``,
-    ``lossless``, ``report`` (the diggs-findings 1.1 document about the source:
-    the AGS4 reader's notes and every ``convert`` finding), ``validation`` (the
-    diggs-findings document of :func:`pydiggs.validate_bytes` on the output),
-    ``output_sha256`` and ``output_base64`` (the DIGGS XML, standard base64). Every
-    surface sends these same bytes, and the XML is what
-    ``pydiggs.preview.convert.ags4_to_diggs`` writes for the same bytes and name.
+    ``request.to`` chooses the direction: ``"diggs"`` (the default) converts AGS4
+    content with :func:`pydiggs.convert.ags4_to_diggs`, ``"ags4"`` converts DIGGS XML
+    with :func:`pydiggs.convert.diggs_to_ags4`. The document is one line of JSON: ``to``,
+    ``media_type`` (``application/xml`` for DIGGS, ``text/plain; charset=utf-8`` for
+    AGS4) and ``output_name`` (the output's suggested name), ``diggs_version`` (of the
+    DIGGS output, or of the DIGGS input), ``ags_version`` (of the AGS4 output; None for
+    DIGGS), ``mapping_version``, ``complete``, ``lossless``, ``report`` (the
+    diggs-findings 1.1 document about the source: the reader's notes and every
+    ``convert`` finding), ``validation`` (the diggs-findings document of
+    :func:`pydiggs.validate_bytes` on DIGGS output, or of :func:`pydiggs.ags4.check` on
+    AGS4 output), ``output_sha256`` and ``output_base64`` (the output, standard
+    base64), and ``residual_base64``: for AGS4 to DIGGS, the AGS4 file of what was not
+    converted (``Conversion.residual``), or None when everything was; always None for
+    DIGGS to AGS4. Every surface sends these same bytes, and the output is what
+    :mod:`pydiggs.convert` writes for the same bytes and name.
 
-    ``time_budget`` covers reading, converting and validating; running out still gives
-    a document, with ``complete: false`` (see ``ags4_to_diggs``). ``should_stop`` is
-    checked before the conversion starts and after it ends: the converter itself
-    cannot be interrupted.
+    ``time_budget`` covers reading, converting and validating (AGS4 to DIGGS) or
+    reading (DIGGS to AGS4); running out still gives a document, with
+    ``complete: false``. ``should_stop`` is checked before the conversion starts and
+    after it ends: the converter itself cannot be interrupted.
 
     Args:
-        request: The AGS4 content and its parameters.
+        request: The content and its parameters.
         should_stop: Cancellation hook for adapters that can cancel (the sidecar).
 
     Returns:
         The document, or an error :class:`Code`: the ones :func:`validate` answers,
-        ``invalid-document`` (``kind`` ``not-ags4`` or ``unsupported-version``) and
-        ``result-too-large`` (the document is larger than ``max_result_bytes``).
-        Never raises for bad input.
+        ``invalid-document`` (``kind`` ``not-ags4`` or ``unsupported-version`` for AGS4
+        input, a :func:`read` kind for DIGGS input) and ``result-too-large`` (the
+        document is larger than ``max_result_bytes``). Never raises for bad input.
 
     Examples:
         >>> from pathlib import Path
@@ -941,14 +977,21 @@ def convert(request: ConvertRequest, *, should_stop: Callable[[], bool] | None =
         ('site.xml', True, 'site.ags')
         >>> convert(ConvertRequest(content=b"<Diggs/>")).kind
         'not-ags4'
+        >>> xml = base64.b64decode(result["output_base64"])
+        >>> back = json.loads(convert(ConvertRequest(content=xml, to="ags4")).document)
+        >>> back["output_name"], back["ags_version"], back["media_type"]
+        ('input.ags', '4.2', 'text/plain; charset=utf-8')
     """
     errors = _convert_parameter_errors(request)
     if errors:
         return Outcome(code=Code.INVALID_PARAMETER, detail="invalid parameters", errors=errors)
-    shown = _ags4_name(request.name)
+    to_ags4 = request.to == "ags4"
+    shown = _ags4_name(request.name, _DIGGS_INPUT_NAME if to_ags4 else _AGS4_INPUT_NAME)
     if should_stop is not None and should_stop():
         return _CANCELLED
     try:
+        if to_ags4:
+            return _to_ags4_outcome(request, shown, should_stop)
         return _convert_outcome(request, shown, should_stop)
     except Exception as exc:  # fail closed: no traceback or path reaches the caller
         return _read_failure(exc, shown)
@@ -961,46 +1004,38 @@ def _too_large_result(shown: str) -> Outcome:
     )
 
 
-def _convert_outcome(
-    request: ConvertRequest, shown: str, should_stop: Callable[[], bool] | None
-) -> Outcome:
-    """:func:`convert` after its parameter checks; converter errors propagate to it."""
-    from pydiggs.preview import convert as preview  # noqa: PLC0415  # loads on first use
+def _encoded_size(*outputs: bytes | None) -> int:
+    """The base64 length of ``outputs`` together (before encoding them)."""
+    return sum(4 * math.ceil(len(o) / 3) for o in outputs if o is not None)
 
-    started = time.monotonic()
-    file = _read_ags4(request.content, shown, request.max_bytes, request.time_budget)
-    if isinstance(file, Outcome):
-        return file
-    budget = request.time_budget
-    if budget is not None:
-        budget = max(budget - (time.monotonic() - started), 1e-9)
-    conversion = preview.ags4_to_diggs(
-        file,
-        diggs_version=request.diggs_version or CONVERT_DIGGS_VERSIONS[0],
-        validate=True,
-        name=shown,
-        time_budget=budget,
-    )
-    if should_stop is not None and should_stop():
-        return _CANCELLED
-    xml: bytes = conversion.xml
-    limit = request.max_result_bytes
-    if limit is not None and 4 * math.ceil(len(xml) / 3) > limit:  # before encoding it
-        return _too_large_result(shown)
+
+def _conversion_body(
+    conversion: Conversion,
+    *,
+    to: str,
+    shown: str,
+    output: bytes,
+    residual: bytes | None,
+    limit: int | None,
+) -> Outcome:
+    """The result document of :func:`convert`, or ``result-too-large``."""
     validation = conversion.validation
     stem = shown.rsplit(".", 1)[0] or "output"
+    to_ags4 = to == "ags4"
     result = {
-        "to": "diggs",
-        "media_type": DIGGS_MEDIA_TYPE,
-        "output_name": f"{stem}.xml",
+        "to": to,
+        "media_type": AGS4_MEDIA_TYPE if to_ags4 else DIGGS_MEDIA_TYPE,
+        "output_name": f"{stem}.ags" if to_ags4 else f"{stem}.xml",
         "diggs_version": conversion.model.source.diggs_version,
+        "ags_version": conversion.ags4.version if conversion.ags4 is not None else None,
         "mapping_version": conversion.mapping_version,
         "complete": conversion.complete,
         "lossless": conversion.lossless,
         "report": _scrubbed(conversion.report).to_document(),
         "validation": None if validation is None else _scrubbed(validation).to_document(),
-        "output_sha256": hashlib.sha256(xml).hexdigest(),
-        "output_base64": base64.b64encode(xml).decode("ascii"),
+        "output_sha256": hashlib.sha256(output).hexdigest(),
+        "output_base64": base64.b64encode(output).decode("ascii"),
+        "residual_base64": None if residual is None else base64.b64encode(residual).decode("ascii"),
     }
     body = json.dumps(result, ensure_ascii=False, allow_nan=False).encode(
         "utf-8", "backslashreplace"
@@ -1008,6 +1043,76 @@ def _convert_outcome(
     if limit is not None and len(body) > limit:
         return _too_large_result(shown)
     return Outcome(document=body)
+
+
+def _budget_left(budget: float | None, started: float) -> float | None:
+    """What is left of ``budget`` seconds since ``started`` (never zero: readers refuse it)."""
+    if budget is None:
+        return None
+    return max(budget - (time.monotonic() - started), 1e-9)
+
+
+def _convert_outcome(
+    request: ConvertRequest, shown: str, should_stop: Callable[[], bool] | None
+) -> Outcome:
+    """:func:`convert` to DIGGS after its parameter checks; converter errors propagate."""
+    from pydiggs import ags4  # noqa: PLC0415  # loads on first use
+    from pydiggs import convert as converter  # noqa: PLC0415
+
+    started = time.monotonic()
+    file = _read_ags4(request.content, shown, request.max_bytes, request.time_budget)
+    if isinstance(file, Outcome):
+        return file
+    conversion = converter.ags4_to_diggs(
+        file,
+        diggs_version=request.diggs_version or CONVERT_DIGGS_VERSIONS[0],
+        validate=True,
+        name=shown,
+        time_budget=_budget_left(request.time_budget, started),
+    )
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    xml = conversion.xml
+    if xml is None:  # pragma: no cover - ags4_to_diggs always sets xml
+        raise RuntimeError("the conversion to DIGGS gave no XML")
+    residual = conversion.residual
+    residual_bytes = ags4.dumps(residual) if residual is not None and residual.groups else None
+    limit = request.max_result_bytes
+    if limit is not None and _encoded_size(xml, residual_bytes) > limit:  # before encoding
+        return _too_large_result(shown)
+    return _conversion_body(
+        conversion, to="diggs", shown=shown, output=xml, residual=residual_bytes, limit=limit
+    )
+
+
+def _to_ags4_outcome(
+    request: ConvertRequest, shown: str, should_stop: Callable[[], bool] | None
+) -> Outcome:
+    """:func:`convert` to AGS4 after its parameter checks; reader errors propagate."""
+    from pydiggs import ags4  # noqa: PLC0415  # loads on first use
+    from pydiggs import convert as converter  # noqa: PLC0415
+
+    if len(request.content) > request.max_bytes:
+        return Outcome(code=Code.INPUT_TOO_LARGE, detail=f"{shown} is larger than allowed")
+    conversion = converter.diggs_to_ags4(
+        request.content,
+        ags_version=request.ags_version or CONVERT_AGS_VERSIONS[0],
+        check=True,
+        name=shown,
+        max_bytes=request.max_bytes,
+        time_budget=request.time_budget,
+    )
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    if conversion.ags4 is None:  # pragma: no cover - diggs_to_ags4 always sets ags4
+        raise RuntimeError("the conversion to AGS4 gave no AGS4 file")
+    output = ags4.dumps(conversion.ags4)
+    limit = request.max_result_bytes
+    if limit is not None and _encoded_size(output) > limit:  # before encoding it
+        return _too_large_result(shown)
+    return _conversion_body(
+        conversion, to="ags4", shown=shown, output=output, residual=None, limit=limit
+    )
 
 
 def ags4_check(
@@ -1296,7 +1401,7 @@ def convert_in_pool(pool: WorkerPool, request: ConvertRequest, *, timeout: float
 
     Args:
         pool: From :func:`make_pool`.
-        request: The AGS4 content and its parameters.
+        request: The content and its parameters.
         timeout: Hard limit in seconds.
 
     Returns:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import doctest
 import errno
 import inspect
@@ -145,6 +146,57 @@ def test_the_ags4_module_is_public_but_not_imported_with_pydiggs():
     )
     assert _fresh(code) == "False True False"
     assert not {"ags4", "File", "Group"} & set(pydiggs.__all__)
+
+
+def test_the_convert_module_is_public_but_not_imported_with_pydiggs():
+    # pydiggs.convert (stable in 1.10.0) adds no top-level name and is not imported with
+    # pydiggs; nothing in it opens a socket.
+    code = (
+        "import sys, pydiggs\n"
+        "before = 'pydiggs.convert' in sys.modules\n"
+        "from pydiggs import convert\n"
+        "print(before, convert.MAPPING_VERSION, 'socket' in sys.modules)\n"
+    )
+    assert _fresh(code) == "False 1.0 False"
+    assert not {"convert", "Conversion", "ags4_to_diggs"} & set(pydiggs.__all__)
+
+
+def test_the_convert_signatures_are_keyword_only_after_the_source():
+    from pydiggs import convert
+
+    expected = {
+        convert.ags4_to_diggs: (
+            "source",
+            ["diggs_version", "validate", "name", "encoding", "max_bytes", "time_budget"],
+        ),
+        convert.diggs_to_ags4: (
+            "source",
+            ["ags_version", "check", "formula_guard", "name", "max_bytes", "time_budget"],
+        ),
+        convert.model_to_ags4: ("model", ["ags_version", "check", "formula_guard"]),
+    }
+    for function, (first, keywords) in expected.items():
+        params = inspect.signature(function).parameters
+        assert list(params) == [first, *keywords]
+        assert all(params[k].kind is inspect.Parameter.KEYWORD_ONLY for k in keywords)
+    for function in (convert.diggs_to_ags4, convert.model_to_ags4):
+        params = inspect.signature(function).parameters
+        assert params["ags_version"].default == "4.2"
+        assert params["formula_guard"].default is None
+    assert inspect.signature(convert.ags4_to_diggs).parameters["diggs_version"].default == "3.0.0"
+    fields = [f.name for f in dataclasses.fields(convert.Conversion)]
+    assert fields == [
+        "model",
+        "report",
+        "validation",
+        "xml",
+        "ags4",
+        "residual",
+        "trace",
+        "mapping_version",
+        "complete",
+    ]
+    assert {"losses", "lossless", "save"} <= set(dir(convert.Conversion))
 
 
 def test_validation_loads_no_networking_modules():

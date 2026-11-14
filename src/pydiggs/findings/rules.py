@@ -343,7 +343,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
         "No AGS4 data dictionary was supplied; the rules that need one checked only the"
         " file's own DICT group"
     ),
-    # What an AGS4 to DIGGS conversion lost (pydiggs.preview.convert); see convert._ledger.
+    # What a conversion lost (pydiggs.convert, both directions); see convert._ledger.
     "convert.unmapped-group": "An AGS4 group has no mapping to DIGGS; its rows were not converted",
     "convert.unmapped-heading": "An AGS4 heading has no DIGGS target; its values are not converted",
     "convert.user-defined": "A group or heading the file's DICT defines; reported, not converted",
@@ -354,6 +354,7 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     "convert.assumed": "DIGGS needs a value the source lacks; a documented default was written",
     "convert.value-reformatted": "The same value was written in another form (not a loss)",
     "convert.incomplete": "Part of the source was not converted: a limit, or a DIGGS requirement",
+    "convert.unmapped-element": "A DIGGS value has no AGS4 target; it was not converted",
 }
 
 
@@ -552,6 +553,7 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     "convert.assumed": _WARNING,
     "convert.value-reformatted": _INFO,
     "convert.incomplete": _ERROR,
+    "convert.unmapped-element": _WARNING,
 }
 #: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
 #: keeps them equal): only they can be ``incomplete``.

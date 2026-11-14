@@ -39,6 +39,7 @@ from pydiggs.model import (
     CrsRef,
     DocumentInfo,
     Domain,
+    ExtraNode,
     Feature,
     Interval,
     Link,
@@ -682,10 +683,6 @@ _REFUSED: dict[str, tuple[Callable[[Model], Model], str]] = {
         "`associates` and `others` must be empty",
     ),
     "no document": (lambda m: replace(m, document=None), "requires document information"),
-    "no creation date": (
-        lambda m: replace(m, document=_document(creation_date=None)),
-        "requires a creation_date",
-    ),
     "unknown element": (
         lambda m: _swap(m, replace(m.features[1], element="Wormhole")),
         "DIGGS 3.0.0 has no object element 'Wormhole'",
@@ -989,6 +986,77 @@ def test_what_cannot_be_read_back_is_refused(case: str) -> None:
     write_model(_site())  # the site itself is written
     with pytest.raises(ValueError, match=message):
         write_model(change(_site()))
+
+
+def test_no_creation_date_is_written_as_unknown_and_reads_back_as_none() -> None:
+    model = replace(_site(), document=_document(creation_date=None))
+    xml = write_model(model, "3.0.0")
+    assert b'<creationDate indeterminatePosition="unknown"/>' in xml
+    assert pydiggs.validate_bytes(xml).ok
+    back = pydiggs.read_bytes(xml)
+    assert back.document is not None and back.document.creation_date is None
+
+
+def _strike_with(extra: tuple[ExtraNode, ...]) -> Model:
+    """The pyDIGGS-converted water strike of a one-hole AGS4 file, with ``extra``."""
+    from pydiggs import ags4
+    from pydiggs.convert._mapping import load_mapping
+    from pydiggs.convert._to_model import map_file
+
+    def group(
+        name: str, headings: tuple[str, ...], units: tuple[str, ...], row: tuple[str, ...]
+    ) -> Any:
+        types = tuple("X" for _ in headings)
+        return ags4.Group(name=name, headings=headings, units=units, types=types, rows=[row])
+
+    file = ags4.File(
+        groups=[
+            group("PROJ", ("PROJ_ID",), ("",), ("P",)),
+            group("LOCA", ("LOCA_ID",), ("",), ("BH1",)),
+            group("WSTG", ("LOCA_ID", "WSTG_DPTH"), ("", "m"), ("BH1", "4.5")),
+        ]
+    )
+    model = map_file(file, load_mapping()).model
+    feature = model.features[0]
+    strike = replace(feature.water_strikes[0], extra=extra)
+    return replace(model, features=(replace(feature, water_strikes=(strike,)),))
+
+
+def _bottom_casing(gml_id: str | None = None) -> ExtraNode:
+    attrs = {"srsName": "#BH1-lrs", "srsDimension": "1"}
+    if gml_id is not None:
+        attrs["gml:id"] = gml_id
+    pos = ExtraNode(qname="gml:pos", ns="http://www.opengis.net/gml/3.2", text="4")
+    point = ExtraNode(
+        qname="PointLocation", ns="http://diggsml.org/schemas/3", attrs=attrs, children=(pos,)
+    )
+    return ExtraNode(qname="bottomCasing", ns="http://diggsml.org/schemas/3", children=(point,))
+
+
+def test_a_component_extra_element_is_written_as_given_and_read_back() -> None:
+    model = _strike_with((_bottom_casing(),))
+    xml = write_model(model, "3.0.0")
+    assert pydiggs.validate_bytes(xml).ok
+    (strike,) = pydiggs.read_bytes(xml).features[0].water_strikes
+    assert strike.location is None  # a casing depth is not the seal location
+    (extra,) = strike.extra
+    point = extra.children[0]
+    assert (extra.qname, point.qname, point.children[0].text) == (
+        "bottomCasing",
+        "PointLocation",
+        "4",
+    )
+    assert point.attrs["gml:id"]  # made up: the schema requires one
+    given = write_model(_strike_with((_bottom_casing("casing-1"),)), "3.0.0")
+    assert b'gml:id="casing-1"' in given
+
+
+def test_a_component_extra_element_that_is_not_its_child_is_refused() -> None:
+    wrong = ExtraNode(qname="casing", ns="http://diggsml.org/schemas/3")
+    with pytest.raises(ValueError, match="no child element 'casing'"):
+        write_model(_strike_with((wrong,)), "3.0.0")
+    with pytest.raises(ValueError, match="used more than once"):
+        write_model(_strike_with((_bottom_casing("BH1"),)), "3.0.0")
 
 
 def test_only_diggs_3_0_0_is_written() -> None:

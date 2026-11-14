@@ -140,7 +140,7 @@ def test_other_parameters_are_checked_as_for_validate(client):
 def test_what_is_not_a_diggs_document_is_a_422_with_its_kind(client, data, kind):
     body = _problem(client.post("/v1/read", content=data, headers=XML), 422, "invalid-document")
     assert body["kind"] == kind
-    assert body["title"] == "Not a DIGGS document"
+    assert body["title"] == "Invalid document"
 
 
 def test_a_schema_invalid_file_still_reads(client):

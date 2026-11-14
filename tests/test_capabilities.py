@@ -20,6 +20,7 @@ import pytest
 
 import pydiggs
 from pydiggs import _capabilities, _service, ags4, frames, gis
+from pydiggs import convert as convert_module
 from pydiggs._capabilities import (
     CAPABILITIES_SCHEMA_URL,
     OPTION_TYPES,
@@ -35,14 +36,13 @@ from pydiggs.cli import main as cli_main
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.findings.model import Step
 from pydiggs.findings.run import NATIVE_STEPS
-from pydiggs.preview import convert as preview_convert
 
 ROOT = Path(__file__).resolve().parent.parent
 
 # --- what every public operation and surface maps to ------------------------------------
 #
-# Each public function (pydiggs, pydiggs.ags4, pydiggs.frames, pydiggs.gis, and the
-# previews in pydiggs.preview), HTTP route,
+# Each public function (pydiggs, pydiggs.ags4, pydiggs.convert, pydiggs.frames and
+# pydiggs.gis), HTTP route,
 # MCP tool, sidecar method and CLI command is listed here with the operation it is, or
 # in a META set with the reason it is not one. A new name anywhere fails a test below
 # until it is listed, so a new operation cannot ship without a capabilities entry.
@@ -63,7 +63,9 @@ PUBLIC_FUNCTIONS: dict[str, tuple[str, ...]] = {
     "pydiggs.ags4.dumps": ("ags4.write",),
     "pydiggs.ags4.write": ("ags4.write",),
     "pydiggs.ags4.check": ("ags4.check",),
-    "pydiggs.preview.convert.ags4_to_diggs": ("convert.ags4-to-diggs",),
+    "pydiggs.convert.ags4_to_diggs": ("convert.ags4-to-diggs",),
+    "pydiggs.convert.diggs_to_ags4": ("convert.diggs-to-ags4",),
+    "pydiggs.convert.model_to_ags4": ("convert.diggs-to-ags4",),
     "pydiggs.frames.to_pandas": ("export.pandas",),
     "pydiggs.frames.to_polars": ("export.polars",),
     "pydiggs.gis.transform": ("gis.transform",),
@@ -79,7 +81,7 @@ META_FUNCTIONS = {
     "pydiggs.version_info": "versions",
     "pydiggs.warm_up": "a performance helper",
     "pydiggs.validator": "the legacy one-check-at-a-time class; validate covers its checks",
-    "pydiggs.preview.convert.mapping_info": "describes the mapping table, converts nothing",
+    "pydiggs.convert.mapping_info": "describes the mapping table, converts nothing",
 }
 #: The function whose signature each operation's options must match.
 SIGNATURES: dict[str, tuple[str, ...]] = {
@@ -91,7 +93,9 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
     "ags4.read": ("pydiggs.ags4.read", "pydiggs.ags4.read_bytes"),
     "ags4.write": ("pydiggs.ags4.dumps",),
     "ags4.check": ("pydiggs.ags4.check",),
-    "convert.ags4-to-diggs": ("pydiggs.preview.convert.ags4_to_diggs",),
+    "convert.ags4-to-diggs": ("pydiggs.convert.ags4_to_diggs",),
+    # model_to_ags4 takes a Model in memory: no name, max_bytes or time_budget.
+    "convert.diggs-to-ags4": ("pydiggs.convert.diggs_to_ags4",),
     "export.pandas": ("pydiggs.frames.to_pandas",),
     "export.polars": ("pydiggs.frames.to_polars",),
     "gis.transform": ("pydiggs.gis.transform",),
@@ -100,11 +104,11 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
     "export.geoparquet": ("pydiggs.gis.write",),
     "export.geojson": ("pydiggs.gis.write",),
 }
-#: HTTP route -> operation, or None for a route that describes the server.
-HTTP_ROUTES: dict[str, str | None] = {
+#: HTTP route -> operation(s), or None for a route that describes the server.
+HTTP_ROUTES: dict[str, str | tuple[str, ...] | None] = {
     "/v1/validate": "validate",
     "/v1/read": "read",
-    "/v1/convert": "convert.ags4-to-diggs",
+    "/v1/convert": ("convert.ags4-to-diggs", "convert.diggs-to-ags4"),  # by ``to``
     "/v1/ags4/check": "ags4.check",
     "/v1/rules": "rules.list",
     "/v1/rules/{rule_id}": "rules.explain",
@@ -124,11 +128,11 @@ MCP_TOOLS: dict[str, str | None] = {
     "list_measurements": "read",
     "get_results": "read",
 }
-SIDECAR_METHODS: dict[str, str | None] = {
+SIDECAR_METHODS: dict[str, str | tuple[str, ...] | None] = {
     "initialize": None,
     "validate": "validate",
     "read": "read",
-    "convert": "convert.ags4-to-diggs",
+    "convert": ("convert.ags4-to-diggs", "convert.diggs-to-ags4"),  # by ``to``
     "ags4.check": "ags4.check",
     "ping": None,
     "versions": None,
@@ -142,6 +146,14 @@ AGS4_COMMANDS = {"check": "ags4.check"}
 _CORE_INPUTS = tuple(f"diggs-{v}" for v in SCHEMA_PATHS)
 
 
+def _operations(surface: dict[str, str | tuple[str, ...] | None]) -> set[str]:
+    """The operations a surface map names (a value may name one, several or none)."""
+    out: set[str] = set()
+    for value in surface.values():
+        out |= {value} if isinstance(value, str) else set(value or ())
+    return out
+
+
 def _resolve(dotted: str):
     module, _, name = dotted.rpartition(".")
     owner = {
@@ -150,7 +162,7 @@ def _resolve(dotted: str):
         "pydiggs.frames": frames,
         "pydiggs.gis": gis,
         "pydiggs._service": _service,
-        "pydiggs.preview.convert": preview_convert,
+        "pydiggs.convert": convert_module,
     }[module]
     return getattr(owner, name)
 
@@ -256,7 +268,7 @@ def _public_functions() -> set[str]:
         ("pydiggs.ags4", ags4),
         ("pydiggs.frames", frames),
         ("pydiggs.gis", gis),
-        ("pydiggs.preview.convert", preview_convert),
+        ("pydiggs.convert", convert_module),
     ):
         for name in module.__all__:
             obj = getattr(module, name)
@@ -282,7 +294,7 @@ def test_every_http_route_is_mapped(by_id):
 
     paths = set(create_app(ServerSettings(workers=1)).openapi()["paths"])
     assert paths == set(HTTP_ROUTES)
-    assert {v for v in HTTP_ROUTES.values() if v} <= set(by_id)
+    assert _operations(HTTP_ROUTES) <= set(by_id)
 
 
 def test_every_mcp_tool_is_mapped(by_id):
@@ -296,7 +308,7 @@ def test_every_mcp_tool_is_mapped(by_id):
 def test_every_sidecar_method_is_mapped(by_id):
     document = json.loads((ROOT / "src/pydiggs/sidecar/openrpc.json").read_text("utf-8"))
     assert {m["name"] for m in document["methods"]} == set(SIDECAR_METHODS)
-    assert {v for v in SIDECAR_METHODS.values() if v} <= set(by_id)
+    assert _operations(SIDECAR_METHODS) <= set(by_id)
 
 
 def test_every_ags4_command_is_mapped(by_id):
@@ -346,6 +358,10 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
     ags = tuple(f"ags4-{v}" for v in ags4.AGS_VERSIONS)
     assert by_id["ags4.read"].inputs == ags == by_id["ags4.write"].outputs
     assert by_id["ags4.check"].outputs == (findings,)
+    to_ags4 = by_id["convert.diggs-to-ags4"]
+    assert to_ags4.inputs == (*_CORE_INPUTS, model)
+    assert to_ags4.outputs[:2] == tuple(f"ags4-{v}" for v in convert_module._api.AGS_VERSIONS)
+    assert to_ags4.options["ags_version"].choices == _service.CONVERT_AGS_VERSIONS
     # One file export per gis.write driver.
     exports = {i for i in by_id if i in _capabilities._DRIVER_OF}
     assert set(_capabilities._DRIVER_OF.values()) == set(gis.DRIVERS.values())
@@ -354,7 +370,10 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
 
 def test_stability_matches_what_the_docs_promise(by_id):
     preview = {i for i, op in by_id.items() if op.stability == "preview"}
-    assert preview == {"ags4.read", "ags4.write", "ags4.check", "convert.ags4-to-diggs"}
+    assert preview == {"ags4.read", "ags4.write", "ags4.check"}
+    # pydiggs.convert is stable from 1.10, both ways.
+    assert by_id["convert.ags4-to-diggs"].stability == "stable"
+    assert by_id["convert.diggs-to-ags4"].stability == "stable"
     assert not {i for i, op in by_id.items() if op.stability == "experimental"}
 
 
@@ -375,6 +394,7 @@ def test_needs_name_real_extras(by_id):
         "ags4.write",
         "ags4.check",
         "convert.ags4-to-diggs",
+        "convert.diggs-to-ags4",
     }
 
 
