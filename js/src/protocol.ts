@@ -34,6 +34,8 @@ export interface InitMessage {
   packageCacheDir?: string;
   /** Node only: path of a pure pydiggs wheel on disk, installed with no download. */
   pydiggsWheelPath?: string;
+  /** Node only, experimental: directory for a start-up snapshot of the Pyodide runtime. */
+  startupSnapshotDir?: string;
 }
 
 /** What a request asks of pydiggs's service layer, as the HTTP API does. */

@@ -62,10 +62,26 @@ NAMES_1_7_0 = {
 }
 
 
+#: pydiggs.capabilities() and its diggs-capabilities schema (additive).
+NAMES_CAPABILITIES = {
+    "CAPABILITIES_SCHEMA_URL",
+    "CAPABILITIES_SCHEMA_VERSION",
+    "Capabilities",
+    "Operation",
+    "OptionSpec",
+    "capabilities",
+    "capabilities_schema",
+}
+#: Plain-language rule guidance (RuleInfo.guidance).
+NAMES_GUIDANCE = {"Guidance"}
+
+
 def test_the_public_api_is_1_2_0_plus_twelve_names_plus_the_read_api():
     assert len(NEW_NAMES) == 12
     assert len(NAMES_1_7_0) == 7
-    assert set(pydiggs.__all__) == NAMES_1_2_0 | NEW_NAMES | NAMES_1_7_0
+    assert set(pydiggs.__all__) == (
+        NAMES_1_2_0 | NEW_NAMES | NAMES_1_7_0 | NAMES_CAPABILITIES | NAMES_GUIDANCE
+    )
 
 
 def test_validate_keeps_its_1_2_0_signature_plus_time_budget():

@@ -58,6 +58,7 @@ def test_the_document_is_openapi_3_1_with_every_reference_resolving():
         "/v1/convert",
         "/v1/ags4/check",
         "/v1/versions",
+        "/v1/capabilities",
         "/v1/rules",
         "/v1/rules/{rule_id}",
         "/v1/readyz",
@@ -143,6 +144,7 @@ def test_the_committed_document_carries_the_model_schema_by_reference():
 def test_versions_disabled_drops_the_operation():
     document = create_app(ServerSettings(workers=1, versions_enabled=False)).openapi()
     assert "/v1/versions" not in document["paths"]
+    assert "/v1/capabilities" not in document["paths"]
 
 
 # --- Schemathesis against the in-process app ---------------------------------------------------

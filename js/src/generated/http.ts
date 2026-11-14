@@ -29,6 +29,14 @@ export interface RuleInfo {
   severities: ("error" | "warning" | "info")[];
   help_uri: string;
   known: boolean;
+  /** Plain-language guidance for engineers: a short title, what the rule means for the data, and how to fix it. Null for an unknown rule id. */
+  guidance?: {
+    title: string;
+    meaning: string;
+    fix: string;
+    /** Examples: "en". */
+    locale: string;
+  } | null;
 }
 
 /** The running pydiggs, its findings schema and bundled reference data. */

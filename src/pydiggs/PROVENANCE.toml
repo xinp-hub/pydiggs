@@ -16,6 +16,11 @@ repo = "https://github.com/DIGGSml/schema-dev"
 commit = "cf7f358ed7e28bf4e51d0b96fccd79c66f723385"
 date = "2026-11-05T00:22:15-08:00"
 
+[files."_capabilities/diggs-capabilities-1.0.schema.json"]
+source = "local"
+note = "The diggs-capabilities JSON Schema (pydiggs.capabilities()): pyDIGGS's own output contract, checked against the output by tests/test_capabilities.py."
+sha256 = "8a5116b6cf1f058bcd0566a833164ce6acc2920f54e0bf5c6871636043ae31ec"
+
 [files."_reader/aliases.toml"]
 source = "local"
 note = "Element renames between DIGGS versions for the diggs-model reader, beyond the deprecation registry: pyDIGGS's own data, checked against the bundled XSDs."
@@ -515,6 +520,11 @@ sha256 = "8442ad9b40d927b9dcba6dccd70bff8da96b7c13c13cf7c9fc093f92fcb31246"
 source = "local"
 note = "The diggs-findings 1.1 JSON Schema (adds the ags4 and convert steps, location.path and files[].format): pyDIGGS's own output contract, not upstream data."
 sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
+
+[files."findings/guidance/en.toml"]
+source = "local"
+note = "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own content, kept complete by tests/test_rule_guidance.py."
+sha256 = "dafe4aa5d515a90d0d0c0bbc7374649a42394dc01495e14f7d8eaa1cb3a835f6"
 
 [files."model/diggs-model-1.0.schema.json"]
 source = "local"
@@ -1104,9 +1114,9 @@ sha256 = "af71f21ded3c7fbe9266b9439f9cd2ad8dc13c2fecdfa4e9ca32c6776dcf57ed"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "6bfc32067d277841c57f7847d65721391578e4d77772b20deff14b32cbab8216"
+sha256 = "dea836541ca8852a5a67373620e659afc9c09a12ad2b609ee64f6f10d1d9f524"
 
 [files."sidecar/openrpc.json"]
 source = "local"
 note = "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, generated from pydiggs.sidecar._protocol and drift-tested."
-sha256 = "2d3888cff2bf4bed4e5a416b780b1465c7ffb9f65580aec9345bbb430efed400"
+sha256 = "f3700987d3f3b51078da4e6adc7a43a1b9d7dee04efa5ac1c00e7491c55a258d"

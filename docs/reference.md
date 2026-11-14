@@ -93,9 +93,29 @@ The `frames`, `polars` and `gis` extras; see
 
 ::: pydiggs.RuleInfo
 
+::: pydiggs.Guidance
+
 ::: pydiggs.version_info
 
 ::: pydiggs.VersionInfo
+
+## Capabilities
+
+What this pyDIGGS can do; see [Capabilities](capabilities.md).
+
+::: pydiggs.capabilities
+
+::: pydiggs.Capabilities
+
+::: pydiggs.Operation
+
+::: pydiggs.OptionSpec
+
+::: pydiggs.capabilities_schema
+
+::: pydiggs.CAPABILITIES_SCHEMA_VERSION
+
+::: pydiggs.CAPABILITIES_SCHEMA_URL
 
 ## Errors
 

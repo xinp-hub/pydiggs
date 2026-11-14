@@ -182,6 +182,8 @@ disallow_incomplete_defs = false
 module = [
   "pydiggs.__main__",
   "pydiggs._bundled",
+  "pydiggs._capabilities",
+  "pydiggs._capabilities.*",
   "pydiggs._geo_checks",
   "pydiggs.ags4",
   "pydiggs.ags4.*",

@@ -3,7 +3,8 @@
 //
 // - for a browser, a folder to serve and pass as `pyodideBaseUrl` (with
 //   `pydiggsWheelUrl` pointing at the wheel in it): Pyodide's own files from the npm
-//   `pyodide` package, plus lxml, micropip and what they need;
+//   `pyodide` package, plus lxml and what it needs (the worker unpacks the pydiggs
+//   wheel itself, so micropip is not needed);
 // - for Node and serverless functions, a `packageCacheDir` that is already complete
 //   (with `pydiggsWheelPath`), so a cold start downloads nothing and a read-only file
 //   system is fine.
@@ -29,7 +30,7 @@ export interface VendorOptions {
   packagesOnly?: boolean;
   /** Where the npm `pyodide` package is. Default: resolved from this package. */
   pyodideDir?: string;
-  /** Pyodide packages to bring, with everything they depend on. Default: lxml and micropip. */
+  /** Pyodide packages to bring, with everything they depend on. Default: lxml. */
   packages?: string[];
   /**
    * The pydiggs wheel: a release from PyPI (default `PYDIGGS_VERSION`), a wheel on disk,
@@ -137,7 +138,7 @@ export async function vendor(options: VendorOptions): Promise<VendorResult> {
 
   // 3. The packages and everything they depend on, checked against the lock file.
   const base = options.packageBaseUrl ?? `https://cdn.jsdelivr.net/pyodide/v${expected.pyodideVersion}/full/`;
-  const wanted = [...(options.packages ?? ["lxml", "micropip"])];
+  const wanted = [...(options.packages ?? ["lxml"])];
   const seen = new Set<string>();
   while (wanted.length > 0) {
     const name = wanted.shift()!.toLowerCase();

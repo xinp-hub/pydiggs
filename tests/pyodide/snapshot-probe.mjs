@@ -3,7 +3,7 @@
 // answers? Pyodide's snapshot API is private (`_makeSnapshot`, `_loadSnapshot`,
 // `makeMemorySnapshot`), so this records what works in the pinned release:
 //
-//   A. a cold start: runtime, lxml and micropip, the pydiggs wheel, warm-up;
+//   A. a cold start: runtime, lxml, the pydiggs wheel unpacked, warm-up;
 //   B. a snapshot taken after all of A, then restored, then checked against CPython;
 //   C. if B is refused, a snapshot of the bare runtime, restored, then the rest of A.
 //
@@ -28,14 +28,12 @@ const rows = [];
 const ms = (start) => Math.round(performance.now() - start);
 
 async function packagesAndPydiggs(pyodide) {
-  await pyodide.loadPackage(["lxml", "micropip"], { messageCallback: () => {} });
+  // As @pydiggs/client installs it: lxml from Pyodide, the wheel unpacked directly (no
+  // micropip, so no JavaScript proxy into Python is left alive for a snapshot to refuse).
+  await pyodide.loadPackage(["lxml"], { messageCallback: () => {} });
+  const wheel = readFileSync(args.wheel);
+  pyodide.unpackArchive(new Uint8Array(wheel.buffer, wheel.byteOffset, wheel.byteLength), "wheel");
   pyodide.FS.mkdirTree("/w");
-  pyodide.FS.writeFile(`/w/${basename(args.wheel)}`, readFileSync(args.wheel));
-  // Through Python, so no JavaScript proxy of micropip is left alive: a snapshot
-  // refuses any reference JavaScript still holds into Python.
-  await pyodide.runPythonAsync(
-    `import micropip\nawait micropip.install(${JSON.stringify(`emfs:/w/${basename(args.wheel)}`)}, deps=False)`,
-  );
   pyodide.runPython("import pydiggs; pydiggs.warm_up()");
 }
 

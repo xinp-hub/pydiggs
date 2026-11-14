@@ -26,7 +26,7 @@ test("after one visit, pydiggs loads and validates offline", async ({ page, cont
   await page.goto("/offline.html");
   const online = await run();
   const cached: string[] = JSON.parse((await page.locator("#cached").textContent()) ?? "[]");
-  for (const file of ["pyodide.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json", "micropip-", "lxml-", "pydiggs-"]) {
+  for (const file of ["pyodide.mjs", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json", "lxml-", "pydiggs-"]) {
     expect(cached.some((url) => url.split("/").pop()!.startsWith(file)), `${file} is cached`).toBe(true);
   }
 

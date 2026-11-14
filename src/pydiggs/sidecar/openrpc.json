@@ -892,6 +892,32 @@
           },
           "known": {
             "type": "boolean"
+          },
+          "guidance": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "title",
+              "meaning",
+              "fix",
+              "locale"
+            ],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "meaning": {
+                "type": "string"
+              },
+              "fix": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              }
+            }
           }
         }
       },
