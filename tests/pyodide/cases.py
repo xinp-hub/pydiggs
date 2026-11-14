@@ -25,6 +25,8 @@ from pathlib import Path
 from typing import Any
 
 FIXTURES = ("casing_units.xml", "markup_in_value.xml")
+# AGS4 files: checked and converted to DIGGS (pyDIGGS 1.10). Not validated or read as XML.
+AGS4_FIXTURES = ("site_tier_a.ags",)
 # The service-layer cases (what @pydiggs/client's worker and `pydiggs serve --http` run):
 # a subset of steps, and the result tables of one node only.
 CHECKS = ("structure", "schema")
@@ -89,6 +91,7 @@ def run(fixture_dir: str) -> dict[str, str]:
         pydiggs.validate_bytes(Path(fixture_dir, name).read_bytes(), name=name, max_bytes=MAX_BYTES)
         for name in FIXTURES
     ]
+    out_ags4 = ags4_cases(fixture_dir)
     out = {name: report.to_json() for name, report in zip(FIXTURES, reports, strict=True)}
     out["findings_json"] = pydiggs.findings_json(reports)
     for name in FIXTURES:
@@ -99,6 +102,34 @@ def run(fixture_dir: str) -> dict[str, str]:
     caps["operations"] = [op for op in caps["operations"] if not op["needs"]]
     out["capabilities"] = json.dumps(caps, ensure_ascii=False, sort_keys=True)
     out.update(service_cases(fixture_dir))
+    out.update(out_ags4)
+    return out
+
+
+def ags4_cases(fixture_dir: str) -> dict[str, str]:
+    """AGS4 checking and AGS4 to DIGGS conversion, through the API and the service layer.
+
+    ``convert:<name>`` is the DIGGS XML the converter writes (UTF-8 text),
+    ``convert-report:<name>`` its report, ``ags4-check:<name>`` the AGS4 check report,
+    and ``service-convert:<name>`` / ``service-ags4-check:<name>`` the documents the HTTP
+    API and the sidecar send for the same bytes.
+    """
+    from pydiggs import _service as svc  # lazily: see the module docstring
+    from pydiggs import ags4
+    from pydiggs.preview import convert
+
+    out: dict[str, str] = {}
+    for name in AGS4_FIXTURES:
+        data = Path(fixture_dir, name).read_bytes()
+        conversion = convert.ags4_to_diggs(data, name=name)
+        out[f"convert:{name}"] = conversion.xml.decode("utf-8")
+        out[f"convert-report:{name}"] = conversion.report.to_json()
+        out[f"ags4-check:{name}"] = ags4.check(ags4.read_bytes(data, name=name)).to_json()
+        converted = svc.convert(svc.ConvertRequest(content=data, name=name, max_bytes=MAX_BYTES))
+        checked = svc.ags4_check(svc.Ags4CheckRequest(content=data, name=name, max_bytes=MAX_BYTES))
+        for key, outcome in (("service-convert", converted), ("service-ags4-check", checked)):
+            assert outcome.ok and outcome.document is not None, outcome
+            out[f"{key}:{name}"] = outcome.document.decode("utf-8")
     return out
 
 

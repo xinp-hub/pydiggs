@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Final
 
-from pydiggs._service import MAX_NAME_INPUT_CHARS, Code
+from pydiggs._service import CONVERT_DIGGS_VERSIONS, CONVERT_TARGETS, MAX_NAME_INPUT_CHARS, Code
 
 __all__ = [
     "PROTOCOL_VERSION",
@@ -30,7 +30,9 @@ __all__ = [
     "Invalid",
     "Message",
     "ProtocolError",
+    "check_ags4_check",
     "check_cancel",
+    "check_convert",
     "check_empty",
     "check_explain",
     "check_initialize",
@@ -48,10 +50,11 @@ __all__ = [
 ]
 
 #: The protocol version this build speaks best.
-PROTOCOL_VERSION: Final = "1.1"
-#: Every protocol version this build can answer, oldest first. 1.1 adds ``read``.
-SUPPORTED_VERSIONS: Final = ("1.0", "1.1")
-#: Largest ``read`` result sent; a larger one is ``result-too-large`` (use ``select``).
+PROTOCOL_VERSION: Final = "1.2"
+#: Every protocol version this build can answer, oldest first. 1.1 adds ``read``; 1.2
+#: adds ``convert`` and ``ags4.check``.
+SUPPORTED_VERSIONS: Final = ("1.0", "1.1", "1.2")
+#: Largest ``read`` or ``convert`` result sent; a larger one is ``result-too-large``.
 MAX_RESULT_BYTES: Final = 256 * 2**20
 
 #: Longest string id accepted on a request.
@@ -485,13 +488,13 @@ def negotiate(requested: str) -> str:
         ProtocolError: ``unsupported-protocol-version`` with ``data.supported``.
 
     Examples:
-        >>> negotiate("1.0"), negotiate("1.7")
-        ('1.0', '1.1')
+        >>> negotiate("1.0"), negotiate("1.1"), negotiate("1.7")
+        ('1.0', '1.1', '1.2')
         >>> try:
         ...     negotiate("2.0")
         ... except ProtocolError as error:
         ...     print(error.data())
-        {'code': 'unsupported-protocol-version', 'supported': ['1.0', '1.1']}
+        {'code': 'unsupported-protocol-version', 'supported': ['1.0', '1.1', '1.2']}
     """
     major, minor = (int(p) for p in requested.split("."))
     candidates = [
@@ -628,18 +631,127 @@ def _check_document(
         if not isinstance(path, str) or not path or len(path) > MAX_PATH_CHARS:
             raise _bad("path", f"must be a string of at most {MAX_PATH_CHARS} characters")
     else:
-        encoded = params["content_base64"]
-        if not isinstance(encoded, str):
-            raise _bad("content_base64", "must be a base64 string")
-        if len(encoded) > _encoded_limit(max_bytes):
-            raise ProtocolError(ErrorCode.INPUT_TOO_LARGE, extra={"max_bytes": max_bytes})
-        try:
-            content = base64.b64decode(encoded.encode("ascii"), validate=True)
-        except (UnicodeEncodeError, binascii.Error):
-            raise _bad("content_base64", "must be standard, padded base64") from None
-        if len(content) > max_bytes:
-            raise ProtocolError(ErrorCode.INPUT_TOO_LARGE, extra={"max_bytes": max_bytes})
+        content = _decode_base64(params["content_base64"], "content_base64", max_bytes)
     return content, path, name, version, budget
+
+
+@dataclass(frozen=True, slots=True)
+class ConvertParams:
+    """``convert`` parameters, checked: decoded content or a path to vet, and the target."""
+
+    content: bytes | None
+    path: str | None
+    name: str | None
+    diggs_version: str | None
+    time_budget: float
+    to: str
+
+
+def check_convert(params: dict[str, Any], *, max_bytes: int, time_limit: float) -> ConvertParams:
+    """Check ``convert`` parameters (protocol 1.2) and decode ``content_base64``.
+
+    ``to`` is the target format, ``"diggs"`` (the default; the content is then AGS4).
+    The service checks ``to`` and ``diggs_version`` against what it converts.
+
+    Raises:
+        ProtocolError: ``invalid-params`` or ``input-too-large``.
+
+    Examples:
+        >>> p = check_convert({"content_base64": "IkdST1VQIg=="}, max_bytes=100, time_limit=60)
+        >>> p.content, p.to
+        (b'"GROUP"', 'diggs')
+    """
+    _only(
+        params,
+        frozenset({"content_base64", "path", "name", "to", "diggs_version", "time_budget_s"}),
+    )
+    to = _optional_str(params, "to", 64)
+    content, path, name, version, budget = _check_document(
+        params, max_bytes=max_bytes, time_limit=time_limit
+    )
+    return ConvertParams(content, path, name, version, budget, to or CONVERT_TARGETS[0])
+
+
+@dataclass(frozen=True, slots=True)
+class Ags4CheckParams:
+    """``ags4.check`` parameters, checked: the file and an optional dictionary."""
+
+    content: bytes | None
+    path: str | None
+    name: str | None
+    time_budget: float
+    dictionary: bytes | None
+    dictionary_path: str | None
+
+
+def check_ags4_check(
+    params: dict[str, Any], *, max_bytes: int, time_limit: float
+) -> Ags4CheckParams:
+    """Check ``ags4.check`` parameters (protocol 1.2) and decode the base64 content.
+
+    The file is ``content_base64`` or ``path``, as for ``validate``; the optional data
+    dictionary is ``dictionary_base64`` or ``dictionary_path`` (pyDIGGS bundles none).
+    Each is held to ``max_bytes``; both travel in the one request line.
+
+    Raises:
+        ProtocolError: ``invalid-params`` or ``input-too-large``.
+
+    Examples:
+        >>> p = check_ags4_check(
+        ...     {"content_base64": "IkdST1VQIg==", "dictionary_base64": "IkdST1VQIg=="},
+        ...     max_bytes=100,
+        ...     time_limit=60,
+        ... )
+        >>> p.content, p.dictionary
+        (b'"GROUP"', b'"GROUP"')
+    """
+    _only(
+        params,
+        frozenset(
+            {
+                "content_base64",
+                "path",
+                "name",
+                "time_budget_s",
+                "dictionary_base64",
+                "dictionary_path",
+            }
+        ),
+    )
+    content, path, name, _version, budget = _check_document(
+        params, max_bytes=max_bytes, time_limit=time_limit
+    )
+    dictionary = dictionary_path = None
+    if "dictionary_base64" in params and "dictionary_path" in params:
+        raise _bad("dictionary_base64", "give at most one of dictionary_base64 and dictionary_path")
+    if "dictionary_path" in params:
+        dictionary_path = params["dictionary_path"]
+        if (
+            not isinstance(dictionary_path, str)
+            or not dictionary_path
+            or len(dictionary_path) > MAX_PATH_CHARS
+        ):
+            raise _bad(
+                "dictionary_path", f"must be a string of at most {MAX_PATH_CHARS} characters"
+            )
+    elif "dictionary_base64" in params:
+        dictionary = _decode_base64(params["dictionary_base64"], "dictionary_base64", max_bytes)
+    return Ags4CheckParams(content, path, name, budget, dictionary, dictionary_path)
+
+
+def _decode_base64(encoded: object, param: str, max_bytes: int) -> bytes:
+    """Strictly decode one base64 parameter, refusing more than ``max_bytes`` bytes."""
+    if not isinstance(encoded, str):
+        raise _bad(param, "must be a base64 string")
+    if len(encoded) > _encoded_limit(max_bytes):
+        raise ProtocolError(ErrorCode.INPUT_TOO_LARGE, extra={"max_bytes": max_bytes})
+    try:
+        content = base64.b64decode(encoded.encode("ascii"), validate=True)
+    except (UnicodeEncodeError, binascii.Error):
+        raise _bad(param, "must be standard, padded base64") from None
+    if len(content) > max_bytes:
+        raise ProtocolError(ErrorCode.INPUT_TOO_LARGE, extra={"max_bytes": max_bytes})
+    return content
 
 
 def check_rules_list(params: dict[str, Any]) -> str | None:
@@ -711,7 +823,7 @@ def _method(
 
 
 def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[str, Any]:
-    """The OpenRPC 1.3 description of protocol 1.1, committed as ``openrpc.json``.
+    """The OpenRPC 1.3 description of protocol 1.2, committed as ``openrpc.json``.
 
     Notifications (``exit``, ``$/cancelRequest``, ``$/progress``) are described in
     ``x-notifications``, since OpenRPC has no notification object.
@@ -720,8 +832,8 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
         >>> doc = openrpc_document(
         ...     "https://example.invalid/f.json", "https://example.invalid/m.json"
         ... )
-        >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:3]
-        ('1.1', ['initialize', 'validate', 'read'])
+        >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:5]
+        ('1.2', ['initialize', 'validate', 'read', 'convert', 'ags4.check'])
     """
     rule = {"$ref": "#/components/schemas/RuleInfo"}
     common = [ErrorCode.INVALID_REQUEST, ErrorCode.NOT_INITIALIZED, ErrorCode.SHUTTING_DOWN]
@@ -862,6 +974,45 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                 ErrorCode.RESULT_TOO_LARGE,
             ],
         ),
+        _method(
+            "convert",
+            "Convert one AGS4 file to DIGGS 3.0.0 (protocol 1.2; preview mapping table), with"
+            " every loss reported. The result carries the output as base64.",
+            [
+                _param("content_base64", {"type": "string", "contentEncoding": "base64"}),
+                _param("path", {"type": "string", "maxLength": MAX_PATH_CHARS}),
+                _param("name", {"type": "string", "maxLength": MAX_NAME_INPUT_CHARS}),
+                _param(
+                    "to",
+                    {"enum": list(CONVERT_TARGETS)},
+                    summary="The format to convert to (default diggs; the content is AGS4).",
+                ),
+                _param("diggs_version", {"enum": list(CONVERT_DIGGS_VERSIONS)}),
+                _param("time_budget_s", {"type": "number", "exclusiveMinimum": 0}),
+            ],
+            {"$ref": "#/components/schemas/ConversionResult"},
+            [
+                *common,
+                *document_errors,
+                ErrorCode.INVALID_DOCUMENT,
+                ErrorCode.RESULT_TOO_LARGE,
+            ],
+        ),
+        _method(
+            "ags4.check",
+            "Check one AGS4 file against the AGS4 rules (Rules 1 to 20; protocol 1.2), with an"
+            " optional data dictionary the host supplies.",
+            [
+                _param("content_base64", {"type": "string", "contentEncoding": "base64"}),
+                _param("path", {"type": "string", "maxLength": MAX_PATH_CHARS}),
+                _param("name", {"type": "string", "maxLength": MAX_NAME_INPUT_CHARS}),
+                _param("dictionary_base64", {"type": "string", "contentEncoding": "base64"}),
+                _param("dictionary_path", {"type": "string", "maxLength": MAX_PATH_CHARS}),
+                _param("time_budget_s", {"type": "number", "exclusiveMinimum": 0}),
+            ],
+            {"$ref": findings_schema_url},
+            [*common, *document_errors],
+        ),
         _method("ping", "Liveness check.", [], _EMPTY, common),
         _method(
             "versions",
@@ -932,6 +1083,39 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                         },
                     },
                 },
+                "ConversionResult": {
+                    "type": "object",
+                    "description": (
+                        "As POST /v1/convert answers: the output (base64) with its media type"
+                        " and sha256, and the findings about the source and the output."
+                    ),
+                    "required": [
+                        "to",
+                        "media_type",
+                        "output_name",
+                        "diggs_version",
+                        "mapping_version",
+                        "complete",
+                        "lossless",
+                        "report",
+                        "validation",
+                        "output_sha256",
+                        "output_base64",
+                    ],
+                    "properties": {
+                        "to": {"enum": list(CONVERT_TARGETS)},
+                        "media_type": _STR,
+                        "output_name": _STR,
+                        "diggs_version": {"type": ["string", "null"]},
+                        "mapping_version": _STR,
+                        "complete": {"type": "boolean"},
+                        "lossless": {"type": "boolean"},
+                        "report": {"$ref": findings_schema_url},
+                        "validation": {"anyOf": [{"$ref": findings_schema_url}, {"type": "null"}]},
+                        "output_sha256": _STR,
+                        "output_base64": {"type": "string", "contentEncoding": "base64"},
+                    },
+                },
                 "ServerCapabilities": {
                     "type": "object",
                     "properties": {
@@ -949,6 +1133,24 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                                 "content": {"type": "boolean"},
                                 "path": {"type": "boolean"},
                                 "select": {"type": "boolean"},
+                            },
+                        },
+                        "convert": {
+                            "type": "object",
+                            "description": "Protocol 1.2 and later.",
+                            "properties": {
+                                "content": {"type": "boolean"},
+                                "path": {"type": "boolean"},
+                                "to": {"type": "array", "items": _STR},
+                            },
+                        },
+                        "ags4_check": {
+                            "type": "object",
+                            "description": "Protocol 1.2 and later (the ags4.check method).",
+                            "properties": {
+                                "content": {"type": "boolean"},
+                                "path": {"type": "boolean"},
+                                "dictionary": {"type": "boolean"},
                             },
                         },
                         "cancel": {"type": "boolean"},

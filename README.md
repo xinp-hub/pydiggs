@@ -47,6 +47,12 @@ off (`git commit -s`) under the
   polars data frames and `pydiggs.gis` gives GeoDataFrames, GeoPackage and
   GeoParquet files. For reading, the public modules are `pydiggs`, `pydiggs.model`,
   `pydiggs.crs`, `pydiggs.frames` and `pydiggs.gis`.
+* AGS4: read, write and check AGS4 files against the AGS4 rules (`pydiggs.ags4`,
+  `pydiggs ags4 check`), and convert them to DIGGS 3.0.0 with every loss reported
+  (preview: `pydiggs convert`, `POST /v1/convert`;
+  [AGS4 files](https://xinp-hub.github.io/pydiggs/ags4/),
+  [AGS4 to DIGGS](https://xinp-hub.github.io/pydiggs/convert/)). No AGS dictionary or
+  example file is bundled, and pyDIGGS is not an AGS-approved tool.
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
       JSON (diggs-findings 1.1) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)

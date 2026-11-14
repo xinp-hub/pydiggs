@@ -68,6 +68,8 @@ app, a reverse proxy or an API gateway for that.
 |---|---|
 | `POST /v1/validate` | 200 with a diggs-findings 1.1 document, or SARIF 2.1.0 for `Accept: application/sarif+json` |
 | `POST /v1/read` | 200 with a diggs-model 1.0 document: what is in the file ([Reading files](model.md)) |
+| `POST /v1/convert` | 200 with a conversion result: an AGS4 file as DIGGS 3.0.0 (base64) and every loss ([AGS4 to DIGGS](convert.md)) |
+| `POST /v1/ags4/check` | 200 with a diggs-findings 1.1 document of the AGS4 rules, or SARIF 2.1.0 ([AGS4 files](ags4.md)) |
 | `GET /v1/versions` | pydiggs, findings schema and DIGGS versions, reference-data commits, `api_version: "1"` (off with `versions_enabled=False`) |
 | `GET /v1/capabilities` | a [diggs-capabilities 1.0](capabilities.md) document: what this server's pydiggs can do (off with `versions_enabled=False`) |
 | `GET /v1/rules?step=` | every rule id pydiggs can emit (open families as patterns) |
@@ -145,6 +147,73 @@ curl -s -F file=@BH-01.xml -F 'select={"results": "none"}' http://127.0.0.1:8000
 - The answer is always `application/json`. On the conformance corpus a whole model is
   0.6 to 2 times the size of its XML (1.1 times overall); compressing responses is the
   host's job.
+
+### `POST /v1/convert` {#post-v1convert}
+
+Converts one **AGS4** file to **DIGGS 3.0.0** (preview: mapping table 0.1, see
+[AGS4 to DIGGS](convert.md)). The body limit, admission, isolation and time limit are
+those of `/v1/read`.
+
+- **Raw:** `Content-Type: application/octet-stream`, `text/plain` or `text/csv` (AGS4 has
+  no registered media type), the file as the body, and the query parameters.
+- **Multipart:** one part named `file` and the optional fields below; as for
+  `/v1/validate`, a field wins over the same query parameter and both must be valid.
+
+| parameter | meaning |
+|---|---|
+| `name` | File name to report; reduced to a basename, `input.ags` when empty |
+| `to` | The format to convert to: `diggs` (the default, and the only one so far) |
+| `diggs_version` | The DIGGS version to write: `3.0.0` (the default) |
+
+```bash
+curl -s -F file=@site.ags http://127.0.0.1:8000/v1/convert > result.json
+jq -r .output_base64 result.json | base64 --decode > site.xml
+jq '.report.files[0].findings[] | select(.step == "convert")' result.json
+```
+
+The answer is one JSON object (`application/json`, component `ConversionResult`): the
+DIGGS bytes as `output_base64` with `media_type`, `output_name` and `output_sha256`, the
+`report` about the source (AGS4 notes and `convert` findings, diggs-findings 1.1), the
+`validation` of the output, and `diggs_version`, `mapping_version`, `complete` and
+`lossless`. The fields are described in [AGS4 to DIGGS](convert.md#converting).
+
+- **Why one JSON object.** A client gets the document and its findings in one call, with
+  one parser, and can check `output_sha256` against the bytes it decodes. OpenAPI 3.1
+  describes base64 inside JSON directly (`contentEncoding: base64` with
+  `contentMediaType`), so generated clients type it; multipart responses are poorly
+  supported by HTTP clients and code generators, and putting the report in a header
+  would hit header size limits. The cost is a third more bytes for the XML; compress
+  responses at the host if that matters.
+- **Losses are not errors.** Unmapped content, an output that fails validation and an
+  exhausted time budget (`complete: false`, with thread isolation) are 200s; the findings
+  say what happened.
+- **Not AGS4** is 422 `invalid-document` with `kind` `not-ags4`, or
+  `unsupported-version` for an AGS 3 file. Compressed input (gzip, zip) is 415.
+- **Size.** A result larger than four times `max_body_bytes` is 422 `result-too-large`.
+- Adding DIGGS to AGS4 later is `to=ags4` with DIGGS XML as the body; nothing else in the
+  operation changes.
+
+### `POST /v1/ags4/check` {#post-v1ags4check}
+
+Checks one AGS4 file against the AGS4 rules (Rules 1 to 20) and answers with a
+**diggs-findings 1.1** document of step `ags4` (or SARIF 2.1.0 for
+`Accept: application/sarif+json`), the report [`ags4.check`](ags4.md#checking) gives for
+the same bytes. Send the file raw (as for `/v1/convert`) or as multipart with a `file`
+part and, optionally, a **`dictionary`** part: an AGS4 data dictionary, which pyDIGGS does
+not bundle (see [The data dictionary](ags4.md#the-data-dictionary)). The only parameter is
+`name`.
+
+```bash
+curl -s -F file=@site.ags -F dictionary=@Standard_dictionary_v4_1_1.ags \
+  http://127.0.0.1:8000/v1/ags4/check
+```
+
+Rule breaks, a file that is not AGS4 at all, truncation and an exhausted time budget are
+200s with findings, as for `/v1/validate`. A `dictionary` that cannot be used is 422
+`invalid-parameter` naming `dictionary`. The file and the dictionary share the body
+limit. The server writes the file to a private temporary folder (mode 0700) for the
+checker and removes it at once; with the container's read-only root filesystem that is
+the `/tmp` tmpfs.
 
 ## Limits and admission
 
@@ -233,19 +302,19 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 | status | code | when |
 |---|---|---|
 | 400 | <span id="problem-missing-input"></span>`missing-input` | no `file` part, or the body stopped arriving |
-| 400 | <span id="problem-invalid-multipart"></span>`invalid-multipart` | unparseable multipart, a second file, too many, unknown or oversized fields |
+| 400 | <span id="problem-invalid-multipart"></span>`invalid-multipart` | unparseable multipart, a second file (other than `/v1/ags4/check`'s `dictionary`), too many, unknown or oversized fields |
 | 400 | <span id="problem-invalid-host"></span>`invalid-host` | `Host` not in `allowed_hosts` (app only) |
 | 403 | <span id="problem-cross-site"></span>`cross-site` | cross-site request |
 | 404 | <span id="problem-not-found"></span>`not-found` | unknown path (app only) |
 | 405 | <span id="problem-method-not-allowed"></span>`method-not-allowed` | wrong method; see `Allow` (app only) |
-| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF (`/v1/read`: not JSON) |
+| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF (`/v1/read`, `/v1/convert`: not JSON) |
 | 408 | <span id="problem-request-timeout"></span>`request-timeout` | the body did not arrive within `body_timeout_s` |
 | 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes` |
 | 415 | <span id="problem-compressed-input"></span>`compressed-input` | gzip document, or `Content-Encoding` other than `identity` |
-| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart |
-| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `checks`, `diggs_version`, `name`, `select`, `step` or rule id |
-| 422 | <span id="problem-invalid-document"></span>`invalid-document` | `/v1/read` only: the bytes are not a DIGGS document; `kind` says why |
-| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read` only: the document is larger than four times `max_body_bytes`; ask for fewer tables with `select` |
+| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart) |
+| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, or an unusable AGS4 `dictionary` |
+| 422 | <span id="problem-invalid-document"></span>`invalid-document` | `/v1/read`: the bytes are not a DIGGS document; `/v1/convert`: not AGS4 (`not-ags4`) or AGS 3 (`unsupported-version`); `kind` says why |
+| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read`, `/v1/convert`: the result is larger than four times `max_body_bytes` (for `/v1/read`, ask for fewer tables with `select`) |
 | 422 | <span id="problem-input-unreadable"></span>`input-unreadable` | the document could not be read |
 | 500 | <span id="problem-resource-error"></span>`resource-error` | bundled reference data could not be loaded |
 | 500 | <span id="problem-internal"></span>`internal` | anything else |

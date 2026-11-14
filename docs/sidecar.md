@@ -4,7 +4,8 @@
 application can start and talk to over its standard input and output. It suits desktop
 and native applications in any language (Rust, C#, Java, Swift, C++, TypeScript on Node or
 Electron, and so on) that cannot embed CPython. This page is the normative specification
-of protocol version **1.1** (1.0 plus the `read` method). [Host guidance](sidecar-hosts.md) covers supervision,
+of protocol version **1.2** (1.0 plus the `read` method in 1.1, and `convert` and
+`ags4.check` in 1.2). [Host guidance](sidecar-hosts.md) covers supervision,
 packaging and example clients.
 
 The sidecar is part of the core package: it needs no extra and uses only the Python
@@ -91,7 +92,7 @@ content or absolute paths, and client strings are escaped.
 
 `initialize.params.protocol_version` is `"MAJOR.MINOR"`. The major must equal the
 sidecar's (`1`), otherwise the answer is `unsupported-protocol-version` with
-`data.supported`, e.g. `["1.0", "1.1"]`. The sidecar answers the highest minor it supports that
+`data.supported`, e.g. `["1.0", "1.1", "1.2"]`. The sidecar answers the highest minor it supports that
 does not exceed the requested one. Minor versions only add: hosts must ignore unknown
 result fields; new methods are advertised in `capabilities`. The sidecar refuses unknown
 parameters with `-32602` (except unknown keys inside `capabilities`, which it ignores).
@@ -130,7 +131,7 @@ ends it with status 1. `exit` is honoured at any time and abandons any running w
 
 | param | type | notes |
 |---|---|---|
-| `protocol_version` | string, required | `"1.1"` (or `"1.0"`: `initialize` then answers without the 1.1 members, and `read` is `method-not-found`) |
+| `protocol_version` | string, required | `"1.2"` (or `"1.1"`: no 1.2 members, and `convert` and `ags4.check` are `method-not-found`; or `"1.0"`: no 1.1 members either, and `read` is `method-not-found` too) |
 | `client_info` | object | `{name ≤ 128 chars, version ≤ 64 chars}`, logged at `info` |
 | `capabilities` | object | `{progress: bool}` asks for `$/progress` notifications |
 | `diggs_versions` | string[] | DIGGS versions to warm up (default: every released bundled version, not the experimental `3.1-dev`) |
@@ -139,7 +140,7 @@ Result:
 
 ```json
 {
-  "protocol_version": "1.1",
+  "protocol_version": "1.2",
   "pydiggs_version": "1.9.0",
   "findings_schema_version": "1.1",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json",
@@ -150,6 +151,8 @@ Result:
   "capabilities": {
     "validate": {"content": true, "path": false},
     "read": {"content": true, "path": false, "select": true},
+    "convert": {"content": true, "path": false, "to": ["diggs"]},
+    "ags4_check": {"content": true, "path": false, "dictionary": true},
     "cancel": true, "progress": false, "rules": true, "ping": true
   },
   "limits": {
@@ -164,7 +167,8 @@ Result:
 was started with `--allow-path`. `max_response_bytes_estimate` is a rough upper bound for
 sizing buffers for `validate`, not a guarantee; `max_result_bytes` is the hard limit for a
 `read` result. A host that negotiates `"1.0"` gets the 1.0 answer: no `model_schema_*`,
-no `capabilities.read` and no `max_result_bytes`.
+no `capabilities.read` and no `max_result_bytes`; one that negotiates `"1.1"` gets no
+`capabilities.convert` and no `capabilities.ags4_check`.
 
 ### `validate`
 
@@ -219,6 +223,56 @@ same bytes. Validate it against its own `$schema` and tolerate unknown fields.
 - Bytes that are not a DIGGS document are the error `invalid-document`; a result over
   `limits.max_result_bytes` is `result-too-large` (ask for less with `select`).
 
+### `convert` {#convert}
+
+Protocol 1.2. Converts one **AGS4** file to **DIGGS 3.0.0** (preview: mapping table 0.1,
+see [AGS4 to DIGGS](convert.md)), with every loss reported.
+
+| param | type | notes |
+|---|---|---|
+| `content_base64` | string | the AGS4 file, as for `validate` |
+| `path` | string | as for `validate` |
+| `name` | string ≤ 4096 | the name to report; reduced to a basename (default `input.ags`, or the path's basename) |
+| `to` | string | the format to convert to: `"diggs"` (the default and only value so far) |
+| `diggs_version` | string | the DIGGS version to write: `"3.0.0"` (the default) |
+| `time_budget_s` | number | `0 < t ≤ --timeout` |
+
+The result is the conversion result that `POST /v1/convert` answers, byte for byte: the
+DIGGS bytes as `output_base64` with `media_type`, `output_name` and `output_sha256`, the
+`report` about the source and the `validation` of the output (both diggs-findings 1.1),
+and `diggs_version`, `mapping_version`, `complete` and `lossless` (the fields are in
+[AGS4 to DIGGS](convert.md#converting)).
+
+- Losses, an output that fails validation and an exhausted `time_budget_s`
+  (`complete: false`) are normal results.
+- Bytes that are not AGS4 are the error `invalid-document` with `kind` `not-ags4` (or
+  `unsupported-version` for AGS 3); a result over `limits.max_result_bytes` is
+  `result-too-large`.
+- A `convert` shares the queue with `validate` and `read`. A queued one can be cancelled;
+  a running one is checked for cancellation only when it ends.
+- DIGGS to AGS4 will be `to: "ags4"` with DIGGS content; nothing else changes.
+
+### `ags4.check` {#ags4check}
+
+Protocol 1.2. Checks one AGS4 file against the AGS4 rules (Rules 1 to 20) and answers
+with the **diggs-findings 1.1** document `ags4.check` gives for the same bytes, line
+numbers included (see [AGS4 files](ags4.md#checking)).
+
+| param | type | notes |
+|---|---|---|
+| `content_base64`, `path`, `name`, `time_budget_s` | | as for `convert` |
+| `dictionary_base64` | string | an AGS4 data dictionary (pyDIGGS bundles none), standard base64 |
+| `dictionary_path` | string | the dictionary by path, under an `--allow-path` root (vetted like `path`) |
+
+At most one of `dictionary_base64` and `dictionary_path`. Each file is held to the limit
+of the way it came: `max_bytes` inline (base64), `max_path_bytes` by path. Inline, both
+travel in one request line, so they must fit in `max_line_bytes` together. A dictionary
+that cannot be used is `invalid-params` naming `dictionary`. `time_budget_s` covers
+reading the dictionary and checking together: a dictionary read it stops is
+`invalid-params` naming `dictionary` ("could not be read within the time budget"). Rule breaks and a file that is not AGS4 at all are normal results with
+findings. The sidecar writes the file to a private temporary folder (mode 0700) for the
+checker and removes it at once.
+
 ### `ping`, `versions`
 
 `ping` takes no parameters and returns `{}`. `versions` returns the same fields as
@@ -264,7 +318,7 @@ it with LSP or MCP meanings.
 | -32601 | `method-not-found` | unknown method | |
 | -32602 | `invalid-params` | missing, unknown or malformed parameters | `errors: [{param, problem}]` |
 | -32603 | `internal` | unexpected failure; details go to stderr only | `correlation_id` |
-| -32000 | `busy` | one validation or read running and one waiting | |
+| -32000 | `busy` | one validation, read, conversion or check running and one waiting | |
 | -32001 | `not-initialized` | request before `initialize` completed | |
 | -32002 | `shutting-down` | request after `shutdown`, or dropped by it | |
 | -32003 | `input-too-large` | document over `max_bytes` / `max_path_bytes` | `max_bytes` (content mode) |
@@ -274,8 +328,8 @@ it with LSP or MCP meanings.
 | -32007 | `resource-error` | the bundled reference data could not be loaded | `correlation_id` |
 | -32008 | `cancelled` | cancelled by `$/cancelRequest` | |
 | -32009 | `unsupported-protocol-version` | major version mismatch | `supported` |
-| -32010 | `invalid-document` | `read`: the bytes are not a DIGGS document | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long` |
-| -32011 | `result-too-large` | `read`: the document is over `max_result_bytes` | `max_result_bytes` |
+| -32010 | `invalid-document` | `read`: the bytes are not a DIGGS document; `convert`: not AGS4 | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long`; for `convert` `not-ags4` or `unsupported-version` |
+| -32011 | `result-too-large` | `read`, `convert`: the result is over `max_result_bytes` | `max_result_bytes` |
 
 Errors for unparseable lines carry `"id": null`. A broken notification gets no answer.
 Messages never echo request values; at most they name the reported basename.
@@ -319,8 +373,8 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 ## Example session
 
 ```text
-→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.1","client_info":{"name":"example-host","version":"0.1"}}}
-← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.1","pydiggs_version":"1.9.0",…}}
+→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.2","client_info":{"name":"example-host","version":"0.1"}}}
+← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.2","pydiggs_version":"1.9.0",…}}
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}

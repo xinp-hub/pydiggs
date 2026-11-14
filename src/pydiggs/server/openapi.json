@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "pydiggs HTTP API",
-    "summary": "Validate DIGGS documents (XSD, dictionaries, Schematron).",
+    "summary": "Validate and read DIGGS documents (XSD, dictionaries, Schematron); check AGS4 files and convert them to DIGGS.",
     "version": "1"
   },
   "paths": {
@@ -50,7 +50,7 @@
             }
           },
           "406": {
-            "description": "Accept allows neither JSON nor SARIF",
+            "description": "Accept allows none of the media types this operation sends",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -90,7 +90,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -270,7 +270,7 @@
             }
           },
           "406": {
-            "description": "Accept allows neither JSON nor SARIF",
+            "description": "Accept allows none of the media types this operation sends",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -310,7 +310,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -459,6 +459,427 @@
         }
       }
     },
+    "/v1/convert": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Convert one AGS4 file to DIGGS 3.0.0 (preview mapping), with every loss",
+        "operationId": "convert",
+        "responses": {
+          "200": {
+            "description": "The conversion: the DIGGS XML (base64) and the findings. Losses, an output that fails validation and an exhausted time budget (complete: false) are 200s; the findings say what happened.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows none of the media types this operation sends",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "File name to report (reduced to a basename)."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "diggs"
+              ]
+            },
+            "description": "The format to convert to (default: diggs; the body is then AGS4)."
+          },
+          {
+            "name": "diggs_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "3.0.0"
+              ]
+            },
+            "description": "The DIGGS version to write (default: 3.0.0)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "to": {
+                    "enum": [
+                      "diggs"
+                    ]
+                  },
+                  "diggs_version": {
+                    "enum": [
+                      "3.0.0"
+                    ]
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream, text/csv, text/plain, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ags4/check": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Check one AGS4 file against the AGS4 rules (Rules 1 to 20)",
+        "operationId": "ags4Check",
+        "responses": {
+          "200": {
+            "description": "A diggs-findings 1.1 document of step ags4 (or a SARIF 2.1.0 log). Rule breaks, content that is not AGS4 at all, truncation and an exhausted time budget are 200s with findings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiggsFindingsDocument"
+                }
+              },
+              "application/sarif+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SarifLog"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows none of the media types this operation sends",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "File name to report (reduced to a basename)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/csv": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/plain": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "dictionary": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "An AGS4 data dictionary (pyDIGGS bundles none); without one, the rules that need it run only for the file's own DICT group."
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/octet-stream, text/csv, text/plain, */*"
+                },
+                "dictionary": {
+                  "contentType": "application/octet-stream, text/csv, text/plain, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/versions": {
       "get": {
         "tags": [
@@ -573,7 +994,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -648,7 +1069,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -934,6 +1355,85 @@
                 }
               }
             }
+          }
+        }
+      },
+      "ConversionResult": {
+        "title": "ConversionResult",
+        "description": "One conversion: the output as base64 with its media type and sha256, and the findings about the source (report) and the output (validation). Every surface (HTTP, sidecar, CLI) produces the same result for the same input.",
+        "type": "object",
+        "required": [
+          "to",
+          "media_type",
+          "output_name",
+          "diggs_version",
+          "mapping_version",
+          "complete",
+          "lossless",
+          "report",
+          "validation",
+          "output_sha256",
+          "output_base64"
+        ],
+        "properties": {
+          "to": {
+            "enum": [
+              "diggs"
+            ],
+            "description": "The output format."
+          },
+          "media_type": {
+            "type": "string",
+            "examples": [
+              "application/xml"
+            ]
+          },
+          "output_name": {
+            "type": "string",
+            "description": "A file name for the output: the input's name, new extension."
+          },
+          "diggs_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Of the output."
+          },
+          "mapping_version": {
+            "type": "string",
+            "description": "Of the mapping table used."
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "False when a size or time limit stopped the conversion."
+          },
+          "lossless": {
+            "type": "boolean",
+            "description": "True when no convert finding of severity warning or error."
+          },
+          "report": {
+            "$ref": "#/components/schemas/DiggsFindingsDocument"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiggsFindingsDocument"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "pydiggs.validate on the output."
+          },
+          "output_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": "application/xml",
+            "description": "The output's bytes, standard base64 (RFC 4648, padded)."
           }
         }
       },
@@ -2898,12 +3398,14 @@
           },
           "kind": {
             "type": "string",
-            "description": "For invalid-document: why the bytes are not a DIGGS document.",
+            "description": "For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, or AGS4 for a conversion).",
             "examples": [
               "malformed",
               "not-diggs",
               "unsafe-entity",
-              "namespace-too-long"
+              "namespace-too-long",
+              "not-ags4",
+              "unsupported-version"
             ]
           }
         }

@@ -104,6 +104,8 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
 HTTP_ROUTES: dict[str, str | None] = {
     "/v1/validate": "validate",
     "/v1/read": "read",
+    "/v1/convert": "convert.ags4-to-diggs",
+    "/v1/ags4/check": "ags4.check",
     "/v1/rules": "rules.list",
     "/v1/rules/{rule_id}": "rules.explain",
     "/v1/versions": None,
@@ -126,6 +128,8 @@ SIDECAR_METHODS: dict[str, str | None] = {
     "initialize": None,
     "validate": "validate",
     "read": "read",
+    "convert": "convert.ags4-to-diggs",
+    "ags4.check": "ags4.check",
     "ping": None,
     "versions": None,
     "rules.list": "rules.list",

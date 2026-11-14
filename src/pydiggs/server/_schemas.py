@@ -20,12 +20,19 @@ from pydiggs import _service
 from pydiggs.server._problems import PROBLEM_MEDIA_TYPE, PROBLEMS
 
 __all__ = [
+    "AGS4_MEDIA_TYPES",
     "FINDINGS_MEDIA_TYPE",
     "MAX_CHECKS_CHARS",
     "SARIF_MEDIA_TYPE",
     "XML_MEDIA_TYPES",
+    "ags4_check_parameters",
+    "ags4_check_request_body",
+    "ags4_check_responses",
     "capabilities_responses",
     "components",
+    "convert_parameters",
+    "convert_request_body",
+    "convert_responses",
     "error_responses",
     "lift_components",
     "readyz_responses",
@@ -42,6 +49,8 @@ __all__ = [
 FINDINGS_MEDIA_TYPE: Final = "application/json"
 SARIF_MEDIA_TYPE: Final = "application/sarif+json"
 XML_MEDIA_TYPES: Final = ("application/xml", "text/xml")
+#: Raw AGS4 bodies: AGS4 has no registered media type, so the generic ones for text.
+AGS4_MEDIA_TYPES: Final = ("application/octet-stream", "text/csv", "text/plain")
 #: Longest ``checks`` value, as documented in OpenAPI (``maxLength``).
 MAX_CHECKS_CHARS: Final = 512
 _SCHEMA_FILE: Final = "diggs-findings-1.1.schema.json"
@@ -219,7 +228,10 @@ _PROBLEM: Final[_JsonSchema] = {
         "correlation_id": {"type": "string"},
         "kind": {
             "type": "string",
-            "description": "For invalid-document: why the bytes are not a DIGGS document.",
+            "description": (
+                "For invalid-document: why the bytes are not a document of the expected"
+                " format (DIGGS XML, or AGS4 for a conversion)."
+            ),
             "examples": list(_service.DOCUMENT_KINDS),
         },
     },
@@ -315,9 +327,66 @@ _READY: Final[_JsonSchema] = {
 }
 
 
+def _conversion(findings: _JsonSchema) -> _JsonSchema:
+    """The result of ``POST /v1/convert``; ``findings`` is the diggs-findings schema to use."""
+    return {
+        "title": "ConversionResult",
+        "description": (
+            "One conversion: the output as base64 with its media type and sha256, and the"
+            " findings about the source (report) and the output (validation). Every surface"
+            " (HTTP, sidecar, CLI) produces the same result for the same input."
+        ),
+        "type": "object",
+        "required": [
+            "to",
+            "media_type",
+            "output_name",
+            "diggs_version",
+            "mapping_version",
+            "complete",
+            "lossless",
+            "report",
+            "validation",
+            "output_sha256",
+            "output_base64",
+        ],
+        "properties": {
+            "to": {"enum": list(_service.CONVERT_TARGETS), "description": "The output format."},
+            "media_type": {"type": "string", "examples": [_service.DIGGS_MEDIA_TYPE]},
+            "output_name": {
+                "type": "string",
+                "description": "A file name for the output: the input's name, new extension.",
+            },
+            "diggs_version": {"type": ["string", "null"], "description": "Of the output."},
+            "mapping_version": {"type": "string", "description": "Of the mapping table used."},
+            "complete": {
+                "type": "boolean",
+                "description": "False when a size or time limit stopped the conversion.",
+            },
+            "lossless": {
+                "type": "boolean",
+                "description": "True when no convert finding of severity warning or error.",
+            },
+            "report": findings,
+            "validation": {
+                "anyOf": [findings, {"type": "null"}],
+                "description": "pydiggs.validate on the output.",
+            },
+            "output_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "output_base64": {
+                "type": "string",
+                "contentEncoding": "base64",
+                "contentMediaType": _service.DIGGS_MEDIA_TYPE,
+                "description": "The output's bytes, standard base64 (RFC 4648, padded).",
+            },
+        },
+    }
+
+
 def _named() -> dict[str, _JsonSchema]:
     """Component name -> the self-contained schema the routes carry inline."""
     return {
+        "ConversionResult": _conversion(_findings_inline()),
         "DiggsFindingsDocument": _findings_inline(),
         "DiggsModelDocument": _model_inline(),
         "SarifLog": _SARIF,
@@ -333,11 +402,12 @@ def components() -> dict[str, _JsonSchema]:
     """Every component :func:`lift_components` refers to, sorted by name.
 
     Examples:
-        >>> sorted(components())[1:4]
-        ['DiggsFindingsCommit', 'DiggsFindingsCounts', 'DiggsFindingsDocument']
+        >>> sorted(components())[:3]
+        ['Capabilities', 'ConversionResult', 'DiggsFindingsCommit']
     """
-    inlined = ("DiggsFindingsDocument", "DiggsModelDocument")
+    inlined = ("ConversionResult", "DiggsFindingsDocument", "DiggsModelDocument")
     out = {k: copy.deepcopy(v) for k, v in _named().items() if k not in inlined}
+    out["ConversionResult"] = _conversion({"$ref": _COMPONENTS + "DiggsFindingsDocument"})
     out.update(_findings_components())
     out.update(_model_components())
     return dict(sorted(out.items()))
@@ -381,11 +451,14 @@ def _problem_content() -> dict[str, Any]:
 _STATUS_TEXT: Final = {
     400: "Missing or malformed input",
     403: "Cross-site request refused",
-    406: "Accept allows neither JSON nor SARIF",
+    406: "Accept allows none of the media types this operation sends",
     408: "The body did not arrive within the body timeout",
     413: "Body larger than the limit",
     415: "Unsupported media type, or compressed input",
-    422: "Invalid parameter, unreadable input, or (reading) not a DIGGS document",
+    422: (
+        "Invalid parameter, unreadable input, not a document of the expected format"
+        " (reading, converting), or a result over the limit"
+    ),
     500: "Internal error (fixed text and a correlation id)",
     503: "Busy (see Retry-After) or not ready",
     504: "The request passed the hard time limit (process isolation)",
@@ -623,4 +696,119 @@ def readyz_responses() -> dict[int | str, dict[str, Any]]:
     return {
         200: {"description": "Ready", "content": {FINDINGS_MEDIA_TYPE: {"schema": _READY}}},
         **error_responses(403, 503),
+    }
+
+
+# --- AGS4: check and convert -------------------------------------------------------------
+
+
+def _ags4_raw() -> dict[str, Any]:
+    return {media: {"schema": {"type": "string", "format": "binary"}} for media in AGS4_MEDIA_TYPES}
+
+
+_AGS4_ENCODING: Final = "application/octet-stream, text/csv, text/plain, */*"
+
+
+def convert_parameters() -> list[dict[str, Any]]:
+    """The query parameters of ``POST /v1/convert``."""
+    return [
+        _query("name", _name_schema(), "File name to report (reduced to a basename)."),
+        _query(
+            "to",
+            {"enum": list(_service.CONVERT_TARGETS)},
+            "The format to convert to (default: diggs; the body is then AGS4).",
+        ),
+        _query(
+            "diggs_version",
+            {"enum": list(_service.CONVERT_DIGGS_VERSIONS)},
+            "The DIGGS version to write (default: 3.0.0).",
+        ),
+    ]
+
+
+def convert_request_body() -> dict[str, Any]:
+    """The request body of ``POST /v1/convert``: a raw AGS4 file or one multipart file."""
+    form = {
+        "schema": {
+            "type": "object",
+            "required": ["file"],
+            "additionalProperties": False,
+            "properties": {
+                "file": {"type": "string", "format": "binary"},
+                "name": _name_schema(),
+                "to": {"enum": list(_service.CONVERT_TARGETS)},
+                "diggs_version": {"enum": list(_service.CONVERT_DIGGS_VERSIONS)},
+            },
+        },
+        "encoding": {"file": {"contentType": _AGS4_ENCODING}},
+    }
+    return {"required": True, "content": {**_ags4_raw(), "multipart/form-data": form}}
+
+
+def convert_responses() -> dict[int | str, dict[str, Any]]:
+    """The responses of ``POST /v1/convert``."""
+    return {
+        200: {
+            "description": (
+                "The conversion: the DIGGS XML (base64) and the findings. Losses, an output"
+                " that fails validation and an exhausted time budget (complete: false) are"
+                " 200s; the findings say what happened."
+            ),
+            "content": {FINDINGS_MEDIA_TYPE: {"schema": _conversion(_findings_inline())}},
+        },
+        **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
+    }
+
+
+def ags4_check_parameters() -> list[dict[str, Any]]:
+    """The query parameters of ``POST /v1/ags4/check``."""
+    return [_query("name", _name_schema(), "File name to report (reduced to a basename).")]
+
+
+def ags4_check_request_body() -> dict[str, Any]:
+    """The request body of ``POST /v1/ags4/check``: a raw AGS4 file, or a multipart form.
+
+    The form holds the file and, optionally, an AGS4 data dictionary.
+    """
+    form = {
+        "schema": {
+            "type": "object",
+            "required": ["file"],
+            "additionalProperties": False,
+            "properties": {
+                "file": {"type": "string", "format": "binary"},
+                "dictionary": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": (
+                        "An AGS4 data dictionary (pyDIGGS bundles none); without one, the rules"
+                        " that need it run only for the file's own DICT group."
+                    ),
+                },
+                "name": _name_schema(),
+            },
+        },
+        "encoding": {
+            "file": {"contentType": _AGS4_ENCODING},
+            "dictionary": {"contentType": _AGS4_ENCODING},
+        },
+    }
+    return {"required": True, "content": {**_ags4_raw(), "multipart/form-data": form}}
+
+
+def ags4_check_responses() -> dict[int | str, dict[str, Any]]:
+    """The responses of ``POST /v1/ags4/check``."""
+    return {
+        200: {
+            "description": (
+                "A diggs-findings 1.1 document of step ags4 (or a SARIF 2.1.0 log). Rule"
+                " breaks, content that is not AGS4 at all, truncation and an exhausted time"
+                " budget are 200s with findings."
+            ),
+            "content": {
+                FINDINGS_MEDIA_TYPE: {"schema": _findings_inline()},
+                SARIF_MEDIA_TYPE: {"schema": _SARIF},
+            },
+        },
+        **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
     }

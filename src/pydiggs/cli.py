@@ -10,6 +10,42 @@ from pydiggs import __version__, _serve_cli, validator
 from pydiggs.findings import _cli
 
 
+def _validate(argv: list[str]) -> int:
+    return _cli.main(argv)
+
+
+def _serve(argv: list[str]) -> int:
+    return _serve_cli.main(argv)
+
+
+def _ags4(argv: list[str]) -> int:
+    from pydiggs.ags4 import _cli as ags4_cli  # noqa: PLC0415  # loads AGS4 on demand
+
+    return ags4_cli.main(argv)
+
+
+def _convert(argv: list[str]) -> int:
+    from pydiggs import _convert_cli  # noqa: PLC0415  # loads the converter on demand
+
+    return _convert_cli.main(argv)
+
+
+def _capabilities(argv: list[str]) -> int:
+    from pydiggs._capabilities import _cli as capabilities_cli  # noqa: PLC0415
+
+    return capabilities_cli.main(argv)
+
+
+#: ``pydiggs <command>`` -> its entry point, given the arguments after the command.
+_SUBCOMMANDS = {
+    "validate": _validate,
+    "serve": _serve,
+    "ags4": _ags4,
+    "convert": _convert,
+    "capabilities": _capabilities,
+}
+
+
 def main(argv: list[str] | None = None) -> int:
     """Console script for pydiggs."""
     # --timeout spawns workers; a frozen (PyInstaller) build must dispatch them here.
@@ -19,18 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     if args_in in (["--version"], ["-V"]):
         print(f"pydiggs {__version__}")
         return 0
-    if args_in[:1] == ["validate"]:
-        return _cli.main(args_in[1:])
-    if args_in[:1] == ["serve"]:
-        return _serve_cli.main(args_in[1:])
-    if args_in[:1] == ["ags4"]:
-        from pydiggs.ags4 import _cli as ags4_cli  # noqa: PLC0415  # loads AGS4 on demand
-
-        return ags4_cli.main(args_in[1:])
-    if args_in[:1] == ["capabilities"]:
-        from pydiggs._capabilities import _cli as capabilities_cli  # noqa: PLC0415
-
-        return capabilities_cli.main(args_in[1:])
+    subcommand = _SUBCOMMANDS.get(args_in[0]) if args_in else None
+    if subcommand is not None:
+        return subcommand(args_in[1:])
 
     parser = argparse.ArgumentParser(
         description=(
@@ -42,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
             " pydiggs validate --help. Validation for other programs"
             " (stdio sidecar, HTTP, MCP): pydiggs serve --help."
             " AGS4 files against the AGS4 rules: pydiggs ags4 check --help."
+            " AGS4 to DIGGS: pydiggs convert --help."
             " Installed version: pydiggs --version."
         ),
     )

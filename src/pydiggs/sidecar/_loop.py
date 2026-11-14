@@ -3,8 +3,9 @@
 Three threads share one :class:`Server`:
 
 * the **reader** reads bounded lines from stdin, answers cheap methods (``ping``,
-  ``versions``, ``rules.*``) at once, and queues ``initialize``, ``validate`` and
-  ``shutdown`` for the executor;
+  ``versions``, ``rules.*``) at once, and queues ``initialize``, the document methods
+  (``validate``, ``read``, ``convert``, ``ags4.check``) and ``shutdown`` for the
+  executor;
 * the **executor** runs one queued job at a time (validators are compiled per
   thread, so warm-up and validation share this thread);
 * the **main** thread waits for the end (``exit``, EOF, a broken pipe or a signal)
@@ -49,9 +50,13 @@ _DISCARD_CHUNK: Final = 1 << 20
 _WAIT_SECONDS: Final = 0.5
 #: Requests answered without the executor.
 _CHEAP: Final = frozenset({"ping", "versions", "rules.list", "rules.explain"})
-_KNOWN: Final = _CHEAP | {"initialize", "validate", "read", "shutdown"}
+_KNOWN: Final = _CHEAP | {"initialize", "validate", "read", "convert", "ags4.check", "shutdown"}
 #: The requests that take a document: one runs, one waits, both can be cancelled.
-_DOCUMENT: Final = ("validate", "read")
+_DOCUMENT: Final = ("validate", "read", "convert", "ags4.check")
+#: The protocol minor that added each document method (1.0 has validate).
+_SINCE_MINOR: Final = {"validate": 0, "read": 1, "convert": 2, "ags4.check": 2}
+
+_DocumentKind = Literal["validate", "read", "convert", "ags4.check"]
 
 
 class _TooLong:
@@ -65,7 +70,7 @@ Phase = Literal["new", "initializing", "ready", "shutdown"]
 
 @dataclass(eq=False)
 class _Job:
-    kind: Literal["initialize", "validate", "read", "shutdown"]
+    kind: Literal["initialize", "validate", "read", "convert", "ags4.check", "shutdown"]
     id: RequestId
     params: Any = None
     cancel: threading.Event = field(default_factory=threading.Event)
@@ -296,12 +301,12 @@ class Server:
             self._initialize(request_id, params, phase)
         elif phase != "ready":
             raise ProtocolError(ErrorCode.NOT_INITIALIZED)
-        elif method == "validate":
-            self._submit_document("validate", request_id, params)
-        elif method == "read":
-            if self._minor < 1:  # read is protocol 1.1; a 1.0 session does not have it
+        elif method in _SINCE_MINOR:
+            # read is protocol 1.1, convert and ags4.check 1.2: an older session lacks them
+            if self._minor < _SINCE_MINOR[method]:
                 raise ProtocolError(ErrorCode.METHOD_NOT_FOUND)
-            self._submit_document("read", request_id, params)
+            kind: _DocumentKind = method  # type: ignore[assignment]
+            self._submit_document(kind, request_id, params)
         elif method == "shutdown":
             self._shutdown(request_id, params)
         else:
@@ -341,7 +346,7 @@ class Server:
                 self._cv.wait()
 
     def _submit_document(
-        self, kind: Literal["validate", "read"], request_id: RequestId, params: dict[str, Any]
+        self, kind: _DocumentKind, request_id: RequestId, params: dict[str, Any]
     ) -> None:
         """Queue a validation or a read: at most one running (or about to run) and one waiting.
 
@@ -356,7 +361,7 @@ class Server:
                 raise ProtocolError(ErrorCode.INVALID_REQUEST, "Duplicate id")
             if len(jobs) >= 2:  # noqa: PLR2004  # one running plus one waiting
                 raise ProtocolError(ErrorCode.BUSY)
-        check = _protocol.check_validate if kind == "validate" else _protocol.check_read
+        check = getattr(_protocol, _CHECKS[kind])
         checked = check(params, max_bytes=self.options.max_bytes, time_limit=self.options.timeout)
         job = _Job(kind, request_id, checked)
         with self._cv:
@@ -433,6 +438,10 @@ class Server:
             try:
                 if job.kind == "read":
                     self._read(job)
+                elif job.kind == "convert":
+                    self._convert(job)
+                elif job.kind == "ags4.check":
+                    self._ags4_check(job)
                 else:
                     self._validate(job)
             except ProtocolError as error:
@@ -494,6 +503,17 @@ class Server:
                 "select": True,
             }
             result["limits"]["max_result_bytes"] = _protocol.MAX_RESULT_BYTES
+        if minor >= 2:  # noqa: PLR2004  # protocol 1.2: convert and ags4.check
+            result["capabilities"]["convert"] = {
+                "content": True,
+                "path": bool(self.roots),
+                "to": list(_service.CONVERT_TARGETS),
+            }
+            result["capabilities"]["ags4_check"] = {
+                "content": True,
+                "path": bool(self.roots),
+                "dictionary": True,
+            }
         with self._cv:
             if self._phase == "initializing":
                 self._minor = minor
@@ -518,7 +538,12 @@ class Server:
 
     def _document(self, job: _Job, step: str) -> tuple[bytes, str | None, int, Callable[[], bool]]:
         """A document job's content, name, size limit and cancellation hook."""
-        params: _protocol.ValidateParams | _protocol.ReadParams = job.params
+        params: (
+            _protocol.ValidateParams
+            | _protocol.ReadParams
+            | _protocol.ConvertParams
+            | _protocol.Ags4CheckParams
+        ) = job.params
         self._progress_note(job, step, "started")
         name = params.name
         if params.path is not None:
@@ -551,6 +576,40 @@ class Server:
             max_result_bytes=_protocol.MAX_RESULT_BYTES,
         )
         self._answer(job, _service.read(request, should_stop=should_stop))
+
+    def _convert(self, job: _Job) -> None:
+        params: _protocol.ConvertParams = job.params
+        content, name, limit, should_stop = self._document(job, "convert")
+        request = _service.ConvertRequest(
+            content=content,
+            name=name,
+            to=params.to,
+            diggs_version=params.diggs_version,
+            max_bytes=limit,
+            time_budget=params.time_budget,
+            max_result_bytes=_protocol.MAX_RESULT_BYTES,
+        )
+        self._answer(job, _service.convert(request, should_stop=should_stop))
+
+    def _ags4_check(self, job: _Job) -> None:
+        params: _protocol.Ags4CheckParams = job.params
+        content, name, limit, should_stop = self._document(job, "ags4.check")
+        # Each input keeps its own transport's limit: inline bytes max_bytes, a path
+        # max_path_bytes, whichever way the file itself came.
+        dictionary, dictionary_limit = params.dictionary, self.options.max_bytes
+        if params.dictionary_path is not None:
+            dictionary = self._read_path(params.dictionary_path)
+            dictionary_limit = self.options.max_path_bytes
+        request = _service.Ags4CheckRequest(
+            content=content,
+            name=name,
+            dictionary=dictionary,
+            dictionary_max_bytes=dictionary_limit,
+            max_bytes=limit,
+            max_findings=self.options.max_findings,
+            time_budget=params.time_budget,
+        )
+        self._answer(job, _service.ags4_check(request, should_stop=should_stop))
 
     def _validate(self, job: _Job) -> None:
         params: _protocol.ValidateParams = job.params
@@ -587,6 +646,15 @@ class Server:
         if outcome.errors:
             error = ProtocolError(error.error, None, outcome.errors, error.extra)
         self._error(job.id, error)
+
+
+#: The parameter check of each document method (a name in ``_protocol``, looked up per call).
+_CHECKS: Final = {
+    "validate": "check_validate",
+    "read": "check_read",
+    "convert": "check_convert",
+    "ags4.check": "check_ags4_check",
+}
 
 
 # --- process setup ----------------------------------------------------------------------

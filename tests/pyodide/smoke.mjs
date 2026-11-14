@@ -4,6 +4,8 @@
 //   - the running Pyodide matches pyodide-facts.json (Pyodide, CPython and lxml versions);
 //   - every report is byte-identical to CPython's (goldens from cases.py, same checkout);
 //   - HTML in an element value comes back verbatim, as data;
+//   - an AGS4 fixture converts to the same DIGGS bytes as on CPython, and the service
+//     layer's conversion result carries exactly those bytes;
 //   - the core path (import, warm_up, validation) executed no import of rich,
 //     multiprocessing, fastapi, mcp or subprocess, and started no thread;
 //   - the bundled UoM dictionary is on the Emscripten filesystem and in use;
@@ -108,7 +110,23 @@ for (const name of readNames) {
 }
 console.log(`ok  ${readNames.length} diggs-model documents parse in JavaScript`);
 
-// 3. The interpreter after validation and reading.
+// 2c. AGS4: the conversion and the check (pyDIGGS 1.10). Byte equality is step 1; here,
+// the service result (what the HTTP API and the sidecar send) carries the same XML.
+const convertNames = Object.keys(out.results).filter((name) => name.startsWith("convert:"));
+assert.ok(convertNames.length > 0, "no convert:<fixture> result");
+for (const name of convertNames) {
+  const fixture = name.slice("convert:".length);
+  const xml = Buffer.from(out.results[name], "utf8");
+  assert.ok(xml.subarray(0, 5).equals(Buffer.from("<?xml")), `${name}: not XML`);
+  const result = JSON.parse(out.results[`service-convert:${fixture}`]);
+  assert.ok(Buffer.from(result.output_base64, "base64").equals(xml), `${fixture}: service bytes differ`);
+  assert.equal(result.diggs_version, "3.0.0");
+  const check = JSON.parse(out.results[`ags4-check:${fixture}`]);
+  assert.equal(check.files[0].format, "ags4", `${fixture}: not an AGS4 report`);
+  console.log(`ok  ${fixture}: ${xml.length} bytes of DIGGS ${result.diggs_version}, as on CPython`);
+}
+
+// 3. The interpreter after validation, reading and conversion.
 const p = out.probe;
 assert.equal(p.python, facts.python, "pyodide-facts.json names another CPython");
 assert.equal(p.lxml, facts.lxml, "pyodide-facts.json names another lxml");

@@ -267,7 +267,7 @@ def test_initialize_errors_and_retry(session):
     assert reply["error"]["code"] == -32009
     assert reply["error"]["data"] == {
         "code": "unsupported-protocol-version",
-        "supported": ["1.0", "1.1"],
+        "supported": ["1.0", "1.1", "1.2"],
     }
     assert _slug(s.call("initialize", {})) == "invalid-params"
     assert s.initialize()["protocol_version"] == "1.0"  # a failed initialize can be retried
