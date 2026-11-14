@@ -12,6 +12,10 @@
     rather than //*[local-name()='P']/*[local-name()='C']: the same elements match,
     but libxslt no longer slows down with the square of the number of siblings
     (it still does when one parent has very many children that a rule matches)
+  - removed the FieldProperties/plasticity rule (number(.) >= 0): in DIGGS 2.6 and 3.0
+    plasticity is a gml:CodeType term such as "low" or "non-plastic", so the upstream
+    assert failed every correct value and passed numbers. A known difference from the
+    official validator, reported upstream as DIGGSml/validation#2.
 -->
 <schema xmlns="http://purl.oclc.org/dsdl/schematron"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -45,9 +49,6 @@
     </rule>
     <rule context="*[local-name()='blowCount'][parent::*[local-name()='CasagrandeTrial']]">
       <assert test="number(.) &gt;= 0">blowCount must be non-negative</assert>
-    </rule>
-    <rule context="*[local-name()='plasticity'][parent::*[local-name()='FieldProperties']]">
-      <assert test="number(.) &gt;= 0">plasticity must be non-negative</assert>
     </rule>
     <rule context="*[local-name()='weight'][parent::*[local-name()='Cement']]">
       <assert test="number(.) &gt; 0">weight must be positive</assert>
