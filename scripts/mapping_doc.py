@@ -38,8 +38,8 @@ _INTRO = """\
 
 !!! warning "Preview: every group is a draft"
     This is mapping table **{version}**, used by `pydiggs.preview.convert.ags4_to_diggs`
-    in pyDIGGS 1.9. Every group mapping is a draft until it is reviewed; mapping table 1.0
-    is signed off with pyDIGGS 1.10, and until then a heading may move. Corrections from
+    in pyDIGGS 1.9 and 1.10. Every group mapping is a draft until it is reviewed; mapping table 1.0
+    is signed off with pyDIGGS 1.11, and until then a heading may move. Corrections from
     DIGGS and AGS practitioners are welcome: a mapping change is a small diff to the TOML
     files under `src/pydiggs/convert/mappings/`.
 
