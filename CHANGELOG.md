@@ -219,6 +219,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   namespace) to its own prefix, such as a `bottomCasing` with `geom:id`, is written by
   namespace: writing it raised `KeyError`, and its id was not reserved. DIGGS to AGS4
   also finds `bottomCasing` and the linear referencing system by namespace, not prefix.
+- **A correct field plasticity term is no longer an error.** The bundled Schematron rule
+  for `FieldProperties/plasticity`, copied from the official DIGGS validation rules,
+  required a number of zero or more, but in DIGGS 2.6 and 3.0 plasticity is a term such
+  as `low`, `medium`, `high` or `non-plastic`. Every correct value failed the file and a
+  bare number passed. pyDIGGS drops that rule, so `schematron.FieldProperties.plasticity`
+  is no longer reported or listed by `rule_catalogue()`. This is a known difference from
+  the official validator, listed in the bundled Schematron file's header, and has been
+  reported upstream ([DIGGSml/validation#2](https://github.com/DIGGSml/validation/issues/2)).
+- **Plain-language guidance for the plunge rule says what the official rule gets
+  wrong.** `schematron.AbstractLinearSamplingFeature.plunge` accepts only -45 to -10
+  degrees, while DIGGS allows -90 to 90, so a vertical hole is outside it. (The rule names
+  the abstract type, so it does not fire on a `Borehole`.) The guidance now tells users
+  to keep a correct angle. Reported upstream
+  ([DIGGSml/validation#3](https://github.com/DIGGSml/validation/issues/3)).
 
 ## [1.9.0] - 2026-11-13
 

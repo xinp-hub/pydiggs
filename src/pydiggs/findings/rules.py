@@ -151,9 +151,6 @@ SCHEMATRON_BUNDLED: Final[dict[tuple[str, str], str]] = {
         "*[local-name()='blowCount'][parent::*[local-name()='CasagrandeTrial']]", "number(.) >= 0"
     ): "schematron.CasagrandeTrial.blowCount",
     _rule(
-        "*[local-name()='plasticity'][parent::*[local-name()='FieldProperties']]", "number(.) >= 0"
-    ): "schematron.FieldProperties.plasticity",
-    _rule(
         "*[local-name()='weight'][parent::*[local-name()='Cement']]", "number(.) > 0"
     ): "schematron.Cement.weight",
     _rule(
