@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -60,8 +61,21 @@ def captured() -> dict[str, dict[str, object]]:
     return cases
 
 
-def _expected(case: dict[str, object]) -> dict[str, object]:
-    return {k: v for k, v in case.items() if k != "source"}
+#: argparse's "invalid choice" error. CPython patch releases format its choice list
+#: differently (3.12.16 dropped the quotes and one space), so it is compared by content.
+_INVALID_CHOICE = re.compile(r"(invalid choice: \S+) \(choose from ([^)\n]*)\)")
+
+
+def _choices(match: re.Match[str]) -> str:
+    names = [name.strip(" '\"") for name in match.group(2).split(",")]
+    return f"{match.group(1)} (choose from {', '.join(names)})"
+
+
+def _normalised(case: dict[str, object]) -> dict[str, object]:
+    out = {k: v for k, v in case.items() if k != "source"}
+    if isinstance(out.get("stderr"), str):
+        out["stderr"] = _INVALID_CHOICE.sub(_choices, str(out["stderr"]))
+    return out
 
 
 @pytest.mark.slow
@@ -70,7 +84,7 @@ def test_dictionary_cases_do_not_depend_on_the_hash_seed():
     assert isinstance(cases, dict)
     expected = {k: v for k, v in GOLDENS["cases"].items() if k.startswith("dictionary_check ")}
     assert cases.keys() == expected.keys()
-    different = [k for k, v in expected.items() if _expected(v) != cases[k]]
+    different = [k for k, v in expected.items() if _normalised(v) != _normalised(cases[k])]
     assert not different, different[:5]
 
 
@@ -79,7 +93,9 @@ def test_legacy_output_is_byte_identical(captured):
     expected = GOLDENS["cases"]
     assert captured.keys() == expected.keys()
     different = [
-        case_id for case_id, case in expected.items() if _expected(case) != captured[case_id]
+        case_id
+        for case_id, case in expected.items()
+        if _normalised(case) != _normalised(captured[case_id])
     ]
     assert not different, f"{len(different)} legacy cases changed, e.g. {different[:5]}"
 
