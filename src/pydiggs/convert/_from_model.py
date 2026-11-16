@@ -1406,6 +1406,8 @@ class _Exporter:
     ) -> None:
         """Name the readings of row ``number``: its depth was not written, so none are."""
         for column in result.columns:
+            if number >= len(column.values) or column.values[number] is None:
+                continue  # an empty cell is no item: naming it would scan the measurement
             self.ledger.lose(
                 L.UNMAPPED_UNIT,
                 measurement,

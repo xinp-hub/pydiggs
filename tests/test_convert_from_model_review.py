@@ -280,3 +280,32 @@ def test_no_reason_in_the_mapping_table_says_preview():
         for heading in group.headings.values()
     ]
     assert reasons and not [r for r in reasons if "preview" in r[2].lower()]
+
+
+def test_rejected_cone_readings_skip_empty_cells_without_scanning(monkeypatch):
+    # An empty cell of a sparse reading column is not a model item; naming it as lost
+    # would scan every item of the measurement for nothing (quadratic in readings).
+    from pydiggs.convert import _from_model
+
+    text = (FIXTURES / "site_tier_b_4_1_1.ags").read_text(encoding="utf-8")
+    text = text.replace('"0.0150","0.0100"', '"0.0150",""').replace(
+        '"0.0310","0.0250"', '"0.0310",""'
+    )
+    first = convert.ags4_to_diggs(text.encode())
+    assert first.xml is not None
+    xml = first.xml.decode()
+    i = xml.index('<Sounding gml:id="CPT01">')
+    xml = xml[:i] + xml[i:].replace("<units>m</units>", "<units>ft[US]</units>", 1)
+
+    scans: list[str] = []
+    under = _from_model.ModelLedger._under
+
+    def counting(self, key, path):
+        if path.startswith("results[0].") and (key, path) not in self.items:
+            scans.append(path)
+        return under(self, key, path)
+
+    monkeypatch.setattr(_from_model.ModelLedger, "_under", counting)
+    c = convert.diggs_to_ags4(xml.encode(), ags_version="4.1.1")
+    assert any("unit" in m for m in rules(c, UNMAPPED_UNIT))
+    assert scans == []
