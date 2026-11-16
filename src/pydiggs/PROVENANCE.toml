@@ -34,22 +34,22 @@ sha256 = "68b1383e102b616bfa5a20c6777ce99a93915cbe8840becff00dd4725a9363d1"
 [files."convert/convert-mapping-1.schema.json"]
 source = "local"
 note = "JSON Schema of the AGS4 to DIGGS mapping table (format 1): pyDIGGS's own contract."
-sha256 = "23cd9fe27fe0791ff1c8bc284a52d75e6d7bbae1cb6ecc6a62cd6740fdbc9ec2"
+sha256 = "0e24861708c7853d8a941a67b886294f5cb074d7bf3e14bb950c4c44512eb69a"
 
 [files."convert/mappings/ags4-diggs.toml"]
 source = "local"
 note = "AGS4 to DIGGS mapping table: pyDIGGS's own data (AGS4 group and heading names, keys and parents only; no AGS4 dictionary text)."
-sha256 = "db45561ab2270634df53694912aea6dfe859fe777612eeec58fc1180e676a446"
+sha256 = "ca3cd62060cbf4ed4f9eb539e4ae9faa78b74f89c5c6e41bbc0dbf0df7caa35a"
 
 [files."convert/mappings/codes.toml"]
 source = "local"
 note = "AGS4 codes to DIGGS elements, code-list entries and CRSs: pyDIGGS's own data."
-sha256 = "4e33a82a1cbb9d9b7bca6c03a1983babcf9f1e3c49b642d1c7a677f581baf35e"
+sha256 = "cd21a6b6d8f5ecb2270b25a8ee00b3be9a2de92ad48090a47b296c1e90cbb1d6"
 
 [files."convert/mappings/units.toml"]
 source = "local"
 note = "AGS4 units to DIGGS units of measure: pyDIGGS's own data."
-sha256 = "72286c4a02beebc8665c4654b7abc3ead5845669e4aa99d843d4ede8ea6e28a0"
+sha256 = "d5a57d7aa53284ad601a539d7259f7cf87ea05b77a6e87deea9ce35169d03cb3"
 
 [files."deprecation/DeprecationRegistry.xml"]
 source = "schemas"

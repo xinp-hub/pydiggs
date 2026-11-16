@@ -35,7 +35,10 @@ concurrency:
   group: merge-policy-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# uv uses only its own python-build-standalone interpreters, never the runner image's
+# distro Python (24.04 ships 3.12, 26.04 ships 3.14), so every job runs the same build.
 env:
+  UV_PYTHON_PREFERENCE: only-managed
   STATUS_CONTEXT: merge policy
 # The policy pins, the rubric and the base of every diff are github.sha: under
 # pull_request_target that is the base branch's tip, the very commit this workflow file was
@@ -45,7 +48,7 @@ env:
 jobs:
   classify:
     name: risk tier
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read # check out the pull request
@@ -136,7 +139,7 @@ jobs:
     name: agent review
     needs: classify
     if: needs.classify.outputs.tier == '1'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     environment: automerge
     permissions:
@@ -183,7 +186,7 @@ jobs:
     needs: [classify, review]
     # Not always(): a run superseded by a newer push must not touch what that run decides.
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     environment: automerge
     permissions: {} # everything here acts with the merge App's token
@@ -271,7 +274,7 @@ jobs:
     name: publish decision
     needs: [classify, decide]
     if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       statuses: write # the `merge policy` status on the judged commit

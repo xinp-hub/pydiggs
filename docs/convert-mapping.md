@@ -2,8 +2,8 @@
 
 # AGS4 and DIGGS mapping
 
-!!! note "Mapping table 1.0: 25 of 25 groups reviewed"
-    This is mapping table **1.0**, used by `pydiggs.convert` in both directions:
+!!! note "Mapping table 1.1: 25 of 25 groups reviewed"
+    This is mapping table **1.1**, used by `pydiggs.convert` in both directions:
     `ags4_to_diggs`, and `diggs_to_ags4` and `model_to_ags4`. A group's status is
     *draft* until its rows have been reviewed, and *reviewed* after. Changing where a
     heading goes is a new major version of the table; adding groups, headings or codes is a
@@ -708,6 +708,7 @@ An AGS4 unit with no row here is reported as `convert.unmapped-unit`.
 | `km` | `km` |
 | `um` | `um` |
 | `ft` | `ft` |
+| `ftUS` | `ft[US]` |
 | `in` | `in` |
 | `%` | `%` |
 | `kPa` | `kPa` |

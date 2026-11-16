@@ -27,10 +27,15 @@ on:
 permissions:
   contents: read
 
+# uv uses only its own python-build-standalone interpreters, never the runner image's
+# distro Python (24.04 ships 3.12, 26.04 ships 3.14), so every job runs the same build.
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
 jobs:
   experiment:
     name: ${{ inputs.experiment }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       EXPERIMENT: ${{ inputs.experiment }}

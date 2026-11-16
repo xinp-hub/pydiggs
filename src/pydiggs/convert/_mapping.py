@@ -143,6 +143,8 @@ class MappingTable:
     code_list_base: str
     #: The unit (a DIGGS uom) of the axes of each CRS the code table gives one for.
     crs_units: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    #: The UNIT_DESC of each AGS4 unit the table defines for a project (one AGS4 does not list).
+    unit_desc: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
     #: A compound CRS (from a LOCA_NATD row) -> the horizontal CRS it is written with.
     crs_horizontal: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
     #: Code rows by heading and the set of their codes, folded to upper case.
@@ -299,14 +301,18 @@ def _group(entry: Mapping[str, Any]) -> GroupRule:
     )
 
 
-def _units(table: Mapping[str, Any]) -> dict[str, str]:
+def _units(table: Mapping[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
     unit_map: dict[str, str] = {}
+    described: dict[str, str] = {}
     for item in table["unit"]:
         ags, diggs = _text(item, "ags", "unit"), _text(item, "diggs", "unit")
         if ags in unit_map:
             raise ValueError(f"unit {ags!r} is listed twice")
         unit_map[str(ags)] = str(diggs)
-    return unit_map
+        desc = _text(item, "desc", "unit", required=False)
+        if desc is not None:
+            described[str(ags)] = str(desc)
+    return unit_map, described
 
 
 def _codes(
@@ -385,7 +391,7 @@ def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
         for other in (group.parent, group.data):
             if other is not None and other not in groups:
                 raise ValueError(f"group {group.name}: {other} is not a listed group")
-    unit_map = _units(units)
+    unit_map, unit_desc = _units(units)
     code_map, crs_map, crs_units, horizontal = _codes(codes)
     folded, shared = _folded(code_map)
     return MappingTable(
@@ -394,6 +400,7 @@ def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
         diggs_versions=tuple(str(v) for v in main["diggs_versions"]),
         groups=MappingProxyType(groups),
         units=MappingProxyType(unit_map),
+        unit_desc=MappingProxyType(unit_desc),
         codes=MappingProxyType(code_map),
         crs=MappingProxyType(crs_map),
         code_list_base=str(_text(codes, "code_list_base", "codes.toml")),

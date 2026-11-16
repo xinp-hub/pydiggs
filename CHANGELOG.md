@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **US survey foot in AGS4 as `ftUS`.** A value in US survey feet (DIGGS unit `ft[US]`, or
+  a CRS such as EPSG:2263 or 6539 whose axes are in US survey feet) was reported as
+  `convert.unmapped-unit` and left out when writing AGS4. It is now written as given, in
+  the project-defined unit `ftUS`, and the UNIT group of the file defines it as "US survey
+  foot (1200/3937 m)", as AGS4 requires of a unit it does not list. Plain `ft` stays the
+  international foot. A file that uses `ftUS` reads back to `ft[US]` for coordinates.
+  Values are never converted. Depths along a hole are still read as metres only, so AGS4
+  depths in any foot are reported and not written to DIGGS. The mapping table is now
+  **1.1** (`mapping_version`, a minor version: a unit was added).
+
 ## [1.11.0] - 2026-11-16
 
 ### Added

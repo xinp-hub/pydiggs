@@ -152,7 +152,7 @@ curl -s -F file=@BH-01.xml -F 'select={"results": "none"}' http://127.0.0.1:8000
 
 Converts one **AGS4** file to **DIGGS 3.0.0** (`to=diggs`, the default), or one **DIGGS**
 document to an **AGS4** file (`to=ags4`), by the stable `pydiggs.convert` and mapping
-table 1.0 (see [AGS4 and DIGGS conversion](convert.md)). The body limit, admission,
+table 1.1 (see [AGS4 and DIGGS conversion](convert.md)). The body limit, admission,
 isolation and time limit are those of `/v1/read`.
 
 - **Raw:** the file as the body and the parameters in the query. For `to=diggs` the body

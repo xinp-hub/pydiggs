@@ -123,9 +123,14 @@ _DIGGS_NS: Final = "http://diggsml.org/schemas/3"
 _GML_NS: Final = "http://www.opengis.net/gml/3.2"
 #: The EPSG code at the end of an srsName.
 _EPSG_URI: Final = re.compile(r"http://www\.opengis\.net/def/crs/EPSG/0/(\d{1,6})")
-#: EPSG's names for a linear axis unit, and the DIGGS unit each one is. "US survey foot" is
-#: not here: the unit table has no entry for it, and "ft" would change the values.
-_EPSG_AXIS_UNITS: Final = {"metre": "m", "meter": "m", "foot": "ft"}
+#: EPSG's names for a linear axis unit, and the DIGGS unit each one is. The two feet differ
+#: (EPSG 9002 and 9003): the US survey foot is ft[US], which the unit table writes as ftUS.
+_EPSG_AXIS_UNITS: Final = {
+    "metre": "m",
+    "meter": "m",
+    "foot": "ft",
+    "us survey foot": "ft[US]",
+}
 #: Why cone readings are not written when their depth is not.
 _DEPTH_NO_UNIT: Final = (
     "Readings of {field} of {element} are at a depth in a unit with no entry in the unit"
@@ -1553,7 +1558,7 @@ class _Exporter:
             headings=("UNIT_UNIT", "UNIT_DESC"),
             units=("", ""),
             types=("X", "X"),
-            rows=tuple((u, "") for u in sorted(units_used)),
+            rows=tuple((u, self.mapping.unit_desc.get(u, "")) for u in sorted(units_used)),
         )
         groups = [built.pop(name) for name in order if name in built]
         groups.extend(built.values())

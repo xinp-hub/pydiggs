@@ -15,7 +15,10 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# uv uses only its own python-build-standalone interpreters, never the runner image's
+# distro Python (24.04 ships 3.12, 26.04 ships 3.14), so every job runs the same build.
 env:
+  UV_PYTHON_PREFERENCE: only-managed
   FORCE_COLOR: "1"
   PYTHONUNBUFFERED: "1"
   UV_FROZEN: "1"
@@ -28,7 +31,7 @@ jobs:
   ai-attribution:
     name: no AI contributors
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -48,7 +51,7 @@ jobs:
   dco:
     name: DCO sign-off
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -63,7 +66,7 @@ jobs:
 
   lint:
     name: lint & types
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -83,7 +86,7 @@ jobs:
 
   test:
     name: test (${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -127,7 +130,7 @@ jobs:
   # and must not pull in rich, multiprocessing or an adapter on import.
   core-only:
     name: core without extras
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -183,7 +186,7 @@ jobs:
 
   build:
     name: build & inspect
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -213,7 +216,7 @@ jobs:
   # the same checkout, so they never need committing or refreshing.
   pyodide:
     name: pyodide smoke
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -254,7 +257,7 @@ jobs:
   # hardened line and smoke-tested, then scanned: a fixable HIGH or CRITICAL fails.
   container-build:
     name: container build, smoke & scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     env:
       IMAGE: pydiggs:ci
@@ -307,7 +310,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-26.04, windows-latest]
     defaults:
       run:
         shell: bash
@@ -338,7 +341,7 @@ jobs:
   # all-green: a new mcp release should not block unrelated pull requests.
   mcp-newest:
     name: MCP tests on the newest mcp
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     env:
       UV_FROZEN: "0"
@@ -361,7 +364,7 @@ jobs:
   # record (conformance/ags4-expected.toml).
   conformance:
     name: conformance corpus
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -394,7 +397,7 @@ jobs:
   # this job runs it alone on a large one.
   ags4-fuzz:
     name: ags4 fuzz
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -416,7 +419,7 @@ jobs:
   # first step here until `npm run generate` is run in js/ and committed.
   js:
     name: npm package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     defaults:
       run:
@@ -448,7 +451,7 @@ jobs:
   # nothing.
   docs:
     name: docs build (strict)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -468,7 +471,7 @@ jobs:
     # dco is not listed yet: it reports on every pull request, and joins this list once a
     # Dependabot pull request has passed it (plan risk R13).
     needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, ags4-fuzz, js, docs]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Fail if any required job failed or was cancelled

@@ -31,7 +31,7 @@ concurrency:
 jobs:
   build:
     name: verify, check and pack
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -105,7 +105,7 @@ jobs:
     name: stage on npm
     needs: build
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment:
       name: npm
