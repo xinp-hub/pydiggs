@@ -265,6 +265,7 @@ def _catalogue() -> tuple[_Entry, ...]:
     """Every operation, in the order an app would list them."""
     from pydiggs import ags4, frames, gis  # noqa: PLC0415
     from pydiggs.ags4._io import DEFAULT_MAX_BYTES as AGS4_MAX_BYTES  # noqa: PLC0415
+    from pydiggs.convert._api import AGS_VERSIONS as CONVERT_AGS  # noqa: PLC0415
     from pydiggs.detect import DEFAULT_PROFILE, SCHEMA_PATHS  # noqa: PLC0415
     from pydiggs.findings.export import FINDINGS_SCHEMA_VERSION  # noqa: PLC0415
     from pydiggs.findings.model import Step  # noqa: PLC0415
@@ -502,11 +503,11 @@ def _catalogue() -> tuple[_Entry, ...]:
                 id="convert.ags4-to-diggs",
                 label=(
                     "Convert an AGS4 file to DIGGS 3.0.0, listing everything not carried over"
-                    " (preview: the mapping table is a draft)"
+                    " and keeping it in a residual AGS4 file"
                 ),
-                stability="preview",
+                stability="stable",
                 inputs=(*ags, ags4_file),
-                outputs=("diggs-3.0.0", findings, model),
+                outputs=("diggs-3.0.0", findings, model, ags4_file),
                 options={
                     "diggs_version": OptionSpec(
                         type="string",
@@ -525,6 +526,50 @@ def _catalogue() -> tuple[_Entry, ...]:
                         type="integer",
                         label="Largest file accepted, in bytes",
                         default=AGS4_MAX_BYTES,
+                    ),
+                    "time_budget": time_budget,
+                },
+            )
+        ),
+        _Entry(
+            Operation(
+                id="convert.diggs-to-ags4",
+                label=(
+                    "Convert a DIGGS file (or a read one) to an AGS4 file, listing everything"
+                    " not carried over"
+                ),
+                stability="stable",
+                inputs=(*diggs, model),
+                outputs=(*(f"ags4-{v}" for v in CONVERT_AGS), ags4_file, findings),  # newest last
+                options={
+                    "ags_version": OptionSpec(
+                        type="string",
+                        label=(
+                            "AGS4 version to write (the BGS AGS validator and python-ags4"
+                            " 1.2.0 accept AGS4 only up to 4.1.1, as of November 2026)"
+                        ),
+                        default=CONVERT_AGS[-1],
+                        choices=tuple(reversed(CONVERT_AGS)),
+                    ),
+                    "check": OptionSpec(
+                        type="boolean",
+                        label="Check the converted file against the AGS4 rules before returning it",
+                        default=True,
+                    ),
+                    "formula_guard": OptionSpec(
+                        type="string",
+                        label=(
+                            "Put an apostrophe before text a spreadsheet would read as a"
+                            " formula (changes the value; only for files meant for a"
+                            " spreadsheet)"
+                        ),
+                        choices=("prefix",),
+                    ),
+                    "name": OptionSpec(type="string", label="File name to report the source as"),
+                    "max_bytes": OptionSpec(
+                        type="integer",
+                        label="Largest file accepted, in bytes",
+                        default=DEFAULT_MAX_BYTES,
                     ),
                     "time_budget": time_budget,
                 },

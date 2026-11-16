@@ -136,6 +136,25 @@ def test_ships_the_ags4_subpackage():
         assert resources.files(pkg).joinpath(f"ags4/{module}.py").is_file()
 
 
+def test_ships_the_convert_subpackage_and_its_tables():
+    from pydiggs import convert
+
+    assert convert.__all__ == [
+        "MAPPING_VERSION",
+        "Conversion",
+        "Origin",
+        "ags4_to_diggs",
+        "diggs_to_ags4",
+        "mapping_info",
+        "model_to_ags4",
+    ]
+    for module in ("_api", "_from_model", "_ledger", "_mapping", "_to_model", "_values"):
+        assert resources.files(pkg).joinpath(f"convert/{module}.py").is_file()
+    for table in ("ags4-diggs.toml", "codes.toml", "units.toml"):
+        assert resources.files(pkg).joinpath(f"convert/mappings/{table}").is_file()
+    assert resources.files(pkg).joinpath("convert/convert-mapping-1.schema.json").is_file()
+
+
 def test_the_sdist_takes_only_root_level_paths():
     """A bare "src" or "README.md" also matches js/src and js/README.md (1.8.0 shipped them)."""
     pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"

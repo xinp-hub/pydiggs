@@ -61,21 +61,27 @@ def captured() -> dict[str, dict[str, object]]:
     return cases
 
 
-#: argparse's "invalid choice" error. CPython patch releases format its choice list
-#: differently (3.12.16 dropped the quotes and one space), so it is compared by content.
-_INVALID_CHOICE = re.compile(r"(invalid choice: \S+) \(choose from ([^)\n]*)\)")
+_CHOICES = re.compile(r"\(choose from ([^)]*)\)")
 
 
-def _choices(match: re.Match[str]) -> str:
-    names = [name.strip(" '\"") for name in match.group(2).split(",")]
-    return f"{match.group(1)} (choose from {', '.join(names)})"
+def _normalise(case: dict[str, object]) -> dict[str, object]:
+    """Drop the quotes and spacing argparse may put around an invalid choice's choices.
+
+    They depend on the CPython build, not on pyDIGGS: 3.12.16 from python-build-standalone
+    on macOS prints ``a,b, c`` (bare, one space missing).
+    """
+    stderr = case.get("stderr")
+    if not isinstance(stderr, str):
+        return case
+    unquoted = _CHOICES.sub(
+        lambda m: "(choose from " + ", ".join(c.strip(" '") for c in m[1].split(",")) + ")",
+        stderr,
+    )
+    return {**case, "stderr": unquoted}
 
 
-def _normalised(case: dict[str, object]) -> dict[str, object]:
-    out = {k: v for k, v in case.items() if k != "source"}
-    if isinstance(out.get("stderr"), str):
-        out["stderr"] = _INVALID_CHOICE.sub(_choices, str(out["stderr"]))
-    return out
+def _expected(case: dict[str, object]) -> dict[str, object]:
+    return _normalise({k: v for k, v in case.items() if k != "source"})
 
 
 @pytest.mark.slow
@@ -84,7 +90,7 @@ def test_dictionary_cases_do_not_depend_on_the_hash_seed():
     assert isinstance(cases, dict)
     expected = {k: v for k, v in GOLDENS["cases"].items() if k.startswith("dictionary_check ")}
     assert cases.keys() == expected.keys()
-    different = [k for k, v in expected.items() if _normalised(v) != _normalised(cases[k])]
+    different = [k for k, v in expected.items() if _expected(v) != _normalise(cases[k])]
     assert not different, different[:5]
 
 
@@ -95,7 +101,7 @@ def test_legacy_output_is_byte_identical(captured):
     different = [
         case_id
         for case_id, case in expected.items()
-        if _normalised(case) != _normalised(captured[case_id])
+        if _expected(case) != _normalise(captured[case_id])
     ]
     assert not different, f"{len(different)} legacy cases changed, e.g. {different[:5]}"
 
@@ -132,3 +138,12 @@ def test_regeneration_needs_explicit_flag_and_refuses_ci(monkeypatch, capsys):
     monkeypatch.setenv("CI", "true")
     assert regen_legacy_goldens.main(["--confirm-regenerate"]) == 2
     assert "refusing" in capsys.readouterr().err
+
+
+def test_argparse_choice_quoting_is_not_compared():
+    # CPython builds differ in whether argparse quotes the choices of an invalid
+    # choice (3.12.8 and some 3.14 builds do not); that text is the interpreter's.
+    quoted = "invalid choice: 'x' (choose from 'a', 'b')\n"
+    bare = "invalid choice: 'x' (choose from a, b)\n"
+    assert _normalise({"stderr": quoted}) == _normalise({"stderr": bare})
+    assert _normalise({"stderr": "(choose from a, c)"}) != _normalise({"stderr": bare})

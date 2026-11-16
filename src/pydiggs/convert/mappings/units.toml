@@ -7,7 +7,7 @@
 # Date and time formats (the UNIT of a DT heading, such as yyyy-mm-dd) are not units; the
 # converter reads them itself.
 
-mapping_version = "0.1"
+mapping_version = "1.0"
 
 unit = [
   { ags = "m", diggs = "m" },

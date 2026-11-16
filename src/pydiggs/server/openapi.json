@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "pydiggs HTTP API",
-    "summary": "Validate and read DIGGS documents (XSD, dictionaries, Schematron); check AGS4 files and convert them to DIGGS.",
+    "summary": "Validate and read DIGGS documents (XSD, dictionaries, Schematron); check AGS4 files, and convert AGS4 to DIGGS and DIGGS to AGS4.",
     "version": "1"
   },
   "paths": {
@@ -464,11 +464,11 @@
         "tags": [
           "pydiggs"
         ],
-        "summary": "Convert one AGS4 file to DIGGS 3.0.0 (preview mapping), with every loss",
+        "summary": "Convert AGS4 to DIGGS 3.0.0 or DIGGS to AGS4, with every loss reported",
         "operationId": "convert",
         "responses": {
           "200": {
-            "description": "The conversion: the DIGGS XML (base64) and the findings. Losses, an output that fails validation and an exhausted time budget (complete: false) are 200s; the findings say what happened.",
+            "description": "The conversion: the output (DIGGS XML or an AGS4 file, base64), the findings, and the residual AGS4 file for AGS4 to DIGGS. Losses, an output that fails validation or the AGS4 check and an exhausted time budget (complete: false) are 200s; the findings say what happened.",
             "content": {
               "application/json": {
                 "schema": {
@@ -603,10 +603,11 @@
             "required": false,
             "schema": {
               "enum": [
-                "diggs"
+                "diggs",
+                "ags4"
               ]
             },
-            "description": "The format to convert to (default: diggs; the body is then AGS4)."
+            "description": "The format to convert to: diggs (the default; the body is AGS4, a raw body application/octet-stream, text/csv or text/plain) or ags4 (the body is DIGGS XML, a raw body application/xml or text/xml). For a raw body, give it here."
           },
           {
             "name": "diggs_version",
@@ -617,7 +618,19 @@
                 "3.0.0"
               ]
             },
-            "description": "The DIGGS version to write (default: 3.0.0)."
+            "description": "to=diggs only: the DIGGS version to write (default: 3.0.0)."
+          },
+          {
+            "name": "ags_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "4.2",
+                "4.1.1"
+              ]
+            },
+            "description": "to=ags4 only: the AGS4 version to write (default: 4.2). The BGS AGS validator and python-ags4 1.2.0 accept AGS4 only up to 4.1.1 (November 2026)."
           }
         ],
         "requestBody": {
@@ -641,6 +654,18 @@
                 "format": "binary"
               }
             },
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
             "multipart/form-data": {
               "schema": {
                 "type": "object",
@@ -659,19 +684,26 @@
                   },
                   "to": {
                     "enum": [
-                      "diggs"
+                      "diggs",
+                      "ags4"
                     ]
                   },
                   "diggs_version": {
                     "enum": [
                       "3.0.0"
                     ]
+                  },
+                  "ags_version": {
+                    "enum": [
+                      "4.2",
+                      "4.1.1"
+                    ]
                   }
                 }
               },
               "encoding": {
                 "file": {
-                  "contentType": "application/octet-stream, text/csv, text/plain, */*"
+                  "contentType": "application/octet-stream, text/csv, text/plain, application/xml, text/xml, */*"
                 }
               }
             }
@@ -1360,33 +1392,38 @@
       },
       "ConversionResult": {
         "title": "ConversionResult",
-        "description": "One conversion: the output as base64 with its media type and sha256, and the findings about the source (report) and the output (validation). Every surface (HTTP, sidecar, CLI) produces the same result for the same input.",
+        "description": "One conversion, AGS4 to DIGGS (to=diggs) or DIGGS to AGS4 (to=ags4): the output as base64 with its media type and sha256, the findings about the source (report) and the output (validation), and for AGS4 to DIGGS the residual AGS4 file of what was not converted. Every surface (HTTP, sidecar, CLI) produces the same result for the same input.",
         "type": "object",
         "required": [
           "to",
           "media_type",
           "output_name",
           "diggs_version",
+          "ags_version",
           "mapping_version",
           "complete",
           "lossless",
           "report",
           "validation",
           "output_sha256",
-          "output_base64"
+          "output_base64",
+          "residual_base64"
         ],
         "properties": {
           "to": {
             "enum": [
-              "diggs"
+              "diggs",
+              "ags4"
             ],
             "description": "The output format."
           },
           "media_type": {
             "type": "string",
             "examples": [
-              "application/xml"
-            ]
+              "application/xml",
+              "text/plain; charset=utf-8"
+            ],
+            "description": "Of the output: application/xml (DIGGS) or text/plain (AGS4)."
           },
           "output_name": {
             "type": "string",
@@ -1397,7 +1434,21 @@
               "string",
               "null"
             ],
-            "description": "Of the output."
+            "description": "Of the DIGGS output (to=diggs) or of the DIGGS input (to=ags4)."
+          },
+          "ags_version": {
+            "anyOf": [
+              {
+                "enum": [
+                  "4.2",
+                  "4.1.1"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of the AGS4 output (to=ags4); null for to=diggs."
           },
           "mapping_version": {
             "type": "string",
@@ -1423,7 +1474,7 @@
                 "type": "null"
               }
             ],
-            "description": "pydiggs.validate on the output."
+            "description": "Of the output: pydiggs.validate (DIGGS) or pydiggs.ags4.check (AGS4)."
           },
           "output_sha256": {
             "type": "string",
@@ -1432,8 +1483,16 @@
           "output_base64": {
             "type": "string",
             "contentEncoding": "base64",
-            "contentMediaType": "application/xml",
-            "description": "The output's bytes, standard base64 (RFC 4648, padded)."
+            "description": "The output's bytes (of media_type), standard base64 (RFC 4648, padded)."
+          },
+          "residual_base64": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "contentEncoding": "base64",
+            "contentMediaType": "text/plain; charset=utf-8",
+            "description": "AGS4 to DIGGS: the AGS4 file of every value a convert finding names, with the key fields of its row, so that the output and this file together hold everything the source did; null when everything was converted, and always null for DIGGS to AGS4. Standard base64."
           }
         }
       },
@@ -3398,7 +3457,7 @@
           },
           "kind": {
             "type": "string",
-            "description": "For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, or AGS4 for a conversion).",
+            "description": "For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, or AGS4 for a conversion to DIGGS).",
             "examples": [
               "malformed",
               "not-diggs",

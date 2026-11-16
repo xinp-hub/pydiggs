@@ -69,7 +69,7 @@ _MAX_ACCEPT_ITEMS: Final = 32
 _RETRY_AFTER: Final = {"Retry-After": "1"}
 _FORM_FIELDS: Final = frozenset({"name", "checks", "diggs_version"})
 _READ_FIELDS: Final = frozenset({"name", "diggs_version", "select"})
-_CONVERT_FIELDS: Final = frozenset({"name", "to", "diggs_version"})
+_CONVERT_FIELDS: Final = frozenset({"name", "to", "diggs_version", "ags_version"})
 _CHECK_FIELDS: Final = frozenset({"name"})
 #: The file parts an AGS4 check takes: the file and, optionally, a data dictionary.
 _CHECK_FILES: Final = ("file", "dictionary")
@@ -408,12 +408,15 @@ def _read_parameters(
 def _convert_parameters(
     content: bytes, params: dict[str, list[str]], filename: str | None
 ) -> ConvertRequest:
-    names, targets, versions = (params.get(k, []) for k in ("name", "to", "diggs_version"))
+    names, targets, versions, ags_versions = (
+        params.get(k, []) for k in ("name", "to", "diggs_version", "ags_version")
+    )
     return ConvertRequest(
         content=content,
         name=names[-1] if names else filename,
         to=targets[-1] if targets else _service.CONVERT_TARGETS[0],
         diggs_version=versions[-1] if versions else None,
+        ags_version=ags_versions[-1] if ags_versions else None,
     )
 
 
@@ -442,7 +445,7 @@ async def _read_input(
     A multipart request may give each parameter in the query or in the form; the
     form wins, but both must be valid (``invalid-parameter``). The ``name`` parameter
     wins over the part's file name. Repeated values: the last ``name``, ``to``,
-    ``diggs_version`` and ``select`` count; ``checks`` values are joined. An AGS4
+    ``diggs_version``, ``ags_version`` and ``select`` count; ``checks`` values are joined. An AGS4
     check's ``dictionary`` part (``files``) goes into the request as bytes.
     """
     params = {key: request.query_params.getlist(key) for key in fields}
@@ -664,12 +667,15 @@ def _add_ags4_routes(router: APIRouter, state: _State) -> None:
     settings = state.settings
 
     async def convert(request: Request) -> Response:
+        # A raw body is DIGGS XML for to=ags4 (given in the query) and AGS4 text otherwise.
+        targets = request.query_params.getlist("to")
+        to_ags4 = bool(targets) and targets[-1] == "ags4"
         checked = _precheck(
             request,
             settings,
             sarif=False,
             json_text="Accept application/json (a conversion result).",
-            raw_media=_schemas.AGS4_MEDIA_TYPES,
+            raw_media=_schemas.XML_MEDIA_TYPES if to_ags4 else _schemas.AGS4_MEDIA_TYPES,
         )
         if isinstance(checked, Response):
             return checked
@@ -718,7 +724,7 @@ def _add_ags4_routes(router: APIRouter, state: _State) -> None:
         "/convert",
         _guarded(state, convert),
         methods=["POST"],
-        summary="Convert one AGS4 file to DIGGS 3.0.0 (preview mapping), with every loss",
+        summary="Convert AGS4 to DIGGS 3.0.0 or DIGGS to AGS4, with every loss reported",
         operation_id="convert",
         responses=_schemas.convert_responses(),
         openapi_extra={
@@ -992,7 +998,7 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
         version="1",
         summary=(
             "Validate and read DIGGS documents (XSD, dictionaries, Schematron); check AGS4"
-            " files and convert them to DIGGS."
+            " files, and convert AGS4 to DIGGS and DIGGS to AGS4."
         ),
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,

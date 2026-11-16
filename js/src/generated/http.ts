@@ -14,7 +14,7 @@ export interface Problem {
     problem: string;
   }[];
   correlation_id?: string;
-  /** For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, or AGS4 for a conversion). Examples: "malformed", "not-diggs", "unsafe-entity", "namespace-too-long", "not-ags4", "unsupported-version". */
+  /** For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, or AGS4 for a conversion to DIGGS). Examples: "malformed", "not-diggs", "unsafe-entity", "namespace-too-long", "not-ags4", "unsupported-version". */
   kind?: string;
 }
 
@@ -59,16 +59,18 @@ export interface SarifLog {
   runs: unknown[];
 }
 
-/** One conversion: the output as base64 with its media type and sha256, and the findings about the source (report) and the output (validation). Every surface (HTTP, sidecar, CLI) produces the same result for the same input. */
+/** One conversion, AGS4 to DIGGS (to=diggs) or DIGGS to AGS4 (to=ags4): the output as base64 with its media type and sha256, the findings about the source (report) and the output (validation), and for AGS4 to DIGGS the residual AGS4 file of what was not converted. Every surface (HTTP, sidecar, CLI) produces the same result for the same input. */
 export interface ConversionResult {
   /** The output format. */
-  to: "diggs";
-  /** Examples: "application/xml". */
+  to: "diggs" | "ags4";
+  /** Of the output: application/xml (DIGGS) or text/plain (AGS4). Examples: "application/xml", "text/plain; charset=utf-8". */
   media_type: string;
   /** A file name for the output: the input's name, new extension. */
   output_name: string;
-  /** Of the output. */
+  /** Of the DIGGS output (to=diggs) or of the DIGGS input (to=ags4). */
   diggs_version: string | null;
+  /** Of the AGS4 output (to=ags4); null for to=diggs. */
+  ags_version: "4.2" | "4.1.1" | null;
   /** Of the mapping table used. */
   mapping_version: string;
   /** False when a size or time limit stopped the conversion. */
@@ -76,11 +78,13 @@ export interface ConversionResult {
   /** True when no convert finding of severity warning or error. */
   lossless: boolean;
   report: DiggsFindingsDocument;
-  /** pydiggs.validate on the output. */
+  /** Of the output: pydiggs.validate (DIGGS) or pydiggs.ags4.check (AGS4). */
   validation: DiggsFindingsDocument | null;
   output_sha256: string;
-  /** The output's bytes, standard base64 (RFC 4648, padded). */
+  /** The output's bytes (of media_type), standard base64 (RFC 4648, padded). */
   output_base64: string;
+  /** AGS4 to DIGGS: the AGS4 file of every value a convert finding names, with the key fields of its row, so that the output and this file together hold everything the source did; null when everything was converted, and always null for DIGGS to AGS4. Standard base64. */
+  residual_base64: string | null;
 }
 
 /** What one pydiggs install can do, as pydiggs.capabilities().to_dict() returns it (pydiggs capabilities --json, GET /v1/capabilities, MCP resource pydiggs://capabilities): each operation with its stability, inputs, outputs, options, the extras it needs and whether they are installed. Open for consumers: objects accept unknown fields, so a 1.0 consumer accepts any 1.x document. A new optional field or a new token in inputs, outputs or needs is a minor version; a new stability or option type, or anything else, is a new major. */

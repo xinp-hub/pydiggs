@@ -1,5 +1,41 @@
 # History
 
+## 1.11.0 (2026-11-16)
+
+Conversion between AGS4 and DIGGS is stable, both ways:
+
+- `pydiggs.convert` follows Semantic Versioning. `ags4_to_diggs` writes DIGGS 3.0.0, and
+  the new `diggs_to_ags4` and `model_to_ags4` write AGS4 4.2 by default, or 4.1.1 for
+  tools that do not read 4.2 yet. Every value is either converted or named by a
+  `convert.*` finding, and AGS4 to DIGGS also gives a residual AGS4 file of what was not
+  converted.
+- Mapping table 1.0: all 25 AGS4 groups were reviewed against the AGS4 4.1.1 and 4.2
+  dictionaries and DIGGS 3.0.0, and the hole diameter, casing, backfill, water strike,
+  density and static cone groups are added. Some AGS4 headings convert differently from
+  the 1.9 and 1.10 preview; the CHANGELOG lists each one.
+- `pydiggs convert --to ags4`, `POST /v1/convert` with `to=ags4` and the sidecar's
+  `convert` method write AGS4 too, and the browser (Pyodide) gives the same bytes.
+- `pydiggs.preview.convert` is a deprecated alias of `pydiggs.convert`, removed in 2.0.
+
+See the CHANGELOG for the full list.
+
+## 1.10.0 (2026-11-14)
+
+pyDIGGS says what it can do, and explains its rules in plain language:
+
+- `pydiggs.capabilities()` (also `pydiggs capabilities`, `GET /v1/capabilities` and the
+  MCP server) lists every operation with its stability, inputs, outputs and options, and
+  whether the extras it needs are installed.
+- Every rule has plain-language guidance: what it checks, why it matters and how to fix
+  a file that fails it.
+- AGS4 to DIGGS conversion is on the command line (`pydiggs convert`), the HTTP API
+  (`POST /v1/convert`, `POST /v1/ags4/check`) and the sidecar (protocol 1.2), still as
+  the preview.
+- A correct field plasticity term (`low`, `medium`, `high`, `non-plastic`) is no longer
+  reported as an error.
+
+See the CHANGELOG for the full list.
+
 ## 1.9.0 (2026-11-13)
 
 pyDIGGS now reads, writes and checks AGS4 files, and converts them to DIGGS 3.0.0 as a
@@ -9,10 +45,12 @@ preview:
   text they hold, and `ags4.check` / `pydiggs ags4 check` report the AGS4 rules as
   findings, with line numbers and places in the file. No AGS data dictionary is bundled:
   pass your own copy for the rules that need one.
-- `pydiggs.preview.convert.ags4_to_diggs` converts the common groups (projects,
+- `pydiggs.preview.convert.ags4_to_diggs` converted the common groups (projects,
   locations, geology, samples, SPT, Atterberg limits, moisture content and particle
-  size) to DIGGS 3.0.0. Every value is either written or named by a `convert.*` finding,
-  and the output is validated. The mapping table is a draft and may change before 1.10.0.
+  size) to DIGGS 3.0.0, as a preview with a draft mapping table (0.1). Every value was
+  either written or named by a `convert.*` finding, and the output was validated. From
+  1.11 the stable `pydiggs.convert` replaces it, and `pydiggs.preview.convert` is a
+  deprecated alias.
 - Findings documents are now diggs-findings 1.1, which only adds to 1.0.
 - The licences of everything pyDIGGS bundles are named file by file (`NOTICE`,
   `REUSE.toml`), and contributions are signed off under the DCO.

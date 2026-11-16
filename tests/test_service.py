@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import dataclasses
 import gzip
+import hashlib
 import json
 import logging
 import os
@@ -336,6 +337,8 @@ _FORBIDDEN_NAMES = {
     "read_limited",
     "warm_up",
     "ags4_to_diggs",
+    "diggs_to_ags4",
+    "model_to_ags4",
 }
 
 
@@ -691,3 +694,103 @@ def test_the_dictionary_is_held_to_its_own_size_limit():
     assert [e[0] for e in _service.ags4_check(shared).errors] == ["dictionary"]
     with pytest.raises(ValueError, match="dictionary_max_bytes"):
         Ags4CheckRequest(content=b"", dictionary_max_bytes=0)
+
+
+# --- conversion through the stable pydiggs.convert, both ways --------------------------------
+
+import base64  # noqa: E402 - this section's own
+import warnings  # noqa: E402
+
+from pydiggs import ags4, convert  # noqa: E402
+
+
+def test_the_service_converts_through_the_stable_api_only():
+    tree = ast.parse((SRC / "_service.py").read_text("utf-8"))
+    modules = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
+    assert not {m for m in modules if m and m.startswith("pydiggs.preview")}
+    data = (AGS4_DIR / "convert_tier_a.ags").read_bytes()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        assert _service.convert(ConvertRequest(content=data)).ok
+
+
+def test_the_service_lists_the_ags_versions_the_converter_writes():
+    assert set(_service.CONVERT_AGS_VERSIONS) == set(convert._api.AGS_VERSIONS)
+    assert _service.CONVERT_AGS_VERSIONS[0] == convert._api._DEFAULT_AGS_VERSION
+    assert _service.CONVERT_TARGETS == ("diggs", "ags4")
+
+
+def test_convert_to_ags4_gives_the_converters_bytes():
+    xml = convert.ags4_to_diggs(AGS4_DIR / "convert_tier_a.ags").xml
+    assert xml is not None
+    for version in (None, "4.2", "4.1.1"):
+        result = _doc(
+            _service.convert(
+                ConvertRequest(content=xml, name="up/site.xml", to="ags4", ags_version=version)
+            )
+        )
+        expected = convert.diggs_to_ags4(xml, name="site.xml", ags_version=version or "4.2")
+        assert expected.ags4 is not None and expected.validation is not None
+        output = base64.b64decode(result["output_base64"])
+        assert output == ags4.dumps(expected.ags4)
+        assert result["output_sha256"] == hashlib.sha256(output).hexdigest()
+        assert (result["to"], result["media_type"], result["output_name"]) == (
+            "ags4",
+            "text/plain; charset=utf-8",
+            "site.ags",
+        )
+        assert result["ags_version"] == (version or "4.2")
+        assert result["diggs_version"] == "3.0.0"
+        assert result["residual_base64"] is None
+        assert result["validation"] == expected.validation.to_document()
+        assert result["lossless"] is expected.lossless
+        assert result["report"]["files"][0]["path"] == "site.xml"
+
+
+def test_convert_to_diggs_carries_the_residual_file(monkeypatch):
+    data = (AGS4_DIR / "convert_tier_a.ags").read_bytes()
+    result = _doc(_service.convert(ConvertRequest(content=data, name="site.ags")))
+    expected = convert.ags4_to_diggs(data, name="site.ags")
+    assert expected.residual is not None and expected.residual.groups
+    assert base64.b64decode(result["residual_base64"]) == ags4.dumps(expected.residual)
+    assert result["ags_version"] is None
+    # Nothing left over: no residual file (null), not an empty one.
+    real = convert.ags4_to_diggs
+    monkeypatch.setattr(
+        convert,
+        "ags4_to_diggs",
+        lambda *a, **k: dataclasses.replace(real(*a, **k), residual=ags4.File(groups=[])),
+    )
+    assert _doc(_service.convert(ConvertRequest(content=data)))["residual_base64"] is None
+
+
+def test_convert_to_ags4_refusals():
+    xml = convert.ags4_to_diggs(AGS4_DIR / "convert_tier_a.ags").xml
+    assert xml is not None
+    bad = _service.convert(
+        ConvertRequest(content=xml, to="ags4", ags_version="<4.0>", diggs_version="3.0.0")
+    )
+    assert bad.code is Code.INVALID_PARAMETER
+    assert [e[0] for e in bad.errors] == ["diggs_version", "ags_version"]
+    assert "<4.0>" not in repr(bad)
+    wrong_way = _service.convert(ConvertRequest(content=xml, ags_version="4.2"))
+    assert wrong_way.errors == (("ags_version", "applies only to to=ags4"),)
+    ags = (AGS4_DIR / "convert_tier_a.ags").read_bytes()
+    not_diggs = _service.convert(ConvertRequest(content=ags, to="ags4"))
+    assert (not_diggs.code, not_diggs.kind) == (Code.INVALID_DOCUMENT, "malformed")
+    html = _service.convert(ConvertRequest(content=b"<html/>", to="ags4"))
+    assert (html.code, html.kind) == (Code.INVALID_DOCUMENT, "not-diggs")
+    big = _service.convert(ConvertRequest(content=xml, to="ags4", max_bytes=10))
+    assert big.code is Code.INPUT_TOO_LARGE
+    tight = _service.convert(ConvertRequest(content=xml, to="ags4", max_result_bytes=1000))
+    assert tight.code is Code.RESULT_TOO_LARGE
+    stopped = _service.convert(ConvertRequest(content=xml, to="ags4"), should_stop=lambda: True)
+    assert stopped.code is Code.CANCELLED
+
+
+def test_convert_to_ags4_through_the_pool_frame():
+    xml = convert.ags4_to_diggs(AGS4_DIR / "convert_tier_a.ags").xml
+    assert xml is not None
+    request = ConvertRequest(content=xml, name="s.xml", to="ags4", ags_version="4.1.1")
+    frame = _service._pooled(request)
+    assert _service.convert_in_pool(_Pool(frame), request, timeout=5) == _service.convert(request)

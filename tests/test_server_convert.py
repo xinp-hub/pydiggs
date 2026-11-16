@@ -13,9 +13,8 @@ import pytest
 from starlette.testclient import TestClient
 
 import pydiggs
-from pydiggs import _service, ags4
+from pydiggs import _service, ags4, convert
 from pydiggs.convert import _api as convert_api
-from pydiggs.preview import convert as preview
 from pydiggs.server import ServerSettings, _app, _schemas, create_app
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,7 +58,7 @@ def test_convert_returns_the_converters_bytes_and_report(client):
     assert response.headers["cache-control"] == "no-store"
     body = response.json()
     assert list(RESULT.iter_errors(body)) == []
-    expected = preview.ags4_to_diggs(data, name="site.ags")
+    expected = convert.ags4_to_diggs(data, name="site.ags")
     xml = base64.b64decode(body["output_base64"], validate=True)
     assert xml == expected.xml
     assert body["output_sha256"] == hashlib.sha256(xml).hexdigest()
@@ -72,6 +71,9 @@ def test_convert_returns_the_converters_bytes_and_report(client):
     assert list(FINDINGS.iter_errors(body["report"])) == []
     assert body["validation"] == expected.validation.to_document()
     assert pydiggs.validate_bytes(xml).ok
+    assert expected.residual is not None
+    assert base64.b64decode(body["residual_base64"]) == ags4.dumps(expected.residual)
+    assert body["ags_version"] is None
 
 
 def test_multipart_and_raw_give_the_same_result(client):
@@ -99,7 +101,11 @@ def test_what_is_not_ags4_is_a_422_with_its_kind(client, data, kind):
 
 def test_convert_parameters_are_checked(client):
     data = SITE.read_bytes()
-    for params, name in (({"to": "ags4"}, "to"), ({"diggs_version": "2.6"}, "diggs_version")):
+    for params, name in (
+        ({"to": "csv"}, "to"),
+        ({"diggs_version": "2.6"}, "diggs_version"),
+        ({"ags_version": "4.2"}, "ags_version"),  # only for to=ags4
+    ):
         body = _problem(
             client.post("/v1/convert", params=params, content=data, headers=TEXT),
             422,
@@ -291,8 +297,20 @@ def test_the_openapi_document_describes_both_operations():
     assert result["properties"]["report"] == {"$ref": "#/components/schemas/DiggsFindingsDocument"}
     assert set(convert["requestBody"]["content"]) == {
         *_schemas.AGS4_MEDIA_TYPES,
+        *_schemas.XML_MEDIA_TYPES,
         "multipart/form-data",
     }
+    assert {p["name"] for p in convert["parameters"]} == {
+        "name",
+        "to",
+        "diggs_version",
+        "ags_version",
+    }
+    assert result["properties"]["to"] == {
+        "enum": ["diggs", "ags4"],
+        "description": "The output format.",
+    }
+    assert {"ags_version", "residual_base64"} <= set(result["required"])
     check = document["paths"]["/v1/ags4/check"]["post"]
     form = check["requestBody"]["content"]["multipart/form-data"]["schema"]
     assert set(form["properties"]) == {"file", "dictionary", "name"}
@@ -300,3 +318,93 @@ def test_the_openapi_document_describes_both_operations():
         "application/json",
         "application/sarif+json",
     }
+
+
+# --- /v1/convert to=ags4 ----------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def site_xml() -> bytes:
+    xml = convert.ags4_to_diggs(AGS4 / "convert_tier_a.ags").xml
+    assert xml is not None
+    return xml
+
+
+@pytest.mark.parametrize("version", [None, "4.2", "4.1.1"])
+def test_convert_to_ags4(client, site_xml, version):
+    params = {"to": "ags4", "name": "up/site.xml"} | ({"ags_version": version} if version else {})
+    response = client.post(
+        "/v1/convert", params=params, content=site_xml, headers={"content-type": "application/xml"}
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert list(RESULT.iter_errors(body)) == []
+    expected = convert.diggs_to_ags4(site_xml, name="site.xml", ags_version=version or "4.2")
+    assert expected.ags4 is not None and expected.validation is not None
+    output = base64.b64decode(body["output_base64"], validate=True)
+    assert output == ags4.dumps(expected.ags4)
+    assert body["output_sha256"] == hashlib.sha256(output).hexdigest()
+    assert (body["to"], body["media_type"], body["output_name"]) == (
+        "ags4",
+        "text/plain; charset=utf-8",
+        "site.ags",
+    )
+    assert (body["ags_version"], body["diggs_version"]) == (version or "4.2", "3.0.0")
+    assert body["residual_base64"] is None
+    assert body["report"] == expected.report.to_document()
+    assert body["validation"] == expected.validation.to_document()
+
+
+def test_convert_to_ags4_multipart_gives_the_same_result(client, site_xml):
+    raw = client.post(
+        "/v1/convert",
+        params={"to": "ags4", "name": "site.xml"},
+        content=site_xml,
+        headers={"content-type": "text/xml"},
+    )
+    form = client.post(
+        "/v1/convert",
+        files={"file": ("site.xml", site_xml, "application/xml")},
+        data={"to": "ags4", "ags_version": "4.2"},
+    )
+    assert raw.status_code == form.status_code == 200
+    assert raw.content == form.content
+
+
+def test_convert_to_ags4_refusals(client, site_xml):
+    xml = {"content-type": "application/xml"}
+    # A raw body's media type follows the direction: XML for to=ags4, AGS4 text otherwise.
+    _problem(
+        client.post("/v1/convert", params={"to": "ags4"}, content=site_xml, headers=TEXT),
+        415,
+        "unsupported-media-type",
+    )
+    body = _problem(
+        client.post("/v1/convert", params={"to": "ags4"}, content=b"<html/>", headers=xml),
+        422,
+        "invalid-document",
+    )
+    assert (body["kind"], body["title"]) == ("not-diggs", "Invalid document")
+    body = _problem(
+        client.post(
+            "/v1/convert",
+            params={"to": "ags4", "diggs_version": "3.0.0", "ags_version": "4"},
+            content=site_xml,
+            headers=xml,
+        ),
+        422,
+        "invalid-parameter",
+    )
+    assert [e["parameter"] for e in body["errors"]] == ["diggs_version", "ags_version"]
+
+
+def test_the_invalid_document_title_fits_both_inputs(client):
+    ags = _problem(
+        client.post("/v1/convert", content=b"<Diggs/>", headers=TEXT), 422, "invalid-document"
+    )
+    diggs = _problem(
+        client.post("/v1/read", content=b"<html/>", headers={"content-type": "application/xml"}),
+        422,
+        "invalid-document",
+    )
+    assert ags["title"] == diggs["title"] == "Invalid document"

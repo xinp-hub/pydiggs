@@ -10,7 +10,7 @@ matching pyDIGGS version number.
 
 ### Added
 
-- AGS4, from pyDIGGS 1.10, on every engine: `convert(file)` turns an AGS4 file into
+- AGS4, from pyDIGGS 1.10 and 1.11, on every engine: `convert(file)` turns an AGS4 file into
   DIGGS 3.0.0 (the result carries the XML as base64 with its sha256, the findings about
   the source and the output's validation), and `checkAgs4(file, { dictionary })` and
   `checkAgs4Sarif` check it against the AGS4 rules. In `PydiggsBrowser` the file never
@@ -26,8 +26,11 @@ matching pyDIGGS version number.
 
 ### Changed
 
-- Runs pyDIGGS 1.10.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256. Validation is
-  about a fifth faster on documents with many Schematron hits.
+- Runs pyDIGGS 1.11.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256. Validation is
+  about a fifth faster on documents with many Schematron hits (from 1.10).
+- The `createPydiggsHandler` problem for `invalid-document` is titled "Invalid document",
+  as pyDIGGS 1.11's HTTP API titles it now that `/v1/convert` also answers it for AGS4
+  input. The code, status, `kind` and detail are unchanged.
 
 ## [0.5.0] - 2026-11-13
 

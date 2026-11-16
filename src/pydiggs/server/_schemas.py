@@ -230,7 +230,7 @@ _PROBLEM: Final[_JsonSchema] = {
             "type": "string",
             "description": (
                 "For invalid-document: why the bytes are not a document of the expected"
-                " format (DIGGS XML, or AGS4 for a conversion)."
+                " format (DIGGS XML, or AGS4 for a conversion to DIGGS)."
             ),
             "examples": list(_service.DOCUMENT_KINDS),
         },
@@ -332,9 +332,11 @@ def _conversion(findings: _JsonSchema) -> _JsonSchema:
     return {
         "title": "ConversionResult",
         "description": (
-            "One conversion: the output as base64 with its media type and sha256, and the"
-            " findings about the source (report) and the output (validation). Every surface"
-            " (HTTP, sidecar, CLI) produces the same result for the same input."
+            "One conversion, AGS4 to DIGGS (to=diggs) or DIGGS to AGS4 (to=ags4): the output"
+            " as base64 with its media type and sha256, the findings about the source"
+            " (report) and the output (validation), and for AGS4 to DIGGS the residual AGS4"
+            " file of what was not converted. Every surface (HTTP, sidecar, CLI) produces the"
+            " same result for the same input."
         ),
         "type": "object",
         "required": [
@@ -342,6 +344,7 @@ def _conversion(findings: _JsonSchema) -> _JsonSchema:
             "media_type",
             "output_name",
             "diggs_version",
+            "ags_version",
             "mapping_version",
             "complete",
             "lossless",
@@ -349,15 +352,27 @@ def _conversion(findings: _JsonSchema) -> _JsonSchema:
             "validation",
             "output_sha256",
             "output_base64",
+            "residual_base64",
         ],
         "properties": {
             "to": {"enum": list(_service.CONVERT_TARGETS), "description": "The output format."},
-            "media_type": {"type": "string", "examples": [_service.DIGGS_MEDIA_TYPE]},
+            "media_type": {
+                "type": "string",
+                "examples": [_service.DIGGS_MEDIA_TYPE, _service.AGS4_MEDIA_TYPE],
+                "description": "Of the output: application/xml (DIGGS) or text/plain (AGS4).",
+            },
             "output_name": {
                 "type": "string",
                 "description": "A file name for the output: the input's name, new extension.",
             },
-            "diggs_version": {"type": ["string", "null"], "description": "Of the output."},
+            "diggs_version": {
+                "type": ["string", "null"],
+                "description": "Of the DIGGS output (to=diggs) or of the DIGGS input (to=ags4).",
+            },
+            "ags_version": {
+                "anyOf": [{"enum": list(_service.CONVERT_AGS_VERSIONS)}, {"type": "null"}],
+                "description": "Of the AGS4 output (to=ags4); null for to=diggs.",
+            },
             "mapping_version": {"type": "string", "description": "Of the mapping table used."},
             "complete": {
                 "type": "boolean",
@@ -370,14 +385,28 @@ def _conversion(findings: _JsonSchema) -> _JsonSchema:
             "report": findings,
             "validation": {
                 "anyOf": [findings, {"type": "null"}],
-                "description": "pydiggs.validate on the output.",
+                "description": (
+                    "Of the output: pydiggs.validate (DIGGS) or pydiggs.ags4.check (AGS4)."
+                ),
             },
             "output_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
             "output_base64": {
                 "type": "string",
                 "contentEncoding": "base64",
-                "contentMediaType": _service.DIGGS_MEDIA_TYPE,
-                "description": "The output's bytes, standard base64 (RFC 4648, padded).",
+                "description": (
+                    "The output's bytes (of media_type), standard base64 (RFC 4648, padded)."
+                ),
+            },
+            "residual_base64": {
+                "type": ["string", "null"],
+                "contentEncoding": "base64",
+                "contentMediaType": _service.AGS4_MEDIA_TYPE,
+                "description": (
+                    "AGS4 to DIGGS: the AGS4 file of every value a convert finding names, with"
+                    " the key fields of its row, so that the output and this file together"
+                    " hold everything the source did; null when everything was converted,"
+                    " and always null for DIGGS to AGS4. Standard base64."
+                ),
             },
         },
     }
@@ -707,6 +736,9 @@ def _ags4_raw() -> dict[str, Any]:
 
 
 _AGS4_ENCODING: Final = "application/octet-stream, text/csv, text/plain, */*"
+_CONVERT_ENCODING: Final = (
+    "application/octet-stream, text/csv, text/plain, application/xml, text/xml, */*"
+)
 
 
 def convert_parameters() -> list[dict[str, Any]]:
@@ -716,18 +748,29 @@ def convert_parameters() -> list[dict[str, Any]]:
         _query(
             "to",
             {"enum": list(_service.CONVERT_TARGETS)},
-            "The format to convert to (default: diggs; the body is then AGS4).",
+            "The format to convert to: diggs (the default; the body is AGS4, a raw body"
+            " application/octet-stream, text/csv or text/plain) or ags4 (the body is DIGGS"
+            " XML, a raw body application/xml or text/xml). For a raw body, give it here.",
         ),
         _query(
             "diggs_version",
             {"enum": list(_service.CONVERT_DIGGS_VERSIONS)},
-            "The DIGGS version to write (default: 3.0.0).",
+            "to=diggs only: the DIGGS version to write (default: 3.0.0).",
+        ),
+        _query(
+            "ags_version",
+            {"enum": list(_service.CONVERT_AGS_VERSIONS)},
+            "to=ags4 only: the AGS4 version to write (default: 4.2). The BGS AGS validator"
+            " and python-ags4 1.2.0 accept AGS4 only up to 4.1.1 (November 2026).",
         ),
     ]
 
 
 def convert_request_body() -> dict[str, Any]:
-    """The request body of ``POST /v1/convert``: a raw AGS4 file or one multipart file."""
+    """The request body of ``POST /v1/convert``: a raw file or one multipart file.
+
+    A raw body is AGS4 text for ``to=diggs`` and DIGGS XML for ``to=ags4``.
+    """
     form = {
         "schema": {
             "type": "object",
@@ -738,11 +781,14 @@ def convert_request_body() -> dict[str, Any]:
                 "name": _name_schema(),
                 "to": {"enum": list(_service.CONVERT_TARGETS)},
                 "diggs_version": {"enum": list(_service.CONVERT_DIGGS_VERSIONS)},
+                "ags_version": {"enum": list(_service.CONVERT_AGS_VERSIONS)},
             },
         },
-        "encoding": {"file": {"contentType": _AGS4_ENCODING}},
+        "encoding": {"file": {"contentType": _CONVERT_ENCODING}},
     }
-    return {"required": True, "content": {**_ags4_raw(), "multipart/form-data": form}}
+    raw = {"schema": {"type": "string", "format": "binary"}}
+    xml = dict.fromkeys(XML_MEDIA_TYPES, raw)
+    return {"required": True, "content": {**_ags4_raw(), **xml, "multipart/form-data": form}}
 
 
 def convert_responses() -> dict[int | str, dict[str, Any]]:
@@ -750,9 +796,10 @@ def convert_responses() -> dict[int | str, dict[str, Any]]:
     return {
         200: {
             "description": (
-                "The conversion: the DIGGS XML (base64) and the findings. Losses, an output"
-                " that fails validation and an exhausted time budget (complete: false) are"
-                " 200s; the findings say what happened."
+                "The conversion: the output (DIGGS XML or an AGS4 file, base64), the"
+                " findings, and the residual AGS4 file for AGS4 to DIGGS. Losses, an output"
+                " that fails validation or the AGS4 check and an exhausted time budget"
+                " (complete: false) are 200s; the findings say what happened."
             ),
             "content": {FINDINGS_MEDIA_TYPE: {"schema": _conversion(_findings_inline())}},
         },

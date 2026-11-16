@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from pydiggs import _service
+from pydiggs import _service, ags4, convert
 from pydiggs._serve_cli import ServeOptions
 from pydiggs.sidecar import _protocol
 from tests.test_sidecar_loop import Session
@@ -50,7 +50,13 @@ def _initialize(s: Session, version: str = "1.2") -> dict:
 def test_protocol_1_2_advertises_convert_and_ags4_check(session):
     result = _initialize(session())
     assert result["protocol_version"] == "1.2"
-    assert result["capabilities"]["convert"] == {"content": True, "path": False, "to": ["diggs"]}
+    assert result["capabilities"]["convert"] == {
+        "content": True,
+        "path": False,
+        "to": ["diggs", "ags4"],
+        "ags_versions": ["4.2", "4.1.1"],
+        "residual": True,
+    }
     assert result["capabilities"]["ags4_check"] == {
         "content": True,
         "path": False,
@@ -88,13 +94,15 @@ def test_convert_errors(session):
     assert _slug(bad) == "invalid-document"
     assert bad["error"]["data"]["kind"] == "not-ags4"
     assert bad["error"]["message"] == "The bytes are not an AGS4 file."
-    to = s.call("convert", {"content_base64": _b64(SITE.read_bytes()), "to": "ags4"}, id=2)
+    to = s.call("convert", {"content_base64": _b64(SITE.read_bytes()), "to": "csv"}, id=2)
     assert _slug(to) == "invalid-params"
     assert [e["param"] for e in to["error"]["data"]["errors"]] == ["to"]
     for params in (
         {"content_base64": _b64(b"x"), "select": {}},
         {"content_base64": _b64(b"x"), "to": 1},
         {"content_base64": _b64(b"x"), "diggs_version": "2.6"},
+        {"content_base64": _b64(b"x"), "ags_version": "4.2"},  # only for to=ags4
+        {"content_base64": _b64(b"x"), "to": "ags4", "ags_version": 4.2},
         {},
     ):
         assert _slug(s.call("convert", params, id=3)) == "invalid-params"
@@ -230,3 +238,55 @@ def test_each_ags4_check_input_follows_its_own_transports_limit(session, root):
         "ags4.check", {"path": str(root / "user.ags"), "dictionary_base64": _b64(data)}, id=2
     )
     assert _slug(inline) == "input-too-large"  # the inline dictionary keeps the inline limit
+
+
+# --- convert to=ags4 and the residual file ------------------------------------------------------
+
+
+def test_convert_carries_the_residual_file(session):
+    data = SITE.read_bytes()
+    s = session()
+    _initialize(s)
+    result = s.call("convert", {"content_base64": _b64(data)})["result"]
+    expected = convert.ags4_to_diggs(data, name="input.ags")
+    assert expected.residual is not None
+    assert base64.b64decode(result["residual_base64"]) == ags4.dumps(expected.residual)
+
+
+@pytest.mark.parametrize("version", [None, "4.1.1"])
+def test_convert_to_ags4_answers_what_the_service_answers(session, version):
+    xml = convert.ags4_to_diggs(AGS4 / "convert_tier_a.ags").xml
+    assert xml is not None
+    s = session()
+    _initialize(s)
+    params = {"content_base64": _b64(xml), "name": "up/site.xml", "to": "ags4"}
+    if version:
+        params["ags_version"] = version
+    result = s.call("convert", params)["result"]
+    expected = _service.convert(
+        _service.ConvertRequest(content=xml, name="site.xml", to="ags4", ags_version=version)
+    )
+    assert result == json.loads(expected.document)
+    assert (result["output_name"], result["ags_version"]) == ("site.ags", version or "4.2")
+    assert result["residual_base64"] is None
+    written = convert.diggs_to_ags4(xml, ags_version=version or "4.2").ags4
+    assert written is not None
+    assert base64.b64decode(result["output_base64"]) == ags4.dumps(written)
+
+
+def test_convert_to_ags4_of_what_is_not_diggs(session):
+    s = session()
+    _initialize(s)
+    bad = s.call("convert", {"content_base64": _b64(b"<html/>"), "to": "ags4"})
+    assert _slug(bad) == "invalid-document"
+    assert bad["error"]["data"]["kind"] == "not-diggs"
+
+
+def test_the_fixed_messages_fit_every_method():
+    # The fixed texts (and OpenRPC's) serve read and convert alike: neither names DIGGS
+    # input only, nor read's select; the service's own detail says what fits the call.
+    messages = _protocol._MESSAGES
+    assert messages[_protocol.ErrorCode.INVALID_DOCUMENT] == (
+        "The bytes are not a document of the expected format."
+    )
+    assert messages[_protocol.ErrorCode.RESULT_TOO_LARGE] == "The result is larger than allowed."

@@ -24,6 +24,7 @@ from pydiggs._bundled import _DEFAULT_DICTIONARY, _PACKAGE_DIR
 from pydiggs.errors import ResourceError
 
 __all__ = [
+    "INTERVAL_TOPS",
     "PATTERNS",
     "PROPERTIES_URL",
     "TARGETS",
@@ -45,6 +46,7 @@ PATTERNS: Final = frozenset(
         "transmission",
         "lookup",
         "feature",
+        "feature-component",
         "interval-observation",
         "sample",
         "test-per-row",
@@ -55,6 +57,8 @@ PATTERNS: Final = frozenset(
 TARGETS: Final = frozenset({"key", "link", "field", "param", "column", "format", "none"})
 _DIRECTIONS: Final = frozenset({"both", "to-diggs", "to-ags4"})
 _STATUSES: Final = frozenset({"draft", "reviewed"})
+#: Where a feature component's interval starts when the AGS4 row gives only its base.
+INTERVAL_TOPS: Final = frozenset({"previous-base", "surface"})
 #: The published DIGGS property dictionary, the ``definition`` of every result column.
 PROPERTIES_URL: Final = "https://diggsml.org/def/codes/DIGGS/0.1/properties.xml"
 _GML_ID: Final = "{http://www.opengis.net/gml/3.2}id"
@@ -98,6 +102,19 @@ class GroupRule:
     procedure: str | None = None
     procedure_params: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
     data: str | None = None
+    #: For a feature component: the DIGGS property that holds it (``casing`` …), and
+    #: the record that holds it in turn, with its property, where there is one.
+    role: str | None = None
+    holder: str | None = None
+    holder_role: str | None = None
+    #: Where the interval starts when the row gives only its base (see INTERVAL_TOPS).
+    interval_top: str | None = None
+    #: The AGS4 versions DIGGS to AGS4 writes this group for (None: every version).
+    to_ags4_versions: tuple[str, ...] | None = None
+
+    def written_for(self, ags_version: str) -> bool:
+        """True when DIGGS to AGS4 writes this group for ``ags_version``."""
+        return self.to_ags4_versions is None or ags_version in self.to_ags4_versions
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -126,10 +143,54 @@ class MappingTable:
     code_list_base: str
     #: The unit (a DIGGS uom) of the axes of each CRS the code table gives one for.
     crs_units: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    #: A compound CRS (from a LOCA_NATD row) -> the horizontal CRS it is written with.
+    crs_horizontal: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    #: Code rows by heading and the set of their codes, folded to upper case.
+    folded: Mapping[tuple[str, frozenset[str]], CodeRule] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
+    #: Code rows whose DIGGS code an earlier row of the same heading also has.
+    shared: frozenset[tuple[str, str]] = frozenset()
 
     def code_space(self, code_list: str) -> str:
         """The URL of the DIGGS code list ``code_list``."""
         return f"{self.code_list_base}{code_list}.xml"
+
+    def code(self, heading: str, value: str, joiner: str = "+") -> CodeRule | None:
+        """The code row ``value`` of ``heading`` matches, or None.
+
+        AGS4 abbreviations are not case sensitive, and a value joined by ``joiner`` (the
+        file's TRAN_RCON) matches the row that joins the same codes, in either order.
+
+        Examples:
+            >>> mapping = load_mapping()
+            >>> (
+            ...     mapping.code("LOCA_TYPE", "rc+cp").code,
+            ...     mapping.code("LOCA_TYPE", "CP;RC", ";").code,
+            ... )
+            ('CP-RC', 'CP-RC')
+            >>> mapping.code("LOCA_TYPE", "XX") is None
+            True
+        """
+        exact = self.codes.get((heading, value))
+        if exact is not None:
+            return exact
+        return self.folded.get((heading, _parts(value, joiner)))
+
+    def crs_of(self, heading: str, value: str) -> str | None:
+        """The srsName a reference-system value names (not case sensitive), or None."""
+        found = self.crs.get((heading, value))
+        if found is not None:
+            return found
+        folded = value.strip().casefold()
+        return next(
+            (
+                srs
+                for (h, ags), srs in self.crs.items()
+                if h == heading and ags.casefold() == folded
+            ),
+            None,
+        )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -151,6 +212,12 @@ class MeasureFacts:
 
     uoms: frozenset[str]
     required: bool
+
+
+def _parts(value: str, joiner: str = "+") -> frozenset[str]:
+    """The codes a (possibly joined) value holds, upper case, without surrounding space."""
+    pieces = value.split(joiner) if joiner else [value]
+    return frozenset(piece.strip().upper() for piece in pieces if piece.strip())
 
 
 def _text(entry: Mapping[str, Any], key: str, where: str, *, required: bool = True) -> str | None:
@@ -205,6 +272,14 @@ def _group(entry: Mapping[str, Any]) -> GroupRule:
     if any(key not in headings for key in keys):
         raise ValueError(f"{where}: every key must be a listed heading")
     params = entry.get("procedure_params", {})
+    top = _text(entry, "interval_top", where, required=False)
+    if top is not None and top not in INTERVAL_TOPS:
+        raise ValueError(f"{where}: unknown interval_top {top!r}")
+    versions = entry.get("to_ags4_versions")
+    if versions is not None and (
+        not isinstance(versions, list) or not all(isinstance(v, str) for v in versions)
+    ):
+        raise ValueError(f"{where}: to_ags4_versions must be a list of versions")
     return GroupRule(
         name=name,
         pattern=pattern,
@@ -216,6 +291,11 @@ def _group(entry: Mapping[str, Any]) -> GroupRule:
         procedure=_text(entry, "procedure", where, required=False),
         procedure_params=MappingProxyType({str(k): str(v) for k, v in params.items()}),
         data=_text(entry, "data", where, required=False),
+        role=_text(entry, "role", where, required=False),
+        holder=_text(entry, "holder", where, required=False),
+        holder_role=_text(entry, "holder_role", where, required=False),
+        interval_top=top,
+        to_ags4_versions=None if versions is None else tuple(versions),
     )
 
 
@@ -231,7 +311,9 @@ def _units(table: Mapping[str, Any]) -> dict[str, str]:
 
 def _codes(
     table: Mapping[str, Any],
-) -> tuple[dict[tuple[str, str], CodeRule], dict[tuple[str, str], str], dict[str, str]]:
+) -> tuple[
+    dict[tuple[str, str], CodeRule], dict[tuple[str, str], str], dict[str, str], dict[str, str]
+]:
     code_map: dict[tuple[str, str], CodeRule] = {}
     for item in table["code"]:
         rule = CodeRule(
@@ -249,6 +331,7 @@ def _codes(
         code_map[(rule.heading, rule.ags)] = rule
     crs_map: dict[tuple[str, str], str] = {}
     crs_units: dict[str, str] = {}
+    horizontal: dict[str, str] = {}
     for item in table["crs"]:
         key = (str(_text(item, "heading", "crs")), str(_text(item, "ags", "crs")))
         if key in crs_map:
@@ -258,7 +341,32 @@ def _codes(
         unit = _text(item, "unit", "crs", required=False)
         if unit is not None and crs_units.setdefault(srs, unit) != unit:
             raise ValueError(f"crs {srs!r} is listed with two units")
-    return code_map, crs_map, crs_units
+        base = _text(item, "horizontal", "crs", required=False)
+        if base is not None and horizontal.setdefault(srs, base) != base:
+            raise ValueError(f"crs {srs!r} is listed with two horizontal CRSs")
+    return code_map, crs_map, crs_units, horizontal
+
+
+def _folded(
+    codes: Mapping[tuple[str, str], CodeRule],
+) -> tuple[dict[tuple[str, frozenset[str]], CodeRule], frozenset[tuple[str, str]]]:
+    """Code rows by their folded codes, and the rows that share an earlier row's DIGGS code."""
+    folded: dict[tuple[str, frozenset[str]], CodeRule] = {}
+    seen: set[tuple[str, str | None, str]] = set()
+    shared: set[tuple[str, str]] = set()
+    for (heading, ags), rule in codes.items():
+        key = (heading, _parts(ags))
+        if key in folded:
+            raise ValueError(
+                f"code {heading}={ags!r} is listed twice (codes are not case sensitive)"
+            )
+        folded[key] = rule
+        if rule.code is not None:
+            target = (heading, rule.code_list, rule.code)
+            if target in seen:
+                shared.add((heading, ags))
+            seen.add(target)
+    return folded, frozenset(shared)
 
 
 def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
@@ -278,7 +386,8 @@ def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
             if other is not None and other not in groups:
                 raise ValueError(f"group {group.name}: {other} is not a listed group")
     unit_map = _units(units)
-    code_map, crs_map, crs_units = _codes(codes)
+    code_map, crs_map, crs_units, horizontal = _codes(codes)
+    folded, shared = _folded(code_map)
     return MappingTable(
         mapping_version=str(version),
         ags_versions=tuple(str(v) for v in main["ags_versions"]),
@@ -289,6 +398,9 @@ def _build(tables: Mapping[str, Mapping[str, Any]]) -> MappingTable:
         crs=MappingProxyType(crs_map),
         code_list_base=str(_text(codes, "code_list_base", "codes.toml")),
         crs_units=MappingProxyType(crs_units),
+        crs_horizontal=MappingProxyType(horizontal),
+        folded=MappingProxyType(folded),
+        shared=shared,
     )
 
 
@@ -308,7 +420,7 @@ def load_mapping() -> MappingTable:
     Examples:
         >>> mapping = load_mapping()
         >>> mapping.groups["ISPT"].procedure, mapping.groups["ISPT"].status
-        ('DrivenPenetrationTest', 'draft')
+        ('DrivenPenetrationTest', 'reviewed')
         >>> mapping.groups["ISPT"].headings["ISPT_NVAL"].property
         'n_value'
     """
