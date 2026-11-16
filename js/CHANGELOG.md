@@ -8,6 +8,8 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-16
+
 ### Added
 
 - AGS4, from pyDIGGS 1.10 and 1.11, on every engine: `convert(file)` turns an AGS4 file
