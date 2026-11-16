@@ -7,6 +7,146 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`pydiggs.convert` is stable, both ways.** `convert.ags4_to_diggs` (the 1.9 and 1.10
+  preview) is joined by `convert.diggs_to_ags4(source)` and
+  `convert.model_to_ags4(model)`, which write an AGS4 file (4.2 by default, or
+  `ags_version="4.1.1"`) from a DIGGS document or a `Model` in memory, by the same mapping
+  table read the other way. AGS lists 4.2 as the current edition and 4.1.1 as deprecated.
+  As of November 2026 the BGS AGS validator (agsapi.bgs.ac.uk) and python-ags4 1.2.0
+  accept AGS4 only up to 4.1.1, so pass `ags_version="4.1.1"` for files meant for them.
+  `TRAN_AGS` is written as `4.2` (the value python-ags4 recognises), static cone tests go
+  to CPTG/CPTT in 4.2 and SCPG/SCPT in 4.1.1, and 4.2 output also gives the CRS as an EPSG
+  code (`LOCA_NSRI`, `LOCA_LLSI`). Every value of the model (names, remarks, `params`,
+  typed fields, `extra` elements, links that are not structure, result-table cells) is
+  either written into a cell or named by a finding: a value with no AGS4 target is the new
+  `convert.unmapped-element` warning. The output passes `ags4.check` (it carries the
+  source's non-ASCII text unchanged, which Rule 1 reports); without a bundled AGS4
+  dictionary, each heading's TYPE is the one its values have, and the ABBR, TYPE and UNIT
+  groups list what the file uses. The module adds no top-level name:
+
+  ```python
+  from pydiggs import ags4, convert
+
+  c = convert.diggs_to_ags4("site.xml")  # or convert.model_to_ags4(model)
+  c.ags4, c.validation.ok, c.losses  # the File, ags4.check, what was lost
+  ags4.write(c.ags4, "site.ags")  # or c.save("site.ags")
+
+  back = convert.ags4_to_diggs("site.ags")
+  back.residual  # an AGS4 File of what was not converted
+  ```
+- `Conversion.residual`: for AGS4 to DIGGS, an AGS4 `File` holding exactly the values a
+  `convert` finding names, with the key fields of their rows, so the DIGGS output and the
+  residual file together hold everything the source did. `Conversion.ags4` holds the AGS4
+  output of the other direction, and `Conversion.save()` writes either.
+- Formula-like text in AGS4 output (a value starting with `=`, `+`, `@`, or a `-` that is
+  not a number) is written unchanged and reported as `ags4.formula-text`; the opt-in
+  `formula_guard="prefix"` writes such text under a non-key text heading with an
+  apostrophe in front, and reports it.
+- **Mapping table 1.0** (`convert.MAPPING_VERSION`), with the Tier B groups: hole
+  diameter (HDIA), casing (CDIA), backfill (BKFL), water strikes (WSTG with WSTD), density
+  (LDEN) and static cone tests (SCPG with SCPT, and CPTG with CPTT, which replace them in
+  AGS4 4.2; DIGGS to AGS4 writes the pair of the target version). Hole orientation (HORN)
+  is listed and reported, not converted: AGS4 measures inclination positively down and
+  DIGGS 3.0.0 plunge positively up, and values are never converted. The table format
+  gains the `feature-component` pattern and the group keys `role`, `holder`,
+  `holder_role`, `interval_top` and `to_ags4_versions` (`convert-mapping-1.schema.json`);
+  `mapping_info()` reports the table. All 25 groups are **reviewed** (owner review against
+  the AGS4 4.1.1 and 4.2 dictionaries and DIGGS 3.0.0); the generated page is now "AGS4
+  and DIGGS mapping".
+- **`pydiggs convert --to ags4`: DIGGS to AGS4 on the command line.**
+  `pydiggs convert site.xml -o site.ags --to ags4 [--ags-version 4.2|4.1.1]` writes AGS4,
+  and `pydiggs convert site.ags -o site.xml --residual left.ags` also writes the residual
+  AGS4 file (not written when everything was converted). The direction is never guessed:
+  AGS4 to DIGGS stays the default, and `--diggs-version`, `--ags-version` and
+  `--residual` are refused for the other direction. With `--fail-on error` an output that
+  fails the AGS4 check exits 1, as one that fails DIGGS validation does.
+- **HTTP API and sidecar: conversion to AGS4.** `POST /v1/convert` and the sidecar
+  `convert` method (protocol 1.2) take `to=ags4` with `ags_version` for a DIGGS document
+  (a raw HTTP body is `application/xml` or `text/xml`) and answer AGS4 as
+  `text/plain; charset=utf-8`, validated by `ags4.check`. `ConversionResult` gains
+  `ags_version` and `residual_base64`, the residual AGS4 file of an AGS4 to DIGGS
+  conversion (null when nothing was left over, and for `to=ags4`). The sidecar's
+  `capabilities.convert` lists the targets, the AGS4 versions written and
+  `residual: true`. OpenAPI, `openrpc.json` and the JS types are regenerated.
+- `pydiggs.capabilities()` gains `convert.diggs-to-ags4`, and both conversions are now
+  `stable` (the AGS4 reading, writing and checking operations stay `preview`).
+- The Pyodide smoke converts an AGS4 file to DIGGS and that DIGGS back to AGS4 4.2 and
+  4.1.1, and compares the outputs and the residual file with CPython's bytes.
+- Documentation: the conversion page is now [AGS4 and DIGGS
+  conversion](https://xinp-hub.github.io/pydiggs/convert/), and the conversion API is in
+  the Python API reference.
+
+### Changed
+- `Conversion.xml` is None for a conversion to AGS4 (it was always bytes in the preview).
+- AGS4 to DIGGS: a GRAT row whose GRAT_TYPE is WS or DS is still written as a sieve
+  grading, but the code itself is now reported as `convert.unmapped-code` (DIGGS does not
+  say whether sieving was wet or dry); a test placed at its sample's top because it gives
+  no depth of its own is reported as `convert.assumed`. Mapping table 0.1 becomes 1.0.
+- **What moved since the 1.9.0 and 1.10.0 preview (mapping table 0.1 to 1.0).**
+  Conversions of the same AGS4 file give different DIGGS than 1.9.0 and 1.10.0 did:
+  - `GEOL_FORM` (the geological unit or stratum name) is now the DIGGS `unitName`;
+    `GEOL_GEOL`, a project geology code whose meaning is in the file's ABBR group, is
+    reported and no longer written as the unit name.
+  - `LOCA_LOCA`, a grouping of locations by site sub-division, is reported and no longer
+    written as the location's description.
+  - The GRAG fractions (`GRAG_VCRE`, `GRAV`, `SAND`, `SILT`, `FINE`) are not converted
+    either way and are reported: AGS4 uses ISO 14688-1 size limits (63 mm, 2 mm, 63 µm)
+    and the DIGGS properties ASTM limits (75 mm, 4.75 mm, 0.075 mm). A GRAG row with no
+    other result (`GRAG_UC`, `GRAG_CLAY`, the new `GRAG_CC`) cannot be written as a DIGGS
+    test and is reported as `convert.incomplete` (an error: `pydiggs convert` exits 1),
+    and its GRAT readings are then reported too.
+  - `SAMP_TYPE`: `WS` and `SPT`, which are not AGS4 sample type codes, are written as
+    text and reported; `L`, `SPTLS`, `M`, `TW` and `EW` are added. `TW` and `EW` share
+    their DIGGS code with `UT` and `W`, so the AGS4 code is also reported.
+  - Static cone tests whose `SCPG_TYPE` or `CPTG_TYPE` is `BALL` or `T-BAR` are reported,
+    not written: their resistance is not a cone resistance.
+  - `LNMC_MC` with `LNMC_ISNT` = N, and `LDEN_BDEN` and `LDEN_MC` of a `RECOMPACTED`
+    specimen, are reported instead of being written as DIGGS properties for natural
+    conditions. An SPT N (`ISPT_NVAL`, `ISPT_N60`) from a test drive that stopped short of
+    300 mm (`ISPT_PEN3` to `ISPT_PEN6`) is reported, not written as blows per foot.
+  - A missing or unreadable `TRAN_DATE` is written as
+    `<creationDate indeterminatePosition="unknown"/>` (still `convert.assumed`), not as
+    1970-01-01; `Model.document.creation_date` is then None. DIGGS to AGS4 leaves the
+    REQUIRED `TRAN_DATE` empty for such a document and reports it.
+  - AGS4 codes are matched as AGS4 says abbreviations are, not case sensitive, and joined
+    codes match in either order with the file's `TRAN_RCON` (so `rc+cp` is DIGGS CP-RC).
+  - New: `LOCA_TYPE` `SCP` (a Sounding), `SNC`, `VE`, `VC`, `AUGH`, `AUGS`, `TT`;
+    `LOCA_GREF` `OSI`; AGS4 4.2 `LOCA_NSRI` and `LOCA_LLSI` read before `LOCA_GREF` and
+    `LOCA_LLZ`; a ground level over British National Grid with `LOCA_NATD` naming
+    Ordnance Datum Newlyn is written in EPSG:7405 (OSGB36 + ODN height), and any other
+    ground level is reported as having no stated vertical datum; `ISPT_N60` (`n60`),
+    `GRAG_CC` (`coef_curvature`), `WSTG_CAS` (`bottomCasing`), and the cone readings
+    `SCPT_FRR`/`CPTT_RF` (`friction_ratio`), `CPTT_INCX`/`INCY`, `SCPT_TEMP`/`CPTT_TEMP`,
+    `SCPT_SMP`/`CPTT_SMP` and `CPTT_DUR`; DIGGS to AGS4 writes NP in `LLPL_PL` only.
+- The internal writer writes the `extra` elements of a component (such as a water
+  strike's `bottomCasing`) as given, and writes a document with no creation date with
+  an unknown one.
+- The HTTP problem `invalid-document` is titled "Invalid document" (it was "Not a DIGGS
+  document"), since `/v1/convert` answers it for AGS4 input too; the code, status and
+  `kind` are unchanged. The sidecar's fixed messages for `invalid-document` and
+  `result-too-large` (and so `openrpc.json`) no longer name DIGGS input or `select`
+  only; the detail of a `read` that is too large still suggests `select`.
+- The plain-language guidance of `convert.unmapped-code`, `convert.unmapped-unit` and
+  `convert.assumed` fits both directions of conversion.
+
+### Deprecated
+- `pydiggs.preview.convert` is a deprecated alias of `pydiggs.convert`: using one of its
+  names warns with a `DeprecationWarning`, and it will be removed in pyDIGGS 2.0.
+  Importing it does not warn.
+
+### Fixed
+- `pydiggs.read` read a component's `bottomCasing` or `bottomHole` as its location when
+  it had no other point, so a water strike that gave only its casing depth came back with
+  that depth as its seal depth. Those two elements now stay in the component's `extra`.
+  Only files with such components read differently.
+- AGS4 to DIGGS no longer drops a unit without saying so. Grid coordinates written with
+  no CRS whose axes the code table gives a unit for (an empty or unlisted `LOCA_GREF`),
+  and values whose DIGGS property has no unit (the `%` of the LLPL limits), are written
+  as before, and their UNIT is now reported as `convert.unmapped-unit`; the residual file
+  keeps those values with their unit.
+
+
 ## [1.10.0] - 2026-11-14
 
 ### Added

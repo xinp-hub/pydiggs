@@ -97,6 +97,9 @@ _GEOMETRY: Final = frozenset(
 )
 #: Time objects: a component's or activity's time.
 _TIME: Final = frozenset({"TimeInstant", "TimeInterval", "TimePeriod"})
+#: Point locations a component holds besides the one that places it (a water strike's
+#: casing and hole depths at the strike): kept in ``extra``, never read as its location.
+_OTHER_POINTS: Final = frozenset({"bottomCasing", "bottomHole"})
 #: Time domains of result tables: read as their index, never kept twice.
 _TIME_DOMAINS: Final = frozenset({"TimePositionList", "TimeIntervalList", "MultiTimeInstant"})
 #: ``unit`` of a TimeIntervalList -> unit symbol.
@@ -757,7 +760,11 @@ class _Reader:
             local = _local(obj.tag)
             if local == "LinearExtent" and interval_prop is None:
                 interval_prop = prop
-            elif local == "PointLocation" and location_prop is None:
+            elif (
+                local == "PointLocation"
+                and location_prop is None
+                and _local(prop.tag) not in _OTHER_POINTS
+            ):
                 location_prop = prop
             elif local in _TIME and time_prop is None:
                 time_prop = prop

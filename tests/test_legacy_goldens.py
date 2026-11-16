@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -60,8 +61,23 @@ def captured() -> dict[str, dict[str, object]]:
     return cases
 
 
+_CHOICES = re.compile(r"\(choose from ([^)]*)\)")
+
+
+def _normalise(case: dict[str, object]) -> dict[str, object]:
+    """Drop the quotes argparse may put around an invalid choice's choices.
+
+    Whether they are quoted depends on the CPython build, not on pyDIGGS.
+    """
+    stderr = case.get("stderr")
+    if not isinstance(stderr, str):
+        return case
+    unquoted = _CHOICES.sub(lambda m: "(choose from " + m[1].replace("'", "") + ")", stderr)
+    return {**case, "stderr": unquoted}
+
+
 def _expected(case: dict[str, object]) -> dict[str, object]:
-    return {k: v for k, v in case.items() if k != "source"}
+    return _normalise({k: v for k, v in case.items() if k != "source"})
 
 
 @pytest.mark.slow
@@ -70,7 +86,7 @@ def test_dictionary_cases_do_not_depend_on_the_hash_seed():
     assert isinstance(cases, dict)
     expected = {k: v for k, v in GOLDENS["cases"].items() if k.startswith("dictionary_check ")}
     assert cases.keys() == expected.keys()
-    different = [k for k, v in expected.items() if _expected(v) != cases[k]]
+    different = [k for k, v in expected.items() if _expected(v) != _normalise(cases[k])]
     assert not different, different[:5]
 
 
@@ -79,7 +95,9 @@ def test_legacy_output_is_byte_identical(captured):
     expected = GOLDENS["cases"]
     assert captured.keys() == expected.keys()
     different = [
-        case_id for case_id, case in expected.items() if _expected(case) != captured[case_id]
+        case_id
+        for case_id, case in expected.items()
+        if _expected(case) != _normalise(captured[case_id])
     ]
     assert not different, f"{len(different)} legacy cases changed, e.g. {different[:5]}"
 
@@ -116,3 +134,12 @@ def test_regeneration_needs_explicit_flag_and_refuses_ci(monkeypatch, capsys):
     monkeypatch.setenv("CI", "true")
     assert regen_legacy_goldens.main(["--confirm-regenerate"]) == 2
     assert "refusing" in capsys.readouterr().err
+
+
+def test_argparse_choice_quoting_is_not_compared():
+    # CPython builds differ in whether argparse quotes the choices of an invalid
+    # choice (3.12.8 and some 3.14 builds do not); that text is the interpreter's.
+    quoted = "invalid choice: 'x' (choose from 'a', 'b')\n"
+    bare = "invalid choice: 'x' (choose from a, b)\n"
+    assert _normalise({"stderr": quoted}) == _normalise({"stderr": bare})
+    assert _normalise({"stderr": "(choose from a, c)"}) != _normalise({"stderr": bare})

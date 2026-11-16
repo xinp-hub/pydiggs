@@ -45,7 +45,7 @@ const PROBLEMS: Record<Problem["code"], [number, string, string]> = {
   "input-too-large": [413, "Input too large", "The document is larger than this server accepts."],
   "input-unreadable": [422, "Input unreadable", "The document could not be read."],
   internal: [500, "Internal error", "The server failed to answer."],
-  "invalid-document": [422, "Not a DIGGS document", "The bytes are not a DIGGS document."],
+  "invalid-document": [422, "Invalid document", "The bytes are not a DIGGS document."],
   "invalid-host": [400, "Invalid host", "The Host header is not allowed."],
   "invalid-multipart": [400, "Invalid multipart body", "The multipart body is not one file part with known fields."],
   "invalid-parameter": [422, "Invalid parameter", "invalid parameters"],

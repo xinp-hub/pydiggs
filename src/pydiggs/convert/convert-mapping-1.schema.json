@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xinp-hub.github.io/pydiggs/schemas/convert-mapping-1.schema.json",
   "title": "pyDIGGS conversion mapping table, format 1",
-  "description": "The AGS4 to DIGGS mapping table (mappings/ags4-diggs.toml, read as TOML). The unit table (units.toml) and the code table (codes.toml) are $defs/units_table and $defs/codes_table. The table holds only AGS4 group and heading identifiers, keys and parents; never text from the AGS4 data dictionary.",
+  "description": "The AGS4 and DIGGS mapping table, used in both directions (mappings/ags4-diggs.toml, read as TOML). The unit table (units.toml) and the code table (codes.toml) are $defs/units_table and $defs/codes_table. The table holds only AGS4 group and heading identifiers, keys and parents; never text from the AGS4 data dictionary.",
   "type": "object",
   "additionalProperties": false,
   "required": ["mapping_version", "ags_versions", "diggs_versions", "group"],
@@ -49,6 +49,7 @@
             "transmission",
             "lookup",
             "feature",
+            "feature-component",
             "interval-observation",
             "sample",
             "test-per-row",
@@ -66,6 +67,31 @@
           "additionalProperties": {"$ref": "#/$defs/text"}
         },
         "data": {"$ref": "#/$defs/group_name"},
+        "role": {
+          "description": "For a feature component: the DIGGS property that holds it.",
+          "type": "string",
+          "pattern": "^[a-z][A-Za-z0-9]*$"
+        },
+        "holder": {
+          "description": "For a feature component: the DIGGS record that holds it, where there is one.",
+          "$ref": "#/$defs/element"
+        },
+        "holder_role": {
+          "description": "The DIGGS property of the feature that holds the holder.",
+          "type": "string",
+          "pattern": "^[a-z][A-Za-z0-9]*$"
+        },
+        "interval_top": {
+          "description": "Where a component's interval starts when the row gives only its base: at the base of the previous row of the same feature (by depth), or at the surface.",
+          "enum": ["previous-base", "surface"]
+        },
+        "to_ags4_versions": {
+          "description": "The AGS4 versions DIGGS to AGS4 writes this group for; every version when absent.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["4.0.3", "4.0.4", "4.1", "4.1.1", "4.2"]}
+        },
         "heading": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/heading"}}
       }
     },
@@ -163,7 +189,8 @@
               "heading": {"$ref": "#/$defs/heading_name"},
               "ags": {"type": "string", "minLength": 1, "maxLength": 80},
               "srs": {"type": "string", "pattern": "^http://www\\.opengis\\.net/def/crs/EPSG/0/[0-9]+$"},
-              "unit": {"description": "The unit of the CRS's axes, a DIGGS uom.", "type": "string", "minLength": 1, "maxLength": 40}
+              "unit": {"description": "The unit of the CRS's axes, a DIGGS uom.", "type": "string", "minLength": 1, "maxLength": 40},
+              "horizontal": {"description": "For a vertical datum (LOCA_NATD): the horizontal CRS with which a ground level in this datum is written in the compound CRS srs.", "type": "string", "pattern": "^http://www\\.opengis\\.net/def/crs/EPSG/0/[0-9]+$"}
             }
           }
         }

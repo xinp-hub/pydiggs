@@ -29,6 +29,7 @@ __all__ = [
     "REFORMATTED",
     "RULES",
     "UNMAPPED_CODE",
+    "UNMAPPED_ELEMENT",
     "UNMAPPED_GROUP",
     "UNMAPPED_HEADING",
     "UNMAPPED_UNIT",
@@ -50,6 +51,7 @@ UNPARSED: Final = "convert.value-unparsed"
 ASSUMED: Final = "convert.assumed"
 REFORMATTED: Final = "convert.value-reformatted"
 INCOMPLETE: Final = "convert.incomplete"
+UNMAPPED_ELEMENT: Final = "convert.unmapped-element"
 
 #: Every rule id the converter reports, with its severity.
 RULES: Final[Mapping[str, Severity]] = {
@@ -63,6 +65,7 @@ RULES: Final[Mapping[str, Severity]] = {
     ASSUMED: Severity.WARNING,
     REFORMATTED: Severity.INFO,
     INCOMPLETE: Severity.ERROR,
+    UNMAPPED_ELEMENT: Severity.WARNING,
 }
 
 #: ``(group, row, column)``: one DATA value, rows and columns counted from 0.
@@ -255,6 +258,59 @@ class Ledger:
             issue.times += 1
             self.named[(group, row, column)] = index
             issue.cells += 1
+
+    # --- the residual file ---------------------------------------------------------------
+
+    def residual(self, keys: Mapping[str, tuple[str, ...]]) -> File:
+        """What was not converted, as an AGS4 file: every named cell, with its row's keys.
+
+        A group appears when at least one of its cells is named, with its key headings
+        (``keys`` gives them per group, from the mapping table) and the headings of its
+        named cells, in the order the source has them; a row appears when one of its
+        cells is named. The key cells of a row are copied so that each row can be placed
+        again; every other cell of the residual file is a named one. Units and types are
+        the source's.
+        """
+        named: dict[str, dict[int, set[int]]] = {}
+        for group_name, row, column in self.named:
+            named.setdefault(group_name, {}).setdefault(row, set()).add(column)
+        groups: list[Group] = []
+        for group in self.file.groups.values():
+            rows = named.get(group.name)
+            if not rows:
+                continue
+            wanted = set(keys.get(group.name, ()))
+            columns = sorted(
+                {c for found in rows.values() for c in found}
+                | {i for i, h in enumerate(group.headings) if h in wanted}
+            )
+            key_columns = {i for i in columns if group.headings[i] in wanted}
+
+            def pick(values: tuple[str, ...], chosen: list[int] = columns) -> tuple[str, ...]:
+                return tuple(values[i] if i < len(values) else "" for i in chosen)
+
+            out_rows = []
+            lines = []
+            for index in sorted(rows):
+                values = group.rows[index]
+                cells = rows[index] | key_columns
+                out_rows.append(
+                    tuple(values[i] if i in cells and i < len(values) else "" for i in columns)
+                )
+                line = row_line(group, index)
+                if line is not None:
+                    lines.append(line)
+            groups.append(
+                Group(
+                    name=group.name,
+                    headings=pick(group.headings),
+                    units=pick(group.units) if group.units else (),
+                    types=pick(group.types) if group.types else (),
+                    rows=tuple(out_rows),
+                    row_lines=tuple(lines),
+                )
+            )
+        return File(groups=groups)
 
     # --- findings ---------------------------------------------------------------------
 

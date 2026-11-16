@@ -383,7 +383,7 @@
     },
     {
       "name": "convert",
-      "summary": "Convert one AGS4 file to DIGGS 3.0.0 (protocol 1.2; preview mapping table), with every loss reported. The result carries the output as base64.",
+      "summary": "Convert one AGS4 file to DIGGS 3.0.0 (to: diggs, the default), or one DIGGS document to an AGS4 file (to: ags4), with every loss reported (protocol 1.2). The result carries the output as base64, and for AGS4 to DIGGS the residual AGS4 file of what was not converted.",
       "paramStructure": "by-name",
       "params": [
         {
@@ -414,11 +414,12 @@
           "name": "to",
           "schema": {
             "enum": [
-              "diggs"
+              "diggs",
+              "ags4"
             ]
           },
           "required": false,
-          "summary": "The format to convert to (default diggs; the content is AGS4)."
+          "summary": "The format to convert to: diggs (the default; the content is AGS4) or ags4 (the content is DIGGS XML)."
         },
         {
           "name": "diggs_version",
@@ -427,7 +428,19 @@
               "3.0.0"
             ]
           },
-          "required": false
+          "required": false,
+          "summary": "to: diggs only. The DIGGS version to write (default 3.0.0)."
+        },
+        {
+          "name": "ags_version",
+          "schema": {
+            "enum": [
+              "4.2",
+              "4.1.1"
+            ]
+          },
+          "required": false,
+          "summary": "to: ags4 only. The AGS4 version to write (default 4.2). The BGS AGS validator and python-ags4 1.2.0 accept AGS4 only up to 4.1.1 (November 2026)."
         },
         {
           "name": "time_budget_s",
@@ -840,14 +853,14 @@
       },
       "invalid-document": {
         "code": -32010,
-        "message": "The bytes are not a DIGGS document.",
+        "message": "The bytes are not a document of the expected format.",
         "data": {
           "code": "invalid-document"
         }
       },
       "result-too-large": {
         "code": -32011,
-        "message": "The result is larger than allowed; ask for less with select.",
+        "message": "The result is larger than allowed.",
         "data": {
           "code": "result-too-large"
         }
@@ -923,24 +936,27 @@
       },
       "ConversionResult": {
         "type": "object",
-        "description": "As POST /v1/convert answers: the output (base64) with its media type and sha256, and the findings about the source and the output.",
+        "description": "As POST /v1/convert answers: the output (base64) with its media type and sha256, the findings about the source and the output, and for AGS4 to DIGGS the residual AGS4 file (null when nothing was left over, and for DIGGS to AGS4).",
         "required": [
           "to",
           "media_type",
           "output_name",
           "diggs_version",
+          "ags_version",
           "mapping_version",
           "complete",
           "lossless",
           "report",
           "validation",
           "output_sha256",
-          "output_base64"
+          "output_base64",
+          "residual_base64"
         ],
         "properties": {
           "to": {
             "enum": [
-              "diggs"
+              "diggs",
+              "ags4"
             ]
           },
           "media_type": {
@@ -953,6 +969,19 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "ags_version": {
+            "anyOf": [
+              {
+                "enum": [
+                  "4.2",
+                  "4.1.1"
+                ]
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "mapping_version": {
@@ -982,6 +1011,13 @@
           },
           "output_base64": {
             "type": "string",
+            "contentEncoding": "base64"
+          },
+          "residual_base64": {
+            "type": [
+              "string",
+              "null"
+            ],
             "contentEncoding": "base64"
           }
         }
@@ -1030,6 +1066,15 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "ags_versions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "residual": {
+                "type": "boolean"
               }
             }
           },

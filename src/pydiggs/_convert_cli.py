@@ -1,16 +1,22 @@
-"""``pydiggs convert``: an AGS4 file to a DIGGS 3.0.0 document, with every loss reported.
+"""``pydiggs convert``: AGS4 to DIGGS 3.0.0, or DIGGS to AGS4, with every loss reported.
+
+``--to diggs`` (the default) converts an AGS4 file to a DIGGS 3.0.0 document, and
+``--residual FILE`` also writes the AGS4 file of what was not converted; ``--to ags4``
+converts a DIGGS document to an AGS4 file (``--ags-version``: 4.2, the default, or
+4.1.1). The direction is never guessed from the input.
 
 The conversion runs through :func:`pydiggs._service.convert`, the same code the HTTP API
-and the sidecar run, so the three give the same DIGGS bytes and the same report for the
+and the sidecar run, so the three give the same output bytes and the same report for the
 same input. Paths are the caller's own files: the input is read with the size limit,
 each output is written to a temporary file beside it and moved into place, an existing
 output is replaced only with ``--force``, and no output may be the input itself.
 
 Exit codes, as for ``pydiggs validate``: 0 when no finding is at or above ``--fail-on``;
 1 when some are (``loss``: any loss, error, or validation error of the output;
-``error``, the default: an error in the report or in the output's validation); 2 on a
-usage error, an input that cannot be read or is not AGS4, or an output that cannot be
-written.
+``error``, the default: an error in the report or in the output's validation, which is
+:func:`pydiggs.validate_bytes` for DIGGS and :func:`pydiggs.ags4.check` for AGS4); 2 on
+a usage error, an input that cannot be read or is not of the expected format, or an
+output that cannot be written.
 """
 
 from __future__ import annotations
@@ -36,6 +42,8 @@ _PROG: Final = "pydiggs convert"
 #: Largest input accepted by default (100 MiB, as ``pydiggs ags4 check``).
 _DEFAULT_MAX_BYTES: Final = 100 * 2**20
 _SEVERE: Final = frozenset({"warning", "error"})
+_DIGGS_DEFAULT: Final = _service.CONVERT_DIGGS_VERSIONS[0]
+_AGS_DEFAULT: Final = _service.CONVERT_AGS_VERSIONS[0]
 
 
 class _UsageError(Exception):
@@ -47,31 +55,57 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=_PROG,
         description=(
-            "Convert an AGS4 file to a DIGGS 3.0.0 document (preview: the mapping table is a"
-            " draft, see https://xinp-hub.github.io/pydiggs/convert/). Every source value"
-            " that does not reach the output is reported as a loss; the output is validated."
-            " pyDIGGS bundles no AGS data dictionary and is not an AGS-approved tool."
+            "Convert an AGS4 file to a DIGGS 3.0.0 document, or (--to ags4) a DIGGS"
+            " document to an AGS4 file, by the mapping table described at"
+            " https://xinp-hub.github.io/pydiggs/convert-mapping/. Every source value"
+            " that does not reach the output is reported as a loss; the output is validated"
+            " (DIGGS) or checked against the AGS4 rules (AGS4). pyDIGGS bundles no AGS data"
+            " dictionary and is not an AGS-approved tool."
         ),
         epilog=(
             "Exit status: 0 no finding at or above --fail-on; 1 some; 2 usage error, an"
-            " input that cannot be read or is not AGS4, or an output that cannot be written."
+            " input that cannot be read or is not of the expected format, or an output that"
+            " cannot be written."
         ),
     )
-    parser.add_argument("input", metavar="IN", help="the AGS4 file to convert")
     parser.add_argument(
-        "-o", "--output", required=True, metavar="OUT", help="where to write the DIGGS XML"
+        "input", metavar="IN", help="the file to convert: AGS4, or DIGGS XML with --to ags4"
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        metavar="OUT",
+        help="where to write the output (DIGGS XML, or the AGS4 file with --to ags4)",
     )
     parser.add_argument(
         "--to",
         choices=list(_service.CONVERT_TARGETS),
         default=_service.CONVERT_TARGETS[0],
-        help="the format to convert to (default: diggs)",
+        help="the format to convert to: diggs (the default; IN is AGS4) or ags4 (IN is DIGGS)",
     )
     parser.add_argument(
         "--diggs-version",
         choices=list(_service.CONVERT_DIGGS_VERSIONS),
-        default=_service.CONVERT_DIGGS_VERSIONS[0],
-        help="the DIGGS version to write (default: %(default)s)",
+        default=None,
+        help=f"the DIGGS version to write (--to diggs; default: {_DIGGS_DEFAULT})",
+    )
+    parser.add_argument(
+        "--ags-version",
+        choices=list(_service.CONVERT_AGS_VERSIONS),
+        default=None,
+        help=(
+            f"the AGS4 version to write (--to ags4; default: {_AGS_DEFAULT}). The BGS AGS"
+            " validator and python-ags4 1.2.0 accept AGS4 only up to 4.1.1 (November 2026)"
+        ),
+    )
+    parser.add_argument(
+        "--residual",
+        metavar="FILE",
+        help=(
+            "also write the AGS4 file of what was not converted here (--to diggs only; not"
+            " written when everything was converted)"
+        ),
     )
     parser.add_argument(
         "--report",
@@ -107,6 +141,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _options(parser: argparse.ArgumentParser, argv: Sequence[str]) -> argparse.Namespace:
     args = parser.parse_args(list(argv))
+    if args.to == "ags4":
+        if args.diggs_version is not None:
+            parser.error("--diggs-version applies only to --to diggs")
+        if args.residual is not None:
+            parser.error("--residual applies only to --to diggs (AGS4 to DIGGS)")
+    elif args.ags_version is not None:
+        parser.error("--ags-version applies only to --to ags4")
     if args.max_bytes < 1:
         parser.error("--max-bytes must be positive")
     if args.time_budget is not None and not 0 < args.time_budget <= _service.MAX_SECONDS:
@@ -125,9 +166,12 @@ def _same_file(a: Path, b: Path) -> bool:
 
 
 def _check_targets(args: argparse.Namespace) -> list[Path]:
-    """The output paths, refused when one is the input, a repeat, or exists without --force."""
+    """The output paths, refused when one is the input, a repeat, or exists without --force.
+
+    In order: the output, then ``--report`` and ``--residual`` when given.
+    """
     source = Path(args.input)
-    targets = [Path(args.output)] + ([Path(args.report)] if args.report else [])
+    targets = [Path(p) for p in (args.output, args.report, args.residual) if p]
     for i, target in enumerate(targets):
         if _same_file(target, source):
             raise _UsageError(f"refusing to write {target} over the input")
@@ -231,16 +275,24 @@ def _failed(result: dict[str, Any], fail_on: str) -> bool:
     return False
 
 
-def _summary_text(result: dict[str, Any], source: str, output: str) -> str:
+def _summary_text(result: dict[str, Any], source: str, output: str, residual: str | None) -> str:
     report, validation = _findings(result["report"]), _findings(result["validation"])
     losses = [f for f in report if f["step"] == "convert" and f["severity"] in _SEVERE]
     invalid = [f for f in validation if f["severity"] == "error"]
+    written = (
+        f"AGS4 {result['ags_version']}"
+        if result["to"] == "ags4"
+        else f"DIGGS {result['diggs_version']}"
+    )
     lines = [
-        f"{_safe(source)} -> {_safe(output)}: DIGGS {result['diggs_version']},"
+        f"{_safe(source)} -> {_safe(output)}: {written},"
         f" mapping {result['mapping_version']}, {len(losses)} loss(es),"
         f" {'complete' if result['complete'] else 'INCOMPLETE'},"
         f" output {'valid' if not invalid else f'INVALID ({len(invalid)} error(s))'}"
     ]
+    if residual is not None:
+        kept = _safe(residual) if result["residual_base64"] is not None else "none"
+        lines.append(f"  residual: {kept}")
     for finding in report:
         if finding["severity"] not in _SEVERE:
             continue
@@ -254,9 +306,10 @@ def _summary_text(result: dict[str, Any], source: str, output: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _summary_json(result: dict[str, Any], output: str) -> str:
-    shown = {k: v for k, v in result.items() if k != "output_base64"}
+def _summary_json(result: dict[str, Any], output: str, residual: str | None) -> str:
+    shown = {k: v for k, v in result.items() if k not in ("output_base64", "residual_base64")}
     shown["output_path"] = output
+    shown["residual_path"] = residual if result["residual_base64"] is not None else None
     return json.dumps(shown, indent=2, ensure_ascii=False) + "\n"
 
 
@@ -268,6 +321,7 @@ def _convert(args: argparse.Namespace) -> dict[str, Any]:
         name=Path(args.input).name,
         to=args.to,
         diggs_version=args.diggs_version,
+        ags_version=args.ags_version,
         max_bytes=args.max_bytes,
         time_budget=args.time_budget,
         max_result_bytes=None,
@@ -292,7 +346,11 @@ def main(argv: Sequence[str]) -> int:
         _write_atomically(targets[0], output, force=args.force)
         if args.report:
             report = json.dumps(result["report"], indent=2, ensure_ascii=False) + "\n"
-            _write_atomically(targets[1], report.encode("utf-8"), force=args.force)
+            _write_atomically(Path(args.report), report.encode("utf-8"), force=args.force)
+        residual = result.get("residual_base64")
+        if args.residual and residual is not None:
+            data = base64.b64decode(residual, validate=True)
+            _write_atomically(Path(args.residual), data, force=args.force)
     except _UsageError as exc:
         print(f"{_PROG}: {_safe(str(exc))}", file=sys.stderr)
         return 2
@@ -302,7 +360,7 @@ def main(argv: Sequence[str]) -> int:
         )
         return 2
     if args.format == "json":
-        sys.stdout.write(_summary_json(result, args.output))
+        sys.stdout.write(_summary_json(result, args.output, args.residual))
     else:
-        sys.stdout.write(_summary_text(result, args.input, args.output))
+        sys.stdout.write(_summary_text(result, args.input, args.output, args.residual))
     return 1 if _failed(result, args.fail_on) else 0

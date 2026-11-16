@@ -508,6 +508,8 @@ class Server:
                 "content": True,
                 "path": bool(self.roots),
                 "to": list(_service.CONVERT_TARGETS),
+                "ags_versions": list(_service.CONVERT_AGS_VERSIONS),
+                "residual": True,
             }
             result["capabilities"]["ags4_check"] = {
                 "content": True,
@@ -585,6 +587,7 @@ class Server:
             name=name,
             to=params.to,
             diggs_version=params.diggs_version,
+            ags_version=params.ags_version,
             max_bytes=limit,
             time_budget=params.time_budget,
             max_result_bytes=_protocol.MAX_RESULT_BYTES,
