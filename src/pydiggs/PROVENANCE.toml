@@ -39,7 +39,7 @@ sha256 = "23cd9fe27fe0791ff1c8bc284a52d75e6d7bbae1cb6ecc6a62cd6740fdbc9ec2"
 [files."convert/mappings/ags4-diggs.toml"]
 source = "local"
 note = "AGS4 to DIGGS mapping table: pyDIGGS's own data (AGS4 group and heading names, keys and parents only; no AGS4 dictionary text)."
-sha256 = "96906e8d70086a7a71f1a05268af50f79213492cf1a660a39d900de90cda8ecc"
+sha256 = "db45561ab2270634df53694912aea6dfe859fe777612eeec58fc1180e676a446"
 
 [files."convert/mappings/codes.toml"]
 source = "local"

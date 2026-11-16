@@ -297,6 +297,8 @@ class Ledger:
                 out_rows.append(
                     tuple(values[i] if i in cells and i < len(values) else "" for i in columns)
                 )
+                # Group.row_lines is all or nothing (it is dropped unless one per row), so
+                # either every row has a line here or none does: the tuple stays aligned.
                 line = row_line(group, index)
                 if line is not None:
                     lines.append(line)

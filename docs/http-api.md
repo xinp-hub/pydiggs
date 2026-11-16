@@ -326,8 +326,8 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 | 408 | <span id="problem-request-timeout"></span>`request-timeout` | the body did not arrive within `body_timeout_s` |
 | 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes` |
 | 415 | <span id="problem-compressed-input"></span>`compressed-input` | gzip document, or `Content-Encoding` other than `identity` |
-| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart) |
-| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, or an unusable AGS4 `dictionary` |
+| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (`to=ags4` takes `application/xml` or `text/xml`; AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart) |
+| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `ags_version`, `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, or an unusable AGS4 `dictionary` |
 | 422 | <span id="problem-invalid-document"></span>`invalid-document` | Titled "Invalid document". `/v1/read` and `/v1/convert?to=ags4`: the bytes are not a DIGGS document; `/v1/convert` to DIGGS: not AGS4 (`not-ags4`) or AGS 3 (`unsupported-version`); `kind` says why |
 | 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read`, `/v1/convert`: the result is larger than four times `max_body_bytes` (for `/v1/read`, ask for fewer tables with `select`) |
 | 422 | <span id="problem-input-unreadable"></span>`input-unreadable` | the document could not be read |

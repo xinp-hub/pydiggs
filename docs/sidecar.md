@@ -141,7 +141,7 @@ Result:
 ```json
 {
   "protocol_version": "1.2",
-  "pydiggs_version": "1.9.0",
+  "pydiggs_version": "1.11.0",
   "findings_schema_version": "1.1",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json",
   "model_schema_version": "1.0",
@@ -228,7 +228,9 @@ same bytes. Validate it against its own `$schema` and tolerate unknown fields.
 Protocol 1.2. Converts one **AGS4** file to **DIGGS 3.0.0** (`to: "diggs"`, the default),
 or one **DIGGS** document to an **AGS4** file (`to: "ags4"`), by the stable
 `pydiggs.convert` and mapping table 1.0 (see [AGS4 and DIGGS conversion](convert.md)),
-with every loss reported.
+with every loss reported. A host detects `to: "ags4"` and `ags_version` from
+`capabilities.convert` (its `to` and `ags_versions` lists); a 1.10 sidecar also reports
+protocol 1.2 and answers both with `invalid-params`.
 
 | param | type | notes |
 |---|---|---|
@@ -381,7 +383,7 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 
 ```text
 → {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.2","client_info":{"name":"example-host","version":"0.1"}}}
-← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.2","pydiggs_version":"1.9.0",…}}
+← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.2","pydiggs_version":"1.11.0",…}}
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}

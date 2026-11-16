@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-16
+
 ### Added
 - **`pydiggs.convert` is stable, both ways.** `convert.ags4_to_diggs` (the 1.9 and 1.10
   preview) is joined by `convert.diggs_to_ags4(source)` and
@@ -20,10 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   code (`LOCA_NSRI`, `LOCA_LLSI`). Every value of the model (names, remarks, `params`,
   typed fields, `extra` elements, links that are not structure, result-table cells) is
   either written into a cell or named by a finding: a value with no AGS4 target is the new
-  `convert.unmapped-element` warning. The output passes `ags4.check` (it carries the
-  source's non-ASCII text unchanged, which Rule 1 reports); without a bundled AGS4
-  dictionary, each heading's TYPE is the one its values have, and the ABBR, TYPE and UNIT
-  groups list what the file uses. The module adds no top-level name:
+  `convert.unmapped-element` warning. A unit comes from the unit table; for a CRS outside
+  the code table it is the EPSG axis unit (`metre` is written as `m`, `foot` as `ft`), and
+  a value whose unit cannot be named (a US survey foot, which AGS4's unit table lacks) is
+  reported as `convert.unmapped-unit`, never written with an empty unit. A location name
+  that AGS4 cannot hold (a line break) is replaced by the record's id and reported. The
+  output passes `ags4.check` (it carries the source's non-ASCII text unchanged, which Rule
+  1 reports); without a bundled AGS4 dictionary, each heading's TYPE is the one its values
+  have, and the ABBR, TYPE and UNIT groups list what the file uses. The module adds no
+  top-level name:
 
   ```python
   from pydiggs import ags4, convert
@@ -145,7 +152,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and values whose DIGGS property has no unit (the `%` of the LLPL limits), are written
   as before, and their UNIT is now reported as `convert.unmapped-unit`; the residual file
   keeps those values with their unit.
-
 
 ## [1.10.0] - 2026-11-14
 
@@ -1117,7 +1123,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/xinp-hub/pydiggs/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...v1.8.0
