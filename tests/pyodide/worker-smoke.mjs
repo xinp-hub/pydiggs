@@ -13,9 +13,9 @@
 //     for `read`; a bad parameter is pydiggs's invalid-parameter problem;
 //   - a document over the limit is refused without reaching Python;
 //   - replies arrive in request order, one per request;
-//   - AGS4: convert, and a check with and without a data dictionary (also as SARIF),
-//     equal CPython's service layer, and the converted XML decodes to the converter's
-//     bytes; capabilities lists the same core operations;
+//   - AGS4: convert, back to AGS4 in 4.2 and 4.1.1, and a check with and without a data
+//     dictionary (also as SARIF), equal CPython's service layer; each output and the
+//     residual decode to the converter's bytes; capabilities lists the same core operations;
 //   - writing SIGINT to the interrupt buffer stops a long validation with "cancelled",
 //     and the same worker answers the next request.
 // Only the Web Worker shell (js/src/browser-worker.ts: the integrity-checked fetch of
@@ -37,7 +37,7 @@ import { Worker } from "node:worker_threads";
 
 import { loadPyodide } from "pyodide";
 
-import { conversionOutput } from "../../js/src/convert.ts";
+import { conversionOutput, conversionResidual } from "../../js/src/convert.ts";
 import { createWorkerCore } from "../../js/src/worker-core.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -125,6 +125,16 @@ const AGS4 = "site_tier_a.ags";
 const [CHECKED, DICTIONARY] = ["c2_user_group.ags", "c2_dictionary.ags"];
 service.push([`service-convert:${AGS4}`, send({ type: "convert", name: AGS4, data: fixture(AGS4), parameters: { to: "diggs" } })]);
 service.push([`service-ags4-check:${AGS4}`, send({ type: "ags4-check", name: AGS4, data: fixture(AGS4) })]);
+// pyDIGGS 1.11: that DIGGS back to AGS4, in each AGS4 version it writes.
+const AGS4_XML = AGS4.replace(/\.ags$/, ".xml");
+const AGS_VERSIONS = ["4.2", "4.1.1"];
+for (const version of AGS_VERSIONS) {
+  const data = arrayBuffer(Buffer.from(goldens[`convert:${AGS4}`], "utf8"));
+  service.push([
+    `service-to-ags4:${version}:${AGS4}`,
+    send({ type: "convert", name: AGS4_XML, data, parameters: { to: "ags4", ags_version: version } }),
+  ]);
+}
 service.push([`ags4:${CHECKED}`, send({ type: "ags4-check", name: CHECKED, data: fixture(CHECKED), dictionary: fixture(DICTIONARY) })]);
 service.push([`ags4-no-dictionary:${CHECKED}`, send({ type: "ags4-check", name: CHECKED, data: fixture(CHECKED) })]);
 service.push([
@@ -186,6 +196,20 @@ const conversion = answers.get(service.find(([golden]) => golden.startsWith("ser
 const xml = await conversionOutput(conversion);
 assert.equal(new TextDecoder().decode(xml), goldens[`convert:${AGS4}`]);
 console.log(`ok  convert ${AGS4}: ${conversion.output_name}, ${xml.byteLength} bytes, identical to the converter's XML`);
+const residual = conversionResidual(conversion);
+if (residual === null) {
+  console.log(`note: ${AGS4} converted with no residual`);
+} else {
+  assert.equal(new TextDecoder().decode(residual), goldens[`residual:${AGS4}`]);
+  console.log(`ok  residual of ${AGS4}: ${residual.byteLength} bytes, identical to the converter's`);
+}
+for (const version of AGS_VERSIONS) {
+  const golden = `service-to-ags4:${version}:${AGS4}`;
+  const back = answers.get(service.find(([name]) => name === golden)[1]).document;
+  const text = new TextDecoder().decode(await conversionOutput(back));
+  assert.equal(text, goldens[`to-ags4:${version}:${AGS4}`]);
+  console.log(`ok  ${AGS4_XML} to AGS4 ${version}: ${back.output_name}, identical to the converter's AGS4 file`);
+}
 // Capabilities: the core operations (extras differ between CPython and Pyodide).
 const capabilities = answers.get(capabilitiesId);
 assert.equal(capabilities.type, "result", capabilities.message);

@@ -10,7 +10,9 @@ import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type {
   Capabilities,
   ConversionResult,
+  ConvertAgsVersion,
   ConvertDiggsVersion,
+  ConvertTarget,
   DiggsVersion,
   Problem,
   RuleInfo,
@@ -24,7 +26,9 @@ import type { DiggsModelDocument } from "./generated/model.ts";
 export type {
   Capabilities,
   ConversionResult,
+  ConvertAgsVersion,
   ConvertDiggsVersion,
+  ConvertTarget,
   DiggsVersion,
   Problem,
   Ready,
@@ -34,7 +38,7 @@ export type {
   ValidateCheck,
   Versions,
 } from "./generated/http.ts";
-export { conversionOutput } from "./convert.ts";
+export { conversionOutput, conversionResidual } from "./convert.ts";
 export { PydiggsError } from "./errors.ts";
 
 /** The `code` of a problem answer; switch on it. */
@@ -92,10 +96,17 @@ export interface ReadOptions extends RequestOptions {
 }
 
 export interface ConvertOptions extends RequestOptions {
-  /** File name of the AGS4 input; the output is named after it. */
+  /** File name of the input; the output is named after it. */
   name?: string;
-  /** DIGGS version of the output. Default: the converter's, 3.0.0. */
+  /**
+   * What to write: `"diggs"` (the default: the input is AGS4) or `"ags4"` (the input is
+   * DIGGS XML; pyDIGGS 1.11 or later).
+   */
+  to?: ConvertTarget;
+  /** For `to: "diggs"`: DIGGS version of the output. Default: the converter's, 3.0.0. */
   diggsVersion?: ConvertDiggsVersion;
+  /** For `to: "ags4"`: AGS4 version of the output. Default: 4.2. */
+  agsVersion?: ConvertAgsVersion;
 }
 
 export interface Ags4CheckOptions extends RequestOptions {
@@ -231,18 +242,20 @@ export class PydiggsHttpClient {
   }
 
   /**
-   * Converts an AGS4 file to DIGGS. The result carries the DIGGS XML as base64
-   * (`conversionOutput(result)` gives the checked bytes), what was found about the
-   * source (`report`) and the output's validation (`validation`). Bytes that are not
-   * AGS4 are a `PydiggsHttpError` with code `invalid-document`.
+   * Converts an AGS4 file to DIGGS, or with `to: "ags4"` a DIGGS document to AGS4. The
+   * result carries the output as base64 (`conversionOutput(result)` gives the checked
+   * bytes), what was found about the source (`report`) and the output's validation
+   * (`validation`). Bytes that are not of the input's format are a `PydiggsHttpError`
+   * with code `invalid-document`.
    */
   async convert(document: DocumentInput, options: ConvertOptions = {}): Promise<ConversionResult> {
+    const to = options.to ?? "diggs";
     const body = await this.#json({
       method: "POST",
       path: "/v1/convert",
-      query: { name: options.name, to: "diggs", diggs_version: options.diggsVersion },
+      query: { name: options.name, to, diggs_version: options.diggsVersion, ags_version: options.agsVersion },
       body: document as BodyInit,
-      contentType: "application/octet-stream",
+      contentType: to === "ags4" ? "application/xml" : "application/octet-stream",
       signal: options.signal,
     });
     if (!isRecord(body) || typeof body["output_base64"] !== "string" || !isRecord(body["report"])) {

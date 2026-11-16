@@ -7,7 +7,9 @@ import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type {
   Capabilities,
   ConversionResult,
+  ConvertAgsVersion,
   ConvertDiggsVersion,
+  ConvertTarget,
   DiggsVersion,
   RuleInfo,
   RuleStep,
@@ -30,7 +32,9 @@ import type {
 export type {
   Capabilities,
   ConversionResult,
+  ConvertAgsVersion,
   ConvertDiggsVersion,
+  ConvertTarget,
   DiggsVersion,
   RuleInfo,
   RuleStep,
@@ -91,8 +95,15 @@ export interface WorkerReadOptions extends WorkerRequestOptions {
 }
 
 export interface WorkerConvertOptions extends WorkerRequestOptions {
-  /** DIGGS version of the output. Default: the converter's, 3.0.0. */
+  /**
+   * What to write: `"diggs"` (the default: the input is AGS4) or `"ags4"` (the input is
+   * DIGGS XML; pyDIGGS 1.11 or later).
+   */
+  to?: ConvertTarget;
+  /** For `to: "diggs"`: DIGGS version of the output. Default: the converter's, 3.0.0. */
   diggsVersion?: ConvertDiggsVersion;
+  /** For `to: "ags4"`: AGS4 version of the output. Default: 4.2. */
+  agsVersion?: ConvertAgsVersion;
 }
 
 export interface WorkerAgs4CheckOptions extends WorkerRequestOptions {
@@ -294,13 +305,15 @@ export class WorkerClient {
   }
 
   /**
-   * Converts an AGS4 file to DIGGS, as `/v1/convert` does. `conversionOutput(result)`
-   * gives the DIGGS XML, checked against its sha256. Bytes that are not AGS4 are an
-   * error with `problem.code` "invalid-document".
+   * Converts an AGS4 file to DIGGS, or with `to: "ags4"` a DIGGS document to AGS4, as
+   * `/v1/convert` does. `conversionOutput(result)` gives the output, checked against its
+   * sha256. Bytes that are not of the input's format are an error with `problem.code`
+   * "invalid-document".
    */
   convert(input: DocumentBytes, options: WorkerConvertOptions = {}): Promise<ConversionResult> {
-    const parameters: RequestParameters = { to: "diggs" };
+    const parameters: RequestParameters = { to: options.to ?? "diggs" };
     if (options.diggsVersion !== undefined) parameters.diggs_version = options.diggsVersion;
+    if (options.agsVersion !== undefined) parameters.ags_version = options.agsVersion;
     return this.#document("convert", input, options, parameters) as Promise<ConversionResult>;
   }
 
@@ -542,8 +555,9 @@ export class SupervisedWorker {
   }
 
   /**
-   * Converts an AGS4 file to DIGGS, as `/v1/convert` does. `conversionOutput(result)`
-   * gives the DIGGS XML, checked against its sha256.
+   * Converts an AGS4 file to DIGGS, or with `to: "ags4"` a DIGGS document to AGS4, as
+   * `/v1/convert` does. `conversionOutput(result)` gives the output, checked against its
+   * sha256.
    */
   convert(input: DocumentBytes, options: WorkerConvertOptions = {}): Promise<ConversionResult> {
     return this.#run(options.signal, (client) => client.convert(input, options));

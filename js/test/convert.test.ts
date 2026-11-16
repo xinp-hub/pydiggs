@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 
-import { conversionOutput } from "../src/convert.ts";
+import { conversionOutput, conversionResidual } from "../src/convert.ts";
 import { PydiggsError } from "../src/errors.ts";
 import type { ConversionResult } from "../src/generated/http.ts";
 
@@ -33,4 +33,11 @@ test("the atob fallback gives the same bytes as Uint8Array.fromBase64", async ()
   } finally {
     (Uint8Array as unknown as { fromBase64?: unknown }).fromBase64 = native;
   }
+});
+
+test("conversionResidual decodes the residual AGS4 file, and is null without one", () => {
+  const ags = new TextEncoder().encode('"GROUP","LOCA"\r\n');
+  assert.deepEqual(conversionResidual(result({ residual_base64: Buffer.from(ags).toString("base64") })), ags);
+  assert.equal(conversionResidual(result({ residual_base64: null })), null);
+  assert.equal(conversionResidual(result()), null, "a pyDIGGS before 1.11 sends no residual");
 });

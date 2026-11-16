@@ -11,7 +11,7 @@
 // and the problem documents are the same, and no text echoes a value sent. It adds no
 // authentication, like pydiggs itself: put it behind your own.
 
-import type { ConvertDiggsVersion, DiggsVersion, Problem, RuleStep, ValidateCheck } from "./generated/http.ts";
+import type { ConvertAgsVersion, ConvertDiggsVersion, ConvertTarget, DiggsVersion, Problem, RuleStep, ValidateCheck } from "./generated/http.ts";
 import type { PoolEngine } from "./pool.ts";
 import type { ServiceProblem } from "./protocol.ts";
 
@@ -192,9 +192,9 @@ const RAW_TYPES = {
   diggs: new Set(["application/xml", "text/xml"]),
   ags4: new Set(["application/octet-stream", "text/csv", "text/plain"]),
 };
-const CONVERT_FIELDS = new Set(["name", "to", "diggs_version"]);
+const CONVERT_FIELDS = new Set(["name", "to", "diggs_version", "ags_version"]);
 const AGS4_CHECK_FIELDS = new Set(["name"]);
-const CONVERT_TARGETS = ["diggs"];
+const CONVERT_TARGETS = ["diggs", "ags4"];
 
 interface Parsed {
   data: Uint8Array;
@@ -406,7 +406,9 @@ export function createPydiggsHandler(
   async function convert(request: Request): Promise<Response> {
     const refused = gate(request);
     if (refused) return refused;
-    const parsed = await parse(request, CONVERT_FIELDS, "ags4");
+    // A raw body is DIGGS XML for to=ags4 (given in the query) and AGS4 otherwise.
+    const toAgs4 = new URL(request.url).searchParams.getAll("to").at(-1) === "ags4";
+    const parsed = await parse(request, CONVERT_FIELDS, toAgs4 ? "diggs" : "ags4");
     if (parsed instanceof Response) return parsed;
     const to = parsed.params.get("to")?.at(-1);
     if (to !== undefined && !CONVERT_TARGETS.includes(to)) {
@@ -415,12 +417,15 @@ export function createPydiggsHandler(
       });
     }
     const diggsVersion = parsed.params.get("diggs_version")?.at(-1);
+    const agsVersion = parsed.params.get("ags_version")?.at(-1);
     try {
       return json(
         await engine.convert(parsed.data, {
           signal: request.signal,
           ...(parsed.givenName !== undefined ? { name: parsed.givenName } : {}),
+          ...(to !== undefined ? { to: to as ConvertTarget } : {}),
           ...(diggsVersion !== undefined ? { diggsVersion: diggsVersion as ConvertDiggsVersion } : {}),
+          ...(agsVersion !== undefined ? { agsVersion: agsVersion as ConvertAgsVersion } : {}),
         }),
       );
     } catch (error) {

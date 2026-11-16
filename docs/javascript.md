@@ -72,8 +72,9 @@ It takes what the [HTTP client](#against-a-server) takes, because the worker run
 pyDIGGS's own service layer, as `pydiggs serve --http` does: `checks` and `diggsVersion`
 for `validate`, `validateSarif`, `results` of `"all"`, `"none"` or a list of node keys
 for `read`, `versions()`, `listRules()`, `explainRule()` and `capabilities()`, and AGS4:
-`convert(file)` to DIGGS 3.0.0 (`conversionOutput(result)` gives the XML) and
-`checkAgs4(file, { dictionary })`, with the file never leaving the tab. Refusals carry pyDIGGS's
+`convert(file)` to DIGGS 3.0.0 or, with `to: "ags4"`, DIGGS to AGS4 4.2 or 4.1.1
+(`conversionOutput(result)` gives the output, `conversionResidual(result)` what was not
+converted) and `checkAgs4(file, { dictionary })`, with the file never leaving the tab. Refusals carry pyDIGGS's
 problem (`error.problem.code`, `detail`, `errors`, `kind`).
 
 Create the worker when the page opens, so its first-visit download (about 14 MB, cached
@@ -141,7 +142,7 @@ ran and why. Without a `server`, nothing is ever uploaded.
 For apps whose server is JavaScript (Next.js, Express, Fastify, Hono, a serverless
 function on the Node runtime), `PydiggsNode` runs pyDIGGS in a worker thread on Pyodide
 from npm, and `createPydiggsHandler` serves the same `/v1` API as `pydiggs serve --http`
-(validate with `checks`, `diggs_version` and SARIF, read with `select`, AGS4 convert and
+(validate with `checks`, `diggs_version` and SARIF, read with `select`, convert both ways, AGS4
 check, versions, capabilities and rules), answered by the same service layer:
 
 ```ts

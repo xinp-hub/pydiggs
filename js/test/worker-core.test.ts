@@ -268,12 +268,14 @@ test("convert, ags4-check and capabilities go to the glue; AGS4 names default to
   handle({ id: 3, type: "ags4-check", name: "", data: bytes(4), parameters: { format: "sarif" } });
   handle({ id: 4, type: "capabilities" });
   handle({ id: 5, type: "convert", data: bytes(2000) });
+  handle({ id: 6, type: "convert", data: bytes(3), parameters: { to: "ags4", ags_version: "4.1.1" } });
   await settle();
   assert.deepEqual(log.slice(3), [
     'convert site.ags 4 1000 {"to":"diggs"}',
     "ags4-check  4 1000 dict=2",
     'ags4-check  4 1000 {"format":"sarif"}',
     "capabilities input.xml - 1000",
+    'convert  3 1000 {"to":"ags4","ags_version":"4.1.1"}',
   ]);
   assert.deepEqual(
     replies.slice(1).map((reply) => [reply.type, "id" in reply ? reply.id : 0]),
@@ -283,6 +285,7 @@ test("convert, ags4-check and capabilities go to the glue; AGS4 names default to
       ["result", 3],
       ["result", 4],
       ["error", 5],
+      ["result", 6],
     ],
   );
   assert.equal((replies[5] as { problem?: { code: string } }).problem?.code, "input-too-large");

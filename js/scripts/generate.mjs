@@ -334,6 +334,14 @@ function emitHttp() {
   blocks.push(
     `/** DIGGS version of a conversion's output. */\nexport type ConvertDiggsVersion = ${emitter.type(convertVersion.schema, "diggs_version")};\n`,
   );
+  const convertTarget = queryParameter("/v1/convert", "post", "to");
+  blocks.push(
+    `/** What a conversion writes: DIGGS from AGS4, or AGS4 from DIGGS. */\nexport type ConvertTarget = ${emitter.type(convertTarget.schema, "to")};\n`,
+  );
+  const convertAgs = queryParameter("/v1/convert", "post", "ags_version");
+  blocks.push(
+    `/** AGS4 version of a DIGGS to AGS4 conversion's output. */\nexport type ConvertAgsVersion = ${emitter.type(convertAgs.schema, "ags_version")};\n`,
+  );
 
   const imports = [...imported]
     .sort()

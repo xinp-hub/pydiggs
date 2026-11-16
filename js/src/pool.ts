@@ -120,7 +120,7 @@ export class PydiggsPool<E extends PoolEngine = PoolEngine> {
     return this.#pick().explainRule(ruleId, options);
   }
 
-  /** Converts an AGS4 file to DIGGS on the least busy engine. */
+  /** Converts AGS4 to DIGGS, or DIGGS to AGS4 with `to: "ags4"`, on the least busy engine. */
   convert(input: DocumentBytes, options?: WorkerConvertOptions): Promise<ConversionResult> {
     return this.#pick().convert(input, options);
   }

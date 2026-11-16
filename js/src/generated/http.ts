@@ -140,3 +140,9 @@ export type RuleStep = "structure" | "schema" | "codeType" | "dictionary" | "sch
 
 /** DIGGS version of a conversion's output. */
 export type ConvertDiggsVersion = "3.0.0";
+
+/** What a conversion writes: DIGGS from AGS4, or AGS4 from DIGGS. */
+export type ConvertTarget = "diggs" | "ags4";
+
+/** AGS4 version of a DIGGS to AGS4 conversion's output. */
+export type ConvertAgsVersion = "4.2" | "4.1.1";

@@ -57,8 +57,10 @@ export interface RequestParameters {
   diggs_version?: string;
   /** validate, ags4-check: "findings" (default) or "sarif". */
   format?: "findings" | "sarif";
-  /** convert: the target format; "diggs" is the only one. */
-  to?: "diggs";
+  /** convert: the target format, "diggs" (the default) or "ags4". */
+  to?: "diggs" | "ags4";
+  /** convert to "ags4": the AGS4 version of the output. */
+  ags_version?: string;
   /** read: which result tables keep their values. */
   select?: { results: "all" | "none" | string[] };
   /** rules: only this step's rules. */

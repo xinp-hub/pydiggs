@@ -73,8 +73,8 @@ def _outcome(out):
         return "D" + out.document.decode("utf-8")
     return _problem(out.code.value, out.detail, out.errors, out.kind)
 
-def _too_old(what):
-    return _problem("internal", f"this pydiggs is too old for {what} (needs 1.10.0 or later)")
+def _too_old(what, version="1.10.0"):
+    return _problem("internal", f"this pydiggs is too old for {what} (needs {version} or later)")
 
 def run(kind, data, name, max_bytes, parameters, dictionary=None):
     if _svc is None:
@@ -93,9 +93,14 @@ def run(kind, data, name, max_bytes, parameters, dictionary=None):
         if kind == "convert":
             if not hasattr(_svc, "convert"):
                 return _too_old("convert")
+            extra = {}
+            if p.get("ags_version") is not None:
+                if not hasattr(_svc, "CONVERT_AGS_VERSIONS"):
+                    return _too_old("convert to AGS4", "1.11.0")
+                extra["ags_version"] = p["ags_version"]
             return _outcome(_svc.convert(_svc.ConvertRequest(
                 content=data.to_bytes(), name=name or None, to=p.get("to", "diggs"),
-                diggs_version=p.get("diggs_version"), max_bytes=max_bytes)))
+                diggs_version=p.get("diggs_version"), max_bytes=max_bytes, **extra)))
         if kind == "ags4-check":
             if not hasattr(_svc, "ags4_check"):
                 return _too_old("checkAgs4")

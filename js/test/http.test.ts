@@ -210,6 +210,15 @@ test("convert posts the AGS4 bytes as they are, with name, target and version in
   );
 });
 
+test("convert to AGS4 posts the DIGGS XML as application/xml with to=ags4 and the AGS4 version", async () => {
+  const { fetch, seen } = fakeFetch(() => json(CONVERSION));
+  const client = new PydiggsHttpClient({ baseUrl: "http://127.0.0.1:8000", fetch });
+  await client.convert("<Diggs/>", { name: "site.xml", to: "ags4", agsVersion: "4.1.1" });
+  const [request] = seen;
+  assert.deepEqual(Object.fromEntries(request.url.searchParams), { name: "site.xml", to: "ags4", ags_version: "4.1.1" });
+  assert.equal(headerOf(request, "Content-Type"), "application/xml");
+});
+
 test("checkAgs4 sends the file raw, or as multipart with a dictionary; SARIF by Accept", async () => {
   const { fetch, seen } = fakeFetch((request) =>
     headerOf(request, "Accept") === "application/sarif+json" ? json({ version: "2.1.0", runs: [] }) : json(FINDINGS),

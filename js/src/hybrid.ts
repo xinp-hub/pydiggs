@@ -12,7 +12,7 @@ import { PydiggsError } from "./errors.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import { DEFAULT_MAX_BYTES } from "./generated/pins.ts";
-import type { ConversionResult, ConvertDiggsVersion, DiggsVersion, PydiggsHttpClient, ValidateCheck } from "./http.ts";
+import type { ConversionResult, ConvertAgsVersion, ConvertDiggsVersion, ConvertTarget, DiggsVersion, PydiggsHttpClient, ValidateCheck } from "./http.ts";
 
 export { PydiggsError } from "./errors.ts";
 
@@ -48,12 +48,19 @@ export type HybridBrowser = Pick<PoolEngine, "status" | "ready" | "validate" | "
   Partial<Pick<PoolEngine, "convert" | "checkAgs4">>;
 
 export interface HybridConvertOptions {
-  /** File name of the AGS4 input. Default: the `File`'s own name. */
+  /** File name of the input. Default: the `File`'s own name. */
   name?: string;
   /** Stops waiting for the answer. */
   signal?: AbortSignal;
-  /** DIGGS version of the output. Default: the converter's, 3.0.0. */
+  /**
+   * What to write: `"diggs"` (the default: the input is AGS4) or `"ags4"` (the input is
+   * DIGGS XML; pyDIGGS 1.11 or later).
+   */
+  to?: ConvertTarget;
+  /** For `to: "diggs"`: DIGGS version of the output. Default: the converter's, 3.0.0. */
   diggsVersion?: ConvertDiggsVersion;
+  /** For `to: "ags4"`: AGS4 version of the output. Default: 4.2. */
+  agsVersion?: ConvertAgsVersion;
 }
 
 export interface HybridAgs4CheckOptions {
@@ -196,12 +203,17 @@ export class PydiggsHybrid {
   }
 
   /**
-   * Converts an AGS4 file to DIGGS where it can run. `conversionOutput(document)`
-   * gives the DIGGS XML. Bytes that are not AGS4 are an error on either route.
+   * Converts an AGS4 file to DIGGS, or with `to: "ags4"` a DIGGS document to AGS4, where
+   * it can run. `conversionOutput(document)` gives the output. Bytes that are not of the
+   * input's format are an error on either route.
    */
   convert(input: BrowserDocumentInput, options: HybridConvertOptions = {}): Promise<HybridResult<ConversionResult>> {
     const request = this.#ags4Request(input, options);
-    const version = options.diggsVersion ? { diggsVersion: options.diggsVersion } : {};
+    const version = {
+      ...(options.to ? { to: options.to } : {}),
+      ...(options.diggsVersion ? { diggsVersion: options.diggsVersion } : {}),
+      ...(options.agsVersion ? { agsVersion: options.agsVersion } : {}),
+    };
     const browser = this.#browser;
     return this.#run(
       input,

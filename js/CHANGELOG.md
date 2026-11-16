@@ -10,19 +10,23 @@ matching pyDIGGS version number.
 
 ### Added
 
-- AGS4, from pyDIGGS 1.10 and 1.11, on every engine: `convert(file)` turns an AGS4 file into
-  DIGGS 3.0.0 (the result carries the XML as base64 with its sha256, the findings about
-  the source and the output's validation), and `checkAgs4(file, { dictionary })` and
-  `checkAgs4Sarif` check it against the AGS4 rules. In `PydiggsBrowser` the file never
-  leaves the tab; `PydiggsNode`, `PydiggsPool`, `PydiggsHybrid` and `PydiggsHttpClient`
-  have the same calls, and `createPydiggsHandler` serves `/v1/convert` and
-  `/v1/ags4/check`. CI compares every answer with CPython's.
-- `conversionOutput(result)`: the converted DIGGS XML as bytes, checked against its
-  sha256 (uses `Uint8Array.fromBase64` where the runtime has it).
+- AGS4, from pyDIGGS 1.10 and 1.11, on every engine: `convert(file)` turns an AGS4 file
+  into DIGGS 3.0.0, and `convert(file, { to: "ags4", agsVersion })` a DIGGS document into
+  an AGS4 file (4.2, or 4.1.1). The result carries the output as base64 with its sha256,
+  the findings about the source and the output's validation. `checkAgs4(file,
+  { dictionary })` and `checkAgs4Sarif` check an AGS4 file against the AGS4 rules. In
+  `PydiggsBrowser` the file never leaves the tab; `PydiggsNode`, `PydiggsPool`,
+  `PydiggsHybrid` and `PydiggsHttpClient` have the same calls, and `createPydiggsHandler`
+  serves `/v1/convert` (both ways) and `/v1/ags4/check`. CI compares every answer with
+  CPython's.
+- `conversionOutput(result)`: the converted file as bytes, checked against its sha256
+  (uses `Uint8Array.fromBase64` where the runtime has it), and `conversionResidual(result)`:
+  for AGS4 to DIGGS, the AGS4 file of every value that was not converted.
 - `capabilities()` on every engine and the HTTP client, and `/v1/capabilities` from the
   handler: what this pyDIGGS can do.
 - Types for conversion results and capabilities documents (`ConversionResult`,
-  `Capabilities`, `ConvertDiggsVersion`), generated from pyDIGGS's OpenAPI document.
+  `Capabilities`, `ConvertTarget`, `ConvertDiggsVersion`, `ConvertAgsVersion`),
+  generated from pyDIGGS's OpenAPI document.
 
 ### Changed
 

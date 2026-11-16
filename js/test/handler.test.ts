@@ -305,14 +305,33 @@ test("convert takes AGS4 as text or bytes, checks `to`, and names nothing unless
   const handle = createPydiggsHandler(value);
   assert.equal((await handle(ags4("/v1/convert?name=dir/site.ags&diggs_version=3.0.0"))).status, 200);
   assert.equal((await handle(ags4("/v1/convert", { headers: { "Content-Type": "application/octet-stream" } }))).status, 200);
-  const wrongTarget = await handle(ags4("/v1/convert?to=ags4"));
+  const wrongTarget = await handle(ags4("/v1/convert?to=csv"));
   assert.equal(wrongTarget.status, 422);
-  assert.deepEqual((await wrongTarget.json()).errors, [{ parameter: "to", problem: "expected one of diggs" }]);
+  assert.deepEqual((await wrongTarget.json()).errors, [{ parameter: "to", problem: "expected one of diggs, ags4" }]);
   assert.equal((await handle(ags4("/v1/convert", { headers: { "Content-Type": "application/xml" } }))).status, 415);
   assert.equal((await handle(new Request("http://app.test/v1/convert"))).status, 405);
   assert.deepEqual(calls, [
     { kind: "convert", size: 14, name: "site.ags", diggsVersion: "3.0.0" },
     { kind: "convert", size: 14 },
+  ]);
+});
+
+test("convert with to=ags4 takes DIGGS XML, raw or multipart, and passes ags_version on", async () => {
+  const { value, calls } = engine();
+  const handle = createPydiggsHandler(value);
+  const xml = (path: string, type = "application/xml") =>
+    new Request(`http://app.test${path}`, { method: "POST", body: "<Diggs/>", headers: { "Content-Type": type } });
+  assert.equal((await handle(xml("/v1/convert?to=ags4&ags_version=4.1.1&name=site.xml"))).status, 200);
+  assert.equal((await handle(xml("/v1/convert?to=ags4", "text/xml"))).status, 200);
+  assert.equal((await handle(xml("/v1/convert?to=ags4", "text/csv"))).status, 415, "AGS4 text is not the input of to=ags4");
+  const form = new FormData();
+  form.append("file", new File(["<Diggs/>"], "site.xml"));
+  form.append("ags_version", "4.2");
+  assert.equal((await handle(new Request("http://app.test/v1/convert?to=ags4", { method: "POST", body: form }))).status, 200);
+  assert.deepEqual(calls, [
+    { kind: "convert", size: 8, name: "site.xml", to: "ags4", agsVersion: "4.1.1" },
+    { kind: "convert", size: 8, to: "ags4" },
+    { kind: "convert", size: 8, name: "site.xml", to: "ags4", agsVersion: "4.2" },
   ]);
 });
 
