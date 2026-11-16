@@ -45,6 +45,14 @@ function engine(
         return [{ id: "schema.1" }];
       case "explain":
         return { id: options.ruleId, known: true };
+      case "convert":
+        return { to: "diggs", output_name: "site.xml", output_base64: "", report: {} };
+      case "ags4":
+        return { format: "diggs-findings", schema_version: "1.1", files: [] };
+      case "ags4-sarif":
+        return { version: "2.1.0", runs: [] };
+      case "capabilities":
+        return { schema_version: "1.0", operations: [] };
       default:
         return { schema_version: "1.0", features: [], source: { name: options.name } };
     }
@@ -62,6 +70,10 @@ function engine(
     versions: (options) => answer("versions", undefined, options as Record<string, unknown>) as never,
     listRules: (options) => answer("rules", undefined, options as Record<string, unknown>) as never,
     explainRule: (ruleId, options) => answer("explain", undefined, { ...options, ruleId }) as never,
+    convert: (input, options) => answer("convert", input, options as Record<string, unknown>) as never,
+    checkAgs4: (input, options) => answer("ags4", input, options as Record<string, unknown>) as never,
+    checkAgs4Sarif: (input, options) => answer("ags4-sarif", input, options as Record<string, unknown>) as never,
+    capabilities: (options) => answer("capabilities", undefined, options as Record<string, unknown>) as never,
   };
   return { value, calls };
 }
@@ -278,4 +290,59 @@ test("PydiggsHttpClient works against the handler unchanged, multipart included"
   })();
   assert.ok(refused instanceof PydiggsHttpError);
   assert.equal(refused.code, "invalid-document");
+});
+
+const ags4 = (path: string, init: RequestInit = {}) =>
+  new Request(`http://app.test${path}`, {
+    method: "POST",
+    body: '"GROUP","PROJ"',
+    ...init,
+    headers: { "Content-Type": "text/csv", ...(init.headers as Record<string, string>) },
+  });
+
+test("convert takes AGS4 as text or bytes, checks `to`, and names nothing unless asked", async () => {
+  const { value, calls } = engine();
+  const handle = createPydiggsHandler(value);
+  assert.equal((await handle(ags4("/v1/convert?name=dir/site.ags&diggs_version=3.0.0"))).status, 200);
+  assert.equal((await handle(ags4("/v1/convert", { headers: { "Content-Type": "application/octet-stream" } }))).status, 200);
+  const wrongTarget = await handle(ags4("/v1/convert?to=ags4"));
+  assert.equal(wrongTarget.status, 422);
+  assert.deepEqual((await wrongTarget.json()).errors, [{ parameter: "to", problem: "expected one of diggs" }]);
+  assert.equal((await handle(ags4("/v1/convert", { headers: { "Content-Type": "application/xml" } }))).status, 415);
+  assert.equal((await handle(new Request("http://app.test/v1/convert"))).status, 405);
+  assert.deepEqual(calls, [
+    { kind: "convert", size: 14, name: "site.ags", diggsVersion: "3.0.0" },
+    { kind: "convert", size: 14 },
+  ]);
+});
+
+test("ags4/check: raw or multipart with a dictionary, SARIF by Accept", async () => {
+  const { value, calls } = engine();
+  const handle = createPydiggsHandler(value);
+  assert.equal((await handle(ags4("/v1/ags4/check?name=site.ags"))).status, 200);
+  const form = new FormData();
+  form.append("file", new Blob(['"GROUP","PROJ"']), "up.ags");
+  form.append("dictionary", new Blob(["dict"]), "dict.ags");
+  const multipart = await handle(new Request("http://app.test/v1/ags4/check", { method: "POST", body: form }));
+  assert.equal(multipart.status, 200);
+  const sarif = await handle(ags4("/v1/ags4/check", { headers: { Accept: "application/sarif+json" } }));
+  assert.equal(sarif.headers.get("Content-Type"), "application/sarif+json");
+  const extra = new FormData();
+  extra.append("file", new Blob(["x"]), "a.ags");
+  extra.append("other", new Blob(["y"]), "b.ags");
+  assert.equal((await handle(new Request("http://app.test/v1/ags4/check", { method: "POST", body: extra }))).status, 400);
+  assert.deepEqual(
+    calls.map((call) => [call.kind, call.name, (call.dictionary as Uint8Array | undefined)?.byteLength]),
+    [
+      ["ags4", "site.ags", undefined],
+      ["ags4", "up.ags", 4],
+      ["ags4-sarif", undefined, undefined],
+    ],
+  );
+});
+
+test("capabilities is served", async () => {
+  const { value } = engine();
+  const response = await createPydiggsHandler(value)(new Request("http://app.test/v1/capabilities"));
+  assert.equal((await response.json()).schema_version, "1.0");
 });

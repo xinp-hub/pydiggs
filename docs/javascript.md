@@ -71,7 +71,9 @@ except that the package's worker never contacts `pypi.org`.
 It takes what the [HTTP client](#against-a-server) takes, because the worker runs
 pyDIGGS's own service layer, as `pydiggs serve --http` does: `checks` and `diggsVersion`
 for `validate`, `validateSarif`, `results` of `"all"`, `"none"` or a list of node keys
-for `read`, `versions()`, `listRules()` and `explainRule()`. Refusals carry pyDIGGS's
+for `read`, `versions()`, `listRules()`, `explainRule()` and `capabilities()`, and AGS4:
+`convert(file)` to DIGGS 3.0.0 (`conversionOutput(result)` gives the XML) and
+`checkAgs4(file, { dictionary })`, with the file never leaving the tab. Refusals carry pyDIGGS's
 problem (`error.problem.code`, `detail`, `errors`, `kind`).
 
 Create the worker when the page opens, so its first-visit download (about 14 MB, cached
@@ -139,8 +141,8 @@ ran and why. Without a `server`, nothing is ever uploaded.
 For apps whose server is JavaScript (Next.js, Express, Fastify, Hono, a serverless
 function on the Node runtime), `PydiggsNode` runs pyDIGGS in a worker thread on Pyodide
 from npm, and `createPydiggsHandler` serves the same `/v1` API as `pydiggs serve --http`
-(validate with `checks`, `diggs_version` and SARIF, read with `select`, versions and
-rules), answered by the same service layer:
+(validate with `checks`, `diggs_version` and SARIF, read with `select`, AGS4 convert and
+check, versions, capabilities and rules), answered by the same service layer:
 
 ```ts
 import { createPydiggsHandler, PydiggsNode } from "@pydiggs/client/node";

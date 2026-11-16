@@ -8,6 +8,9 @@
 import { PydiggsError } from "./errors.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type {
+  Capabilities,
+  ConversionResult,
+  ConvertDiggsVersion,
   DiggsVersion,
   Problem,
   RuleInfo,
@@ -18,7 +21,20 @@ import type {
 } from "./generated/http.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 
-export type { DiggsVersion, Problem, Ready, RuleInfo, RuleStep, SarifLog, ValidateCheck, Versions } from "./generated/http.ts";
+export type {
+  Capabilities,
+  ConversionResult,
+  ConvertDiggsVersion,
+  DiggsVersion,
+  Problem,
+  Ready,
+  RuleInfo,
+  RuleStep,
+  SarifLog,
+  ValidateCheck,
+  Versions,
+} from "./generated/http.ts";
+export { conversionOutput } from "./convert.ts";
 export { PydiggsError } from "./errors.ts";
 
 /** The `code` of a problem answer; switch on it. */
@@ -73,6 +89,23 @@ export interface ReadOptions extends RequestOptions {
    * keeps its columns and `row_count`.
    */
   results?: "all" | "none" | readonly string[];
+}
+
+export interface ConvertOptions extends RequestOptions {
+  /** File name of the AGS4 input; the output is named after it. */
+  name?: string;
+  /** DIGGS version of the output. Default: the converter's, 3.0.0. */
+  diggsVersion?: ConvertDiggsVersion;
+}
+
+export interface Ags4CheckOptions extends RequestOptions {
+  /** File name to report. */
+  name?: string;
+  /**
+   * An AGS4 data dictionary to check against (pyDIGGS bundles none). Without one, the
+   * rules that need it check only what the file itself declares.
+   */
+  dictionary?: DocumentInput;
 }
 
 export interface ListRulesOptions extends RequestOptions {
@@ -197,6 +230,54 @@ export class PydiggsHttpClient {
     return body as unknown as DiggsModelDocument;
   }
 
+  /**
+   * Converts an AGS4 file to DIGGS. The result carries the DIGGS XML as base64
+   * (`conversionOutput(result)` gives the checked bytes), what was found about the
+   * source (`report`) and the output's validation (`validation`). Bytes that are not
+   * AGS4 are a `PydiggsHttpError` with code `invalid-document`.
+   */
+  async convert(document: DocumentInput, options: ConvertOptions = {}): Promise<ConversionResult> {
+    const body = await this.#json({
+      method: "POST",
+      path: "/v1/convert",
+      query: { name: options.name, to: "diggs", diggs_version: options.diggsVersion },
+      body: document as BodyInit,
+      contentType: "application/octet-stream",
+      signal: options.signal,
+    });
+    if (!isRecord(body) || typeof body["output_base64"] !== "string" || !isRecord(body["report"])) {
+      throw new PydiggsHttpError("The answer is not a conversion result.", 200);
+    }
+    return body as unknown as ConversionResult;
+  }
+
+  /** Checks an AGS4 file against the AGS4 rules; the answer is a findings document. */
+  async checkAgs4(document: DocumentInput, options: Ags4CheckOptions = {}): Promise<DiggsFindingsDocument> {
+    const body = await this.#json(this.#ags4Call(document, options, "application/json"));
+    if (!isRecord(body) || body["format"] !== "diggs-findings" || !Array.isArray(body["files"])) {
+      throw new PydiggsHttpError("The answer is not a diggs-findings document.", 200);
+    }
+    return body as unknown as DiggsFindingsDocument;
+  }
+
+  /** Checks an AGS4 file and returns the findings as a SARIF 2.1.0 log. */
+  async checkAgs4Sarif(document: DocumentInput, options: Ags4CheckOptions = {}): Promise<SarifLog> {
+    const body = await this.#json(this.#ags4Call(document, options, "application/sarif+json"));
+    if (!isRecord(body) || body["version"] !== "2.1.0" || !Array.isArray(body["runs"])) {
+      throw new PydiggsHttpError("The answer is not a SARIF 2.1.0 log.", 200);
+    }
+    return body as unknown as SarifLog;
+  }
+
+  /** What the server's pydiggs can do: its operations, their options and extras. */
+  async capabilities(options: RequestOptions = {}): Promise<Capabilities> {
+    const body = await this.#json({ method: "GET", path: "/v1/capabilities", signal: options.signal });
+    if (!isRecord(body) || typeof body["schema_version"] !== "string" || !Array.isArray(body["operations"])) {
+      throw new PydiggsHttpError("The answer is not a capabilities document.", 200);
+    }
+    return body as unknown as Capabilities;
+  }
+
   /** The server's pydiggs version, findings schema and reference-data commits. */
   async versions(options: RequestOptions = {}): Promise<Versions> {
     const body = await this.#json({ method: "GET", path: "/v1/versions", signal: options.signal });
@@ -256,6 +337,19 @@ export class PydiggsHttpClient {
       contentType: "application/xml",
       signal: options.signal,
     };
+  }
+
+  // A dictionary goes as a second multipart part; without one, the file goes as it is.
+  #ags4Call(document: DocumentInput, options: Ags4CheckOptions, accept: string): Call {
+    const base = { method: "POST" as const, path: "/v1/ags4/check", accept, signal: options.signal };
+    if (options.dictionary === undefined) {
+      return { ...base, query: { name: options.name }, body: document as BodyInit, contentType: "application/octet-stream" };
+    }
+    const form = new FormData();
+    form.append("file", toBlob(document), options.name ?? "input.ags");
+    form.append("dictionary", toBlob(options.dictionary), "dictionary.ags");
+    if (options.name !== undefined) form.append("name", options.name);
+    return { ...base, body: form };
   }
 
   async #json(call: Call): Promise<unknown> {

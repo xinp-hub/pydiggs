@@ -39,6 +39,15 @@ class FakeBrowser {
     if (this.fail) throw this.fail;
     return { from: "browser" };
   }
+  async convert(_input: unknown, options: { name?: string; diggsVersion?: string }) {
+    this.calls.push(`convert ${options.name} ${options.diggsVersion}`);
+    if (this.fail) throw this.fail;
+    return { from: "browser" };
+  }
+  async checkAgs4(_input: unknown, options: { name?: string; dictionary?: unknown }) {
+    this.calls.push(`checkAgs4 ${options.name} ${options.dictionary !== undefined}`);
+    return { from: "browser" };
+  }
 }
 
 class FakeServer {
@@ -49,6 +58,14 @@ class FakeServer {
   }
   async read(_input: unknown, options: { name: string; results: string }) {
     this.calls.push(`read ${options.name} ${options.results}`);
+    return { from: "server" };
+  }
+  async convert(_input: unknown, options: { name?: string; diggsVersion?: string }) {
+    this.calls.push(`convert ${options.name} ${options.diggsVersion}`);
+    return { from: "server" };
+  }
+  async checkAgs4(_input: unknown, options: { name?: string; dictionary?: unknown }) {
+    this.calls.push(`checkAgs4 ${options.name} ${options.dictionary !== undefined}`);
     return { from: "server" };
   }
 }
@@ -203,4 +220,25 @@ test("route() reports the decision without sending anything", async () => {
 
 test("a hybrid needs at least one way to run pydiggs", () => {
   assert.throws(() => new PydiggsHybrid({}), PydiggsError);
+});
+
+test("convert and checkAgs4 run in the browser when they can, on the server when not", async () => {
+  const browser = new FakeBrowser();
+  const server = new FakeServer();
+  const ags = new File([new Uint8Array(10)], "site.ags");
+  const inTab = await hybrid({ browser, server }).convert(ags, { diggsVersion: "3.0.0" });
+  assert.deepEqual([inTab.via, inTab.reason], ["browser", "browser"]);
+  const big = await hybrid({ browser, server, maxBrowserBytes: 5 }).checkAgs4(ags, { dictionary: new Uint8Array(1) });
+  assert.deepEqual([big.via, big.reason], ["server", "too-large"]);
+  assert.deepEqual(browser.calls, ["convert site.ags 3.0.0"]);
+  assert.deepEqual(server.calls, ["checkAgs4 site.ags true"]);
+});
+
+test("an engine without convert sends conversions to the server", async () => {
+  const browser = new FakeBrowser();
+  (browser as { convert?: unknown }).convert = undefined;
+  const server = new FakeServer();
+  const result = await hybrid({ browser, server }).convert(new Uint8Array(3));
+  assert.deepEqual([result.via, result.reason], ["server", "no-browser"]);
+  assert.deepEqual(server.calls, ["convert undefined undefined"], "an unnamed AGS4 file stays unnamed");
 });

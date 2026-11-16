@@ -45,8 +45,9 @@ const VALIDATION_ONLY = new Set([
   "maxItems",
   "format",
   "contentMediaType",
+  "contentEncoding",
 ]);
-const ANNOTATIONS = new Set(["title", "description", "examples", "$schema", "$id", "$defs"]);
+const ANNOTATIONS = new Set(["title", "description", "examples", "default", "$schema", "$id", "$defs"]);
 const STRUCTURAL = new Set([
   "type",
   "properties",
@@ -280,7 +281,9 @@ if (missing.length > 0 || unknown.length > 0) {
 
 // --- http.ts ---------------------------------------------------------------------------
 
-const HTTP_COMPONENTS = ["Problem", "Ready", "RuleInfo", "Versions", "SarifLog"];
+const HTTP_COMPONENTS = ["Problem", "Ready", "RuleInfo", "Versions", "SarifLog", "ConversionResult", "Capabilities"];
+// Components the HTTP types may point at, generated in findings.ts and imported from it.
+const HTTP_IMPORTS = { DiggsFindingsDocument: "./findings.ts" };
 
 function queryParameter(path, method, name) {
   const parameter = (openapi.paths[path]?.[method]?.parameters ?? []).find((p) => p.name === name);
@@ -289,8 +292,14 @@ function queryParameter(path, method, name) {
 }
 
 function emitHttp() {
+  const imported = new Set();
   const emitter = new Emitter((ref) => {
-    throw new Error(`${OPENAPI}: unexpected $ref "${ref}" in a component this package generates`);
+    const name = /^#\/components\/schemas\/(\w+)$/.exec(ref)?.[1];
+    if (!name || !(name in HTTP_IMPORTS)) {
+      throw new Error(`${OPENAPI}: unexpected $ref "${ref}" in a component this package generates`);
+    }
+    imported.add(name);
+    return name;
   });
   const blocks = HTTP_COMPONENTS.map((name) => {
     const component = components[name];
@@ -321,7 +330,16 @@ function emitHttp() {
   const step = queryParameter("/v1/rules", "get", "step");
   blocks.push(`/** ${step.description} */\nexport type RuleStep = ${emitter.type(step.schema, "step")};\n`);
 
-  return `${HEADER(OPENAPI)}\n${blocks.join("\n")}`;
+  const convertVersion = queryParameter("/v1/convert", "post", "diggs_version");
+  blocks.push(
+    `/** DIGGS version of a conversion's output. */\nexport type ConvertDiggsVersion = ${emitter.type(convertVersion.schema, "diggs_version")};\n`,
+  );
+
+  const imports = [...imported]
+    .sort()
+    .map((name) => `import type { ${name} } from "${HTTP_IMPORTS[name]}";\n`)
+    .join("");
+  return `${HEADER(OPENAPI)}\n${imports ? `${imports}\n` : ""}${blocks.join("\n")}`;
 }
 
 // --- pins.ts ---------------------------------------------------------------------------

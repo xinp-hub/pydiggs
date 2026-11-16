@@ -27,6 +27,9 @@ import {
 export type {
   DiggsVersion,
   DocumentBytes,
+  Capabilities,
+  ConversionResult,
+  ConvertDiggsVersion,
   RuleInfo,
   RuleStep,
   SarifLog,
@@ -36,6 +39,8 @@ export type {
   WorkerCallOptions,
   WorkerReadOptions,
   WorkerRequestOptions,
+  WorkerAgs4CheckOptions,
+  WorkerConvertOptions,
   WorkerRulesOptions,
   WorkerStatus,
   WorkerValidateOptions,
@@ -43,6 +48,7 @@ export type {
 export type { LoadStage, RuntimeVersions } from "./protocol.ts";
 export { DEFAULT_INTERRUPT_GRACE_MS, PydiggsWorkerError } from "./worker-client.ts";
 export { PydiggsError } from "./errors.ts";
+export { conversionOutput } from "./convert.ts";
 export { defaultPoolSize, type PoolEngine, PydiggsPool, type PydiggsPoolOptions } from "./pool.ts";
 export { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYODIDE_VERSION } from "./generated/pins.ts";
 export { ABSOLUTE_MAX_BYTES } from "./worker-core.ts";

@@ -39,7 +39,15 @@ export interface InitMessage {
 }
 
 /** What a request asks of pydiggs's service layer, as the HTTP API does. */
-export type RequestKind = "validate" | "read" | "rules" | "explain" | "versions";
+export type RequestKind =
+  | "validate"
+  | "read"
+  | "rules"
+  | "explain"
+  | "versions"
+  | "convert"
+  | "ags4-check"
+  | "capabilities";
 
 /** The request's parameters, in the HTTP API's own names. */
 export interface RequestParameters {
@@ -47,8 +55,10 @@ export interface RequestParameters {
   checks?: string[];
   /** validate, read: the DIGGS version to use instead of the detected one. */
   diggs_version?: string;
-  /** validate: "findings" (default) or "sarif". */
+  /** validate, ags4-check: "findings" (default) or "sarif". */
   format?: "findings" | "sarif";
+  /** convert: the target format; "diggs" is the only one. */
+  to?: "diggs";
   /** read: which result tables keep their values. */
   select?: { results: "all" | "none" | string[] };
   /** rules: only this step's rules. */
@@ -63,8 +73,10 @@ export interface RequestMessage {
   type: RequestKind;
   /** validate, read: the file name to report. */
   name?: string;
-  /** validate, read: the document. */
+  /** validate, read, convert, ags4-check: the document. */
   data?: ArrayBuffer;
+  /** ags4-check: an AGS4 data dictionary. Transferred like `data`. */
+  dictionary?: ArrayBuffer;
   parameters?: RequestParameters;
 }
 

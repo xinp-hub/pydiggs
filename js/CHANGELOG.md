@@ -8,6 +8,27 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Added
+
+- AGS4, from pyDIGGS 1.10, on every engine: `convert(file)` turns an AGS4 file into
+  DIGGS 3.0.0 (the result carries the XML as base64 with its sha256, the findings about
+  the source and the output's validation), and `checkAgs4(file, { dictionary })` and
+  `checkAgs4Sarif` check it against the AGS4 rules. In `PydiggsBrowser` the file never
+  leaves the tab; `PydiggsNode`, `PydiggsPool`, `PydiggsHybrid` and `PydiggsHttpClient`
+  have the same calls, and `createPydiggsHandler` serves `/v1/convert` and
+  `/v1/ags4/check`. CI compares every answer with CPython's.
+- `conversionOutput(result)`: the converted DIGGS XML as bytes, checked against its
+  sha256 (uses `Uint8Array.fromBase64` where the runtime has it).
+- `capabilities()` on every engine and the HTTP client, and `/v1/capabilities` from the
+  handler: what this pyDIGGS can do.
+- Types for conversion results and capabilities documents (`ConversionResult`,
+  `Capabilities`, `ConvertDiggsVersion`), generated from pyDIGGS's OpenAPI document.
+
+### Changed
+
+- Runs pyDIGGS 1.10.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256. Validation is
+  about a fifth faster on documents with many Schematron hits.
+
 ## [0.5.0] - 2026-11-13
 
 ### Added

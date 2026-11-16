@@ -4,7 +4,17 @@
 
 import { PydiggsError } from "./errors.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
-import type { DiggsVersion, RuleInfo, RuleStep, SarifLog, ValidateCheck, Versions } from "./generated/http.ts";
+import type {
+  Capabilities,
+  ConversionResult,
+  ConvertDiggsVersion,
+  DiggsVersion,
+  RuleInfo,
+  RuleStep,
+  SarifLog,
+  ValidateCheck,
+  Versions,
+} from "./generated/http.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import type {
   InitMessage,
@@ -17,7 +27,17 @@ import type {
   ServiceProblem,
 } from "./protocol.ts";
 
-export type { DiggsVersion, RuleInfo, RuleStep, SarifLog, ValidateCheck, Versions } from "./generated/http.ts";
+export type {
+  Capabilities,
+  ConversionResult,
+  ConvertDiggsVersion,
+  DiggsVersion,
+  RuleInfo,
+  RuleStep,
+  SarifLog,
+  ValidateCheck,
+  Versions,
+} from "./generated/http.ts";
 
 /** The part of a worker this package uses: a Web `Worker`, or an adapted worker thread. */
 export interface WorkerLike {
@@ -68,6 +88,19 @@ export interface WorkerReadOptions extends WorkerRequestOptions {
    * files it read.
    */
   results?: boolean | "all" | "none" | readonly string[];
+}
+
+export interface WorkerConvertOptions extends WorkerRequestOptions {
+  /** DIGGS version of the output. Default: the converter's, 3.0.0. */
+  diggsVersion?: ConvertDiggsVersion;
+}
+
+export interface WorkerAgs4CheckOptions extends WorkerRequestOptions {
+  /**
+   * An AGS4 data dictionary to check against (pyDIGGS bundles none). Without one, the
+   * rules that need it check only what the file itself declares.
+   */
+  dictionary?: DocumentBytes;
 }
 
 export interface WorkerRulesOptions extends WorkerCallOptions {
@@ -121,8 +154,13 @@ async function copyBytes(input: DocumentBytes): Promise<ArrayBuffer> {
 }
 
 export function documentName(input: DocumentBytes, name: string | undefined): string {
+  return givenName(input, name) ?? "input.xml";
+}
+
+// The name given, else a `File`'s own name; undefined lets pyDIGGS choose (for AGS4).
+function givenName(input: DocumentBytes, name: string | undefined): string | undefined {
   if (name !== undefined) return name;
-  return "name" in input && typeof input.name === "string" && input.name !== "" ? input.name : "input.xml";
+  return "name" in input && typeof input.name === "string" && input.name !== "" ? input.name : undefined;
 }
 
 /** The `select` pydiggs's service layer takes, from a `results` option. */
@@ -255,6 +293,32 @@ export class WorkerClient {
     return this.#document("read", input, options, parameters) as Promise<DiggsModelDocument>;
   }
 
+  /**
+   * Converts an AGS4 file to DIGGS, as `/v1/convert` does. `conversionOutput(result)`
+   * gives the DIGGS XML, checked against its sha256. Bytes that are not AGS4 are an
+   * error with `problem.code` "invalid-document".
+   */
+  convert(input: DocumentBytes, options: WorkerConvertOptions = {}): Promise<ConversionResult> {
+    const parameters: RequestParameters = { to: "diggs" };
+    if (options.diggsVersion !== undefined) parameters.diggs_version = options.diggsVersion;
+    return this.#document("convert", input, options, parameters) as Promise<ConversionResult>;
+  }
+
+  /** Checks an AGS4 file against the AGS4 rules; the answer is a findings document. */
+  checkAgs4(input: DocumentBytes, options: WorkerAgs4CheckOptions = {}): Promise<DiggsFindingsDocument> {
+    return this.#document("ags4-check", input, options, {}, options.dictionary) as Promise<DiggsFindingsDocument>;
+  }
+
+  /** Checks an AGS4 file and returns the findings as a SARIF 2.1.0 log. */
+  checkAgs4Sarif(input: DocumentBytes, options: WorkerAgs4CheckOptions = {}): Promise<SarifLog> {
+    return this.#document("ags4-check", input, options, { format: "sarif" }, options.dictionary) as Promise<SarifLog>;
+  }
+
+  /** What this pydiggs can do, as `/v1/capabilities` gives it. */
+  capabilities(options: WorkerCallOptions = {}): Promise<Capabilities> {
+    return this.#send("capabilities", undefined, undefined, {}, options.signal) as Promise<Capabilities>;
+  }
+
   /** pydiggs's version, its findings schema and reference-data commits, as `/v1/versions` gives them. */
   versions(options: WorkerCallOptions = {}): Promise<Versions> {
     return this.#send("versions", undefined, undefined, {}, options.signal) as Promise<Versions>;
@@ -292,6 +356,7 @@ export class WorkerClient {
     input: DocumentBytes,
     options: WorkerRequestOptions,
     parameters: RequestParameters,
+    dictionary?: DocumentBytes,
   ): Promise<unknown> {
     options.signal?.throwIfAborted();
     if (this.#failure) throw this.#failure;
@@ -303,7 +368,10 @@ export class WorkerClient {
       });
     }
     const data = await copyBytes(input);
-    return this.#send(type, documentName(input, options.name), data, parameters, options.signal);
+    const extra = dictionary === undefined ? undefined : await copyBytes(dictionary);
+    const ags4 = type === "convert" || type === "ags4-check";
+    const name = ags4 ? givenName(input, options.name) : documentName(input, options.name);
+    return this.#send(type, name, data, parameters, options.signal, extra);
   }
 
   #send(
@@ -312,6 +380,7 @@ export class WorkerClient {
     data: ArrayBuffer | undefined,
     parameters: RequestParameters,
     signal: AbortSignal | undefined,
+    dictionary?: ArrayBuffer,
   ): Promise<unknown> {
     try {
       signal?.throwIfAborted();
@@ -323,6 +392,7 @@ export class WorkerClient {
     const message: RequestMessage = { id, type };
     if (name !== undefined) message.name = name;
     if (data !== undefined) message.data = data;
+    if (dictionary !== undefined) message.dictionary = dictionary;
     if (Object.keys(parameters).length > 0) message.parameters = parameters;
     return new Promise<unknown>((resolve, reject) => {
       const onAbort = (): void => {
@@ -340,7 +410,7 @@ export class WorkerClient {
         },
       });
       signal?.addEventListener("abort", onAbort, { once: true });
-      this.#worker.postMessage(message, data ? [data] : []);
+      this.#worker.postMessage(message, [data, dictionary].filter((buffer) => buffer !== undefined));
     });
   }
 
@@ -469,6 +539,29 @@ export class SupervisedWorker {
    */
   read(input: DocumentBytes, options: WorkerReadOptions = {}): Promise<DiggsModelDocument> {
     return this.#run(options.signal, (client) => client.read(input, options));
+  }
+
+  /**
+   * Converts an AGS4 file to DIGGS, as `/v1/convert` does. `conversionOutput(result)`
+   * gives the DIGGS XML, checked against its sha256.
+   */
+  convert(input: DocumentBytes, options: WorkerConvertOptions = {}): Promise<ConversionResult> {
+    return this.#run(options.signal, (client) => client.convert(input, options));
+  }
+
+  /** Checks an AGS4 file against the AGS4 rules; the answer is a findings document. */
+  checkAgs4(input: DocumentBytes, options: WorkerAgs4CheckOptions = {}): Promise<DiggsFindingsDocument> {
+    return this.#run(options.signal, (client) => client.checkAgs4(input, options));
+  }
+
+  /** Checks an AGS4 file and returns the findings as a SARIF 2.1.0 log. */
+  checkAgs4Sarif(input: DocumentBytes, options: WorkerAgs4CheckOptions = {}): Promise<SarifLog> {
+    return this.#run(options.signal, (client) => client.checkAgs4Sarif(input, options));
+  }
+
+  /** What this pydiggs can do: its operations, their options and extras. */
+  capabilities(options: WorkerCallOptions = {}): Promise<Capabilities> {
+    return this.#run(options.signal, (client) => client.capabilities(options));
   }
 
   /** pydiggs's version, its findings schema and reference-data commits. */

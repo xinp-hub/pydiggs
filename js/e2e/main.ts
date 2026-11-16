@@ -2,7 +2,7 @@
 // the README says. Playwright drives it in tests/browser-worker.spec.ts.
 /// <reference types="vite/client" />
 
-import { type LoadStage, PydiggsBrowser } from "@pydiggs/client/browser";
+import { conversionOutput, type LoadStage, PydiggsBrowser } from "@pydiggs/client/browser";
 
 const $ = (id: string): HTMLElement => document.getElementById(id)!;
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -40,6 +40,21 @@ input.addEventListener("change", async () => {
   const file = input.files?.[0];
   if (!file) return;
   $("result-status").textContent = `working:${file.name}`;
+  if (file.name.endsWith(".ags")) {
+    // An AGS4 file: converted to DIGGS and checked, in this tab.
+    try {
+      const conversion = await pydiggs.convert(file);
+      const xml = await conversionOutput(conversion);
+      $("conversion").textContent = JSON.stringify(conversion);
+      $("converted-xml").textContent = new TextDecoder().decode(xml);
+      $("findings").textContent = JSON.stringify(await pydiggs.checkAgs4(file));
+      $("result-status").textContent = `done:${file.name}`;
+    } catch (error) {
+      $("result-status").textContent = `error:${file.name}`;
+      $("error").textContent = message(error);
+    }
+    return;
+  }
   try {
     const findings = await pydiggs.validate(file);
     const model = await pydiggs.read(file);

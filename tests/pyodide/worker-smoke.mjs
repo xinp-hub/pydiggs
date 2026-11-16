@@ -13,6 +13,9 @@
 //     for `read`; a bad parameter is pydiggs's invalid-parameter problem;
 //   - a document over the limit is refused without reaching Python;
 //   - replies arrive in request order, one per request;
+//   - AGS4: convert, and a check with and without a data dictionary (also as SARIF),
+//     equal CPython's service layer, and the converted XML decodes to the converter's
+//     bytes; capabilities lists the same core operations;
 //   - writing SIGINT to the interrupt buffer stops a long validation with "cancelled",
 //     and the same worker answers the next request.
 // Only the Web Worker shell (js/src/browser-worker.ts: the integrity-checked fetch of
@@ -34,6 +37,7 @@ import { Worker } from "node:worker_threads";
 
 import { loadPyodide } from "pyodide";
 
+import { conversionOutput } from "../../js/src/convert.ts";
 import { createWorkerCore } from "../../js/src/worker-core.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -117,6 +121,18 @@ service.push(["versions", send({ type: "versions" })]);
 service.push(["rules:schema", send({ type: "rules", parameters: { step: "schema" } })]);
 const explainId = JSON.parse(goldens["rules:schema"])[0].id;
 service.push(["explain", send({ type: "explain", parameters: { rule_id: explainId } })]);
+const AGS4 = "site_tier_a.ags";
+const [CHECKED, DICTIONARY] = ["c2_user_group.ags", "c2_dictionary.ags"];
+service.push([`service-convert:${AGS4}`, send({ type: "convert", name: AGS4, data: fixture(AGS4), parameters: { to: "diggs" } })]);
+service.push([`service-ags4-check:${AGS4}`, send({ type: "ags4-check", name: AGS4, data: fixture(AGS4) })]);
+service.push([`ags4:${CHECKED}`, send({ type: "ags4-check", name: CHECKED, data: fixture(CHECKED), dictionary: fixture(DICTIONARY) })]);
+service.push([`ags4-no-dictionary:${CHECKED}`, send({ type: "ags4-check", name: CHECKED, data: fixture(CHECKED) })]);
+service.push([
+  `ags4-sarif:${CHECKED}`,
+  send({ type: "ags4-check", name: CHECKED, data: fixture(CHECKED), dictionary: fixture(DICTIONARY), parameters: { format: "sarif" } }),
+]);
+const capabilitiesId = send({ type: "capabilities" });
+const notAgs4 = send({ type: "convert", name: "x.ags", data: fixture(FIXTURES[0]), parameters: { to: "diggs" } });
 const badChecks = send({ type: "validate", name: "a.xml", data: fixture(FIXTURES[0]), parameters: { checks: ["nope"] } });
 const malformed = arrayBuffer(Buffer.from("<Diggs><unclosed></Diggs>"));
 const badValidate = send({ type: "validate", name: "bad.xml", data: malformed.slice(0) });
@@ -165,6 +181,26 @@ for (const [golden, id] of service) {
   assert.deepEqual(answer.document, JSON.parse(goldens[golden]), `${golden}: differs from CPython's`);
   console.log(`ok  ${golden}: equal to CPython's service layer`);
 }
+// The converted DIGGS, decoded and checked against its sha256, is the converter's XML.
+const conversion = answers.get(service.find(([golden]) => golden.startsWith("service-convert:"))[1]).document;
+const xml = await conversionOutput(conversion);
+assert.equal(new TextDecoder().decode(xml), goldens[`convert:${AGS4}`]);
+console.log(`ok  convert ${AGS4}: ${conversion.output_name}, ${xml.byteLength} bytes, identical to the converter's XML`);
+// Capabilities: the core operations (extras differ between CPython and Pyodide).
+const capabilities = answers.get(capabilitiesId);
+assert.equal(capabilities.type, "result", capabilities.message);
+const core = { ...capabilities.document, operations: capabilities.document.operations.filter((op) => op.needs.length === 0) };
+const sortKeys = (value) =>
+  Array.isArray(value)
+    ? value.map(sortKeys)
+    : value && typeof value === "object"
+      ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, sortKeys(value[key])]))
+      : value;
+assert.deepEqual(sortKeys(core), sortKeys(JSON.parse(goldens.capabilities)));
+console.log(`ok  capabilities: ${core.operations.length} core operations, as CPython lists them`);
+const notAgs4Answer = answers.get(notAgs4);
+assert.deepEqual([notAgs4Answer.type, notAgs4Answer.problem?.code], ["error", "invalid-document"]);
+console.log(`ok  DIGGS XML sent to convert is invalid-document (${notAgs4Answer.problem.kind})`);
 const checksProblem = answers.get(badChecks);
 assert.equal(checksProblem.type, "error");
 assert.equal(checksProblem.problem.code, "invalid-parameter");

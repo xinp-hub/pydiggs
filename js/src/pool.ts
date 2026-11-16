@@ -10,11 +10,15 @@ import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import type { RuntimeVersions } from "./protocol.ts";
 import type {
+  Capabilities,
+  ConversionResult,
   DocumentBytes,
   RuleInfo,
   SarifLog,
   Versions,
+  WorkerAgs4CheckOptions,
   WorkerCallOptions,
+  WorkerConvertOptions,
   WorkerReadOptions,
   WorkerRulesOptions,
   WorkerStatus,
@@ -32,6 +36,10 @@ export interface PoolEngine {
   versions(options?: WorkerCallOptions): Promise<Versions>;
   listRules(options?: WorkerRulesOptions): Promise<RuleInfo[]>;
   explainRule(ruleId: string, options?: WorkerCallOptions): Promise<RuleInfo>;
+  convert(input: DocumentBytes, options?: WorkerConvertOptions): Promise<ConversionResult>;
+  checkAgs4(input: DocumentBytes, options?: WorkerAgs4CheckOptions): Promise<DiggsFindingsDocument>;
+  checkAgs4Sarif(input: DocumentBytes, options?: WorkerAgs4CheckOptions): Promise<SarifLog>;
+  capabilities(options?: WorkerCallOptions): Promise<Capabilities>;
   terminate(): void;
 }
 
@@ -110,6 +118,26 @@ export class PydiggsPool<E extends PoolEngine = PoolEngine> {
   /** One rule, from the least busy engine. */
   explainRule(ruleId: string, options?: WorkerCallOptions): Promise<RuleInfo> {
     return this.#pick().explainRule(ruleId, options);
+  }
+
+  /** Converts an AGS4 file to DIGGS on the least busy engine. */
+  convert(input: DocumentBytes, options?: WorkerConvertOptions): Promise<ConversionResult> {
+    return this.#pick().convert(input, options);
+  }
+
+  /** Checks an AGS4 file on the least busy engine. */
+  checkAgs4(input: DocumentBytes, options?: WorkerAgs4CheckOptions): Promise<DiggsFindingsDocument> {
+    return this.#pick().checkAgs4(input, options);
+  }
+
+  /** Checks an AGS4 file on the least busy engine, as a SARIF 2.1.0 log. */
+  checkAgs4Sarif(input: DocumentBytes, options?: WorkerAgs4CheckOptions): Promise<SarifLog> {
+    return this.#pick().checkAgs4Sarif(input, options);
+  }
+
+  /** What pydiggs can do, from the least busy engine. */
+  capabilities(options?: WorkerCallOptions): Promise<Capabilities> {
+    return this.#pick().capabilities(options);
   }
 
   /** Stops every engine. */

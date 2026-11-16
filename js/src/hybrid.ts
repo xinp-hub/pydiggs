@@ -12,7 +12,7 @@ import { PydiggsError } from "./errors.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import { DEFAULT_MAX_BYTES } from "./generated/pins.ts";
-import type { DiggsVersion, PydiggsHttpClient, ValidateCheck } from "./http.ts";
+import type { ConversionResult, ConvertDiggsVersion, DiggsVersion, PydiggsHttpClient, ValidateCheck } from "./http.ts";
 
 export { PydiggsError } from "./errors.ts";
 
@@ -40,9 +40,34 @@ export interface HybridResult<T> {
   reason: RouteReason;
 }
 
+/**
+ * What runs pydiggs in the tab: a `PydiggsBrowser` or a `PydiggsPool`. An engine of
+ * your own without `convert` or `checkAgs4` sends those requests to the server.
+ */
+export type HybridBrowser = Pick<PoolEngine, "status" | "ready" | "validate" | "read"> &
+  Partial<Pick<PoolEngine, "convert" | "checkAgs4">>;
+
+export interface HybridConvertOptions {
+  /** File name of the AGS4 input. Default: the `File`'s own name. */
+  name?: string;
+  /** Stops waiting for the answer. */
+  signal?: AbortSignal;
+  /** DIGGS version of the output. Default: the converter's, 3.0.0. */
+  diggsVersion?: ConvertDiggsVersion;
+}
+
+export interface HybridAgs4CheckOptions {
+  /** File name to report. Default: the `File`'s own name. */
+  name?: string;
+  /** Stops waiting for the answer. */
+  signal?: AbortSignal;
+  /** An AGS4 data dictionary to check against. */
+  dictionary?: BrowserDocumentInput;
+}
+
 export interface PydiggsHybridOptions {
   /** Runs pydiggs in the tab: a `PydiggsBrowser`, or a `PydiggsPool` of them. Leave it out to use the server only. */
-  browser?: Pick<PoolEngine, "status" | "ready" | "validate" | "read">;
+  browser?: HybridBrowser;
   /** Runs pydiggs on your server. Leave it out and no document is ever uploaded. */
   server?: PydiggsHttpClient;
   /**
@@ -115,7 +140,7 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): 
 }
 
 export class PydiggsHybrid {
-  readonly #browser: Pick<PoolEngine, "status" | "ready" | "validate" | "read"> | undefined;
+  readonly #browser: HybridBrowser | undefined;
   readonly #server: PydiggsHttpClient | undefined;
   readonly #maxBrowserBytes: number;
   readonly #whileLoading: "wait" | "server";
@@ -170,6 +195,47 @@ export class PydiggsHybrid {
     );
   }
 
+  /**
+   * Converts an AGS4 file to DIGGS where it can run. `conversionOutput(document)`
+   * gives the DIGGS XML. Bytes that are not AGS4 are an error on either route.
+   */
+  convert(input: BrowserDocumentInput, options: HybridConvertOptions = {}): Promise<HybridResult<ConversionResult>> {
+    const request = this.#ags4Request(input, options);
+    const version = options.diggsVersion ? { diggsVersion: options.diggsVersion } : {};
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.convert!(input, { ...request, ...version }),
+      () => this.#server!.convert(input, { ...request, ...version }),
+      browser?.convert === undefined,
+    );
+  }
+
+  /** Checks an AGS4 file against the AGS4 rules where it can run. */
+  checkAgs4(
+    input: BrowserDocumentInput,
+    options: HybridAgs4CheckOptions = {},
+  ): Promise<HybridResult<DiggsFindingsDocument>> {
+    const request = this.#ags4Request(input, options);
+    const dictionary = options.dictionary !== undefined ? { dictionary: options.dictionary } : {};
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.checkAgs4!(input, { ...request, ...dictionary }),
+      () => this.#server!.checkAgs4(input, { ...request, ...dictionary }),
+      browser?.checkAgs4 === undefined,
+    );
+  }
+
+  // An AGS4 file keeps the name given, or a File's own; with neither, pyDIGGS names it.
+  #ags4Request(input: BrowserDocumentInput, options: { name?: string; signal?: AbortSignal }) {
+    const name =
+      options.name ?? ("name" in input && typeof input.name === "string" && input.name !== "" ? input.name : undefined);
+    return { ...(name !== undefined ? { name } : {}), ...(options.signal ? { signal: options.signal } : {}) };
+  }
+
   // Sends the document where #decide says. If the worker dies on it (out of memory, say)
   // or it runs past the browser's time limit, the document goes to the server instead.
   // An error about the document is not retried: the server would say the same.
@@ -178,8 +244,9 @@ export class PydiggsHybrid {
     signal: AbortSignal | undefined,
     inBrowser: () => Promise<T>,
     onServer: () => Promise<T>,
+    serverOnly = false,
   ): Promise<HybridResult<T>> {
-    const decision = await this.#decide(input, signal);
+    const decision = serverOnly ? this.#toServer("no-browser") : await this.#decide(input, signal);
     if (decision.via === "server") return { document: await onServer(), ...decision };
     try {
       return { document: await inBrowser(), ...decision };

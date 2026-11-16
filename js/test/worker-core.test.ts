@@ -35,8 +35,8 @@ function fakePyodide(log: string[], extra: Partial<PyodideLike> = {}): PyodideLi
   const globals: Record<string, unknown> = {
     versions: JSON.stringify({ pydiggs: "1.7.0", lxml: "6.1.3" }),
     // The glue's one entry point: "D" and a document, or "E" and a problem.
-    run: callable((kind: string, data: Uint8Array | undefined, name: string, max: number, parameters: string) => {
-      log.push(`${kind} ${name} ${data?.byteLength ?? "-"} ${max} ${parameters}`.trimEnd());
+    run: callable((kind: string, data: Uint8Array | undefined, name: string, max: number, parameters: string, dictionary?: Uint8Array) => {
+      log.push(`${kind} ${name} ${data?.byteLength ?? "-"} ${max} ${parameters}`.trimEnd() + (dictionary ? ` dict=${dictionary.byteLength}` : ""));
       if (name === "bad.xml") return `E${JSON.stringify({ code: "invalid-document", detail: "not DIGGS", errors: [], kind: "not-diggs" })}`;
       if (kind === "validate") return `D${JSON.stringify({ format: "diggs-findings", name })}`;
       if (kind === "read") return `D${JSON.stringify({ schema_version: "1.0", name })}`;
@@ -258,4 +258,32 @@ test("loading reports its stages in order, before ready", async () => {
   await settle();
   assert.deepEqual(stages, ["runtime", "packages", "pydiggs", "warm-up"]);
   assert.equal(replies[0]?.type, "ready");
+});
+
+test("convert, ags4-check and capabilities go to the glue; AGS4 names default to pyDIGGS's", async () => {
+  const { log, replies, handle } = start();
+  handle({ type: "init", maxBytes: 1000 });
+  handle({ id: 1, type: "convert", name: "site.ags", data: bytes(4), parameters: { to: "diggs" } });
+  handle({ id: 2, type: "ags4-check", data: bytes(4), dictionary: bytes(2) });
+  handle({ id: 3, type: "ags4-check", name: "", data: bytes(4), parameters: { format: "sarif" } });
+  handle({ id: 4, type: "capabilities" });
+  handle({ id: 5, type: "convert", data: bytes(2000) });
+  await settle();
+  assert.deepEqual(log.slice(3), [
+    'convert site.ags 4 1000 {"to":"diggs"}',
+    "ags4-check  4 1000 dict=2",
+    'ags4-check  4 1000 {"format":"sarif"}',
+    "capabilities input.xml - 1000",
+  ]);
+  assert.deepEqual(
+    replies.slice(1).map((reply) => [reply.type, "id" in reply ? reply.id : 0]),
+    [
+      ["result", 1],
+      ["result", 2],
+      ["result", 3],
+      ["result", 4],
+      ["error", 5],
+    ],
+  );
+  assert.equal((replies[5] as { problem?: { code: string } }).problem?.code, "input-too-large");
 });
