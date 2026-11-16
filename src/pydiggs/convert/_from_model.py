@@ -42,6 +42,7 @@ from pydiggs.model import (
     Code,
     Column,
     Component,
+    CrsRef,
     DocumentInfo,
     ExtraNode,
     Feature,
@@ -122,6 +123,18 @@ _DIGGS_NS: Final = "http://diggsml.org/schemas/3"
 _GML_NS: Final = "http://www.opengis.net/gml/3.2"
 #: The EPSG code at the end of an srsName.
 _EPSG_URI: Final = re.compile(r"http://www\.opengis\.net/def/crs/EPSG/0/(\d{1,6})")
+#: EPSG's names for a linear axis unit, and the DIGGS unit each one is. "US survey foot" is
+#: not here: the unit table has no entry for it, and "ft" would change the values.
+_EPSG_AXIS_UNITS: Final = {"metre": "m", "meter": "m", "foot": "ft"}
+#: Why cone readings are not written when their depth is not.
+_DEPTH_NO_UNIT: Final = (
+    "Readings of {field} of {element} are at a depth in a unit with no entry in the unit"
+    " table, which AGS4 keys them by; not converted ({values})."
+)
+_DEPTH_CLASH: Final = (
+    "Readings of {field} of {element} are at a depth in another unit than the rest of their"
+    " AGS4 heading, which has one unit and keys the readings; not converted ({values})."
+)
 #: Descriptions of the data types the converter writes (its own words).
 _TYPE_TEXT: Final = {
     "ID": "Unique identifier",
@@ -453,6 +466,8 @@ class _Exporter:
         self.loca_id: dict[str, str] = {}
         self.sample_keys: dict[str, dict[str, str]] = {}
         self.guarded = 0
+        #: Water strike (by identity) -> its feature's LRS, built when first needed.
+        self.strike_lrs: dict[int, str | None] | None = None
         units: dict[str, str] = {}
         for ags, diggs in mapping.units.items():
             units.setdefault(diggs, ags)
@@ -687,6 +702,18 @@ class _Exporter:
         for feature in self.model.features:
             row: dict[str, str] = {}
             loca_id = feature.names[0] if feature.names else (feature.gml_id or feature.key)
+            named = bool(feature.names)
+            if _LINE_BREAK.search(loca_id):
+                # AGS4 cannot write the name (Rule 6): the record's id stands in for it
+                self.ledger.lose(
+                    L.UNMAPPED_ELEMENT,
+                    feature,
+                    "names[0]",
+                    "Names of {element} hold a line break, which an AGS4 LOCA_ID cannot (Rule 6);"
+                    " the id of the record was written instead ({values}).",
+                )
+                loca_id = feature.gml_id or feature.key
+                named = False
             if loca_id in taken:
                 self.ledger.lose(
                     L.UNMAPPED_ELEMENT,
@@ -699,7 +726,7 @@ class _Exporter:
             taken.add(loca_id)
             self.loca_id[feature.key] = loca_id
             self.put(row, table, "LOCA_ID", loca_id)
-            if feature.names:
+            if named:
                 self.ledger.use(feature, "names[0]")
             self.feature_type(row, table, feature)
             self.location(row, table, feature)
@@ -786,10 +813,16 @@ class _Exporter:
                 " ({values}).",
             )
             return
-        axis = self.mapping.crs_units.get(srs or "") or (None if ref is None else ref.unit)
-        unit = self.unit(axis) if axis is not None else ""
+        unit = self.axis_unit(srs, ref)
         if unit is None:
-            unit = ""
+            self.ledger.lose(
+                L.UNMAPPED_UNIT,
+                feature,
+                "location",
+                "Locations of {element} in a CRS whose axis unit has no entry in the unit table;"
+                " not converted ({values}).",
+            )
+            return
         headings = ("LOCA_NATE", "LOCA_NATN", "LOCA_GL")[: position.dim]
         if any(table.units.get(h, unit) != unit for h in headings):
             # an AGS4 heading has one unit: coordinates in another one are not written
@@ -804,6 +837,19 @@ class _Exporter:
         self.epsg_heading(row, table, "LOCA_NSRI", srs)
         self.ledger.use(feature, "location")
         self.centerline(feature)
+
+    def axis_unit(self, srs: str | None, ref: CrsRef | None) -> str | None:
+        """The AGS4 unit of a CRS's axes: "" for no CRS, None when it cannot be named.
+
+        The code table states the unit of the CRSs it lists (a DIGGS uom); any other CRS
+        has the unit name EPSG gives its axes (``metre``, ``foot``).
+        """
+        if srs is None and ref is None:
+            return ""
+        axis = self.mapping.crs_units.get(srs or "")
+        if axis is None and ref is not None and ref.unit is not None:
+            axis = _EPSG_AXIS_UNITS.get(ref.unit.lower(), ref.unit)
+        return None if axis is None else self.unit(axis)
 
     def epsg_heading(
         self, row: dict[str, str], table: _Table, heading: str, srs: str | None
@@ -1033,10 +1079,11 @@ class _Exporter:
 
     def lrs_of(self, component: Component) -> str | None:
         """The linear referencing system the record's own point location is in."""
-        for feature in self.model.features:
-            if any(c is component for c in feature.water_strikes):
-                return feature.lrs
-        return None
+        if self.strike_lrs is None:
+            self.strike_lrs = {
+                id(c): feature.lrs for feature in self.model.features for c in feature.water_strikes
+            }
+        return self.strike_lrs.get(id(component))
 
     # --- lithology ---------------------------------------------------------------------
 
@@ -1114,7 +1161,7 @@ class _Exporter:
                 self.ledger.use(sample, "names[0]")
             if activity.date is not None and activity.date.start:
                 self.put(row, table, "SAMP_DTIM", activity.date.start, kind="DT")
-                self.ledger.use(activity, "date")
+                self.ledger.use(activity, "date.start")
             if activity.params.get("activityType") == "collect":
                 self.ledger.use(activity, "params.activityType")
             self.params(row, table, "SamplingActivity", activity, activity.params)
@@ -1315,19 +1362,34 @@ class _Exporter:
         depth_heading = self.first(data, "index.position")
         if depth_heading is None:  # pragma: no cover - the table lists it
             return
-        unit = self.unit(index[0].uom) or ""
+        unit = self.unit(index[0].uom)
         numbered = "CPTT_REDN" in data.headings
         for number in range(result.row_count):
             out = {h: row.get(h, "") for h in rule.keys}
             position = index[0].values[number]
             if position is None:
                 continue
+            where = f"results[0].position[{number}]"
+            if unit is None:
+                self.ledger.lose(
+                    L.UNMAPPED_UNIT,
+                    measurement,
+                    where,
+                    "Values of {field} of {element} are in a unit with no entry in the unit"
+                    " table; not converted ({values}).",
+                )
+                self.skip_readings(measurement, result, number, _DEPTH_NO_UNIT)
+                continue
             if numbered:
                 self.put(out, table, "CPTT_REDN", str(number + 1), kind="number")
-            self.put(
+            if not self.put(
                 out, table, depth_heading, written_number(float(position)), kind="number", unit=unit
-            )
-            self.ledger.use(measurement, f"results[0].position[{number}]")
+            ):
+                # the depth heading has one unit: the row cannot be keyed, so none of it is written
+                self._clash(measurement, where)
+                self.skip_readings(measurement, result, number, _DEPTH_CLASH)
+                continue
+            self.ledger.use(measurement, where)
             for column in result.columns:
                 self.column(out, table, data, measurement, column, number, "results[0]")
             table.rows.append(out)
@@ -1337,6 +1399,18 @@ class _Exporter:
                 measurement.element,
                 "Cone readings were numbered 1, 2, 3 ... by depth in CPTT_REDN, which AGS4 4.2"
                 " keys them by ({times}).",
+            )
+
+    def skip_readings(
+        self, measurement: Measurement, result: ResultTable, number: int, template: str
+    ) -> None:
+        """Name the readings of row ``number``: its depth was not written, so none are."""
+        for column in result.columns:
+            self.ledger.lose(
+                L.UNMAPPED_UNIT,
+                measurement,
+                f"results[0].{column.key or column.name}[{number}]",
+                template,
             )
 
     def gradings(
@@ -1443,8 +1517,13 @@ class _Exporter:
                 rows=rows,
             )
         used_codes: dict[tuple[str, str], str] = {}
+        listed = {heading for heading, _ in self.abbr}
+        present: dict[str, set[str]] = {}
+        for g in built.values():
+            for heading in listed.intersection(g.headings):
+                present.setdefault(heading, set()).update(g.column(heading))
         for (heading, code), text in self.abbr.items():
-            if not any(heading in g.headings and code in g.column(heading) for g in built.values()):
+            if code not in present.get(heading, ()):
                 continue
             used_codes[(heading, code)] = text
             for part in code.split("+") if "+" in code else ():

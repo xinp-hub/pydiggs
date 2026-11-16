@@ -49,9 +49,9 @@ pattern `project`; status **reviewed**; keys `PROJ_ID`; DIGGS `Project`.
 | `PROJ_ID` | key `gml:name` | reviewed |
 | `PROJ_NAME` | field `name` | reviewed |
 | `PROJ_LOC` | field `locality` | reviewed |
-| `PROJ_CLNT` | not converted: a client is a business associate, which the preview writer does not write | reviewed |
-| `PROJ_CONT` | not converted: a contractor is a business associate, which the preview writer does not write | reviewed |
-| `PROJ_ENG` | not converted: an engineer is a business associate, which the preview writer does not write | reviewed |
+| `PROJ_CLNT` | not converted: a client is a business associate, which the converter does not write | reviewed |
+| `PROJ_CONT` | not converted: a contractor is a business associate, which the converter does not write | reviewed |
+| `PROJ_ENG` | not converted: an engineer is a business associate, which the converter does not write | reviewed |
 | `PROJ_MEMO` | field `remark` | reviewed |
 | `FILE_FSET` | not converted: files named in the FILE group are never opened or converted | reviewed |
 
@@ -63,11 +63,11 @@ pattern `transmission`; status **reviewed**; DIGGS `DocumentInformation`.
 |---|---|---|
 | `TRAN_ISNO` | not converted: DocumentInformation has no issue number | reviewed |
 | `TRAN_DATE` | field `creation_date` | reviewed |
-| `TRAN_PROD` | not converted: the producer is a business associate, which the preview writer does not write | reviewed |
+| `TRAN_PROD` | not converted: the producer is a business associate, which the converter does not write | reviewed |
 | `TRAN_STAT` | not converted: DocumentInformation has no issue status | reviewed |
 | `TRAN_DESC` | field `description` | reviewed |
 | `TRAN_AGS` | format: the AGS4 version of the source; it selects how the file is read | reviewed |
-| `TRAN_RECV` | not converted: the recipient is a business associate, which the preview writer does not write | reviewed |
+| `TRAN_RECV` | not converted: the recipient is a business associate, which the converter does not write | reviewed |
 | `TRAN_DLIM` | format: the record link delimiter, an AGS4 format setting | reviewed |
 | `TRAN_RCON` | format: the concatenation character, an AGS4 format setting | reviewed |
 | `TRAN_REM` | not converted: DocumentInformation has no remark | reviewed |
@@ -133,7 +133,7 @@ pattern `feature`; status **reviewed**; keys `LOCA_ID`.
 |---|---|---|
 | `LOCA_ID` | key `gml:name` | reviewed |
 | `LOCA_TYPE` | field `element` | reviewed |
-| `LOCA_STAT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LOCA_STAT` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `LOCA_NATE` | field `location.x` | reviewed |
 | `LOCA_NATN` | field `location.y` | reviewed |
 | `LOCA_GREF` | field `location.crs` | reviewed |
@@ -144,34 +144,34 @@ pattern `feature`; status **reviewed**; keys `LOCA_ID`.
 | `LOCA_PURP` | not converted: boreholePurpose is a code list; AGS4 gives free text | reviewed |
 | `LOCA_TERM` | not converted: no DIGGS 3.0.0 target for the reason a hole was ended | reviewed |
 | `LOCA_ENDD` | field `when_constructed.end` | reviewed |
-| `LOCA_LETT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `LOCA_LOCX` | not converted: local site coordinates need a local CRS, not in the preview mapping | reviewed |
-| `LOCA_LOCY` | not converted: local site coordinates need a local CRS, not in the preview mapping | reviewed |
-| `LOCA_LOCZ` | not converted: local site coordinates need a local CRS, not in the preview mapping | reviewed |
-| `LOCA_LREF` | not converted: local site coordinates need a local CRS, not in the preview mapping | reviewed |
-| `LOCA_DATM` | not converted: a separate vertical datum is not in the preview mapping | reviewed |
-| `LOCA_ETRV` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
-| `LOCA_NTRV` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
-| `LOCA_LTRV` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
-| `LOCA_XTRL` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
-| `LOCA_YTRL` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
-| `LOCA_ZTRL` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
+| `LOCA_LETT` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `LOCA_LOCX` | not converted: local site coordinates need a local CRS, not converted | reviewed |
+| `LOCA_LOCY` | not converted: local site coordinates need a local CRS, not converted | reviewed |
+| `LOCA_LOCZ` | not converted: local site coordinates need a local CRS, not converted | reviewed |
+| `LOCA_LREF` | not converted: local site coordinates need a local CRS, not converted | reviewed |
+| `LOCA_DATM` | not converted: a separate vertical datum is not converted | reviewed |
+| `LOCA_ETRV` | not converted: traverse end coordinates are not converted | reviewed |
+| `LOCA_NTRV` | not converted: traverse end coordinates are not converted | reviewed |
+| `LOCA_LTRV` | not converted: traverse end coordinates are not converted | reviewed |
+| `LOCA_XTRL` | not converted: traverse end coordinates are not converted | reviewed |
+| `LOCA_YTRL` | not converted: traverse end coordinates are not converted | reviewed |
+| `LOCA_ZTRL` | not converted: traverse end coordinates are not converted | reviewed |
 | `LOCA_LAT` | field `location.lat` | reviewed |
 | `LOCA_LON` | field `location.lon` | reviewed |
-| `LOCA_ELAT` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
-| `LOCA_ELON` | not converted: traverse end coordinates are not in the preview mapping | reviewed |
+| `LOCA_ELAT` | not converted: traverse end coordinates are not converted | reviewed |
+| `LOCA_ELON` | not converted: traverse end coordinates are not converted | reviewed |
 | `LOCA_LLZ` | field `location.datum` | reviewed |
 | `LOCA_LOCM` | not converted: no DIGGS 3.0.0 target for how a location was found | reviewed |
 | `LOCA_LOCA` | not converted: a grouping of locations by site sub-division (a tag, often a code in ABBR), not a description of the location | reviewed |
 | `LOCA_CLST` | not converted: a grouping of locations, typically by investigation phase; DIGGS 3.0.0 has no target for it | reviewed |
-| `LOCA_ALID` | not converted: alignments are not in the preview mapping | reviewed |
-| `LOCA_OFFS` | not converted: alignments are not in the preview mapping | reviewed |
-| `LOCA_CNGE` | not converted: alignments are not in the preview mapping | reviewed |
-| `LOCA_TRAN` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LOCA_ALID` | not converted: alignments are not converted | reviewed |
+| `LOCA_OFFS` | not converted: alignments are not converted | reviewed |
+| `LOCA_CNGE` | not converted: alignments are not converted | reviewed |
+| `LOCA_TRAN` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `LOCA_NATD` | field `location.vertical_datum` | reviewed |
-| `LOCA_ORID` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `LOCA_ORJO` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `LOCA_ORCO` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LOCA_ORID` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `LOCA_ORJO` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `LOCA_ORCO` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `LOCA_GLDT` | not converted: DIGGS 3.0.0 has no date for a ground level | reviewed |
 | `LOCA_VSSL` | not converted: a survey vessel has no DIGGS 3.0.0 target | reviewed |
 | `LOCA_NSRI` | field `location.crs` | reviewed |
@@ -191,9 +191,9 @@ pattern `interval-observation`; status **reviewed**; keys `LOCA_ID`, `GEOL_TOP`,
 | `GEOL_DESC` | param `Lithology/lithDescription` | reviewed |
 | `GEOL_LEG` | param `Lithology/legendCode` | reviewed |
 | `GEOL_GEOL` | not converted: a project geology code; its meaning is in the file's ABBR group, not a unit name | reviewed |
-| `GEOL_GEO2` | not converted: a second geology code has no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `GEOL_STAT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `GEOL_BGS` | not converted: a BGS Lexicon code needs a DIGGS code list, not in the preview mapping | reviewed |
+| `GEOL_GEO2` | not converted: a second geology code has no DIGGS 3.0.0 target | reviewed |
+| `GEOL_STAT` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `GEOL_BGS` | not converted: a BGS Lexicon code needs a DIGGS code list, not converted | reviewed |
 | `GEOL_FORM` | field `geologic_unit` | reviewed |
 | `GEOL_BNDF` | not converted: the base boundary definition is not in the mapping (DIGGS baseBoundary is a candidate for a later table) | reviewed |
 | `GEOL_REM` | field `remark` | reviewed |
@@ -212,33 +212,33 @@ pattern `sample`; status **reviewed**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_REF`, `
 | `SAMP_ID` | key `gml:name` | reviewed |
 | `SAMP_BASE` | field `interval.base` | reviewed |
 | `SAMP_DTIM` | field `date` | reviewed |
-| `SAMP_UBLO` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_CONT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_PREP` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_SDIA` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_WDEP` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `SAMP_UBLO` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_CONT` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_PREP` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_SDIA` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_WDEP` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `SAMP_RECV` | param `SamplingActivity/totalSampleRecovery` (Dimensionless measure) | reviewed |
-| `SAMP_TECH` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_MATX` | not converted: sampleMatrix is a code list; not in the preview mapping | reviewed |
-| `SAMP_TYPC` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_WHO` | not converted: a person is a business associate, which the preview writer does not write | reviewed |
-| `SAMP_WHY` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `SAMP_TECH` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_MATX` | not converted: sampleMatrix is a code list; not converted | reviewed |
+| `SAMP_TYPC` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_WHO` | not converted: a person is a business associate, which the converter does not write | reviewed |
+| `SAMP_WHY` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `SAMP_REM` | field `remark` | reviewed |
 | `SAMP_DESC` | field `description` | reviewed |
-| `SAMP_DESD` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_LOG` | not converted: a person is a business associate, which the preview writer does not write | reviewed |
-| `SAMP_COND` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_CLSS` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_BAR` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_TEMP` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_PRES` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_FLOW` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_ETIM` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_DURN` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_CAPT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `SAMP_LINK` | not converted: record links are not in the preview mapping | reviewed |
-| `SAMP_RECL` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `GEOL_STAT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `SAMP_DESD` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_LOG` | not converted: a person is a business associate, which the converter does not write | reviewed |
+| `SAMP_COND` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_CLSS` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_BAR` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_TEMP` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_PRES` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_FLOW` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_ETIM` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_DURN` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_CAPT` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `SAMP_LINK` | not converted: record links are not converted | reviewed |
+| `SAMP_RECL` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `GEOL_STAT` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `FILE_FSET` | not converted: files named in the FILE group are never opened or converted | reviewed |
 
 ## ISPT
@@ -249,36 +249,36 @@ pattern `test-per-row`; status **reviewed**; keys `LOCA_ID`, `ISPT_TOP`; parent 
 |---|---|---|
 | `LOCA_ID` | link `samplingFeatureRef` | reviewed |
 | `ISPT_TOP` | field `location` | reviewed |
-| `ISPT_SEAT` | not converted: seating drive blows are not in the preview mapping | reviewed |
-| `ISPT_MAIN` | not converted: main drive blows are not in the preview mapping (the N value is) | reviewed |
+| `ISPT_SEAT` | not converted: seating drive blows are not converted | reviewed |
+| `ISPT_MAIN` | not converted: main drive blows are not converted (the N value is) | reviewed |
 | `ISPT_NPEN` | param `DrivenPenetrationTest/totalPenetration` (Length measure) | reviewed |
 | `ISPT_NVAL` | column `n_value` | reviewed |
 | `ISPT_N60` | column `n60` | reviewed |
 | `ISPT_REP` | not converted: the reported result text has no DIGGS property | reviewed |
 | `ISPT_CAS` | param `DrivenPenetrationTest/depthCasing` (Length measure) | reviewed |
 | `ISPT_WAT` | param `DrivenPenetrationTest/waterDepth` (Length measure) | reviewed |
-| `ISPT_TYPE` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `ISPT_HAM` | not converted: hammer identifiers are not in the preview mapping | reviewed |
+| `ISPT_TYPE` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `ISPT_HAM` | not converted: hammer identifiers are not converted | reviewed |
 | `ISPT_ERAT` | param `DrivenPenetrationTest/hammerEfficiency` (Dimensionless measure) | reviewed |
-| `ISPT_INC1` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_INC2` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_INC3` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_INC4` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_INC5` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_INC6` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_PEN1` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_PEN2` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_PEN3` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_PEN4` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_PEN5` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_PEN6` | not converted: drive sets are not in the preview mapping | reviewed |
-| `ISPT_ROCK` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `ISPT_INC1` | not converted: drive sets are not converted | reviewed |
+| `ISPT_INC2` | not converted: drive sets are not converted | reviewed |
+| `ISPT_INC3` | not converted: drive sets are not converted | reviewed |
+| `ISPT_INC4` | not converted: drive sets are not converted | reviewed |
+| `ISPT_INC5` | not converted: drive sets are not converted | reviewed |
+| `ISPT_INC6` | not converted: drive sets are not converted | reviewed |
+| `ISPT_PEN1` | not converted: drive sets are not converted | reviewed |
+| `ISPT_PEN2` | not converted: drive sets are not converted | reviewed |
+| `ISPT_PEN3` | not converted: drive sets are not converted | reviewed |
+| `ISPT_PEN4` | not converted: drive sets are not converted | reviewed |
+| `ISPT_PEN5` | not converted: drive sets are not converted | reviewed |
+| `ISPT_PEN6` | not converted: drive sets are not converted | reviewed |
+| `ISPT_ROCK` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `ISPT_SWP` | param `DrivenPenetrationTest/selfWeightPenetration` (Length measure) | reviewed |
 | `ISPT_REM` | field `remark` | reviewed |
-| `ISPT_ENV` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `ISPT_METH` | not converted: test method text is not in the preview mapping | reviewed |
-| `ISPT_CRED` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `TEST_STAT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `ISPT_ENV` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `ISPT_METH` | not converted: test method text is not converted | reviewed |
+| `ISPT_CRED` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `TEST_STAT` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `FILE_FSET` | not converted: files named in the FILE group are never opened or converted | reviewed |
 
 ## LLPL
@@ -295,15 +295,15 @@ pattern `test-per-row`; status **reviewed**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_R
 | `SPEC_REF` | field `name` | reviewed |
 | `SPEC_DPTH` | field `location` | reviewed |
 | `SPEC_DESC` | field `description` | reviewed |
-| `SPEC_PREP` | not converted: specimen preparation text is not in the preview mapping | reviewed |
+| `SPEC_PREP` | not converted: specimen preparation text is not converted | reviewed |
 | `LLPL_LL` | column `liquid_limit` | reviewed |
 | `LLPL_PL` | column `plastic_limit` | reviewed |
 | `LLPL_PI` | column `plasticity_index` | reviewed |
 | `LLPL_425` | not converted: the percentage passing 425 um has no DIGGS property (DIGGS has percent retained on No. 40) | reviewed |
-| `LLPL_PREP` | not converted: specimen preparation text is not in the preview mapping | reviewed |
-| `LLPL_METH` | not converted: test method text is not in the preview mapping | reviewed |
-| `LLPL_LAB` | not converted: a laboratory is a business associate, which the preview writer does not write | reviewed |
-| `LLPL_CRED` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LLPL_PREP` | not converted: specimen preparation text is not converted | reviewed |
+| `LLPL_METH` | not converted: test method text is not converted | reviewed |
+| `LLPL_LAB` | not converted: a laboratory is a business associate, which the converter does not write | reviewed |
+| `LLPL_CRED` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `LLPL_TYPE` | not converted: the test method (fall cone or Casagrande) is not in the mapping; DIGGS fallConeTrial and casagrandeTrial are candidates for a later table | reviewed |
 | `LLPL_POIN` | not converted: the number of points of a test is not in the mapping | reviewed |
 | `LLPL_CONE` | not converted: the type of fall cone is not in the mapping | reviewed |
@@ -315,8 +315,8 @@ pattern `test-per-row`; status **reviewed**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_R
 | `LLPL_STAB` | not converted: stabiliser details have no DIGGS 3.0.0 target | reviewed |
 | `LLPL_STYP` | not converted: stabiliser details have no DIGGS 3.0.0 target | reviewed |
 | `LLPL_REM` | field `remark` | reviewed |
-| `LLPL_DEV` | not converted: deviations from the method are not in the preview mapping | reviewed |
-| `TEST_STAT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LLPL_DEV` | not converted: deviations from the method are not converted | reviewed |
+| `TEST_STAT` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `FILE_FSET` | not converted: files named in the FILE group are never opened or converted | reviewed |
 
 ## LNMC
@@ -333,19 +333,19 @@ pattern `test-per-row`; status **reviewed**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_R
 | `SPEC_REF` | field `name` | reviewed |
 | `SPEC_DPTH` | field `location` | reviewed |
 | `SPEC_DESC` | field `description` | reviewed |
-| `SPEC_PREP` | not converted: specimen preparation text is not in the preview mapping | reviewed |
+| `SPEC_PREP` | not converted: specimen preparation text is not converted | reviewed |
 | `LNMC_MC` | column `water_content_natural` | reviewed |
 | `LNMC_TEMP` | param `WaterContentTest/dryingTemperature` (ThermodynamicTemperature measure) | reviewed |
-| `LNMC_STAB` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LNMC_STAB` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `LNMC_ISNT` | not converted: read to decide whether LNMC_MC is a natural water content (DIGGS water_content_natural is written only when it is not N); the flag itself is not written | reviewed |
-| `LNMC_COMM` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
-| `LNMC_METH` | not converted: test method text is not in the preview mapping | reviewed |
-| `LNMC_LAB` | not converted: a laboratory is a business associate, which the preview writer does not write | reviewed |
-| `LNMC_CRED` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LNMC_COMM` | not converted: no DIGGS 3.0.0 target | reviewed |
+| `LNMC_METH` | not converted: test method text is not converted | reviewed |
+| `LNMC_LAB` | not converted: a laboratory is a business associate, which the converter does not write | reviewed |
+| `LNMC_CRED` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `LNMC_STYP` | not converted: stabiliser details have no DIGGS 3.0.0 target | reviewed |
 | `LNMC_REM` | field `remark` | reviewed |
-| `LNMC_DEV` | not converted: deviations from the method are not in the preview mapping | reviewed |
-| `TEST_STAT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `LNMC_DEV` | not converted: deviations from the method are not converted | reviewed |
+| `TEST_STAT` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `FILE_FSET` | not converted: files named in the FILE group are never opened or converted | reviewed |
 
 ## GRAG
@@ -362,7 +362,7 @@ pattern `test-table`; status **reviewed**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_REF
 | `SPEC_REF` | field `name` | reviewed |
 | `SPEC_DPTH` | field `location` | reviewed |
 | `SPEC_DESC` | field `description` | reviewed |
-| `SPEC_PREP` | not converted: specimen preparation text is not in the preview mapping | reviewed |
+| `SPEC_PREP` | not converted: specimen preparation text is not converted | reviewed |
 | `GRAG_UC` | column `coef_uniformity` | reviewed |
 | `GRAG_VCRE` | not converted: AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way | reviewed |
 | `GRAG_GRAV` | not converted: AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way | reviewed |
@@ -371,16 +371,16 @@ pattern `test-table`; status **reviewed**; keys `LOCA_ID`, `SAMP_TOP`, `SAMP_REF
 | `GRAG_CLAY` | column `clay_percent_2_micron` | reviewed |
 | `GRAG_CC` | column `coef_curvature` | reviewed |
 | `GRAG_FINE` | not converted: AGS4 fractions use ISO 14688-1 size limits (63 mm, 2 mm, 63 um); the DIGGS 3.0.0 properties use ASTM limits (75 mm, 4.75 mm, 0.075 mm), so the fraction is not converted either way | reviewed |
-| `GRAG_METH` | not converted: test method text is not in the preview mapping | reviewed |
-| `GRAG_LAB` | not converted: a laboratory is a business associate, which the preview writer does not write | reviewed |
-| `GRAG_CRED` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `GRAG_METH` | not converted: test method text is not converted | reviewed |
+| `GRAG_LAB` | not converted: a laboratory is a business associate, which the converter does not write | reviewed |
+| `GRAG_CRED` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `GRAG_PRET` | not converted: the pre-treatment method is not in the mapping | reviewed |
 | `GRAG_SUFF` | not converted: whether the specimen mass was sufficient has no DIGGS 3.0.0 target | reviewed |
 | `GRAG_EXCL` | not converted: how excluded material was measured has no DIGGS 3.0.0 target | reviewed |
 | `GRAG_PDEN` | not converted: the particle density used is not in the mapping | reviewed |
 | `GRAG_REM` | field `remark` | reviewed |
-| `GRAG_DEV` | not converted: deviations from the method are not in the preview mapping | reviewed |
-| `TEST_STAT` | not converted: no DIGGS 3.0.0 target in the preview mapping | reviewed |
+| `GRAG_DEV` | not converted: deviations from the method are not converted | reviewed |
+| `TEST_STAT` | not converted: no DIGGS 3.0.0 target | reviewed |
 | `FILE_FSET` | not converted: files named in the FILE group are never opened or converted | reviewed |
 
 ## GRAT

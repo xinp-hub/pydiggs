@@ -240,7 +240,7 @@ when it ends. Every input is untrusted: the [AGS4 reader's limits](ags4.md#readi
 the [DIGGS reader's](model.md#reading-a-file) apply, nothing a file names is opened, and
 nothing is fetched.
 
-## From the 1.9 preview
+## From the 1.9 and 1.10 preview
 
 pyDIGGS 1.9.0 shipped AGS4 to DIGGS as a preview in `pydiggs.preview.convert`, with
 mapping table 0.1. From 1.11 `pydiggs.preview.convert` is a deprecated alias of

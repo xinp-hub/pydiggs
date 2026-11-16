@@ -122,12 +122,15 @@ class Conversion:
         """Write the output to ``path`` (the DIGGS XML, or the AGS4 file), replacing a file.
 
         Raises:
+            ValueError: The conversion has no output (neither ``xml`` nor ``ags4``).
             OSError: The path cannot be written.
         """
         if self.xml is not None:
             Path(path).write_bytes(self.xml)
         elif self.ags4 is not None:
             ags4.write(self.ags4, path)
+        else:
+            raise ValueError("this conversion has no output to save (xml and ags4 are both None)")
 
 
 def _shown(name: str | None) -> str | None:
