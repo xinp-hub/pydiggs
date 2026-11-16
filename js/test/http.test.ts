@@ -179,3 +179,71 @@ test("a relative base URL is used as written", async () => {
   await new PydiggsHttpClient({ baseUrl: "/api/pydiggs/", fetch }).versions();
   assert.deepEqual(urls, ["/api/pydiggs/v1/versions"]);
 });
+
+const CONVERSION = {
+  to: "diggs",
+  media_type: "application/xml",
+  output_name: "site.xml",
+  diggs_version: "3.0.0",
+  mapping_version: "1",
+  complete: true,
+  lossless: true,
+  report: FINDINGS,
+  validation: FINDINGS,
+  output_sha256: "",
+  output_base64: "PERpZ2dzLz4=", // "<Diggs/>"
+};
+
+test("convert posts the AGS4 bytes as they are, with name, target and version in the query", async () => {
+  const { fetch, seen } = fakeFetch(() => json(CONVERSION));
+  const client = new PydiggsHttpClient({ baseUrl: "http://127.0.0.1:8000", fetch });
+  const result = await client.convert('"GROUP","PROJ"', { name: "site.ags", diggsVersion: "3.0.0" });
+  assert.equal(result.output_name, "site.xml");
+  const [request] = seen;
+  assert.equal(request.url.pathname, "/v1/convert");
+  assert.deepEqual(Object.fromEntries(request.url.searchParams), { name: "site.ags", to: "diggs", diggs_version: "3.0.0" });
+  assert.equal(headerOf(request, "Content-Type"), "application/octet-stream");
+  assert.equal(request.init.body, '"GROUP","PROJ"');
+  await assert.rejects(
+    new PydiggsHttpClient({ baseUrl: "http://x", fetch: fakeFetch(() => json({ to: "diggs" })).fetch }).convert("x"),
+    /not a conversion result/,
+  );
+});
+
+test("convert to AGS4 posts the DIGGS XML as application/xml with to=ags4 and the AGS4 version", async () => {
+  const { fetch, seen } = fakeFetch(() => json(CONVERSION));
+  const client = new PydiggsHttpClient({ baseUrl: "http://127.0.0.1:8000", fetch });
+  await client.convert("<Diggs/>", { name: "site.xml", to: "ags4", agsVersion: "4.1.1" });
+  const [request] = seen;
+  assert.deepEqual(Object.fromEntries(request.url.searchParams), { name: "site.xml", to: "ags4", ags_version: "4.1.1" });
+  assert.equal(headerOf(request, "Content-Type"), "application/xml");
+});
+
+test("checkAgs4 sends the file raw, or as multipart with a dictionary; SARIF by Accept", async () => {
+  const { fetch, seen } = fakeFetch((request) =>
+    headerOf(request, "Accept") === "application/sarif+json" ? json({ version: "2.1.0", runs: [] }) : json(FINDINGS),
+  );
+  const client = new PydiggsHttpClient({ baseUrl: "http://127.0.0.1:8000", fetch });
+  await client.checkAgs4("ags", { name: "site.ags" });
+  await client.checkAgs4("ags", { name: "site.ags", dictionary: "dict" });
+  const sarif = await client.checkAgs4Sarif("ags");
+  assert.equal(sarif.version, "2.1.0");
+  const [raw, multipart, third] = seen;
+  assert.equal(raw.url.pathname, "/v1/ags4/check");
+  assert.equal(raw.url.searchParams.get("name"), "site.ags");
+  assert.equal(headerOf(raw, "Content-Type"), "application/octet-stream");
+  assert.ok(multipart.init.body instanceof FormData);
+  const form = multipart.init.body as FormData;
+  assert.equal(await (form.get("dictionary") as Blob).text(), "dict");
+  assert.equal(await (form.get("file") as Blob).text(), "ags");
+  assert.equal(form.get("name"), "site.ags");
+  assert.equal(multipart.url.search, "", "a multipart request carries its fields in the form");
+  assert.equal(headerOf(third, "Accept"), "application/sarif+json");
+});
+
+test("capabilities gets the capabilities document", async () => {
+  const { fetch, seen } = fakeFetch(() => json({ schema_version: "1.0", operations: [] }));
+  const client = new PydiggsHttpClient({ baseUrl: "http://127.0.0.1:8000", fetch });
+  assert.equal((await client.capabilities()).schema_version, "1.0");
+  assert.equal(seen[0]!.url.pathname, "/v1/capabilities");
+});

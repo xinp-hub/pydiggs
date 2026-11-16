@@ -8,8 +8,30 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Added
+
+- AGS4, from pyDIGGS 1.10 and 1.11, on every engine: `convert(file)` turns an AGS4 file
+  into DIGGS 3.0.0, and `convert(file, { to: "ags4", agsVersion })` a DIGGS document into
+  an AGS4 file (4.2, or 4.1.1). The result carries the output as base64 with its sha256,
+  the findings about the source and the output's validation. `checkAgs4(file,
+  { dictionary })` and `checkAgs4Sarif` check an AGS4 file against the AGS4 rules. In
+  `PydiggsBrowser` the file never leaves the tab; `PydiggsNode`, `PydiggsPool`,
+  `PydiggsHybrid` and `PydiggsHttpClient` have the same calls, and `createPydiggsHandler`
+  serves `/v1/convert` (both ways) and `/v1/ags4/check`. CI compares every answer with
+  CPython's.
+- `conversionOutput(result)`: the converted file as bytes, checked against its sha256
+  (uses `Uint8Array.fromBase64` where the runtime has it), and `conversionResidual(result)`:
+  for AGS4 to DIGGS, the AGS4 file of every value that was not converted.
+- `capabilities()` on every engine and the HTTP client, and `/v1/capabilities` from the
+  handler: what this pyDIGGS can do.
+- Types for conversion results and capabilities documents (`ConversionResult`,
+  `Capabilities`, `ConvertTarget`, `ConvertDiggsVersion`, `ConvertAgsVersion`),
+  generated from pyDIGGS's OpenAPI document.
+
 ### Changed
 
+- Runs pyDIGGS 1.11.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256. Validation is
+  about a fifth faster on documents with many Schematron hits (from 1.10).
 - The `createPydiggsHandler` problem for `invalid-document` is titled "Invalid document",
   as pyDIGGS 1.11's HTTP API titles it now that `/v1/convert` also answers it for AGS4
   input. The code, status, `kind` and detail are unchanged.

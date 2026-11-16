@@ -1,5 +1,6 @@
-// Serves pyDIGGS's HTTP API (`/v1/validate`, `/v1/read`, `/v1/versions`, `/v1/rules`,
-// `/v1/rules/{rule_id}`, `/v1/readyz`) from a JavaScript
+// Serves pyDIGGS's HTTP API (`/v1/validate`, `/v1/read`, `/v1/convert`, `/v1/ags4/check`,
+// `/v1/versions`, `/v1/capabilities`, `/v1/rules`, `/v1/rules/{rule_id}`, `/v1/readyz`)
+// from a JavaScript
 // server, as a standard Fetch handler: `(request: Request) => Promise<Response>`. That is
 // the signature of Next.js route handlers, Hono, Bun.serve, Deno.serve and Remix
 // actions, and Express or Fastify adapt to it in a line. Behind it, PydiggsNode runs
@@ -10,14 +11,25 @@
 // and the problem documents are the same, and no text echoes a value sent. It adds no
 // authentication, like pydiggs itself: put it behind your own.
 
-import type { DiggsVersion, Problem, RuleStep, ValidateCheck } from "./generated/http.ts";
+import type { ConvertAgsVersion, ConvertDiggsVersion, ConvertTarget, DiggsVersion, Problem, RuleStep, ValidateCheck } from "./generated/http.ts";
 import type { PoolEngine } from "./pool.ts";
 import type { ServiceProblem } from "./protocol.ts";
 
 /** What the handler needs from an engine; a `PydiggsNode` and a `PydiggsPool` are engines. */
 export type PydiggsEngine = Pick<
   PoolEngine,
-  "status" | "pending" | "validate" | "validateSarif" | "read" | "versions" | "listRules" | "explainRule"
+  | "status"
+  | "pending"
+  | "validate"
+  | "validateSarif"
+  | "read"
+  | "versions"
+  | "listRules"
+  | "explainRule"
+  | "convert"
+  | "checkAgs4"
+  | "checkAgs4Sarif"
+  | "capabilities"
 >;
 
 export interface PydiggsHandlerOptions {
@@ -174,9 +186,24 @@ const SELECT_PROBLEM = `expected {"results": "all" | "none" | [at most ${MAX_SEL
 const VALIDATE_FIELDS = new Set(["name", "checks", "diggs_version"]);
 const READ_FIELDS = new Set(["name", "diggs_version", "select"]);
 
+// What each kind of body may be sent as, raw: DIGGS as XML; AGS4, which has no registered
+// media type, as generic text or bytes. Either may also come as multipart/form-data.
+const RAW_TYPES = {
+  diggs: new Set(["application/xml", "text/xml"]),
+  ags4: new Set(["application/octet-stream", "text/csv", "text/plain"]),
+};
+const CONVERT_FIELDS = new Set(["name", "to", "diggs_version", "ags_version"]);
+const AGS4_CHECK_FIELDS = new Set(["name"]);
+const CONVERT_TARGETS = ["diggs", "ags4"];
+
 interface Parsed {
   data: Uint8Array;
+  /** The reported name, reduced to its base name; `input.xml` when none was given. */
   name: string;
+  /** The base name given, if any (AGS4 requests leave the default to pyDIGGS). */
+  givenName: string | undefined;
+  /** An AGS4 check's `dictionary` part. */
+  dictionary?: Uint8Array;
   /** Every value of each parameter, query first, then the form's (which win). */
   params: Map<string, string[]>;
 }
@@ -227,7 +254,12 @@ export function createPydiggsHandler(
   const maxPending = options.maxPending ?? 8;
   const rejectCrossSite = options.rejectCrossSite ?? true;
 
-  async function parse(request: Request, allowed: Set<string>): Promise<Parsed | Response> {
+  async function parse(
+    request: Request,
+    allowed: Set<string>,
+    kind: "diggs" | "ags4" = "diggs",
+    extraFiles: ReadonlySet<string> = new Set(),
+  ): Promise<Parsed | Response> {
     const url = new URL(request.url);
     const unsupported = [...new Set(url.searchParams.keys())].filter((key) => !allowed.has(key));
     if (unsupported.length > 0) {
@@ -253,7 +285,8 @@ export function createPydiggsHandler(
     for (const key of allowed) params.set(key, url.searchParams.getAll(key));
     let data: Uint8Array;
     let fileName: string | null = null;
-    if (type === "application/xml" || type === "text/xml") {
+    let dictionary: Uint8Array | undefined;
+    if (RAW_TYPES[kind].has(type)) {
       data = raw;
     } else if (type === "multipart/form-data") {
       let form: FormData;
@@ -263,10 +296,18 @@ export function createPydiggsHandler(
         return problem("invalid-multipart");
       }
       const files = form.getAll("file");
-      const fields = [...new Set(form.keys())].filter((key) => key !== "file");
-      if (files.length !== 1 || !(files[0] instanceof Blob) || fields.some((key) => !allowed.has(key))) {
+      const fields = [...new Set(form.keys())].filter((key) => key !== "file" && !extraFiles.has(key));
+      const extras = [...extraFiles].map((key) => form.getAll(key));
+      if (
+        files.length !== 1 ||
+        !(files[0] instanceof Blob) ||
+        fields.some((key) => !allowed.has(key)) ||
+        extras.some((parts) => parts.length > 1 || (parts.length === 1 && !(parts[0] instanceof Blob)))
+      ) {
         return problem("invalid-multipart");
       }
+      const extra = form.get("dictionary");
+      if (extraFiles.has("dictionary") && extra instanceof Blob) dictionary = new Uint8Array(await extra.arrayBuffer());
       const file = files[0];
       data = new Uint8Array(await file.arrayBuffer());
       if (file instanceof File) fileName = file.name;
@@ -282,7 +323,9 @@ export function createPydiggsHandler(
     if (name !== null && name.length > 4096) {
       return problem("invalid-parameter", { errors: [{ parameter: "name", problem: "must be a string of at most 4096 characters" }] });
     }
-    return { data, name: baseName(name), params };
+    const parsed: Parsed = { data, name: baseName(name), givenName: name === null ? undefined : baseName(name), params };
+    if (dictionary !== undefined) parsed.dictionary = dictionary;
+    return parsed;
   }
 
   // pydiggs's own answer when it refused the request; 504 for a request that ran too
@@ -360,11 +403,62 @@ export function createPydiggsHandler(
     }
   }
 
+  async function convert(request: Request): Promise<Response> {
+    const refused = gate(request);
+    if (refused) return refused;
+    // A raw body is DIGGS XML for to=ags4 (given in the query) and AGS4 otherwise.
+    const toAgs4 = new URL(request.url).searchParams.getAll("to").at(-1) === "ags4";
+    const parsed = await parse(request, CONVERT_FIELDS, toAgs4 ? "diggs" : "ags4");
+    if (parsed instanceof Response) return parsed;
+    const to = parsed.params.get("to")?.at(-1);
+    if (to !== undefined && !CONVERT_TARGETS.includes(to)) {
+      return problem("invalid-parameter", {
+        errors: [{ parameter: "to", problem: `expected one of ${CONVERT_TARGETS.join(", ")}` }],
+      });
+    }
+    const diggsVersion = parsed.params.get("diggs_version")?.at(-1);
+    const agsVersion = parsed.params.get("ags_version")?.at(-1);
+    try {
+      return json(
+        await engine.convert(parsed.data, {
+          signal: request.signal,
+          ...(parsed.givenName !== undefined ? { name: parsed.givenName } : {}),
+          ...(to !== undefined ? { to: to as ConvertTarget } : {}),
+          ...(diggsVersion !== undefined ? { diggsVersion: diggsVersion as ConvertDiggsVersion } : {}),
+          ...(agsVersion !== undefined ? { agsVersion: agsVersion as ConvertAgsVersion } : {}),
+        }),
+      );
+    } catch (error) {
+      return failure(error);
+    }
+  }
+
+  async function checkAgs4(request: Request): Promise<Response> {
+    const refused = gate(request, false);
+    if (refused) return refused;
+    const format = negotiate(request.headers.get("Accept"));
+    if (format === null) return problem("not-acceptable");
+    const parsed = await parse(request, AGS4_CHECK_FIELDS, "ags4", new Set(["dictionary"]));
+    if (parsed instanceof Response) return parsed;
+    const call = {
+      signal: request.signal,
+      ...(parsed.givenName !== undefined ? { name: parsed.givenName } : {}),
+      ...(parsed.dictionary !== undefined ? { dictionary: parsed.dictionary } : {}),
+    };
+    try {
+      if (format === "sarif") return json(await engine.checkAgs4Sarif(parsed.data, call), 200, SARIF_TYPE);
+      return json(await engine.checkAgs4(parsed.data, call));
+    } catch (error) {
+      return failure(error);
+    }
+  }
+
   async function info(request: Request, route: string): Promise<Response> {
     const refused = gate(request);
     if (refused) return refused;
     try {
       if (route === "/v1/versions") return json(await engine.versions({ signal: request.signal }));
+      if (route === "/v1/capabilities") return json(await engine.capabilities({ signal: request.signal }));
       if (route === "/v1/rules") {
         const url = new URL(request.url);
         const unknown = [...new Set(url.searchParams.keys())].filter((key) => key !== "step");
@@ -391,7 +485,16 @@ export function createPydiggsHandler(
         if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });
         return route === "/v1/validate" ? await validate(request) : await read(request);
       }
-      if (route === "/v1/versions" || route === "/v1/rules" || (route?.startsWith("/v1/rules/") && route.length > 10)) {
+      if (route === "/v1/convert" || route === "/v1/ags4/check") {
+        if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });
+        return route === "/v1/convert" ? await convert(request) : await checkAgs4(request);
+      }
+      if (
+        route === "/v1/versions" ||
+        route === "/v1/capabilities" ||
+        route === "/v1/rules" ||
+        (route?.startsWith("/v1/rules/") && route.length > 10)
+      ) {
         if (request.method !== "GET") return problem("method-not-allowed", { headers: { Allow: "GET" } });
         return await info(request, route);
       }

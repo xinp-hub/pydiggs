@@ -65,14 +65,18 @@ _CHOICES = re.compile(r"\(choose from ([^)]*)\)")
 
 
 def _normalise(case: dict[str, object]) -> dict[str, object]:
-    """Drop the quotes argparse may put around an invalid choice's choices.
+    """Drop the quotes and spacing argparse may put around an invalid choice's choices.
 
-    Whether they are quoted depends on the CPython build, not on pyDIGGS.
+    They depend on the CPython build, not on pyDIGGS: 3.12.16 from python-build-standalone
+    on macOS prints ``a,b, c`` (bare, one space missing).
     """
     stderr = case.get("stderr")
     if not isinstance(stderr, str):
         return case
-    unquoted = _CHOICES.sub(lambda m: "(choose from " + m[1].replace("'", "") + ")", stderr)
+    unquoted = _CHOICES.sub(
+        lambda m: "(choose from " + ", ".join(c.strip(" '") for c in m[1].split(",")) + ")",
+        stderr,
+    )
     return {**case, "stderr": unquoted}
 
 

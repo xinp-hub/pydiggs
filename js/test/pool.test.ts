@@ -38,6 +38,19 @@ function fakeEngine(index: number, log: string[], options: { status?: PoolEngine
     async explainRule(id: string) {
       return { id } as never;
     },
+    async convert(_input: unknown, opts?: { name?: string }) {
+      log.push(`${index}:convert:${opts?.name}`);
+      return { to: "diggs" } as never;
+    },
+    async checkAgs4(_input: unknown, opts?: { name?: string }) {
+      return this.validate(_input, opts) as never;
+    },
+    async checkAgs4Sarif(_input: unknown, opts?: { name?: string }) {
+      return this.validate(_input, opts) as never;
+    },
+    async capabilities() {
+      return { schema_version: "1.0" } as never;
+    },
     terminate() {
       engine.terminated = true;
     },

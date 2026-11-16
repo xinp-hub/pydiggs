@@ -34,6 +34,9 @@ AGS_VERSIONS = ("4.2", "4.1.1")
 # a subset of steps, and the result tables of one node only.
 CHECKS = ("structure", "schema")
 SELECT_KEYS = ("ATTERBERG_B-01_4.0",)
+# An AGS4 check against a data dictionary (pyDIGGS 1.10 and later), as
+# tests/test_server_convert.py pairs them; ags4_cases covers checks without one.
+AGS4_CHECK = ("c2_user_group.ags", "c2_dictionary.ags")
 # The browser example's limit (brief D8).
 MAX_BYTES = 25 * 1024 * 1024
 # Never imported on the core path: rich (Pyodide installs pydiggs with deps=False),
@@ -176,6 +179,18 @@ def service_cases(fixture_dir: str) -> dict[str, str]:
         select = {"results": list(SELECT_KEYS)}
         read = svc.ReadRequest(content=data, name=name, select=select, max_bytes=MAX_BYTES)
         out[f"select:{name}"] = text(svc.read(read))
+    if hasattr(svc, "convert"):
+        name, dictionary = AGS4_CHECK
+        check = svc.Ags4CheckRequest(
+            content=Path(fixture_dir, name).read_bytes(),
+            name=name,
+            dictionary=Path(fixture_dir, dictionary).read_bytes(),
+            max_bytes=MAX_BYTES,
+        )
+        out[f"ags4:{name}"] = text(svc.ags4_check(check))
+        bare = dataclasses.replace(check, dictionary=None)
+        out[f"ags4-no-dictionary:{name}"] = text(svc.ags4_check(bare))
+        out[f"ags4-sarif:{name}"] = text(svc.ags4_check(dataclasses.replace(check, format="sarif")))
     out["versions"] = json.dumps({"api_version": "1", **svc.versions()})
     rules = svc.rules("schema")
     assert isinstance(rules, list) and rules

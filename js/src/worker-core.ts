@@ -73,7 +73,10 @@ def _outcome(out):
         return "D" + out.document.decode("utf-8")
     return _problem(out.code.value, out.detail, out.errors, out.kind)
 
-def run(kind, data, name, max_bytes, parameters):
+def _too_old(what, version="1.10.0"):
+    return _problem("internal", f"this pydiggs is too old for {what} (needs {version} or later)")
+
+def run(kind, data, name, max_bytes, parameters, dictionary=None):
     if _svc is None:
         return _problem("internal", "this pydiggs is too old for @pydiggs/client (needs 1.7.0 or later)")
     p = json.loads(parameters) if parameters else {}
@@ -87,7 +90,29 @@ def run(kind, data, name, max_bytes, parameters):
             return _outcome(_svc.read(_svc.ReadRequest(
                 content=data.to_bytes(), name=name, diggs_version=p.get("diggs_version"),
                 select=p.get("select"), max_bytes=max_bytes)))
-        if kind == "rules":
+        if kind == "convert":
+            if not hasattr(_svc, "convert"):
+                return _too_old("convert")
+            extra = {}
+            if p.get("ags_version") is not None:
+                if not hasattr(_svc, "CONVERT_AGS_VERSIONS"):
+                    return _too_old("convert to AGS4", "1.11.0")
+                extra["ags_version"] = p["ags_version"]
+            return _outcome(_svc.convert(_svc.ConvertRequest(
+                content=data.to_bytes(), name=name or None, to=p.get("to", "diggs"),
+                diggs_version=p.get("diggs_version"), max_bytes=max_bytes, **extra)))
+        if kind == "ags4-check":
+            if not hasattr(_svc, "ags4_check"):
+                return _too_old("checkAgs4")
+            return _outcome(_svc.ags4_check(_svc.Ags4CheckRequest(
+                content=data.to_bytes(), name=name or None,
+                dictionary=dictionary.to_bytes() if dictionary is not None else None,
+                format=p.get("format", "findings"), max_bytes=max_bytes)))
+        if kind == "capabilities":
+            if not hasattr(_svc, "capabilities"):
+                return _too_old("capabilities")
+            answer = _svc.capabilities()
+        elif kind == "rules":
             answer = _svc.rules(p.get("step"))
         elif kind == "explain":
             answer = _svc.explain(p.get("rule_id"))
@@ -199,7 +224,8 @@ async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Load
   return loaded;
 }
 
-const NEEDS_DOCUMENT = new Set(["validate", "read"]);
+const NEEDS_DOCUMENT = new Set(["validate", "read", "convert", "ags4-check"]);
+const KINDS = new Set(["validate", "read", "rules", "explain", "versions", "convert", "ags4-check", "capabilities"]);
 
 function answer(loaded: Loaded, request: RequestMessage): ReplyMessage {
   const { id, type } = request;
@@ -207,12 +233,15 @@ function answer(loaded: Loaded, request: RequestMessage): ReplyMessage {
     const problem: ServiceProblem = { code: "input-too-large", detail: `larger than ${loaded.maxBytes} bytes` };
     return { id, type: "error", message: `the document is larger than ${loaded.maxBytes} bytes`, problem };
   }
-  const name = typeof request.name === "string" && request.name !== "" ? request.name : "input.xml";
+  // An AGS4 file without a name gets pyDIGGS's own default for AGS4; a DIGGS one, input.xml.
+  const ags4 = type === "convert" || type === "ags4-check";
+  const name = typeof request.name === "string" && request.name !== "" ? request.name : ags4 ? "" : "input.xml";
   const bytes = request.data ? new Uint8Array(request.data) : undefined;
+  const dictionary = request.dictionary instanceof ArrayBuffer ? new Uint8Array(request.dictionary) : undefined;
   const parameters = request.parameters ? JSON.stringify(request.parameters) : "";
   // A stop meant for an earlier request that finished first must not stop this one.
   if (loaded.interrupt) Atomics.store(loaded.interrupt, 0, 0);
-  const result = loaded.run(type, bytes, name, loaded.maxBytes, parameters) as string;
+  const result = loaded.run(type, bytes, name, loaded.maxBytes, parameters, dictionary) as string;
   if (result.startsWith("D")) return { id, type: "result", document: JSON.parse(result.slice(1)) };
   const problem = JSON.parse(result.slice(1)) as ServiceProblem;
   return { id, type: "error", message: problem.detail || problem.code, problem };
@@ -237,9 +266,7 @@ export function createWorkerCore(options: WorkerCoreOptions): (message: unknown)
       loading.catch((error: unknown) => options.post({ type: "failed", message: text(error) }));
       return;
     }
-    if (type !== "validate" && type !== "read" && type !== "rules" && type !== "explain" && type !== "versions") {
-      return;
-    }
+    if (typeof type !== "string" || !KINDS.has(type)) return;
     const request = message as RequestMessage;
     if (typeof request.id !== "number") return;
     if (NEEDS_DOCUMENT.has(type) && !(request.data instanceof ArrayBuffer)) return;

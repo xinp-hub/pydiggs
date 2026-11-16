@@ -112,7 +112,41 @@ await pydiggs.read(file, { results: ["ATTERBERG_B-01_4.0"] }); // one test's val
 await pydiggs.listRules({ step: "schematron" });
 await pydiggs.explainRule("dictionary.5");
 await pydiggs.versions();
+await pydiggs.capabilities();                           // what this pyDIGGS can do
 ```
+
+### AGS4: convert both ways and check, in the tab
+
+pyDIGGS converts AGS4 files to DIGGS 3.0.0 and, from 1.11, DIGGS documents to AGS4
+(4.2, or 4.1.1 for tools that read only that), and checks AGS4 files against the AGS4
+rules. In the browser the file never leaves the device:
+
+```ts
+import { conversionOutput, conversionResidual, PydiggsBrowser } from "@pydiggs/client/browser";
+
+const result = await pydiggs.convert(file);              // an AGS4 File
+const xml = await conversionOutput(result);              // the DIGGS XML, sha256-checked
+const link = document.createElement("a");               // offer it for download
+link.href = URL.createObjectURL(new Blob([xml], { type: result.media_type }));
+link.download = result.output_name;
+link.click();
+note.textContent = result.lossless ? "Converted with nothing lost" : "Converted: see the report";
+// result.report: findings about the AGS4 source; result.validation: pyDIGGS on the output
+const residual = conversionResidual(result);            // AGS4 of what was not converted, or null
+
+const back = await pydiggs.convert(xmlFile, { to: "ags4", agsVersion: "4.1.1" });
+const ags = await conversionOutput(back);                // the AGS4 file; back.validation is ags4.check
+
+await pydiggs.checkAgs4(file, { dictionary });           // against a data dictionary
+await pydiggs.checkAgs4Sarif(file);                      // as a SARIF 2.1.0 log
+```
+
+The same calls exist on `PydiggsNode`, `PydiggsPool`, `PydiggsHybrid` (browser first,
+server as fallback) and `PydiggsHttpClient` (`POST /v1/convert`, `POST /v1/ags4/check`),
+and `createPydiggsHandler` serves both endpoints. Bytes that are not of the input's
+format (AGS4, or DIGGS XML for `to: "ags4"`) are an error with `problem.code`
+`invalid-document`. Check `result.lossless` and `result.report` before relying on the
+output: every value that could not be carried over is named there.
 
 A refusal is a `PydiggsBrowserError` whose `problem` is pyDIGGS's own: `code`
 (`invalid-document`, `invalid-parameter`, `input-too-large`, ...), its fixed `detail`,
@@ -473,8 +507,10 @@ functions), not in edge functions. Four things decide whether it runs well there
 `createPydiggsHandler` turns an engine into a standard Fetch handler for pyDIGGS's
 `/v1` API: `/v1/validate` (with `checks`, `diggs_version`, and SARIF for
 `Accept: application/sarif+json`), `/v1/read` (with `diggs_version` and `select`,
-node keys included), `/v1/versions`, `/v1/rules`, `/v1/rules/{rule_id}` and
-`/v1/readyz`, with pyDIGGS's own status codes and problem documents, including 504
+node keys included), `/v1/convert` (AGS4 as text or bytes, or DIGGS XML with `to=ags4` and
+`ags_version`) and `/v1/ags4/check` (with an optional `dictionary` part), each also as
+multipart, `/v1/versions`, `/v1/capabilities`,
+`/v1/rules`, `/v1/rules/{rule_id}` and `/v1/readyz`, with pyDIGGS's own status codes and problem documents, including 504
 `timeout` and 503 `busy` with `Retry-After`. `PydiggsHttpClient`
 and `PydiggsHybrid` work against it unchanged. In a
 Next.js route handler (`app/api/pydiggs/[...path]/route.ts`):

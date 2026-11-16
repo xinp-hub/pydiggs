@@ -48,6 +48,23 @@ test("the packed package runs pyDIGGS in a Web Worker, as CPython does", async (
     }
   }
 
+  // AGS4 in the tab: converted to DIGGS and checked, equal to CPython's service layer,
+  // and the decoded XML is the converter's own.
+  const ags4 = "site_tier_a.ags";
+  await page.locator("#file").setInputFiles(fileURLToPath(new URL(ags4, fixtures)));
+  await expect(page.locator("#result-status")).toHaveText(`done:${ags4}`);
+  const conversion = JSON.parse((await page.locator("#conversion").textContent()) ?? "null");
+  const ags4Findings = JSON.parse((await page.locator("#findings").textContent()) ?? "null");
+  const convertedXml = (await page.locator("#converted-xml").textContent()) ?? "";
+  if (goldens) {
+    expect(conversion).toEqual(JSON.parse(goldens[`service-convert:${ags4}`]!));
+    expect(ags4Findings).toEqual(JSON.parse(goldens[`service-ags4-check:${ags4}`]!));
+    expect(convertedXml).toBe(goldens[`convert:${ags4}`]);
+  } else {
+    expect(conversion.output_name).toBe("site_tier_a.xml");
+    expect(convertedXml).toContain("<Diggs");
+  }
+
   // Markup in an element value stays text: it is in a message, and no element was made.
   await expect(page.locator("#messages")).toContainText(MARKUP);
   await expect(page.locator("#messages img")).toHaveCount(0);

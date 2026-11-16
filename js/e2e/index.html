@@ -10,11 +10,13 @@
       <h1>@pydiggs/client in a browser</h1>
       <p>Worker: <output id="status">loading</output> <output id="stages"></output></p>
       <p><output id="versions"></output> interruptible: <output id="interruptible"></output></p>
-      <label>DIGGS file <input id="file" type="file" accept=".xml" /></label>
+      <label>DIGGS file <input id="file" type="file" accept=".xml,.ags" /></label>
       <p>Result: <output id="result-status"></output> <output id="verdict"></output></p>
       <ul id="messages"></ul>
       <pre id="findings" hidden></pre>
       <pre id="model" hidden></pre>
+      <pre id="conversion" hidden></pre>
+      <pre id="converted-xml" hidden></pre>
       <p><output id="error"></output></p>
     </main>
     <script type="module" src="/main.ts"></script>

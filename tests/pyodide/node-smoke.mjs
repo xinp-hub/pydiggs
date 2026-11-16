@@ -29,7 +29,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 import { PydiggsHttpClient } from "../../js/src/http.ts";
-import { createPydiggsHandler, PydiggsNode } from "../../js/src/node.ts";
+import { conversionOutput, createPydiggsHandler, PydiggsNode } from "../../js/src/node.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const { values: args } = parseArgs({
@@ -96,6 +96,31 @@ try {
   const explained = JSON.parse(goldens.explain);
   assert.deepEqual(await client.explainRule(explained.id), explained);
   console.log("ok  handler + PydiggsHttpClient: versions, rules and one rule equal CPython's");
+
+  // AGS4 over HTTP: conversion, and a check with a dictionary (a multipart upload).
+  const ags = readFileSync(join(here, "fixtures", "site_tier_a.ags"));
+  const conversion = await client.convert(ags, { name: "site_tier_a.ags" });
+  assert.deepEqual(conversion, JSON.parse(goldens["service-convert:site_tier_a.ags"]));
+  assert.equal(new TextDecoder().decode(await conversionOutput(conversion)), goldens["convert:site_tier_a.ags"]);
+  // And back to AGS4 (pyDIGGS 1.11): raw DIGGS XML with to=ags4 and the AGS4 version.
+  for (const agsVersion of ["4.2", "4.1.1"]) {
+    const back = await client.convert(goldens["convert:site_tier_a.ags"], { name: "site_tier_a.xml", to: "ags4", agsVersion });
+    assert.deepEqual(back, JSON.parse(goldens[`service-to-ags4:${agsVersion}:site_tier_a.ags`]));
+    assert.equal(new TextDecoder().decode(await conversionOutput(back)), goldens[`to-ags4:${agsVersion}:site_tier_a.ags`]);
+  }
+  const checked = readFileSync(join(here, "fixtures", "c2_user_group.ags"));
+  const dictionary = readFileSync(join(here, "fixtures", "c2_dictionary.ags"));
+  assert.deepEqual(
+    await client.checkAgs4(checked, { name: "c2_user_group.ags", dictionary }),
+    JSON.parse(goldens["ags4:c2_user_group.ags"]),
+  );
+  assert.deepEqual(
+    await client.checkAgs4Sarif(checked, { name: "c2_user_group.ags", dictionary }),
+    JSON.parse(goldens["ags4-sarif:c2_user_group.ags"]),
+  );
+  const capabilities = await client.capabilities();
+  assert.equal(capabilities.pydiggs_version, JSON.parse(goldens.capabilities).pydiggs_version);
+  console.log("ok  handler + PydiggsHttpClient: convert both ways, AGS4 check with a dictionary (multipart), SARIF and capabilities equal CPython's");
   await assert.rejects(client.read("<Diggs><unclosed></Diggs>"), (error) => error.code === "invalid-document" && error.problem.kind === "malformed");
   await assert.rejects(client.validate("<Diggs/>", { checks: ["nope"] }), (error) => error.code === "invalid-parameter" && error.problem.errors[0].parameter === "checks");
   console.log("ok  handler: pydiggs's own problems for a malformed document and an unknown check");

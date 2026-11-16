@@ -396,3 +396,26 @@ test("status is failed after a load failure or terminate", async () => {
   stopped.client.terminate();
   assert.equal(stopped.client.status, "failed");
 });
+
+test("convert and checkAgs4 send the file and the dictionary, each transferred; AGS4 keeps no default name", async () => {
+  const { worker, client } = start();
+  const dictionary = new TextEncoder().encode("dict");
+  const all = Promise.all([
+    client.convert(new File(["ags"], "site.ags"), { diggsVersion: "3.0.0" }),
+    client.checkAgs4(new Uint8Array([1, 2, 3]), { dictionary }),
+    client.checkAgs4Sarif(new Uint8Array([1])),
+    client.capabilities(),
+  ]);
+  await answerAll(worker, 4);
+  await all;
+  const [convert, check, sarif, capabilities] = worker.requests;
+  assert.deepEqual([convert.type, convert.name, convert.parameters], ["convert", "site.ags", { to: "diggs", diggs_version: "3.0.0" }]);
+  assert.equal(check.type, "ags4-check");
+  assert.equal(check.name, undefined, "pyDIGGS names an unnamed AGS4 file");
+  assert.equal(new TextDecoder().decode(check.dictionary), "dict");
+  const posted = worker.posted.find((entry) => entry.message === check)!;
+  assert.deepEqual(posted.transfer, [check.data, check.dictionary]);
+  assert.equal(dictionary.byteLength, 4, "the caller's dictionary is not detached");
+  assert.deepEqual(sarif.parameters, { format: "sarif" });
+  assert.equal(capabilities.type, "capabilities");
+});
