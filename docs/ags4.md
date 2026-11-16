@@ -5,7 +5,7 @@ published by the Association of Geotechnical and Geoenvironmental Specialists (A
 `pydiggs.ags4` reads AGS4 files into tables of strings, writes them back the same way
 every time, and checks them against the AGS4 rules. To turn an AGS4 file into DIGGS, or a
 DIGGS file into AGS4, see [AGS4 and DIGGS conversion](convert.md) (`pydiggs.convert`,
-stable from pyDIGGS 1.10).
+stable from pyDIGGS 1.11).
 
 !!! note "Not an AGS-approved tool; no AGS files bundled"
     pyDIGGS implements the published AGS4 rules (section 4.1.1 of the AGS4 specification,

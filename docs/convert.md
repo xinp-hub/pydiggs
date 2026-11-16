@@ -5,7 +5,7 @@ files, and tells you exactly what did not make it across. The conversion is the 
 Python, on the command line, over HTTP, in the stdio sidecar and in the browser: the same
 input gives the same bytes everywhere.
 
-`pydiggs.convert` is **stable** from pyDIGGS 1.10 and follows Semantic Versioning. Both
+`pydiggs.convert` is **stable** from pyDIGGS 1.11 and follows Semantic Versioning. Both
 directions use one bundled mapping table, **1.0**, whose 25 groups have all been
 reviewed against the AGS4 4.1.1 and 4.2 dictionaries and DIGGS 3.0.0; the generated
 [AGS4 and DIGGS mapping](convert-mapping.md) page lists every heading with its DIGGS
@@ -243,7 +243,7 @@ nothing is fetched.
 ## From the 1.9 preview
 
 pyDIGGS 1.9.0 shipped AGS4 to DIGGS as a preview in `pydiggs.preview.convert`, with
-mapping table 0.1. From 1.10 `pydiggs.preview.convert` is a deprecated alias of
+mapping table 0.1. From 1.11 `pydiggs.preview.convert` is a deprecated alias of
 `pydiggs.convert` (using one of its names warns), and it will be removed in pyDIGGS 2.0.
 Replace `from pydiggs.preview import convert` with `from pydiggs import convert`. The
 same AGS4 file converts to different DIGGS than in 1.9.0; the CHANGELOG lists what moved

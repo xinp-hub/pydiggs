@@ -7,7 +7,7 @@
 # The table holds only AGS4 group and heading identifiers, key lists and parent groups. It
 # copies nothing else from the AGS4 data dictionary (no descriptions, examples or notes).
 #
-# Mapping table 1.0 (pyDIGGS 1.10.0). A group's `status` is `draft` until the owner has
+# Mapping table 1.0 (pyDIGGS 1.11.0). A group's `status` is `draft` until the owner has
 # reviewed its rows, and `reviewed` after: every group of table 1.0 was reviewed against
 # the AGS4 4.1.1 and 4.2 dictionaries and DIGGS 3.0.0 (owner review, 2026-11-13). Changing
 # where an existing heading goes is a major version of the table; adding groups, headings

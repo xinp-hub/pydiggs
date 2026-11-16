@@ -149,7 +149,7 @@ def test_the_ags4_module_is_public_but_not_imported_with_pydiggs():
 
 
 def test_the_convert_module_is_public_but_not_imported_with_pydiggs():
-    # pydiggs.convert (stable in 1.10.0) adds no top-level name and is not imported with
+    # pydiggs.convert (stable in 1.11.0) adds no top-level name and is not imported with
     # pydiggs; nothing in it opens a socket.
     code = (
         "import sys, pydiggs\n"

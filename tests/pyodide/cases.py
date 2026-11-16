@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 FIXTURES = ("casing_units.xml", "markup_in_value.xml")
-# AGS4 files: checked, converted to DIGGS and that DIGGS back to AGS4 (pyDIGGS 1.10). Not
+# AGS4 files: checked, converted to DIGGS and that DIGGS back to AGS4 (pyDIGGS 1.11). Not
 # validated or read as XML.
 AGS4_FIXTURES = ("site_tier_a.ags",)
 # The AGS4 versions DIGGS to AGS4 writes (4.2 is the default).

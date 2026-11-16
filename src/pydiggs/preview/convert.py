@@ -1,6 +1,6 @@
 """Deprecated: the pyDIGGS 1.9 preview of AGS4 to DIGGS conversion.
 
-From pyDIGGS 1.10 the conversion API is stable in :mod:`pydiggs.convert`, in both
+From pyDIGGS 1.11 the conversion API is stable in :mod:`pydiggs.convert`, in both
 directions. The names here (``ags4_to_diggs``, ``Conversion``, ``Origin``,
 ``mapping_info``, ``MAPPING_VERSION``) are the same objects as there; using one of them
 from here warns with a ``DeprecationWarning``, and they will be removed in pyDIGGS 2.0.

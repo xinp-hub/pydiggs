@@ -13,7 +13,7 @@ preview:
   locations, geology, samples, SPT, Atterberg limits, moisture content and particle
   size) to DIGGS 3.0.0, as a preview with a draft mapping table (0.1). Every value was
   either written or named by a `convert.*` finding, and the output was validated. From
-  1.10 the stable `pydiggs.convert` replaces it, and `pydiggs.preview.convert` is a
+  1.11 the stable `pydiggs.convert` replaces it, and `pydiggs.preview.convert` is a
   deprecated alias.
 - Findings documents are now diggs-findings 1.1, which only adds to 1.0.
 - The licences of everything pyDIGGS bundles are named file by file (`NOTICE`,

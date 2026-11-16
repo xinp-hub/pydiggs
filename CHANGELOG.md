@@ -8,18 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **`pydiggs.convert` is stable, both ways.** `convert.ags4_to_diggs` (the 1.9 preview)
-  is joined by `convert.diggs_to_ags4(source)` and `convert.model_to_ags4(model)`, which
-  write an AGS4 file (4.2 by default, or `ags_version="4.1.1"`) from a DIGGS document or
-  a `Model` in memory, by the same mapping table read the other way. AGS lists 4.2 as the
-  current edition and 4.1.1 as deprecated. As of November 2026 the BGS AGS validator
-  (agsapi.bgs.ac.uk) and python-ags4 1.2.0 accept AGS4 only up to 4.1.1, so pass
-  `ags_version="4.1.1"` for files meant for them. `TRAN_AGS` is written as `4.2` (the
-  value python-ags4 recognises), static cone tests go to CPTG/CPTT in 4.2 and SCPG/SCPT
-  in 4.1.1, and 4.2 output also gives the CRS as an EPSG code (`LOCA_NSRI`,
-  `LOCA_LLSI`). Every value of the model (names, remarks, `params`, typed fields, `extra`
-  elements, links that are not structure, result-table cells) is either written into a
-  cell or named by a finding: a value with no AGS4 target is the new
+- **`pydiggs.convert` is stable, both ways.** `convert.ags4_to_diggs` (the 1.9 and 1.10
+  preview) is joined by `convert.diggs_to_ags4(source)` and
+  `convert.model_to_ags4(model)`, which write an AGS4 file (4.2 by default, or
+  `ags_version="4.1.1"`) from a DIGGS document or a `Model` in memory, by the same mapping
+  table read the other way. AGS lists 4.2 as the current edition and 4.1.1 as deprecated.
+  As of November 2026 the BGS AGS validator (agsapi.bgs.ac.uk) and python-ags4 1.2.0
+  accept AGS4 only up to 4.1.1, so pass `ags_version="4.1.1"` for files meant for them.
+  `TRAN_AGS` is written as `4.2` (the value python-ags4 recognises), static cone tests go
+  to CPTG/CPTT in 4.2 and SCPG/SCPT in 4.1.1, and 4.2 output also gives the CRS as an EPSG
+  code (`LOCA_NSRI`, `LOCA_LLSI`). Every value of the model (names, remarks, `params`,
+  typed fields, `extra` elements, links that are not structure, result-table cells) is
+  either written into a cell or named by a finding: a value with no AGS4 target is the new
   `convert.unmapped-element` warning. The output passes `ags4.check` (it carries the
   source's non-ASCII text unchanged, which Rule 1 reports); without a bundled AGS4
   dictionary, each heading's TYPE is the one its values have, and the ABBR, TYPE and UNIT
@@ -35,7 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   back = convert.ags4_to_diggs("site.ags")
   back.residual  # an AGS4 File of what was not converted
   ```
-
 - `Conversion.residual`: for AGS4 to DIGGS, an AGS4 `File` holding exactly the values a
   `convert` finding names, with the key fields of their rows, so the DIGGS output and the
   residual file together hold everything the source did. `Conversion.ags4` holds the AGS4
@@ -55,88 +54,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mapping_info()` reports the table. All 25 groups are **reviewed** (owner review against
   the AGS4 4.1.1 and 4.2 dictionaries and DIGGS 3.0.0); the generated page is now "AGS4
   and DIGGS mapping".
-- **`pydiggs convert`: conversion on the command line, both ways.**
-  `pydiggs convert site.ags -o site.xml [--residual left.ags]` writes the DIGGS 3.0.0
-  document, and with `--residual` the residual AGS4 file (not written when everything was
-  converted); `pydiggs convert site.xml -o site.ags --to ags4 [--ags-version 4.2|4.1.1]`
-  writes AGS4. The direction is never guessed: AGS4 to DIGGS is the default, and
-  `--diggs-version`, `--ags-version` and `--residual` are refused for the other direction.
-  `--report FILE` also writes the findings report, `--format text|json` chooses the
-  summary, and every loss is printed. Exit codes follow `pydiggs validate`: 0, 1 for
-  findings at or above `--fail-on` (`error`, the default, includes an output that fails
-  validation or the AGS4 check; `loss` adds any loss), 2 for a usage error, an input that
-  cannot be read or is not of the expected format, or an output that cannot be written.
-  Outputs are written to a temporary file and moved into place; an existing output is
-  replaced only with `--force`, and the input is never overwritten.
-- **HTTP API: `POST /v1/convert` and `POST /v1/ags4/check`.** `/v1/convert` converts an
-  AGS4 file to DIGGS (`to=diggs`, the default; a raw body is `application/octet-stream`,
-  `text/plain` or `text/csv`) or a DIGGS document to AGS4 (`to=ags4` with `ags_version`;
-  a raw body is `application/xml` or `text/xml`), raw or multipart, and answers one JSON
-  object, `ConversionResult`: the output as `output_base64` with `media_type`
-  (`application/xml`, or `text/plain; charset=utf-8` for AGS4), `output_name` and
-  `output_sha256`, the findings `report` about the source, the `validation` of the output
-  (`ags4.check` for AGS4), `complete`, `lossless`, `diggs_version`, `ags_version`,
-  `mapping_version`, and `residual_base64`, the residual AGS4 file of an AGS4 to DIGGS
-  conversion (null when nothing was left over, and for `to=ags4`). `/v1/ags4/check`
-  answers the diggs-findings 1.1 (or SARIF) report of the AGS4 rules, and takes an
-  optional `dictionary` part, since pyDIGGS bundles no AGS data dictionary. Both have the
-  limits of `/v1/read`; input that is not of the expected format is 422
-  `invalid-document` with its `kind` for a conversion, and a finding for a check. The
-  OpenAPI document describes both.
-- **Stdio sidecar protocol 1.2: `convert` and `ags4.check`.** A host that negotiates 1.2
-  gets both methods, advertised as `capabilities.convert` (with the targets, the AGS4
-  versions written and `residual: true`) and `capabilities.ags4_check`; 1.0 and 1.1
-  sessions are unchanged and answer `method-not-found` for them. `convert` takes `to`,
-  `diggs_version` and `ags_version` and answers the same `ConversionResult` as the HTTP
-  API; `ags4.check` takes `dictionary_base64` or `dictionary_path`. `openrpc.json`
-  describes protocol 1.2.
-- The conversion, both ways, and the check run in the browser (Pyodide) and give
-  CPython's bytes; the Pyodide smoke converts an AGS4 file to DIGGS and that DIGGS back
-  to AGS4 4.2 and 4.1.1, and compares the outputs and the residual file.
-- Documentation: [AGS4 files](https://xinp-hub.github.io/pydiggs/ags4/) and
-  [AGS4 and DIGGS conversion](https://xinp-hub.github.io/pydiggs/convert/), and the
-  conversion API in the Python API reference.
-- **`pydiggs.capabilities()`: what this pyDIGGS can do, machine-readable.** It returns a
-  `Capabilities` with one `Operation` per thing pyDIGGS offers (`validate`, `read`,
-  `detect`, `rules.list`, `rules.explain`, `ags4.read`, `ags4.write`, `ags4.check`,
-  `convert.ags4-to-diggs`, `convert.diggs-to-ags4`, `export.pandas`, `export.polars`,
-  `gis.transform`, `export.geodataframe`, `export.gpkg`, `export.geoparquet`,
-  `export.geojson`): its stability (`stable`, `preview` or `experimental`; the AGS4
-  reading, writing and checking operations are `preview`, the conversions `stable`),
-  inputs and outputs
-  (`diggs-3.0.0`, `ags4-4.1.1`, `diggs-findings-1.1`, `diggs-model-1.0`, media types),
-  its options as `OptionSpec`s (type, default, choices, a plain-language label), the
-  extras it `needs`, and whether they are `available` here. Availability is found
-  without importing anything optional, so the same wheel answers correctly in Pyodide,
-  where only the core is installed. An app can build its menus from it instead of from
-  hand edits per release:
-
-  ```python
-  import pydiggs
-
-  for op in pydiggs.capabilities().operations:
-      print(op.id, op.stability, op.available)
-  ```
-
-  `Capabilities.to_dict()` is a **diggs-capabilities 1.0** document, with its JSON
-  Schema packaged (`pydiggs.capabilities_schema()`, `CAPABILITIES_SCHEMA_VERSION`,
-  `CAPABILITIES_SCHEMA_URL`) and published beside the findings and model schemas. The
-  same document is `pydiggs capabilities --json` on the command line (without `--json`,
-  a short table), `GET /v1/capabilities` on the HTTP server (off, like `/v1/versions`,
-  with `versions_enabled=False`), and the MCP server's new `pydiggs://capabilities`
-  resource. Every name is new; nothing existing changes.
-- **Plain-language rule guidance.** Every rule in `rule_catalogue()` and every id
-  `explain_rule()` knows now has `RuleInfo.guidance`, a new `Guidance` object (`title`,
-  `meaning`, `fix`, `locale`) written for geotechnical and geoenvironmental engineers who
-  are not DIGGS or XML specialists: `explain_rule("dictionary.5").guidance.title` is
-  `'Unknown code'`. The field defaults to `None` (an unknown id), so existing code that
-  builds a `RuleInfo` is unaffected, and `to_dict()` gains a `guidance` key. The common
-  `schema.cvc-*` rules have their own text; other family members get their family's. The
-  HTTP `/v1/rules` routes, the sidecar's `rules.*` methods and the MCP `explain_rule` and
-  `list_rules` tools return it too (`openapi.json` and `openrpc.json` add the optional
-  `guidance` property). Findings documents are unchanged and stay `diggs-findings` 1.1:
-  apps look guidance up by `rule_id`. Only English ships; a test fails if any rule lacks
-  guidance.
+- **`pydiggs convert --to ags4`: DIGGS to AGS4 on the command line.**
+  `pydiggs convert site.xml -o site.ags --to ags4 [--ags-version 4.2|4.1.1]` writes AGS4,
+  and `pydiggs convert site.ags -o site.xml --residual left.ags` also writes the residual
+  AGS4 file (not written when everything was converted). The direction is never guessed:
+  AGS4 to DIGGS stays the default, and `--diggs-version`, `--ags-version` and
+  `--residual` are refused for the other direction. With `--fail-on error` an output that
+  fails the AGS4 check exits 1, as one that fails DIGGS validation does.
+- **HTTP API and sidecar: conversion to AGS4.** `POST /v1/convert` and the sidecar
+  `convert` method (protocol 1.2) take `to=ags4` with `ags_version` for a DIGGS document
+  (a raw HTTP body is `application/xml` or `text/xml`) and answer AGS4 as
+  `text/plain; charset=utf-8`, validated by `ags4.check`. `ConversionResult` gains
+  `ags_version` and `residual_base64`, the residual AGS4 file of an AGS4 to DIGGS
+  conversion (null when nothing was left over, and for `to=ags4`). The sidecar's
+  `capabilities.convert` lists the targets, the AGS4 versions written and
+  `residual: true`. OpenAPI, `openrpc.json` and the JS types are regenerated.
+- `pydiggs.capabilities()` gains `convert.diggs-to-ags4`, and both conversions are now
+  `stable` (the AGS4 reading, writing and checking operations stay `preview`).
+- The Pyodide smoke converts an AGS4 file to DIGGS and that DIGGS back to AGS4 4.2 and
+  4.1.1, and compares the outputs and the residual file with CPython's bytes.
+- Documentation: the conversion page is now [AGS4 and DIGGS
+  conversion](https://xinp-hub.github.io/pydiggs/convert/), and the conversion API is in
+  the Python API reference.
 
 ### Changed
 - `Conversion.xml` is None for a conversion to AGS4 (it was always bytes in the preview).
@@ -144,8 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   grading, but the code itself is now reported as `convert.unmapped-code` (DIGGS does not
   say whether sieving was wet or dry); a test placed at its sample's top because it gives
   no depth of its own is reported as `convert.assumed`. Mapping table 0.1 becomes 1.0.
-- **What moved since the 1.9.0 preview (mapping table 0.1 to 1.0).** Conversions of the
-  same AGS4 file give different DIGGS than 1.9.0 did:
+- **What moved since the 1.9.0 and 1.10.0 preview (mapping table 0.1 to 1.0).**
+  Conversions of the same AGS4 file give different DIGGS than 1.9.0 and 1.10.0 did:
   - `GEOL_FORM` (the geological unit or stratum name) is now the DIGGS `unitName`;
     `GEOL_GEOL`, a project geology code whose meaning is in the file's ABBR group, is
     reported and no longer written as the unit name.
@@ -190,11 +129,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only; the detail of a `read` that is too large still suggests `select`.
 - The plain-language guidance of `convert.unmapped-code`, `convert.unmapped-unit` and
   `convert.assumed` fits both directions of conversion.
-- Validation is about a fifth faster on documents with many Schematron hits (40,000
-  boreholes: 3.4 s to 2.6 s), with the same findings byte for byte. Placing each
-  Schematron failure on its element evaluated rule contexts such as
-  `*[local-name()='X'][parent::*[local-name()='Y']]` as XPath over the whole document;
-  lxml's tag filter now finds the same elements, in the same order.
 
 ### Deprecated
 - `pydiggs.preview.convert` is a deprecated alias of `pydiggs.convert`: using one of its
@@ -211,14 +145,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and values whose DIGGS property has no unit (the `%` of the LLPL limits), are written
   as before, and their UNIT is now reported as `convert.unmapped-unit`; the residual file
   keeps those values with their unit.
-- DIGGS to AGS4 wrote a water strike's depth, its seal and casing depths, and a test's
-  depth as metres whatever the unit of the hole's linear referencing system: they are
-  now written in that unit (`ft` where the hole is measured in feet). The depth keys of
-  GRAT rows (`SAMP_TOP`, `SPEC_DPTH`) now carry the unit GRAG gives them.
-- A component's `extra` element read from a document that binds GML (or another
-  namespace) to its own prefix, such as a `bottomCasing` with `geom:id`, is written by
-  namespace: writing it raised `KeyError`, and its id was not reserved. DIGGS to AGS4
-  also finds `bottomCasing` and the linear referencing system by namespace, not prefix.
+
+
+## [1.10.0] - 2026-11-14
+
+### Added
+- **`pydiggs convert`: AGS4 to DIGGS on the command line.** `pydiggs convert site.ags -o
+  site.xml [--report findings.json] [--format text|json] [--fail-on error|loss] [--force]`
+  writes the DIGGS 3.0.0 document of the preview converter (mapping table 0.1) and
+  prints every loss. Exit codes follow `pydiggs validate`: 0, 1 for findings at or above
+  `--fail-on` (`error`, the default, includes an output that fails validation; `loss`
+  adds any loss), 2 for a usage error, an input that cannot be read or is not AGS4, or an
+  output that cannot be written. Outputs are written to a temporary file and moved into
+  place; an existing output is replaced only with `--force`, and the input is never
+  overwritten.
+- **HTTP API: `POST /v1/convert` and `POST /v1/ags4/check`.** `/v1/convert` takes an
+  AGS4 file (raw `application/octet-stream`, `text/plain` or `text/csv`, or multipart)
+  and answers one JSON object, `ConversionResult`: the DIGGS XML as `output_base64` with
+  `media_type`, `output_name` and `output_sha256`, the findings `report` about the
+  source, the `validation` of the output, `complete`, `lossless`, `diggs_version` and
+  `mapping_version`. `/v1/ags4/check` answers the diggs-findings 1.1 (or SARIF) report of
+  the AGS4 rules, and takes an optional `dictionary` part, since pyDIGGS bundles no AGS
+  data dictionary. Both have the limits of `/v1/read`; a file that is not AGS4 is 422
+  `invalid-document` with `kind` `not-ags4` or `unsupported-version` for a conversion,
+  and a finding for a check. The OpenAPI document describes both.
+- **Stdio sidecar protocol 1.2: `convert` and `ags4.check`.** A host that negotiates 1.2
+  gets both methods, advertised as `capabilities.convert` and
+  `capabilities.ags4_check`; 1.0 and 1.1 sessions are unchanged and answer
+  `method-not-found` for them. `convert` answers the same `ConversionResult` as the HTTP
+  API; `ags4.check` takes `dictionary_base64` or `dictionary_path`. `openrpc.json`
+  describes protocol 1.2.
+- The conversion and the check run in the browser (Pyodide) and give CPython's bytes;
+  the Pyodide smoke now converts an AGS4 file and compares.
+- Documentation: [AGS4 files](https://xinp-hub.github.io/pydiggs/ags4/) and
+  [AGS4 to DIGGS](https://xinp-hub.github.io/pydiggs/convert/).
+- **`pydiggs.capabilities()`: what this pyDIGGS can do, machine-readable.** It returns a
+  `Capabilities` with one `Operation` per thing pyDIGGS offers (`validate`, `read`,
+  `detect`, `rules.list`, `rules.explain`, `ags4.read`, `ags4.write`, `ags4.check`,
+  `convert.ags4-to-diggs`, `export.pandas`, `export.polars`, `gis.transform`,
+  `export.geodataframe`, `export.gpkg`, `export.geoparquet`, `export.geojson`): its
+  stability (`stable`, `preview` or `experimental`; the AGS4 and conversion operations
+  are `preview`), inputs and outputs
+  (`diggs-3.0.0`, `ags4-4.1.1`, `diggs-findings-1.1`, `diggs-model-1.0`, media types),
+  its options as `OptionSpec`s (type, default, choices, a plain-language label), the
+  extras it `needs`, and whether they are `available` here. Availability is found
+  without importing anything optional, so the same wheel answers correctly in Pyodide,
+  where only the core is installed. An app can build its menus from it instead of from
+  hand edits per release:
+
+  ```python
+  import pydiggs
+
+  for op in pydiggs.capabilities().operations:
+      print(op.id, op.stability, op.available)
+  ```
+
+  `Capabilities.to_dict()` is a **diggs-capabilities 1.0** document, with its JSON
+  Schema packaged (`pydiggs.capabilities_schema()`, `CAPABILITIES_SCHEMA_VERSION`,
+  `CAPABILITIES_SCHEMA_URL`) and published beside the findings and model schemas. The
+  same document is `pydiggs capabilities --json` on the command line (without `--json`,
+  a short table), `GET /v1/capabilities` on the HTTP server (off, like `/v1/versions`,
+  with `versions_enabled=False`), and the MCP server's new `pydiggs://capabilities`
+  resource. Every name is new; nothing existing changes.
+- **Plain-language rule guidance.** Every rule in `rule_catalogue()` and every id
+  `explain_rule()` knows now has `RuleInfo.guidance`, a new `Guidance` object (`title`,
+  `meaning`, `fix`, `locale`) written for geotechnical and geoenvironmental engineers who
+  are not DIGGS or XML specialists: `explain_rule("dictionary.5").guidance.title` is
+  `'Unknown code'`. The field defaults to `None` (an unknown id), so existing code that
+  builds a `RuleInfo` is unaffected, and `to_dict()` gains a `guidance` key. The common
+  `schema.cvc-*` rules have their own text; other family members get their family's. The
+  HTTP `/v1/rules` routes, the sidecar's `rules.*` methods and the MCP `explain_rule` and
+  `list_rules` tools return it too (`openapi.json` and `openrpc.json` add the optional
+  `guidance` property). Findings documents are unchanged and stay `diggs-findings` 1.1:
+  apps look guidance up by `rule_id`. Only English ships; a test fails if any rule lacks
+  guidance.
+
+### Changed
+- Validation is about a fifth faster on documents with many Schematron hits (40,000
+  boreholes: 3.4 s to 2.6 s), with the same findings byte for byte. Placing each
+  Schematron failure on its element evaluated rule contexts such as
+  `*[local-name()='X'][parent::*[local-name()='Y']]` as XPath over the whole document;
+  lxml's tag filter now finds the same elements, in the same order.
+
+### Fixed
+
 - **A correct field plasticity term is no longer an error.** The bundled Schematron rule
   for `FieldProperties/plasticity`, copied from the official DIGGS validation rules,
   required a number of zero or more, but in DIGGS 2.6 and 3.0 plasticity is a term such
@@ -1107,7 +1117,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/xinp-hub/pydiggs/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/xinp-hub/pydiggs/compare/v1.6.0...v1.7.0

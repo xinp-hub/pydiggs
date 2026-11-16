@@ -11,7 +11,7 @@ matching pyDIGGS version number.
 ### Changed
 
 - The `createPydiggsHandler` problem for `invalid-document` is titled "Invalid document",
-  as pyDIGGS 1.10's HTTP API titles it now that `/v1/convert` also answers it for AGS4
+  as pyDIGGS 1.11's HTTP API titles it now that `/v1/convert` also answers it for AGS4
   input. The code, status, `kind` and detail are unchanged.
 
 ## [0.5.0] - 2026-11-13

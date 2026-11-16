@@ -103,7 +103,7 @@ about the server's own interpreter.
 | `export.gpkg`, `export.geoparquet`, `export.geojson` | stable | `gis` | `pydiggs.gis.write()` |
 
 The AGS4 reading, writing and checking operations are a preview; conversion
-(`pydiggs.convert`) is stable from pyDIGGS 1.10, both ways. `POST /v1/convert` and the
+(`pydiggs.convert`) is stable from pyDIGGS 1.11, both ways. `POST /v1/convert` and the
 sidecar's `convert` are either conversion operation, chosen by their `to` parameter. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).

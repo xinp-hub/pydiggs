@@ -371,7 +371,7 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
 def test_stability_matches_what_the_docs_promise(by_id):
     preview = {i for i, op in by_id.items() if op.stability == "preview"}
     assert preview == {"ags4.read", "ags4.write", "ags4.check"}
-    # pydiggs.convert is stable from 1.10, both ways.
+    # pydiggs.convert is stable from 1.11, both ways.
     assert by_id["convert.ags4-to-diggs"].stability == "stable"
     assert by_id["convert.diggs-to-ags4"].stability == "stable"
     assert not {i for i, op in by_id.items() if op.stability == "experimental"}

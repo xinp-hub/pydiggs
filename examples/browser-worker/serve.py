@@ -6,7 +6,7 @@ from the worker script's own response headers, so this server sends one for
 ``worker.mjs`` and ``PAGE_CSP`` with the page.
 
     python3 serve.py                      # installs pydiggs from PyPI
-    python3 serve.py --wheel ../../dist/pydiggs-1.9.0-py3-none-any.whl
+    python3 serve.py --wheel ../../dist/pydiggs-1.10.0-py3-none-any.whl
 
 Standard library only; it binds to localhost and is not a production server.
 """

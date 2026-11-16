@@ -119,7 +119,7 @@ What this pyDIGGS can do; see [Capabilities](capabilities.md).
 
 ## AGS4 and DIGGS conversion
 
-Stable from pyDIGGS 1.10; see [AGS4 and DIGGS conversion](convert.md).
+Stable from pyDIGGS 1.11; see [AGS4 and DIGGS conversion](convert.md).
 
 ::: pydiggs.convert.ags4_to_diggs
 

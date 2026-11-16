@@ -101,12 +101,12 @@ def test_the_table_is_versioned_and_convert_names_its_version():
         assert _mapping.read_table(name)["mapping_version"] == mapping.mapping_version
 
 
-#: Tier B (brief Q13), mapped in pyDIGGS 1.10 with mapping table 1.0.
+#: Tier B (brief Q13), mapped in pyDIGGS 1.11 with mapping table 1.0.
 TIER_B = {"HORN", "HDIA", "CDIA", "BKFL", "WSTG", "WSTD", "LDEN", "SCPG", "SCPT", "CPTG", "CPTT"}
 
 
 def test_tiers_a_and_b_are_covered_and_every_group_is_reviewed():
-    """Table 1.0 is signed off whole: every group reviewed (owner review, HG3 of 1.10.0)."""
+    """Table 1.0 is signed off whole: every group reviewed (owner review, HG3 of 1.11.0)."""
     mapping = load_mapping()
     assert set(mapping.groups) == TIER_A | TIER_B
     assert {group.status for group in mapping.groups.values()} == {"reviewed"}
