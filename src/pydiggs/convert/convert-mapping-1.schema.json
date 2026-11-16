@@ -149,7 +149,13 @@
             "required": ["ags", "diggs"],
             "properties": {
               "ags": {"type": "string", "minLength": 1, "maxLength": 40},
-              "diggs": {"type": "string", "minLength": 1, "maxLength": 40}
+              "diggs": {"type": "string", "minLength": 1, "maxLength": 40},
+              "desc": {
+                "description": "The UNIT_DESC written for a unit AGS4 does not list (a project-defined unit); a standard unit has none.",
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              }
             }
           }
         }

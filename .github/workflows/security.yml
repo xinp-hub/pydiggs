@@ -17,10 +17,15 @@ concurrency:
   group: security-${{ github.ref }}
   cancel-in-progress: true
 
+# uv uses only its own python-build-standalone interpreters, never the runner image's
+# distro Python (24.04 ships 3.12, 26.04 ships 3.14), so every job runs the same build.
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+
 jobs:
   audit:
     name: dependency audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -43,7 +48,7 @@ jobs:
   dependency-review:
     name: dependency review
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -59,7 +64,7 @@ jobs:
 
   codeql:
     name: CodeQL
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -76,7 +81,7 @@ jobs:
 
   secret-scan:
     name: secret scan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -95,7 +100,7 @@ jobs:
     name: all green
     if: always()
     needs: [audit, dependency-review, codeql, secret-scan]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:
       - name: Fail if any required job failed or was cancelled
@@ -113,7 +118,7 @@ jobs:
     name: report scheduled failure
     needs: all-green
     if: always() && github.event_name == 'schedule' && needs.all-green.result == 'failure'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       issues: write

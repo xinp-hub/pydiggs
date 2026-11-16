@@ -10,7 +10,7 @@
 # to AGS4 writes; a value matching a later row is written as the DIGGS code and the AGS4
 # code itself is reported, because DIGGS does not tell the two apart.
 
-mapping_version = "1.0"
+mapping_version = "1.1"
 #: Where the DIGGS code lists named by `code_list` are published.
 code_list_base = "https://diggsml.org/def/codes/DIGGS/0.1/"
 

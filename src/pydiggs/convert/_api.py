@@ -48,7 +48,7 @@ __all__ = [
 ]
 
 #: The version of the bundled mapping table (``major.minor``, separate from pyDIGGS's).
-MAPPING_VERSION: Final = "1.0"
+MAPPING_VERSION: Final = "1.1"
 #: The AGS4 versions DIGGS to AGS4 writes (the default is 4.2).
 AGS_VERSIONS: Final = ("4.1.1", "4.2")
 _DEFAULT_AGS_VERSION: Final = "4.2"
@@ -516,7 +516,7 @@ def mapping_info() -> dict[str, Any]:
         >>> from pydiggs import convert
         >>> info = convert.mapping_info()
         >>> info["mapping_version"], info["diggs_versions"]
-        ('1.0', ['3.0.0'])
+        ('1.1', ['3.0.0'])
         >>> [g["name"] for g in info["groups"]][:3]
         ['PROJ', 'TRAN', 'ABBR']
         >>> sorted({g["status"] for g in info["groups"]}), "ags4" in str(info["rules"])

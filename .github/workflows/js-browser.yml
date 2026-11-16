@@ -46,13 +46,16 @@ concurrency:
   group: js-browser-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# uv uses only its own python-build-standalone interpreters, never the runner image's
+# distro Python (24.04 ships 3.12, 26.04 ships 3.14), so every job runs the same build.
 env:
+  UV_PYTHON_PREFERENCE: only-managed
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
   package:
     name: wheel, goldens and npm tarball
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -89,7 +92,7 @@ jobs:
   vite:
     name: Vite (Chromium, Firefox, WebKit; dev server)
     needs: package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     defaults:
       run:
@@ -154,7 +157,7 @@ jobs:
   nextjs:
     name: Next.js (${{ matrix.name }})
     needs: package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -217,7 +220,7 @@ jobs:
   runtimes:
     name: Node engine under ${{ matrix.runtime }}
     needs: package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     strategy:
       fail-fast: false

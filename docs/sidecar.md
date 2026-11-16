@@ -227,7 +227,7 @@ same bytes. Validate it against its own `$schema` and tolerate unknown fields.
 
 Protocol 1.2. Converts one **AGS4** file to **DIGGS 3.0.0** (`to: "diggs"`, the default),
 or one **DIGGS** document to an **AGS4** file (`to: "ags4"`), by the stable
-`pydiggs.convert` and mapping table 1.0 (see [AGS4 and DIGGS conversion](convert.md)),
+`pydiggs.convert` and mapping table 1.1 (see [AGS4 and DIGGS conversion](convert.md)),
 with every loss reported. A host detects `to: "ags4"` and `ags_version` from
 `capabilities.convert` (its `to` and `ags_versions` lists); a 1.10 sidecar also reports
 protocol 1.2 and answers both with `invalid-params`.

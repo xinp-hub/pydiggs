@@ -122,14 +122,18 @@ def test_a_utm_location_takes_its_unit_from_the_epsg_axis(tier_a: str):
     assert rules(c, UNMAPPED_UNIT) == []
 
 
-def test_a_us_foot_location_is_reported_not_written_without_a_unit(tier_a: str):
-    # AGS4's unit table has no US survey foot, and writing "ft" would change the values
+def test_a_us_foot_location_is_written_in_ftus(tier_a: str):
+    # AGS4 has no US survey foot, and "ft" is the international foot: values are written as
+    # given, in the project-defined unit ftUS (the EPSG abbreviation), never converted
     c = convert.diggs_to_ags4(with_location(tier_a, "2263", 2, "987000 200000").encode())
-    assert "987000" not in cells(c, "LOCA", "LOCA_NATE")
-    assert any("unit" in m for m in rules(c, UNMAPPED_UNIT))
+    assert unit(c, "LOCA", "LOCA_NATE") == "ftUS"
+    assert "987000" in cells(c, "LOCA", "LOCA_NATE")
+    assert "200000" in cells(c, "LOCA", "LOCA_NATN")
+    # BH02 and TP01 are in metres, which a column in ftUS cannot hold: named, not mixed
+    assert all("another unit" in m for m in rules(c, UNMAPPED_UNIT))
 
 
-@pytest.mark.parametrize("code", ["2263", "99999"], ids=["us-foot", "unresolvable"])
+@pytest.mark.parametrize("code", ["99999"], ids=["unresolvable"])
 def test_an_unresolved_crs_cannot_set_the_heading_unit_for_the_others(tier_a: str, code: str):
     c = convert.diggs_to_ags4(with_location(tier_a, code, 2, "987000 200000").encode())
     assert unit(c, "LOCA", "LOCA_NATE") == "m"
@@ -145,14 +149,13 @@ def test_two_crs_with_the_same_unit_are_both_written(tier_a: str):
     assert rules(c, UNMAPPED_UNIT) == []
 
 
-def test_a_cone_in_us_feet_is_reported_and_writes_no_unitless_depth(tier_b: str):
+def test_a_cone_in_us_feet_is_written_in_ftus(tier_b: str):
     i = tier_b.index('<Sounding gml:id="CPT01">')
     xml = tier_b[:i] + tier_b[i:].replace("<units>m</units>", "<units>ft[US]</units>", 1)
     c = convert.diggs_to_ags4(xml.encode(), ags_version="4.1.1")
-    assert "" not in cells(c, "SCPT", "SCPT_DPTH")
-    assert unit(c, "SCPT", "SCPT_DPTH") != "" if cells(c, "SCPT", "SCPT_DPTH") else True
-    assert any("unit" in m for m in rules(c, UNMAPPED_UNIT))
-    assert not c.lossless
+    assert unit(c, "SCPT", "SCPT_DPTH") == "ftUS"
+    assert column(c, "SCPT", "SCPT_DPTH") == ("0.5", "1", "1.5")
+    assert rules(c, UNMAPPED_UNIT) == []
 
 
 def test_a_cone_in_international_feet_is_written_in_ft(tier_b: str):
@@ -255,6 +258,63 @@ def test_distinct_free_text_sample_types_cost_linear_work(
     )
 
 
+def water_strike_model(n: int):
+    """``n`` boreholes, each with one water strike that has a bottomCasing point location."""
+
+    def group(name: str, spec: list[tuple[str, str, str]], rows: list[tuple[str, ...]]) -> Group:
+        headings, units, types = zip(*spec, strict=True)
+        return Group(name=name, headings=headings, units=units, types=types, rows=rows)
+
+    holes = [f"BH{i}" for i in range(n)]
+    file = ags4.File(
+        groups=[
+            group("PROJ", [("PROJ_ID", "", "ID")], [("P1",)]),
+            group(
+                "TRAN",
+                [("TRAN_DATE", "yyyy-mm-dd", "DT"), ("TRAN_AGS", "", "X"), ("TRAN_RCON", "", "X")],
+                [("2026-11-13", "4.2", "+")],
+            ),
+            group(
+                "LOCA", [("LOCA_ID", "", "ID"), ("LOCA_TYPE", "", "PA")], [(h, "CP") for h in holes]
+            ),
+            group(
+                "WSTG",
+                [("LOCA_ID", "", "ID"), ("WSTG_DPTH", "m", "2DP"), ("WSTG_CAS", "m", "2DP")],
+                [(h, "4.50", "4.00") for h in holes],
+            ),
+        ]
+    )
+    return convert.ags4_to_diggs(file).model
+
+
+@pytest.mark.scaling
+@pytest.mark.parametrize("n", [100, 400], ids=["small", "large"])
+def test_water_strikes_with_a_bottom_casing_cost_linear_work(
+    n: int, monkeypatch: pytest.MonkeyPatch
+):
+    # Finding each strike's LRS must not scan every feature's strikes again per strike:
+    # count the reads of Feature.water_strikes, the work that scan would do N times over.
+    from pydiggs.model import Feature
+
+    reads = [0]
+    slot = Feature.water_strikes  # type: ignore[attr-defined]  # the dataclass slot
+
+    def counting(self: Feature):
+        reads[0] += 1
+        return slot.__get__(self)
+
+    work = []
+    models = [water_strike_model(size) for size in (n, 2 * n)]
+    monkeypatch.setattr(Feature, "water_strikes", property(counting))
+    for model in models:
+        reads[0] = 0
+        c = convert.model_to_ags4(model)
+        assert len(cells(c, "WSTG", "WSTG_CAS")) == len(model.features)
+        assert set(cells(c, "WSTG", "WSTG_CAS")) == {"4"}
+        work.append(reads[0])
+    assert work[1] <= 2.5 * work[0], f"{n} -> {2 * n} strikes grew work {work[1] / work[0]:.1f}x"
+
+
 # --- finding 7: saving a conversion that has no output ----------------------------------------
 
 
@@ -295,7 +355,7 @@ def test_rejected_cone_readings_skip_empty_cells_without_scanning(monkeypatch):
     assert first.xml is not None
     xml = first.xml.decode()
     i = xml.index('<Sounding gml:id="CPT01">')
-    xml = xml[:i] + xml[i:].replace("<units>m</units>", "<units>ft[US]</units>", 1)
+    xml = xml[:i] + xml[i:].replace("<units>m</units>", "<units>yd</units>", 1)
 
     scans: list[str] = []
     under = _from_model.ModelLedger._under

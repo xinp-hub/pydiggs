@@ -6,7 +6,7 @@ Python, on the command line, over HTTP, in the stdio sidecar and in the browser:
 input gives the same bytes everywhere.
 
 `pydiggs.convert` is **stable** from pyDIGGS 1.11 and follows Semantic Versioning. Both
-directions use one bundled mapping table, **1.0**, whose 25 groups have all been
+directions use one bundled mapping table, **1.1**, whose 25 groups have all been
 reviewed against the AGS4 4.1.1 and 4.2 dictionaries and DIGGS 3.0.0; the generated
 [AGS4 and DIGGS mapping](convert-mapping.md) page lists every heading with its DIGGS
 target, or the reason it is not converted. Changing where a heading goes is a new major
@@ -132,7 +132,7 @@ The HTTP API and the sidecar answer with the same **conversion result**, a JSON 
 | `output_name` | a file name for the output: the input's name with `.xml` or `.ags` |
 | `diggs_version` | of the DIGGS output, or of the DIGGS input for `to=ags4` |
 | `ags_version` | of the AGS4 output (`"4.2"` or `"4.1.1"`); null for `to=diggs` |
-| `mapping_version` | the mapping table used (`"1.0"`) |
+| `mapping_version` | the mapping table used (`"1.1"`) |
 | `complete` | false when a size or time limit stopped the conversion; the output is then partial |
 | `lossless` | true when there is no loss |
 | `report` | diggs-findings 1.1 document about the source: the reader's notes and every `convert` finding |
@@ -158,7 +158,7 @@ file. DIGGS to AGS4 has no residual file: what it does not write is named by
 
 ## What is converted
 
-Mapping table 1.0 covers PROJ, TRAN, the ABBR, UNIT, TYPE and DICT lookups, LOCA, GEOL,
+Mapping table 1.1 covers PROJ, TRAN, the ABBR, UNIT, TYPE and DICT lookups, LOCA, GEOL,
 SAMP, ISPT, LLPL, GRAG with GRAT, LNMC (Tier A) and HDIA, CDIA, BKFL, WSTG with WSTD,
 LDEN, and static cone tests, SCPG with SCPT and CPTG with CPTT (Tier B). Hole orientation
 (HORN) is listed and reported, not converted: AGS4 measures inclination positively down
@@ -166,7 +166,9 @@ and DIGGS 3.0.0 plunge positively up, and values are never converted. Any other 
 reported, and its rows are in the residual file.
 
 Values are carried **as reported**: units are renamed only through the unit table, and
-nothing is converted numerically. DIGGS to AGS4 writes a quantity's text as it was
+nothing is converted numerically. The US survey foot is the project-defined AGS4 unit `ftUS`
+(DIGGS `ft[US]`), which the UNIT group of the file defines as "US survey foot (1200/3937 m)";
+plain `ft` is the international foot. DIGGS to AGS4 writes a quantity's text as it was
 written and a result-table number in its shortest form; pyDIGGS bundles no AGS4
 dictionary, so each heading's TYPE is the one its values have, and the ABBR, TYPE and
 UNIT groups list what the file uses. The DIGGS output is validated and the AGS4 output

@@ -157,7 +157,7 @@ def test_the_convert_module_is_public_but_not_imported_with_pydiggs():
         "from pydiggs import convert\n"
         "print(before, convert.MAPPING_VERSION, 'socket' in sys.modules)\n"
     )
-    assert _fresh(code) == "False 1.0 False"
+    assert _fresh(code) == "False 1.1 False"
     assert not {"convert", "Conversion", "ags4_to_diggs"} & set(pydiggs.__all__)
 
 

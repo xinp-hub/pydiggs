@@ -55,6 +55,31 @@ def test_provenance_pins_full_commits(provenance: Path, sources: set[str]):
         assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]), rel
 
 
+@pytest.mark.parametrize(
+    "provenance",
+    [_PKG / "PROVENANCE.toml", ROOT / "tests" / "fixtures" / "official" / "PROVENANCE.toml"],
+    ids=["package", "fixtures"],
+)
+def test_every_recorded_digest_is_the_sha256_of_its_file_with_lf_line_endings(provenance: Path):
+    """Local and upstream entries alike, without the sync script (an sdist has no scripts/).
+
+    A recorded digest is of the file with CRLF read as LF, so a vendored CRLF file
+    (dictionaries/DIGGSTestPropertyDefinitions.xml) is not mismatched by ``sha256sum``'s raw
+    bytes: that is by design (scripts/sync_reference.py ``_normalise``), not a wrong entry.
+    """
+    import hashlib
+
+    if not provenance.is_file():
+        pytest.skip("not a repository checkout")
+    data = tomllib.loads(provenance.read_text(encoding="utf-8"))
+    mismatched = []
+    for rel, entry in data["files"].items():
+        raw = (provenance.parent / rel).read_bytes()
+        if hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest() != entry["sha256"]:
+            mismatched.append(rel)
+    assert mismatched == []
+
+
 @pytest.mark.skipif(not _SCRIPT.is_file(), reason="scripts/ is not in this tree")
 @pytest.mark.parametrize(
     "rel",

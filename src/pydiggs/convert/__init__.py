@@ -13,7 +13,7 @@ Examples:
     >>> from pydiggs import ags4, convert
     >>> c = convert.ags4_to_diggs("tests/fixtures/ags4/convert_tier_a.ags")
     >>> c.validation.ok, c.mapping_version
-    (True, '1.0')
+    (True, '1.1')
     >>> back = convert.model_to_ags4(c.model)
     >>> back.validation.ok, back.ags4.version
     (True, '4.2')
