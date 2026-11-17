@@ -1,4 +1,4 @@
-"""The US survey foot is the AGS4 unit ftUS, in both directions (mapping table 1.1).
+"""The US survey foot is the AGS4 unit ftUS, in both directions (mapping table 1.2).
 
 AGS4 4.2 section 6.2 and Rule 15 let a project define an additional unit and forbid
 redefining a standard one, so plain ``ft`` stays the international foot and the US survey
@@ -95,11 +95,12 @@ def test_a_standard_unit_gets_no_description_from_the_table(tier_b: str):
 @pytest.mark.parametrize(
     ("uom", "ags_unit"), [("ft[US]", "ftUS"), ("ft", "ft")], ids=["us-survey-foot", "international"]
 )
-def test_depths_in_feet_are_written_to_ags4_but_never_converted_to_metres_on_the_way_back(
+def test_depths_in_feet_are_carried_both_ways_and_never_converted(
     tier_b: str, uom: str, ags_unit: str
 ):
-    # DIGGS to AGS4 keeps the foot of the source. AGS4 to DIGGS writes depths along a feature
-    # in metres only, so a depth in any foot is reported and left out rather than converted.
+    # DIGGS to AGS4 keeps the foot of the source, and AGS4 to DIGGS now carries it too (a
+    # feature's depths take the unit of LOCA_FDEP): the cone's own unit comes back, and no
+    # depth is written as if it were metres.
     i = tier_b.index('<Sounding gml:id="CPT01">')
     xml = tier_b[:i] + tier_b[i:].replace("<units>m</units>", f"<units>{uom}</units>", 1)
     first = convert.diggs_to_ags4(xml.encode(), ags_version="4.1.1")
@@ -108,8 +109,11 @@ def test_depths_in_feet_are_written_to_ags4_but_never_converted_to_metres_on_the
     assert column(first.ags4, "SCPT", "SCPT_DPTH") == ("0.5", "1", "1.5")  # never converted
 
     back = convert.ags4_to_diggs(first.ags4)
+    # the file's LOCA_FDEP is in metres, so the cone's feet are a different unit: named, not written
     lost = [f.message for f in back.losses if f.rule_id == "convert.unmapped-unit"]
-    assert lost and "depths in a unit other than m" in lost[0]
+    assert any(
+        "SCPT_DPTH" in m and f"depths in {ags_unit}," in m and "are in m " in m for m in lost
+    ), lost
     assert back.xml is not None
     assert "<gml:pos>0.5" not in back.xml.decode()  # no depth was written as if it were metres
 

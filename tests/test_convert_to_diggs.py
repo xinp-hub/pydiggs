@@ -164,7 +164,7 @@ def test_tier_a_converts_to_valid_diggs_3_0_0(tier_a: convert.Conversion):
     assert errors(tier_a.validation) == []
     assert tier_a.model.source.diggs_version == "3.0.0"
     assert tier_a.xml.startswith(b"<?xml version='1.0' encoding='UTF-8'?>")
-    assert tier_a.mapping_version == "1.1"
+    assert tier_a.mapping_version == "1.2"
     model = tier_a.model
     assert [(f.key, f.element) for f in model.features] == [
         ("BH01", "Borehole"),
@@ -1416,4 +1416,5 @@ def test_a_depth_in_another_unit_is_reported_without_preview_wording():
     found = [f for f in c.losses if f.path == "ISPT/1/ISPT_TOP"]
     assert [f.rule_id for f in found] == ["convert.unmapped-unit"]
     assert "preview" not in found[0].message
-    assert "the converter does not write" in found[0].message
+    assert "depths in ft," in found[0].message  # names both units
+    assert "the depths of this file are in m " in found[0].message

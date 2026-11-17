@@ -2,8 +2,8 @@
 
 # AGS4 and DIGGS mapping
 
-!!! note "Mapping table 1.1: 25 of 25 groups reviewed"
-    This is mapping table **1.1**, used by `pydiggs.convert` in both directions:
+!!! note "Mapping table 1.2: 25 of 25 groups reviewed"
+    This is mapping table **1.2**, used by `pydiggs.convert` in both directions:
     `ags4_to_diggs`, and `diggs_to_ags4` and `model_to_ags4`. A group's status is
     *draft* until its rows have been reviewed, and *reviewed* after. Changing where a
     heading goes is a new major version of the table; adding groups, headings or codes is a
@@ -39,6 +39,14 @@ converter reads; it is not data. *not converted*: with the reason.
 
 Values are carried as reported. Units are renamed only through the unit table, and
 nothing is converted numerically.
+
+**Depth units.** The unit of `LOCA_FDEP` (`m`, `ft` or `ftUS`; the unit table gives DIGGS
+`m`, `ft` or `ft[US]`) is the unit of every depth along a feature: it is the unit of each
+feature's linear referencing system, of the CPT depth column and of an interval that starts
+at the top of a hole. A file whose `LOCA_FDEP` has no unit, or one the converter does not
+carry, is read in metres, as before. A depth heading in a unit other than that of the file
+is reported as `convert.unmapped-unit`, naming both units, and not written. No depth is
+ever converted from one unit to another.
 
 ## PROJ
 

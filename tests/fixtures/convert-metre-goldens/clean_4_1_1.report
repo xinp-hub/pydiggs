@@ -1,0 +1,12 @@
+convert.unmapped-heading|Heading PROJ_CLNT of PROJ has no DIGGS target (a client is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_ISNO of TRAN has no DIGGS target (DocumentInformation has no issue number); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_PROD of TRAN has no DIGGS target (the producer is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_RECV of TRAN has no DIGGS target (the recipient is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_STAT of TRAN has no DIGGS target (DocumentInformation has no issue status); not converted (1 value).
+convert.assumed|Ground levels (LOCA_GL) of LOCA were written as the third coordinate of a CRS that does not state their vertical datum (3 times).
+convert.assumed|LOCA rows with an empty LOCA_GREF: the grid coordinates were written with no CRS, so neither their reference system nor their unit is stated (3 times).
+convert.unmapped-unit|The unit of LOCA_GL in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (3 values).
+convert.unmapped-unit|The unit of LOCA_NATE in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (3 values).
+convert.unmapped-unit|The unit of LOCA_NATN in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (3 values).
+convert.assumed|DIGGS requires a lithology classification type, which AGS4 does not state; 'unspecified' was written (2 times).
+convert.unmapped-heading|Heading ISPT_REP of ISPT has no DIGGS target (the reported result text has no DIGGS property); not converted (2 values).

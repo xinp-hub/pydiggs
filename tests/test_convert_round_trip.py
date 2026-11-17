@@ -54,9 +54,12 @@ INSPECTOR = ROOT / ".cache" / "conformance" / "inspector"
 
 #: Synthetic AGS4 fixtures that convert: one per mapped tier and version.
 SYNTHETIC = sorted(
-    p
-    for p in FIXTURES.glob("*.ags")
-    if p.name.startswith(("clean_", "convert_", "site_", "c2_clean", "utf8", "cp1252"))
+    [
+        p
+        for p in FIXTURES.glob("*.ags")
+        if p.name.startswith(("clean_", "convert_", "site_", "c2_clean", "utf8", "cp1252"))
+    ]
+    + sorted((FIXTURES.parent / "ags4-depths").glob("depth_*.ags"))  # depths in feet
 )
 #: Groups the AGS4 writer makes itself, and TRAN headings that are format information.
 FORMAT_GROUPS = frozenset({"ABBR", "UNIT", "TYPE", "DICT"})
