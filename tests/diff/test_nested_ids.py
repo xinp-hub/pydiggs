@@ -12,6 +12,7 @@ to one is resolved from the two files, so only when both are given as paths or b
 from __future__ import annotations
 
 import re
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,8 @@ import pytest
 from pydiggs import diff, read_bytes
 from pydiggs._reader import _read, read_with_places
 from pydiggs.cli import main
+from pydiggs.diff import _engine
+from pydiggs.diff._compare import Seen
 from pydiggs.model import CrsRef, ExtraNode, Interval, Link
 
 from ._helpers import OFFICIAL, depth, make_feature, make_model, make_sample, schema_errors
@@ -135,7 +138,7 @@ def _last(result: diff.Diff) -> set[str]:
 
 
 def test_the_reader_places_the_elements_the_model_does_not_keep():
-    model, places = read_with_places(BOREHOLES)
+    model, places, _ = read_with_places(BOREHOLES)
     assert model == read_bytes(BOREHOLES.read_bytes(), name=BOREHOLES.name)
     assert places["cl-B-01"] == ("Location_B-01", "centerLine/LinearExtent")
     assert places["pl-B-01"] == ("Location_B-01", "referencePoint/PointLocation")
@@ -204,20 +207,34 @@ def test_a_linear_element_pointed_at_another_boreholes_centre_line_is_a_differen
         assert len(result.changes) == 2
 
 
-def test_between_models_such_a_reference_is_still_compared_as_text():
-    # A model has no file to place the centre line by: the behaviour of two models, and
-    # of a model against a file, is what it was.
+def test_between_models_a_reference_whose_target_is_not_in_the_model_is_compared_as_text():
+    # A model has no file to place the centre line by, so a reference to it is compared
+    # by the record that holds it and the text of the reference: two models of a file
+    # exported again with new ids list those references. Never the other way round: a
+    # reference that may have moved is not called the same.
     data = BOREHOLES.read_bytes()
     again = reissue_ids(data.decode()).encode()
     old, new = read_bytes(data), read_bytes(again)
     for a, b in ((old, new), (old, again), (data, new)):
         result = diff.compare(a, b)
         assert result.identical is False
-        assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href"}
-        assert len(result.changes) == 2  # one value per borehole
+        assert _last(result) == {
+            f"{LINEAR_ELEMENT}@xlink:href",
+            "links.linearElement",
+            "links.samplingMethod",
+        }
+        assert not [c for c in result.changes if c.op != "changed"]
     assert diff.compare(old, old).identical
     assert diff.compare(old, data).identical and diff.compare(data, old).identical
     assert diff.compare(data, again).identical
+    # With the same ids, a link moved inside its record is seen between models too.
+    moved = data.replace(
+        b'linearElement xlink:href="#cl-B-01"', b'linearElement xlink:href="#pl-B-01"'
+    )
+    assert _last(diff.compare(old, read_bytes(moved))) == {
+        f"{LINEAR_ELEMENT}@xlink:href",
+        "links.linearElement",
+    }
 
 
 def _centre_line(text: str, inside: str = "", after: str = "") -> str:
@@ -254,12 +271,13 @@ def test_an_element_that_cannot_be_placed_for_certain_is_compared_as_text(inside
     assert text != MWD.read_text("utf-8")
     if target != "cl_bh_TEST_HOLE_1":
         text = _point_at(text, target)
-    _, places = read_with_places(text.encode())
+    _, places, _ = read_with_places(text.encode())
     assert target not in places
     assert diff.compare(text.encode(), text.encode()).identical
     result = diff.compare(text.encode(), reissue_ids(text).encode())
     assert result.identical is False
-    assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href"}
+    # Both the reference inside ``extra`` and the model's link of it are text now.
+    assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"}
 
 
 def test_a_place_does_not_depend_on_the_order_or_the_prefix_of_the_elements():
@@ -296,7 +314,7 @@ def test_placing_many_ids_counts_the_children_of_a_parent_once(monkeypatch):
 
     def counters(n: int) -> int:
         made.clear()
-        _, places = read_with_places(_many_ids(n).encode())
+        _, places, _ = read_with_places(_many_ids(n).encode())
         assert sum(1 for name in places if name.startswith("h")) == n
         return len(made)
 
@@ -308,21 +326,21 @@ def test_the_index_of_places_stops_at_the_readers_work_limit(monkeypatch):
     data = text.encode()
     monkeypatch.setattr(_read, "LIMIT_BASE", 0)
     limit = len(data) // _read.LIMIT_BYTES_PER_ITEM
-    model, places = read_with_places(data)
+    model, places, _ = read_with_places(data)
     assert model.complete and limit - 5 < len(places) <= limit < 3000
     # The last id is past the limit, so the reference to it is text: never a guess.
     assert "h2999" not in places
     assert diff.compare(data, data).identical
     result = diff.compare(data, reissue_ids(text).encode())
     assert result.identical is False and result.complete
-    assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href"}
+    assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"}
 
 
 def test_ids_nested_as_deep_as_the_parser_allows_are_read_and_not_placed():
     depth_ = 200
     inside = "".join(f'<d gml:id="d{i}">' for i in range(depth_)) + "</d>" * depth_
     text = _point_at(_centre_line(MWD.read_text("utf-8"), inside), f"d{depth_ - 1}")
-    model, places = read_with_places(text.encode())
+    model, places, _ = read_with_places(text.encode())
     assert model.complete
     assert [name for name in places if name.startswith("d")] == [
         f"d{i}" for i in range(_read.MAX_PLACE_STEPS - 2)
@@ -480,12 +498,19 @@ def _site_grid(*systems: tuple[str, str], used: str):
     return make_model(features=(make_feature("f1", "B-1", extra=(surface,)),), crs=crs)
 
 
-def test_a_coordinate_system_outside_every_record_is_told_by_what_the_model_knows_of_it():
+def test_between_models_a_coordinate_system_no_record_keeps_is_told_by_its_name():
+    # A model lists the systems that are referenced, not those the file defines, so it
+    # cannot say that a grid is the only one of its kind (see the test with two files).
     old = _site_grid(("#grid", "Site grid"), used="#grid")
-    assert diff.compare(old, _site_grid(("#g9", "Site grid"), used="#g9")).identical
-    other = diff.compare(old, _site_grid(("#g9", "Wall grid"), used="#g9"))
-    assert paths(other) == [("features", "changed", "extra.PlanarSurface[1]@srsName")]
-    # Two systems that read the same cannot be told apart: the name in the file decides.
+    assert diff.compare(old, old).identical
+    for new in (
+        _site_grid(("#g9", "Site grid"), used="#g9"),
+        _site_grid(("#g9", "Wall grid"), used="#g9"),
+        _site_grid(("#grid", "Wall grid"), used="#grid"),
+    ):
+        assert paths(diff.compare(old, new)) == [
+            ("features", "changed", "extra.PlanarSurface[1]@srsName")
+        ]
     twins = (("#a", "Site grid"), ("#b", "Site grid"))
     assert diff.compare(_site_grid(*twins, used="#a"), _site_grid(*twins, used="#a")).identical
     assert (
@@ -564,16 +589,6 @@ def test_a_link_to_one_of_two_equal_elements_is_compared_by_its_text():
     assert diff.compare(old, model("#q1", ("q1", "q2"))).identical is False
 
 
-def test_a_link_to_an_element_the_model_does_not_keep_is_still_told_by_its_record():
-    # Between models an element a typed field read has no place: the record that holds
-    # it is all there is to compare, whatever the id (unchanged behaviour).
-    def model(href: str):
-        link = Link(source="f1", relation="referencePoint", target="f1", href=href, resolved=True)
-        return _holder(_geom("p1", "1 2"), links=(link,))
-
-    assert diff.compare(model("#opl"), model("#x9")).identical
-
-
 def test_a_retargeted_link_inside_one_record_shows_what_it_named():
     def model(href: str, second: str = "p2"):
         link = Link(source="f1", relation="usedPoint", target="f1", href=href, resolved=True)
@@ -590,3 +605,133 @@ def test_a_retargeted_link_inside_one_record_shows_what_it_named():
     assert value.new[0] == f"B-1 #{hostile}"[:200] and value.truncated
     assert "p2\\[bold]" in long.to_text() and "p2[bold]" not in long.to_text()
     assert schema_errors(long.to_dict()) == []
+
+
+# --- second review: uniqueness that was assumed, not established -------------------------
+
+TRENCH = OFFICIAL / "3.0" / "TrenchWallExample.xml"
+
+
+def _second_grid(text: str) -> str:
+    """The trench wall file with its site grid defined a second time, as ``grid-b``."""
+    start = text.index('<LocalCartesianCRS gml:id="trench-wall-2d-crs-001">')
+    end = text.index("</LocalCartesianCRS>", start) + len("</LocalCartesianCRS>")
+    twin = re.sub(r'gml:id="([^"]+)"', r'gml:id="\1-b"', text[start:end])
+    twin = twin.replace('gml:id="trench-wall-2d-crs-001-b"', 'gml:id="grid-b"')
+    return text[:end] + twin + text[end:]
+
+
+def test_a_reference_moved_to_a_second_grid_that_reads_the_same_is_a_difference():
+    # Two site grids with the same description, only one of them referenced: the model's
+    # CRS table lists the referenced one alone, so it looked like the only such grid.
+    old = _second_grid(TRENCH.read_text("utf-8"))
+    new = old.replace('srsName="#trench-wall-2d-crs-001"', 'srsName="#grid-b"')
+    assert new != old
+    assert diff.compare(old.encode(), old.encode()).identical
+    result = diff.compare(old.encode(), new.encode())
+    assert result.identical is False
+    assert result.value_changes > 0
+    assert {p.rpartition("@")[2] for p in _last(result)} == {"srsName"}
+
+
+def test_a_single_grid_whose_id_changed_is_the_same_grid():
+    text = TRENCH.read_text("utf-8")
+    renamed = text.replace('"trench-wall-2d-crs-001"', '"grid-9"').replace(
+        '"#trench-wall-2d-crs-001"', '"#grid-9"'
+    )
+    assert renamed != text and '"#trench-wall-2d-crs-001"' not in renamed
+    assert diff.compare(text.encode(), renamed.encode()).identical
+    assert diff.compare(read_bytes(text.encode()), read_bytes(renamed.encode())).identical
+
+
+def _grids(*systems: tuple[str, str], used: str):
+    model = _site_grid(*systems, used=used)
+    counts = Counter((title, None) for _, title in systems)
+    return model, counts
+
+
+def test_a_grid_no_record_keeps_is_the_only_one_when_the_file_defines_no_other_like_it():
+    def run(old, new):
+        seen = tuple(Seen({}, counts) for _, counts in (old, new))
+        return _engine.compare_models(old[0], new[0], _engine.Options(), seen=seen).diff
+
+    one = _grids(("#grid", "Site grid"), used="#grid")
+    assert run(one, _grids(("#g9", "Site grid"), used="#g9")).identical
+    assert run(one, _grids(("#g9", "Wall grid"), used="#g9")).identical is False
+    # The file defines a second grid that reads the same, which nothing references: the
+    # model lists one, but it is not the only one, so its name in the file decides.
+    two = (one[0], Counter({("Site grid", None): 2}))
+    other = (_site_grid(("#g9", "Site grid"), used="#g9"), Counter({("Site grid", None): 2}))
+    assert run(two, two).identical
+    assert paths(run(two, other)) == [("features", "changed", "extra.PlanarSurface[1]@srsName")]
+    # Between two models nothing says how many grids the file defines.
+    assert paths(diff.compare(one[0], other[0])) == [
+        ("features", "changed", "extra.PlanarSurface[1]@srsName")
+    ]
+
+
+def _deep(href: str, levels: int = 70) -> ExtraNode:
+    node = ExtraNode(qname="x:usedPoint", ns="urn:x", attrs={"xlink:href": href})
+    for _ in range(levels):
+        node = ExtraNode(qname="x:level", ns="urn:x", children=(node,))
+    return node
+
+
+def test_a_reference_below_the_depth_compared_still_follows_its_target():
+    def model(first: str, second: str, href: str = "#p1"):
+        return _holder(_geom(first, "1 2"), _geom(second, "3 4"), _deep(href))
+
+    old = model("p1", "p2")
+    assert diff.compare(old, old).identical
+    # The two points' ids changed places and the reference kept its text.
+    result = diff.compare(old, model("p2", "p1"))
+    assert result.identical is False
+    assert all(path.endswith("#deep") for path in _last(result)) and _last(result)
+    # New ids, the reference following: the same data.
+    assert diff.compare(old, model("q1", "q2", "#q1")).identical
+    assert diff.compare(old, model("q1", "q2", "#q2")).identical is False
+
+
+def test_repeated_references_in_another_order_with_new_ids_are_the_same():
+    old = _holder(_geom("p1", "1 2"), _geom("p2", "3 4"), _used("top", "#p1"), _used("base", "#p2"))
+    new = _holder(_used("base", "#b"), _geom("b", "3 4"), _used("top", "#a"), _geom("a", "1 2"))
+    assert diff.compare(old, new).identical
+    crossed = _holder(_used("base", "#a"), _geom("b", "3 4"), _used("top", "#b"), _geom("a", "1 2"))
+    assert diff.compare(old, crossed).identical is False
+
+
+def test_repeated_elements_that_hold_an_id_are_still_compared_in_document_order():
+    # Cancelling by what references point to is for elements nothing can point into. An
+    # element with an id inside is placed by its order among its siblings, so taking a
+    # sibling away from the comparison could make two different targets look like one.
+    def boxed(gml_id: str, text: str) -> ExtraNode:
+        return ExtraNode(qname="x:usedPoint", ns="urn:x", children=(_geom(gml_id, text),))
+
+    def ref(href: str) -> ExtraNode:
+        return ExtraNode(qname="x:from", ns="urn:x", attrs={"xlink:href": href})
+
+    target = (_geom("t1", "9 9"), _geom("t2", "8 8"), _geom("t3", "7 7"))
+    old = _holder(*target, _used("top", "#t1"), boxed("e", "1 2"), boxed("f", "1 2"), ref("#e"))
+    new = _holder(*target, boxed("e", "1 2"), boxed("f", "1 2"), _used("top", "#t1"), ref("#f"))
+    assert diff.compare(old, old).identical
+    assert diff.compare(old, new).identical is False
+
+
+def test_a_link_to_an_element_with_no_place_is_compared_by_its_record_and_its_text():
+    def model(href: str, key: str = "f1"):
+        link = Link(source=key, relation="referencePoint", target=key, href=href, resolved=True)
+        return _holder(_geom("p1", "1 2"), key=key, links=(link,))
+
+    old = model("#opl")
+    assert diff.compare(old, old).identical
+    # Same text, the record renamed: the same link.
+    assert diff.compare(old, model("#opl", key="g1")).identical
+    # Another element of the same record, neither kept by the model: never called identical.
+    result = diff.compare(old, model("#other"))
+    assert result.identical is False
+    (value,) = result.changes[0].values
+    assert (value.path, value.old, value.new) == (
+        "links.referencePoint",
+        ["B-1 #opl"],
+        ["B-1 #other"],
+    )

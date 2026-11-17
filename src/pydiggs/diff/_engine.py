@@ -21,6 +21,7 @@ from pydiggs.diff._compare import (
     REFORMATTED,
     RENAMED,
     NestedIds,
+    Seen,
     Side,
     Tol,
     diff_maps,
@@ -32,11 +33,7 @@ from pydiggs.diff._types import Change, Diff, ValueChange
 from pydiggs.findings.model import Finding
 from pydiggs.model import Measurement, Model, Other
 
-__all__ = ["MATCH_MODES", "Options", "Places", "Run", "compare_models"]
-
-#: Where the identified elements of one file that its model does not keep sit: ``gml:id``
-#: to the key of the record holding the element and the element's path below it.
-Places = Mapping[str, tuple[str, str]]
+__all__ = ["MATCH_MODES", "Options", "Run", "Seen", "compare_models"]
 
 MATCH_MODES: Final = ("auto", "gml-id", "natural")
 #: Most ambiguity notes written; the rest are summed in one more note.
@@ -225,10 +222,10 @@ class _Comparison:
         new: Model,
         options: Options,
         budget: _Budget,
-        places: tuple[Places, Places] | None = None,
+        seen: tuple[Seen, Seen] | None = None,
     ) -> None:
         self.old, self.new, self.options, self.budget = old, new, options, budget
-        self.places = places
+        self.seen = seen
         self.tol = Tol(options.rel_tol, options.abs_tol)
         self.listing = _Listing(options.max_changes)
         self.counts: dict[str, dict[str, int]] = {}
@@ -263,7 +260,7 @@ class _Comparison:
             )
             for which, side in enumerate(sides):
                 side.nested = nested
-                side.places = None if self.places is None else self.places[which]
+                side.seen = None if self.seen is None else self.seen[which]
             for entries in _entries(self.pairing).values():
                 for _, kind, payload in entries:
                     self.budget.tick()
@@ -383,16 +380,16 @@ def compare_models(
     options: Options,
     *,
     deadline: float | None = None,
-    places: tuple[Places, Places] | None = None,
+    seen: tuple[Seen, Seen] | None = None,
 ) -> Run:
     """Compare two models. ``deadline`` is a reading of :func:`_now` after which work stops.
 
-    ``places`` is what the reader knew of the two files beyond their models (see
-    :data:`Places`); without it a reference to an element the model does not keep is
-    compared as text.
+    ``seen`` is what the reader knew of the two files beyond their models (see
+    :class:`~pydiggs.diff._compare.Seen`); without it a reference to an element the
+    model does not keep is compared as text.
     """
     budget = _Budget(deadline)
-    comparison = _Comparison(old, new, options, budget, places)
+    comparison = _Comparison(old, new, options, budget, seen)
     comparison.run()
     pairing = getattr(comparison, "pairing", None)
     limits: list[str] = []

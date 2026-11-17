@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import os
+from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Literal
 
@@ -119,13 +120,14 @@ def read_with_places(
     *,
     max_bytes: int = DEFAULT_MAX_BYTES,
     time_budget: float | None = None,
-) -> tuple[Model, dict[str, tuple[str, str]]]:
-    """:func:`read` or :func:`read_bytes`, and where the identified elements sit.
+) -> tuple[Model, dict[str, tuple[str, str]], Counter[tuple[str | None, str | None]]]:
+    """:func:`read` or :func:`read_bytes`, and what the reader saw that the model does not keep.
 
     For ``pydiggs.diff`` only. The second value maps the ``gml:id`` of each element a
     typed field read (so the model keeps neither the id nor the element) to the key of
-    the record that holds it and the element's path below that record. It is built in
-    the same pass as the model, which is the model :func:`read` gives.
+    the record that holds it and the element's path below that record. The third
+    counts the coordinate systems the file defines, by name and unit, referenced or not.
+    Both are built in the same pass as the model, which is the model :func:`read` gives.
     """
     limit = _check(None, max_bytes, time_budget, "object")
     if isinstance(source, str | os.PathLike):
@@ -134,6 +136,7 @@ def read_with_places(
         name = _input_name(None)
         data = _payload(source, limit, name)
     places: dict[str, tuple[str, str]] = {}
+    systems: Counter[tuple[str | None, str | None]] = Counter()
     model = read_document(
         data,
         name=name,
@@ -141,8 +144,9 @@ def read_with_places(
         results=True,
         time_budget=time_budget,
         id_places=places,
+        crs_defined=systems,
     )
-    return model, places
+    return model, places, systems
 
 
 def read_bytes(

@@ -34,10 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its centre line (`linearElement`), is resolved from the files as they are read (the
   record holding the element and its path below it, when no element on the path has a
   same-named sibling), so it needs paths or bytes: between two `Model`s it is compared
-  as text. Repeated elements that differ only in what their references point to are not
-  taken as equal, a link to one of two equal elements is compared by its text, and a
-  link to an element inside a record is shown as the record's name and the link
-  (`B-1 #p2`).
+  as text, and so is a link to it (by its record and its text): comparing files gives
+  the fullest independence from ids, and comparing `Model`s may list references whose
+  target could not be established. Repeated elements that differ only in what their
+  references point to are not taken as equal, also below the 64 levels compared one by
+  one; those that come in another order with new ids are the same data when each still
+  names its target (unless one has a `gml:id` inside). A link to one of two equal
+  elements is compared by its text, and a link to an element inside a record is shown
+  as the record's name and the link (`B-1 #p2`). A site grid that no record keeps is
+  the same grid under a new id only when the file defines no other system with its name
+  and unit, which takes the files.
   `Diff.to_text()` escapes every bracket that could open `rich` markup, so no tag can
   form across two values when the text is printed through a `rich` console. A key that more than
   one node has is never matched and is reported as `diff.ambiguous-match`. Numbers compare

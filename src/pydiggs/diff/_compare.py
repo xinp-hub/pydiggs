@@ -16,7 +16,7 @@ An id is not a value. The ``gml:id`` of an element inside ``extra`` is left out 
 comparison, and a local reference to one (``xlink:href="#x"``) is compared by the place of
 the element it names (:class:`NestedIds`), never by the id's text. An element that a typed
 field read (a centre line) is not in the model at all; a reference to one is compared by
-the place the reader saw it at (``Side.places``), when both files were read for this
+the place the reader saw it at (:class:`Seen`), when both files were read for this
 comparison, and as text otherwise.
 """
 
@@ -27,13 +27,14 @@ import math
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, Final, TypeVar
+from typing import Any, Final, NamedTuple, TypeVar
 
 from pydiggs.model import Code, ExtraNode, Feature, Link, Model, Node, Quantity
 
 __all__ = [
     "NestedIds",
     "Ref",
+    "Seen",
     "Side",
     "Tick",
     "Tol",
@@ -123,11 +124,26 @@ def chunks(items: Sequence[T], tick: Tick) -> Iterator[Sequence[T]]:
         yield part
 
 
+class Seen(NamedTuple):
+    """What the reader saw of one file that its model does not keep.
+
+    Only a comparison of two files has it; a :class:`~pydiggs.model.Model` comes with none.
+    """
+
+    #: The ``gml:id`` of each identified element a typed field read, to the key of the
+    #: record holding the element and the element's path below it.
+    places: Mapping[str, tuple[str, str]]
+    #: How many coordinate systems the file defines with each name and unit, referenced
+    #: or not (the model's ``crs`` table lists the referenced ones only).
+    systems: Mapping[tuple[str | None, str | None], int]
+
+
 class Ref:
     """A reference, equal to another when it refers to the same thing.
 
     ``token`` says what it refers to (a matched pair, a node only one file has, a
-    coordinate reference system's definition); ``shown`` is what a person reads.
+    coordinate reference system's definition); ``shown`` is what a person reads. A token
+    that starts with ``?`` is the text of a reference that was not resolved.
     """
 
     __slots__ = ("shown", "token")
@@ -202,10 +218,9 @@ class Side:
         self.which = 0 if tag == "old" else 1
         #: Set by the engine once both sides exist; without it nested ids stay text.
         self.nested: NestedIds | None = None
-        #: Where the reader saw each identified element the model does not keep: its
-        #: ``gml:id`` to the key of its record and its path below it. Set by the engine
-        #: when both files were read for the comparison; None compares such ids as text.
-        self.places: Mapping[str, tuple[str, str]] | None = None
+        #: What the reader saw beyond the model. Set by the engine when both files were
+        #: read for the comparison; None compares what it would resolve as text.
+        self.seen: Seen | None = None
         self._links: dict[str, dict[str, list[Link]]] | None = None
         self._owners: dict[str, str | None] | None = None
         self._sole: Counter[tuple[object, ...]] | None = None
@@ -218,30 +233,50 @@ class Side:
         token = f"={pair}" if pair is not None else f"!{self.tag}:{key}"
         return Ref(token, shown)
 
-    def crs_ref(self, srs_name: str) -> Ref:
-        """A reference to a coordinate reference system, by what it is, not what it is called."""
+    def crs_ref(self, srs_name: str, *, placed: bool = True) -> Ref:
+        """A reference to a coordinate reference system, by what it is, not what it is called.
+
+        ``placed`` is False while the elements inside ``extra`` are being placed: a
+        system that is one of them is then told by its name in the file.
+        """
         crs = self.model.crs.get(srs_name)
         if crs is None:
             token = self._lrs_token(srs_name)
             return Ref(f"?{srs_name}" if token is None else token, srs_name)
         parts = _crs_parts(crs)
-        if crs.form == "local":
-            # Every borehole's depth system has the same name and unit, so what tells two
-            # of them apart is whose it is. The owner is named by its pair, so renaming
-            # the system or its owner changes nothing. A system the file defines outside
-            # every node (a site grid) is told by what the model knows of it, when no
-            # other such system of the file reads the same; otherwise, and for a system
-            # nothing defines, there is only its own name to go by.
-            owner = self._local_owners().get(crs.local or "")
-            if owner is not None:
-                parts = (*parts, self.node_ref(owner).token)
-            elif crs.known and self._sole_local()[parts] == 1:
-                parts = (*parts, "sole")
-            else:
-                parts = (*parts, crs.srs_name)
-        elif crs.form != "epsg":
-            parts = (*parts, crs.srs_name)
-        return Ref(repr(parts), srs_name)
+        if crs.form == "epsg":
+            return Ref(repr(parts), srs_name)
+        which = self._local_token(crs, parts, placed) if crs.form == "local" else None
+        if which is None:
+            # Nothing says for certain which system this is: its name in the file decides.
+            return Ref(f"?{(*parts, crs.srs_name)!r}", srs_name)
+        return Ref(repr((*parts, which)), srs_name)
+
+    def _local_token(self, crs: Any, parts: tuple[object, ...], placed: bool) -> str | None:
+        """Which of the systems the file defines ``crs`` is, when that is certain.
+
+        Every borehole's depth system has the same name and unit, so what tells two of
+        them apart is whose it is: a feature has one (``lrs``), and the feature is named
+        by its pair, so renaming the system or its owner changes nothing. Another system
+        a node defines is an element inside ``extra`` and is told by its place there. A
+        system no node keeps is told by where the reader saw it, or by what the model
+        knows of it when the file defines no other system that reads the same. That
+        takes the file: the model lists only the systems that are referenced, so between
+        two models such a system has only its name to go by.
+        """
+        owner = self._local_owners().get(crs.local or "")
+        if owner is not None:
+            if getattr(self.model.get(owner), "lrs", None) == crs.srs_name:
+                return self.node_ref(owner).token
+            nested = self.nested_token(crs.srs_name) if placed else None
+            return None if nested is None else f"n:{nested}"
+        consumed = self.consumed_token(crs.srs_name)
+        if consumed is not None:
+            return consumed
+        defined = 0 if self.seen is None else self.seen.systems.get((crs.name, crs.unit), 0)
+        if crs.known and defined == 1 and self._sole_local()[parts] == 1:
+            return "sole"
+        return None
 
     def _sole_local(self) -> Counter[tuple[object, ...]]:
         """How many local systems no node defines read the same in the model."""
@@ -331,9 +366,9 @@ class Side:
         ``places``, and neither is one the model keeps in ``extra``.
         """
         target = _local_target(href)
-        if target is None or self.places is None:
+        if target is None or self.seen is None:
             return None
-        found = self.places.get(target)
+        found = self.seen.places.get(target)
         if found is None or found[0] not in self.pair_of:
             return None
         return f"x:{self.pair_of[found[0]]}/{found[1]}"
@@ -352,7 +387,7 @@ class Side:
         if not _is_local_ref(name, value):
             return value
         if name == "srsName" and value in self.model.crs:
-            return self.crs_ref(value)
+            return self.crs_ref(value, placed=placed)
         token = self.record_token(value) or self._lrs_token(value) or self.consumed_token(value)
         if token is None and placed:
             nested = self.nested_token(value)
@@ -363,8 +398,9 @@ class Side:
         if link.target is None:
             return Ref(f"h:{link.href}", link.href)
         ref = self.node_ref(link.target)
-        if self.record_token(link.href) is not None:
-            return ref
+        target = self.model.get(_local_target(link.href.strip()) or "")
+        if target is not None and target.key == link.target and target.gml_id == target.key:
+            return ref  # the link names the record itself, matched or not
         # The link names an element inside the target record, not the record: which
         # element is part of what it points to, and of what is shown (two links into one
         # record would read the same by the record's name alone).
@@ -375,14 +411,11 @@ class Side:
         nested = self.nested_token(link.href)
         if nested is not None:
             return Ref(f"n:{nested}", shown)  # an element the model keeps, by its place
-        target = _local_target(link.href)
-        if target is not None and self.nested is not None and self.nested.known(self.which, target):
-            # The model keeps an element with this id but it has no place of its own (one
-            # of two equal siblings, an id used twice): the text of the link decides.
-            return Ref(f"t:{ref.token}:{link.href}", shown)
-        # Nothing in the model has the id: an element a typed field read, with no file to
-        # place it by. The record that holds it is all there is to compare.
-        return ref
+        # Which element of the record it names cannot be established: one of two equal
+        # siblings, an id used twice, or an element a typed field read that has no place
+        # (no file to place it by, or no path of its own). The record and the text of the
+        # link decide, so a link moved to another such element is never called the same.
+        return Ref(f"t:{ref.token}:{link.href}", shown)
 
 
 _FIELD_NAMES: dict[Any, tuple[str, ...]] = {}
@@ -452,14 +485,16 @@ class _Memo(dict[int, str]):
     """The digest of each ``extra`` subtree of one file, by ``id``.
 
     ``loose`` holds the subtrees with a local reference the digest took as text: what
-    such a reference points to is not part of the digest.
+    such a reference points to is not part of the digest. ``held`` holds the subtrees
+    with a ``gml:id`` somewhere inside: a reference can point into those.
     """
 
-    __slots__ = ("loose",)
+    __slots__ = ("held", "loose")
 
     def __init__(self) -> None:
         super().__init__()
         self.loose: set[int] = set()
+        self.held: set[int] = set()
 
 
 def _digests(
@@ -502,18 +537,23 @@ def _digests(
             continue
         attrs: list[tuple[str, object]] = []
         loose = any(id(child) in memo.loose for child in node.children)
+        held = any(id(child) in memo.held for child in node.children)
         for name, value in node.attrs.items():
             if own_id(name):
+                held = True
                 continue
             ref = value if side is None else side.attr_ref(name, value, placed=placed is not None)
             if isinstance(ref, Ref):
                 # A tuple cannot be mistaken for the text of an attribute.
                 attrs.append((name, ("ref", ref.token)))
+                loose = loose or ref.token.startswith("?")
             else:
                 attrs.append((name, ref))
                 loose = loose or (side is not None and _is_local_ref(name, value))
         if loose:
             memo.loose.add(id(node))
+        if held:
+            memo.held.add(id(node))
         record = (
             _local(node),
             node.ns or "",
@@ -593,8 +633,20 @@ _Met = tuple[str, tuple[ExtraNode | None, ExtraNode | None], str, int]
 Both = tuple[Iterable[ExtraNode], Iterable[ExtraNode]]
 
 
+#: Takes the same-named siblings of the two sides that nothing cancelled and gives back
+#: those still to compare (see :func:`put_extra`).
+Refine = Callable[[list[ExtraNode], list[ExtraNode]], tuple[list[ExtraNode], list[ExtraNode]]]
+
+
 def _walk_extra(
-    prefix: str, both: Both, sides: Sides, memos: Memos, tick: Tick, *, depth: int = 0
+    prefix: str,
+    both: Both,
+    sides: Sides,
+    memos: Memos,
+    tick: Tick,
+    *,
+    depth: int = 0,
+    refine: Refine | None = None,
 ) -> Iterator[_Met]:
     """The ``extra`` elements of both sides with the path each one is compared at.
 
@@ -617,6 +669,10 @@ def _walk_extra(
             if a and b and len(a) + len(b) > 2:  # noqa: PLR2004 - one each needs no telling apart
                 (a, b), (same_old, same_new) = _unlike(a, b, memos, sides, tick)
                 first += len(same_old)
+                if refine is not None and a and b:
+                    before = len(a)
+                    a, b = refine(a, b)
+                    first += before - len(a)
                 group = f"{base}.{seg(name)}"
                 for item in same_old:
                     yield group, (item, None), EQUAL, depth
@@ -656,24 +712,44 @@ def put_extra(
     are compared once more, by what the references point to; those that no longer cancel
     are compared like any other pair, at the first numbers of their group, which the walk
     left free for them.
+
+    The other way round, siblings that differ only in the text of such references (the
+    ids were generated afresh) and stand in another order would be compared in document
+    order, one role with another. Those are cancelled here by what their references
+    point to, but only in a group where no sibling has a ``gml:id`` inside: an element
+    with one is placed by its order among its siblings (:class:`NestedIds`), so taking a
+    sibling out of that order could make references to two different elements look alike.
+
+    An element too deep to walk is compared as one digest, of what its references point to.
     """
     memos: Memos = (_Memo(), _Memo())
     finals: Memos = (_Memo(), _Memo())
+
+    def refine(a: list[ExtraNode], b: list[ExtraNode]) -> tuple[list[ExtraNode], list[ExtraNode]]:
+        groups = ((a, memos[0]), (b, memos[1]))
+        if any(id(item) in memo.held for items, memo in groups for item in items):
+            return a, b
+        if not all(any(id(item) in memo.loose for item in items) for items, memo in groups):
+            return a, b  # nothing a resolved reference could make equal
+        return _still_unlike((a, b), (memos, finals), sides, tick)
+
     todo: list[tuple[str, Both, int]] = [(prefix, both, 0)]
     while todo:
         base, below, start = todo.pop()
         cancelled: dict[tuple[str, int], tuple[list[ExtraNode], list[ExtraNode]]] = {}
-        for path, pair, met, depth in _walk_extra(base, below, sides, memos, tick, depth=start):
+        walk = _walk_extra(base, below, sides, memos, tick, depth=start, refine=refine)
+        for path, pair, met, depth in walk:
             if met == EQUAL:
                 for which, item in enumerate(pair):
                     if item is not None and id(item) in memos[which].loose:
                         cancelled.setdefault((path, depth), ([], []))[which].append(item)
                 continue
-            for out, item, memo, side in zip(outs, pair, memos, sides, strict=True):
+            for which, (out, item, side) in enumerate(zip(outs, pair, sides, strict=True)):
                 if item is None:
                     continue
                 if met == DEEP:
-                    out[f"{path}#deep"] = memo[id(item)]
+                    _digests((item,), finals[which], tick, side, placed=memos[which])
+                    out[f"{path}#deep"] = finals[which][id(item)]
                 else:
                     _put_element(out, path, item, side)
         for (group, depth), (olds, news) in cancelled.items():
@@ -700,16 +776,8 @@ def _uncancelled(
     with a new one, in document order, and what lies below each pair is given back to be
     walked.
     """
-    placed, finals = memos
-    for items, memo, base, side in zip(both, finals, placed, sides, strict=True):
-        _digests(items, memo, tick, side, placed=base)
-    left = [
-        _spare(items, memo, Counter(other[id(item)] for item in others))
-        for items, memo, others, other in (
-            (both[0], finals[0], both[1], finals[1]),
-            (both[1], finals[1], both[0], finals[0]),
-        )
-    ]
+    finals = memos[1]
+    left = _still_unlike(both, memos, sides, tick)
     for n in range(max(len(left[0]), len(left[1]))):
         tick(1)
         path = f"{group}[{n + 1}]"
@@ -725,6 +793,21 @@ def _uncancelled(
             below = [() if item is None else item.children for item in pair]
             if below[0] or below[1]:
                 yield path, (below[0], below[1]), depth + 1
+
+
+def _still_unlike(
+    both: tuple[list[ExtraNode], list[ExtraNode]],
+    memos: tuple[Memos, Memos],
+    sides: Sides,
+    tick: Tick,
+) -> tuple[list[ExtraNode], list[ExtraNode]]:
+    """The siblings of each side that none of the other side equals, references resolved."""
+    placed, finals = memos
+    for items, memo, base, side in zip(both, finals, placed, sides, strict=True):
+        _digests(items, memo, tick, side, placed=base)
+    old = _spare(both[0], finals[0], Counter(finals[1][id(item)] for item in both[1]))
+    new = _spare(both[1], finals[1], Counter(finals[0][id(item)] for item in both[0]))
+    return old, new
 
 
 def _spare(items: list[ExtraNode], memo: _Memo, other: Counter[str]) -> list[ExtraNode]:
@@ -793,12 +876,6 @@ class NestedIds:
         if self._places is None:
             self._places = self._build()
         return self._places[which].get(gml_id)
-
-    def known(self, which: int, gml_id: str) -> bool:
-        """Whether an element inside ``extra`` of file ``which`` has ``gml_id``, placed or not."""
-        if self._places is None:
-            self._places = self._build()
-        return gml_id in self._places[which]
 
     def _claim(self, places: _Places, which: int, item: ExtraNode, place: str | None) -> None:
         """Give the ids of ``item`` its place; an id met twice has none."""

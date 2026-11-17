@@ -139,7 +139,8 @@ compared by **what it points to**, never by the text of the id:
 | an element inside a record that the model keeps in `extra` (a geometry, a time instant) | the two elements sit in paired records, at the same place among the elements compared |
 | an element inside a record that pyDIGGS reads into typed fields and does not keep (a borehole's centre line or reference point) | the two elements sit in paired records, at the same path below the record, and no step of that path could be another element (see below) |
 | a borehole's own depth system (its linear referencing system) | the two boreholes are paired |
-| a coordinate system defined in the file outside every record (a site grid) | pyDIGGS reads the same name, unit and axes for both, and no other such system of the file reads the same |
+| a coordinate system a record keeps in `extra` (a site grid defined in the document information) | as an element inside `extra`: paired records, the same place |
+| a coordinate system defined in the file that no record keeps | it sits at the same path below paired records (as the row for typed fields), or pyDIGGS reads the same name, unit and axes for both and the file defines no other system, referenced or not, with that name and unit. This needs the two files |
 
 So a file that was exported again with every `gml:id` generated afresh, and every
 reference following, compares as the same data. The common case of the third row is a
@@ -156,7 +157,20 @@ elements below its record. Nothing is read twice and no file is parsed a second 
 
 Two repeated elements that are equal except for what their references point to are not
 equal: if the ids of two points change places, a reference that kept its text names
-another point and is listed as changed.
+another point and is listed as changed. The same holds for an element nested deeper than
+the 64 levels compared one by one: it is compared whole, by what its references point
+to.
+
+Repeated elements that hold such references and come in another order, with new ids
+(two `usedPoint` with the roles `top` and `base`, reversed), are the same data when each
+still names its target. One limit: if any of those repeated elements has a `gml:id`
+inside, they are compared in the order of the file, and a reordering of them is listed
+as changes. An element with an id is placed by its order, so taking its siblings out of
+that order could make references to two different elements look alike.
+
+**Comparing files gives the fullest independence from ids.** Comparing `Model`s may
+list references whose target could not be established (see below), because a model
+does not keep everything the file had.
 
 A link to an element inside a record is shown as the record's name and the link as
 written (`B-1 #p2`), so that two links into one record can be told apart.
@@ -174,11 +188,19 @@ written. This errs on the side of reporting a difference, never of hiding one:
   one per 200 bytes of the file);
 - the same reference **when either side is a `Model`** and not a file: a model no longer
   has the file, so there is nothing to place the element by. Two models of a re-exported
-  file with boreholes therefore show one changed value per borehole
-  (`extra.linearReferencing[1].LinearSpatialReferenceSystem[1].linearElement[1]@xlink:href`);
-  give `compare` the files to have them resolved. A link the model lists in `links`
-  (not inside `extra`) to such an element is then compared by the record that holds the
-  element.
+  file with boreholes therefore list, per borehole, the reference of its depth system to
+  its centre line
+  (`extra.linearReferencing[1].LinearSpatialReferenceSystem[1].linearElement[1]@xlink:href`
+  and `links.linearElement`), and any other link to an element the model does not keep;
+  give `compare` the files to have them resolved;
+- a coordinate system that no record keeps, when either side is a `Model` (a model lists
+  the systems that are referenced, not those the file defines, so it cannot say that a
+  grid is the only one of its kind), or when the file defines two that read the same.
+
+A link the model lists in `links` to an element whose place cannot be established is
+compared by the record that holds the element **and** the text of the link. A link
+moved from one such element to another in the same record is therefore always a
+difference; the price is that it is also listed when only the id changed.
 
 Resolving by path can also report a difference where a person would see none: if one
 file has a single `centerLine` and the other has two, the reference has a path in one

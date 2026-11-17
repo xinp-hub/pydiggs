@@ -119,10 +119,10 @@ def _options(
 
 def _load(
     source: object, role: str, max_bytes: int, deadline: float | None
-) -> tuple[Model, _engine.Places | None]:
-    """The model of ``source`` and, when it was read here, where its identified elements sit.
+) -> tuple[Model, _engine.Seen | None]:
+    """The model of ``source`` and, when it was read here, what the reader saw beyond it.
 
-    A :class:`~pydiggs.model.Model` no longer has the file, so it comes with no places.
+    A :class:`~pydiggs.model.Model` no longer has the file, so it comes with nothing more.
     """
     from pydiggs._reader import read_with_places  # noqa: PLC0415
 
@@ -130,7 +130,10 @@ def _load(
         return source, None
     remaining = None if deadline is None else max(deadline - _engine._now(), 1e-3)
     if isinstance(source, str | os.PathLike | bytes | bytearray | memoryview):
-        return read_with_places(source, max_bytes=max_bytes, time_budget=remaining)
+        model, places, systems = read_with_places(
+            source, max_bytes=max_bytes, time_budget=remaining
+        )
+        return model, _engine.Seen(places, systems)
     raise TypeError(f"{role} must be a path, bytes or a pydiggs.Model, got {type(source).__name__}")
 
 
@@ -211,11 +214,9 @@ def compare(
             raise TypeError(
                 f"{role} must be a path, bytes or a pydiggs.Model, got {type(source).__name__}"
             )
-    old_model, old_places = _load(old, "old", max_bytes, deadline)
-    new_model, new_places = _load(new, "new", max_bytes, deadline)
+    old_model, old_seen = _load(old, "old", max_bytes, deadline)
+    new_model, new_seen = _load(new, "new", max_bytes, deadline)
     # A place means something only against the other file's: with a model on one side,
     # every such reference is compared as text, as it is between two models.
-    places = None if old_places is None or new_places is None else (old_places, new_places)
-    return _engine.compare_models(
-        old_model, new_model, options, deadline=deadline, places=places
-    ).diff
+    seen = None if old_seen is None or new_seen is None else (old_seen, new_seen)
+    return _engine.compare_models(old_model, new_model, options, deadline=deadline, seen=seen).diff

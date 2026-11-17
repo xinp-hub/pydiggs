@@ -386,6 +386,8 @@ class _Reader:
         self.layers: list[dict[str, Any]] = []
         self.components: list[dict[str, Any]] = []
         self.local_crs: dict[str, tuple[str | None, str | None]] = {}
+        #: How many coordinate systems the file defines with each name and unit.
+        self.crs_defined: Counter[tuple[str | None, str | None]] = Counter()
         self.id_owner: dict[str, str] = {}
         self.id_count: Counter[str] = Counter()
         self.id_repeat: dict[str, int | None] = {}  # duplicated id -> line of its 2nd use
@@ -614,7 +616,9 @@ class _Reader:
         if srs and srs not in self.srs_first:
             self.srs_first[srs] = (xpath, el.sourceline)
         if gml_id and _local(el.tag) in _LOCAL_CRS:
-            self.local_crs.setdefault(gml_id, _local_crs(el))
+            described = _local_crs(el)
+            self.local_crs.setdefault(gml_id, described)
+            self.crs_defined[described] += 1
         # A plain dict: this runs for every element, and a Counter costs more to make.
         counts: dict[tuple[str | None, str], int] = {}
         for child in _elements(el):
@@ -1672,6 +1676,7 @@ def read_document(
     field_provenance: bool = False,
     should_stop: Callable[[], bool] | None = None,
     id_places: dict[str, tuple[str, str]] | None = None,
+    crs_defined: Counter[tuple[str | None, str | None]] | None = None,
 ) -> Model:
     """Read checked bytes into a model (the shared core of ``read`` and ``read_bytes``).
 
@@ -1683,7 +1688,9 @@ def read_document(
     reference point), the key of the record that holds the element and the element's
     path below it. Only ids that name one element for certain are in it (see
     :meth:`_Reader._place`); ``pydiggs.diff`` compares a reference to such an element by
-    it. The model is the same with or without.
+    it. ``crs_defined`` is filled with how many coordinate systems the file defines
+    with each name and unit, referenced or not (the model's ``crs`` table has only the
+    referenced ones). The model is the same with or without.
     """
     deadline = None if time_budget is None else time.monotonic() + time_budget
     reader = _Reader(
@@ -1697,4 +1704,6 @@ def read_document(
     model = reader.run(deadline, should_stop)
     if id_places is not None:
         id_places.update(reader.final_places)
+    if crs_defined is not None:
+        crs_defined.update(reader.crs_defined)
     return model
