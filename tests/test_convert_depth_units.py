@@ -178,6 +178,21 @@ def test_a_depth_heading_in_another_unit_is_reported_naming_both_units_and_not_w
     assert "BH01-U1" not in c.xml.decode()  # the sample (and its specimen) were not written
 
 
+def test_a_very_long_unit_is_shortened_in_the_message_and_its_braces_stay_literal():
+    # The message is built for every row of the heading, so its length must not follow the
+    # length of a UNIT cell; the residual file still holds the unit whole.
+    long_unit = "{x}" * 5000
+    text = (FIXTURES / "depth_ft.ags").read_bytes().decode()
+    text = text.replace(
+        '"UNIT","","ft","","","","ft"', f'"UNIT","","{long_unit}","","","","{long_unit}"'
+    )
+    c = convert.ags4_to_diggs(text.encode())
+    messages = [m for m in depth_losses(c) if "SAMP_TOP" in m]
+    assert len(messages) == 1
+    assert "depths in " + "{x}" * 13 + "{…," in messages[0]
+    assert len(messages[0]) < 400
+
+
 def test_a_depth_with_no_unit_takes_the_files_unit_and_is_declared_assumed():
     text = (FIXTURES / "depth_ftUS.ags").read_bytes().decode()
     text = text.replace('"UNIT","","ftUS","","","","ftUS"', '"UNIT","","","","","",""')

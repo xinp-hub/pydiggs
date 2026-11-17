@@ -386,8 +386,15 @@ class _Row:
 _DEPTH_UNIT_NAMES: Final = {"m": "metres", "ft": "feet", "ftUS": "US survey feet"}
 
 
+#: Longest unit shown in a message. A UNIT cell can be as long as the file allows, and the
+#: message is built for every row of the heading; the residual file keeps the unit whole.
+_UNIT_SHOWN: Final = 40
+
+
 def _braces_escaped(text: str) -> str:
     """``text`` safe inside a message template, which ``str.format`` will fill."""
+    if len(text) > _UNIT_SHOWN:
+        text = text[:_UNIT_SHOWN] + "…"
     return text.replace("{", "{{").replace("}", "}}")
 
 
