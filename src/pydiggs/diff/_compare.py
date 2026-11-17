@@ -2,8 +2,10 @@
 
 A node is flattened to a map from a path (``name``, ``params.hammerType``,
 ``interval.top``, ``extra.role[1].Role[1]#text``) to a leaf, and two such maps are compared
-path by path. Nested nodes (components, lithology layers) are never part of their holder's
-map: they are nodes of their own, matched and compared separately. Pure.
+path by path. Two matched nodes are flattened together, because the ``extra`` elements of
+one are numbered against those of the other. Nested nodes (components, lithology layers)
+are never part of their holder's map: they are nodes of their own, matched and compared
+separately. Pure.
 
 Leaves are text, numbers, booleans, :class:`~pydiggs.model.Quantity`,
 :class:`~pydiggs.model.Code`, tuples of those, and :class:`Ref` (a reference to another
@@ -15,19 +17,40 @@ from __future__ import annotations
 import hashlib
 import math
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Any, Final
+from typing import Any, Final, TypeVar
 
-from pydiggs.model import Code, ExtraNode, Link, Model, Node, Quantity
+from pydiggs.model import Code, ExtraNode, Feature, Link, Model, Node, Quantity
 
-__all__ = ["Ref", "Side", "Tol", "close", "diff_maps", "flatten", "put", "same", "seg", "show"]
+__all__ = [
+    "Ref",
+    "Side",
+    "Tick",
+    "Tol",
+    "chunks",
+    "close",
+    "diff_maps",
+    "flatten",
+    "put",
+    "put_extra",
+    "same",
+    "seg",
+    "show",
+]
+
+T = TypeVar("T")
+
+#: Reports units of work done; the engine's raises when the time budget has run out.
+Tick = Callable[[int], None]
 
 #: Longest text, in characters, that a shown value or a path segment keeps.
 MAX_SHOWN: Final = 200
 #: ``extra`` elements nested deeper than this are compared as one digest (the reader stops
 #: at 64 too), so a hostile model cannot make paths grow without bound.
 MAX_EXTRA_DEPTH: Final = 64
+#: Most items handled between two reports of work, so no loop outruns the time budget.
+CHUNK: Final = 256
 
 CHANGED: Final = "changed"
 REFORMATTED: Final = "reformatted"
@@ -78,6 +101,14 @@ def close(a: float, b: float, tol: Tol) -> bool:
     return abs(a - b) <= max(tol.abs, tol.rel * max(abs(a), abs(b)))
 
 
+def chunks(items: Sequence[T], tick: Tick) -> Iterator[Sequence[T]]:
+    """``items`` in slices of at most :data:`CHUNK`, each reported as work before it is used."""
+    for start in range(0, len(items), CHUNK):
+        part = items[start : start + CHUNK]
+        tick(len(part))
+        yield part
+
+
 class Ref:
     """A reference, equal to another when it refers to the same thing.
 
@@ -117,6 +148,7 @@ class Side:
         self.tag = tag
         self.pair_of = pair_of
         self._links: dict[str, dict[str, list[Link]]] | None = None
+        self._owners: dict[str, str | None] | None = None
 
     def node_ref(self, key: str) -> Ref:
         """A reference to the node ``key``: equal across files when the nodes are matched."""
@@ -142,9 +174,42 @@ class Side:
             vertical,
             crs.known,
         )
-        if crs.form not in ("local", "epsg"):
+        if crs.form == "local":
+            # Every borehole's depth system has the same name and unit, so what tells two
+            # of them apart is whose it is. The owner is named by its pair, so renaming
+            # the system or its owner changes nothing; a system no node defines has only
+            # its own name to go by.
+            owner = self._local_owners().get(crs.local or "")
+            parts = (*parts, crs.srs_name if owner is None else self.node_ref(owner).token)
+        elif crs.form != "epsg":
             parts = (*parts, crs.srs_name)
         return Ref(repr(parts), srs_name)
+
+    def _local_owners(self) -> dict[str, str | None]:
+        """The node that defines each coordinate system written in the file, by ``gml:id``.
+
+        A feature defines the linear referencing system in its ``lrs``; any node defines
+        the identified elements kept in its ``extra``. An id two nodes define has no owner.
+        """
+        if self._owners is None:
+            owners: dict[str, str | None] = {}
+
+            def claim(gml_id: str, key: str) -> None:
+                owners[gml_id] = key if owners.get(gml_id, key) == key else None
+
+            for node in self.model.nodes():
+                if isinstance(node, Feature) and node.lrs:
+                    claim(node.lrs.removeprefix("#"), node.key)
+                procedure = getattr(node, "procedure", None)
+                stack = [*node.extra, *(procedure.extra if procedure is not None else ())]
+                while stack:
+                    item = stack.pop()
+                    for name, value in item.attrs.items():
+                        if name.rpartition(":")[2] == "id":
+                            claim(value, node.key)
+                    stack.extend(item.children)
+            self._owners = owners
+        return self._owners
 
     def links_of(self, key: str) -> dict[str, list[Link]]:
         """The links whose source is ``key``, by relation."""
@@ -176,10 +241,17 @@ def _is_node_tuple(value: tuple[Any, ...]) -> bool:
     return bool(value) and isinstance(value[0], Node)
 
 
-def put(out: dict[str, Any], path: str, name: str, value: Any, side: Side) -> None:
+def _no_tick(_: int) -> None:
+    return None
+
+
+def put(
+    out: dict[str, Any], path: str, name: str, value: Any, side: Side, *, tick: Tick = _no_tick
+) -> None:
     """Add the leaves of one field value to ``out`` (nothing for None or a nested node)."""
     if value is None:
         return
+    tick(1)
     if name in _NODE_REFS and isinstance(value, str):
         out[path] = side.node_ref(value)
     elif name in _CRS_REFS and isinstance(value, str):
@@ -193,76 +265,172 @@ def put(out: dict[str, Any], path: str, name: str, value: Any, side: Side) -> No
             return
         if value and is_dataclass(value[0]):
             for i, item in enumerate(value):
-                _put_record(out, f"{path}[{i}]", item, side)
+                _put_record(out, f"{path}[{i}]", item, side, tick)
         else:
             out[path] = value
     elif is_dataclass(value):
-        _put_record(out, path, value, side)
+        _put_record(out, path, value, side, tick)
 
 
-def _put_record(out: dict[str, Any], path: str, record: Any, side: Side) -> None:
+def _put_record(out: dict[str, Any], path: str, record: Any, side: Side, tick: Tick) -> None:
     if isinstance(record, Node | ExtraNode):
         return
     for name in _field_names(type(record)):
-        put(out, f"{path}.{name}", name, getattr(record, name), side)
+        put(out, f"{path}.{name}", name, getattr(record, name), side, tick=tick)
 
 
-def _params(out: dict[str, Any], prefix: str, params: Mapping[str, Any]) -> None:
+def _params(out: dict[str, Any], prefix: str, params: Mapping[str, Any], tick: Tick) -> None:
     for name, value in params.items():
+        tick(1)
         out[f"{prefix}.{seg(name)}"] = value
 
 
-def _digest(item: ExtraNode) -> str:
-    """A digest of a whole ``extra`` subtree, walked without recursion."""
-    hasher = hashlib.blake2b(digest_size=16)
-    stack = [item]
-    while stack:
-        node = stack.pop()
-        record = (node.qname, node.ns, tuple(sorted(node.attrs.items())), node.text)
-        hasher.update(repr((record, len(node.children))).encode("utf-8", "surrogatepass"))
-        stack.extend(reversed(node.children))
-    return hasher.hexdigest()
+def _local(item: ExtraNode) -> str:
+    return item.qname.rpartition(":")[2]
 
 
-def put_extra(out: dict[str, Any], prefix: str, nodes: Iterable[ExtraNode]) -> None:
-    """Flatten ``extra`` elements, in any order; same-named siblings are numbered."""
-    stack: list[tuple[str, Iterable[ExtraNode], int]] = [(prefix, nodes, 0)]
+def _digests(roots: Iterable[ExtraNode], memo: dict[int, str], tick: Tick) -> None:
+    """Put a digest of every ``extra`` subtree under ``roots`` in ``memo``, by ``id``.
+
+    Two subtrees have the same digest when they hold the same elements in any order (a
+    prefix is not part of an element, its namespace is). Walked without recursion, and
+    each subtree once however often it is asked for.
+    """
+    stack = [(root, False) for root in roots]
     while stack:
-        base, items, depth = stack.pop()
-        seen: Counter[str] = Counter()
+        node, ready = stack.pop()
+        if id(node) in memo:
+            continue
+        if not ready:
+            tick(1)
+            stack.append((node, True))
+            stack.extend((child, False) for child in node.children)
+            continue
+        record = (
+            _local(node),
+            node.ns or "",
+            sorted(node.attrs.items()),
+            node.text,
+            sorted(memo[id(child)] for child in node.children),
+        )
+        memo[id(node)] = hashlib.blake2b(
+            repr(record).encode("utf-8", "surrogatepass"), digest_size=16
+        ).hexdigest()
+
+
+def _by_name(items: Iterable[ExtraNode]) -> dict[str, list[ExtraNode]]:
+    groups: dict[str, list[ExtraNode]] = defaultdict(list)
+    for item in items:
+        groups[_local(item)].append(item)
+    return groups
+
+
+def _unlike(
+    old: list[ExtraNode], new: list[ExtraNode], memo: dict[int, str], tick: Tick
+) -> tuple[int, list[ExtraNode], list[ExtraNode]]:
+    """Same-named siblings without the subtrees both sides hold, and how many those were.
+
+    An element that repeats has no identity but its content, so its place among its
+    siblings is not a difference: equal subtrees cancel out wherever they stand, and what
+    is left on each side keeps its document order.
+    """
+    _digests((*old, *new), memo, tick)
+    in_old = Counter(memo[id(item)] for item in old)
+    in_new = Counter(memo[id(item)] for item in new)
+    rest: list[list[ExtraNode]] = []
+    for items, other in ((old, in_new), (new, in_old)):
+        spare = Counter(other)
+        kept = []
         for item in items:
-            local = item.qname.rpartition(":")[2]
-            seen[local] += 1
-            path = f"{base}.{seg(local)}[{seen[local]}]"
-            if depth >= MAX_EXTRA_DEPTH:
-                out[f"{path}#deep"] = _digest(item)
-                continue
-            if item.ns is not None:
-                out[f"{path}#ns"] = item.ns
-            for key, value in item.attrs.items():
-                out[f"{path}@{seg(key)}"] = value
-            if item.text is not None:
-                out[f"{path}#text"] = item.text
-            if item.children:
-                stack.append((path, item.children, depth + 1))
+            digest = memo[id(item)]
+            if spare[digest] > 0:
+                spare[digest] -= 1
+            else:
+                kept.append(item)
+        rest.append(kept)
+    return len(old) - len(rest[0]), rest[0], rest[1]
 
 
-def flatten(node: Node, side: Side) -> dict[str, Any]:
-    """Every value of ``node`` that takes part in a comparison, by path."""
+def _put_element(out: dict[str, Any], path: str, item: ExtraNode) -> None:
+    # The namespace is written even when there is none, so that an element with no
+    # namespace, attribute, text or child still has a leaf and is seen to come or go.
+    out[f"{path}#ns"] = item.ns or ""
+    for key, value in item.attrs.items():
+        out[f"{path}@{seg(key)}"] = value
+    if item.text is not None:
+        out[f"{path}#text"] = item.text
+
+
+def put_extra(
+    outs: tuple[dict[str, Any], dict[str, Any]],
+    prefix: str,
+    old: Iterable[ExtraNode],
+    new: Iterable[ExtraNode],
+    tick: Tick = _no_tick,
+) -> None:
+    """Flatten the ``extra`` elements of both sides, in any order, into ``outs``.
+
+    The two sides are numbered together, because a path has to mean the same element in
+    both: same-named siblings that are equal on both sides take the first numbers and add
+    nothing, and the rest follow in document order.
+    """
+    memo: dict[int, str] = {}
+    stack: list[tuple[str, Sequence[ExtraNode], Sequence[ExtraNode], int]] = [
+        (prefix, tuple(old), tuple(new), 0)
+    ]
+    while stack:
+        base, olds, news, depth = stack.pop()
+        old_groups, new_groups = _by_name(olds), _by_name(news)
+        for name in old_groups.keys() | new_groups.keys():
+            a, b = old_groups.get(name, []), new_groups.get(name, [])
+            first = 1
+            if a and b and len(a) + len(b) > 2:  # noqa: PLR2004 - one each needs no telling apart
+                equal, a, b = _unlike(a, b, memo, tick)
+                first += equal
+            for n in range(max(len(a), len(b))):
+                tick(1)
+                path = f"{base}.{seg(name)}[{first + n}]"
+                pair = (a[n] if n < len(a) else None, b[n] if n < len(b) else None)
+                if depth >= MAX_EXTRA_DEPTH:
+                    _digests((item for item in pair if item is not None), memo, tick)
+                    for out, item in zip(outs, pair, strict=True):
+                        if item is not None:
+                            out[f"{path}#deep"] = memo[id(item)]
+                    continue
+                for out, item in zip(outs, pair, strict=True):
+                    if item is not None:
+                        _put_element(out, path, item)
+                below = tuple(() if item is None else item.children for item in pair)
+                if below[0] or below[1]:
+                    stack.append((path, below[0], below[1], depth + 1))
+
+
+def _put_node(node: Node, side: Side, tick: Tick) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for name in _field_names(type(node)):
-        put(out, name, name, getattr(node, name), side)
-    _params(out, "params", node.params)
-    put_extra(out, "extra", node.extra)
+        put(out, name, name, getattr(node, name), side, tick=tick)
+    _params(out, "params", node.params, tick)
     for relation, links in side.links_of(node.key).items():
+        tick(len(links))
         refs = sorted((side.link_ref(link) for link in links), key=lambda r: r.token)
         out[f"links.{seg(relation)}"] = tuple(refs)
     procedure = getattr(node, "procedure", None)
     if procedure is not None:
         out["procedure.type"] = procedure.type
-        _params(out, "procedure.params", procedure.params)
-        put_extra(out, "procedure.extra", procedure.extra)
+        _params(out, "procedure.params", procedure.params, tick)
     return out
+
+
+def flatten(
+    old: Node, new: Node, sides: tuple[Side, Side], tick: Tick = _no_tick
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Every value of two matched nodes that takes part in a comparison, by path."""
+    outs = (_put_node(old, sides[0], tick), _put_node(new, sides[1], tick))
+    put_extra(outs, "extra", old.extra, new.extra, tick)
+    procedures = (getattr(old, "procedure", None), getattr(new, "procedure", None))
+    below = tuple(() if procedure is None else procedure.extra for procedure in procedures)
+    put_extra(outs, "procedure.extra", below[0], below[1], tick)
+    return outs
 
 
 def same(a: Any, b: Any, tol: Tol) -> str | None:  # noqa: PLR0911 - one return per kind
@@ -324,19 +492,34 @@ def show(value: Any) -> tuple[Any, bool]:  # noqa: PLR0911 - one return per kind
 Emit = Callable[[str, str, Any, Any], None]
 
 
-def diff_maps(old: Mapping[str, Any], new: Mapping[str, Any], tol: Tol, emit: Emit) -> int:
+def _same_leaf(a: Any, b: Any, tol: Tol, tick: Tick) -> str | None:
+    """:func:`same`, with a long tuple (a centre line's coordinates) compared in slices."""
+    if not (isinstance(a, tuple) and isinstance(b, tuple) and len(a) == len(b) > CHUNK):
+        return same(a, b, tol)
+    verdict = None
+    for start in range(0, len(a), CHUNK):
+        tick(CHUNK)
+        one = same(a[start : start + CHUNK], b[start : start + CHUNK], tol)
+        if one == CHANGED:
+            return CHANGED
+        verdict = verdict or one
+    return verdict
+
+
+def diff_maps(
+    old: Mapping[str, Any], new: Mapping[str, Any], tol: Tol, emit: Emit, tick: Tick = _no_tick
+) -> None:
     """Compare two leaf maps path by path; ``emit(path, op, old, new)`` for each difference.
 
-    Returns how many leaves were compared (the work done).
+    Each leaf compared is one unit of work, reported to ``tick`` as it goes.
     """
-    paths = sorted(old.keys() | new.keys())
-    for path in paths:
-        if path not in new:
-            emit(path, "removed", old[path], None)
-        elif path not in old:
-            emit(path, "added", None, new[path])
-        else:
-            verdict = same(old[path], new[path], tol)
-            if verdict is not None:
-                emit(path, verdict, old[path], new[path])
-    return len(paths)
+    for part in chunks(sorted(old.keys() | new.keys()), tick):
+        for path in part:
+            if path not in new:
+                emit(path, "removed", old[path], None)
+            elif path not in old:
+                emit(path, "added", None, new[path])
+            else:
+                verdict = _same_leaf(old[path], new[path], tol, tick)
+                if verdict is not None:
+                    emit(path, verdict, old[path], new[path])

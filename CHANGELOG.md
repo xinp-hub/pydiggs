@@ -19,9 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   nothing is converted; the same number written differently is counted as reformatted.
   Result tables align rows by the domain index (depth) when it is unique. `max_changes` and
   `time_budget` bound the work and the list (`complete=False`, with `diff.limit` or
-  `diff.timeout`); the summary counts stay exact. `Diff.to_json()` writes a new contract,
-  **diggs-diff 1.0**, with its JSON Schema (`diff.diff_schema()`). Pure stdlib, no new
-  dependency, and `import pydiggs` does not import it.
+  `diff.timeout`); the summary counts stay exact unless the time ran out. `Diff.to_json()`
+  writes a new contract, **diggs-diff 1.0**, with its JSON Schema (`diff.diff_schema()`).
+  Pure stdlib, no new dependency, and `import pydiggs` does not import it.
 - **diggs-findings 1.2** adds the step `diff` and the rule ids `diff.ambiguous-match`,
   `diff.limit` and `diff.timeout`; it only adds to 1.1, and the 1.0 and 1.1 schema files are
   packaged and published unchanged. Documents now declare 1.2; the OpenAPI and OpenRPC

@@ -1,8 +1,10 @@
 """The comparison itself: match, compare each pair, keep exact counts, list a bounded part.
 
 Counts are exact whatever ``max_changes`` says; only the listed changes are bounded, and
-the work is bounded by a time budget checked every few dozen units of work. Everything
-that varies is injected or counted (``_now`` is the one clock), so the work is testable.
+the work is bounded by a time budget checked when a run starts and ends and every few
+dozen units of work in between (no loop does more than a few hundred without reporting
+them). Everything that varies is injected or counted (``_now`` is the one clock), so the
+work is testable.
 """
 
 from __future__ import annotations
@@ -76,8 +78,16 @@ class _Budget:
         self.units += n
         if self.units >= self._next:
             self._next = self.units + _CHECK_EVERY
-            if self.deadline is not None and _now() >= self.deadline:
-                raise _TimedOut
+            self.check()
+
+    def check(self) -> None:
+        """Read the clock now.
+
+        A run does it where it starts and ends, because a comparison of a few values
+        never counts up to the next reading.
+        """
+        if self.deadline is not None and _now() >= self.deadline:
+            raise _TimedOut
 
 
 def _clip(text: str | None) -> tuple[str | None, bool]:
@@ -200,6 +210,7 @@ class _Comparison:
 
     def run(self) -> None:
         try:
+            self.budget.check()
             old_infos, new_infos = enumerate_nodes(self.old), enumerate_nodes(self.new)
             self.budget.tick(len(old_infos) + len(new_infos))
             self.pairing = match(old_infos, new_infos, self.options.match, self.budget.tick)
@@ -214,6 +225,7 @@ class _Comparison:
                         self.compare_pair(payload, sides)
                     else:
                         self.one_sided(kind, payload)
+            self.budget.check()
         except _TimedOut:
             self.timed_out = True
 
@@ -226,16 +238,28 @@ class _Comparison:
 
     def compare_pair(self, pair: Pair, sides: tuple[Side, Side]) -> None:
         sink = _Sink(self.listing, self.options.show_reformatted)
-        old_map = flatten(pair.old.node, sides[0])
-        new_map = flatten(pair.new.node, sides[1])
-        self.budget.tick(diff_maps(old_map, new_map, self.tol, sink.add))
+        tick = self.budget.tick
+        old_map, new_map = flatten(pair.old.node, pair.new.node, sides, tick)
+        # A nested node is where it is: the same drive set under another test is a change.
+        # The holder is named by its pair, so renaming the holder is not. Two holders that
+        # were both left unmatched are already listed as removed and added, and whether
+        # they are one holder is the guess matching refused to make, so they say nothing.
+        holders = [
+            (leaves, side, info.parent.key)
+            for leaves, side, info in ((old_map, sides[0], pair.old), (new_map, sides[1], pair.new))
+            if info.parent is not None
+        ]
+        if any(key in side.pair_of for _, side, key in holders):
+            for leaves, side, key in holders:
+                leaves["holder"] = side.node_ref(key)
+        diff_maps(old_map, new_map, self.tol, sink.add, tick)
         _tables.compare_results(
             _results(pair.old.node),
             _results(pair.new.node),
             sides=sides,
             tol=self.tol,
             emit=sink.add,
-            tick=self.budget.tick,
+            tick=tick,
         )
         self.value_changes += sink.changed
         self.reformatted += sink.reformatted
@@ -314,12 +338,16 @@ def compare_models(
     notes: list[Finding] = _ambiguity_notes(pairing) if pairing is not None else []
     if comparison.listing.cut:
         limits.append("max_changes")
+        counts = (
+            "the counts are partial too, because the time budget ran out"
+            if comparison.timed_out
+            else "the counts are complete"
+        )
         notes.append(
             _note(
                 "diff.limit",
                 "warning",
-                f"Stopped listing changes at max_changes={options.max_changes}; the counts are"
-                " complete.",
+                f"Stopped listing changes at max_changes={options.max_changes}; {counts}.",
             )
         )
     if comparison.timed_out:

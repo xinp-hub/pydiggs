@@ -1,24 +1,24 @@
 """Result tables: columns matched by key (else name), rows by the domain index (else number).
 
 When a table's domain index (CPT depth, interval top and base) is unique on both sides,
-rows are aligned by index value within the tolerance; otherwise by row number. A row only
-one side has is an addition or removal of each of its cells. Pure.
+rows are aligned by index value within the tolerance, in whatever order they are written;
+otherwise by row number. A row only one side has is an addition or removal of each of its
+cells. Pure.
 """
 
 from __future__ import annotations
 
-import itertools
+import math
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 from typing import Any, Final
 
-from pydiggs.diff._compare import Side, Tol, close, diff_maps, put, same, seg
+from pydiggs.diff._compare import Side, Tick, Tol, chunks, close, diff_maps, put, same, seg
 from pydiggs.model import Column, ResultTable
 
 __all__ = ["compare_results"]
 
 Emit = Callable[[str, str, Any, Any], None]
-Tick = Callable[[int], None]
 
 _NOT_READ: Final = "<not read>"
 
@@ -72,56 +72,85 @@ def _column_attrs(column: Column) -> dict[str, Any]:
     return attrs
 
 
-def _is_number(value: Any) -> bool:
-    return type(value) is float
+def _ranks(
+    old: Sequence[Any], new: Sequence[Any], tol: Tol, tick: Tick
+) -> tuple[list[int], list[int]] | None:
+    """Each value of one index column on both sides as the number of its cluster.
+
+    The values of both sides are sorted together, and a value joins the cluster of the one
+    before it when the two are equal within ``tol``. Values equal within ``tol`` are then
+    always in one cluster, wherever float noise puts them in the order of their rows. None
+    when a value is not a number.
+    """
+    distinct: set[float] = set()
+    for values in (old, new):
+        for part in chunks(values, tick):
+            for value in part:
+                if type(value) is not float:
+                    return None
+                if not math.isnan(value):
+                    distinct.add(value)
+    cluster: dict[float, int] = {}
+    number, last = 0, None
+    for part in chunks(sorted(distinct), tick):
+        for value in part:
+            if last is not None and not close(last, value, tol):
+                number += 1
+            cluster[value] = number
+            last = value
+    # NaN equals only NaN, and has no place in an order: a cluster of its own.
+    return [cluster.get(value, -1) for value in old], [cluster.get(value, -1) for value in new]
 
 
 def _align_by_index(
-    old: Sequence[Column], new: Sequence[Column], rows_old: int, rows_new: int, tol: Tol
+    old: Sequence[Column],
+    new: Sequence[Column],
+    rows_old: int,
+    rows_new: int,
+    *,
+    tol: Tol,
+    tick: Tick,
 ) -> tuple[list[tuple[int, int]], list[int], list[int]] | None:
     """Rows paired by index value within ``tol``, or None when the index cannot be used.
 
     It cannot be used when a side has no index, the two have a different number of index
-    columns, a value is not a number, or two rows of one side have the same index.
+    columns, a value is not a number, or two rows of one side could be the same row: the
+    tolerance cannot tell them apart, and pairing either would be a guess. Rows are found
+    by the clusters of their values, never by their order, so the work stays near linear
+    and noise in one column cannot misalign the rest.
     """
     if not old or len(old) != len(new):
         return None
-    keys_old = list(zip(*(c.values for c in old), strict=True))
-    keys_new = list(zip(*(c.values for c in new), strict=True))
-    if not all(_is_number(v) for k in keys_old for v in k):
+    ranked = []
+    for a, b in zip(old, new, strict=True):
+        ranks = _ranks(a.values, b.values, tol, tick)
+        if ranks is None:
+            return None
+        ranked.append(ranks)
+    keys_old = list(zip(*(ranks[0] for ranks in ranked), strict=True))
+    keys_new = list(zip(*(ranks[1] for ranks in ranked), strict=True))
+    if len(set(keys_old)) != rows_old:
         return None
-    if not all(_is_number(v) for k in keys_new for v in k):
-        return None
-    order_old = sorted(range(rows_old), key=keys_old.__getitem__)
-    order_new = sorted(range(rows_new), key=keys_new.__getitem__)
-
-    def unique(keys: list[tuple[Any, ...]], order: list[int]) -> bool:
-        return not any(
-            all(close(x, y, tol) for x, y in zip(keys[a], keys[b], strict=True))
-            for a, b in itertools.pairwise(order)
-        )
-
-    if not (unique(keys_old, order_old) and unique(keys_new, order_new)):
+    row_of = dict(zip(keys_new, range(rows_new), strict=True))
+    if len(row_of) != rows_new:
         return None
     pairs: list[tuple[int, int]] = []
     removed: list[int] = []
-    added: list[int] = []
-    i = j = 0
-    while i < rows_old and j < rows_new:
-        a, b = keys_old[order_old[i]], keys_new[order_new[j]]
-        if all(close(x, y, tol) for x, y in zip(a, b, strict=True)):
-            pairs.append((order_old[i], order_new[j]))
-            i += 1
-            j += 1
-        elif a < b:
-            removed.append(order_old[i])
-            i += 1
-        else:
-            added.append(order_new[j])
-            j += 1
-    removed.extend(order_old[i:])
-    added.extend(order_new[j:])
-    return pairs, sorted(removed), sorted(added)
+    found = bytearray(rows_new)
+    for part in chunks(range(rows_old), tick):
+        for i in part:
+            j = row_of.get(keys_old[i])
+            # A cluster chains neighbours, so two of its values can be further apart than
+            # the tolerance: the rows are a pair only if their values really are equal.
+            if j is not None and all(
+                same(a.values[i], b.values[j], tol) is None for a, b in zip(old, new, strict=True)
+            ):
+                pairs.append((i, j))
+                found[j] = 1
+            else:
+                removed.append(i)
+    added = [j for j in range(rows_new) if not found[j]]
+    return pairs, removed, added
 
 
 def _compare_cells(
@@ -139,23 +168,26 @@ def _compare_cells(
 ) -> None:
     old_labels, new_labels = labels
     if old is not None and new is not None:
-        for i, j in pairs:
-            a, b = old.values[i], new.values[j]
-            if a is not b and same(a, b, tol) is not None:
-                emit(f"{path}.cells[{old_labels[i]}]", "changed", a, b)
-        tick(len(pairs))
+        for both in chunks(pairs, tick):
+            for i, j in both:
+                a, b = old.values[i], new.values[j]
+                if a is not b and same(a, b, tol) is not None:
+                    emit(f"{path}.cells[{old_labels[i]}]", "changed", a, b)
     if old is not None:
-        for i in removed:
-            emit(f"{path}.cells[{old_labels[i]}]", "removed", old.values[i], None)
-        tick(len(removed))
+        for part in chunks(removed, tick):
+            for row in part:
+                emit(f"{path}.cells[{old_labels[row]}]", "removed", old.values[row], None)
     if new is not None:
-        for j in added:
-            emit(f"{path}.cells[{new_labels[j]}]", "added", None, new.values[j])
-        tick(len(added))
+        for part in chunks(added, tick):
+            for row in part:
+                emit(f"{path}.cells[{new_labels[row]}]", "added", None, new.values[row])
 
 
-def _index_labels(columns: Sequence[Column], rows: int) -> list[str]:
-    return ["@" + ",".join(repr(c.values[i]) for c in columns) for i in range(rows)]
+def _index_labels(columns: Sequence[Column], rows: int, tick: Tick) -> list[str]:
+    labels: list[str] = []
+    for part in chunks(range(rows), tick):
+        labels.extend("@" + ",".join(repr(c.values[i]) for c in columns) for i in part)
+    return labels
 
 
 def _compare_table(
@@ -178,7 +210,7 @@ def _compare_table(
     def emit_head(path: str, op: str, a: Any, b: Any) -> None:
         emit(f"{base}.{path}", op, a, b)
 
-    tick(diff_maps(head_old, head_new, tol, emit_head))
+    diff_maps(head_old, head_new, tol, emit_head, tick)
 
     index_pairs = _column_pairs(f"{base}.domain.index", old.domain.index, new.domain.index)
     data_pairs = _column_pairs(f"{base}.columns", old.columns, new.columns)
@@ -196,10 +228,12 @@ def _compare_table(
         def emit_attr(p: str, op: str, x: Any, y: Any, path: str = path) -> None:
             emit(f"{path}.{p}", op, x, y)
 
-        tick(diff_maps(attrs_a, attrs_b, tol, emit_attr))
+        diff_maps(attrs_a, attrs_b, tol, emit_attr, tick)
 
     both_values = _has_values(old) and _has_values(new)
-    if not (old.columns or new.columns):
+    # Only a table with no column of either kind has nothing but its row count to compare:
+    # index columns alone (the depths of a table whose data was not kept) are values too.
+    if not (old.columns or new.columns or old.domain.index or new.domain.index):
         if old.row_count != new.row_count:
             emit(f"{base}.row_count", "changed", old.row_count, new.row_count)
         return
@@ -239,7 +273,9 @@ def _compare_rows(
     base: str, old: ResultTable, new: ResultTable, *, tol: Tol, emit: Emit, tick: Tick
 ) -> None:
     rows_old, rows_new = old.row_count, new.row_count
-    aligned = _align_by_index(old.domain.index, new.domain.index, rows_old, rows_new, tol)
+    aligned = _align_by_index(
+        old.domain.index, new.domain.index, rows_old, rows_new, tol=tol, tick=tick
+    )
     by_index = aligned is not None
     if aligned is None:
         common = min(rows_old, rows_new)
@@ -249,9 +285,8 @@ def _compare_rows(
         labels_old = labels_new = [str(i + 1) for i in range(max(rows_old, rows_new))]
     else:
         pairs, removed, added = aligned
-        labels_old = _index_labels(old.domain.index, rows_old)
-        labels_new = _index_labels(new.domain.index, rows_new)
-    tick(rows_old + rows_new)
+        labels_old = _index_labels(old.domain.index, rows_old, tick)
+        labels_new = _index_labels(new.domain.index, rows_new, tick)
     label_pair = (labels_old, labels_new)
     index_pairs = [
         p

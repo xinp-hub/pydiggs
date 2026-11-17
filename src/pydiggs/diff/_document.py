@@ -7,6 +7,7 @@ same bytes. The JSON Schema ships next to this package as ``diggs-diff-1.0.schem
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from typing import Any, Final
 
@@ -29,7 +30,11 @@ DIFF_SCHEMA_VERSION: Final = "1.0"
 DIFF_SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
 SCHEMA_RESOURCE: Final = "diggs-diff-1.0.schema.json"
 
+_VERSION: Final = re.compile(r"1\.[0-9]+")
 _REQUIRED: Final = (
+    "$schema",
+    "format",
+    "schema_version",
     "tool",
     "identical",
     "complete",
@@ -45,12 +50,34 @@ _REQUIRED: Final = (
 )
 
 
+def _copy(value: Any) -> Any:
+    """A JSON value sharing no list or object with ``value``, copied without recursion.
+
+    A diff is frozen, and a document is the caller's to change: neither may reach the
+    other through a list they both hold.
+    """
+    root: list[Any] = [None]
+    stack: list[tuple[Any, Any, Any]] = [(value, root, 0)]
+    while stack:
+        item, holder, key = stack.pop()
+        if isinstance(item, Mapping):
+            made: Any = dict.fromkeys(item)
+            stack.extend((child, made, name) for name, child in item.items())
+        elif isinstance(item, list | tuple):
+            made = [None] * len(item)
+            stack.extend((child, made, i) for i, child in enumerate(item))
+        else:
+            made = item
+        holder[key] = made
+    return root[0]
+
+
 def _value(value: ValueChange) -> dict[str, Any]:
     return {
         "op": value.op,
         "path": value.path,
-        "old": value.old,
-        "new": value.new,
+        "old": _copy(value.old),
+        "new": _copy(value.new),
         "at": value.at,
         "truncated": value.truncated,
     }
@@ -76,14 +103,14 @@ def to_document(diff: Diff) -> dict[str, Any]:
         "$schema": DIFF_SCHEMA_URL,
         "format": FORMAT,
         "schema_version": DIFF_SCHEMA_VERSION,
-        "tool": dict(diff.tool),
+        "tool": _copy(diff.tool),
         "identical": diff.identical,
         "complete": diff.complete,
-        "limits_hit": list(diff.limits_hit),
-        "old": dict(diff.old),
-        "new": dict(diff.new),
-        "options": dict(diff.options),
-        "summary": {name: dict(counts) for name, counts in diff.summary.items()},
+        "limits_hit": _copy(diff.limits_hit),
+        "old": _copy(diff.old),
+        "new": _copy(diff.new),
+        "options": _copy(diff.options),
+        "summary": _copy(diff.summary),
         "value_changes": diff.value_changes,
         "reformatted": diff.reformatted,
         "changes": [_change(c) for c in diff.changes],
@@ -111,8 +138,8 @@ def _decode_value(data: Any, where: str) -> ValueChange:
     return ValueChange(
         op=_need(data, "op", str, where),
         path=_need(data, "path", str, where),
-        old=data.get("old"),
-        new=data.get("new"),
+        old=_copy(data.get("old")),
+        new=_copy(data.get("new")),
         at=data.get("at"),
         truncated=bool(data.get("truncated", False)),
     )
@@ -143,23 +170,26 @@ def from_document(data: Mapping[str, Any]) -> Diff:
     """
     if not isinstance(data, Mapping):
         raise ValueError("a diggs-diff document is a JSON object")
-    version = data.get("schema_version")
-    if not isinstance(version, str) or not version.startswith("1."):
-        raise ValueError(f"unsupported diggs-diff schema_version {version!r}")
     missing = [key for key in _REQUIRED if key not in data]
     if missing:
         raise ValueError(f"not a diggs-diff document: missing {', '.join(missing)}")
+    if data["format"] != FORMAT:
+        raise ValueError(f"not a diggs-diff document: format is {data['format']!r}")
+    _need(data, "$schema", str, "$")
+    version = data["schema_version"]
+    if not isinstance(version, str) or _VERSION.fullmatch(version) is None:
+        raise ValueError(f"unsupported diggs-diff schema_version {version!r}")
     changes = _need(data, "changes", list, "$")
     notes = _need(data, "notes", list, "$")
     return Diff(
-        tool=_need(data, "tool", Mapping, "$"),
+        tool=_copy(_need(data, "tool", Mapping, "$")),
         identical=_need(data, "identical", bool, "$"),
         complete=_need(data, "complete", bool, "$"),
-        limits_hit=tuple(_need(data, "limits_hit", list, "$")),
-        old=_need(data, "old", Mapping, "$"),
-        new=_need(data, "new", Mapping, "$"),
-        options=_need(data, "options", Mapping, "$"),
-        summary=_need(data, "summary", Mapping, "$"),
+        limits_hit=tuple(_copy(_need(data, "limits_hit", list, "$"))),
+        old=_copy(_need(data, "old", Mapping, "$")),
+        new=_copy(_need(data, "new", Mapping, "$")),
+        options=_copy(_need(data, "options", Mapping, "$")),
+        summary=_copy(_need(data, "summary", Mapping, "$")),
         value_changes=_need(data, "value_changes", int, "$"),
         reformatted=_need(data, "reformatted", int, "$"),
         changes=tuple(_decode_change(c, f"$.changes[{i}]") for i, c in enumerate(changes)),
