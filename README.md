@@ -53,6 +53,11 @@ off (`git commit -s`) under the
   `POST /v1/convert`; [AGS4 files](https://xinp-hub.github.io/pydiggs/ags4/),
   [AGS4 and DIGGS conversion](https://xinp-hub.github.io/pydiggs/convert/)). No AGS dictionary or
   example file is bundled, and pyDIGGS is not an AGS-approved tool.
+* Compare two DIGGS files: `pydiggs diff old.xml new.xml` and `pydiggs.diff.compare()`
+  list the boreholes, samples, tests and values that were added, removed or changed,
+  whatever the `gml:id`s, the element order and the number formatting; a change of unit
+  is always reported and nothing is converted
+  ([Comparing two files](https://xinp-hub.github.io/pydiggs/diff/)).
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
       JSON (diggs-findings 1.2) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)

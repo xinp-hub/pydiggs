@@ -21,6 +21,7 @@ import pytest
 import pydiggs
 from pydiggs import _capabilities, _service, ags4, frames, gis
 from pydiggs import convert as convert_module
+from pydiggs import diff as diff_module
 from pydiggs._capabilities import (
     CAPABILITIES_SCHEMA_URL,
     OPTION_TYPES,
@@ -41,8 +42,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # --- what every public operation and surface maps to ------------------------------------
 #
-# Each public function (pydiggs, pydiggs.ags4, pydiggs.convert, pydiggs.frames and
-# pydiggs.gis), HTTP route,
+# Each public function (pydiggs, pydiggs.ags4, pydiggs.convert, pydiggs.diff,
+# pydiggs.frames and pydiggs.gis), HTTP route,
 # MCP tool, sidecar method and CLI command is listed here with the operation it is, or
 # in a META set with the reason it is not one. A new name anywhere fails a test below
 # until it is listed, so a new operation cannot ship without a capabilities entry.
@@ -66,6 +67,7 @@ PUBLIC_FUNCTIONS: dict[str, tuple[str, ...]] = {
     "pydiggs.convert.ags4_to_diggs": ("convert.ags4-to-diggs",),
     "pydiggs.convert.diggs_to_ags4": ("convert.diggs-to-ags4",),
     "pydiggs.convert.model_to_ags4": ("convert.diggs-to-ags4",),
+    "pydiggs.diff.compare": ("diff",),
     "pydiggs.frames.to_pandas": ("export.pandas",),
     "pydiggs.frames.to_polars": ("export.polars",),
     "pydiggs.gis.transform": ("gis.transform",),
@@ -82,6 +84,7 @@ META_FUNCTIONS = {
     "pydiggs.warm_up": "a performance helper",
     "pydiggs.validator": "the legacy one-check-at-a-time class; validate covers its checks",
     "pydiggs.convert.mapping_info": "describes the mapping table, converts nothing",
+    "pydiggs.diff.diff_schema": "a contract's schema",
 }
 #: The function whose signature each operation's options must match.
 SIGNATURES: dict[str, tuple[str, ...]] = {
@@ -96,6 +99,7 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
     "convert.ags4-to-diggs": ("pydiggs.convert.ags4_to_diggs",),
     # model_to_ags4 takes a Model in memory: no name, max_bytes or time_budget.
     "convert.diggs-to-ags4": ("pydiggs.convert.diggs_to_ags4",),
+    "diff": ("pydiggs.diff.compare",),
     "export.pandas": ("pydiggs.frames.to_pandas",),
     "export.polars": ("pydiggs.frames.to_polars",),
     "gis.transform": ("pydiggs.gis.transform",),
@@ -163,6 +167,7 @@ def _resolve(dotted: str):
         "pydiggs.gis": gis,
         "pydiggs._service": _service,
         "pydiggs.convert": convert_module,
+        "pydiggs.diff": diff_module,
     }[module]
     return getattr(owner, name)
 
@@ -269,6 +274,7 @@ def _public_functions() -> set[str]:
         ("pydiggs.frames", frames),
         ("pydiggs.gis", gis),
         ("pydiggs.convert", convert_module),
+        ("pydiggs.diff", diff_module),
     ):
         for name in module.__all__:
             obj = getattr(module, name)
@@ -362,6 +368,11 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
     assert to_ags4.inputs == (*_CORE_INPUTS, model)
     assert to_ags4.outputs[:2] == tuple(f"ags4-{v}" for v in convert_module._api.AGS_VERSIONS)
     assert to_ags4.options["ags_version"].choices == _service.CONVERT_AGS_VERSIONS
+    compare = by_id["diff"]
+    assert compare.inputs == (*_CORE_INPUTS, model)
+    assert compare.outputs == (f"diggs-diff-{diff_module.DIFF_SCHEMA_VERSION}",)
+    assert compare.options["match"].choices == diff_module._engine.MATCH_MODES
+    assert compare.options["new"].type == "file" and compare.options["new"].required
     # One file export per gis.write driver.
     exports = {i for i in by_id if i in _capabilities._DRIVER_OF}
     assert set(_capabilities._DRIVER_OF.values()) == set(gis.DRIVERS.values())
@@ -374,6 +385,8 @@ def test_stability_matches_what_the_docs_promise(by_id):
     # pydiggs.convert is stable from 1.11, both ways.
     assert by_id["convert.ags4-to-diggs"].stability == "stable"
     assert by_id["convert.diggs-to-ags4"].stability == "stable"
+    # pydiggs.diff is stable from 1.12.
+    assert by_id["diff"].stability == "stable"
     assert not {i for i, op in by_id.items() if op.stability == "experimental"}
 
 
@@ -395,6 +408,7 @@ def test_needs_name_real_extras(by_id):
         "ags4.check",
         "convert.ags4-to-diggs",
         "convert.diggs-to-ags4",
+        "diff",
     }
 
 

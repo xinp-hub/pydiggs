@@ -247,7 +247,7 @@ published with this site at
 [`schemas/diggs-findings-1.2.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json).
 
 Version 1.2 (pyDIGGS 1.12.0) only adds to 1.1: the step `diff`, for the notes of a model
-comparison ([`pydiggs.diff`](https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json)).
+comparison ([Comparing two files](diff.md)).
 Every 1.1 document is a valid 1.2 document. The
 [1.1 schema](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json) stays packaged and published, unchanged, like 1.0; a consumer that checks
 documents against an earlier schema must move to the 1.2 schema, because each pins `$schema` to its own URL.

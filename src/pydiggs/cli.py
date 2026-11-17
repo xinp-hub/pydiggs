@@ -30,6 +30,12 @@ def _convert(argv: list[str]) -> int:
     return _convert_cli.main(argv)
 
 
+def _diff(argv: list[str]) -> int:
+    from pydiggs.diff import _cli as diff_cli  # noqa: PLC0415  # loads the comparison on demand
+
+    return diff_cli.main(argv)
+
+
 def _capabilities(argv: list[str]) -> int:
     from pydiggs._capabilities import _cli as capabilities_cli  # noqa: PLC0415
 
@@ -42,6 +48,7 @@ _SUBCOMMANDS = {
     "serve": _serve,
     "ags4": _ags4,
     "convert": _convert,
+    "diff": _diff,
     "capabilities": _capabilities,
 }
 
@@ -70,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
             " (stdio sidecar, HTTP, MCP): pydiggs serve --help."
             " AGS4 files against the AGS4 rules: pydiggs ags4 check --help."
             " AGS4 to DIGGS and DIGGS to AGS4: pydiggs convert --help."
+            " What changed between two DIGGS files: pydiggs diff --help."
             " Installed version: pydiggs --version."
         ),
     )

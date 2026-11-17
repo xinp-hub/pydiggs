@@ -267,6 +267,8 @@ def _catalogue() -> tuple[_Entry, ...]:
     from pydiggs.ags4._io import DEFAULT_MAX_BYTES as AGS4_MAX_BYTES  # noqa: PLC0415
     from pydiggs.convert._api import AGS_VERSIONS as CONVERT_AGS  # noqa: PLC0415
     from pydiggs.detect import DEFAULT_PROFILE, SCHEMA_PATHS  # noqa: PLC0415
+    from pydiggs.diff._document import DIFF_SCHEMA_VERSION  # noqa: PLC0415
+    from pydiggs.diff._engine import MATCH_MODES  # noqa: PLC0415
     from pydiggs.findings.export import FINDINGS_SCHEMA_VERSION  # noqa: PLC0415
     from pydiggs.findings.model import Step  # noqa: PLC0415
     from pydiggs.findings.run import (  # noqa: PLC0415
@@ -566,6 +568,55 @@ def _catalogue() -> tuple[_Entry, ...]:
                         choices=("prefix",),
                     ),
                     "name": OptionSpec(type="string", label="File name to report the source as"),
+                    "max_bytes": OptionSpec(
+                        type="integer",
+                        label="Largest file accepted, in bytes",
+                        default=DEFAULT_MAX_BYTES,
+                    ),
+                    "time_budget": time_budget,
+                },
+            )
+        ),
+        _Entry(
+            Operation(
+                id="diff",
+                label="Compare two DIGGS files: what was added, removed or changed",
+                stability="stable",
+                inputs=(*diggs, model),
+                outputs=(f"diggs-diff-{DIFF_SCHEMA_VERSION}",),
+                options={
+                    "new": OptionSpec(
+                        type="file", label="The later file, to compare with", required=True
+                    ),
+                    "match": OptionSpec(
+                        type="string",
+                        label=(
+                            "How records are paired: by gml:id then by natural key (auto),"
+                            " by gml:id only, or by natural key only"
+                        ),
+                        default=MATCH_MODES[0],
+                        choices=MATCH_MODES,
+                    ),
+                    "rel_tol": OptionSpec(
+                        type="number",
+                        label="Two numbers are equal within this fraction of the larger one",
+                        default=1e-9,
+                    ),
+                    "abs_tol": OptionSpec(
+                        type="number",
+                        label="Two numbers are equal within this much, in the value's own unit",
+                        default=0.0,
+                    ),
+                    "max_changes": OptionSpec(
+                        type="integer",
+                        label="Most changes to list; the counts stay exact",
+                        default=10_000,
+                    ),
+                    "show_reformatted": OptionSpec(
+                        type="boolean",
+                        label="Also list values that are only written differently (1.50 and 1.5)",
+                        default=False,
+                    ),
                     "max_bytes": OptionSpec(
                         type="integer",
                         label="Largest file accepted, in bytes",

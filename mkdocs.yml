@@ -150,6 +150,7 @@ nav:
     - Reading files: model.md
     - AGS4 files: ags4.md
     - AGS4 and DIGGS conversion: convert.md
+    - Comparing two files: diff.md
     - Capabilities: capabilities.md
   - Integrate:
     - integrations.md

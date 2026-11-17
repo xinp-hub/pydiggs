@@ -135,6 +135,25 @@ Stable from pyDIGGS 1.11; see [AGS4 and DIGGS conversion](convert.md).
 
 ::: pydiggs.convert.MAPPING_VERSION
 
+## Comparing files
+
+Stable from pyDIGGS 1.12; see [Comparing two files](diff.md). `import pydiggs` does not
+load `pydiggs.diff`: use `from pydiggs import diff`.
+
+::: pydiggs.diff.compare
+
+::: pydiggs.diff.Diff
+
+::: pydiggs.diff.Change
+
+::: pydiggs.diff.ValueChange
+
+::: pydiggs.diff.diff_schema
+
+::: pydiggs.diff.DIFF_SCHEMA_VERSION
+
+::: pydiggs.diff.DIFF_SCHEMA_URL
+
 ## Errors
 
 ::: pydiggs.PydiggsError
