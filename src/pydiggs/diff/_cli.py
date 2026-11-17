@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -49,10 +50,12 @@ def build_parser() -> argparse.ArgumentParser:
         prog=_PROG,
         description=(
             "Compare two DIGGS files by what they describe, not by how they are written:"
-            " gml:ids, element order, number formatting and line numbers do not count."
+            " element order, number formatting and line numbers do not count."
             " Boreholes, samples, tests and the other records are matched by gml:id, then"
             " by a natural key (a borehole's kind and name, a sample's borehole, name and"
-            " top). Numbers compare within a tolerance; a change of unit is always a"
+            " top), so records stay paired when their gml:ids change; a record's own"
+            " changed gml:id is listed as one changed value. Numbers compare within a"
+            " tolerance; a change of unit is always a"
             " change, and nothing is converted. The two files may be different DIGGS"
             " versions."
         ),
@@ -211,5 +214,28 @@ def main(argv: Sequence[str]) -> int:
             print(f"{_PROG}: {reason}", file=sys.stderr)
             return 2
     else:
-        sys.stdout.write(body)
+        try:
+            sys.stdout.write(body)
+            sys.stdout.flush()
+        except OSError as exc:
+            _silence_stdout()
+            reason = _safe(f"cannot write the report: {exc.strerror or exc}")
+            print(f"{_PROG}: {reason}", file=sys.stderr)
+            return 2
     return 0 if result.identical else 1
+
+
+def _silence_stdout() -> None:
+    """Point stdout at the null device after a failed write.
+
+    Text may still sit in the stream's buffer. Python flushes it again at exit, and a second
+    failure there would replace this command's exit status with a traceback.
+    """
+    try:
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(devnull, sys.stdout.fileno())
+        finally:
+            os.close(devnull)
+    except (OSError, ValueError, AttributeError):
+        pass  # stdout has no file descriptor (it was replaced by an in-memory stream)

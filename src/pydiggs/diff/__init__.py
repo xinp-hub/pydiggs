@@ -1,10 +1,12 @@
 """Model-level comparison of two DIGGS files: what was added, removed or changed.
 
 :func:`compare` reads two files (or takes two :class:`~pydiggs.model.Model`) and says what
-differs *in what they describe*, not in how they are written: ids, element order, number
+differs *in what they describe*, not in how they are written: element order, number
 formatting and provenance do not count. Nodes are matched by ``gml:id`` first, then by a
-natural key (a borehole's kind and name, a sample's borehole, name and top, ...); a natural
-key that more than one node has is never guessed at. Numbers compare within a tolerance, a
+natural key (a borehole's kind and name, a sample's borehole, name and top, ...), so nodes
+stay paired when their ids change; a node's own changed id is one changed value,
+``gml_id``. A natural key that more than one node has is never guessed at.
+Numbers compare within a tolerance, a
 change of unit is always a change (nothing is converted), and result tables align their
 rows by the domain index (depth) when it is unique.
 

@@ -3,8 +3,10 @@
 `pydiggs diff` and `pydiggs.diff.compare()` say what changed between two DIGGS files:
 which boreholes, samples, tests and other records were added or removed, and which values
 changed in the ones both files hold. The comparison is of what the files **describe**, not
-of how they are written, so two exports of the same data compare as identical even when
-every `gml:id` and every line differs.
+of how they are written: element order, number formatting and line numbers do not matter,
+and records stay paired when their `gml:id`s change. A record whose own `gml:id` changed
+is reported with that one changed value, so two exports with regenerated ids are paired
+record for record but are not identical.
 
 Typical uses: checking a revised deliverable against the previous one, checking that an
 export from a new software version still holds the same data, and checking a file after a
@@ -87,9 +89,11 @@ the sample.
 
 ## What does not count as a change
 
-- **`gml:id` values**, when the records can still be paired (see
-  [Matching](#matching)). When two records are paired by their natural key and their ids
-  differ, the id is listed as one changed value, `gml_id`.
+- **A link whose target was only renamed.** A link is compared by the record it points
+  to, so renaming a borehole's `gml:id` changes none of the samples that refer to it. The
+  renamed record's own id does count: when two records are paired by their natural key
+  (see [Matching](#matching)) and their ids differ, the id is listed as one changed
+  value, `gml_id`, and the files are not identical.
 - **The order** of elements in the file, and of rows in a table whose rows are matched by
   depth.
 - **How a number is written**: `1.50` and `1.5` are the same value. Such values are

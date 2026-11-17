@@ -396,3 +396,43 @@ def test_starting_the_cli_does_not_import_the_comparison_or_rich(tmp_path):
     ).stdout.splitlines()
     # Nothing at start-up; the comparison on demand; rich not even for the text report.
     assert out == ["[]", "0 True False"]
+
+
+# --- a report that cannot be written to stdout --------------------------------------------
+
+
+class _FullStream:
+    """A stdout whose device is full: the write is accepted, the flush fails."""
+
+    def __init__(self) -> None:
+        self.flushes = 0
+
+    def write(self, text: str) -> int:
+        return len(text)
+
+    def flush(self) -> None:
+        self.flushes += 1
+        raise OSError(28, "No space left on device")
+
+
+def test_a_report_stdout_cannot_take_exits_2_with_a_message(monkeypatch, capsys):
+    stream = _FullStream()
+    monkeypatch.setattr(sys, "stdout", stream)
+    code = main(["diff", str(AEROMAG), str(AEROMAG)])
+    monkeypatch.undo()
+    assert code == 2  # not 0: nobody received "identical"
+    assert stream.flushes == 1
+    err = capsys.readouterr().err
+    assert err == "pydiggs diff: cannot write the report: No space left on device\n"
+
+
+@pytest.mark.skipif(not Path("/dev/full").exists(), reason="needs /dev/full (Linux)")
+def test_stdout_redirected_to_a_full_device_exits_2_without_a_traceback():
+    command = [sys.executable, "-m", "pydiggs", "diff", str(AEROMAG), str(AEROMAG)]
+    with Path("/dev/full").open("w", encoding="utf-8") as full:
+        done = subprocess.run(  # noqa: S603  # our own interpreter and code
+            command, stdout=full, stderr=subprocess.PIPE, cwd=ROOT, check=False, text=True
+        )
+    assert done.returncode == 2
+    assert "cannot write the report" in done.stderr
+    assert "Traceback" not in done.stderr and "Exception ignored" not in done.stderr

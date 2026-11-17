@@ -20,9 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `diff`, and the new page [Comparing two files](https://xinp-hub.github.io/pydiggs/diff/)
   describes what counts as a change.
   In Python, `diff.compare(old, new)` takes paths, bytes or `Model`s and returns a `Diff` of added,
-  removed and changed nodes and values. Ids, element order, number formatting and
+  removed and changed nodes and values. Element order, number formatting and
   provenance do not count. Nodes are matched by `gml:id` and element, then by a natural key
-  (a borehole's kind and name, a sample's borehole, name and top, ...); a key that more than
+  (a borehole's kind and name, a sample's borehole, name and top, ...), so nodes stay
+  paired when their ids change, and a node's own changed id is listed as one changed value,
+  `gml_id`; a key that more than
   one node has is never matched and is reported as `diff.ambiguous-match`. Numbers compare
   within `rel_tol` (default 1e-9) and `abs_tol`; a change of unit is always a change and
   nothing is converted; the same number written differently is counted as reformatted.
