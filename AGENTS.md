@@ -55,8 +55,10 @@ gets a line in [CHANGELOG.md](CHANGELOG.md) under "Unreleased", written for user
 - **Never weaken a check to make it pass.** No blanket `# noqa`, no bare `# type: ignore`,
   no lowered coverage floor, no `skip` on a failing test.
 - **File content is untrusted.** DIGGS and AGS files come from anywhere. Parse XML only
-  through `pydiggs._xml`, bound the work a file can cause, and escape file text before it
-  reaches a terminal, a report or a log.
+  through `pydiggs._xml`, and bound the work a file can cause. Escape file text where a
+  person reads it: terminal output, human-readable reports and logs. Machine-readable
+  output (JSON, SARIF) keeps file data as it is, as its contract says
+  (`docs/findings.md`); the consumer escapes it for display.
 - **Generated files are regenerated, not edited:** `docs/convert-mapping.md`,
   `openapi.json`, `openrpc.json`, `js/src/generated/`, and the hashes in
   `src/pydiggs/PROVENANCE.toml`. Use the script that owns each one.
