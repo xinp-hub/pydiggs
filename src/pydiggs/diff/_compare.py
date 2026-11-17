@@ -14,7 +14,10 @@ when it refers to the same thing).
 
 An id is not a value. The ``gml:id`` of an element inside ``extra`` is left out of the
 comparison, and a local reference to one (``xlink:href="#x"``) is compared by the place of
-the element it names (:class:`NestedIds`), never by the id's text.
+the element it names (:class:`NestedIds`), never by the id's text. An element that a typed
+field read (a centre line) is not in the model at all; a reference to one is compared by
+the place the reader saw it at (``Side.places``), when both files were read for this
+comparison, and as text otherwise.
 """
 
 from __future__ import annotations
@@ -176,6 +179,11 @@ def _local_target(href: str) -> str | None:
     return href[1:] if href.startswith("#") and len(href) > 1 else None
 
 
+def _is_local_ref(name: str, value: str) -> bool:
+    """Whether an attribute is a reference into the same file (``xlink:href``, ``srsName``)."""
+    return (_is_href(name) or name == "srsName") and _local_target(value) is not None
+
+
 def _crs_parts(crs: Any) -> tuple[object, ...]:
     """What the model knows of a coordinate reference system, apart from its name in the file."""
     horizontal = crs.horizontal.epsg if crs.horizontal else None
@@ -194,6 +202,10 @@ class Side:
         self.which = 0 if tag == "old" else 1
         #: Set by the engine once both sides exist; without it nested ids stay text.
         self.nested: NestedIds | None = None
+        #: Where the reader saw each identified element the model does not keep: its
+        #: ``gml:id`` to the key of its record and its path below it. Set by the engine
+        #: when both files were read for the comparison; None compares such ids as text.
+        self.places: Mapping[str, tuple[str, str]] | None = None
         self._links: dict[str, dict[str, list[Link]]] | None = None
         self._owners: dict[str, str | None] | None = None
         self._sole: Counter[tuple[object, ...]] | None = None
@@ -308,21 +320,40 @@ class Side:
             return None
         return self.nested.token(self.which, target)
 
+    def consumed_token(self, href: str) -> str | None:
+        """The place of the element a typed field read that a local reference names.
+
+        The model keeps neither that element nor its id, but the reader saw where it sat:
+        in which record, and at which path below it, a path no other element of the
+        record could have (every step is the only child of that name). The record is
+        named by its pair, so the same place in two matched records is the same element
+        whatever its id. An id the reader could not place for certain is not in
+        ``places``, and neither is one the model keeps in ``extra``.
+        """
+        target = _local_target(href)
+        if target is None or self.places is None:
+            return None
+        found = self.places.get(target)
+        if found is None or found[0] not in self.pair_of:
+            return None
+        return f"x:{self.pair_of[found[0]]}/{found[1]}"
+
     def attr_ref(self, name: str, value: str, *, placed: bool = True) -> Ref | str:
         """An attribute inside ``extra``: a local reference by what it points to, else text.
 
         ``xlink:href`` and ``srsName`` are the references. One that names a matched
         record, a matched feature's linear referencing system, a coordinate system the
-        model describes or (with ``placed``) an identified element inside ``extra`` gives
-        a :class:`Ref`. Anything else stays the text it is: another document, an id
-        nothing in the model has (an element a typed field consumed), an id that two
-        elements have, a record only one file has.
+        model describes, an element a typed field read (when the reader placed it) or
+        (with ``placed``) an identified element inside ``extra`` gives a :class:`Ref`.
+        Anything else stays the text it is: another document, an id nothing in the file
+        has, an id that two elements have, a record only one file has, an element a
+        typed field read when there is no file to place it by.
         """
-        if not (_is_href(name) or name == "srsName") or _local_target(value) is None:
+        if not _is_local_ref(name, value):
             return value
         if name == "srsName" and value in self.model.crs:
             return self.crs_ref(value)
-        token = self.record_token(value) or self._lrs_token(value)
+        token = self.record_token(value) or self._lrs_token(value) or self.consumed_token(value)
         if token is None and placed:
             nested = self.nested_token(value)
             token = None if nested is None else f"n:{nested}"
@@ -332,12 +363,25 @@ class Side:
         if link.target is None:
             return Ref(f"h:{link.href}", link.href)
         ref = self.node_ref(link.target)
-        if self.record_token(link.href) is None:
-            # The link names an element inside the target record, not the record: which
-            # element is part of what it points to, when the model kept that element.
-            nested = self.nested_token(link.href)
-            if nested is not None:
-                return Ref(f"n:{nested}", ref.shown)
+        if self.record_token(link.href) is not None:
+            return ref
+        # The link names an element inside the target record, not the record: which
+        # element is part of what it points to, and of what is shown (two links into one
+        # record would read the same by the record's name alone).
+        shown = f"{ref.shown} {link.href}"
+        consumed = self.consumed_token(link.href)
+        if consumed is not None:
+            return Ref(consumed, shown)  # an element a typed field read, placed by the reader
+        nested = self.nested_token(link.href)
+        if nested is not None:
+            return Ref(f"n:{nested}", shown)  # an element the model keeps, by its place
+        target = _local_target(link.href)
+        if target is not None and self.nested is not None and self.nested.known(self.which, target):
+            # The model keeps an element with this id but it has no place of its own (one
+            # of two equal siblings, an id used twice): the text of the link decides.
+            return Ref(f"t:{ref.token}:{link.href}", shown)
+        # Nothing in the model has the id: an element a typed field read, with no file to
+        # place it by. The record that holds it is all there is to compare.
         return ref
 
 
@@ -404,8 +448,27 @@ def _local(item: ExtraNode) -> str:
     return item.qname.rpartition(":")[2]
 
 
+class _Memo(dict[int, str]):
+    """The digest of each ``extra`` subtree of one file, by ``id``.
+
+    ``loose`` holds the subtrees with a local reference the digest took as text: what
+    such a reference points to is not part of the digest.
+    """
+
+    __slots__ = ("loose",)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.loose: set[int] = set()
+
+
 def _digests(
-    roots: Iterable[ExtraNode], memo: dict[int, str], tick: Tick, side: Side | None = None
+    roots: Iterable[ExtraNode],
+    memo: _Memo,
+    tick: Tick,
+    side: Side | None = None,
+    *,
+    placed: _Memo | None = None,
 ) -> None:
     """Put a digest of every ``extra`` subtree under ``roots`` in ``memo``, by ``id``.
 
@@ -418,36 +481,49 @@ def _digests(
     strength of a guess. Walked without recursion, and each subtree once however often it
     is asked for. ``memo`` is for one file: the same element may sit in both models and
     resolve differently.
+
+    That is the digest elements are *placed* by. Once they are placed, ``placed`` (the
+    memo of those digests) asks for the digest that says whether two subtrees are equal:
+    the same, with every reference to an element inside ``extra`` taken as what it names.
+    Only the subtrees with such a reference (``placed.loose``) are walked again.
     """
     stack = [(root, False) for root in roots]
     while stack:
         node, ready = stack.pop()
         if id(node) in memo:
             continue
+        if placed is not None and id(node) not in placed.loose:
+            memo[id(node)] = placed[id(node)]
+            continue
         if not ready:
             tick(1)
             stack.append((node, True))
             stack.extend((child, False) for child in node.children)
             continue
+        attrs: list[tuple[str, object]] = []
+        loose = any(id(child) in memo.loose for child in node.children)
+        for name, value in node.attrs.items():
+            if own_id(name):
+                continue
+            ref = value if side is None else side.attr_ref(name, value, placed=placed is not None)
+            if isinstance(ref, Ref):
+                # A tuple cannot be mistaken for the text of an attribute.
+                attrs.append((name, ("ref", ref.token)))
+            else:
+                attrs.append((name, ref))
+                loose = loose or (side is not None and _is_local_ref(name, value))
+        if loose:
+            memo.loose.add(id(node))
         record = (
             _local(node),
             node.ns or "",
-            sorted(_digest_attrs(node, side)),
+            sorted(attrs),
             node.text,
             sorted(memo[id(child)] for child in node.children),
         )
         memo[id(node)] = hashlib.blake2b(
             repr(record).encode("utf-8", "surrogatepass"), digest_size=16
         ).hexdigest()
-
-
-def _digest_attrs(node: ExtraNode, side: Side | None) -> Iterator[tuple[str, object]]:
-    for name, value in node.attrs.items():
-        if own_id(name):
-            continue
-        ref = value if side is None else side.attr_ref(name, value, placed=False)
-        # A tuple cannot be mistaken for the text of an attribute.
-        yield name, ("ref", ref.token) if isinstance(ref, Ref) else ref
 
 
 def _by_name(items: Iterable[ExtraNode]) -> dict[str, list[ExtraNode]]:
@@ -457,7 +533,7 @@ def _by_name(items: Iterable[ExtraNode]) -> dict[str, list[ExtraNode]]:
     return groups
 
 
-Memos = tuple[dict[int, str], dict[int, str]]
+Memos = tuple[_Memo, _Memo]
 Sides = tuple[Side | None, Side | None]
 _NO_SIDES: Final[Sides] = (None, None)
 
@@ -465,6 +541,7 @@ _NO_SIDES: Final[Sides] = (None, None)
 def _unlike(
     old: list[ExtraNode], new: list[ExtraNode], memos: Memos, sides: Sides, tick: Tick
 ) -> tuple[tuple[list[ExtraNode], list[ExtraNode]], tuple[list[ExtraNode], list[ExtraNode]]]:
+    # Equal by the digest elements are placed by; put_extra checks the references again.
     """Same-named siblings split in two: those only one side holds, and those both hold.
 
     An element that repeats has no identity but its content, so its place among its
@@ -510,21 +587,26 @@ OPEN: Final = "open"
 EQUAL: Final = "equal"
 DEEP: Final = "deep"
 
-_Met = tuple[str, tuple[ExtraNode | None, ExtraNode | None], str]
+#: The path, the element of each side, how it was met, and how deep it lies.
+_Met = tuple[str, tuple[ExtraNode | None, ExtraNode | None], str, int]
 #: The ``extra`` elements of the old and of the new side.
 Both = tuple[Iterable[ExtraNode], Iterable[ExtraNode]]
 
 
-def _walk_extra(prefix: str, both: Both, sides: Sides, memos: Memos, tick: Tick) -> Iterator[_Met]:
+def _walk_extra(
+    prefix: str, both: Both, sides: Sides, memos: Memos, tick: Tick, *, depth: int = 0
+) -> Iterator[_Met]:
     """The ``extra`` elements of both sides with the path each one is compared at.
 
     The two sides are numbered together, because a path has to mean the same element in
     both: same-named siblings that are equal on both sides take the first numbers and add
     nothing (they are met as :data:`EQUAL`, one side at a time, at the path of their
-    group), and the rest follow in document order, an old one with a new one.
+    group), and the rest follow in document order, an old one with a new one. "Equal"
+    is by the digest elements are placed by, which takes a reference to an element inside
+    ``extra`` as text: :func:`put_extra` looks at those again.
     """
     stack: list[tuple[str, Sequence[ExtraNode], Sequence[ExtraNode], int]] = [
-        (prefix, tuple(both[0]), tuple(both[1]), 0)
+        (prefix, tuple(both[0]), tuple(both[1]), depth)
     ]
     while stack:
         base, olds, news, depth = stack.pop()
@@ -537,9 +619,9 @@ def _walk_extra(prefix: str, both: Both, sides: Sides, memos: Memos, tick: Tick)
                 first += len(same_old)
                 group = f"{base}.{seg(name)}"
                 for item in same_old:
-                    yield group, (item, None), EQUAL
+                    yield group, (item, None), EQUAL, depth
                 for item in same_new:
-                    yield group, (None, item), EQUAL
+                    yield group, (None, item), EQUAL, depth
             for n in range(max(len(a), len(b))):
                 tick(1)
                 path = f"{base}.{seg(name)}[{first + n}]"
@@ -548,9 +630,9 @@ def _walk_extra(prefix: str, both: Both, sides: Sides, memos: Memos, tick: Tick)
                     for deep, memo, side in zip(pair, memos, sides, strict=True):
                         if deep is not None:
                             _digests((deep,), memo, tick, side)
-                    yield path, pair, DEEP
+                    yield path, pair, DEEP, depth
                     continue
-                yield path, pair, OPEN
+                yield path, pair, OPEN, depth
                 below = tuple(() if item is None else item.children for item in pair)
                 if below[0] or below[1]:
                     stack.append((path, below[0], below[1], depth + 1))
@@ -567,18 +649,94 @@ def put_extra(
 
     The paths are those of :func:`_walk_extra`. With ``sides``, a reference is compared
     by what it points to; without, as text.
+
+    Same-named siblings that the walk cancelled as equal were equal with their references
+    to elements inside ``extra`` read as text. Such a reference may name another element
+    now (two points whose ids changed places), so the cancelled subtrees that hold one
+    are compared once more, by what the references point to; those that no longer cancel
+    are compared like any other pair, at the first numbers of their group, which the walk
+    left free for them.
     """
-    memos: Memos = ({}, {})
-    for path, pair, met in _walk_extra(prefix, both, sides, memos, tick):
-        if met == EQUAL:
-            continue
-        for out, item, memo, side in zip(outs, pair, memos, sides, strict=True):
+    memos: Memos = (_Memo(), _Memo())
+    finals: Memos = (_Memo(), _Memo())
+    todo: list[tuple[str, Both, int]] = [(prefix, both, 0)]
+    while todo:
+        base, below, start = todo.pop()
+        cancelled: dict[tuple[str, int], tuple[list[ExtraNode], list[ExtraNode]]] = {}
+        for path, pair, met, depth in _walk_extra(base, below, sides, memos, tick, depth=start):
+            if met == EQUAL:
+                for which, item in enumerate(pair):
+                    if item is not None and id(item) in memos[which].loose:
+                        cancelled.setdefault((path, depth), ([], []))[which].append(item)
+                continue
+            for out, item, memo, side in zip(outs, pair, memos, sides, strict=True):
+                if item is None:
+                    continue
+                if met == DEEP:
+                    out[f"{path}#deep"] = memo[id(item)]
+                else:
+                    _put_element(out, path, item, side)
+        for (group, depth), (olds, news) in cancelled.items():
+            todo.extend(
+                _uncancelled(
+                    outs, group, depth, (olds, news), (memos, finals), sides=sides, tick=tick
+                )
+            )
+
+
+def _uncancelled(
+    outs: tuple[dict[str, Any], dict[str, Any]],
+    group: str,
+    depth: int,
+    both: tuple[list[ExtraNode], list[ExtraNode]],
+    memos: tuple[Memos, Memos],
+    *,
+    sides: Sides,
+    tick: Tick,
+) -> Iterator[tuple[str, Both, int]]:
+    """Compare the cancelled siblings of one group by what their references point to.
+
+    Those that are still equal say nothing. The rest are written to ``outs`` an old one
+    with a new one, in document order, and what lies below each pair is given back to be
+    walked.
+    """
+    placed, finals = memos
+    for items, memo, base, side in zip(both, finals, placed, sides, strict=True):
+        _digests(items, memo, tick, side, placed=base)
+    left = [
+        _spare(items, memo, Counter(other[id(item)] for item in others))
+        for items, memo, others, other in (
+            (both[0], finals[0], both[1], finals[1]),
+            (both[1], finals[1], both[0], finals[0]),
+        )
+    ]
+    for n in range(max(len(left[0]), len(left[1]))):
+        tick(1)
+        path = f"{group}[{n + 1}]"
+        pair = [items[n] if n < len(items) else None for items in left]
+        for out, item, memo, side in zip(outs, pair, finals, sides, strict=True):
             if item is None:
                 continue
-            if met == DEEP:
+            if depth >= MAX_EXTRA_DEPTH:
                 out[f"{path}#deep"] = memo[id(item)]
             else:
                 _put_element(out, path, item, side)
+        if depth < MAX_EXTRA_DEPTH:
+            below = [() if item is None else item.children for item in pair]
+            if below[0] or below[1]:
+                yield path, (below[0], below[1]), depth + 1
+
+
+def _spare(items: list[ExtraNode], memo: _Memo, other: Counter[str]) -> list[ExtraNode]:
+    """The ``items`` that no item of the other side cancels, in their order."""
+    kept = []
+    for item in items:
+        digest = memo[id(item)]
+        if other[digest] > 0:
+            other[digest] -= 1
+        else:
+            kept.append(item)
+    return kept
 
 
 def _extras(old: Node, new: Node) -> Iterator[tuple[str, Both]]:
@@ -636,6 +794,12 @@ class NestedIds:
             self._places = self._build()
         return self._places[which].get(gml_id)
 
+    def known(self, which: int, gml_id: str) -> bool:
+        """Whether an element inside ``extra`` of file ``which`` has ``gml_id``, placed or not."""
+        if self._places is None:
+            self._places = self._build()
+        return gml_id in self._places[which]
+
     def _claim(self, places: _Places, which: int, item: ExtraNode, place: str | None) -> None:
         """Give the ids of ``item`` its place; an id met twice has none."""
         ids = [value for name, value in item.attrs.items() if own_id(name)]
@@ -645,7 +809,7 @@ class NestedIds:
             places[which][gml_id] = place if gml_id not in places[which] else None
 
     def _claim_equal(
-        self, places: _Places, which: int, root: ExtraNode, place: str, memo: dict[int, str]
+        self, places: _Places, which: int, root: ExtraNode, place: str, memo: _Memo
     ) -> None:
         """Place every element of a subtree that was cancelled whole, by content."""
         stack = [(root, f"{place}~{memo[id(root)]}")]
@@ -662,8 +826,9 @@ class NestedIds:
         for old, new in self._pairs:
             number = self._sides[0].pair_of[old.key]
             for prefix, both in _extras(old, new):
-                memos: Memos = ({}, {})
-                for path, pair, met in _walk_extra(prefix, both, self._sides, memos, self._tick):
+                memos: Memos = (_Memo(), _Memo())
+                walk = _walk_extra(prefix, both, self._sides, memos, self._tick)
+                for path, pair, met, _ in walk:
                     for which, item in enumerate(pair):
                         if item is None or met == DEEP:
                             continue

@@ -29,9 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `match="gml-id"` it is removed and added. The `gml:id` of a geometry, a time instant or
   any other element inside a node is not compared, and a local reference
   (`xlink:href="#x"`, `srsName="#x"`) is compared by what it points to, not by the id's
-  text; one that cannot be resolved for certain is compared as text. One such case is
-  common: a borehole's linear referencing system naming its centre line
-  (`linearElement`) is still listed as changed when the centre line's id changes.
+  text; one that cannot be resolved for certain is compared as text. A reference to an
+  element the model does not keep, such as a borehole's linear referencing system naming
+  its centre line (`linearElement`), is resolved from the files as they are read (the
+  record holding the element and its path below it, when no element on the path has a
+  same-named sibling), so it needs paths or bytes: between two `Model`s it is compared
+  as text. Repeated elements that differ only in what their references point to are not
+  taken as equal, a link to one of two equal elements is compared by its text, and a
+  link to an element inside a record is shown as the record's name and the link
+  (`B-1 #p2`).
   `Diff.to_text()` escapes every bracket that could open `rich` markup, so no tag can
   form across two values when the text is printed through a `rich` console. A key that more than
   one node has is never matched and is reported as `diff.ambiguous-match`. Numbers compare

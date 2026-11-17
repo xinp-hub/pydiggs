@@ -8,8 +8,10 @@ name and top, ...), so nodes stay paired when their ids change, and two exports 
 same data with new ids are identical. The renamed ids are counted (``Diff.renamed``) and
 listed on request. The ``gml:id`` of an element inside a node (a geometry) is not
 compared, and a reference to something in the same file is compared by what it points
-to; one that cannot be resolved for certain is compared as text. A natural key that
-more than one node has is never guessed at.
+to; one that cannot be resolved for certain is compared as text. A reference to an
+element the model does not keep (a borehole's centre line) is resolved from the file, so
+only when both inputs are paths or bytes. A natural key that more than one node has is
+never guessed at.
 Numbers compare within a tolerance, a change of unit is always a change (nothing is
 converted), and result tables align their rows by the domain index (depth) when it is
 unique.
@@ -115,16 +117,20 @@ def _options(
     )
 
 
-def _load(source: object, role: str, max_bytes: int, deadline: float | None) -> Model:
-    from pydiggs._reader import read, read_bytes  # noqa: PLC0415
+def _load(
+    source: object, role: str, max_bytes: int, deadline: float | None
+) -> tuple[Model, _engine.Places | None]:
+    """The model of ``source`` and, when it was read here, where its identified elements sit.
+
+    A :class:`~pydiggs.model.Model` no longer has the file, so it comes with no places.
+    """
+    from pydiggs._reader import read_with_places  # noqa: PLC0415
 
     if isinstance(source, Model):
-        return source
+        return source, None
     remaining = None if deadline is None else max(deadline - _engine._now(), 1e-3)
-    if isinstance(source, str | os.PathLike):
-        return read(source, max_bytes=max_bytes, time_budget=remaining)
-    if isinstance(source, bytes | bytearray | memoryview):
-        return read_bytes(source, max_bytes=max_bytes, time_budget=remaining)
+    if isinstance(source, str | os.PathLike | bytes | bytearray | memoryview):
+        return read_with_places(source, max_bytes=max_bytes, time_budget=remaining)
     raise TypeError(f"{role} must be a path, bytes or a pydiggs.Model, got {type(source).__name__}")
 
 
@@ -145,6 +151,9 @@ def compare(
 
     Args:
         old: The earlier file: a path, the bytes of a file, or a :class:`~pydiggs.model.Model`.
+            A reference to an element the model does not keep (a borehole's centre line)
+            is compared by what it points to only when both are paths or bytes; with a
+            model on either side it is compared as text.
         new: The later file, in the same forms. The two may be different DIGGS versions;
             both are recorded in the result.
         match: How nodes are paired. ``"auto"``: by ``gml:id`` and element, then by natural
@@ -202,6 +211,11 @@ def compare(
             raise TypeError(
                 f"{role} must be a path, bytes or a pydiggs.Model, got {type(source).__name__}"
             )
-    old_model = _load(old, "old", max_bytes, deadline)
-    new_model = _load(new, "new", max_bytes, deadline)
-    return _engine.compare_models(old_model, new_model, options, deadline=deadline).diff
+    old_model, old_places = _load(old, "old", max_bytes, deadline)
+    new_model, new_places = _load(new, "new", max_bytes, deadline)
+    # A place means something only against the other file's: with a model on one side,
+    # every such reference is compared as text, as it is between two models.
+    places = None if old_places is None or new_places is None else (old_places, new_places)
+    return _engine.compare_models(
+        old_model, new_model, options, deadline=deadline, places=places
+    ).diff

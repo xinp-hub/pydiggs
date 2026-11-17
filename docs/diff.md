@@ -137,11 +137,29 @@ compared by **what it points to**, never by the text of the id:
 |---|---|
 | a record | the two records are paired |
 | an element inside a record that the model keeps in `extra` (a geometry, a time instant) | the two elements sit in paired records, at the same place among the elements compared |
+| an element inside a record that pyDIGGS reads into typed fields and does not keep (a borehole's centre line or reference point) | the two elements sit in paired records, at the same path below the record, and no step of that path could be another element (see below) |
 | a borehole's own depth system (its linear referencing system) | the two boreholes are paired |
 | a coordinate system defined in the file outside every record (a site grid) | pyDIGGS reads the same name, unit and axes for both, and no other such system of the file reads the same |
 
 So a file that was exported again with every `gml:id` generated afresh, and every
-reference following, compares as the same data.
+reference following, compares as the same data. The common case of the third row is a
+borehole's linear referencing system naming the borehole's centre line (`linearElement`).
+
+The model does not keep an element it reads into typed fields, nor its id. When
+`compare` is given the two **files** (paths or bytes), the reader notes, as it reads,
+where each such element sits: the record that holds it and its path below the record
+(`centerLine/LinearExtent`). A path counts only when every element on it is the only
+child of its parent with that name, whatever its namespace: then it names one element
+whatever the order of the file. An element with a same-named sibling anywhere on the
+way (the second of two `centerLine`) has no such path, and neither has one more than 16
+elements below its record. Nothing is read twice and no file is parsed a second time.
+
+Two repeated elements that are equal except for what their references point to are not
+equal: if the ids of two points change places, a reference that kept its text names
+another point and is listed as changed.
+
+A link to an element inside a record is shown as the record's name and the link as
+written (`B-1 #p2`), so that two links into one record can be told apart.
 
 A reference that cannot be resolved for certain is compared **as text**, as it is
 written. This errs on the side of reporting a difference, never of hiding one:
@@ -151,12 +169,20 @@ written. This errs on the side of reporting a difference, never of hiding one:
 - two elements with exactly the same content in the same record: they cannot be told
   apart, so a reference to one of them is compared by its id;
 - a reference to an element that pyDIGGS reads into typed fields and does not keep, when
-  it is written inside `extra`. The common case is a borehole's linear referencing
-  system naming the borehole's centre line (`linearElement`): if the centre line's
-  `gml:id` changes, that one reference is listed as changed
-  (`extra.linearReferencing[1].LinearSpatialReferenceSystem[1].linearElement[1]@xlink:href`).
-  **A re-export of a file with such boreholes is therefore not yet identical**: it shows
-  exactly one changed value per borehole.
+  that element has no path of its own (a same-named sibling on the way, or too deep), or
+  when the file has more identified elements than the reader's work limit (100,000 plus
+  one per 200 bytes of the file);
+- the same reference **when either side is a `Model`** and not a file: a model no longer
+  has the file, so there is nothing to place the element by. Two models of a re-exported
+  file with boreholes therefore show one changed value per borehole
+  (`extra.linearReferencing[1].LinearSpatialReferenceSystem[1].linearElement[1]@xlink:href`);
+  give `compare` the files to have them resolved. A link the model lists in `links`
+  (not inside `extra`) to such an element is then compared by the record that holds the
+  element.
+
+Resolving by path can also report a difference where a person would see none: if one
+file has a single `centerLine` and the other has two, the reference has a path in one
+file and only its text in the other, and is listed as changed.
 
 Records that only their `gml:id` told apart (two layers with no depths in the same
 observation) cannot be paired once the ids change: they share a natural key, are listed

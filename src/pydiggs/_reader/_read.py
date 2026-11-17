@@ -138,6 +138,10 @@ LIMIT_BYTES_PER_ITEM: Final = 200
 MAX_EXTRA_DEPTH: Final = 64
 #: How many ``extra`` elements pass between checks of the time budget and cancellation.
 _CHECK_EVERY: Final = 1024
+#: An identified element is given a place (see :meth:`_Reader._place`) only this few steps
+#: below its record and with a path this short; real ones are two or three steps down.
+MAX_PLACE_STEPS: Final = 16
+MAX_PLACE_CHARS: Final = 120
 _LIMIT_TEXT: Final = {
     "nodes": "the file has more objects than a file of its size may",
     "extra_elements": (
@@ -365,6 +369,7 @@ class _Reader:
         diggs_version: str | None,
         results: bool,
         field_provenance: bool = False,
+        index_ids: bool = False,
     ) -> None:
         self.data = data
         self.field_provenance = field_provenance
@@ -384,6 +389,11 @@ class _Reader:
         self.id_owner: dict[str, str] = {}
         self.id_count: Counter[str] = Counter()
         self.id_repeat: dict[str, int | None] = {}  # duplicated id -> line of its 2nd use
+        #: With ``index_ids``: where each identified element below a record sits, as the
+        #: key of that record and the element's path below it. Not part of the model.
+        self.id_places: dict[str, tuple[str, str]] | None = {} if index_ids else None
+        self.extra_ids: set[str] = set()
+        self._child_names: dict[etree._Element, Counter[str]] = {}
         self.extra_count = 0
         self.node_count = 0
         self.limit = LIMIT_BASE + len(data) // LIMIT_BYTES_PER_ITEM
@@ -395,6 +405,7 @@ class _Reader:
         self.notes: list[Finding] = []
         self.complete = True
         self.limits_hit: list[str] = []
+        self.final_places: dict[str, tuple[str, str]] = {}
 
     # --- notes ----------------------------------------------------------------------
 
@@ -556,6 +567,7 @@ class _Reader:
             self.collections["others"].append(node)
             nested[prop] = node["key"]
             self._scan(prop, xpath, node["key"], nested)
+            self._child_names.clear()
             return
         category = _CATEGORY.get(_local(prop.tag), "others")
         owner = ""
@@ -574,6 +586,7 @@ class _Reader:
             else:
                 self.collections[kind].append(node)
         self._scan(prop, xpath, owner, nested)
+        self._child_names.clear()
 
     def _scan(
         self,
@@ -590,6 +603,8 @@ class _Reader:
             self.id_count[gml_id] += 1
             if self.id_count[gml_id] == 2:  # noqa: PLR2004 - the first repeat
                 self.id_repeat[gml_id] = el.sourceline
+            if self.id_places is not None and el not in nested:
+                self._index_id(el, gml_id, owner, nested)
         href = el.get(_XLINK_HREF)
         if href is not None:
             relation = _local(el.tag)
@@ -606,6 +621,47 @@ class _Reader:
             key = (child.prefix, _local(child.tag))
             counts[key] = position = counts.get(key, 0) + 1
             self._scan(child, f"{xpath}/{_qname(child)}[{position}]", owner, nested)
+
+    def _index_id(
+        self, el: etree._Element, gml_id: str, owner: str, nested: dict[etree._Element, str]
+    ) -> None:
+        """Record the place of an identified element that is not itself a record."""
+        places = self.id_places
+        if places is None or len(places) >= self.limit:
+            return  # past the work limit nothing more is indexed: such an id has no place
+        place = self._place(el, nested)
+        if place is not None:
+            places.setdefault(gml_id, (owner, place))
+
+    def _place(self, el: etree._Element, nested: dict[etree._Element, str]) -> str | None:
+        """The path of ``el`` below the record that holds it, when no step could be another.
+
+        Each step is the local name of an element that is the only child of its parent
+        with that name, so the path names one element whatever the order of the file and
+        whatever its ``gml:id``. An element with a same-named sibling anywhere on the way
+        has no place: which of the two is meant would rest on their order. Nor has one
+        that is deep below its record, or outside every record. The children of a parent
+        are counted once per member, so the work is bounded by the size of the member.
+        """
+        steps: list[str] = []
+        size = 0
+        node = el
+        while node not in nested:
+            parent = node.getparent()
+            if parent is None or parent.getparent() is None or len(steps) >= MAX_PLACE_STEPS:
+                return None
+            names = self._child_names.get(parent)
+            if names is None:
+                names = self._child_names[parent] = Counter(
+                    _local(child.tag) for child in _elements(parent)
+                )
+            name = _local(node.tag)
+            size += len(name) + 1
+            if names[name] != 1 or size > MAX_PLACE_CHARS:
+                return None
+            steps.append(name)
+            node = parent
+        return "/".join(reversed(steps))
 
     # --- mappers --------------------------------------------------------------------
 
@@ -708,6 +764,8 @@ class _Reader:
             raise _LimitError("extra_elements")
         if self.extra_count % _CHECK_EVERY == 0:
             self._tick()
+        if self.id_places is not None and (kept := el.get(_GML_ID)):
+            self.extra_ids.add(kept)
         return {
             "qname": _qname(el),
             "ns": etree.QName(el).namespace,
@@ -1309,6 +1367,7 @@ class _Reader:
 
     def _finish(self) -> dict[str, Any]:
         rename = self._final_keys()
+        self.final_places = self._final_places(rename)
         links = self._links(rename)
         self._typed_refs(links)
         crs_table = self._crs()
@@ -1383,6 +1442,18 @@ class _Reader:
             rename[node["key"]] = final
             node["key"] = final
         return rename
+
+    def _final_places(self, rename: dict[str, str]) -> dict[str, tuple[str, str]]:
+        """The indexed ids that name one element for certain, with the final key of its record.
+
+        An id that two elements have names neither. One the model keeps in ``extra`` is
+        left out too: the model has the element itself, which says more than its place.
+        """
+        return {
+            gml_id: (rename[owner], place)
+            for gml_id, (owner, place) in (self.id_places or {}).items()
+            if self.id_count[gml_id] == 1 and gml_id not in self.extra_ids and owner in rename
+        }
 
     def _links(self, rename: dict[str, str]) -> list[dict[str, Any]]:
         links = []
@@ -1600,11 +1671,19 @@ def read_document(
     time_budget: float | None,
     field_provenance: bool = False,
     should_stop: Callable[[], bool] | None = None,
+    id_places: dict[str, tuple[str, str]] | None = None,
 ) -> Model:
     """Read checked bytes into a model (the shared core of ``read`` and ``read_bytes``).
 
     ``should_stop`` is the adapters' cancellation hook: checked between members and
     every so often inside one; when it returns True the read ends with ``_Cancelled``.
+
+    ``id_places``, when given, is filled in the same pass with what the model does not
+    keep: for the ``gml:id`` of each element a typed field read (a centre line, a
+    reference point), the key of the record that holds the element and the element's
+    path below it. Only ids that name one element for certain are in it (see
+    :meth:`_Reader._place`); ``pydiggs.diff`` compares a reference to such an element by
+    it. The model is the same with or without.
     """
     deadline = None if time_budget is None else time.monotonic() + time_budget
     reader = _Reader(
@@ -1613,5 +1692,9 @@ def read_document(
         diggs_version=diggs_version,
         results=results,
         field_provenance=field_provenance,
+        index_ids=id_places is not None,
     )
-    return reader.run(deadline, should_stop)
+    model = reader.run(deadline, should_stop)
+    if id_places is not None:
+        id_places.update(reader.final_places)
+    return model
