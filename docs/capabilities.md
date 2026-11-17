@@ -71,7 +71,7 @@ new pyDIGGS release reaches the app without hand edits.
 | `id` | a stable identifier: `validate`, `read`, `ags4.check`, `export.gpkg` … |
 | `label` | what the operation does, in plain language |
 | `stability` | `stable` (Semantic Versioning), `preview` (may change in a minor release) or `experimental` (may change or go at any time) |
-| `inputs`, `outputs` | a DIGGS version (`diggs-2.6`), an AGS4 version (`ags4-4.1.1`), a pyDIGGS document (`diggs-findings-1.1`, `diggs-model-1.0`), a media type (`application/geo+json`), or the Python type of an in-memory result (`pandas.DataFrame`) |
+| `inputs`, `outputs` | a DIGGS version (`diggs-2.6`), an AGS4 version (`ags4-4.1.1`), a pyDIGGS document (`diggs-findings-1.2`, `diggs-model-1.0`), a media type (`application/geo+json`), or the Python type of an in-memory result (`pandas.DataFrame`) |
 | `options` | option name (the keyword argument, and the request parameter where a surface takes it) to its `type` (`boolean`, `integer`, `number`, `string`, `string[]` or `file`), `label`, `default` (`null`: not given), `choices` (`null`: any) and `required` |
 | `needs` | the pyDIGGS extras it needs (`pip install 'pydiggs[gis]'`); empty for the core |
 | `available` | whether everything it needs is installed in the interpreter that answered |

@@ -241,10 +241,16 @@ pydiggs validate PATH... [--format text|json|sarif] [--output FILE]
 
 ## The JSON document
 
-The format is **diggs-findings 1.1**, described by a JSON Schema (draft 2020-12) that
-ships inside the package (`pydiggs/findings/diggs-findings-1.1.schema.json`) and is
+The format is **diggs-findings 1.2**, described by a JSON Schema (draft 2020-12) that
+ships inside the package (`pydiggs/findings/diggs-findings-1.2.schema.json`) and is
 published with this site at
-[`schemas/diggs-findings-1.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json).
+[`schemas/diggs-findings-1.2.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json).
+
+Version 1.2 (pyDIGGS 1.12.0) only adds to 1.1: the step `diff`, for the notes of a model
+comparison ([`pydiggs.diff`](https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json)).
+Every 1.1 document is a valid 1.2 document. The
+[1.1 schema](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json) stays packaged and published, unchanged, like 1.0; a consumer that checks
+documents against an earlier schema must move to the 1.2 schema, because each pins `$schema` to its own URL.
 
 Version 1.1 (pyDIGGS 1.9.0) only adds to 1.0: the steps `ags4` and `convert`, the optional
 `location.path` and the optional `files[].format`. Every 1.0 document is a valid 1.1
@@ -256,9 +262,9 @@ schema pins `$schema` to its own URL.
 
 ```json
 {
-  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json",
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json",
   "format": "diggs-findings",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "tool": {
     "name": "pydiggs",
     "version": "1.2.0",
@@ -302,7 +308,7 @@ schema pins `$schema` to its own URL.
 | `files[].status` | `checked`, `not-diggs` (the root is not `Diggs`; `diggs_version` is `null` and only `structure` ran) or `unreadable` (the entry also has `error`) |
 | `files[].verdict` | `valid`, `valid-with-warnings`, `not-valid`, `partly-checked`, `not-diggs` or `unreadable`, derived as described under [validate()](#findings-json-and-sarif-output); SARIF carries `status` and `verdict` in each artifact's `properties` |
 | `findings[].layer` | `native` (pydiggs's own checks); `official` is reserved for the DIGGSml/validation layer |
-| `findings[].step` | One of `structure`, `schema`, `codeType`, `dictionary`, `schematron`, `geometry`, `crs`, `coordinate`, `deprecation`, `context`, and from 1.1 `ags4` (reading and checking an AGS4 file) and `convert` (what a conversion lost). `validate()` never runs the last two |
+| `findings[].step` | One of `structure`, `schema`, `codeType`, `dictionary`, `schematron`, `geometry`, `crs`, `coordinate`, `deprecation`, `context`, and from 1.1 `ags4` (reading and checking an AGS4 file) `convert` (what a conversion lost) and, from 1.2, `diff` (what a model comparison could not settle). `validate()` never runs the last three |
 | `location.line`, `location.column` | 1-based; the column is known only for XML syntax errors |
 | `location.xpath` | The official `diggs:get-path` form: every element as `name()[n]` |
 | `location.gml_id` | `gml:id` of the nearest element at or above the problem |
@@ -311,7 +317,7 @@ schema pins `$schema` to its own URL.
 
 There is no timestamp, keys come in a fixed order and findings are sorted (by step, line,
 column, severity, rule id, xpath, message), so the same input gives the same bytes.
-Compatibility: a new optional field or step is a new minor version (1.1 was the first); renaming or removing a field is 2.0.
+Compatibility: a new optional field or step is a new minor version (1.1 was the first, 1.2 the second); renaming or removing a field is 2.0.
 **Messages are for people**: compare `rule_id`, `step`, `severity` and location, never
 the message text. Unlike the legacy logs, a message has no `Check N:` prefix; the rule id
 carries the number.
@@ -378,6 +384,8 @@ Rule ids are part of the stable contract.
 | `convert.unmapped-group`, `convert.unmapped-heading`, `convert.user-defined`, `convert.unmapped-code`, `convert.unmapped-unit`, `convert.value-unparsed`, `convert.assumed` | warning | Conversion (`pydiggs.convert`; the AGS4 to DIGGS direction unless the text says otherwise): something the source holds did not reach the output, or the output holds a documented default. `unmapped-group`: a group with no mapping. `unmapped-heading`: a heading with no DIGGS target, or values that were not used. `user-defined`: a group or heading the file's own `DICT` defines, which is reported and never interpreted. `unmapped-code`: a code with no DIGGS code, left out or kept as text as the message says. `unmapped-unit`: a unit with no entry in the unit table. `value-unparsed`: a value that is not the number or date DIGGS needs. `assumed`: DIGGS requires a value the source lacks, and the default the message names was written. One finding per group, heading or reason, with a count; `location.path` is the first place, `GROUP/row/HEADING` (see [AGS4 to DIGGS mapping](convert-mapping.md)) |
 | `convert.orphan-row`, `convert.incomplete` | error | AGS4 to DIGGS conversion only. `orphan-row`: rows that name a parent record (a location, a sample, a test) that was not converted. `incomplete`: rows not converted because a limit or the time budget stopped the conversion, or because DIGGS requires something of the record that the source does not give |
 | `convert.unmapped-element` | warning | DIGGS to AGS4 conversion only (`pydiggs.convert.diggs_to_ags4`, `model_to_ags4`): a value of the DIGGS model (a name or remark, a `params` entry, a typed field, an `extra` element, a link, or a result-table cell) has no AGS4 target in the mapping table, or cannot be written there as it is (another unit than its heading's, a line break). One finding per element and field, with a count; `location.xpath` is the first node's |
+| `diff.ambiguous-match` | info | Model comparison only (`pydiggs.diff.compare`): several nodes of one collection share a natural key (for example two boreholes with the same name and no matching `gml:id`), so none of them was matched; they are listed as removed and added. At most 50 are written, then one note counts the rest |
+| `diff.limit`, `diff.timeout` | warning | Model comparison only: the comparison stopped at `max_changes` (the list is cut; the counts stay exact), at its `time_budget` (the counts are partial), or because a file was read in part. The result is incomplete and cannot claim the files are identical |
 | `convert.value-reformatted` | info | AGS4 to DIGGS conversion only: the same value was written in another form (a date in ISO 8601 form, a number without trailing zeros); not a loss |
 | `context.xlink-remote-unresolved` | info | An `xlink:href` into another document. pyDIGGS never fetches it, so what it points at was not checked. Once per document; links to DIGGS code lists (`diggsml.org/def/codes/`) are left to the dictionary step |
 
@@ -404,7 +412,7 @@ g.meaning  # 'A value uses a code that is not in the DIGGS code list it names, .
 g.fix  # 'Pick a code from the list, checking spelling and capital letters, ...'
 ```
 
-The findings document does not carry guidance, so `diggs-findings` stays at 1.1: an app
+The findings document does not carry guidance, so `diggs-findings` stays at 1.2: an app
 shows a finding's guidance by looking up its `rule_id` with `explain_rule()` (or
 `GET /v1/rules/{rule_id}`, `rules.explain`, or the MCP `explain_rule` tool, which return
 the same `guidance` object). The text lives in `pydiggs/findings/guidance/en.toml`; only

@@ -202,6 +202,8 @@ module = [
   "pydiggs.frames",
   "pydiggs.gis",
   "pydiggs.crs",
+  "pydiggs.diff",
+  "pydiggs.diff.*",
   "pydiggs.errors",
   "pydiggs.findings",
   "pydiggs.findings.*",

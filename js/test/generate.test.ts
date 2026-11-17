@@ -22,12 +22,14 @@ test("the Pyodide pin is the one CI tests pydiggs against", () => {
 
 test("the shipped schemas carry the exported URLs", () => {
   const read = (name: string) => JSON.parse(readFileSync(new URL(`../schemas/${name}`, import.meta.url), "utf8"));
-  assert.equal(read("diggs-findings-1.1.schema.json").$id, FINDINGS_SCHEMA_URL);
-  // The earlier version stays shipped: 1.0 documents name it, and so do diggs-model 1.0 notes.
-  assert.equal(
-    read("diggs-findings-1.0.schema.json").$id,
-    FINDINGS_SCHEMA_URL.replace("diggs-findings-1.1", "diggs-findings-1.0"),
-  );
+  assert.equal(read("diggs-findings-1.2.schema.json").$id, FINDINGS_SCHEMA_URL);
+  // The earlier versions stay shipped: 1.0 and 1.1 documents name them, and so do diggs-model 1.0 notes.
+  for (const earlier of ["1.1", "1.0"]) {
+    assert.equal(
+      read(`diggs-findings-${earlier}.schema.json`).$id,
+      FINDINGS_SCHEMA_URL.replace("diggs-findings-1.2", `diggs-findings-${earlier}`),
+    );
+  }
   assert.equal(read("diggs-model-1.0.schema.json").$id, MODEL_SCHEMA_URL);
 });
 
@@ -52,6 +54,16 @@ test("a document literal fits the generated types", () => {
     location: { line: 6, column: null, xpath: null, gml_id: null, path: "PROJ/1" },
   };
   assert.equal(note.location.path, "PROJ/1");
+  // diggs-findings 1.2: the diff step, for the findings of a model diff.
+  const diffNote: DiggsFindingsFinding = {
+    layer: "native",
+    step: "diff",
+    rule_id: "diff.ambiguous-match",
+    severity: "info",
+    message: "2 nodes in the old file and 2 in the new file share a key, so none was matched.",
+    location: { line: null, column: null, xpath: null, gml_id: null },
+  };
+  assert.equal(diffNote.step, "diff");
   assert.equal(finding.severity, "error");
   assert.equal(depth.si?.uom, "m");
 });

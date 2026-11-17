@@ -617,3 +617,20 @@ fix = "Check whether that value matters for your use. If it does, keep the DIGGS
 title = "Part not converted"
 meaning = "Part of the file could not be converted, because a size or time limit was reached or because DIGGS requires something the source lacks, such as a location name (LOCA_ID)."
 fix = "Read the message for which part was skipped, supply what is missing (for example LOCA_ID on every location row), or split a very large file, then convert again."
+
+# --- model diff ---------------------------------------------------------------------------
+
+[rules."diff.ambiguous-match"]
+title = "Items could not be matched"
+meaning = "Several items in one file look the same (for example two boreholes with the same name) and have no matching ID in the other file, so pyDIGGS could not tell which one belongs with which. It did not guess: they are listed as removed in one file and added in the other. For information only."
+fix = "If you need them compared, give each item a unique name or ID in both files, then compare again."
+
+[rules."diff.limit"]
+title = "Comparison stopped early"
+meaning = "The comparison reached a size limit, so the list of differences is cut short, or one of the files was only partly read. The totals it reports may be partial, and the files cannot be called the same."
+fix = "Raise the limit on the number of changes listed, or compare smaller files, then run it again."
+
+[rules."diff.timeout"]
+title = "Comparison timed out"
+meaning = "The comparison did not finish in the time allowed, so the differences found so far are incomplete and the files cannot be called the same."
+fix = "Run it again with a longer time limit or on a faster computer, or compare smaller files."

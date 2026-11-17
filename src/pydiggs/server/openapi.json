@@ -15,7 +15,7 @@
         "operationId": "validate",
         "responses": {
           "200": {
-            "description": "A diggs-findings 1.1 document (or a SARIF 2.1.0 log). Malformed XML, truncation and an exhausted time budget are 200s with findings.",
+            "description": "A diggs-findings 1.2 document (or a SARIF 2.1.0 log). Malformed XML, truncation and an exhausted time budget are 200s with findings.",
             "content": {
               "application/json": {
                 "schema": {
@@ -720,7 +720,7 @@
         "operationId": "ags4Check",
         "responses": {
           "200": {
-            "description": "A diggs-findings 1.1 document of step ags4 (or a SARIF 2.1.0 log). Rule breaks, content that is not AGS4 at all, truncation and an exhausted time budget are 200s with findings.",
+            "description": "A diggs-findings 1.2 document of step ags4 (or a SARIF 2.1.0 log). Rule breaks, content that is not AGS4 at all, truncation and an exhausted time budget are 200s with findings.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1064,7 +1064,8 @@
                 "deprecation",
                 "context",
                 "ags4",
-                "convert"
+                "convert",
+                "diff"
               ]
             },
             "description": "Only the rules of this step."
@@ -1130,7 +1131,7 @@
             "schema": {
               "type": "string",
               "maxLength": 256,
-              "pattern": "^(structure|schema|codeType|dictionary|schematron|geometry|crs|coordinate|deprecation|context|ags4|convert)\\.[A-Za-z0-9][A-Za-z0-9._-]*$"
+              "pattern": "^(structure|schema|codeType|dictionary|schematron|geometry|crs|coordinate|deprecation|context|ags4|convert|diff)\\.[A-Za-z0-9][A-Za-z0-9._-]*$"
             }
           }
         ]
@@ -1312,7 +1313,7 @@
                   "items": {
                     "type": "string"
                   },
-                  "description": "What it gives: a pydiggs document (diggs-findings-1.1, diggs-model-1.0), a media type (application/geo+json), an AGS4 version or an in-memory Python type (pandas.DataFrame)."
+                  "description": "What it gives: a pydiggs document (diggs-findings-1.2, diggs-model-1.0), a media type (application/geo+json), an AGS4 version or an in-memory Python type (pandas.DataFrame)."
                 },
                 "options": {
                   "type": "object",
@@ -1524,8 +1525,8 @@
         }
       },
       "DiggsFindingsDocument": {
-        "title": "diggs-findings 1.1",
-        "description": "Findings about DIGGS instance files and AGS4 files, as written by pydiggs (pydiggs validate --format json). Version 1.1 adds to 1.0 the steps ags4 and convert, the optional location.path and the optional files[].format; every 1.0 document is a valid 1.1 document. A new optional field is a minor version; renaming or removing a field is a 2.0.",
+        "title": "diggs-findings 1.2",
+        "description": "Findings about DIGGS instance files and AGS4 files, as written by pydiggs (pydiggs validate --format json). Version 1.2 adds to 1.1 the step diff (the findings of a model diff, pydiggs.diff); 1.1 added to 1.0 the steps ags4 and convert, the optional location.path and the optional files[].format. Every 1.0 and 1.1 document is a valid 1.2 document. A new optional field is a minor version; renaming or removing a field is a 2.0.",
         "type": "object",
         "required": [
           "$schema",
@@ -1538,10 +1539,11 @@
         "properties": {
           "$schema": {
             "enum": [
+              "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json",
               "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json",
               "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.0.schema.json"
             ],
-            "description": "The schema the document was written for: this one, or 1.0, whose documents are valid here."
+            "description": "The schema the document was written for: this one, or 1.1 or 1.0, whose documents are valid here."
           },
           "format": {
             "const": "diggs-findings"
@@ -1817,7 +1819,7 @@
           },
           "rule_id": {
             "type": "string",
-            "pattern": "^(structure|schema|codeType|dictionary|schematron|geometry|crs|coordinate|deprecation|context|ags4|convert)\\.[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "pattern": "^(structure|schema|codeType|dictionary|schematron|geometry|crs|coordinate|deprecation|context|ags4|convert|diff)\\.[A-Za-z0-9][A-Za-z0-9._-]*$",
             "description": "Stable id; the part before the first dot equals step."
           },
           "severity": {
@@ -1900,7 +1902,8 @@
           "deprecation",
           "context",
           "ags4",
-          "convert"
+          "convert",
+          "diff"
         ]
       },
       "DiggsModelAssociate": {
@@ -3517,7 +3520,8 @@
               "deprecation",
               "context",
               "ags4",
-              "convert"
+              "convert",
+              "diff"
             ]
           },
           "description": {

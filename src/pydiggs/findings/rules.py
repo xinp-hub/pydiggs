@@ -352,6 +352,12 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     "convert.value-reformatted": "The same value was written in another form (not a loss)",
     "convert.incomplete": "Part of the source was not converted: a limit, or a DIGGS requirement",
     "convert.unmapped-element": "A DIGGS value has no AGS4 target; it was not converted",
+    # Notes of a model diff (pydiggs.diff.compare).
+    "diff.ambiguous-match": (
+        "Two nodes share a natural key, so they were not matched (model diff note)"
+    ),
+    "diff.limit": "The model diff stopped at a limit, so it is incomplete (model diff note)",
+    "diff.timeout": "The model diff did not finish within its time budget, so it is incomplete",
 }
 
 
@@ -551,6 +557,9 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     "convert.value-reformatted": _INFO,
     "convert.incomplete": _ERROR,
     "convert.unmapped-element": _WARNING,
+    "diff.ambiguous-match": _INFO,
+    "diff.limit": _WARNING,
+    "diff.timeout": _WARNING,
 }
 #: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
 #: keeps them equal): only they can be ``incomplete``.

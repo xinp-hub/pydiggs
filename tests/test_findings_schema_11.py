@@ -46,8 +46,14 @@ def _as_1_0(document: dict) -> dict:
     return {**document, "$schema": URL.format("1.0"), "schema_version": "1.0"}
 
 
+def _as_1_1(document: dict) -> dict:
+    """``document`` with the two fields that name the schema version set back to 1.1."""
+    return {**document, "$schema": URL.format("1.1"), "schema_version": "1.1"}
+
+
 def _document(report: Report) -> dict:
-    return json.loads(report.to_json())
+    """What a pyDIGGS writes (1.2 since 1.12.0) with the two version fields set to 1.1."""
+    return _as_1_1(json.loads(report.to_json()))
 
 
 def _ags4_report(**changes) -> Report:
@@ -103,15 +109,11 @@ def test_both_schemas_are_published_with_the_docs_and_listed_as_local_data():
 # --- what 1.1 is --------------------------------------------------------------------
 
 
-def test_1_1_is_a_valid_schema_with_the_published_id_and_is_what_pydiggs_writes():
+def test_1_1_is_a_valid_schema_with_the_published_id():
+    # pyDIGGS writes 1.2 since 1.12.0 (tests/test_findings_schema_12.py); 1.1 stays published.
     jsonschema.Draft202012Validator.check_schema(SCHEMA_1_1)
-    assert SCHEMA_1_1["$id"] == URL.format("1.1") == pydiggs.FINDINGS_SCHEMA_URL
+    assert SCHEMA_1_1["$id"] == URL.format("1.1")
     assert SCHEMA_1_1["title"] == "diggs-findings 1.1"
-    assert pydiggs.FINDINGS_SCHEMA_VERSION == "1.1"
-    assert pydiggs.findings_schema() == SCHEMA_1_1
-    assert _json.SCHEMA_RESOURCE == "diggs-findings-1.1.schema.json"
-    assert pydiggs.version_info().findings_schema_version == "1.1"
-    assert pydiggs.version_info().findings_schema_url == URL.format("1.1")
 
 
 def _without_text(node):
@@ -161,7 +163,7 @@ def test_1_1_differs_from_1_0_by_exactly_the_three_additions():
 
 
 def test_the_step_enum_is_the_python_enum_and_the_new_steps_are_never_validated():
-    assert SCHEMA_1_1["$defs"]["step"]["enum"] == [s.value for s in Step]
+    assert SCHEMA_1_1["$defs"]["step"]["enum"] == [s.value for s in Step if s is not Step.DIFF]
     assert [Step.AGS4.value, Step.CONVERT.value] == NEW_STEPS
     assert Step.CONVERT.order > Step.AGS4.order > Step.CONTEXT.order
     assert not {Step.AGS4, Step.CONVERT} & set(run.NATIVE_STEPS)
@@ -172,12 +174,27 @@ def test_the_step_enum_is_the_python_enum_and_the_new_steps_are_never_validated(
 # --- every 1.0 document is a 1.1 document -------------------------------------------
 
 
+def _without_diff(entries: list[dict]) -> list[dict]:
+    """The entries with the 1.2 step ``diff`` read as ``convert`` (a 1.1 document has no ``diff``)."""
+    for entry in entries:
+        for item in entry["steps"]:
+            if item["step"] == "diff":
+                item["step"] = "convert"
+        for found in entry["findings"]:
+            if found["step"] == "diff":
+                found["step"] = "convert"
+                found["rule_id"] = "convert." + found["rule_id"].split(".", 1)[1]
+    return entries
+
+
 @settings(deadline=None)
 @given(st.lists(reports(), max_size=3), st.lists(unreadable_files(), max_size=2))
 def test_every_1_0_document_validates_against_1_1(checked, unreadable):
-    files = [r.to_dict() for r in checked] + [_json.unreadable_entry(u) for u in unreadable]
+    files = _without_diff(
+        [r.to_dict() for r in checked] + [_json.unreadable_entry(u) for u in unreadable]
+    )
     document = _json.document(files, tool_version="1.8.0", reference_data={"schemas": "15ce278"})
-    as_written = json.loads(_json.dumps(document))
+    as_written = _as_1_1(json.loads(_json.dumps(document)))
     V11.validate(as_written)
     old = _as_1_0(as_written)
     V11.validate(old)  # a document a 1.0 writer made, steps and fields permitting
@@ -200,10 +217,11 @@ def test_every_1_0_document_validates_against_1_1(checked, unreadable):
     ],
 )
 def test_a_validate_report_has_its_1_0_content_and_only_the_version_moved(fixture):
-    document = _document(validate(ROOT / fixture))
+    written = json.loads(validate(ROOT / fixture).to_json())
+    document = _as_1_1(written)
     V11.validate(document)
-    assert document["$schema"] == URL.format("1.1")
-    assert document["schema_version"] == "1.1"
+    assert written["$schema"] == URL.format("1.2")
+    assert written["schema_version"] == "1.2"
     entry = document["files"][0]
     assert "format" not in entry
     assert all("path" not in f["location"] for f in entry["findings"])
