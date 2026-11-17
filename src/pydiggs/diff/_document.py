@@ -45,6 +45,7 @@ _REQUIRED: Final = (
     "summary",
     "value_changes",
     "reformatted",
+    "renamed",
     "changes",
     "notes",
 )
@@ -113,6 +114,7 @@ def to_document(diff: Diff) -> dict[str, Any]:
         "summary": _copy(diff.summary),
         "value_changes": diff.value_changes,
         "reformatted": diff.reformatted,
+        "renamed": diff.renamed,
         "changes": [_change(c) for c in diff.changes],
         "notes": [finding_entry(n) for n in diff.notes],
     }
@@ -192,6 +194,7 @@ def from_document(data: Mapping[str, Any]) -> Diff:
         summary=_copy(_need(data, "summary", Mapping, "$")),
         value_changes=_need(data, "value_changes", int, "$"),
         reformatted=_need(data, "reformatted", int, "$"),
+        renamed=_need(data, "renamed", int, "$"),
         changes=tuple(_decode_change(c, f"$.changes[{i}]") for i, c in enumerate(changes)),
         notes=tuple(_finding(n, f"$.notes[{i}]") for i, n in enumerate(notes)),
     )

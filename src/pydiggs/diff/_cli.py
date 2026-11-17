@@ -8,7 +8,8 @@ but ``rich`` markup is not escaped, because stdout and ``-o FILE`` read no marku
 ``rich`` is not imported).
 
 Exit codes, as for ``diff(1)`` and with the three-way split of ``pydiggs validate``: 0
-when the two files are identical and the comparison finished; 1 when they differ, or when
+when the two files are identical and the comparison finished (numbers written differently
+and records whose ``gml:id`` changed are not differences); 1 when they differ, or when
 the comparison is incomplete (a limit or the time budget stopped it, so it cannot say the
 files are the same); 2 on a usage error, an input that cannot be read or is not DIGGS, or
 an output that cannot be written.
@@ -50,14 +51,14 @@ def build_parser() -> argparse.ArgumentParser:
         prog=_PROG,
         description=(
             "Compare two DIGGS files by what they describe, not by how they are written:"
-            " element order, number formatting and line numbers do not count."
-            " Boreholes, samples, tests and the other records are matched by gml:id, then"
-            " by a natural key (a borehole's kind and name, a sample's borehole, name and"
-            " top), so records stay paired when their gml:ids change; a record's own"
-            " changed gml:id is listed as one changed value. Numbers compare within a"
-            " tolerance; a change of unit is always a"
-            " change, and nothing is converted. The two files may be different DIGGS"
-            " versions."
+            " element order, number formatting, line numbers and the gml:id of a record"
+            " do not count. Boreholes, samples, tests and the other records are matched by"
+            " gml:id, then by a natural key (a borehole's kind and name, a sample's"
+            " borehole, name and top), so records stay paired when their gml:ids change:"
+            " two exports of the same data with new ids are identical. The renamed ids"
+            " are counted, and listed with --verbose. Numbers compare within a tolerance;"
+            " a change of unit is always a change, and nothing is converted. The two"
+            " files may be different DIGGS versions."
         ),
         epilog=(
             "Exit status: 0 the files are identical and the comparison finished; 1 they"
@@ -82,7 +83,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=_engine.MATCH_MODES[0],
         help=(
             "how records are paired: auto (the default; by gml:id, then by natural key),"
-            " gml-id (ids only) or natural (natural keys only)"
+            " gml-id (ids only; a record whose gml:id changed is removed and added) or"
+            " natural (natural keys only)"
         ),
     )
     parser.add_argument(
@@ -130,8 +132,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbose",
         action="store_true",
         help=(
-            "also list values that are only written differently (1.50 and 1.5); they are"
-            " always counted"
+            "also list what is not a change: values that are only written differently"
+            " (1.50 and 1.5) and records whose gml:id changed; both are always counted"
         ),
     )
     return parser
@@ -166,6 +168,7 @@ def _compare(args: argparse.Namespace) -> Diff:
             time_budget=args.time_budget,
             max_bytes=args.max_bytes,
             show_reformatted=args.verbose,
+            show_renamed=args.verbose,
         )
     except InstanceReadError as exc:
         named = exc.filename if isinstance(exc.filename, str) else None

@@ -15,13 +15,25 @@ from dataclasses import dataclass
 from typing import Any, Final, NamedTuple
 
 from pydiggs.diff import _tables
-from pydiggs.diff._compare import MAX_SHOWN, Side, Tol, diff_maps, flatten, show
+from pydiggs.diff._compare import (
+    MAX_SHOWN,
+    OWN_ID,
+    REFORMATTED,
+    RENAMED,
+    NestedIds,
+    Seen,
+    Side,
+    Tol,
+    diff_maps,
+    flatten,
+    show,
+)
 from pydiggs.diff._match import COLLECTIONS, Info, Pair, Pairing, enumerate_nodes, match
 from pydiggs.diff._types import Change, Diff, ValueChange
 from pydiggs.findings.model import Finding
 from pydiggs.model import Measurement, Model, Other
 
-__all__ = ["MATCH_MODES", "Options", "Run", "compare_models"]
+__all__ = ["MATCH_MODES", "Options", "Run", "Seen", "compare_models"]
 
 MATCH_MODES: Final = ("auto", "gml-id", "natural")
 #: Most ambiguity notes written; the rest are summed in one more note.
@@ -44,6 +56,7 @@ class Options:
     max_changes: int = 10_000
     time_budget: float | None = None
     show_reformatted: bool = False
+    show_renamed: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -113,18 +126,31 @@ class _Listing:
 
 
 class _Sink:
-    """The differences of one matched pair: counted always, kept while the listing has room."""
+    """The differences of one matched pair: counted always, kept while the listing has room.
 
-    def __init__(self, listing: _Listing, show_reformatted: bool) -> None:
+    Two kinds are not changes: a number written differently (``reformatted``) and the
+    record's own ``gml:id`` (``renamed``). Each is counted apart and kept only on request.
+    """
+
+    def __init__(self, listing: _Listing, options: Options) -> None:
         self.listing = listing
-        self.show_reformatted = show_reformatted
+        self.show_reformatted = options.show_reformatted
+        self.show_renamed = options.show_renamed
         self.changed = 0
         self.reformatted = 0
+        self.renamed = 0
         self.kept: list[tuple[str, str, Any, Any]] = []
         self.reserved = False
 
     def add(self, path: str, op: str, old: Any, new: Any) -> None:
-        if op == "reformatted":
+        if path == OWN_ID:
+            # An id says which record this is in one file, not what the record holds;
+            # one that appears or goes is the same, with nothing on the other side.
+            op = RENAMED
+            self.renamed += 1
+            if not self.show_renamed:
+                return
+        elif op == REFORMATTED:
             self.reformatted += 1
             if not self.show_reformatted:
                 return
@@ -190,13 +216,22 @@ def _results(node: Any) -> tuple[Any, ...]:
 
 
 class _Comparison:
-    def __init__(self, old: Model, new: Model, options: Options, budget: _Budget) -> None:
+    def __init__(
+        self,
+        old: Model,
+        new: Model,
+        options: Options,
+        budget: _Budget,
+        seen: tuple[Seen, Seen] | None = None,
+    ) -> None:
         self.old, self.new, self.options, self.budget = old, new, options, budget
+        self.seen = seen
         self.tol = Tol(options.rel_tol, options.abs_tol)
         self.listing = _Listing(options.max_changes)
         self.counts: dict[str, dict[str, int]] = {}
         self.value_changes = 0
         self.reformatted = 0
+        self.renamed = 0
         self.timed_out = False
         self.differs = False
 
@@ -218,6 +253,14 @@ class _Comparison:
                 Side(self.old, "old", self.pairing.old_pair),
                 Side(self.new, "new", self.pairing.new_pair),
             )
+            nested = NestedIds(
+                [(pair.old.node, pair.new.node) for pair in self.pairing.pairs],
+                sides,
+                self.budget.tick,
+            )
+            for which, side in enumerate(sides):
+                side.nested = nested
+                side.seen = None if self.seen is None else self.seen[which]
             for entries in _entries(self.pairing).values():
                 for _, kind, payload in entries:
                     self.budget.tick()
@@ -237,7 +280,7 @@ class _Comparison:
             self.listing.changes.append(_change(kind, old, new))
 
     def compare_pair(self, pair: Pair, sides: tuple[Side, Side]) -> None:
-        sink = _Sink(self.listing, self.options.show_reformatted)
+        sink = _Sink(self.listing, self.options)
         tick = self.budget.tick
         old_map, new_map = flatten(pair.old.node, pair.new.node, sides, tick)
         # A nested node is where it is: the same drive set under another test is a change.
@@ -263,6 +306,7 @@ class _Comparison:
         )
         self.value_changes += sink.changed
         self.reformatted += sink.reformatted
+        self.renamed += sink.renamed
         collection = pair.new.collection
         if sink.changed == 0:
             self.count(collection, "unchanged")
@@ -285,7 +329,11 @@ class _Comparison:
                     truncated=cut_old or cut_new,
                 )
             )
-        listed = _change("changed" if sink.changed else "reformatted", pair.old, pair.new, pair.by)
+        # What the record is listed as: changed if any value is, else renamed if its id
+        # is listed, else it only lists numbers written differently.
+        ops = {op for _, op, _, _ in sink.kept}
+        op = "changed" if sink.changed else RENAMED if RENAMED in ops else REFORMATTED
+        listed = _change(op, pair.old, pair.new, pair.by)
         self.listing.changes.append(_with_values(listed, tuple(values)))
 
 
@@ -327,11 +375,21 @@ def _ambiguity_notes(pairing: Pairing) -> list[Finding]:
 
 
 def compare_models(
-    old: Model, new: Model, options: Options, *, deadline: float | None = None
+    old: Model,
+    new: Model,
+    options: Options,
+    *,
+    deadline: float | None = None,
+    seen: tuple[Seen, Seen] | None = None,
 ) -> Run:
-    """Compare two models. ``deadline`` is a reading of :func:`_now` after which work stops."""
+    """Compare two models. ``deadline`` is a reading of :func:`_now` after which work stops.
+
+    ``seen`` is what the reader knew of the two files beyond their models (see
+    :class:`~pydiggs.diff._compare.Seen`); without it a reference to an element the
+    model does not keep is compared as text.
+    """
     budget = _Budget(deadline)
-    comparison = _Comparison(old, new, options, budget)
+    comparison = _Comparison(old, new, options, budget, seen)
     comparison.run()
     pairing = getattr(comparison, "pairing", None)
     limits: list[str] = []
@@ -387,6 +445,7 @@ def compare_models(
         summary=summary,
         value_changes=comparison.value_changes,
         reformatted=comparison.reformatted,
+        renamed=comparison.renamed,
         changes=tuple(comparison.listing.changes),
         notes=tuple(notes),
     )

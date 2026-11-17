@@ -18,6 +18,7 @@
     "summary",
     "value_changes",
     "reformatted",
+    "renamed",
     "changes",
     "notes"
   ],
@@ -42,7 +43,7 @@
     },
     "identical": {
       "type": "boolean",
-      "description": "True only when nothing differs and the comparison finished (complete)."
+      "description": "True only when nothing differs and the comparison finished (complete). A number written differently (reformatted) and a record's own gml:id (renamed) are not differences."
     },
     "complete": {
       "type": "boolean",
@@ -81,10 +82,15 @@
       "minimum": 0,
       "description": "How many values are written differently but are equal (1.50 and 1.5)."
     },
+    "renamed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many records were matched by their natural key and have a different gml:id in the two files. Not a difference: such a record counts as unchanged unless a value of it differs."
+    },
     "changes": {
       "type": "array",
       "items": { "$ref": "#/$defs/change" },
-      "description": "Ordered by collection, then key, then path. At most max_changes entries (changes plus value changes)."
+      "description": "Ordered by collection, then key, then path. At most max_changes entries (changes plus value changes). A record with op reformatted or renamed did not change; it is listed only on request."
     },
     "notes": {
       "type": "array",
@@ -113,7 +119,10 @@
         "unchanged": { "type": "integer", "minimum": 0 }
       }
     },
-    "op": { "enum": ["added", "removed", "changed", "reformatted"] },
+    "op": {
+      "enum": ["added", "removed", "changed", "reformatted", "renamed"],
+      "description": "reformatted: the same number written differently. renamed: the record's own gml:id differs (a value with path gml_id), or, on a record, its id differs and no value changed. Neither is a difference."
+    },
     "change": {
       "type": "object",
       "required": [
@@ -150,7 +159,7 @@
         "path": {
           "type": "string",
           "minLength": 1,
-          "description": "Which value: name, params.<element>, interval.top, results[0].columns[<key>].cells[@<index>] ..."
+          "description": "Which value: name, params.<element>, interval.top, results[0].columns[<key>].cells[@<index>] ...; gml_id is the record's own gml:id."
         },
         "old": { "description": "The value in the old file as JSON (a quantity is its text and unit, e.g. \"1.50 ft\"); null when the old file has none. Text is cut to 200 characters and lists to 200 items." },
         "new": { "description": "The value in the new file; null when the new file has none." },

@@ -48,8 +48,8 @@ def paths(result: diff.Diff) -> list[tuple[str, str, str]]:
 
 
 def only_ids_differ(result: diff.Diff) -> bool:
-    """Whether a rename shows as the ``gml_id`` of the renamed nodes and nothing else."""
-    return {v.path for c in result.changes for v in c.values} == {"gml_id"}
+    """Whether the two files hold the same data under other ids: renames and no change."""
+    return result.identical and result.renamed > 0 and result.changes == ()
 
 
 # --- 1. local coordinate systems are compared by whose they are ------------------------

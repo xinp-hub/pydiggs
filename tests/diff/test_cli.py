@@ -46,6 +46,12 @@ def reformatted(tmp_path) -> Path:
     return _copy(tmp_path, '<totalSurveyArea uom="km2">1<', '<totalSurveyArea uom="km2">1.0<')
 
 
+@pytest.fixture
+def renamed(tmp_path) -> Path:
+    """The Aeromag file with the ``gml:id`` of its test changed and nothing else."""
+    return _copy(tmp_path, '<Test gml:id="amt">', '<Test gml:id="amt-2">', "renamed.xml")
+
+
 # --- exit codes ---------------------------------------------------------------------------
 
 
@@ -246,6 +252,64 @@ def test_verbose_lists_the_reformatted_values(reformatted, capsys):
     assert [c["op"] for c in document["changes"]] == ["reformatted"]
 
 
+_RENAMED_LINE = "1 record(s) have a different gml:id (matched by natural key; not a change)"
+
+
+def test_a_copy_with_a_renamed_id_exits_0_and_says_so(renamed, capsys):
+    code, out, err = _run(capsys, AEROMAG, renamed)
+    assert (code, err) == (0, "")
+    assert "The two files are identical." in out
+    assert f"{_RENAMED_LINE}; not listed." in out
+    assert "amt-2" not in out and "gml_id" not in out
+
+    code, out, _ = _run(capsys, AEROMAG, renamed, "--format", "json")
+    document = json.loads(out)
+    assert code == 0 and schema_errors(document) == []
+    assert (document["identical"], document["renamed"], document["changes"]) == (True, 1, [])
+
+
+def test_verbose_lists_the_renamed_ids(renamed, capsys):
+    code, out, _ = _run(capsys, AEROMAG, renamed, "--verbose")
+    assert code == 0
+    result = diff.compare(AEROMAG, renamed, show_reformatted=True, show_renamed=True)
+    assert out == _text.render(result, markup=False)
+    assert f"{_RENAMED_LINE}." in out
+    assert "renamed measurements amt-2" in out and "matched by natural key (amt -> amt-2)" in out
+    assert "    gml_id: renamed: amt -> amt-2\n" in out
+
+    _, out, _ = _run(capsys, AEROMAG, renamed, "--verbose", "--format", "json")
+    document = json.loads(out)
+    assert schema_errors(document) == []
+    (change,) = document["changes"]
+    assert (change["op"], change["old_key"], change["new_key"]) == ("renamed", "amt", "amt-2")
+    assert [(v["op"], v["path"]) for v in change["values"]] == [("renamed", "gml_id")]
+
+
+def test_matching_by_gml_id_only_makes_a_renamed_record_removed_and_added(renamed, capsys):
+    code, out, _ = _run(capsys, AEROMAG, renamed, "--match", "gml-id")
+    assert code == 1
+    assert "The two files differ." in out
+    assert "removed measurements amt" in out and "added measurements amt-2" in out
+    assert "have a different gml:id" not in out
+
+
+def test_a_renamed_id_with_a_real_change_exits_1(tmp_path, capsys):
+    text = AEROMAG.read_text("utf-8")
+    both = tmp_path / "both.xml"
+    both.write_text(
+        text.replace('<Test gml:id="amt">', '<Test gml:id="amt-2">').replace(
+            "<investigationTarget>Natural Ground<", "<investigationTarget>Fill<"
+        ),
+        "utf-8",
+    )
+    code, out, _ = _run(capsys, AEROMAG, both)
+    assert code == 1 and "The two files differ." in out
+    assert "gml_id" not in out and f"{_RENAMED_LINE}; not listed." in out
+    code, out, _ = _run(capsys, AEROMAG, both, "--verbose")
+    assert code == 1
+    assert "changed measurements amt-2" in out and "    gml_id: renamed: amt -> amt-2\n" in out
+
+
 def test_markup_and_emoji_codes_in_a_value_are_printed_as_they_are(tmp_path, capsys):
     name = "[red]Survey[/red] [link=https://example.com]x[/link] :warning: \\[b]"
     marked = _copy(tmp_path, "Aeromag Survey Area", name)
@@ -375,6 +439,7 @@ def test_the_parser_defaults_are_the_defaults_of_compare():
     for name in ("match", "rel_tol", "abs_tol", "max_changes", "time_budget", "max_bytes"):
         assert getattr(args, name) == parameters[name].default, name
     assert args.verbose is parameters["show_reformatted"].default is False
+    assert args.verbose is parameters["show_renamed"].default is False
     assert _cli.build_parser().get_default("format") == "text"
 
 

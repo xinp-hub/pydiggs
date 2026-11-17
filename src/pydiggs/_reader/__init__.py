@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import os
+from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, Literal
 
@@ -93,19 +94,59 @@ def read(
         ('3.0.0', True)
     """
     limit = _check(diggs_version, max_bytes, time_budget, provenance)
-    shown = os.fspath(path)
-    try:
-        data, _ = _xml.read_limited(Path(path), limit, regular_only=True)
-    except OSError as exc:
-        raise InstanceReadError(exc.errno or 0, _reason(exc), shown) from exc
+    data, name = _file_bytes(path, limit)
     return read_document(
         data,
-        name=Path(shown).name,
+        name=name,
         diggs_version=diggs_version,
         results=results,
         field_provenance=provenance == "field",
         time_budget=time_budget,
     )
+
+
+def _file_bytes(path: str | os.PathLike[str], limit: int) -> tuple[bytes, str]:
+    """The bytes of the file at ``path``, at most ``limit``, and the name it is shown by."""
+    shown = os.fspath(path)
+    try:
+        data, _ = _xml.read_limited(Path(path), limit, regular_only=True)
+    except OSError as exc:
+        raise InstanceReadError(exc.errno or 0, _reason(exc), shown) from exc
+    return data, Path(shown).name
+
+
+def read_with_places(
+    source: str | os.PathLike[str] | bytes | bytearray | memoryview,
+    *,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    time_budget: float | None = None,
+) -> tuple[Model, dict[str, tuple[str, str]], Counter[tuple[str | None, str | None]]]:
+    """:func:`read` or :func:`read_bytes`, and what the reader saw that the model does not keep.
+
+    For ``pydiggs.diff`` only. The second value maps the ``gml:id`` of each element a
+    typed field read (so the model keeps neither the id nor the element) to the key of
+    the record that holds it and the element's path below that record. The third
+    counts the coordinate systems the file defines, by name and unit, referenced or not.
+    Both are built in the same pass as the model, which is the model :func:`read` gives.
+    """
+    limit = _check(None, max_bytes, time_budget, "object")
+    if isinstance(source, str | os.PathLike):
+        data, name = _file_bytes(source, limit)
+    else:
+        name = _input_name(None)
+        data = _payload(source, limit, name)
+    places: dict[str, tuple[str, str]] = {}
+    systems: Counter[tuple[str | None, str | None]] = Counter()
+    model = read_document(
+        data,
+        name=name,
+        diggs_version=None,
+        results=True,
+        time_budget=time_budget,
+        id_places=places,
+        crs_defined=systems,
+    )
+    return model, places, systems
 
 
 def read_bytes(

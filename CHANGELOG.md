@@ -13,21 +13,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   added, removed or changed, as text or, with `--format json`, as a diggs-diff 1.0 document
   (`-o FILE` writes it to a file). Options: `--match auto|gml-id|natural`, `--rel-tol`,
   `--abs-tol`, `--max-changes`, `--time-budget`, `--max-bytes`, and `--verbose` to list the
-  values that are only written differently. It exits **0** when the files are identical
-  and the comparison finished, **1** when they differ or the comparison is incomplete, and
+  values that are only written differently and the records whose `gml:id` changed. It
+  exits **0** when the files are identical and the comparison finished, **1** when they differ or the comparison is incomplete, and
   **2** on a usage error, a file that cannot be read or is not DIGGS, or a report that
   cannot be written: the codes of `diff(1)`. `pydiggs.capabilities()` lists the operation
   `diff`, and the new page [Comparing two files](https://xinp-hub.github.io/pydiggs/diff/)
   describes what counts as a change.
   In Python, `diff.compare(old, new)` takes paths, bytes or `Model`s and returns a `Diff` of added,
-  removed and changed nodes and values. Element order, number formatting and
-  provenance do not count. Nodes are matched by `gml:id` and element, then by a natural key
+  removed and changed nodes and values. Element order, number formatting, provenance
+  and a node's own `gml:id` do not count. Nodes are matched by `gml:id` and element, then by a natural key
   (a borehole's kind and name, a sample's borehole, name and top, ...), so nodes stay
-  paired when their ids change, and a node's own changed id is listed as one changed value,
-  `gml_id`; a key that more than
+  paired when their ids change, and two exports of the same data with new ids are
+  identical. A node paired by natural key whose id differs is counted in `Diff.renamed`
+  and listed, with its old and new id, only with `show_renamed=True`; with
+  `match="gml-id"` it is removed and added. The `gml:id` of a geometry, a time instant or
+  any other element inside a node is not compared, and a local reference
+  (`xlink:href="#x"`, `srsName="#x"`) is compared by what it points to, not by the id's
+  text; one that cannot be resolved for certain is compared as text. A reference to an
+  element the model does not keep, such as a borehole's linear referencing system naming
+  its centre line (`linearElement`), is resolved from the files as they are read (the
+  record holding the element and its path below it, when no element on the path has a
+  same-named sibling), so it needs paths or bytes: between two `Model`s it is compared
+  as text, and so is a link to it (by its record and its text): comparing files gives
+  the fullest independence from ids, and comparing `Model`s may list references whose
+  target could not be established. Repeated elements that differ only in what their
+  references point to are not taken as equal, also below the 64 levels compared one by
+  one; those that come in another order with new ids are the same data when each still
+  names its target (unless one has a `gml:id` inside). A link to one of two equal
+  elements is compared by its text, and a link to an element inside a record is shown
+  as the record's name and the link (`B-1 #p2`). A site grid that no record keeps is
+  the same grid under a new id only when the file defines no other system with its name
+  and unit, which takes the files.
+  `Diff.to_text()` escapes every bracket that could open `rich` markup, so no tag can
+  form across two values when the text is printed through a `rich` console. A key that more than
   one node has is never matched and is reported as `diff.ambiguous-match`. Numbers compare
   within `rel_tol` (default 1e-9) and `abs_tol`; a change of unit is always a change and
-  nothing is converted; the same number written differently is counted as reformatted.
+  nothing is converted; the same number written differently is counted as reformatted and listed only with
+  `show_reformatted=True`.
   Result tables align rows by the domain index (depth) when it is unique. `max_changes` and
   `time_budget` bound the work and the list (`complete=False`, with `diff.limit` or
   `diff.timeout`); the summary counts stay exact unless the time ran out. `Diff.to_json()`

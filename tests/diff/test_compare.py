@@ -81,26 +81,116 @@ def test_same_gml_id_and_element_is_matched_by_gml_id_even_if_the_name_changed()
     assert result.summary["features"] == {"added": 0, "removed": 0, "changed": 1, "unchanged": 0}
 
 
-def test_a_different_gml_id_falls_back_to_the_natural_key_and_reports_the_id():
+def test_a_different_gml_id_falls_back_to_the_natural_key_and_is_not_a_difference():
     old = make_model(features=(make_feature("f1", "B-1"),))
     new = make_model(features=(make_feature("g9", "B-1"),))
-    (change,) = diff.compare(old, new).changes
+    result = diff.compare(old, new)
+    assert result.identical is True and result.complete is True
+    assert result.changes == ()
+    assert (result.renamed, result.value_changes, result.reformatted) == (1, 0, 0)
+    assert result.summary["features"] == {"added": 0, "removed": 0, "changed": 0, "unchanged": 1}
+
+
+def test_renamed_ids_are_listed_when_asked():
+    old = make_model(features=(make_feature("f1", "B-1"),))
+    new = make_model(features=(make_feature("g9", "B-1"),))
+    result = diff.compare(old, new, show_renamed=True)
+    (change,) = result.changes
+    assert (change.op, change.matched_by, change.old_key, change.new_key) == (
+        "renamed",
+        "natural",
+        "f1",
+        "g9",
+    )
+    (value,) = change.values
+    assert (value.op, value.path, value.old, value.new) == ("renamed", "gml_id", "f1", "g9")
+    assert result.identical is True and result.renamed == 1
+    assert result.summary["features"]["unchanged"] == 1
+    # Listing reformatted values is another request: it lists no renamed id.
+    assert diff.compare(old, new, show_reformatted=True).changes == ()
+
+
+def test_a_real_change_with_a_renamed_id_is_changed_and_the_id_is_listed_only_when_asked():
+    old = make_model(features=(make_feature("f1", "B-1", params={"a": "1"}),))
+    new = make_model(features=(make_feature("g9", "B-1", params={"a": "2"}),))
+    result = diff.compare(old, new)
+    assert result.identical is False
+    assert (result.renamed, result.value_changes) == (1, 1)
+    assert result.summary["features"] == {"added": 0, "removed": 0, "changed": 1, "unchanged": 0}
+    (change,) = result.changes
     assert (change.op, change.matched_by, change.old_key, change.new_key) == (
         "changed",
         "natural",
         "f1",
         "g9",
     )
-    (value,) = change.values
-    assert (value.path, value.old, value.new) == ("gml_id", "f1", "g9")
+    assert [(v.op, v.path) for v in change.values] == [("changed", "params.a")]
+    (shown,) = diff.compare(old, new, show_renamed=True).changes
+    assert shown.op == "changed"
+    assert [(v.op, v.path) for v in shown.values] == [
+        ("renamed", "gml_id"),
+        ("changed", "params.a"),
+    ]
+
+
+def test_a_renamed_record_with_a_reformatted_number_is_listed_by_what_was_asked_for():
+    old = _with_total("1.50")
+    new_feature = dataclasses.replace(_with_total("1.5").features[0], key="g9", gml_id="g9")
+    new = make_model(features=(new_feature,))
+    quiet = diff.compare(old, new)
+    assert quiet.identical is True and quiet.changes == ()
+    assert (quiet.renamed, quiet.reformatted) == (1, 1)
+    (only_numbers,) = diff.compare(old, new, show_reformatted=True).changes
+    assert only_numbers.op == "reformatted"
+    assert [v.op for v in only_numbers.values] == ["reformatted"]
+    (only_id,) = diff.compare(old, new, show_renamed=True).changes
+    assert only_id.op == "renamed"
+    assert [v.op for v in only_id.values] == ["renamed"]
+    (both,) = diff.compare(old, new, show_reformatted=True, show_renamed=True).changes
+    assert both.op == "renamed"
+    assert [(v.op, v.path) for v in both.values] == [
+        ("renamed", "gml_id"),
+        ("reformatted", "total_depth"),
+    ]
+
+
+def test_an_id_that_only_one_file_gives_a_record_is_a_rename_too():
+    old = make_model(features=(make_feature(None, "B-1"),))
+    new = make_model(features=(make_feature("g9", "B-1"),))
+    result = diff.compare(old, new, show_renamed=True)
+    assert result.identical is True and result.renamed == 1
+    (value,) = result.changes[0].values
+    assert (value.op, value.path, value.old, value.new) == ("renamed", "gml_id", None, "g9")
+
+
+def test_a_listed_rename_counts_toward_max_changes_like_a_reformatted_value():
+    old = make_model(features=(make_feature("f1", "B-1"), make_feature("f2", "B-2", at=2)))
+    new = make_model(features=(make_feature("g1", "B-1"), make_feature("g2", "B-2", at=2)))
+    # Not listed: nothing to cut, whatever the limit.
+    assert diff.compare(old, new, max_changes=0).identical is True
+    cut = diff.compare(old, new, max_changes=2, show_renamed=True)
+    assert len(cut.changes) == 1 and cut.limits_hit == ("max_changes",)
+    assert (cut.complete, cut.identical, cut.renamed) == (False, False, 2)
+    whole = diff.compare(old, new, max_changes=4, show_renamed=True)
+    assert len(whole.changes) == 2 and whole.identical is True
 
 
 def test_match_gml_id_never_uses_natural_keys():
     old = make_model(features=(make_feature("f1", "B-1"),))
     new = make_model(features=(make_feature("g9", "B-1"),))
-    result = diff.compare(old, new, match="gml-id")
-    assert ops(result) == [("features", "removed", "f1", None), ("features", "added", None, "g9")]
-    assert result.summary["features"] == {"added": 1, "removed": 1, "changed": 0, "unchanged": 0}
+    for listed in (False, True):
+        result = diff.compare(old, new, match="gml-id", show_renamed=listed)
+        assert ops(result) == [
+            ("features", "removed", "f1", None),
+            ("features", "added", None, "g9"),
+        ]
+        assert result.summary["features"] == {
+            "added": 1,
+            "removed": 1,
+            "changed": 0,
+            "unchanged": 0,
+        }
+        assert result.identical is False and result.renamed == 0
 
 
 def test_match_natural_ignores_equal_gml_ids():
@@ -109,7 +199,10 @@ def test_match_natural_ignores_equal_gml_ids():
     by_id = diff.compare(old, new)
     assert {c.op for c in by_id.changes} == {"changed"}
     assert all(c.matched_by == "gml_id" for c in by_id.changes)
-    natural = diff.compare(old, new, match="natural")
+    # By name, each borehole is the other file's borehole under another id: no change.
+    assert diff.compare(old, new, match="natural").identical is True
+    natural = diff.compare(old, new, match="natural", show_renamed=True)
+    assert {c.op for c in natural.changes} == {"renamed"}
     assert all(c.matched_by == "natural" for c in natural.changes)
     assert {(c.old_key, c.new_key) for c in natural.changes} == {("f1", "f2"), ("f2", "f1")}
 
@@ -167,9 +260,11 @@ def test_references_follow_the_matching_so_an_id_rename_changes_nothing_else():
         samples=(make_sample("S", "S-1", "F", interval=Interval(top=depth("1.0"), lrs="#l")),),
     )
     result = diff.compare(old, new)
-    assert values(result) == [
-        ("features", "changed", "gml_id"),
-        ("samples", "changed", "gml_id"),
+    assert result.identical is True and result.changes == ()
+    assert result.renamed == 2
+    assert values(diff.compare(old, new, show_renamed=True)) == [
+        ("features", "renamed", "gml_id"),
+        ("samples", "renamed", "gml_id"),
     ]
 
 

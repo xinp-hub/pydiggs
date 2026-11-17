@@ -218,8 +218,14 @@ def renamed(model: Model, prefix: str = "r") -> Model:
     changes = {name: tuple(fix(n) for n in getattr(model, name)) for name in NODE_LISTS}
     if model.document is not None:
         changes["document"] = fix(model.document)
+
+    def href(text: str) -> str:
+        return f"#{mapping[text[1:]]}" if text[1:] in mapping and text.startswith("#") else text
+
     links = tuple(
-        dataclasses.replace(link, source=ref(link.source), target=ref(link.target))
+        dataclasses.replace(
+            link, source=ref(link.source), target=ref(link.target), href=href(link.href)
+        )
         for link in model.links
     )
     return dataclasses.replace(model, links=links, **changes)
