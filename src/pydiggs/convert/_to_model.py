@@ -66,8 +66,11 @@ _N = TypeVar("_N", bound=Node)
 
 #: The DIGGS version the converter writes.
 DIGGS_VERSION: Final = "3.0.0"
-#: The unit of every depth along a feature (the AGS4 depth unit).
+#: The unit of every depth along a feature when the file does not say (metres).
 DEPTH_UNIT: Final = "m"
+#: The AGS4 units a depth along a feature may be carried in: the unit of ``LOCA_FDEP``.
+#: Each gives its DIGGS unit through the unit table (``m``, ``ft``, ``ft[US]``).
+DEPTH_AGS_UNITS: Final = ("m", "ft", "ftUS")
 #: ``codeSpace`` of the AGS4 identifiers DIGGS holds as a coded identifier.
 AGS4_CODE_SPACE: Final = "urn:x-pydiggs:ags4:"
 #: Written for the lithology classification type DIGGS requires and AGS4 does not state.
@@ -342,16 +345,25 @@ class _Row:
         return Quantity(text=text, value=value, uom=uom)
 
     def depth(self, heading: str, owner: str) -> Quantity | None:
-        """A depth along the feature, in metres."""
+        """A depth along the feature, in the unit of the file's depths (never converted)."""
         if self.get(heading) == "":
             return None
         unit = self.unit(heading)
-        if unit not in ("", DEPTH_UNIT):
+        file_unit = self.mapper.depth_ags_unit
+        if unit not in ("", file_unit):
             self.lose(
                 L.UNMAPPED_UNIT,
                 heading,
-                "Values of {heading} in {group} are depths in a unit other than m, which the"
-                " converter does not write; not converted ({values}).",
+                "Values of {heading} in {group} are depths in "
+                + _braces_escaped(unit)
+                + ", but the depths of this file are in "
+                + _braces_escaped(file_unit)
+                + (
+                    " (the unit of LOCA_FDEP)"
+                    if self.mapper.depth_unit_stated
+                    else " (the unit assumed when LOCA_FDEP has none)"
+                )
+                + " and the converter never converts a value; not converted ({values}).",
             )
             return None
         found = self.number_text(heading, owner)
@@ -361,11 +373,22 @@ class _Row:
             self.mapper.ledger.note(
                 L.ASSUMED,
                 self.group.name,
-                "Depths of {group} have no unit; they were written in metres ({times}).",
+                "Depths of {group} have no unit; they were written in "
+                + _DEPTH_UNIT_NAMES[file_unit]
+                + " ({times}).",
                 self.index,
             )
         value, text = found
-        return Quantity(text=text, value=value, uom=DEPTH_UNIT)
+        return Quantity(text=text, value=value, uom=self.mapper.depth_unit)
+
+
+#: How a message names the unit of the depths.
+_DEPTH_UNIT_NAMES: Final = {"m": "metres", "ft": "feet", "ftUS": "US survey feet"}
+
+
+def _braces_escaped(text: str) -> str:
+    """``text`` safe inside a message template, which ``str.format`` will fill."""
+    return text.replace("{", "{{").replace("}", "}}")
 
 
 @dataclass(slots=True)
@@ -417,8 +440,23 @@ class _Mapper:
         tran = file.groups.get("TRAN")
         records = tran.records() if tran is not None else []
         self.joiner = (records[0].get("TRAN_RCON", "") if records else "") or "+"
+        #: The unit of every depth along a feature: that of LOCA_FDEP when it is a unit the
+        #: converter carries, else metres. AGS4 states a unit once per heading, so a file has
+        #: one depth unit.
+        self.depth_ags_unit, self.depth_unit, self.depth_unit_stated = self.find_depth_unit()
 
     # --- plumbing -----------------------------------------------------------------------
+
+    def find_depth_unit(self) -> tuple[str, str, bool]:
+        """(AGS4 unit, DIGGS unit, stated) of the file's depths, from the UNIT of LOCA_FDEP."""
+        loca = self.file.groups.get("LOCA")
+        if loca is not None and "LOCA_FDEP" in loca.headings:
+            column = loca.headings.index("LOCA_FDEP")
+            unit = loca.units[column].strip() if column < len(loca.units) else ""
+            mapped = self.mapping.units.get(unit)
+            if unit in DEPTH_AGS_UNITS and mapped is not None:
+                return unit, mapped, True
+        return DEPTH_UNIT, DEPTH_UNIT, False
 
     def tick(self) -> None:
         self.ticks += 1
@@ -652,7 +690,7 @@ class _Mapper:
             self.features.append(feature)
             self.feature_by_id.setdefault(loca_id, _Feature(key=key, lrs=lrs))
             self.crs[lrs] = CrsRef(
-                srs_name=lrs, form="local", unit=DEPTH_UNIT, known=True, local=lrs[1:]
+                srs_name=lrs, form="local", unit=self.depth_unit, known=True, local=lrs[1:]
             )
             self.link(key, "project", project)
             self.origin(key, row)
@@ -1674,7 +1712,11 @@ class _Mapper:
             reading.number(index, key)
             depths.append(depth)
         position = Column(
-            name="position", key="position", uom=DEPTH_UNIT, type="number", values=tuple(depths)
+            name="position",
+            key="position",
+            uom=self.depth_unit,
+            type="number",
+            values=tuple(depths),
         )
         return ResultTable(
             domain=Domain(shape="point", index=(position,), crs=lrs),
@@ -1895,7 +1937,7 @@ class _Mapper:
             else None
         )
         if top is None:
-            top = Quantity(text="0", value=0.0, uom=DEPTH_UNIT)
+            top = Quantity(text="0", value=0.0, uom=self.depth_unit)
             self.ledger.note(
                 L.ASSUMED,
                 rule.name,

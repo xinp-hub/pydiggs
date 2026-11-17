@@ -73,6 +73,14 @@ converter reads; it is not data. *not converted*: with the reason.
 
 Values are carried as reported. Units are renamed only through the unit table, and
 nothing is converted numerically.
+
+**Depth units.** The unit of `LOCA_FDEP` (`m`, `ft` or `ftUS`; the unit table gives DIGGS
+`m`, `ft` or `ft[US]`) is the unit of every depth along a feature: it is the unit of each
+feature's linear referencing system, of the CPT depth column and of an interval that starts
+at the top of a hole. A file whose `LOCA_FDEP` has no unit, or one the converter does not
+carry, is read in metres, as before. A depth heading in a unit other than that of the file
+is reported as `convert.unmapped-unit`, naming both units, and not written. No depth is
+ever converted from one unit to another.
 """
 
 

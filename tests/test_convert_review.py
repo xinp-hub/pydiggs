@@ -500,4 +500,4 @@ def test_change_17_the_writer_and_reader_round_trip_an_unknown_creation_date():
 def test_change_18_every_group_is_reviewed():
     mapping = load_mapping()
     assert {g.status for g in mapping.groups.values()} == {"reviewed"}
-    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.1"
+    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.2"

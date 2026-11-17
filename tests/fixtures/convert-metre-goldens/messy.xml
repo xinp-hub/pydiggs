@@ -1,0 +1,55 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:glr="http://www.opengis.net/gml/3.3/lr" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="Diggs">
+  <documentInformation>
+    <DocumentInformation>
+      <creationDate indeterminatePosition="unknown"/>
+    </DocumentInformation>
+  </documentInformation>
+  <project>
+    <Project gml:id="project-PD-008">
+      <gml:name>PD-008</gml:name>
+    </Project>
+  </project>
+  <project>
+    <Project gml:id="project-PD-009">
+      <gml:name>PD-009</gml:name>
+      <gml:name>Two</gml:name>
+    </Project>
+  </project>
+  <project>
+    <Project gml:id="project-PD-010">
+      <gml:name>PD-010</gml:name>
+      <gml:name>unquoted</gml:name>
+    </Project>
+  </project>
+  <samplingFeature>
+    <Borehole gml:id="BH01">
+      <gml:name>BH01</gml:name>
+      <projectRef xlink:href="#project-PD-008"/>
+      <referencePoint>
+        <PointLocation gml:id="BH01.referencePoint" srsName="#BH01-lrs" srsDimension="1">
+          <gml:pos>0</gml:pos>
+        </PointLocation>
+      </referencePoint>
+      <centerLine>
+        <LinearExtent gml:id="BH01.centerLine" srsName="#BH01-lrs" srsDimension="1">
+          <gml:posList>0</gml:posList>
+        </LinearExtent>
+      </centerLine>
+      <linearReferencing>
+        <LinearSpatialReferenceSystem gml:id="BH01-lrs">
+          <gml:identifier codeSpace="urn:x-pydiggs:id">BH01-lrs</gml:identifier>
+          <glr:linearElement xlink:href="#BH01.centerLine"/>
+          <lrm>
+            <LinearReferencingMethod gml:id="BH01-lrs.lrm">
+              <gml:identifier codeSpace="urn:x-pydiggs:id">BH01-lrs.lrm</gml:identifier>
+              <name>trueMeters</name>
+              <type>absolute</type>
+              <units>m</units>
+            </LinearReferencingMethod>
+          </lrm>
+        </LinearSpatialReferenceSystem>
+      </linearReferencing>
+    </Borehole>
+  </samplingFeature>
+</Diggs>

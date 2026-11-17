@@ -14,9 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the project-defined unit `ftUS`, and the UNIT group of the file defines it as "US survey
   foot (1200/3937 m)", as AGS4 requires of a unit it does not list. Plain `ft` stays the
   international foot. A file that uses `ftUS` reads back to `ft[US]` for coordinates.
-  Values are never converted. Depths along a hole are still read as metres only, so AGS4
-  depths in any foot are reported and not written to DIGGS. The mapping table is now
-  **1.1** (`mapping_version`, a minor version: a unit was added).
+  Values are never converted. The mapping table is now **1.2** (`mapping_version`, a
+  minor version: a unit was added, then depths in feet).
+- **AGS4 depths in feet are carried into DIGGS.** The unit of `LOCA_FDEP` (`m`, `ft` or
+  `ftUS`) is now the unit of every depth along a feature: of each feature's linear
+  referencing system, of the CPT depth column and of the sample and layer depths, as DIGGS
+  `m`, `ft` or `ft[US]`. Before, a depth in feet was reported as `convert.unmapped-unit`
+  and left out of the DIGGS file, so a US-unit file lost every depth-keyed value, and the
+  DIGGS to AGS4 to DIGGS round trip of the official US examples lost all its depths. Depths
+  are carried, never converted. A file with no unit on `LOCA_FDEP` is still read in metres
+  (declared as `convert.assumed`), and a depth heading in a unit other than the one of
+  `LOCA_FDEP` is reported as `convert.unmapped-unit`, naming both units, and not written.
+  Output for files in metres is unchanged. The DIGGS writer names the US survey foot as
+  linear referencing method `Other: trueUSSurveyFootage`, as DIGGS 3.0.0 has no name for it.
+  The mapping table is now **1.2** (`mapping_version`, a minor version: content reported
+  as lost is now written).
 
 ## [1.11.0] - 2026-11-16
 
