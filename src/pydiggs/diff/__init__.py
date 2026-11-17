@@ -2,13 +2,17 @@
 
 :func:`compare` reads two files (or takes two :class:`~pydiggs.model.Model`) and says what
 differs *in what they describe*, not in how they are written: element order, number
-formatting and provenance do not count. Nodes are matched by ``gml:id`` first, then by a
-natural key (a borehole's kind and name, a sample's borehole, name and top, ...), so nodes
-stay paired when their ids change; a node's own changed id is one changed value,
-``gml_id``. A natural key that more than one node has is never guessed at.
-Numbers compare within a tolerance, a
-change of unit is always a change (nothing is converted), and result tables align their
-rows by the domain index (depth) when it is unique.
+formatting, provenance and the ``gml:id`` of a record do not count. Nodes are matched by
+``gml:id`` first, then by a natural key (a borehole's kind and name, a sample's borehole,
+name and top, ...), so nodes stay paired when their ids change, and two exports of the
+same data with new ids are identical. The renamed ids are counted (``Diff.renamed``) and
+listed on request. The ``gml:id`` of an element inside a node (a geometry) is not
+compared, and a reference to something in the same file is compared by what it points
+to; one that cannot be resolved for certain is compared as text. A natural key that
+more than one node has is never guessed at.
+Numbers compare within a tolerance, a change of unit is always a change (nothing is
+converted), and result tables align their rows by the domain index (depth) when it is
+unique.
 
 The result is a :class:`Diff`: a summary, the listed :class:`Change` items, and notes that
 are findings of step ``diff``. :meth:`Diff.to_json` writes it as a diggs-diff 1.0 document,
@@ -88,6 +92,7 @@ def _options(
     time_budget: float | None,
     max_bytes: int,
     show_reformatted: bool,
+    show_renamed: bool,
 ) -> _engine.Options:
     if match not in _engine.MATCH_MODES:
         raise ValueError(f"match must be one of {', '.join(_engine.MATCH_MODES)}, got {match!r}")
@@ -106,6 +111,7 @@ def _options(
         max_changes=max_changes,
         time_budget=time_budget,
         show_reformatted=bool(show_reformatted),
+        show_renamed=bool(show_renamed),
     )
 
 
@@ -133,6 +139,7 @@ def compare(
     time_budget: float | None = None,
     max_bytes: int = DEFAULT_MAX_BYTES,
     show_reformatted: bool = False,
+    show_renamed: bool = False,
 ) -> Diff:
     """Compare two DIGGS files at model level.
 
@@ -141,8 +148,9 @@ def compare(
         new: The later file, in the same forms. The two may be different DIGGS versions;
             both are recorded in the result.
         match: How nodes are paired. ``"auto"``: by ``gml:id`` and element, then by natural
-            key; ``"gml-id"``: the first pass only; ``"natural"``: the second pass only.
-            A natural key that several nodes share is never matched.
+            key; ``"gml-id"``: the first pass only, so a node whose id changed is
+            removed and added; ``"natural"``: the second pass only. A natural key that
+            several nodes share is never matched.
         rel_tol: Two numbers are equal when ``|a - b| <= max(abs_tol, rel_tol * max(|a|,
             |b|))``. The default is exact up to float noise.
         abs_tol: The absolute part of that bound (default 0).
@@ -154,6 +162,10 @@ def compare(
         max_bytes: Largest file read (default 100 MiB, as for :func:`pydiggs.read`).
         show_reformatted: List the values written differently but equal (``1.50`` and
             ``1.5``); they are always counted.
+        show_renamed: List the nodes matched by natural key whose own ``gml:id`` differs,
+            each with the value ``gml_id`` (old and new id); they are always counted. A
+            changed id is not a difference: such a node is unchanged unless one of its
+            values differs.
 
     Returns:
         A :class:`Diff`. A problem with the *data* is a finding in ``Diff.notes``.
@@ -182,6 +194,7 @@ def compare(
         time_budget=time_budget,
         max_bytes=max_bytes,
         show_reformatted=show_reformatted,
+        show_renamed=show_renamed,
     )
     deadline = None if time_budget is None else _engine._now() + float(time_budget)
     for role, source in (("old", old), ("new", new)):

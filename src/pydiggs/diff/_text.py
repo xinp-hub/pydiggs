@@ -3,16 +3,17 @@ r"""The human renderer of a diff. File text is untrusted, so it is escaped.
 Control characters and format characters (the escape that moves a terminal cursor, the
 bidirectional overrides that reorder text) are shown as ``\xNN`` or ``\uNNNN``, and
 ``rich`` markup in a value is escaped, so the text is safe to print through a ``rich``
-console. Pure apart from a lazy import of ``rich.markup``.
+console: every bracket that could open a tag is escaped, so no tag can form inside one
+value or across two. Pure; ``rich`` is not imported.
 
 ``render(diff, markup=False)`` is the same report for a stream that reads no markup (a
 terminal written to directly, a file): control and format characters are spelled out in
 the same way, and brackets are left as they are, since nothing will read them as markup.
-``rich`` is then not imported.
 """
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from collections.abc import Callable
 from typing import Any
@@ -23,6 +24,9 @@ __all__ = ["render"]
 
 _HIDDEN = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
 
+
+#: The ops of what is listed on request and is not a change.
+_NOT_CHANGES = ("reformatted", "renamed")
 
 _LATIN1_END = 0x100
 _BMP_END = 0x10000
@@ -47,10 +51,23 @@ def _plain(text: str) -> str:
     return "".join(out)
 
 
-def _esc(text: object) -> str:
-    from rich.markup import escape  # noqa: PLC0415  # rich is lazy: pydiggs does not import it
+#: A bracket that could open a ``rich`` tag, with the backslashes before it. ``rich``
+#: reads ``[`` as a tag only before one of these characters.
+_OPENS_TAG = re.compile(r"(\\*)\[(?=[a-z#/@])")
 
-    return escape(_plain(str(text)))
+
+def _esc(text: object) -> str:
+    r"""``text`` with nothing in it that ``rich`` can read as markup, alone or joined.
+
+    ``rich.markup.escape`` escapes a ``[`` only when the same text also closes the tag.
+    A report is many values joined, so ``[red`` in one value and ``]`` in a later one
+    would be a tag: here every ``[`` that could open one is escaped, closed or not. For
+    text with whole tags, or none, this is what ``rich.markup.escape`` gives.
+    """
+    escaped = _OPENS_TAG.sub(lambda m: f"{m[1]}{m[1]}\\[", _plain(str(text)))
+    if escaped.endswith("\\") and not escaped.endswith("\\\\"):
+        return escaped + "\\"
+    return escaped
 
 
 def _esc_plain(text: object) -> str:
@@ -77,7 +94,7 @@ def _value_line(value: ValueChange, esc: Esc) -> str:
     elif value.op == "removed":
         body = f"removed {_shown(value.old)}"
     else:
-        what = "reformatted: " if value.op == "reformatted" else ""
+        what = f"{value.op}: " if value.op in _NOT_CHANGES else ""
         body = f"{what}{_shown(value.old)} -> {_shown(value.new)}"
     return f"    {esc(value.path)}: {esc(body)}{cut}"
 
@@ -88,7 +105,7 @@ def _change_lines(change: Change, esc: Esc) -> list[str]:
     head = f"{change.op} {change.collection} {esc(key)}"
     if label:
         head += f" ({label})"
-    if change.op in ("changed", "reformatted") and change.matched_by:
+    if change.op in ("changed", *_NOT_CHANGES) and change.matched_by:
         head += f", matched by {'natural key' if change.matched_by == 'natural' else 'gml:id'}"
         if change.old_key != change.new_key:
             head += f" ({esc(change.old_key)} -> {esc(change.new_key)})"
@@ -131,6 +148,12 @@ def render(diff: Diff, *, markup: bool = True) -> str:
         lines.append(
             f"{diff.reformatted} value(s) were only reformatted (written differently, same"
             f" value){'' if shown else '; not listed'}."
+        )
+    if diff.renamed:
+        shown = any(v.op == "renamed" for c in diff.changes for v in c.values)
+        lines.append(
+            f"{diff.renamed} record(s) have a different gml:id (matched by natural key; not"
+            f" a change){'' if shown else '; not listed'}."
         )
     for change in diff.changes:
         lines.extend(_change_lines(change, esc))

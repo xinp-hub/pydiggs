@@ -3,10 +3,10 @@
 `pydiggs diff` and `pydiggs.diff.compare()` say what changed between two DIGGS files:
 which boreholes, samples, tests and other records were added or removed, and which values
 changed in the ones both files hold. The comparison is of what the files **describe**, not
-of how they are written: element order, number formatting and line numbers do not matter,
-and records stay paired when their `gml:id`s change. A record whose own `gml:id` changed
-is reported with that one changed value, so two exports with regenerated ids are paired
-record for record but are not identical.
+of how they are written: element order, number formatting, line numbers and the `gml:id`
+of a record do not matter. Records stay paired when their `gml:id`s change, so two exports
+of the same data with newly generated ids are identical. The renamed ids are counted, and
+listed on request.
 
 Typical uses: checking a revised deliverable against the previous one, checking that an
 export from a new software version still holds the same data, and checking a file after a
@@ -85,15 +85,23 @@ Both files are read with [`pydiggs.read`](model.md), and the two models are comp
 
 A link is compared by what it points to, not by the text of its `href`: if a sample
 still belongs to the same borehole, renaming that borehole's `gml:id` is not a change of
-the sample.
+the sample. See [Ids and references](#ids-and-references).
 
 ## What does not count as a change
 
-- **A link whose target was only renamed.** A link is compared by the record it points
-  to, so renaming a borehole's `gml:id` changes none of the samples that refer to it. The
-  renamed record's own id does count: when two records are paired by their natural key
-  (see [Matching](#matching)) and their ids differ, the id is listed as one changed
-  value, `gml_id`, and the files are not identical.
+- **The `gml:id` of a record.** An id says which record is which inside one file; it is
+  not data about the borehole or the sample. When two records are paired by their natural
+  key (see [Matching](#matching)) and their ids differ, the record is *renamed*, not
+  changed: it counts as unchanged unless one of its values differs. Renamed records are
+  counted (`Diff.renamed`) and listed only on request (`--verbose`, `show_renamed=True`),
+  each with its old and new id. Two files that differ only in this way are identical.
+  With `--match gml-id` there is no pairing by natural key, so a record whose id changed
+  is removed and added.
+- **The `gml:id` of anything else**: a geometry, a time instant or any other element
+  inside a record. These ids are not compared and not counted.
+- **A link whose target was only renamed.** A link is compared by the record or element
+  it points to, so renaming a borehole's `gml:id` changes none of the samples that refer
+  to it. See [Ids and references](#ids-and-references).
 - **The order** of elements in the file, and of rows in a table whose rows are matched by
   depth.
 - **How a number is written**: `1.50` and `1.5` are the same value. Such values are
@@ -111,10 +119,49 @@ edit a reviewer needs to see.
 Text is compared exactly, as [`pydiggs.read`](model.md) gives it, upper and lower case
 included. A code is compared by its value and its code space.
 
-Two things in `extra` are compared as written, because pyDIGGS does not interpret them:
-the `gml:id` of an element nested inside a record (a geometry, a time interval), and the
-namespace prefix of an attribute. A file that renames those shows them as changed values
-of the record that holds them.
+The namespace prefix of an attribute in `extra` is compared as written, because pyDIGGS
+does not interpret it: a file that renames a prefix shows the attribute as removed and
+added. The id attribute is the exception: `gml:id` is recognised under any prefix.
+
+### Ids and references
+
+An id is a label inside one file, so no `gml:id` is compared: not a record's, and not
+that of a geometry, a time instant or any other element inside a record (in `extra`). An
+element that has an id in one file and none in the other is not a change either.
+`Diff.renamed` counts records only.
+
+A reference to something in the same file (`xlink:href="#x"`, `srsName="#x"`) is
+compared by **what it points to**, never by the text of the id:
+
+| the reference names | it is the same reference when |
+|---|---|
+| a record | the two records are paired |
+| an element inside a record that the model keeps in `extra` (a geometry, a time instant) | the two elements sit in paired records, at the same place among the elements compared |
+| a borehole's own depth system (its linear referencing system) | the two boreholes are paired |
+| a coordinate system defined in the file outside every record (a site grid) | pyDIGGS reads the same name, unit and axes for both, and no other such system of the file reads the same |
+
+So a file that was exported again with every `gml:id` generated afresh, and every
+reference following, compares as the same data.
+
+A reference that cannot be resolved for certain is compared **as text**, as it is
+written. This errs on the side of reporting a difference, never of hiding one:
+
+- a link to another document, or to an id that is not in the file;
+- an id that two elements of the file have;
+- two elements with exactly the same content in the same record: they cannot be told
+  apart, so a reference to one of them is compared by its id;
+- a reference to an element that pyDIGGS reads into typed fields and does not keep, when
+  it is written inside `extra`. The common case is a borehole's linear referencing
+  system naming the borehole's centre line (`linearElement`): if the centre line's
+  `gml:id` changes, that one reference is listed as changed
+  (`extra.linearReferencing[1].LinearSpatialReferenceSystem[1].linearElement[1]@xlink:href`).
+  **A re-export of a file with such boreholes is therefore not yet identical**: it shows
+  exactly one changed value per borehole.
+
+Records that only their `gml:id` told apart (two layers with no depths in the same
+observation) cannot be paired once the ids change: they share a natural key, are listed
+as removed and added, and a `diff.ambiguous-match` note says so (see
+[Matching](#matching)).
 
 ## Matching
 
@@ -137,8 +184,26 @@ Records are paired in two passes (`--match auto`, the default):
     The element name is part of every key, so a `Borehole` is never paired with a
     `Sounding` of the same name.
 
-The report says how each changed record was paired (`matched by gml:id` or
-`matched by natural key`).
+The report says how each listed record was paired (`matched by gml:id` or
+`matched by natural key`). A record paired by its natural key whose `gml:id` differs is
+*renamed*. That is [not a change](#what-does-not-count-as-a-change): the summary counts it
+as unchanged if its values are the same, and as changed if one differs. The report gives
+the number of renamed records, and `--verbose` (`show_renamed=True`) lists them:
+
+```console
+$ pydiggs diff export-monday.xml export-tuesday.xml --verbose
+Compared export-monday.xml (DIGGS 3.0.0) with export-tuesday.xml (DIGGS 3.0.0)
+The two files are identical.
+features: 0 added, 0 removed, 0 changed, 1 unchanged
+samples: 0 added, 0 removed, 0 changed, 1 unchanged
+2 record(s) have a different gml:id (matched by natural key; not a change).
+renamed features bh-7f3a (B-1), matched by natural key (bh-01 -> bh-7f3a)
+    gml_id: renamed: bh-01 -> bh-7f3a
+renamed samples sa-91c2 (S-1), matched by natural key (sa-01 -> sa-91c2)
+    gml_id: renamed: sa-01 -> sa-91c2
+$ echo $?
+0
+```
 
 A natural key that more than one record has, in either file, is **never matched**: two
 boreholes both named `B-1` with different ids cannot be told apart, so pyDIGGS does not
@@ -147,8 +212,9 @@ guess. Those records are listed as removed and added, and a note
 counts the rest.
 
 `--match gml-id` runs the first pass only: use it when the ids are known to be stable and
-a renamed record should show as removed and added. `--match natural` runs the second
-pass only: use it for two exports whose ids were generated afresh.
+a record whose id changed should show as removed and added. `--match natural` runs the
+second pass only: use it when the ids of the two files are unrelated, so that an id which
+happens to appear in both does not pair two different records.
 
 ## Tolerances
 
@@ -194,7 +260,7 @@ Both files are untrusted input, so the work is bounded:
 | limit | default | when it is reached |
 |---|---|---|
 | `--max-bytes`, `max_bytes` | 100 MiB per file | the file is refused (exit 2, `InstanceReadError`) |
-| `--max-changes`, `max_changes` | 10,000 | the list of changes is cut; the counts in the summary stay exact; note `diff.limit` |
+| `--max-changes`, `max_changes` | 10,000 | the list of changes is cut; the counts in the summary stay exact; note `diff.limit`. Renamed ids and reformatted values take room in the list only when they are listed (`--verbose`) |
 | `--time-budget`, `time_budget` | none | the comparison stops, reading included; the counts are partial; note `diff.timeout` |
 
 A value longer than 200 characters is shortened in the report and marked (`truncated`
@@ -227,14 +293,14 @@ pydiggs diff OLD NEW [--format text|json] [-o FILE] [--match auto|gml-id|natural
 | `--max-changes N` | list at most `N` changes (default 10,000) |
 | `--time-budget SECONDS` | stop after this long (default: no limit) |
 | `--max-bytes N` | refuse a file larger than `N` bytes (default 100 MiB) |
-| `--verbose` | also list the values that are only written differently |
+| `--verbose` | also list what is not a change: the values that are only written differently, and the records whose `gml:id` changed. Both are always counted |
 
 **Exit codes**, the same as `diff(1)` and with the same three-way split as
 `pydiggs validate`:
 
 | code | meaning |
 |---|---|
-| **0** | the two files are identical, and the comparison finished |
+| **0** | the two files are identical, and the comparison finished. Numbers written differently and records whose `gml:id` changed are not differences |
 | **1** | the files differ, **or** the comparison is incomplete |
 | **2** | a usage error, a file that cannot be read or is not a DIGGS file, or a report that cannot be written |
 
@@ -272,6 +338,7 @@ Keys are sorted and the same comparison always gives the same bytes.
   },
   "value_changes": 2,
   "reformatted": 0,
+  "renamed": 0,
   "changes": [
     {
       "op": "changed",
@@ -300,14 +367,15 @@ Keys are sorted and the same comparison always gives the same bytes.
 
 | field | meaning |
 |---|---|
-| `identical` | true only when nothing differs and the comparison finished |
+| `identical` | true only when nothing differs and the comparison finished. A number written differently and a record's own `gml:id` are not differences |
 | `complete`, `limits_hit` | whether a limit stopped the comparison, and which |
 | `old`, `new` | each file's name, DIGGS version, size and sha256 |
 | `options` | the matching mode, tolerances and limits that were used |
 | `summary` | per collection, how many records were `added`, `removed`, `changed` and `unchanged` |
 | `value_changes`, `reformatted` | how many values differ, and how many are only written differently |
-| `changes[]` | one entry per record added, removed or changed, ordered by collection, then key. `op` is `added`, `removed`, `changed` or `reformatted`; `old_key` and `new_key` are the record's keys in the two files (null on the side that lacks it); `matched_by` is `gml_id` or `natural` |
-| `changes[].values[]` | each value that differs: its `path` in the record, the `old` and `new` values (a quantity as text with its unit, null on the side that lacks it), and `at`, the XPath of the record in the new file (the old file for a removed record) |
+| `renamed` | how many records were paired by natural key and have a different `gml:id` in the two files. Counted whether listed or not |
+| `changes[]` | one entry per record added, removed or changed, ordered by collection, then key. `op` is `added`, `removed` or `changed`. On request, the records that did not change are listed too: `renamed` (its `gml:id` differs) and `reformatted` (it only has numbers written differently). `old_key` and `new_key` are the record's keys in the two files, its `gml:id`s when it has them (null on the side that lacks the record); `matched_by` is `gml_id` or `natural` |
+| `changes[].values[]` | each value that differs: its `op` (`added`, `removed`, `changed`, or `reformatted` and `renamed` when those are listed), its `path` in the record (`gml_id` is the record's own id), the `old` and `new` values (a quantity as text with its unit, null on the side that lacks it), and `at`, the XPath of the record in the new file (the old file for a removed record) |
 | `notes[]` | findings of step `diff`, in the [diggs-findings](findings.md) form |
 
 `Diff.from_dict()` reads a document back into a `Diff`. The format is versioned like

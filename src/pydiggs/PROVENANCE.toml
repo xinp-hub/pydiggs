@@ -514,7 +514,7 @@ sha256 = "85d2c01598cab180a22eaeb0247e2014e58a3dc7e262e3d8f6bafa5f1cdd92f2"
 [files."diff/diggs-diff-1.0.schema.json"]
 source = "local"
 note = "The diggs-diff JSON Schema (pydiggs.diff): pyDIGGS's own output contract, checked against the output by tests/diff."
-sha256 = "2cbd0b970a81b63f968f1d213806d673ef88958ca267a78690dd7509450fd73d"
+sha256 = "49d4e5eb71e1075817d4b99f9bfd007397b08fd2e9ecc8cea54e54e4af054d27"
 
 [files."findings/diggs-findings-1.0.schema.json"]
 source = "local"

@@ -91,6 +91,8 @@ def test_the_open_schema_accepts_unknown_fields_and_the_closed_variant_refuses_t
         lambda d: d["summary"]["features"].update(added=-1),
         lambda d: d["changes"][0].update(matched_by="guess"),
         lambda d: d["options"].update(match="fuzzy"),
+        lambda d: d.pop("renamed"),
+        lambda d: d.update(renamed=-1),
     ],
     ids=[
         "major-version",
@@ -102,6 +104,8 @@ def test_the_open_schema_accepts_unknown_fields_and_the_closed_variant_refuses_t
         "negative-count",
         "bad-matched-by",
         "bad-match",
+        "missing-renamed",
+        "negative-renamed",
     ],
 )
 def test_the_schema_refuses_what_it_does_not_define(change):
@@ -137,6 +141,7 @@ def test_a_diff_document_has_the_documented_shape_and_validates():
         "summary",
         "value_changes",
         "reformatted",
+        "renamed",
         "changes",
         "notes",
     ]
@@ -161,7 +166,11 @@ def test_the_diff_of_corpus_files_validates_against_the_closed_schema(path):
     assert model is not None
     assert schema_errors(diff.compare(model, model).to_dict()) == []
     other = renamed(model)
-    for result in (diff.compare(model, other), diff.compare(model, other, match="gml-id")):
+    for result in (
+        diff.compare(model, other),
+        diff.compare(model, other, show_renamed=True),
+        diff.compare(model, other, match="gml-id"),
+    ):
         assert schema_errors(result.to_dict()) == []
         assert diff.Diff.from_dict(json.loads(result.to_json())) == result
 
@@ -173,7 +182,7 @@ def test_documents_of_edited_models_validate_and_round_trip(data):
 
     model = data.draw(st.sampled_from(small_models()))
     edited, _ = _edit(data, model)
-    result = diff.compare(model, edited, show_reformatted=True)
+    result = diff.compare(model, edited, show_reformatted=True, show_renamed=True)
     text = result.to_json()
     assert schema_errors(json.loads(text)) == []
     assert diff.Diff.from_dict(json.loads(text)) == result
@@ -207,6 +216,38 @@ def test_from_dict_refuses_another_major_version_and_non_objects():
         diff.Diff.from_dict([])  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="changes"):
         diff.Diff.from_dict({"schema_version": "1.0"})
+
+
+def _renamed_pair():
+    old = make_model(features=(make_feature("f1", "B-1"), make_feature("f2", "B-2", at=2)))
+    new = make_model(features=(make_feature("g1", "B-1"), make_feature("g2", "B-2", at=2)))
+    return old, new
+
+
+@pytest.mark.parametrize("listed", [False, True])
+def test_a_diff_with_renamed_ids_validates_and_round_trips(listed):
+    result = diff.compare(*_renamed_pair(), show_renamed=listed)
+    document = json.loads(result.to_json())
+    assert schema_errors(document) == []
+    assert (document["identical"], document["renamed"]) == (True, 2)
+    assert [c["op"] for c in document["changes"]] == (["renamed"] * 2 if listed else [])
+    for change in document["changes"]:
+        assert (change["matched_by"], change["old_key"] != change["new_key"]) == ("natural", True)
+        (value,) = change["values"]
+        assert (value["op"], value["path"]) == ("renamed", "gml_id")
+        assert (value["old"], value["new"]) == (change["old_key"], change["new_key"])
+    again = diff.Diff.from_dict(document)
+    assert again == result and again.renamed == 2
+
+
+def test_from_dict_refuses_a_document_without_the_renamed_count():
+    # diggs-diff 1.0 requires the count, and no document was ever written without it.
+    document = _sample_diff().to_dict()
+    del document["renamed"]
+    with pytest.raises(ValueError, match="missing renamed"):
+        diff.Diff.from_dict(document)
+    with pytest.raises(ValueError, match="renamed"):
+        diff.Diff.from_dict({**_sample_diff().to_dict(), "renamed": "2"})
 
 
 # --- truncation and escaping (the files are untrusted) -------------------------------
@@ -258,6 +299,31 @@ def test_text_escapes_control_characters_and_rich_markup():
     assert isinstance(Text.from_markup(text), Text)
 
 
+def test_markup_split_over_two_values_cannot_form_a_tag_in_to_text():
+    from rich.console import Console
+    from rich.text import Text
+
+    # "[black on black" in one value and "]" in a later one: escaped one value at a time
+    # by rich.markup.escape, neither is a tag, and the joined report would hold one that
+    # hides everything between them.
+    a = make_model(features=(make_feature("f1", "B", params={"p": "a", "q": "1"}),))
+    b = make_model(
+        features=(make_feature("f1", "B", params={"p": "[black on black", "q": "k]m2"}),)
+    )
+    text = diff.compare(a, b).to_text()
+    assert "    params.p: a -> \\[black on black\n" in text
+    assert "    params.q: 1 -> k]m2\n" in text
+    assert Text.from_markup(text).spans == []  # no style: nothing was read as a tag
+    console = Console(record=True, width=200, force_terminal=False, color_system=None)
+    console.print(text)
+    printed = console.export_text()
+    assert "params.p: a -> [black on black" in printed
+    assert "params.q: 1 -> k]m2" in printed
+    # A bracket that opens no tag is left alone, and so is text with none.
+    plain = make_model(features=(make_feature("f1", "B", params={"p": "[1] [A] 5 [", "q": "1"}),))
+    assert "    params.p: a -> [1] [A] 5 [\n" in diff.compare(a, plain).to_text()
+
+
 def test_text_says_what_changed_and_is_plain_when_nothing_did():
     same = diff.compare(ANNOTATED, ANNOTATED).to_text()
     assert "identical" in same.lower()
@@ -288,3 +354,22 @@ def test_text_lists_reformatted_values_only_when_asked():
     assert "reformatted" in quiet.to_text().lower()
     shown = diff.compare(a, b, show_reformatted=True)
     assert "1.50" in shown.to_text()
+
+
+def test_text_says_the_files_are_identical_and_counts_the_renamed_ids():
+    quiet = diff.compare(*_renamed_pair()).to_text()
+    assert quiet.splitlines()[1:] == [
+        "The two files are identical.",
+        "features: 0 added, 0 removed, 0 changed, 2 unchanged",
+        "2 record(s) have a different gml:id (matched by natural key; not a change); not listed.",
+    ]
+    shown = diff.compare(*_renamed_pair(), show_renamed=True).to_text()
+    assert shown.splitlines()[1:] == [
+        "The two files are identical.",
+        "features: 0 added, 0 removed, 0 changed, 2 unchanged",
+        "2 record(s) have a different gml:id (matched by natural key; not a change).",
+        "renamed features g1 (B-1), matched by natural key (f1 -> g1)",
+        "    gml_id: renamed: f1 -> g1",
+        "renamed features g2 (B-2), matched by natural key (f2 -> g2)",
+        "    gml_id: renamed: f2 -> g2",
+    ]

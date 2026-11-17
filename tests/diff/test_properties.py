@@ -207,6 +207,35 @@ def test_compare_a_to_b_is_the_inverse_of_b_to_a(data):
 # --- 5. exactly the edit -------------------------------------------------------------
 
 
+def _check_rename(model: Model, edited: Model, result: diff.Diff) -> None:
+    """A renamed id is not a difference: nothing is listed unless a key was ambiguous."""
+    ambiguous = any(n.rule_id == "diff.ambiguous-match" for n in result.notes)
+    renamed_nodes = [n for n in model.nodes() if n.gml_id is not None and n.key == n.gml_id]
+    assert {c.op for c in result.changes} <= {"added", "removed"}
+    assert result.value_changes == 0
+    assert all(r["changed"] == 0 for r in result.summary.values())
+    assert result.identical is (not result.changes)
+    if result.changes:
+        assert ambiguous, "an unmatched node needs an ambiguity note"
+    if not ambiguous:
+        assert result.identical is True
+        assert result.renamed == len(renamed_nodes)
+    shown = diff.compare(model, edited, show_renamed=True)
+    assert (shown.identical, shown.renamed, shown.summary) == (
+        result.identical,
+        result.renamed,
+        result.summary,
+    )
+    listed_renames = [c for c in shown.changes if c.op == "renamed"]
+    assert len(listed_renames) == result.renamed
+    for c in listed_renames:
+        assert [(v.op, v.path) for v in c.values] == [("renamed", "gml_id")]
+        assert c.matched_by == "natural" and c.old_key != c.new_key
+    by_id = diff.compare(model, edited, match="gml-id")
+    assert {c.op for c in by_id.changes} == {"added", "removed"} or not renamed_nodes
+    assert by_id.renamed == 0
+
+
 @SETTINGS
 @given(st.data())
 def test_a_single_edit_gives_exactly_that_change(data):
@@ -233,19 +262,7 @@ def test_a_single_edit_gives_exactly_that_change(data):
             (c, "added", k) for c, _, k in gone
         }
     elif kind == "rename":
-        ambiguous = any(n.rule_id == "diff.ambiguous-match" for n in result.notes)
-        renamed_nodes = [n for n in model.nodes() if n.gml_id is not None and n.key == n.gml_id]
-        for c in result.changes:
-            if c.op == "changed":
-                assert [v.path for v in c.values] == ["gml_id"]
-                assert c.matched_by == "natural"
-            else:
-                assert ambiguous, "an unmatched node needs an ambiguity note"
-        if not ambiguous:
-            assert len(result.changes) == len(renamed_nodes)
-            assert len(result.changes) == sum(r["changed"] for r in result.summary.values())
-        by_id = diff.compare(model, edited, match="gml-id")
-        assert {c.op for c in by_id.changes} == {"added", "removed"} or not renamed_nodes
+        _check_rename(model, edited, result)
     elif kind == "cell":
         assert len(result.changes) == 1 and len(paths) == 1
         (value,) = result.changes[0].values
@@ -263,4 +280,5 @@ def test_a_single_edit_gives_exactly_that_change(data):
         (value,) = change.values
         assert value.op == "removed" and value.path.count(".columns[") == 1
         assert not value.path.endswith("]]")
-    assert result.identical is False
+    if kind != "rename":
+        assert result.identical is False

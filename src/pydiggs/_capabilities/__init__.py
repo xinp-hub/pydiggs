@@ -617,6 +617,14 @@ def _catalogue() -> tuple[_Entry, ...]:
                         label="Also list values that are only written differently (1.50 and 1.5)",
                         default=False,
                     ),
+                    "show_renamed": OptionSpec(
+                        type="boolean",
+                        label=(
+                            "Also list records whose gml:id changed; a changed id is"
+                            " counted and is not a difference"
+                        ),
+                        default=False,
+                    ),
                     "max_bytes": OptionSpec(
                         type="integer",
                         label="Largest file accepted, in bytes",

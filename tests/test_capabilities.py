@@ -373,6 +373,8 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
     assert compare.outputs == (f"diggs-diff-{diff_module.DIFF_SCHEMA_VERSION}",)
     assert compare.options["match"].choices == diff_module._engine.MATCH_MODES
     assert compare.options["new"].type == "file" and compare.options["new"].required
+    for name in ("show_reformatted", "show_renamed"):
+        assert (compare.options[name].type, compare.options[name].default) == ("boolean", False)
     # One file export per gis.write driver.
     exports = {i for i in by_id if i in _capabilities._DRIVER_OF}
     assert set(_capabilities._DRIVER_OF.values()) == set(gis.DRIVERS.values())

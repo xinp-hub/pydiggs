@@ -9,7 +9,12 @@ separately. Pure.
 
 Leaves are text, numbers, booleans, :class:`~pydiggs.model.Quantity`,
 :class:`~pydiggs.model.Code`, tuples of those, and :class:`Ref` (a reference to another
-node or to a coordinate reference system, equal when it refers to the same thing).
+node, to an identified element inside ``extra`` or to a coordinate reference system, equal
+when it refers to the same thing).
+
+An id is not a value. The ``gml:id`` of an element inside ``extra`` is left out of the
+comparison, and a local reference to one (``xlink:href="#x"``) is compared by the place of
+the element it names (:class:`NestedIds`), never by the id's text.
 """
 
 from __future__ import annotations
@@ -24,6 +29,7 @@ from typing import Any, Final, TypeVar
 from pydiggs.model import Code, ExtraNode, Feature, Link, Model, Node, Quantity
 
 __all__ = [
+    "NestedIds",
     "Ref",
     "Side",
     "Tick",
@@ -54,6 +60,11 @@ CHUNK: Final = 256
 
 CHANGED: Final = "changed"
 REFORMATTED: Final = "reformatted"
+#: The op of a record's own ``gml:id`` when it differs between two paired records.
+RENAMED: Final = "renamed"
+#: The path of a record's own ``gml:id``. No other leaf has it: every other path of that
+#: shape is a field of the model, and parameters, links and ``extra`` have a prefix.
+OWN_ID: Final = "gml_id"
 
 #: Fields of a node that are not values of the node itself.
 _SKIP: Final = frozenset(
@@ -140,6 +151,38 @@ def seg(text: str) -> str:
     return f"{text[:180]}…#{digest}"
 
 
+def _attr_local(name: str) -> tuple[str, bool]:
+    """The local name of an attribute, and whether it is in a namespace.
+
+    The model keeps an attribute as ``prefix:local`` (or ``{namespace}local`` when the
+    file declares no prefix), not with its namespace, so "in a namespace" is all that can
+    be told: ``gml:id`` and ``g:id`` are the same attribute, a bare ``id`` is another.
+    """
+    local = name.rpartition("}")[2].rpartition(":")[2]
+    return local, local != name
+
+
+def own_id(name: str) -> bool:
+    """Whether an attribute is the element's own id (``gml:id``, ``xml:id``)."""
+    return _attr_local(name) == ("id", True)
+
+
+def _is_href(name: str) -> bool:
+    return _attr_local(name) == ("href", True)
+
+
+def _local_target(href: str) -> str | None:
+    """The id a reference into the same file names (``#x`` gives ``x``), else None."""
+    return href[1:] if href.startswith("#") and len(href) > 1 else None
+
+
+def _crs_parts(crs: Any) -> tuple[object, ...]:
+    """What the model knows of a coordinate reference system, apart from its name in the file."""
+    horizontal = crs.horizontal.epsg if crs.horizontal else None
+    vertical = crs.vertical.epsg if crs.vertical else None
+    return (crs.form, crs.name, crs.unit, crs.axis_order, horizontal, vertical, crs.known)
+
+
 class Side:
     """One file of the comparison: how its references resolve once the nodes are matched."""
 
@@ -147,8 +190,13 @@ class Side:
         self.model = model
         self.tag = tag
         self.pair_of = pair_of
+        #: 0 for the old file, 1 for the new one.
+        self.which = 0 if tag == "old" else 1
+        #: Set by the engine once both sides exist; without it nested ids stay text.
+        self.nested: NestedIds | None = None
         self._links: dict[str, dict[str, list[Link]]] | None = None
         self._owners: dict[str, str | None] | None = None
+        self._sole: Counter[tuple[object, ...]] | None = None
 
     def node_ref(self, key: str) -> Ref:
         """A reference to the node ``key``: equal across files when the nodes are matched."""
@@ -162,28 +210,51 @@ class Side:
         """A reference to a coordinate reference system, by what it is, not what it is called."""
         crs = self.model.crs.get(srs_name)
         if crs is None:
-            return Ref(f"?{srs_name}", srs_name)
-        horizontal = crs.horizontal.epsg if crs.horizontal else None
-        vertical = crs.vertical.epsg if crs.vertical else None
-        parts: tuple[object, ...] = (
-            crs.form,
-            crs.name,
-            crs.unit,
-            crs.axis_order,
-            horizontal,
-            vertical,
-            crs.known,
-        )
+            token = self._lrs_token(srs_name)
+            return Ref(f"?{srs_name}" if token is None else token, srs_name)
+        parts = _crs_parts(crs)
         if crs.form == "local":
             # Every borehole's depth system has the same name and unit, so what tells two
             # of them apart is whose it is. The owner is named by its pair, so renaming
-            # the system or its owner changes nothing; a system no node defines has only
-            # its own name to go by.
+            # the system or its owner changes nothing. A system the file defines outside
+            # every node (a site grid) is told by what the model knows of it, when no
+            # other such system of the file reads the same; otherwise, and for a system
+            # nothing defines, there is only its own name to go by.
             owner = self._local_owners().get(crs.local or "")
-            parts = (*parts, crs.srs_name if owner is None else self.node_ref(owner).token)
+            if owner is not None:
+                parts = (*parts, self.node_ref(owner).token)
+            elif crs.known and self._sole_local()[parts] == 1:
+                parts = (*parts, "sole")
+            else:
+                parts = (*parts, crs.srs_name)
         elif crs.form != "epsg":
             parts = (*parts, crs.srs_name)
         return Ref(repr(parts), srs_name)
+
+    def _sole_local(self) -> Counter[tuple[object, ...]]:
+        """How many local systems no node defines read the same in the model."""
+        if self._sole is None:
+            owners = self._local_owners()
+            self._sole = Counter(
+                _crs_parts(crs)
+                for crs in self.model.crs.values()
+                if crs.form == "local" and owners.get(crs.local or "") is None
+            )
+        return self._sole
+
+    def _lrs_token(self, href: str) -> str | None:
+        """A matched feature's own linear referencing system, named by the feature.
+
+        A feature has one (``lrs``), so the feature says which system it is, whatever
+        the system's ``gml:id``.
+        """
+        target = _local_target(href)
+        owner = None if target is None else self._local_owners().get(target)
+        if owner is None or owner not in self.pair_of:
+            return None
+        if getattr(self.model.get(owner), "lrs", None) != href:
+            return None
+        return f"lrs:={self.pair_of[owner]}"
 
     def _local_owners(self) -> dict[str, str | None]:
         """The node that defines each coordinate system written in the file, by ``gml:id``.
@@ -220,10 +291,54 @@ class Side:
             self._links = grouped
         return self._links.get(key, {})
 
+    def record_token(self, href: str) -> str | None:
+        """The pair of the matched record a local reference names by its ``gml:id``."""
+        target = _local_target(href)
+        if target is None or target not in self.pair_of:
+            return None
+        node = self.model.get(target)
+        if node is None or node.gml_id != target:
+            return None
+        return f"={self.pair_of[target]}"
+
+    def nested_token(self, href: str) -> str | None:
+        """The place of the element inside ``extra`` a local reference names, if it has one."""
+        target = _local_target(href)
+        if target is None or self.nested is None:
+            return None
+        return self.nested.token(self.which, target)
+
+    def attr_ref(self, name: str, value: str, *, placed: bool = True) -> Ref | str:
+        """An attribute inside ``extra``: a local reference by what it points to, else text.
+
+        ``xlink:href`` and ``srsName`` are the references. One that names a matched
+        record, a matched feature's linear referencing system, a coordinate system the
+        model describes or (with ``placed``) an identified element inside ``extra`` gives
+        a :class:`Ref`. Anything else stays the text it is: another document, an id
+        nothing in the model has (an element a typed field consumed), an id that two
+        elements have, a record only one file has.
+        """
+        if not (_is_href(name) or name == "srsName") or _local_target(value) is None:
+            return value
+        if name == "srsName" and value in self.model.crs:
+            return self.crs_ref(value)
+        token = self.record_token(value) or self._lrs_token(value)
+        if token is None and placed:
+            nested = self.nested_token(value)
+            token = None if nested is None else f"n:{nested}"
+        return value if token is None else Ref(token, value)
+
     def link_ref(self, link: Link) -> Ref:
-        if link.target is not None:
-            return self.node_ref(link.target)
-        return Ref(f"h:{link.href}", link.href)
+        if link.target is None:
+            return Ref(f"h:{link.href}", link.href)
+        ref = self.node_ref(link.target)
+        if self.record_token(link.href) is None:
+            # The link names an element inside the target record, not the record: which
+            # element is part of what it points to, when the model kept that element.
+            nested = self.nested_token(link.href)
+            if nested is not None:
+                return Ref(f"n:{nested}", ref.shown)
+        return ref
 
 
 _FIELD_NAMES: dict[Any, tuple[str, ...]] = {}
@@ -289,12 +404,20 @@ def _local(item: ExtraNode) -> str:
     return item.qname.rpartition(":")[2]
 
 
-def _digests(roots: Iterable[ExtraNode], memo: dict[int, str], tick: Tick) -> None:
+def _digests(
+    roots: Iterable[ExtraNode], memo: dict[int, str], tick: Tick, side: Side | None = None
+) -> None:
     """Put a digest of every ``extra`` subtree under ``roots`` in ``memo``, by ``id``.
 
     Two subtrees have the same digest when they hold the same elements in any order (a
-    prefix is not part of an element, its namespace is). Walked without recursion, and
-    each subtree once however often it is asked for.
+    prefix is not part of an element, its namespace is). An element's own ``gml:id`` is
+    not part of it, and a reference to a matched record or to a coordinate system counts
+    as what it names, so two subtrees that differ only in ids are equal. A reference to
+    an element inside ``extra`` stays its text here: where that element sits is only
+    known once the digests are, so subtrees holding one are never called equal on the
+    strength of a guess. Walked without recursion, and each subtree once however often it
+    is asked for. ``memo`` is for one file: the same element may sit in both models and
+    resolve differently.
     """
     stack = [(root, False) for root in roots]
     while stack:
@@ -309,13 +432,22 @@ def _digests(roots: Iterable[ExtraNode], memo: dict[int, str], tick: Tick) -> No
         record = (
             _local(node),
             node.ns or "",
-            sorted(node.attrs.items()),
+            sorted(_digest_attrs(node, side)),
             node.text,
             sorted(memo[id(child)] for child in node.children),
         )
         memo[id(node)] = hashlib.blake2b(
             repr(record).encode("utf-8", "surrogatepass"), digest_size=16
         ).hexdigest()
+
+
+def _digest_attrs(node: ExtraNode, side: Side | None) -> Iterator[tuple[str, object]]:
+    for name, value in node.attrs.items():
+        if own_id(name):
+            continue
+        ref = value if side is None else side.attr_ref(name, value, placed=False)
+        # A tuple cannot be mistaken for the text of an attribute.
+        yield name, ("ref", ref.token) if isinstance(ref, Ref) else ref
 
 
 def _by_name(items: Iterable[ExtraNode]) -> dict[str, list[ExtraNode]]:
@@ -325,58 +457,74 @@ def _by_name(items: Iterable[ExtraNode]) -> dict[str, list[ExtraNode]]:
     return groups
 
 
+Memos = tuple[dict[int, str], dict[int, str]]
+Sides = tuple[Side | None, Side | None]
+_NO_SIDES: Final[Sides] = (None, None)
+
+
 def _unlike(
-    old: list[ExtraNode], new: list[ExtraNode], memo: dict[int, str], tick: Tick
-) -> tuple[int, list[ExtraNode], list[ExtraNode]]:
-    """Same-named siblings without the subtrees both sides hold, and how many those were.
+    old: list[ExtraNode], new: list[ExtraNode], memos: Memos, sides: Sides, tick: Tick
+) -> tuple[tuple[list[ExtraNode], list[ExtraNode]], tuple[list[ExtraNode], list[ExtraNode]]]:
+    """Same-named siblings split in two: those only one side holds, and those both hold.
 
     An element that repeats has no identity but its content, so its place among its
     siblings is not a difference: equal subtrees cancel out wherever they stand, and what
     is left on each side keeps its document order.
     """
-    _digests((*old, *new), memo, tick)
-    in_old = Counter(memo[id(item)] for item in old)
-    in_new = Counter(memo[id(item)] for item in new)
+    _digests(old, memos[0], tick, sides[0])
+    _digests(new, memos[1], tick, sides[1])
+    in_old = Counter(memos[0][id(item)] for item in old)
+    in_new = Counter(memos[1][id(item)] for item in new)
     rest: list[list[ExtraNode]] = []
-    for items, other in ((old, in_new), (new, in_old)):
+    both: list[list[ExtraNode]] = []
+    for items, memo, other in ((old, memos[0], in_new), (new, memos[1], in_old)):
         spare = Counter(other)
-        kept = []
+        kept, gone = [], []
         for item in items:
             digest = memo[id(item)]
             if spare[digest] > 0:
                 spare[digest] -= 1
+                gone.append(item)
             else:
                 kept.append(item)
         rest.append(kept)
-    return len(old) - len(rest[0]), rest[0], rest[1]
+        both.append(gone)
+    return (rest[0], rest[1]), (both[0], both[1])
 
 
-def _put_element(out: dict[str, Any], path: str, item: ExtraNode) -> None:
+def _put_element(out: dict[str, Any], path: str, item: ExtraNode, side: Side | None) -> None:
     # The namespace is written even when there is none, so that an element with no
     # namespace, attribute, text or child still has a leaf and is seen to come or go.
     out[f"{path}#ns"] = item.ns or ""
     for key, value in item.attrs.items():
-        out[f"{path}@{seg(key)}"] = value
+        if own_id(key):
+            continue  # which element this is in its file, not a value of it
+        out[f"{path}@{seg(key)}"] = value if side is None else side.attr_ref(key, value)
     if item.text is not None:
         out[f"{path}#text"] = item.text
 
 
-def put_extra(
-    outs: tuple[dict[str, Any], dict[str, Any]],
-    prefix: str,
-    old: Iterable[ExtraNode],
-    new: Iterable[ExtraNode],
-    tick: Tick = _no_tick,
-) -> None:
-    """Flatten the ``extra`` elements of both sides, in any order, into ``outs``.
+#: How :func:`_walk_extra` met an element: walked (its leaves are compared and its children
+#: follow), equal on both sides (cancelled whole), or too deep (compared as one digest).
+OPEN: Final = "open"
+EQUAL: Final = "equal"
+DEEP: Final = "deep"
+
+_Met = tuple[str, tuple[ExtraNode | None, ExtraNode | None], str]
+#: The ``extra`` elements of the old and of the new side.
+Both = tuple[Iterable[ExtraNode], Iterable[ExtraNode]]
+
+
+def _walk_extra(prefix: str, both: Both, sides: Sides, memos: Memos, tick: Tick) -> Iterator[_Met]:
+    """The ``extra`` elements of both sides with the path each one is compared at.
 
     The two sides are numbered together, because a path has to mean the same element in
     both: same-named siblings that are equal on both sides take the first numbers and add
-    nothing, and the rest follow in document order.
+    nothing (they are met as :data:`EQUAL`, one side at a time, at the path of their
+    group), and the rest follow in document order, an old one with a new one.
     """
-    memo: dict[int, str] = {}
     stack: list[tuple[str, Sequence[ExtraNode], Sequence[ExtraNode], int]] = [
-        (prefix, tuple(old), tuple(new), 0)
+        (prefix, tuple(both[0]), tuple(both[1]), 0)
     ]
     while stack:
         base, olds, news, depth = stack.pop()
@@ -385,24 +533,164 @@ def put_extra(
             a, b = old_groups.get(name, []), new_groups.get(name, [])
             first = 1
             if a and b and len(a) + len(b) > 2:  # noqa: PLR2004 - one each needs no telling apart
-                equal, a, b = _unlike(a, b, memo, tick)
-                first += equal
+                (a, b), (same_old, same_new) = _unlike(a, b, memos, sides, tick)
+                first += len(same_old)
+                group = f"{base}.{seg(name)}"
+                for item in same_old:
+                    yield group, (item, None), EQUAL
+                for item in same_new:
+                    yield group, (None, item), EQUAL
             for n in range(max(len(a), len(b))):
                 tick(1)
                 path = f"{base}.{seg(name)}[{first + n}]"
                 pair = (a[n] if n < len(a) else None, b[n] if n < len(b) else None)
                 if depth >= MAX_EXTRA_DEPTH:
-                    _digests((item for item in pair if item is not None), memo, tick)
-                    for out, item in zip(outs, pair, strict=True):
-                        if item is not None:
-                            out[f"{path}#deep"] = memo[id(item)]
+                    for deep, memo, side in zip(pair, memos, sides, strict=True):
+                        if deep is not None:
+                            _digests((deep,), memo, tick, side)
+                    yield path, pair, DEEP
                     continue
-                for out, item in zip(outs, pair, strict=True):
-                    if item is not None:
-                        _put_element(out, path, item)
+                yield path, pair, OPEN
                 below = tuple(() if item is None else item.children for item in pair)
                 if below[0] or below[1]:
                     stack.append((path, below[0], below[1], depth + 1))
+
+
+def put_extra(
+    outs: tuple[dict[str, Any], dict[str, Any]],
+    prefix: str,
+    both: Both,
+    tick: Tick = _no_tick,
+    sides: Sides = _NO_SIDES,
+) -> None:
+    """Flatten the ``extra`` elements of both sides (old, new), in any order, into ``outs``.
+
+    The paths are those of :func:`_walk_extra`. With ``sides``, a reference is compared
+    by what it points to; without, as text.
+    """
+    memos: Memos = ({}, {})
+    for path, pair, met in _walk_extra(prefix, both, sides, memos, tick):
+        if met == EQUAL:
+            continue
+        for out, item, memo, side in zip(outs, pair, memos, sides, strict=True):
+            if item is None:
+                continue
+            if met == DEEP:
+                out[f"{path}#deep"] = memo[id(item)]
+            else:
+                _put_element(out, path, item, side)
+
+
+def _extras(old: Node, new: Node) -> Iterator[tuple[str, Both]]:
+    """The ``extra`` lists of two matched nodes, each with the prefix of its paths."""
+    yield "extra", (old.extra, new.extra)
+    procedures = (getattr(old, "procedure", None), getattr(new, "procedure", None))
+    below = [() if procedure is None else procedure.extra for procedure in procedures]
+    yield "procedure.extra", (below[0], below[1])
+
+
+def _node_extra(node: Node) -> Iterator[ExtraNode]:
+    """Every element kept in the ``extra`` of ``node`` and of its procedure, at any depth."""
+    procedure = getattr(node, "procedure", None)
+    stack = [*node.extra, *(procedure.extra if procedure is not None else ())]
+    while stack:
+        item = stack.pop()
+        yield item
+        stack.extend(item.children)
+
+
+#: For each file, the place of each id inside ``extra`` (None: it has none).
+_Places = tuple[dict[str, str | None], dict[str, str | None]]
+
+
+class NestedIds:
+    """Where each identified element inside ``extra`` sits, in both files.
+
+    A ``gml:id`` inside ``extra`` (a geometry, a time instant) is not compared, so a
+    reference to one cannot be compared as text either: the place of the element it names
+    is. The place is the pair of the record that holds the element and the path the
+    element is compared at, which is the same in both files for the same element whatever
+    its id and whatever the order of its siblings. An element that was cancelled with an
+    equal one on the other side has no path of its own; its place is its group and its
+    content, down to the element.
+
+    An id has no place, and a reference to it stays text, when more than one element of
+    its file has the id, when a record has it, when another element shares the place (two
+    equal siblings cannot be told apart), when its record is in one file only, or when it
+    lies deeper than the depth compared. Built on first use: a file with no such
+    reference never pays for it.
+    """
+
+    def __init__(
+        self, pairs: Sequence[tuple[Node, Node]], sides: tuple[Side, Side], tick: Tick
+    ) -> None:
+        self._pairs = pairs
+        self._sides = sides
+        self._tick = tick
+        self._places: _Places | None = None
+        self._used: tuple[Counter[str], Counter[str]] = (Counter(), Counter())
+
+    def token(self, which: int, gml_id: str) -> str | None:
+        """The place of the element with ``gml_id`` in file ``which`` (0 old, 1 new)."""
+        if self._places is None:
+            self._places = self._build()
+        return self._places[which].get(gml_id)
+
+    def _claim(self, places: _Places, which: int, item: ExtraNode, place: str | None) -> None:
+        """Give the ids of ``item`` its place; an id met twice has none."""
+        ids = [value for name, value in item.attrs.items() if own_id(name)]
+        if ids and place is not None:
+            self._used[which][place] += 1
+        for gml_id in ids:
+            places[which][gml_id] = place if gml_id not in places[which] else None
+
+    def _claim_equal(
+        self, places: _Places, which: int, root: ExtraNode, place: str, memo: dict[int, str]
+    ) -> None:
+        """Place every element of a subtree that was cancelled whole, by content."""
+        stack = [(root, f"{place}~{memo[id(root)]}")]
+        while stack:
+            item, at = stack.pop()
+            self._tick(1)
+            self._claim(places, which, item, at)
+            stack.extend(
+                (child, f"{at}/{seg(_local(child))}~{memo[id(child)]}") for child in item.children
+            )
+
+    def _build(self) -> _Places:
+        places: _Places = ({}, {})
+        for old, new in self._pairs:
+            number = self._sides[0].pair_of[old.key]
+            for prefix, both in _extras(old, new):
+                memos: Memos = ({}, {})
+                for path, pair, met in _walk_extra(prefix, both, self._sides, memos, self._tick):
+                    for which, item in enumerate(pair):
+                        if item is None or met == DEEP:
+                            continue
+                        place = f"{number}/{path}"
+                        if met == OPEN:
+                            self._claim(places, which, item, place)
+                        else:
+                            self._claim_equal(places, which, item, place, memos[which])
+        for which, side in enumerate(self._sides):
+            self._drop_unsure(places[which], side, self._used[which])
+        return places
+
+    def _drop_unsure(self, found: dict[str, str | None], side: Side, used: Counter[str]) -> None:
+        """Take the place from every id that does not name one element for certain."""
+        for node in side.model.nodes():
+            self._tick(1)
+            if node.gml_id is not None and node.gml_id in found:
+                found[node.gml_id] = None  # a record has the id too
+            if node.key not in side.pair_of:
+                for item in _node_extra(node):
+                    self._tick(1)
+                    for name, value in item.attrs.items():
+                        if own_id(name):
+                            found[value] = None  # its record is in this file only
+        for gml_id, place in found.items():
+            if place is not None and used[place] > 1:
+                found[gml_id] = None  # two elements share the place
 
 
 def _put_node(node: Node, side: Side, tick: Tick) -> dict[str, Any]:
@@ -426,10 +714,8 @@ def flatten(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Every value of two matched nodes that takes part in a comparison, by path."""
     outs = (_put_node(old, sides[0], tick), _put_node(new, sides[1], tick))
-    put_extra(outs, "extra", old.extra, new.extra, tick)
-    procedures = (getattr(old, "procedure", None), getattr(new, "procedure", None))
-    below = tuple(() if procedure is None else procedure.extra for procedure in procedures)
-    put_extra(outs, "procedure.extra", below[0], below[1], tick)
+    for prefix, both in _extras(old, new):
+        put_extra(outs, prefix, both, tick, sides)
     return outs
 
 
