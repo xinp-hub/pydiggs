@@ -1,0 +1,658 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<Diggs xmlns="http://diggsml.org/schemas/3" xmlns:glr="http://www.opengis.net/gml/3.3/lr" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://diggsml.org/schemas/3 https://diggsml.org/schemas/3.0.0/Diggs.xsd" gml:id="Diggs">
+  <documentInformation>
+    <DocumentInformation>
+      <gml:description>Tier A conversion fixture</gml:description>
+      <creationDate>2026-11-12</creationDate>
+    </DocumentInformation>
+  </documentInformation>
+  <project>
+    <Project gml:id="project-PX-100">
+      <gml:name>PX-100</gml:name>
+      <gml:name>Riverside Test Site</gml:name>
+      <remark>
+        <Remark>
+          <content>Synthetic data written for pyDIGGS tests</content>
+        </Remark>
+      </remark>
+      <locality>
+        <Locality gml:id="project-PX-100.locality">
+          <gml:description>Exampletown</gml:description>
+        </Locality>
+      </locality>
+    </Project>
+  </project>
+  <samplingFeature>
+    <Borehole gml:id="BH01">
+      <gml:name>BH01</gml:name>
+      <projectRef xlink:href="#project-PX-100"/>
+      <referencePoint>
+        <PointLocation gml:id="BH01.referencePoint" srsName="http://www.opengis.net/def/crs/EPSG/0/27700" srsDimension="3">
+          <gml:pos>451200 206500 12.5</gml:pos>
+        </PointLocation>
+      </referencePoint>
+      <centerLine>
+        <LinearExtent gml:id="BH01.centerLine" srsName="http://www.opengis.net/def/crs/EPSG/0/27700" srsDimension="3">
+          <gml:posList>451200 206500 12.5</gml:posList>
+        </LinearExtent>
+      </centerLine>
+      <linearReferencing>
+        <LinearSpatialReferenceSystem gml:id="BH01-lrs">
+          <gml:identifier codeSpace="urn:x-pydiggs:id">BH01-lrs</gml:identifier>
+          <glr:linearElement xlink:href="#BH01.centerLine"/>
+          <lrm>
+            <LinearReferencingMethod gml:id="BH01-lrs.lrm">
+              <gml:identifier codeSpace="urn:x-pydiggs:id">BH01-lrs.lrm</gml:identifier>
+              <name>trueMeters</name>
+              <type>absolute</type>
+              <units>m</units>
+            </LinearReferencingMethod>
+          </lrm>
+        </LinearSpatialReferenceSystem>
+      </linearReferencing>
+      <whenConstructed>
+        <TimeInterval gml:id="BH01.whenConstructed">
+          <start>2026-03-02</start>
+          <end>2026-03-04</end>
+        </TimeInterval>
+      </whenConstructed>
+      <totalMeasuredDepth uom="m">15.00</totalMeasuredDepth>
+      <boreholeType codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/boreholeType.xml">CP</boreholeType>
+    </Borehole>
+  </samplingFeature>
+  <samplingFeature>
+    <Borehole gml:id="BH02">
+      <gml:name>BH02</gml:name>
+      <remark>
+        <Remark>
+          <content>Stopped on an obstruction</content>
+        </Remark>
+      </remark>
+      <projectRef xlink:href="#project-PX-100"/>
+      <referencePoint>
+        <PointLocation gml:id="BH02.referencePoint" srsName="http://www.opengis.net/def/crs/EPSG/0/27700" srsDimension="3">
+          <gml:pos>451260.5 206480.25 11.8</gml:pos>
+        </PointLocation>
+      </referencePoint>
+      <centerLine>
+        <LinearExtent gml:id="BH02.centerLine" srsName="http://www.opengis.net/def/crs/EPSG/0/27700" srsDimension="3">
+          <gml:posList>451260.5 206480.25 11.8</gml:posList>
+        </LinearExtent>
+      </centerLine>
+      <linearReferencing>
+        <LinearSpatialReferenceSystem gml:id="BH02-lrs">
+          <gml:identifier codeSpace="urn:x-pydiggs:id">BH02-lrs</gml:identifier>
+          <glr:linearElement xlink:href="#BH02.centerLine"/>
+          <lrm>
+            <LinearReferencingMethod gml:id="BH02-lrs.lrm">
+              <gml:identifier codeSpace="urn:x-pydiggs:id">BH02-lrs.lrm</gml:identifier>
+              <name>trueMeters</name>
+              <type>absolute</type>
+              <units>m</units>
+            </LinearReferencingMethod>
+          </lrm>
+        </LinearSpatialReferenceSystem>
+      </linearReferencing>
+      <whenConstructed>
+        <TimeInterval gml:id="BH02.whenConstructed">
+          <start>2026-03-05</start>
+          <end>2026-03-05</end>
+        </TimeInterval>
+      </whenConstructed>
+      <totalMeasuredDepth uom="m">10.00</totalMeasuredDepth>
+      <boreholeType codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/boreholeType.xml">RC</boreholeType>
+    </Borehole>
+  </samplingFeature>
+  <samplingFeature>
+    <TrialPit gml:id="TP01">
+      <gml:name>TP01</gml:name>
+      <projectRef xlink:href="#project-PX-100"/>
+      <referencePoint>
+        <PointLocation gml:id="TP01.referencePoint" srsName="http://www.opengis.net/def/crs/EPSG/0/27700" srsDimension="3">
+          <gml:pos>451230 206520 12.1</gml:pos>
+        </PointLocation>
+      </referencePoint>
+      <centerLine>
+        <LinearExtent gml:id="TP01.centerLine" srsName="http://www.opengis.net/def/crs/EPSG/0/27700" srsDimension="3">
+          <gml:posList>451230 206520 12.1</gml:posList>
+        </LinearExtent>
+      </centerLine>
+      <linearReferencing>
+        <LinearSpatialReferenceSystem gml:id="TP01-lrs">
+          <gml:identifier codeSpace="urn:x-pydiggs:id">TP01-lrs</gml:identifier>
+          <glr:linearElement xlink:href="#TP01.centerLine"/>
+          <lrm>
+            <LinearReferencingMethod gml:id="TP01-lrs.lrm">
+              <gml:identifier codeSpace="urn:x-pydiggs:id">TP01-lrs.lrm</gml:identifier>
+              <name>trueMeters</name>
+              <type>absolute</type>
+              <units>m</units>
+            </LinearReferencingMethod>
+          </lrm>
+        </LinearSpatialReferenceSystem>
+      </linearReferencing>
+      <whenConstructed>
+        <TimeInterval gml:id="TP01.whenConstructed">
+          <start>2026-03-06</start>
+        </TimeInterval>
+      </whenConstructed>
+      <totalMeasuredDepth uom="m">3.20</totalMeasuredDepth>
+    </TrialPit>
+  </samplingFeature>
+  <samplingActivity>
+    <SamplingActivity gml:id="BH01-U1-sampling">
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <samplingLocation>
+        <LinearExtent gml:id="BH01-U1-sampling.samplingLocation" srsName="#BH01-lrs" srsDimension="1">
+          <gml:posList>2.00 2.45</gml:posList>
+        </LinearExtent>
+      </samplingLocation>
+      <activityType>collect</activityType>
+      <sampleProduced>
+        <SampleProduced gml:id="BH01-U1-sampling.sampleProduced">
+          <location>
+            <LinearExtent gml:id="BH01-U1-sampling.sampleProduced.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:posList>2.00 2.45</gml:posList>
+            </LinearExtent>
+          </location>
+        </SampleProduced>
+      </sampleProduced>
+      <samplingDate>
+        <TimeInterval gml:id="BH01-U1-sampling.samplingDate">
+          <start>2026-03-02T10:15:00</start>
+        </TimeInterval>
+      </samplingDate>
+      <totalSampleRecovery uom="%">85</totalSampleRecovery>
+    </SamplingActivity>
+  </samplingActivity>
+  <samplingActivity>
+    <SamplingActivity gml:id="BH01-D2-sampling">
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <samplingLocation>
+        <LinearExtent gml:id="BH01-D2-sampling.samplingLocation" srsName="#BH01-lrs" srsDimension="1">
+          <gml:posList>7.00 7.50</gml:posList>
+        </LinearExtent>
+      </samplingLocation>
+      <activityType>collect</activityType>
+      <sampleProduced>
+        <SampleProduced gml:id="BH01-D2-sampling.sampleProduced">
+          <location>
+            <LinearExtent gml:id="BH01-D2-sampling.sampleProduced.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:posList>7.00 7.50</gml:posList>
+            </LinearExtent>
+          </location>
+        </SampleProduced>
+      </sampleProduced>
+      <samplingDate>
+        <TimeInterval gml:id="BH01-D2-sampling.samplingDate">
+          <start>2026-03-03T09:00:00</start>
+        </TimeInterval>
+      </samplingDate>
+    </SamplingActivity>
+  </samplingActivity>
+  <samplingActivity>
+    <SamplingActivity gml:id="BH02-D1-sampling">
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH02"/>
+      <samplingLocation>
+        <LinearExtent gml:id="BH02-D1-sampling.samplingLocation" srsName="#BH02-lrs" srsDimension="1">
+          <gml:posList>1.00 1.20</gml:posList>
+        </LinearExtent>
+      </samplingLocation>
+      <activityType>collect</activityType>
+      <sampleProduced>
+        <SampleProduced gml:id="BH02-D1-sampling.sampleProduced">
+          <location>
+            <LinearExtent gml:id="BH02-D1-sampling.sampleProduced.location" srsName="#BH02-lrs" srsDimension="1">
+              <gml:posList>1.00 1.20</gml:posList>
+            </LinearExtent>
+          </location>
+        </SampleProduced>
+      </sampleProduced>
+    </SamplingActivity>
+  </samplingActivity>
+  <sample>
+    <Sample gml:id="BH01-U1">
+      <gml:description>Grey silty CLAY</gml:description>
+      <gml:name>BH01-U1</gml:name>
+      <internalIdentifier codeSpace="urn:x-pydiggs:ags4:SAMP_REF">1</internalIdentifier>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingActivityRef xlink:href="#BH01-U1-sampling"/>
+      <sampleProducedRef xlink:href="#BH01-U1-sampling.sampleProduced"/>
+      <type codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml">open_tube</type>
+    </Sample>
+  </sample>
+  <sample>
+    <Sample gml:id="BH01-D2">
+      <gml:name>BH01-D2</gml:name>
+      <internalIdentifier codeSpace="urn:x-pydiggs:ags4:SAMP_REF">2</internalIdentifier>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingActivityRef xlink:href="#BH01-D2-sampling"/>
+      <sampleProducedRef xlink:href="#BH01-D2-sampling.sampleProduced"/>
+      <type codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml">small_disturbed</type>
+    </Sample>
+  </sample>
+  <sample>
+    <Sample gml:id="BH02-D1">
+      <gml:name>BH02-D1</gml:name>
+      <internalIdentifier codeSpace="urn:x-pydiggs:ags4:SAMP_REF">1</internalIdentifier>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingActivityRef xlink:href="#BH02-D1-sampling"/>
+      <sampleProducedRef xlink:href="#BH02-D1-sampling.sampleProduced"/>
+      <type codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml">small_disturbed</type>
+    </Sample>
+  </sample>
+  <observation>
+    <LithologySystem gml:id="BH01-GEOL">
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <lithologyClassificationType>unspecified</lithologyClassificationType>
+      <lithologyObservation>
+        <LithologyObservation gml:id="BH01-GEOL-1">
+          <location>
+            <LinearExtent gml:id="BH01-GEOL-1.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:posList>0.00 1.20</gml:posList>
+            </LinearExtent>
+          </location>
+          <primaryLithology>
+            <Lithology>
+              <lithDescription>MADE GROUND: brown sandy gravel</lithDescription>
+              <legendCode>102</legendCode>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+      <lithologyObservation>
+        <LithologyObservation gml:id="BH01-GEOL-2">
+          <remark>
+            <Remark>
+              <content>Organic odour</content>
+            </Remark>
+          </remark>
+          <location>
+            <LinearExtent gml:id="BH01-GEOL-2.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:posList>1.20 6.50</gml:posList>
+            </LinearExtent>
+          </location>
+          <primaryLithology>
+            <Lithology>
+              <lithDescription>Soft grey silty CLAY</lithDescription>
+              <legendCode>201</legendCode>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+      <lithologyObservation>
+        <LithologyObservation gml:id="BH01-GEOL-3">
+          <location>
+            <LinearExtent gml:id="BH01-GEOL-3.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:posList>6.50 15.00</gml:posList>
+            </LinearExtent>
+          </location>
+          <primaryLithology>
+            <Lithology>
+              <lithDescription>Dense grey SAND</lithDescription>
+              <legendCode>401</legendCode>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+    </LithologySystem>
+  </observation>
+  <observation>
+    <LithologySystem gml:id="BH02-GEOL">
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH02"/>
+      <lithologyClassificationType>unspecified</lithologyClassificationType>
+      <lithologyObservation>
+        <LithologyObservation gml:id="BH02-GEOL-4">
+          <location>
+            <LinearExtent gml:id="BH02-GEOL-4.location" srsName="#BH02-lrs" srsDimension="1">
+              <gml:posList>0.00 10.00</gml:posList>
+            </LinearExtent>
+          </location>
+          <primaryLithology>
+            <Lithology>
+              <lithDescription>Firm brown CLAY</lithDescription>
+              <legendCode>201</legendCode>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+    </LithologySystem>
+  </observation>
+  <observation>
+    <LithologySystem gml:id="TP01-GEOL">
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#TP01"/>
+      <lithologyClassificationType>unspecified</lithologyClassificationType>
+      <lithologyObservation>
+        <LithologyObservation gml:id="TP01-GEOL-5">
+          <location>
+            <LinearExtent gml:id="TP01-GEOL-5.location" srsName="#TP01-lrs" srsDimension="1">
+              <gml:posList>0.00 3.20</gml:posList>
+            </LinearExtent>
+          </location>
+          <primaryLithology>
+            <Lithology>
+              <lithDescription>Firm brown CLAY with gravel</lithDescription>
+              <legendCode>201</legendCode>
+            </Lithology>
+          </primaryLithology>
+        </LithologyObservation>
+      </lithologyObservation>
+    </LithologySystem>
+  </observation>
+  <measurement>
+    <Test gml:id="ISPT-1">
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <outcome>
+        <TestResult>
+          <location>
+            <PointLocation gml:id="ISPT-1.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:pos>7</gml:pos>
+            </PointLocation>
+          </location>
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters>
+                  <properties>
+                    <Property index="1">
+                      <propertyName>ISPT_NVAL</propertyName>
+                      <typeData>integer</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#n_value">n_value</propertyClass>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">32</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+      <procedure>
+        <DrivenPenetrationTest gml:id="ISPT-1.procedure">
+          <penetrationTestType>SPT</penetrationTestType>
+          <hammerEfficiency uom="%">72</hammerEfficiency>
+          <totalPenetration uom="mm">450</totalPenetration>
+        </DrivenPenetrationTest>
+      </procedure>
+    </Test>
+  </measurement>
+  <measurement>
+    <Test gml:id="ISPT-2">
+      <remark>
+        <Remark>
+          <content>Hard driving</content>
+        </Remark>
+      </remark>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <outcome>
+        <TestResult>
+          <location>
+            <PointLocation gml:id="ISPT-2.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:pos>9</gml:pos>
+            </PointLocation>
+          </location>
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters>
+                  <properties>
+                    <Property index="1">
+                      <propertyName>ISPT_NVAL</propertyName>
+                      <typeData>integer</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#n_value">n_value</propertyClass>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">41</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+      <procedure>
+        <DrivenPenetrationTest gml:id="ISPT-2.procedure">
+          <penetrationTestType>SPT</penetrationTestType>
+          <hammerEfficiency uom="%">72</hammerEfficiency>
+          <totalPenetration uom="mm">450</totalPenetration>
+        </DrivenPenetrationTest>
+      </procedure>
+    </Test>
+  </measurement>
+  <measurement>
+    <Test gml:id="LLPL-1">
+      <gml:name>A</gml:name>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <sampleRef xlink:href="#BH01-U1"/>
+      <outcome>
+        <TestResult>
+          <location>
+            <PointLocation gml:id="LLPL-1.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:pos>2.1</gml:pos>
+            </PointLocation>
+          </location>
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters>
+                  <properties>
+                    <Property index="1">
+                      <propertyName>LLPL_LL</propertyName>
+                      <typeData>integer</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#liquid_limit">liquid_limit</propertyClass>
+                    </Property>
+                    <Property index="2">
+                      <propertyName>LLPL_PL</propertyName>
+                      <typeData>integer</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#plastic_limit">plastic_limit</propertyClass>
+                    </Property>
+                    <Property index="3">
+                      <propertyName>LLPL_PI</propertyName>
+                      <typeData>integer</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#plasticity_index">plasticity_index</propertyClass>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">48,22,26</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+      <procedure>
+        <AtterbergLimitsTest gml:id="LLPL-1.procedure"/>
+      </procedure>
+    </Test>
+  </measurement>
+  <measurement>
+    <Test gml:id="LLPL-2">
+      <gml:name>A</gml:name>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH02"/>
+      <sampleRef xlink:href="#BH02-D1"/>
+      <outcome>
+        <TestResult>
+          <location>
+            <PointLocation gml:id="LLPL-2.location" srsName="#BH02-lrs" srsDimension="1">
+              <gml:pos>1.05</gml:pos>
+            </PointLocation>
+          </location>
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters>
+                  <properties>
+                    <Property index="1">
+                      <propertyName>non_plastic</propertyName>
+                      <typeData>boolean</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#non_plastic">non_plastic</propertyClass>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">true</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+      <procedure>
+        <AtterbergLimitsTest gml:id="LLPL-2.procedure"/>
+      </procedure>
+    </Test>
+  </measurement>
+  <measurement>
+    <Test gml:id="LNMC-1">
+      <gml:name>A</gml:name>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <sampleRef xlink:href="#BH01-U1"/>
+      <outcome>
+        <TestResult>
+          <location>
+            <PointLocation gml:id="LNMC-1.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:pos>2.1</gml:pos>
+            </PointLocation>
+          </location>
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters>
+                  <properties>
+                    <Property index="1">
+                      <propertyName>LNMC_MC</propertyName>
+                      <typeData>double</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#water_content_natural">water_content_natural</propertyClass>
+                      <uom>%</uom>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">31.5</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+      <procedure>
+        <WaterContentTest gml:id="LNMC-1.procedure">
+          <dryingTemperature uom="degC">105</dryingTemperature>
+        </WaterContentTest>
+      </procedure>
+    </Test>
+  </measurement>
+  <measurement>
+    <Test gml:id="LNMC-2">
+      <gml:name>A</gml:name>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <sampleRef xlink:href="#BH01-D2"/>
+      <outcome>
+        <TestResult>
+          <location>
+            <PointLocation gml:id="LNMC-2.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:pos>7.2</gml:pos>
+            </PointLocation>
+          </location>
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters>
+                  <properties>
+                    <Property index="1">
+                      <propertyName>LNMC_MC</propertyName>
+                      <typeData>double</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#water_content_natural">water_content_natural</propertyClass>
+                      <uom>%</uom>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">18.2</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+      <procedure>
+        <WaterContentTest gml:id="LNMC-2.procedure">
+          <dryingTemperature uom="degC">105</dryingTemperature>
+        </WaterContentTest>
+      </procedure>
+    </Test>
+  </measurement>
+  <measurement>
+    <Test gml:id="GRAG-1">
+      <gml:name>A</gml:name>
+      <projectRef xlink:href="#project-PX-100"/>
+      <samplingFeatureRef xlink:href="#BH01"/>
+      <sampleRef xlink:href="#BH01-D2"/>
+      <outcome>
+        <TestResult>
+          <location>
+            <PointLocation gml:id="GRAG-1.location" srsName="#BH01-lrs" srsDimension="1">
+              <gml:pos>7.2</gml:pos>
+            </PointLocation>
+          </location>
+          <results>
+            <ResultSet>
+              <parameters>
+                <PropertyParameters>
+                  <properties>
+                    <Property index="1">
+                      <propertyName>GRAG_UC</propertyName>
+                      <typeData>double</typeData>
+                      <propertyClass codeSpace="https://diggsml.org/def/codes/DIGGS/0.1/properties.xml#coef_uniformity">coef_uniformity</propertyClass>
+                    </Property>
+                  </properties>
+                </PropertyParameters>
+              </parameters>
+              <dataValues cs="," ts=" ">4.5</dataValues>
+            </ResultSet>
+          </results>
+        </TestResult>
+      </outcome>
+      <procedure>
+        <ParticleSizeTest gml:id="GRAG-1.procedure">
+          <sieveAnalysis>
+            <SieveAnalysis gml:id="GRAT-1-sieveAnalysis">
+              <gradingData>
+                <Grading gml:id="GRAT-1">
+                  <particleSize uom="mm">20.0</particleSize>
+                  <percentPassing uom="%">100</percentPassing>
+                </Grading>
+              </gradingData>
+              <gradingData>
+                <Grading gml:id="GRAT-2">
+                  <particleSize uom="mm">2.00</particleSize>
+                  <percentPassing uom="%">88</percentPassing>
+                </Grading>
+              </gradingData>
+              <gradingData>
+                <Grading gml:id="GRAT-3">
+                  <particleSize uom="mm">0.063</particleSize>
+                  <percentPassing uom="%">18</percentPassing>
+                </Grading>
+              </gradingData>
+            </SieveAnalysis>
+          </sieveAnalysis>
+          <hydrometer>
+            <Hydrometer gml:id="GRAT-4-hydrometer">
+              <sedimentationData>
+                <Sedimentation gml:id="GRAT-4">
+                  <particleDiameter uom="mm">0.020</particleDiameter>
+                  <percentPassing uom="%">12</percentPassing>
+                </Sedimentation>
+              </sedimentationData>
+            </Hydrometer>
+          </hydrometer>
+        </ParticleSizeTest>
+      </procedure>
+    </Test>
+  </measurement>
+</Diggs>

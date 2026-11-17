@@ -94,7 +94,7 @@ def test_the_schema_refuses_a_bad_table(change: Any, message: str):
 
 def test_the_table_is_versioned_and_convert_names_its_version():
     mapping = load_mapping()
-    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.1"
+    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.2"
     assert mapping.diggs_versions == ("3.0.0",)
     assert mapping.ags_versions == ("4.0.3", "4.0.4", "4.1", "4.1.1", "4.2")
     for name in ("units.toml", "codes.toml"):
@@ -110,7 +110,7 @@ def test_tiers_a_and_b_are_covered_and_every_group_is_reviewed():
     mapping = load_mapping()
     assert set(mapping.groups) == TIER_A | TIER_B
     assert {group.status for group in mapping.groups.values()} == {"reviewed"}
-    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.1"
+    assert mapping.mapping_version == convert.MAPPING_VERSION == "1.2"
     assert mapping.groups["WSTG"].data == "WSTD"
     assert mapping.groups["SCPG"].data == "SCPT" and mapping.groups["CPTG"].data == "CPTT"
     assert mapping.groups["SCPG"].written_for("4.1.1") and not mapping.groups["SCPG"].written_for(

@@ -210,7 +210,7 @@ def test_model_to_ags4_writes_a_file_that_passes_the_check(tier_b: convert.Conve
     assert {u for g in out.ags4.groups.values() for u in g.units if u} <= units
     assert out.report.steps[pydiggs.Step.CONVERT] == "passed"
     tran = out.ags4.groups["TRAN"].records()[0]
-    assert "mapping table 1.1" in tran["TRAN_REM"]
+    assert "mapping table 1.2" in tran["TRAN_REM"]
 
 
 def test_the_ags4_version_selects_the_cone_groups(tier_b: convert.Conversion):

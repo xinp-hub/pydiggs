@@ -84,10 +84,12 @@ _TS: Final = " "
 #: Lithology classification codes, in the order DIGGS lists them (as the reader).
 _CLASSIFICATION: Final = ("classificationCode", "classificationSymbol", "legendCode")
 #: Unit of a linear referencing system -> the DIGGS 3 name of its method (true distance
-#: along the centerline). Other units have no name in ``LinearReferencingMethodNameEnum``.
+#: along the centerline). Other units have no name in ``LinearReferencingMethodNameEnum``,
+#: except through its ``Other: <text>`` form, which the US survey foot uses.
 _LRM_NAMES: Final = {
     "m": "trueMeters",
     "ft": "trueFootage",
+    "ft[US]": "Other: trueUSSurveyFootage",
     "cm": "trueCentimeters",
     "in": "trueInches",
 }

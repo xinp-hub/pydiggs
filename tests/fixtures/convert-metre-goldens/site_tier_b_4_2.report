@@ -1,0 +1,23 @@
+convert.unmapped-heading|Heading PROJ_CLNT of PROJ has no DIGGS target (a client is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_ISNO of TRAN has no DIGGS target (DocumentInformation has no issue number); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_PROD of TRAN has no DIGGS target (the producer is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_RECV of TRAN has no DIGGS target (the recipient is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_STAT of TRAN has no DIGGS target (DocumentInformation has no issue status); not converted (1 value).
+convert.assumed|Ground levels (LOCA_GL) of LOCA were written as the third coordinate of a CRS that does not state their vertical datum (2 times).
+convert.assumed|LOCA rows with an empty LOCA_GREF: the grid coordinates were written with no CRS, so neither their reference system nor their unit is stated (2 times).
+convert.unmapped-unit|The unit of LOCA_GL in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (2 values).
+convert.unmapped-unit|The unit of LOCA_NATE in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (2 values).
+convert.unmapped-unit|The unit of LOCA_NATN in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (2 values).
+convert.unmapped-code|Values of LOCA_TYPE in LOCA have no DIGGS code; those locations were written as their DIGGS element, without the code (1 value).
+convert.unmapped-heading|Heading HORN_BASE of HORN has no DIGGS target (hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted); not converted (1 value).
+convert.unmapped-heading|Heading HORN_INCL of HORN has no DIGGS target (hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted); not converted (1 value).
+convert.unmapped-heading|Heading HORN_ORNT of HORN has no DIGGS target (hole orientation is not converted: DIGGS 3.0.0 gives one bearing per feature, AGS4 one per section); not converted (1 value).
+convert.unmapped-heading|Heading HORN_TOP of HORN has no DIGGS target (hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted); not converted (1 value).
+convert.unmapped-heading|Heading LOCA_ID of HORN has no DIGGS target (hole orientation is not converted: AGS4 measures inclination positively down from horizontal, DIGGS 3.0.0 plunge positively up, and values are never converted); not converted (1 value).
+convert.assumed|AGS4 gives only the base depth of each section of HDIA; each section was taken to start at the base of the previous one, the first at the surface (0) (1 time).
+convert.assumed|AGS4 gives only the base depth of each section of CDIA; each casing was taken to run from the surface (0) to that depth (1 time).
+convert.unmapped-heading|Heading CDIA_DIAM of CDIA has no DIGGS target (AGS4 gives a casing diameter without saying inside or outside; DIGGS 3.0.0 has casingOutsideDiameter and casingInsideDiameter, and the converter does not choose); not converted (1 value).
+convert.unmapped-heading|Heading BKFL_LEG of BKFL has no DIGGS target (a backfill legend code has no DIGGS 3.0.0 target); not converted (2 values).
+convert.unmapped-heading|Heading LDEN_TYPE of LDEN has no DIGGS target (the kind of density test is an AGS4 abbreviation with no DIGGS code); not converted (1 value).
+convert.unmapped-heading|Heading CPTG_RATE of CPTG has no DIGGS target (cone test details are not in the mapping); not converted (1 value).
+convert.unmapped-heading|Heading CPTG_TYPE of CPTG has no DIGGS target (read to leave out ball and T-bar tests (their resistance is not a cone resistance); the penetrometer type itself is not written); not converted (1 value).

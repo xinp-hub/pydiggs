@@ -1,0 +1,19 @@
+convert.unmapped-heading|Heading PROJ_CLNT of PROJ has no DIGGS target (a client is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_ISNO of TRAN has no DIGGS target (DocumentInformation has no issue number); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_PROD of TRAN has no DIGGS target (the producer is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_RECV of TRAN has no DIGGS target (the recipient is a business associate, which the converter does not write); not converted (1 value).
+convert.unmapped-heading|Heading TRAN_STAT of TRAN has no DIGGS target (DocumentInformation has no issue status); not converted (1 value).
+convert.assumed|Ground levels (LOCA_GL) of LOCA were written as the third coordinate of a CRS that does not state their vertical datum (2 times).
+convert.assumed|LOCA rows with an empty LOCA_GREF: the grid coordinates were written with no CRS, so neither their reference system nor their unit is stated (2 times).
+convert.unmapped-unit|The unit of LOCA_GL in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (2 values).
+convert.unmapped-unit|The unit of LOCA_NATE in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (2 values).
+convert.unmapped-unit|The unit of LOCA_NATN in LOCA was not written: the coordinates are in no CRS whose axes the code table gives a unit for, so the values were written without it (2 values).
+convert.user-defined|Heading LOCA_PDRF of LOCA is user-defined (in DICT): reported, never interpreted; not converted (2 values).
+convert.assumed|DIGGS requires a lithology classification type, which AGS4 does not state; 'unspecified' was written (2 times).
+convert.unmapped-heading|Heading ISPT_REP of ISPT has no DIGGS target (the reported result text has no DIGGS property); not converted (2 values).
+convert.unmapped-heading|Heading LLPL_425 of LLPL has no DIGGS target (the percentage passing 425 um has no DIGGS property (DIGGS has percent retained on No. 40)); not converted (1 value).
+convert.unmapped-unit|The unit of LLPL_LL in LLPL was not written: the DIGGS property it maps to has no unit, so the values were written without it (1 value).
+convert.unmapped-unit|The unit of LLPL_PL in LLPL was not written: the DIGGS property it maps to has no unit, so the values were written without it (1 value).
+convert.incomplete|Rows of GRAG have no result value or no depth that can be written, and DIGGS requires a test result with a location; not converted (1 row).
+convert.incomplete|Rows of GRAT belong to a test that was not converted; not converted (3 rows).
+convert.unmapped-code|Values of GRAT_TYPE in GRAT name a method DIGGS does not tell apart (such as wet or dry sieving); those rows were written as sieve gradings, without the code (3 values).

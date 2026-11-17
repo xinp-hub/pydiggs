@@ -1,0 +1,4 @@
+convert.assumed|LOCA rows with no LOCA_TYPE were written as Borehole (1 time).
+convert.assumed|LOCA rows with no coordinates that can be written: DIGGS requires a location, so the top of the hole along its own depth axis was written (1 time).
+convert.assumed|DIGGS requires a creation date and TRAN_DATE gives none that can be read; the creation date was written as unknown (indeterminatePosition="unknown").
+convert.unmapped-heading|Heading TRAN_ISNO of TRAN has no DIGGS target (DocumentInformation has no issue number); not converted (1 value).
