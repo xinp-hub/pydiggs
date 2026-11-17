@@ -88,8 +88,8 @@ def run(fixture_dir: str) -> dict[str, str]:
     string for JavaScript to ``JSON.parse``). Then the same through the service layer
     that @pydiggs/client's worker and the HTTP API use: SARIF (``sarif:<name>``), a
     subset of steps (``checks:<name>``), one node's tables (``select:<name>``), and the
-    versions, rule list and one rule (``versions``, ``rules:schema``, ``explain``), and the core
-    operations of ``capabilities()``.
+    versions, rule list and one rule (``versions``, ``rules:schema``, ``explain``), the core
+    operations of ``capabilities()``, and two model comparisons (:func:`diff_cases`).
     """
     import pydiggs  # lazily: see the module docstring
 
@@ -109,6 +109,25 @@ def run(fixture_dir: str) -> dict[str, str]:
     out["capabilities"] = json.dumps(caps, ensure_ascii=False, sort_keys=True)
     out.update(service_cases(fixture_dir))
     out.update(out_ags4)
+    out.update(diff_cases(fixture_dir))
+    return out
+
+
+def diff_cases(fixture_dir: str) -> dict[str, str]:
+    """Model comparison (pyDIGGS 1.12): ``diff:<old>:<new>`` is ``compare(...).to_json()``.
+
+    The first fixture against itself (identical) and against the second (they differ). The
+    text report is not made here: it needs ``rich``, which the core path never imports.
+    """
+    from pydiggs import diff  # lazily: see the module docstring
+
+    old = Path(fixture_dir, FIXTURES[0]).read_bytes()
+    out: dict[str, str] = {}
+    for name in FIXTURES:
+        new = Path(fixture_dir, name).read_bytes()
+        result = diff.compare(old, new, max_bytes=MAX_BYTES)
+        assert result.complete and result.identical == (name == FIXTURES[0]), name
+        out[f"diff:{FIXTURES[0]}:{name}"] = result.to_json()
     return out
 
 

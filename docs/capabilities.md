@@ -96,6 +96,7 @@ about the server's own interpreter.
 | `ags4.check` | preview | | `pydiggs.ags4.check()` |
 | `convert.ags4-to-diggs` | stable | | `pydiggs.convert.ags4_to_diggs()` |
 | `convert.diggs-to-ags4` | stable | | `pydiggs.convert.diggs_to_ags4()`, `model_to_ags4()` |
+| `diff` | stable | | `pydiggs.diff.compare()` |
 | `export.pandas` | stable | `frames` | `pydiggs.frames.to_pandas()` |
 | `export.polars` | stable | `polars` | `pydiggs.frames.to_polars()` |
 | `gis.transform` | stable | `gis` | `pydiggs.gis.transform()` |
@@ -104,7 +105,9 @@ about the server's own interpreter.
 
 The AGS4 reading, writing and checking operations are a preview; conversion
 (`pydiggs.convert`) is stable from pyDIGGS 1.11, both ways. `POST /v1/convert` and the
-sidecar's `convert` are either conversion operation, chosen by their `to` parameter. The
+sidecar's `convert` are either conversion operation, chosen by their `to` parameter.
+`diff` ([Comparing two files](diff.md), from pyDIGGS 1.12) is offered in Python and as
+`pydiggs diff`; the HTTP API, the sidecar and the MCP server do not offer it yet. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).
 
