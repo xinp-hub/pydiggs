@@ -2,6 +2,7 @@
 
 - the diggs-findings JSON Schema, at the path its ``$id`` names (the current version,
   and every earlier one, which stays published unchanged);
+- the diggs-diff (model diff) JSON Schema, at the path its ``$id`` names;
 - the HTTP API's OpenAPI 3.1 document (``pydiggs/server/openapi.json``);
 - the stdio sidecar's OpenRPC 1.3 document (``pydiggs/sidecar/openrpc.json``);
 - the diggs-model (read API) JSON Schema, at the path its ``$id`` names;
@@ -24,14 +25,18 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "src" / "pydiggs"
-SCHEMA = PACKAGE / "findings" / "diggs-findings-1.1.schema.json"
+SCHEMA = PACKAGE / "findings" / "diggs-findings-1.2.schema.json"
 #: Path of the schema under the site root; matches the schema's ``$id``.
 PUBLISHED = Path("schemas") / SCHEMA.name
 #: Earlier diggs-findings schemas: documents that name them must keep resolving.
-EARLIER_SCHEMAS = (PACKAGE / "findings" / "diggs-findings-1.0.schema.json",)
+EARLIER_SCHEMAS = (
+    PACKAGE / "findings" / "diggs-findings-1.0.schema.json",
+    PACKAGE / "findings" / "diggs-findings-1.1.schema.json",
+)
 OPENAPI = PACKAGE / "server" / "openapi.json"
 OPENRPC = PACKAGE / "sidecar" / "openrpc.json"
 MODEL = PACKAGE / "model" / "diggs-model-1.0.schema.json"
+DIFF = PACKAGE / "diff" / "diggs-diff-1.0.schema.json"
 CAPABILITIES = PACKAGE / "_capabilities" / "diggs-capabilities-1.0.schema.json"
 #: Every published document: packaged source -> path under the site root.
 DOCUMENTS: dict[Path, Path] = {
@@ -39,6 +44,7 @@ DOCUMENTS: dict[Path, Path] = {
     OPENAPI: Path("schemas") / "openapi.json",
     OPENRPC: Path("schemas") / "openrpc.json",
     MODEL: Path("schemas") / MODEL.name,
+    DIFF: Path("schemas") / DIFF.name,
     CAPABILITIES: Path("schemas") / CAPABILITIES.name,
     **{earlier: Path("schemas") / earlier.name for earlier in EARLIER_SCHEMAS},
 }

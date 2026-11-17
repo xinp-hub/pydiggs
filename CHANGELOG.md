@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`pydiggs.diff`: what changed between two DIGGS files, at model level.** (Work package D1;
+  the `pydiggs diff` command, the capabilities entry and the docs page follow.)
+  `diff.compare(old, new)` takes paths, bytes or `Model`s and returns a `Diff` of added,
+  removed and changed nodes and values. Ids, element order, number formatting and
+  provenance do not count. Nodes are matched by `gml:id` and element, then by a natural key
+  (a borehole's kind and name, a sample's borehole, name and top, ...); a key that more than
+  one node has is never matched and is reported as `diff.ambiguous-match`. Numbers compare
+  within `rel_tol` (default 1e-9) and `abs_tol`; a change of unit is always a change and
+  nothing is converted; the same number written differently is counted as reformatted.
+  Result tables align rows by the domain index (depth) when it is unique. `max_changes` and
+  `time_budget` bound the work and the list (`complete=False`, with `diff.limit` or
+  `diff.timeout`); the summary counts stay exact. `Diff.to_json()` writes a new contract,
+  **diggs-diff 1.0**, with its JSON Schema (`diff.diff_schema()`). Pure stdlib, no new
+  dependency, and `import pydiggs` does not import it.
+- **diggs-findings 1.2** adds the step `diff` and the rule ids `diff.ambiguous-match`,
+  `diff.limit` and `diff.timeout`; it only adds to 1.1, and the 1.0 and 1.1 schema files are
+  packaged and published unchanged. Documents now declare 1.2; the OpenAPI and OpenRPC
+  documents and the generated `@pydiggs/client` types follow.
 - **US survey foot in AGS4 as `ftUS`.** A value in US survey feet (DIGGS unit `ft[US]`, or
   a CRS such as EPSG:2263 or 6539 whose axes are in US survey feet) was reported as
   `convert.unmapped-unit` and left out when writing AGS4. It is now written as given, in

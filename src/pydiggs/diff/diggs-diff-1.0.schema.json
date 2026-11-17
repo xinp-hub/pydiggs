@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json",
+  "title": "diggs-diff 1.0",
+  "description": "The difference between two DIGGS files at model level, as pydiggs.diff.compare() writes it (pyDIGGS 1.12 and later). Open for consumers: objects accept unknown fields, so a 1.0 consumer accepts any 1.x document. A new optional field is a minor version; anything else is a new major. Nothing is converted: a change of unit is a change.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "format",
+    "schema_version",
+    "tool",
+    "identical",
+    "complete",
+    "limits_hit",
+    "old",
+    "new",
+    "options",
+    "summary",
+    "value_changes",
+    "reformatted",
+    "changes",
+    "notes"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "URL of the schema the document follows."
+    },
+    "format": { "const": "diggs-diff" },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$",
+      "description": "Major.minor of diggs-diff."
+    },
+    "tool": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "identical": {
+      "type": "boolean",
+      "description": "True only when nothing differs and the comparison finished (complete)."
+    },
+    "complete": {
+      "type": "boolean",
+      "description": "False when a limit stopped the comparison or a file was read in part; see limits_hit and notes."
+    },
+    "limits_hit": {
+      "type": "array",
+      "items": { "type": "string", "examples": ["max_changes", "time_budget", "new_read_incomplete"] },
+      "description": "What stopped the comparison; empty when complete."
+    },
+    "old": { "$ref": "#/$defs/source" },
+    "new": { "$ref": "#/$defs/source" },
+    "options": {
+      "type": "object",
+      "required": ["match", "rel_tol", "abs_tol", "max_changes", "time_budget"],
+      "properties": {
+        "match": { "enum": ["auto", "gml-id", "natural"] },
+        "rel_tol": { "type": "number", "minimum": 0 },
+        "abs_tol": { "type": "number", "minimum": 0 },
+        "max_changes": { "type": "integer", "minimum": 0 },
+        "time_budget": { "type": ["number", "null"], "exclusiveMinimum": 0 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/counts" },
+      "description": "Node counts per collection (features, samples, measurements, layers, components ...). Exact when only max_changes stopped the list; partial after a time_budget stop."
+    },
+    "value_changes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many values differ (every listed value change counts, listed or not)."
+    },
+    "reformatted": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "How many values are written differently but are equal (1.50 and 1.5)."
+    },
+    "changes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/change" },
+      "description": "Ordered by collection, then key, then path. At most max_changes entries (changes plus value changes)."
+    },
+    "notes": {
+      "type": "array",
+      "items": { "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json#/$defs/finding" },
+      "description": "Findings of step diff: diff.ambiguous-match, diff.limit, diff.timeout."
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["name", "sha256", "size", "diggs_version"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "size": { "type": "integer", "minimum": 0 },
+        "diggs_version": { "type": "string" }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "required": ["added", "removed", "changed", "unchanged"],
+      "properties": {
+        "added": { "type": "integer", "minimum": 0 },
+        "removed": { "type": "integer", "minimum": 0 },
+        "changed": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "op": { "enum": ["added", "removed", "changed", "reformatted"] },
+    "change": {
+      "type": "object",
+      "required": [
+        "op",
+        "collection",
+        "element",
+        "name",
+        "old_key",
+        "new_key",
+        "matched_by",
+        "truncated",
+        "values"
+      ],
+      "properties": {
+        "op": { "$ref": "#/$defs/op" },
+        "collection": { "type": "string", "minLength": 1 },
+        "element": { "type": "string" },
+        "name": { "type": ["string", "null"], "maxLength": 200 },
+        "old_key": { "type": ["string", "null"], "maxLength": 200 },
+        "new_key": { "type": ["string", "null"], "maxLength": 200 },
+        "matched_by": { "enum": ["gml_id", "natural", null] },
+        "truncated": {
+          "type": "boolean",
+          "description": "True when name or a key was cut to 200 characters."
+        },
+        "values": { "type": "array", "items": { "$ref": "#/$defs/value_change" } }
+      }
+    },
+    "value_change": {
+      "type": "object",
+      "required": ["op", "path", "old", "new", "at", "truncated"],
+      "properties": {
+        "op": { "$ref": "#/$defs/op" },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Which value: name, params.<element>, interval.top, results[0].columns[<key>].cells[@<index>] ..."
+        },
+        "old": { "description": "The value in the old file as JSON (a quantity is its text and unit, e.g. \"1.50 ft\"); null when the old file has none. Text is cut to 200 characters and lists to 200 items." },
+        "new": { "description": "The value in the new file; null when the new file has none." },
+        "at": {
+          "type": ["string", "null"],
+          "description": "XPath of the node in the new file (the old file for a removed node)."
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "True when old or new was cut."
+        }
+      }
+    }
+  }
+}

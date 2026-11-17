@@ -8,6 +8,13 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The findings types follow **diggs-findings 1.2** (pyDIGGS 1.12), which only adds to 1.1:
+  the step `"diff"` (the findings of a model diff). `FINDINGS_SCHEMA_URL` is the 1.2 schema,
+  shipped as `@pydiggs/client/schemas/diggs-findings-1.2.schema.json`; the 1.0 and 1.1
+  schema files are still shipped unchanged.
+
 ## [0.6.0] - 2026-11-16
 
 ### Added

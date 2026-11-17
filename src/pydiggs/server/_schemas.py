@@ -53,7 +53,7 @@ XML_MEDIA_TYPES: Final = ("application/xml", "text/xml")
 AGS4_MEDIA_TYPES: Final = ("application/octet-stream", "text/csv", "text/plain")
 #: Longest ``checks`` value, as documented in OpenAPI (``maxLength``).
 MAX_CHECKS_CHARS: Final = 512
-_SCHEMA_FILE: Final = "diggs-findings-1.1.schema.json"
+_SCHEMA_FILE: Final = "diggs-findings-1.2.schema.json"
 _PREFIX: Final = "DiggsFindings"
 _COMPONENTS: Final = "#/components/schemas/"
 _JsonSchema = dict[str, Any]
@@ -572,7 +572,7 @@ def validate_responses() -> dict[int | str, dict[str, Any]]:
     return {
         200: {
             "description": (
-                "A diggs-findings 1.1 document (or a SARIF 2.1.0 log). Malformed XML,"
+                "A diggs-findings 1.2 document (or a SARIF 2.1.0 log). Malformed XML,"
                 " truncation and an exhausted time budget are 200s with findings."
             ),
             "content": {
@@ -848,7 +848,7 @@ def ags4_check_responses() -> dict[int | str, dict[str, Any]]:
     return {
         200: {
             "description": (
-                "A diggs-findings 1.1 document of step ags4 (or a SARIF 2.1.0 log). Rule"
+                "A diggs-findings 1.2 document of step ags4 (or a SARIF 2.1.0 log). Rule"
                 " breaks, content that is not AGS4 at all, truncation and an exhausted time"
                 " budget are 200s with findings."
             ),

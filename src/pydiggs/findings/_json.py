@@ -1,13 +1,13 @@
-"""The ``diggs-findings`` 1.1 JSON document.
+"""The ``diggs-findings`` 1.2 JSON document.
 
 Pure: no lxml, no I/O. The JSON Schema ships next to this module as
-``diggs-findings-1.1.schema.json`` and is published at :data:`SCHEMA_URL`. The 1.0
-schema stays packaged and published beside it, unchanged.
+``diggs-findings-1.2.schema.json`` and is published at :data:`SCHEMA_URL`. The 1.0
+and 1.1 schemas stay packaged and published beside it, unchanged.
 
 A new optional field is a minor version (1.1 added ``location.path``, ``files[].format``
-and the steps ``ags4`` and ``convert``); renaming or removing one is a 2.0. The 1.1
-fields are written only when they say something, so a document about DIGGS files
-differs from its 1.0 form only in ``$schema`` and ``schema_version``. There is no
+and the steps ``ags4`` and ``convert``; 1.2 added the step ``diff``); renaming or removing
+one is a 2.0. The 1.1 fields are written only when they say something, so a document about
+DIGGS files differs from its 1.0 form only in ``$schema`` and ``schema_version``. There is no
 timestamp, so the same input always gives the same bytes.
 """
 
@@ -32,11 +32,11 @@ __all__ = [
 ]
 
 FORMAT: Final = "diggs-findings"
-SCHEMA_VERSION: Final = "1.1"
+SCHEMA_VERSION: Final = "1.2"
 #: File name of the JSON Schema inside the ``pydiggs.findings`` package.
-SCHEMA_RESOURCE: Final = "diggs-findings-1.1.schema.json"
+SCHEMA_RESOURCE: Final = "diggs-findings-1.2.schema.json"
 #: Where the schema is published; also the schema's ``$id``.
-SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.1.schema.json"
+SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json"
 
 
 def finding_entry(finding: Finding) -> dict[str, Any]:

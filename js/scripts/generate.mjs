@@ -1,12 +1,13 @@
 // Generates everything under src/generated/ and schemas/ from pydiggs's own contracts:
 //
-//   ../src/pydiggs/findings/diggs-findings-1.1.schema.json  -> src/generated/findings.ts
+//   ../src/pydiggs/findings/diggs-findings-1.2.schema.json  -> src/generated/findings.ts
 //   ../src/pydiggs/model/diggs-model-1.0.schema.json        -> src/generated/model.ts
 //   ../src/pydiggs/server/openapi.json                      -> src/generated/http.ts
 //   ../examples/browser-worker/worker.mjs (the pins)        -> src/generated/pins.ts
 //   both JSON Schemas, byte for byte                        -> schemas/
-//   ../src/pydiggs/findings/diggs-findings-1.0.schema.json  -> schemas/ (the earlier
-//     version: unchanged, still shipped, and what diggs-model 1.0's notes refer to)
+//   ../src/pydiggs/findings/diggs-findings-1.{0,1}.schema.json -> schemas/ (the earlier
+//     versions: unchanged, still shipped, and what diggs-model 1.0's notes (1.0) and 1.1
+//     documents refer to)
 //
 //   node scripts/generate.mjs           write the files
 //   node scripts/generate.mjs --check   exit 1 if a file on disk differs (CI)
@@ -21,10 +22,13 @@ import { fileURLToPath } from "node:url";
 const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = join(JS_ROOT, "..");
 
-const FINDINGS_SCHEMA = "src/pydiggs/findings/diggs-findings-1.1.schema.json";
+const FINDINGS_SCHEMA = "src/pydiggs/findings/diggs-findings-1.2.schema.json";
 // Earlier diggs-findings versions. Each stays shipped byte for byte, and a $ref to one
 // resolves to the current types: a minor version only adds to the one before it.
-const EARLIER_FINDINGS_SCHEMAS = ["src/pydiggs/findings/diggs-findings-1.0.schema.json"];
+const EARLIER_FINDINGS_SCHEMAS = [
+  "src/pydiggs/findings/diggs-findings-1.0.schema.json",
+  "src/pydiggs/findings/diggs-findings-1.1.schema.json",
+];
 const MODEL_SCHEMA = "src/pydiggs/model/diggs-model-1.0.schema.json";
 const OPENAPI = "src/pydiggs/server/openapi.json";
 const WORKER = "examples/browser-worker/worker.mjs";

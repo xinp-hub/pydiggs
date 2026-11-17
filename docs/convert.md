@@ -84,7 +84,7 @@ DIGGS reads 4.0.3, 4.0.4, 4.1, 4.1.1 and 4.2.
     | `--diggs-version 3.0.0` | `--to diggs` only: the DIGGS version to write |
     | `--ags-version 4.2\|4.1.1` | `--to ags4` only: the AGS4 version to write (default 4.2) |
     | `--residual FILE` | `--to diggs` only: also write the residual AGS4 file; not written when everything was converted (the summary then says `residual: none`) |
-    | `--report FILE` | also write the findings report (diggs-findings 1.1 JSON) |
+    | `--report FILE` | also write the findings report (diggs-findings 1.2 JSON) |
     | `--format text\|json` | the summary on stdout; JSON is the result without the output and residual bytes, with `output_path` and `residual_path` |
     | `--fail-on error\|loss` | exit 1 on an error (default), or on any loss as well |
     | `--force` | replace `OUT`, `--report` and `--residual` if they exist |
@@ -135,8 +135,8 @@ The HTTP API and the sidecar answer with the same **conversion result**, a JSON 
 | `mapping_version` | the mapping table used (`"1.1"`) |
 | `complete` | false when a size or time limit stopped the conversion; the output is then partial |
 | `lossless` | true when there is no loss |
-| `report` | diggs-findings 1.1 document about the source: the reader's notes and every `convert` finding |
-| `validation` | diggs-findings 1.1 document about the output: `pydiggs.validate` (DIGGS) or `pydiggs.ags4.check` (AGS4) |
+| `report` | diggs-findings 1.2 document about the source: the reader's notes and every `convert` finding |
+| `validation` | diggs-findings 1.2 document about the output: `pydiggs.validate` (DIGGS) or `pydiggs.ags4.check` (AGS4) |
 | `output_sha256` | sha256 of the output bytes |
 | `output_base64` | the output bytes, standard base64 |
 | `residual_base64` | AGS4 to DIGGS: the residual AGS4 file, standard base64; null when everything was converted, and always null for `to=ags4` |

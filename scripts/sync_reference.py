@@ -156,6 +156,14 @@ PACKAGE_LOCAL = {
         "The diggs-findings 1.1 JSON Schema (adds the ags4 and convert steps, location.path "
         "and files[].format): pyDIGGS's own output contract, not upstream data."
     ),
+    "findings/diggs-findings-1.2.schema.json": (
+        "The diggs-findings 1.2 JSON Schema (adds the diff step): pyDIGGS's own output "
+        "contract, not upstream data."
+    ),
+    "diff/diggs-diff-1.0.schema.json": (
+        "The diggs-diff JSON Schema (pydiggs.diff): pyDIGGS's own output contract, checked "
+        "against the output by tests/diff."
+    ),
     "findings/guidance/en.toml": (
         "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own "
         "content, kept complete by tests/test_rule_guidance.py."

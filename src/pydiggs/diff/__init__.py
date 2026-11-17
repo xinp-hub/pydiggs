@@ -1,0 +1,192 @@
+"""Model-level comparison of two DIGGS files: what was added, removed or changed.
+
+:func:`compare` reads two files (or takes two :class:`~pydiggs.model.Model`) and says what
+differs *in what they describe*, not in how they are written: ids, element order, number
+formatting and provenance do not count. Nodes are matched by ``gml:id`` first, then by a
+natural key (a borehole's kind and name, a sample's borehole, name and top, ...); a natural
+key that more than one node has is never guessed at. Numbers compare within a tolerance, a
+change of unit is always a change (nothing is converted), and result tables align their
+rows by the domain index (depth) when it is unique.
+
+The result is a :class:`Diff`: a summary, the listed :class:`Change` items, and notes that
+are findings of step ``diff``. :meth:`Diff.to_json` writes it as a diggs-diff 1.0 document,
+described by the JSON Schema :func:`diff_schema` returns. Both files are untrusted: their
+size, the time spent and the number of changes listed are limited.
+
+``import pydiggs`` does not import this module.
+
+Examples:
+    >>> from pydiggs import diff
+    >>> path = "tests/fixtures/official/3.0/Aeromag.xml"
+    >>> result = diff.compare(path, path)
+    >>> result.identical, result.complete, len(result.changes)
+    (True, True, 0)
+    >>> result.to_dict()["format"], diff.DIFF_SCHEMA_VERSION
+    ('diggs-diff', '1.0')
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+from importlib import resources
+from typing import Any
+
+from pydiggs.diff import _engine
+from pydiggs.diff._document import DIFF_SCHEMA_URL, DIFF_SCHEMA_VERSION, SCHEMA_RESOURCE
+from pydiggs.diff._types import Change, Diff, ValueChange
+from pydiggs.findings.run import DEFAULT_MAX_BYTES
+from pydiggs.model import Model
+
+__all__ = [
+    "DIFF_SCHEMA_URL",
+    "DIFF_SCHEMA_VERSION",
+    "Change",
+    "Diff",
+    "ValueChange",
+    "compare",
+    "diff_schema",
+]
+
+Source = str | os.PathLike[str] | bytes | bytearray | memoryview | Model
+
+
+def diff_schema() -> dict[str, Any]:
+    """The packaged diggs-diff JSON Schema, as a fresh dict.
+
+    Examples:
+        >>> from pydiggs import diff
+        >>> diff.diff_schema()["$id"] == diff.DIFF_SCHEMA_URL
+        True
+    """
+    text = resources.files("pydiggs.diff").joinpath(SCHEMA_RESOURCE).read_text("utf-8")
+    return dict(json.loads(text))
+
+
+def _number(name: str, value: object, *, allow_zero: bool) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int | float)
+        or not math.isfinite(value)
+        or value < 0
+        or (value == 0 and not allow_zero)
+    ):
+        kind = "a finite number, 0 or more" if allow_zero else "a positive finite number"
+        raise ValueError(f"{name} must be {kind}, got {value!r}")
+    return float(value)
+
+
+def _options(
+    *,
+    match: str,
+    rel_tol: float,
+    abs_tol: float,
+    max_changes: int,
+    time_budget: float | None,
+    max_bytes: int,
+    show_reformatted: bool,
+) -> _engine.Options:
+    if match not in _engine.MATCH_MODES:
+        raise ValueError(f"match must be one of {', '.join(_engine.MATCH_MODES)}, got {match!r}")
+    rel = _number("rel_tol", rel_tol, allow_zero=True)
+    absolute = _number("abs_tol", abs_tol, allow_zero=True)
+    if isinstance(max_changes, bool) or not isinstance(max_changes, int) or max_changes < 0:
+        raise ValueError(f"max_changes must be an integer, 0 or more, got {max_changes!r}")
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+        raise ValueError(f"max_bytes must be a positive integer, got {max_bytes!r}")
+    if time_budget is not None:
+        _number("time_budget", time_budget, allow_zero=False)
+    return _engine.Options(
+        match=match,
+        rel_tol=rel,
+        abs_tol=absolute,
+        max_changes=max_changes,
+        time_budget=time_budget,
+        show_reformatted=bool(show_reformatted),
+    )
+
+
+def _load(source: object, role: str, max_bytes: int, deadline: float | None) -> Model:
+    from pydiggs._reader import read, read_bytes  # noqa: PLC0415
+
+    if isinstance(source, Model):
+        return source
+    remaining = None if deadline is None else max(deadline - _engine._now(), 1e-3)
+    if isinstance(source, str | os.PathLike):
+        return read(source, max_bytes=max_bytes, time_budget=remaining)
+    if isinstance(source, bytes | bytearray | memoryview):
+        return read_bytes(source, max_bytes=max_bytes, time_budget=remaining)
+    raise TypeError(f"{role} must be a path, bytes or a pydiggs.Model, got {type(source).__name__}")
+
+
+def compare(
+    old: Source,
+    new: Source,
+    *,
+    match: str = "auto",
+    rel_tol: float = 1e-9,
+    abs_tol: float = 0.0,
+    max_changes: int = 10_000,
+    time_budget: float | None = None,
+    max_bytes: int = DEFAULT_MAX_BYTES,
+    show_reformatted: bool = False,
+) -> Diff:
+    """Compare two DIGGS files at model level.
+
+    Args:
+        old: The earlier file: a path, the bytes of a file, or a :class:`~pydiggs.model.Model`.
+        new: The later file, in the same forms. The two may be different DIGGS versions;
+            both are recorded in the result.
+        match: How nodes are paired. ``"auto"``: by ``gml:id`` and element, then by natural
+            key; ``"gml-id"``: the first pass only; ``"natural"``: the second pass only.
+            A natural key that several nodes share is never matched.
+        rel_tol: Two numbers are equal when ``|a - b| <= max(abs_tol, rel_tol * max(|a|,
+            |b|))``. The default is exact up to float noise.
+        abs_tol: The absolute part of that bound (default 0).
+        max_changes: Most entries listed (changed nodes plus their value changes). The
+            counts in the summary stay exact; when the list is cut the result is
+            ``complete=False`` with a ``diff.limit`` note.
+        time_budget: Seconds for the whole call, reading both files included. When it runs
+            out the result is ``complete=False`` with a ``diff.timeout`` note.
+        max_bytes: Largest file read (default 100 MiB, as for :func:`pydiggs.read`).
+        show_reformatted: List the values written differently but equal (``1.50`` and
+            ``1.5``); they are always counted.
+
+    Returns:
+        A :class:`Diff`. A problem with the *data* is a finding in ``Diff.notes``.
+
+    Raises:
+        InstanceReadError: A file is missing, unreadable, too large or compressed.
+        DocumentError: A file is not a readable DIGGS document.
+        TypeError: ``old`` or ``new`` is not a path, bytes or a model.
+        ValueError: An option is out of range.
+
+    Examples:
+        >>> from pydiggs import diff
+        >>> a = "tests/fixtures/official/3.0/MWDExample.xml"
+        >>> b = "tests/fixtures/official/3.0/TrenchWallExample.xml"
+        >>> diff.compare(a, a).identical
+        True
+        >>> result = diff.compare(a, b)
+        >>> result.identical, result.summary["features"]["removed"] > 0
+        (False, True)
+    """
+    options = _options(
+        match=match,
+        rel_tol=rel_tol,
+        abs_tol=abs_tol,
+        max_changes=max_changes,
+        time_budget=time_budget,
+        max_bytes=max_bytes,
+        show_reformatted=show_reformatted,
+    )
+    deadline = None if time_budget is None else _engine._now() + float(time_budget)
+    for role, source in (("old", old), ("new", new)):
+        if not isinstance(source, Model | str | os.PathLike | bytes | bytearray | memoryview):
+            raise TypeError(
+                f"{role} must be a path, bytes or a pydiggs.Model, got {type(source).__name__}"
+            )
+    old_model = _load(old, "old", max_bytes, deadline)
+    new_model = _load(new, "new", max_bytes, deadline)
+    return _engine.compare_models(old_model, new_model, options, deadline=deadline).diff

@@ -19,7 +19,7 @@ date = "2026-11-05T00:22:15-08:00"
 [files."_capabilities/diggs-capabilities-1.0.schema.json"]
 source = "local"
 note = "The diggs-capabilities JSON Schema (pydiggs.capabilities()): pyDIGGS's own output contract, checked against the output by tests/test_capabilities.py."
-sha256 = "8a5116b6cf1f058bcd0566a833164ce6acc2920f54e0bf5c6871636043ae31ec"
+sha256 = "0792c271159f388165ba0c1bf05da330c67ec4fb91fe2c305f27fb39c26e862f"
 
 [files."_reader/aliases.toml"]
 source = "local"
@@ -511,6 +511,11 @@ source = "def"
 path = "docs/crs/DIGGS/0.1/lrm.xml"
 sha256 = "85d2c01598cab180a22eaeb0247e2014e58a3dc7e262e3d8f6bafa5f1cdd92f2"
 
+[files."diff/diggs-diff-1.0.schema.json"]
+source = "local"
+note = "The diggs-diff JSON Schema (pydiggs.diff): pyDIGGS's own output contract, checked against the output by tests/diff."
+sha256 = "2cbd0b970a81b63f968f1d213806d673ef88958ca267a78690dd7509450fd73d"
+
 [files."findings/diggs-findings-1.0.schema.json"]
 source = "local"
 note = "The diggs-findings JSON Schema: pyDIGGS's own output contract, not upstream data."
@@ -524,7 +529,12 @@ sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
 [files."findings/guidance/en.toml"]
 source = "local"
 note = "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own content, kept complete by tests/test_rule_guidance.py."
-sha256 = "5884479d1845b45a8111a4a3f256a0cceec4b786d8c3dbd4f813fff1d5a87cf7"
+sha256 = "7438174a9605354ce5073aa0d8b9e963e714d2396f286fdf93e452633b25db74"
+
+[files."findings/diggs-findings-1.2.schema.json"]
+source = "local"
+note = "The diggs-findings 1.2 JSON Schema (adds the diff step): pyDIGGS's own output contract, not upstream data."
+sha256 = "70fced759aef2a2dd1269d9b5f831b709eb9d6e908ea17ae5523ebb882924007"
 
 [files."model/diggs-model-1.0.schema.json"]
 source = "local"
@@ -1114,9 +1124,9 @@ sha256 = "0b4b88c53ba222023d1eb9334db5d0445adcf8a2ec7b4e166324ee8ffc43dbd0"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "bee09cfd9d4a4b30b2a78c15e4e35946d3b6b1c236b28962f8f1bbbe2ba22dda"
+sha256 = "9719448fea6016e1830737b184fbae3857a6070f03195f165491f6939bc47f77"
 
 [files."sidecar/openrpc.json"]
 source = "local"
 note = "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, generated from pydiggs.sidecar._protocol and drift-tested."
-sha256 = "772a59933df5c5124a18e507a3d542d45cfa0896d34bfc962ed3e5438ffb490e"
+sha256 = "d60e73d41b7fb0f623f61071569932586357e1c565d7a70eb99909aaeeda1f82"
