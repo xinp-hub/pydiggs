@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{# The version of the checkout that was built, set by scripts/docs_hooks.py. The verify
+   job in docs.yml reads it from the live site after a release. #}
+{% block extrahead %}
+  <meta name="package-version" content="{{ config.extra.package_version }}">
+{% endblock %}
+
+{# Material shows this on every version other than `extra.version.default` (latest),
+   which on this site is dev/. The link goes to the site root, which redirects. #}
+{% block outdated %}
+  This page describes unreleased code on the default branch.
+  <a href="{{ '../' ~ base_url }}"><strong>Go to the latest release.</strong></a>
+{% endblock %}

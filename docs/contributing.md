@@ -171,6 +171,27 @@ uv run mkdocs serve
 
 Then visit `http://127.0.0.1:8000` in your web browser.
 
+Four checks keep the documentation true to the code:
+
+* **Generated pages.** `docs/facts.md` (extras, Python range and the `--help` of every
+  `pydiggs` command), the operations table in `docs/capabilities.md` and
+  `docs/convert-mapping.md` are written from the code. After changing an extra, a
+  command-line option or an operation, run `uv run python scripts/docs_gen.py` and commit the
+  result; `uv run python scripts/docs_gen.py --check` (and `tests/test_docs.py`) fails on a
+  stale page. The `--help` text is captured on Python 3.11, the oldest supported version.
+* **Examples run.** `tests/test_docs.py` runs every `python` block in `README.md` and
+  `docs/`, top to bottom, one namespace per file, in a scratch directory where the file
+  names the guides use (`site.xml`, `site.ags`, `BH-01.xml`) are real files; add a name to
+  `DOC_FILES` there when a new example needs another. A block that cannot run in a test
+  gets `<!-- skip: next "reason" -->` on the line above it.
+* **Docs follow the API.** The `docs follow the API` check fails a pull request that adds,
+  removes or changes public API, console scripts or extras without a change to `docs/`,
+  `README.md` or `CHANGELOG.md` (`docs/facts.md` does not count). The `no-docs-needed`
+  label is the maintainer's override: a maintainer adds it, and an agent never does.
+* **Published versions.** The site has two trees: `latest/` is built from the newest
+  `vX.Y.Z` tag and `dev/` from `master`, with a notice on every `dev/` page. The history
+  page is `CHANGELOG.md` itself, embedded; there is no second copy to keep in step.
+
 ## Testing
 
 To run a subset of tests:
