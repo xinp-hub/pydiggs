@@ -38,7 +38,10 @@ jobs:
       - run: uv sync --group docs --group dev
       - name: Build the site
         run: uv run --group docs mkdocs build --strict
-      # The site's own address and GitHub's edit pages (which ask for a login) are skipped.
+      # Left out: the site's own address and GitHub's edit pages (which ask for a login);
+      # opensource.org and npmjs.com, which answer 403 to link checkers although the pages
+      # exist; and 404.html, whose links are absolute (/pydiggs/...) because it is served
+      # at any path. Its links are internal, so mkdocs build --strict covers them.
       - name: Check external links
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8  # v2.9.0
         with:
@@ -50,4 +53,7 @@ jobs:
             --max-retries 3
             --exclude '^https://xinp-hub\.github\.io/pydiggs/'
             --exclude '^https://github\.com/xinp-hub/pydiggs/edit/'
+            --exclude '^https://opensource\.org/'
+            --exclude '^https://www\.npmjs\.com/'
+            --exclude-path '(^|/)404\.html$'
             'site/**/*.html' README.md
