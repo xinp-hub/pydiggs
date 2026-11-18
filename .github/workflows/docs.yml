@@ -1,11 +1,23 @@
-# Docs — build with mkdocs, publish with GitHub's Pages actions (OIDC, no repo write).
+# Adopted from FORGE 1.23.0 (templates/pkg). Publishes the documentation site in two versions:
+#
+#   latest/  the newest release tag vX.Y.Z, built from that tag's own files and uv.lock
+#   dev/     the default branch: unreleased code, and every page says so
+#
+# The site root redirects to latest/ (to dev/ until the first release), and versions.json
+# feeds the version switcher. Older releases are not kept: every run replaces the whole site.
+#
+# No job here can write to the repository. The site travels as a Pages artifact and is
+# deployed with OIDC, so there is no gh-pages branch and no `contents: write` (which is why
+# this is not `mike deploy`). scripts/docs_site.py holds the assembly logic.
+#
+# Setup (once): Settings > Pages > Source "GitHub Actions"; and let the `github-pages`
+# environment deploy from tags `v*` as well as the default branch.
 name: Deploy Documentation
 
 on:
   push:
     branches: [master]
-  release:
-    types: [published]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
   workflow_dispatch:
 
 permissions:
@@ -15,33 +27,88 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-# uv uses only its own python-build-standalone interpreters, never the runner image's
-# distro Python (24.04 ships 3.12, 26.04 ships 3.14), so every job runs the same build.
 env:
+  # Fail if a uv.lock is out of date rather than silently resolving something new.
+  UV_FROZEN: "1"
+  # uv uses only its own python-build-standalone interpreters, never the runner image's
+  # distro Python, so every job runs the same build.
   UV_PYTHON_PREFERENCE: only-managed
 
 jobs:
   build:
+    name: build dev and latest
+    # GitHub-hosted on purpose, like release.yml: what is published is built there only.
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    timeout-minutes: 20
+    outputs:
+      newest: ${{ steps.tag.outputs.version }}
+      built: ${{ steps.latest.outputs.built }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # Always the default branch, whatever triggered the run: a tag push or a manual run
+      # from another branch must not publish that ref as `dev`.
+      - name: Check out the default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: dev
+          fetch-depth: 0
           persist-credentials: false
       # No cache on the publish path: a poisoned cache entry would ship to Pages.
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
         with:
           enable-cache: false
           python-version: "3.12"
-      - run: uv sync --frozen --group docs --group dev
-      - name: Build (strict, a broken link fails the build)
-        run: uv run --frozen --group docs mkdocs build --strict
+      - name: Find the newest release tag
+        id: tag
+        working-directory: dev
+        run: python3 scripts/docs_site.py latest-tag >> "$GITHUB_OUTPUT"
+      - name: Check out the newest release
+        if: steps.tag.outputs.tag != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
+          path: release
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
+        id: pages
+      - name: Build dev (strict, a broken link fails the build)
+        working-directory: dev
+        env:
+          DOCS_SITE_URL: ${{ steps.pages.outputs.base_url }}/dev/
+        run: |
+          uv sync --group docs --group dev
+          uv run --group docs mkdocs build --strict --site-dir "$RUNNER_TEMP/site/dev"
+      # A tag from before this workflow may not build. That must not take the site down:
+      # publish dev alone and say so. A new release that does not build is caught by the
+      # `verify` job, which expects the version that was just tagged.
+      - name: Build latest from the release tag
+        id: latest
+        if: steps.tag.outputs.tag != ''
+        working-directory: release
+        env:
+          DOCS_SITE_URL: ${{ steps.pages.outputs.base_url }}/latest/
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          if uv sync --group docs --group dev &&
+            uv run --group docs mkdocs build --strict --site-dir "$RUNNER_TEMP/site/latest"; then
+            echo "built=$VERSION" >> "$GITHUB_OUTPUT"
+          else
+            rm -rf "$RUNNER_TEMP/site/latest"
+            echo "::warning title=Release docs were not built::The docs of $TAG do not build, so the site is published with dev only."
+          fi
+      - name: Write versions.json and the redirects
+        working-directory: dev
+        env:
+          BUILT: ${{ steps.latest.outputs.built }}
+        run: python3 scripts/docs_site.py assemble --site "$RUNNER_TEMP/site" --latest "$BUILT"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
-          path: site
+          path: ${{ runner.temp }}/site
 
   deploy:
+    name: deploy to Pages
     needs: build
     runs-on: ubuntu-26.04
     timeout-minutes: 10
@@ -51,6 +118,50 @@ jobs:
     permissions:
       pages: write
       id-token: write
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
+
+  # A green deploy only says the upload was accepted. This reads the public site the way a
+  # reader does. It holds no token and checks out nothing.
+  verify:
+    name: verify the live site
+    needs: [build, deploy]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    permissions: {}
+    steps:
+      - name: The site serves what was just published
+        env:
+          SITE: ${{ needs.deploy.outputs.page_url }}
+          RELEASED: ${{ github.ref_type == 'tag' && needs.build.outputs.newest || '' }}
+          BUILT: ${{ needs.build.outputs.built }}
+        run: |
+          set -euo pipefail
+          site="${SITE%/}"
+          get() { curl --fail --silent --show-error --location --max-time 30 "$1?run=$GITHUB_RUN_ID"; }
+          lists() {
+            get "$site/versions.json" |
+              jq -e --arg v "$1" 'any(.[]; .version == $v and (.aliases | index("latest") != null))' > /dev/null
+          }
+          live() {
+            get "$site/dev/" > /dev/null || return 1
+            get "$site/versions.json" | jq -e 'any(.[]; .version == "dev")' > /dev/null || return 1
+            if [ -n "$BUILT" ]; then lists "$BUILT" || return 1; fi
+            if [ -n "$RELEASED" ]; then
+              lists "$RELEASED" || return 1
+              get "$site/latest/" | grep -Fq "<meta name=\"package-version\" content=\"$RELEASED\">" || return 1
+            fi
+          }
+          for attempt in $(seq 1 20); do
+            if live; then
+              echo "Verified $site (dev${BUILT:+, latest = $BUILT})."
+              exit 0
+            fi
+            echo "Attempt $attempt: not there yet."
+            sleep 15
+          done
+          echo "::error title=The live docs are not what was published::$site does not serve dev/${RELEASED:+, or versions.json and the package-version meta tag of latest/ do not carry $RELEASED}."
+          exit 1

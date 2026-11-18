@@ -97,9 +97,15 @@ dev = [
   "ruff>=0.8",
   "jsonschema>=4.26.0",
   "pytest-timeout>=2.4.0",
+  # Runs the examples in README.md and docs/ (tests/test_docs.py).
+  "sybil>=10.1.0",
 ]
+# Bounded on purpose. MkDocs 2 drops the plugin API these packages are built on, and
+# Material for MkDocs is in maintenance mode: stay on mkdocs 1.x and material 9.x until
+# the move described in FORGE's docs-site skill ("Toolchain status") is made.
 docs = [
-  "mkdocs-material>=9.5",
+  "mkdocs>=1.6.1,<2",
+  "mkdocs-material>=9.8.1,<10",
   "mkdocstrings[python]>=0.27",
   "mkdocs-autorefs>=1.0",
   "myst-parser>=4.0.0",
