@@ -18,15 +18,21 @@ the element it names (:class:`NestedIds`), never by the id's text. An element th
 field read (a centre line) is not in the model at all; a reference to one is compared by
 the place the reader saw it at (:class:`Seen`), when both files were read for this
 comparison, and as text otherwise.
+
+A path is bounded (:func:`bound`): whatever the file holds, no path is longer than
+:data:`MAX_PATH`, and two different paths stay different.
 """
 
 from __future__ import annotations
 
 import hashlib
 import math
+import re
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, fields, is_dataclass
+from itertools import zip_longest
+from types import MappingProxyType
 from typing import Any, Final, NamedTuple, TypeVar
 
 from pydiggs.model import Code, ExtraNode, Feature, Link, Model, Node, Quantity
@@ -37,7 +43,9 @@ __all__ = [
     "Seen",
     "Side",
     "Tick",
+    "Tokens",
     "Tol",
+    "bound",
     "chunks",
     "close",
     "diff_maps",
@@ -56,6 +64,14 @@ Tick = Callable[[int], None]
 
 #: Longest text, in characters, that a shown value or a path segment keeps.
 MAX_SHOWN: Final = 200
+#: Longest path, in characters, of a value in a report (and longest XPath of a record).
+MAX_PATH: Final = 1000
+#: What a path longer than its limit keeps of its start and of its end.
+_PATH_HEAD: Final = 200
+_PATH_TAIL: Final = 400
+#: Longest path of an element inside ``extra``: what one leaf adds (``@`` and an attribute
+#: name of at most :data:`MAX_SHOWN` characters, a position) still fits :data:`MAX_PATH`.
+_PATH_ROOM: Final = MAX_PATH - 220
 #: ``extra`` elements nested deeper than this are compared as one digest (the reader stops
 #: at 64 too), so a hostile model cannot make paths grow without bound.
 MAX_EXTRA_DEPTH: Final = 64
@@ -66,6 +82,14 @@ CHANGED: Final = "changed"
 REFORMATTED: Final = "reformatted"
 #: The op of a record's own ``gml:id`` when it differs between two paired records.
 RENAMED: Final = "renamed"
+#: In what a file holds and its model does not, as the reader gives it: the digest of what
+#: typed fields hold of the element (it tells same-named siblings apart and is no value
+#: to list), and the text after the element's children and comments. Neither can be the
+#: name of an attribute of a file.
+HELD: Final = "\x00held"
+TAIL: Final = "#tail"
+#: The start of the path of a value the file holds and the model does not.
+UNREAD: Final = "xml"
 #: The path of a record's own ``gml:id``. No other leaf has it: every other path of that
 #: shape is a field of the model, and parameters, links and ``extra`` have a prefix.
 OWN_ID: Final = "gml_id"
@@ -116,6 +140,56 @@ def close(a: float, b: float, tol: Tol) -> bool:
     return abs(a - b) <= max(tol.abs, tol.rel * max(abs(a), abs(b)))
 
 
+#: A number as a file writes it, in plain decimal or exponent form.
+_WORD: Final = re.compile(r"\S+")
+_NUMBER: Final = re.compile(r"[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+
+
+class Tokens:
+    """Text the model does not hold, compared word by word, a number as a number.
+
+    Such text may be a list of coordinates (the geometry of a layer, the origin of a
+    grid). Two of them are equal when they have the same words in the same order, a
+    word that is a number being equal within the tolerance; the space between words is
+    not compared.
+    """
+
+    __slots__ = ("text",)
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def __repr__(self) -> str:
+        return f"Tokens({self.text!r})"
+
+    def same(self, other: Tokens, tol: Tol, tick: Tick | None = None) -> str | None:
+        """None, ``"reformatted"`` or ``"changed"``, as :func:`same` gives for two leaves.
+
+        The words are taken one pair at a time, so a text of any length (a long list of
+        coordinates) is never split whole, and the work is reported to ``tick`` every
+        :data:`CHUNK` words: the time budget holds inside one text too.
+        """
+        if self.text == other.text:
+            return None
+        verdict = None
+        pairs = zip_longest(_WORD.finditer(self.text), _WORD.finditer(other.text))
+        for n, (mine, theirs) in enumerate(pairs, 1):
+            if tick is not None and n % CHUNK == 0:
+                tick(CHUNK)
+            if mine is None or theirs is None:
+                return CHANGED  # one text has more words
+            a, b = mine[0], theirs[0]
+            if a == b:
+                continue
+            if not (_NUMBER.fullmatch(a) and _NUMBER.fullmatch(b)):
+                return CHANGED
+            x, y = float(a), float(b)
+            if not (math.isfinite(x) and math.isfinite(y) and close(x, y, tol)):
+                return CHANGED
+            verdict = REFORMATTED
+        return verdict
+
+
 def chunks(items: Sequence[T], tick: Tick) -> Iterator[Sequence[T]]:
     """``items`` in slices of at most :data:`CHUNK`, each reported as work before it is used."""
     for start in range(0, len(items), CHUNK):
@@ -136,6 +210,17 @@ class Seen(NamedTuple):
     #: How many coordinate systems the file defines with each name and unit, referenced
     #: or not (the model's ``crs`` table lists the referenced ones only).
     systems: Mapping[tuple[str | None, str | None], int]
+    #: The ``gml:id`` of each such element that has no path of its own in ``places``, to
+    #: where each element with that id sits: the key of its record, and a digest of its
+    #: position below the record and of what it holds.
+    marks: Mapping[str, tuple[tuple[str, str], ...]] = MappingProxyType({})
+    #: What the file holds of each record that its model does not, by the record's key:
+    #: the attributes and text no typed field holds, as ``extra`` elements. The key ``""``
+    #: is there when the reader's work limit cut it short.
+    unread: Mapping[str, tuple[ExtraNode, ...]] = MappingProxyType({})
+    #: How many elements each record has that typed fields hold in full (so they are
+    #: not in ``unread``), by the names of the elements from the record down to them.
+    names: Mapping[str, Mapping[str, int]] = MappingProxyType({})
 
 
 class Ref:
@@ -162,12 +247,30 @@ class Ref:
         return f"Ref({self.token!r}, {self.shown!r})"
 
 
+def _digest(text: str) -> str:
+    """32 hexadecimal digits that stand for ``text``: no file can be made to hold two alike."""
+    return hashlib.blake2b(text.encode("utf-8", "surrogatepass"), digest_size=16).hexdigest()
+
+
 def seg(text: str) -> str:
-    """A path segment: ``text``, or its first 180 characters plus a digest when longer than 200."""
+    """A path segment: ``text``, or its first 160 characters plus a digest when longer than 200."""
     if len(text) <= MAX_SHOWN:
         return text
-    digest = hashlib.blake2b(text.encode("utf-8", "surrogatepass"), digest_size=6).hexdigest()
-    return f"{text[:180]}…#{digest}"
+    return f"{text[:160]}…#{_digest(text)}"
+
+
+def bound(path: str, limit: int = MAX_PATH) -> str:
+    """``path``, or its start, a digest of all of it and its end when longer than ``limit``.
+
+    Segments are bounded one by one (:func:`seg`), but a path is as many of them as its
+    element lies deep. A shortened path stays readable at both ends, where the record's
+    field and the value are named, and the digest keeps two different paths different.
+    A path that was shortened and then grew is shortened again, digest included, so the
+    same holds at any depth.
+    """
+    if len(path) <= limit:
+        return path
+    return f"{path[:_PATH_HEAD]}…#{_digest(path)}…{path[-_PATH_TAIL:]}"
 
 
 def _attr_local(name: str) -> tuple[str, bool]:
@@ -224,6 +327,7 @@ class Side:
         self._links: dict[str, dict[str, list[Link]]] | None = None
         self._owners: dict[str, str | None] | None = None
         self._sole: Counter[tuple[object, ...]] | None = None
+        self._marked: dict[str, str | None] = {}
 
     def node_ref(self, key: str) -> Ref:
         """A reference to the node ``key``: equal across files when the nodes are matched."""
@@ -239,10 +343,17 @@ class Side:
         ``placed`` is False while the elements inside ``extra`` are being placed: a
         system that is one of them is then told by its name in the file.
         """
+        # A matched feature's own depth system is that feature's, whether or not anything
+        # refers to it: the model's ``crs`` table lists a system only once something does,
+        # so going by the table would tell a system apart from itself when one file adds
+        # the first record that uses it. What the system holds is in its feature's
+        # ``extra`` and is compared there.
+        own = self._lrs_token(srs_name)
+        if own is not None:
+            return Ref(own, srs_name)
         crs = self.model.crs.get(srs_name)
         if crs is None:
-            token = self._lrs_token(srs_name)
-            return Ref(f"?{srs_name}" if token is None else token, srs_name)
+            return Ref(f"?{srs_name}", srs_name)
         parts = _crs_parts(crs)
         if crs.form == "epsg":
             return Ref(repr(parts), srs_name)
@@ -362,16 +473,33 @@ class Side:
         in which record, and at which path below it, a path no other element of the
         record could have (every step is the only child of that name). The record is
         named by its pair, so the same place in two matched records is the same element
-        whatever its id. An id the reader could not place for certain is not in
-        ``places``, and neither is one the model keeps in ``extra``.
+        whatever its id. An id the model keeps in ``extra`` is not in ``places``.
+
+        An element with no such path (a same-named sibling on the way, too deep, an id
+        two elements have) is placed by its mark instead: its record, its position among
+        its siblings and what it holds. The text of the id never decides: two elements
+        that exchange their ids exchange their marks, so a reference that kept its text
+        is seen to name the other one. Positions alone would not do. Two same-named
+        siblings can change places while the reference moves to the other one, and it
+        would then name "the first" in both files; what the element holds tells them
+        apart. The price is a reference listed as changed when its target only moved
+        among its siblings or was edited.
         """
         target = _local_target(href)
         if target is None or self.seen is None:
             return None
         found = self.seen.places.get(target)
-        if found is None or found[0] not in self.pair_of:
-            return None
-        return f"x:{self.pair_of[found[0]]}/{found[1]}"
+        if found is not None:
+            return f"x:{self.pair_of[found[0]]}/{found[1]}" if found[0] in self.pair_of else None
+        if target not in self._marked:
+            marks = self.seen.marks.get(target, ())
+            known = bool(marks) and all(owner in self.pair_of for owner, _ in marks)
+            self._marked[target] = (
+                "o:" + ";".join(f"{self.pair_of[owner]}/{mark}" for owner, mark in marks)
+                if known
+                else None
+            )
+        return self._marked[target]
 
     def attr_ref(self, name: str, value: str, *, placed: bool = True) -> Ref | str:
         """An attribute inside ``extra``: a local reference by what it points to, else text.
@@ -381,18 +509,30 @@ class Side:
         model describes, an element a typed field read (when the reader placed it) or
         (with ``placed``) an identified element inside ``extra`` gives a :class:`Ref`.
         Anything else stays the text it is: another document, an id nothing in the file
-        has, an id that two elements have, a record only one file has, an element a
-        typed field read when there is no file to place it by.
+        has, a record only one file has, one of two equal elements inside ``extra``, an
+        element a typed field read when there is no file to place it by (a model does
+        not have such an element or its id, so between models nothing else can be said).
         """
         if not _is_local_ref(name, value):
             return value
         if name == "srsName" and value in self.model.crs:
             return self.crs_ref(value, placed=placed)
-        token = self.record_token(value) or self._lrs_token(value) or self.consumed_token(value)
-        if token is None and placed:
-            nested = self.nested_token(value)
-            token = None if nested is None else f"n:{nested}"
+        token = self.record_token(value) or self._lrs_token(value)
+        if token is None:
+            token = self._element_token(value, placed=placed)
         return value if token is None else Ref(token, value)
+
+    def _element_token(self, href: str, *, placed: bool = True) -> str | None:
+        """Where the element (not a record) a local reference names sits, when that is known.
+
+        An element a typed field read is placed by the reader, one the model keeps in
+        ``extra`` by its place there (with ``placed``). An id that two elements have
+        names both, so it may have a place of each kind: both are part of the token.
+        """
+        nested = self.nested_token(href) if placed else None
+        parts = [self.consumed_token(href), None if nested is None else f"n:{nested}"]
+        found = [part for part in parts if part is not None]
+        return "|".join(found) if found else None
 
     def link_ref(self, link: Link) -> Ref:
         if link.target is None:
@@ -405,16 +545,15 @@ class Side:
         # element is part of what it points to, and of what is shown (two links into one
         # record would read the same by the record's name alone).
         shown = f"{ref.shown} {link.href}"
-        consumed = self.consumed_token(link.href)
-        if consumed is not None:
-            return Ref(consumed, shown)  # an element a typed field read, placed by the reader
-        nested = self.nested_token(link.href)
-        if nested is not None:
-            return Ref(f"n:{nested}", shown)  # an element the model keeps, by its place
+        # An element a typed field read, placed by the reader, or one the model keeps,
+        # by its place there.
+        element = self._element_token(link.href)
+        if element is not None:
+            return Ref(element, shown)
         # Which element of the record it names cannot be established: one of two equal
-        # siblings, an id used twice, or an element a typed field read that has no place
-        # (no file to place it by, or no path of its own). The record and the text of the
-        # link decide, so a link moved to another such element is never called the same.
+        # siblings inside ``extra``, or an element a typed field read when there is no
+        # file to place it by. The record and the text of the link decide, so a link
+        # moved to another record is never called the same.
         return Ref(f"t:{ref.token}:{link.href}", shown)
 
 
@@ -609,16 +748,21 @@ def _unlike(
     return (rest[0], rest[1]), (both[0], both[1])
 
 
-def _put_element(out: dict[str, Any], path: str, item: ExtraNode, side: Side | None) -> None:
+def _put_element(
+    out: dict[str, Any], path: str, item: ExtraNode, side: Side | None, *, words: bool = False
+) -> None:
     # The namespace is written even when there is none, so that an element with no
     # namespace, attribute, text or child still has a leaf and is seen to come or go.
     out[f"{path}#ns"] = item.ns or ""
     for key, value in item.attrs.items():
-        if own_id(key):
+        if own_id(key) or key == HELD:
             continue  # which element this is in its file, not a value of it
+        if key == TAIL:
+            out[f"{path}{TAIL}"] = Tokens(value) if words else value
+            continue
         out[f"{path}@{seg(key)}"] = value if side is None else side.attr_ref(key, value)
     if item.text is not None:
-        out[f"{path}#text"] = item.text
+        out[f"{path}#text"] = Tokens(item.text) if words else item.text
 
 
 #: How :func:`_walk_extra` met an element: walked (its leaves are compared and its children
@@ -665,6 +809,7 @@ def _walk_extra(
         old_groups, new_groups = _by_name(olds), _by_name(news)
         for name in old_groups.keys() | new_groups.keys():
             a, b = old_groups.get(name, []), new_groups.get(name, [])
+            group = bound(f"{base}.{seg(name)}", _PATH_ROOM)
             first = 1
             if a and b and len(a) + len(b) > 2:  # noqa: PLR2004 - one each needs no telling apart
                 (a, b), (same_old, same_new) = _unlike(a, b, memos, sides, tick)
@@ -673,14 +818,13 @@ def _walk_extra(
                     before = len(a)
                     a, b = refine(a, b)
                     first += before - len(a)
-                group = f"{base}.{seg(name)}"
                 for item in same_old:
                     yield group, (item, None), EQUAL, depth
                 for item in same_new:
                     yield group, (None, item), EQUAL, depth
             for n in range(max(len(a), len(b))):
                 tick(1)
-                path = f"{base}.{seg(name)}[{first + n}]"
+                path = f"{group}[{first + n}]"
                 pair = (a[n] if n < len(a) else None, b[n] if n < len(b) else None)
                 if depth >= MAX_EXTRA_DEPTH:
                     for deep, memo, side in zip(pair, memos, sides, strict=True):
@@ -700,11 +844,15 @@ def put_extra(
     both: Both,
     tick: Tick = _no_tick,
     sides: Sides = _NO_SIDES,
+    *,
+    words: bool = False,
 ) -> None:
     """Flatten the ``extra`` elements of both sides (old, new), in any order, into ``outs``.
 
     The paths are those of :func:`_walk_extra`. With ``sides``, a reference is compared
-    by what it points to; without, as text.
+    by what it points to; without, as text. With ``words``, the text of an element is
+    compared word by word, a number as a number (:class:`Tokens`): that is for what the
+    file holds and the model does not, where a text may be a list of coordinates.
 
     Same-named siblings that the walk cancelled as equal were equal with their references
     to elements inside ``extra`` read as text. Such a reference may name another element
@@ -751,11 +899,18 @@ def put_extra(
                     _digests((item,), finals[which], tick, side, placed=memos[which])
                     out[f"{path}#deep"] = finals[which][id(item)]
                 else:
-                    _put_element(out, path, item, side)
+                    _put_element(out, path, item, side, words=words)
         for (group, depth), (olds, news) in cancelled.items():
             todo.extend(
                 _uncancelled(
-                    outs, group, depth, (olds, news), (memos, finals), sides=sides, tick=tick
+                    outs,
+                    group,
+                    depth,
+                    (olds, news),
+                    (memos, finals),
+                    sides=sides,
+                    tick=tick,
+                    words=words,
                 )
             )
 
@@ -769,6 +924,7 @@ def _uncancelled(
     *,
     sides: Sides,
     tick: Tick,
+    words: bool = False,
 ) -> Iterator[tuple[str, Both, int]]:
     """Compare the cancelled siblings of one group by what their references point to.
 
@@ -788,7 +944,7 @@ def _uncancelled(
             if depth >= MAX_EXTRA_DEPTH:
                 out[f"{path}#deep"] = memo[id(item)]
             else:
-                _put_element(out, path, item, side)
+                _put_element(out, path, item, side, words=words)
         if depth < MAX_EXTRA_DEPTH:
             below = [() if item is None else item.children for item in pair]
             if below[0] or below[1]:
@@ -855,11 +1011,11 @@ class NestedIds:
     equal one on the other side has no path of its own; its place is its group and its
     content, down to the element.
 
-    An id has no place, and a reference to it stays text, when more than one element of
-    its file has the id, when a record has it, when another element shares the place (two
-    equal siblings cannot be told apart), when its record is in one file only, or when it
-    lies deeper than the depth compared. Built on first use: a file with no such
-    reference never pays for it.
+    An id that more than one element has names them all: its place is the places of
+    all of them. An id has no place, and a reference to it stays text, when a record has
+    it, when another element shares the place (two equal siblings cannot be told apart),
+    when its record is in one file only, or when it lies deeper than the depth compared.
+    Built on first use: a file with no such reference never pays for it.
     """
 
     def __init__(
@@ -878,24 +1034,34 @@ class NestedIds:
         return self._places[which].get(gml_id)
 
     def _claim(self, places: _Places, which: int, item: ExtraNode, place: str | None) -> None:
-        """Give the ids of ``item`` its place; an id met twice has none."""
+        """Give the ids of ``item`` its place; an id met twice has the places of both.
+
+        A reference to an id two elements have names the two of them. The elements of
+        both files are met in one order, so the places are joined in that order.
+        """
         ids = [value for name, value in item.attrs.items() if own_id(name)]
         if ids and place is not None:
             self._used[which][place] += 1
         for gml_id in ids:
-            places[which][gml_id] = place if gml_id not in places[which] else None
+            if gml_id not in places[which]:
+                places[which][gml_id] = place
+                continue
+            before = places[which][gml_id]
+            both = None if before is None or place is None else f"{before}&{place}"
+            places[which][gml_id] = None if both is None else bound(both, _PATH_ROOM)
 
     def _claim_equal(
         self, places: _Places, which: int, root: ExtraNode, place: str, memo: _Memo
     ) -> None:
         """Place every element of a subtree that was cancelled whole, by content."""
-        stack = [(root, f"{place}~{memo[id(root)]}")]
+        stack = [(root, bound(f"{place}~{memo[id(root)]}", _PATH_ROOM))]
         while stack:
             item, at = stack.pop()
             self._tick(1)
             self._claim(places, which, item, at)
             stack.extend(
-                (child, f"{at}/{seg(_local(child))}~{memo[id(child)]}") for child in item.children
+                (child, bound(f"{at}/{seg(_local(child))}~{memo[id(child)]}", _PATH_ROOM))
+                for child in item.children
             )
 
     def _build(self) -> _Places:
@@ -958,13 +1124,57 @@ def flatten(
     outs = (_put_node(old, sides[0], tick), _put_node(new, sides[1], tick))
     for prefix, both in _extras(old, new):
         put_extra(outs, prefix, both, tick, sides)
+    seen = (sides[0].seen, sides[1].seen)
+    if (
+        seen[0] is not None
+        and seen[1] is not None
+        and not ("" in seen[0].unread or "" in seen[1].unread)
+    ):
+        # What each file holds of the record that its model does not. Only two files
+        # have it: a model has what it holds and no more. Where the reader's work limit
+        # cut it short for either file, the two halves say nothing of each other: the
+        # comparison is incomplete, and lists none of it.
+        unread = (seen[0].unread.get(old.key, ()), seen[1].unread.get(new.key, ()))
+        if unread[0] or unread[1]:
+            put_extra(outs, UNREAD, unread, tick, sides, words=True)
+        _put_names(outs, (seen[0].names.get(old.key), seen[1].names.get(new.key)), tick)
     return outs
+
+
+_NO_NAMES: Final[Mapping[str, int]] = MappingProxyType({})
+
+
+def _put_names(
+    outs: tuple[dict[str, Any], dict[str, Any]],
+    both: tuple[Mapping[str, int] | None, Mapping[str, int] | None],
+    tick: Tick,
+) -> None:
+    """The elements typed fields hold in full that the two records do not have alike.
+
+    Such an element has no value left to compare, and it is still an element of the
+    file: renamed, added or removed, it is a difference. Each record has a count of
+    them by the names from the record down; a leaf is written only where the two counts
+    differ, so a record whose elements are the same costs a comparison and no path.
+    """
+    old, new = (names or _NO_NAMES for names in both)
+    if old == new:
+        return
+    for path in old.keys() | new.keys():
+        tick(1)
+        counts = (old.get(path, 0), new.get(path, 0))
+        if counts[0] != counts[1]:
+            leaf = bound(f"{UNREAD}.{path}#elements")
+            for out, count in zip(outs, counts, strict=True):
+                if count:
+                    out[leaf] = count
 
 
 def same(a: Any, b: Any, tol: Tol) -> str | None:  # noqa: PLR0911 - one return per kind
     """None when equal, ``"reformatted"`` when only the text differs, else ``"changed"``."""
     if isinstance(a, Ref) or isinstance(b, Ref):
         return None if a == b else CHANGED
+    if isinstance(a, Tokens) or isinstance(b, Tokens):
+        return a.same(b, tol) if isinstance(a, Tokens) and isinstance(b, Tokens) else CHANGED
     if isinstance(a, Quantity) and isinstance(b, Quantity):
         if a.uom != b.uom:
             return CHANGED
@@ -1004,6 +1214,8 @@ def show(value: Any) -> tuple[Any, bool]:  # noqa: PLR0911 - one return per kind
         return _clip(value)
     if isinstance(value, Ref):
         return _clip(value.shown)
+    if isinstance(value, Tokens):
+        return _clip(value.text)
     if isinstance(value, Quantity):
         return _clip(f"{value.text} {value.uom}" if value.uom else value.text)
     if isinstance(value, Code):
@@ -1021,7 +1233,12 @@ Emit = Callable[[str, str, Any, Any], None]
 
 
 def _same_leaf(a: Any, b: Any, tol: Tol, tick: Tick) -> str | None:
-    """:func:`same`, with a long tuple (a centre line's coordinates) compared in slices."""
+    """:func:`same`, with a long tuple (a centre line's coordinates) compared in slices.
+
+    A long text the model does not hold is compared a few hundred words at a time.
+    """
+    if isinstance(a, Tokens) and isinstance(b, Tokens):
+        return a.same(b, tol, tick)
     if not (isinstance(a, tuple) and isinstance(b, tuple) and len(a) == len(b) > CHUNK):
         return same(a, b, tol)
     verdict = None

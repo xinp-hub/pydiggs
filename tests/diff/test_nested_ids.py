@@ -1,9 +1,9 @@
 """Ids are not values: a re-export that gives every ``gml:id`` a new value is the same data.
 
 The ``gml:id`` of an element inside ``extra`` is not compared, and a local reference
-(``xlink:href="#x"``, ``srsName="#x"``) is compared by what it points to. A reference that
-cannot be resolved for certain stays text, so a link that points at another thing is never
-hidden.
+(``xlink:href="#x"``, ``srsName="#x"``) is compared by what it points to. A reference to
+an element of the file is never compared by the text of its id alone, so a link that
+points at another thing is never hidden.
 
 An element a typed field read (a borehole's centre line) is not in the model; a reference
 to one is resolved from the two files, so only when both are given as paths or bytes.
@@ -138,8 +138,10 @@ def _last(result: diff.Diff) -> set[str]:
 
 
 def test_the_reader_places_the_elements_the_model_does_not_keep():
-    model, places, _ = read_with_places(BOREHOLES)
+    model, places, _, marks, _, _ = read_with_places(BOREHOLES)
     assert model == read_bytes(BOREHOLES.read_bytes(), name=BOREHOLES.name)
+    # An element with no path of its own (one of several same-named siblings) is marked.
+    assert marks and not marks.keys() & places.keys() and "cl-B-01" not in marks
     assert places["cl-B-01"] == ("Location_B-01", "centerLine/LinearExtent")
     assert places["pl-B-01"] == ("Location_B-01", "referencePoint/PointLocation")
     assert places["cl-BENT_9_MIDDLE_A"][1] == "centerLine/LinearExtent"
@@ -266,18 +268,29 @@ def _point_at(text: str, target: str) -> str:
     ],
     ids=["same-named-sibling", "duplicate-id", "deep", "long-name"],
 )
-def test_an_element_that_cannot_be_placed_for_certain_is_compared_as_text(inside, after, target):
+def test_an_element_with_no_path_of_its_own_is_told_by_its_position_and_content(
+    inside, after, target
+):
     text = _centre_line(MWD.read_text("utf-8"), inside, after)
     assert text != MWD.read_text("utf-8")
     if target != "cl_bh_TEST_HOLE_1":
         text = _point_at(text, target)
-    _, places, _ = read_with_places(text.encode())
-    assert target not in places
+    _, places, _, marks, _, _ = read_with_places(text.encode())
+    assert target in marks
+    # An id two elements have names both: the first by its path, the second by its mark.
+    twice = target == "twice"
+    assert target not in places and len(marks[target]) == 1 + twice
     assert diff.compare(text.encode(), text.encode()).identical
-    result = diff.compare(text.encode(), reissue_ids(text).encode())
+    # The text of the id says nothing, either way: new ids are the same data ...
+    assert diff.compare(text.encode(), reissue_ids(text).encode()).identical
+    # ... and the same text on another element is another reference.
+    moved = text.replace('gml:id="pl_bh_TEST_HOLE_1"', 'gml:id="KEEP"')
+    moved = moved.replace(f'gml:id="{target}"', 'gml:id="pl_bh_TEST_HOLE_1"')
+    moved = moved.replace('gml:id="KEEP"', f'gml:id="{target}"')
+    assert moved != text
+    result = diff.compare(text.encode(), moved.encode())
     assert result.identical is False
-    # Both the reference inside ``extra`` and the model's link of it are text now.
-    assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"}
+    assert {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"} <= _last(result)
 
 
 def test_a_place_does_not_depend_on_the_order_or_the_prefix_of_the_elements():
@@ -314,7 +327,7 @@ def test_placing_many_ids_counts_the_children_of_a_parent_once(monkeypatch):
 
     def counters(n: int) -> int:
         made.clear()
-        _, places, _ = read_with_places(_many_ids(n).encode())
+        _, places, _, _, _, _ = read_with_places(_many_ids(n).encode())
         assert sum(1 for name in places if name.startswith("h")) == n
         return len(made)
 
@@ -326,13 +339,20 @@ def test_the_index_of_places_stops_at_the_readers_work_limit(monkeypatch):
     data = text.encode()
     monkeypatch.setattr(_read, "LIMIT_BASE", 0)
     limit = len(data) // _read.LIMIT_BYTES_PER_ITEM
-    model, places, _ = read_with_places(data)
+    model, places, _, marks, _, _ = read_with_places(data)
     assert model.complete and limit - 5 < len(places) <= limit < 3000
-    # The last id is past the limit, so the reference to it is text: never a guess.
-    assert "h2999" not in places
-    assert diff.compare(data, data).identical
-    result = diff.compare(data, reissue_ids(text).encode())
-    assert result.identical is False and result.complete
+    # The last id is past the limit, so it has no path there: it is told by its mark.
+    assert "h2999" not in places and "h2999" in marks
+    # A file with so many element names for its size is past the same limit as a whole,
+    # so the comparison is incomplete; what it lists is still right.
+    same = diff.compare(data, data)
+    assert same.changes == () and same.limits_hit == ("old_read_incomplete", "new_read_incomplete")
+    assert diff.compare(data, reissue_ids(text).encode()).changes == ()
+    # The reference moved to the element before it: never the same, whatever the ids.
+    moved = text.replace('xlink:href="#h2999"', 'xlink:href="#h2998"')
+    assert moved != text
+    result = diff.compare(data, reissue_ids(moved).encode())
+    assert result.identical is False
     assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"}
 
 
@@ -340,13 +360,16 @@ def test_ids_nested_as_deep_as_the_parser_allows_are_read_and_not_placed():
     depth_ = 200
     inside = "".join(f'<d gml:id="d{i}">' for i in range(depth_)) + "</d>" * depth_
     text = _point_at(_centre_line(MWD.read_text("utf-8"), inside), f"d{depth_ - 1}")
-    model, places, _ = read_with_places(text.encode())
+    model, places, _, marks, _, _ = read_with_places(text.encode())
     assert model.complete
     assert [name for name in places if name.startswith("d")] == [
         f"d{i}" for i in range(_read.MAX_PLACE_STEPS - 2)
     ]
+    assert {f"d{i}" for i in range(_read.MAX_PLACE_STEPS - 2, depth_)} <= marks.keys()
     assert diff.compare(text.encode(), text.encode(), time_budget=30).identical
-    assert diff.compare(text.encode(), reissue_ids(text).encode()).identical is False
+    assert diff.compare(text.encode(), reissue_ids(text).encode()).identical
+    other = text.replace(f'xlink:href="#d{depth_ - 1}"', f'xlink:href="#d{depth_ - 2}"')
+    assert diff.compare(text.encode(), reissue_ids(other).encode()).identical is False
 
 
 def test_a_time_budget_still_bounds_a_comparison_of_two_files():

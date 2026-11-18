@@ -160,7 +160,7 @@ PACKAGE_LOCAL = {
         "The diggs-findings 1.2 JSON Schema (adds the diff step): pyDIGGS's own output "
         "contract, not upstream data."
     ),
-    "diff/diggs-diff-1.0.schema.json": (
+    "diff/diggs-diff-1.0-beta.1.schema.json": (
         "The diggs-diff JSON Schema (pydiggs.diff): pyDIGGS's own output contract, checked "
         "against the output by tests/diff."
     ),

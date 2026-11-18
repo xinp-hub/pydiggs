@@ -1,4 +1,4 @@
-"""The diggs-diff 1.0 document, its JSON Schema and the text renderer."""
+"""The diggs-diff document (1.0-beta.1), its JSON Schema and the text renderer."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from ._helpers import (
     table,
 )
 
-URL = "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
+URL = "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json"
 
 
 def _sample_diff() -> diff.Diff:
@@ -58,12 +58,12 @@ def test_the_schema_is_a_valid_published_contract():
     schema = diff.diff_schema()
     jsonschema.Draft202012Validator.check_schema(schema)
     assert schema["$id"] == URL == diff.DIFF_SCHEMA_URL
-    assert schema["title"] == "diggs-diff 1.0"
-    assert schema["properties"]["schema_version"]["pattern"] == r"^1\.[0-9]+$"
+    assert schema["title"] == "diggs-diff 1.0 (beta 1)"
+    assert schema["properties"]["schema_version"]["pattern"] == r"^1\.[0-9]+(-beta\.[0-9]+)?$"
     again = diff.diff_schema()
     again["title"] = "mutated"
-    assert diff.diff_schema()["title"] == "diggs-diff 1.0"  # a fresh dict each call
-    packaged = resources.files("pydiggs.diff").joinpath("diggs-diff-1.0.schema.json")
+    assert diff.diff_schema()["title"] == "diggs-diff 1.0 (beta 1)"  # a fresh dict each call
+    packaged = resources.files("pydiggs.diff").joinpath("diggs-diff-1.0-beta.1.schema.json")
     assert json.loads(packaged.read_text("utf-8")) == schema
 
 
@@ -123,7 +123,7 @@ def test_a_diff_document_has_the_documented_shape_and_validates():
     document = result.to_dict()
     assert schema_errors(document) == []
     assert document["$schema"] == URL
-    assert (document["format"], document["schema_version"]) == ("diggs-diff", "1.0")
+    assert (document["format"], document["schema_version"]) == ("diggs-diff", "1.0-beta.1")
     assert document["tool"] == {"name": "pydiggs", "version": pydiggs.__version__}
     assert document["identical"] is False and document["complete"] is True
     assert document["changes"][0]["collection"] == "features"

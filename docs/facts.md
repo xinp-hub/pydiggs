@@ -195,15 +195,16 @@ usage: pydiggs diff [-h] [--format {text,json}] [-o FILE]
                     [--max-bytes N] [--verbose]
                     OLD NEW
 
-Compare two DIGGS files by what they describe, not by how they are written:
-element order, number formatting, line numbers and the gml:id of a record do
-not count. Boreholes, samples, tests and the other records are matched by
-gml:id, then by a natural key (a borehole's kind and name, a sample's
-borehole, name and top), so records stay paired when their gml:ids change: two
-exports of the same data with new ids are identical. The renamed ids are
-counted, and listed with --verbose. Numbers compare within a tolerance; a
-change of unit is always a change, and nothing is converted. The two files may
-be different DIGGS versions.
+Compare two DIGGS files by what they describe, not by how they are written
+(preview: the report format and the comparison rules may change in a minor
+release): element order, number formatting, line numbers and the gml:id of a
+record do not count. Boreholes, samples, tests and the other records are
+matched by gml:id, then by a natural key (a borehole's kind and name, a
+sample's borehole, name and top), so records stay paired when their gml:ids
+change: two exports of the same data with new ids are identical. The renamed
+ids are counted, and listed with --verbose. Numbers compare within a
+tolerance; a change of unit is always a change, and nothing is converted. The
+two files may be different DIGGS versions.
 
 positional arguments:
   OLD                   the earlier DIGGS file
@@ -212,7 +213,7 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --format {text,json}  the report: text (the default), or JSON (a diggs-diff
-                        1.0 document)
+                        document)
   -o FILE, --output FILE
                         write the report here, not to stdout
   --match {auto,gml-id,natural}
@@ -221,7 +222,8 @@ options:
                         gml:id changed is removed and added) or natural
                         (natural keys only)
   --rel-tol R           two numbers are equal when they differ by at most R
-                        times the larger one (default 1e-09)
+                        times the larger one; 0 or more and less than 1
+                        (default 1e-09)
   --abs-tol A           or by at most A, in the value's own unit (default 0)
   --max-changes N       list at most N changes (default 10000); the counts
                         stay exact, and a cut list is an incomplete comparison

@@ -564,8 +564,12 @@ def test_cells_that_differ_in_kind_are_changes_and_text_cells_compare_exactly():
 def test_an_inventory_read_without_values_compares_row_counts_and_never_claims_equal_cells():
     full = pydiggs.read(ANNOTATED)
     inventory = pydiggs.read(ANNOTATED, results=False)
-    assert diff.compare(inventory, inventory).identical
+    # Nothing differs in what is there, and nobody looked at a cell: incomplete.
+    unread = diff.compare(inventory, inventory)
+    assert (unread.identical, unread.complete, unread.changes) == (False, False, ())
+    assert unread.limits_hit == ("old_results_not_read", "new_results_not_read")
     result = diff.compare(full, inventory)
+    assert result.limits_hit == ("new_results_not_read",)
     assert not result.identical
     paths = [v.path for c in result.changes for v in c.values]
     assert paths
@@ -738,10 +742,10 @@ def test_the_public_names_are_sorted_and_documented():
         "compare",
         "diff_schema",
     }
-    assert diff.DIFF_SCHEMA_VERSION == "1.0"
+    assert diff.DIFF_SCHEMA_VERSION == "1.0-beta.1"
     assert (
         diff.DIFF_SCHEMA_URL
-        == "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
+        == "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json"
     )
     assert diff.diff_schema()["$id"] == diff.DIFF_SCHEMA_URL
 

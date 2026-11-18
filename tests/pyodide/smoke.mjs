@@ -112,14 +112,14 @@ for (const name of readNames) {
 console.log(`ok  ${readNames.length} diggs-model documents parse in JavaScript`);
 
 // 2b-diff. Model comparison (pyDIGGS 1.12): pydiggs.diff.compare(...).to_json() is a diggs-diff
-// 1.0 document. Byte equality is step 1; here, a file equals itself and not the other one.
+// document (1.0-beta.1 while pydiggs.diff is a preview). Byte equality is step 1; here, a file equals itself and not the other one.
 const diffNames = Object.keys(out.results).filter((name) => name.startsWith("diff:"));
 assert.equal(diffNames.length, 2, "expected two diff:<old>:<new> results");
 for (const name of diffNames) {
   const [, oldName, newName] = name.split(":");
   const diff = JSON.parse(out.results[name]);
   assert.equal(diff.format, "diggs-diff", `${name}: not a diggs-diff document`);
-  assert.equal(diff.schema_version, "1.0");
+  assert.equal(diff.schema_version, "1.0-beta.1");
   assert.equal(diff.complete, true, `${name}: the comparison did not finish`);
   assert.equal(diff.identical, oldName === newName, `${name}: identical is wrong`);
 }

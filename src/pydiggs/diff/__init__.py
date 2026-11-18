@@ -1,5 +1,8 @@
 """Model-level comparison of two DIGGS files: what was added, removed or changed.
 
+A preview in pyDIGGS 1.12: the report format and the comparison rules may change in a
+minor release. The stable ``pydiggs.diff`` and diggs-diff 1.0 are planned for pyDIGGS 1.13.
+
 :func:`compare` reads two files (or takes two :class:`~pydiggs.model.Model`) and says what
 differs *in what they describe*, not in how they are written: element order, number
 formatting, provenance and the ``gml:id`` of a record do not count. Nodes are matched by
@@ -10,14 +13,21 @@ listed on request. The ``gml:id`` of an element inside a node (a geometry) is no
 compared, and a reference to something in the same file is compared by what it points
 to; one that cannot be resolved for certain is compared as text. A reference to an
 element the model does not keep (a borehole's centre line) is resolved from the file, so
-only when both inputs are paths or bytes. A natural key that more than one node has is
-never guessed at.
+only when both inputs are paths or bytes: a model has neither that element nor its id,
+and two models cannot show that two such elements of one record exchanged their ids. A
+natural key that more than one node has is never guessed at.
 Numbers compare within a tolerance, a change of unit is always a change (nothing is
 converted), and result tables align their rows by the domain index (depth) when it is
 unique.
 
+Comparing two files (paths or bytes) is the full comparison: it also covers what each
+file holds of a record that the model does not keep (the unit labels of a location, the
+geometry of a layer, a grid, a value a column could not read), under paths that start
+with ``xml.``. Comparing two models compares the two models, and can only see what a
+model holds; a file and a model are compared as two models.
+
 The result is a :class:`Diff`: a summary, the listed :class:`Change` items, and notes that
-are findings of step ``diff``. :meth:`Diff.to_json` writes it as a diggs-diff 1.0 document,
+are findings of step ``diff``. :meth:`Diff.to_json` writes it as a diggs-diff document,
 described by the JSON Schema :func:`diff_schema` returns. Both files are untrusted: their
 size, the time spent and the number of changes listed are limited.
 
@@ -30,7 +40,7 @@ Examples:
     >>> result.identical, result.complete, len(result.changes)
     (True, True, 0)
     >>> result.to_dict()["format"], diff.DIFF_SCHEMA_VERSION
-    ('diggs-diff', '1.0')
+    ('diggs-diff', '1.0-beta.1')
 """
 
 from __future__ import annotations
@@ -99,6 +109,9 @@ def _options(
     if match not in _engine.MATCH_MODES:
         raise ValueError(f"match must be one of {', '.join(_engine.MATCH_MODES)}, got {match!r}")
     rel = _number("rel_tol", rel_tol, allow_zero=True)
+    if rel >= 1:
+        # At 1 every number equals 0 (|a - 0| <= 1 x |a|), and so any other of its sign.
+        raise ValueError(f"rel_tol must be less than 1, got {rel_tol!r}")
     absolute = _number("abs_tol", abs_tol, allow_zero=True)
     if isinstance(max_changes, bool) or not isinstance(max_changes, int) or max_changes < 0:
         raise ValueError(f"max_changes must be an integer, 0 or more, got {max_changes!r}")
@@ -130,10 +143,10 @@ def _load(
         return source, None
     remaining = None if deadline is None else max(deadline - _engine._now(), 1e-3)
     if isinstance(source, str | os.PathLike | bytes | bytearray | memoryview):
-        model, places, systems = read_with_places(
+        model, places, systems, marks, unread, names = read_with_places(
             source, max_bytes=max_bytes, time_budget=remaining
         )
-        return model, _engine.Seen(places, systems)
+        return model, _engine.Seen(places, systems, marks, unread, names)
     raise TypeError(f"{role} must be a path, bytes or a pydiggs.Model, got {type(source).__name__}")
 
 
@@ -152,11 +165,26 @@ def compare(
 ) -> Diff:
     """Compare two DIGGS files at model level.
 
+    A preview in pyDIGGS 1.12: the report format and the comparison rules may change in
+    a minor release.
+
+    Give it the two files (paths or bytes) for the full comparison: what a model holds,
+    and what each file holds of a record that its model does not keep. Given two
+    :class:`~pydiggs.model.Model`, it compares the two models and can only see what a
+    model holds, so an identical result then says that the models are equal. A file and
+    a model are compared as two models.
+
     Args:
         old: The earlier file: a path, the bytes of a file, or a :class:`~pydiggs.model.Model`.
             A reference to an element the model does not keep (a borehole's centre line)
-            is compared by what it points to only when both are paths or bytes; with a
-            model on either side it is compared as text.
+            is compared by what it points to only when both are paths or bytes. With a
+            model on either side it is compared by the record that holds the element and
+            the text of the id, which cannot show that two such elements of one record
+            exchanged their ids: only the files can. A model read with
+            ``results=False`` has no cells to compare: when one of its tables has
+            columns, the result is ``complete=False`` (limit ``old_results_not_read``
+            or ``new_results_not_read``) with a ``diff.limit`` note, and so never
+            identical.
         new: The later file, in the same forms. The two may be different DIGGS versions;
             both are recorded in the result.
         match: How nodes are paired. ``"auto"``: by ``gml:id`` and element, then by natural
@@ -164,7 +192,8 @@ def compare(
             removed and added; ``"natural"``: the second pass only. A natural key that
             several nodes share is never matched.
         rel_tol: Two numbers are equal when ``|a - b| <= max(abs_tol, rel_tol * max(|a|,
-            |b|))``. The default is exact up to float noise.
+            |b|))``. The default is exact up to float noise. From 0 to less than 1: at
+            1 every number would equal 0.
         abs_tol: The absolute part of that bound (default 0).
         max_changes: Most entries listed (changed nodes plus their value changes). The
             counts in the summary stay exact; when the list is cut the result is

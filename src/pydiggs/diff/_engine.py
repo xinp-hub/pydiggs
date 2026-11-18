@@ -21,9 +21,11 @@ from pydiggs.diff._compare import (
     REFORMATTED,
     RENAMED,
     NestedIds,
+    Ref,
     Seen,
     Side,
     Tol,
+    bound,
     diff_maps,
     flatten,
     show,
@@ -234,6 +236,9 @@ class _Comparison:
         self.renamed = 0
         self.timed_out = False
         self.differs = False
+        #: Whether a table of the old, of the new side has columns whose values were not
+        #: read (a model read with ``results=False``): its cells were not compared.
+        self.unread = [False, False]
 
     def count(self, collection: str, which: str) -> None:
         bucket = self.counts.setdefault(
@@ -296,7 +301,7 @@ class _Comparison:
             for leaves, side, key in holders:
                 leaves["holder"] = side.node_ref(key)
         diff_maps(old_map, new_map, self.tol, sink.add, tick)
-        _tables.compare_results(
+        unread = _tables.compare_results(
             _results(pair.old.node),
             _results(pair.new.node),
             sides=sides,
@@ -304,6 +309,7 @@ class _Comparison:
             emit=sink.add,
             tick=tick,
         )
+        self.unread = [was or now for was, now in zip(self.unread, unread, strict=True)]
         self.value_changes += sink.changed
         self.reformatted += sink.reformatted
         self.renamed += sink.renamed
@@ -314,15 +320,17 @@ class _Comparison:
             self.count(collection, "changed")
         if not sink.kept:
             return
-        at = pair.new.node.provenance.xpath
+        at = bound(pair.new.node.provenance.xpath)
         values = []
         for path, op, old, new in sorted(sink.kept, key=lambda v: v[0]):
             shown_old, cut_old = show(old)
             shown_new, cut_new = show(new)
+            if shown_old == shown_new:
+                shown_new = _retargeted(old, new, shown_new)
             values.append(
                 ValueChange(
                     op=op,
-                    path=path,
+                    path=bound(path),
                     old=shown_old,
                     new=shown_new,
                     at=at,
@@ -335,6 +343,33 @@ class _Comparison:
         op = "changed" if sink.changed else RENAMED if RENAMED in ops else REFORMATTED
         listed = _change(op, pair.old, pair.new, pair.by)
         self.listing.changes.append(_with_values(listed, tuple(values)))
+
+
+#: Said of a reference that reads the same in both files and names another thing.
+ANOTHER_TARGET: Final = " (another target)"
+
+
+def _marked(text: Any) -> Any:
+    if not isinstance(text, str):
+        return text
+    return text[: MAX_SHOWN - len(ANOTHER_TARGET)] + ANOTHER_TARGET
+
+
+def _retargeted(old: Any, new: Any, shown: Any) -> Any:
+    """``shown`` (the new value) saying so when it is a reference that names another thing.
+
+    A reference is compared by what it points to and shown as it is written, so one that
+    kept its text and now names another element (two elements exchanged their ids) would
+    read ``#a -> #a``. The new side then says it names another target.
+    """
+    if isinstance(old, Ref) and isinstance(new, Ref):
+        return _marked(shown)
+    if isinstance(old, tuple) and isinstance(new, tuple) and isinstance(shown, list):
+        return [
+            _marked(text) if isinstance(b, Ref) and a != b else text
+            for text, a, b in zip(shown, old, new, strict=False)
+        ]
+    return shown
 
 
 def _with_values(change: Change, values: tuple[ValueChange, ...]) -> Change:
@@ -418,16 +453,35 @@ def compare_models(
                 " counts are partial.",
             )
         )
-    for side, model in (("old", old), ("new", new)):
-        if not model.complete:
+    for which, (side, model) in enumerate((("old", old), ("new", new))):
+        # Reading for a comparison also collects what the model does not hold, within
+        # the same work limit: a file made to exceed it was not compared in full.
+        cut = seen is not None and "" in seen[which].unread
+        if not model.complete or cut:
+            why = ", ".join(model.limits_hit) or (
+                "more content outside the model than a file of its size may have"
+                if model.complete
+                else "a limit"
+            )
             limits.append(f"{side}_read_incomplete")
             notes.append(
                 _note(
                     "diff.limit",
                     "warning",
-                    f"The {side} file was read only in part"
-                    f" ({', '.join(model.limits_hit) or 'a limit'}), so the comparison is"
+                    f"The {side} file was read only in part ({why}), so the comparison is"
                     " incomplete.",
+                )
+            )
+    for side, unread in zip(("old", "new"), comparison.unread, strict=True):
+        if unread:
+            limits.append(f"{side}_results_not_read")
+            notes.append(
+                _note(
+                    "diff.limit",
+                    "warning",
+                    f"The {side} model was read without the values of its result tables"
+                    " (results=False), so the cells of those tables were not compared and"
+                    " the comparison is incomplete.",
                 )
             )
     complete = not limits

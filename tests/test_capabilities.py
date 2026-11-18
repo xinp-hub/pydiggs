@@ -383,12 +383,12 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
 
 def test_stability_matches_what_the_docs_promise(by_id):
     preview = {i for i, op in by_id.items() if op.stability == "preview"}
-    assert preview == {"ags4.read", "ags4.write", "ags4.check"}
+    assert preview == {"ags4.read", "ags4.write", "ags4.check", "diff"}
     # pydiggs.convert is stable from 1.11, both ways.
     assert by_id["convert.ags4-to-diggs"].stability == "stable"
     assert by_id["convert.diggs-to-ags4"].stability == "stable"
-    # pydiggs.diff is stable from 1.12.
-    assert by_id["diff"].stability == "stable"
+    # pydiggs.diff is a preview in 1.12 (stable is planned for 1.13), and says so.
+    assert "preview" in by_id["diff"].label
     assert not {i for i, op in by_id.items() if op.stability == "experimental"}
 
 

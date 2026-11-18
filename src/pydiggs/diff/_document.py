@@ -1,7 +1,10 @@
-"""The diggs-diff 1.0 JSON codec: a :class:`~pydiggs.diff.Diff` to a document and back.
+"""The diggs-diff JSON codec: a :class:`~pydiggs.diff.Diff` to a document and back.
+
+The format is 1.0-beta.1 while ``pydiggs.diff`` is a preview.
 
 Pure: no I/O. Keys are written sorted and NaN is refused, so one diff always gives the
-same bytes. The JSON Schema ships next to this package as ``diggs-diff-1.0.schema.json``.
+same bytes. The JSON Schema ships next to this package as
+``diggs-diff-1.0-beta.1.schema.json``.
 """
 
 from __future__ import annotations
@@ -11,7 +14,8 @@ import re
 from collections.abc import Mapping
 from typing import Any, Final
 
-from pydiggs.diff._types import Change, Diff, ValueChange
+from pydiggs.diff._compare import MAX_PATH
+from pydiggs.diff._types import MATCHED_BY, OPS, Change, Diff, ValueChange
 from pydiggs.findings._json import finding_entry
 from pydiggs.model._model import _finding
 
@@ -26,11 +30,14 @@ __all__ = [
 ]
 
 FORMAT: Final = "diggs-diff"
-DIFF_SCHEMA_VERSION: Final = "1.0"
-DIFF_SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
-SCHEMA_RESOURCE: Final = "diggs-diff-1.0.schema.json"
+#: A beta while ``pydiggs.diff`` is a preview; 1.0 is frozen when it becomes stable.
+DIFF_SCHEMA_VERSION: Final = "1.0-beta.1"
+DIFF_SCHEMA_URL: Final = (
+    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json"
+)
+SCHEMA_RESOURCE: Final = "diggs-diff-1.0-beta.1.schema.json"
 
-_VERSION: Final = re.compile(r"1\.[0-9]+")
+_VERSION: Final = re.compile(r"1\.[0-9]+(-beta\.[0-9]+)?")
 _REQUIRED: Final = (
     "$schema",
     "format",
@@ -99,7 +106,7 @@ def _change(change: Change) -> dict[str, Any]:
 
 
 def to_document(diff: Diff) -> dict[str, Any]:
-    """The diff as a diggs-diff 1.0 document."""
+    """The diff as a diggs-diff document."""
     return {
         "$schema": DIFF_SCHEMA_URL,
         "format": FORMAT,
@@ -134,15 +141,45 @@ def _need(data: Mapping[str, Any], key: str, kind: type | tuple[type, ...], wher
     return value
 
 
+def _count(data: Mapping[str, Any], key: str, where: str) -> int:
+    """A count: an integer, 0 or more (``True`` is not one)."""
+    value = _need(data, key, int, where)
+    if value < 0:
+        raise ValueError(f"{where}.{key}: expected 0 or more, got {value}")
+    return int(value)
+
+
+def _one_of(data: Mapping[str, Any], key: str, allowed: tuple[Any, ...], where: str) -> Any:
+    value = data.get(key)
+    # ``True == 1`` and unhashable values: a member is the same value of the same type.
+    if not any(type(value) is type(item) and value == item for item in allowed):
+        names = ", ".join("null" if item is None else str(item) for item in allowed)
+        raise ValueError(f"{where}.{key}: expected one of {names}, got {value!r}")
+    return value
+
+
+def _text(data: Mapping[str, Any], key: str, where: str, *, longest: int | None = None) -> Any:
+    """A field that is text or null, at most ``longest`` characters."""
+    value = data.get(key)
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"{where}.{key}: expected text or null")
+    if value is not None and longest is not None and len(value) > longest:
+        raise ValueError(f"{where}.{key}: longer than {longest} characters")
+    return value
+
+
 def _decode_value(data: Any, where: str) -> ValueChange:
     if not isinstance(data, Mapping):
         raise ValueError(f"{where}: a value change is an object")
+    path = _need(data, "path", str, where)
+    if not 0 < len(path) <= MAX_PATH:
+        raise ValueError(f"{where}.path: expected 1 to {MAX_PATH} characters")
     return ValueChange(
-        op=_need(data, "op", str, where),
-        path=_need(data, "path", str, where),
+        op=_one_of(data, "op", OPS, where),
+        path=path,
         old=_copy(data.get("old")),
         new=_copy(data.get("new")),
-        at=data.get("at"),
+        at=_text(data, "at", where, longest=MAX_PATH),
         truncated=bool(data.get("truncated", False)),
     )
 
@@ -152,23 +189,66 @@ def _decode_change(data: Any, where: str) -> Change:
         raise ValueError(f"{where}: a change is an object")
     values = _need(data, "values", list, where)
     return Change(
-        op=_need(data, "op", str, where),
+        op=_one_of(data, "op", OPS, where),
         collection=_need(data, "collection", str, where),
         element=_need(data, "element", str, where),
-        name=data.get("name"),
-        old_key=data.get("old_key"),
-        new_key=data.get("new_key"),
-        matched_by=data.get("matched_by"),
+        name=_text(data, "name", where),
+        old_key=_text(data, "old_key", where),
+        new_key=_text(data, "new_key", where),
+        matched_by=_one_of(data, "matched_by", (*MATCHED_BY, None), where),
         values=tuple(_decode_value(v, f"{where}.values[{i}]") for i, v in enumerate(values)),
         truncated=bool(data.get("truncated", False)),
     )
 
 
+_COUNTS: Final = ("added", "removed", "changed", "unchanged")
+
+
+def _decode_summary(data: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    """The counts per collection: each entry has the four counts, whatever else it has."""
+    summary: dict[str, dict[str, Any]] = {}
+    for name, counts in data.items():
+        where = f"$.summary.{name}"
+        if not isinstance(name, str) or not isinstance(counts, Mapping):
+            raise ValueError(f"{where}: expected an object of counts")
+        for key in _COUNTS:
+            _count(counts, key, where)
+        summary[name] = _copy(counts)
+    return summary
+
+
+def _decode_limits(data: Mapping[str, Any], *, identical: bool, complete: bool) -> tuple[str, ...]:
+    """``limits_hit``, checked against what ``identical`` and ``complete`` say."""
+    limits = _need(data, "limits_hit", list, "$")
+    if not all(isinstance(item, str) for item in limits):
+        raise ValueError("$.limits_hit: expected a list of text")
+    if complete is bool(limits):
+        raise ValueError(
+            "$.limits_hit: a complete comparison names no limit, and an incomplete one"
+            " names what stopped it"
+        )
+    if identical and not complete:
+        raise ValueError("$.identical: an incomplete comparison cannot say identical")
+    return tuple(limits)
+
+
+def _differs(summary: Mapping[str, Mapping[str, Any]], changes: tuple[Change, ...]) -> bool:
+    """Whether a document counts or lists a difference."""
+    counted = any(counts[key] for counts in summary.values() for key in _COUNTS[:3])
+    return counted or any(change.op in OPS[:3] for change in changes)
+
+
 def from_document(data: Mapping[str, Any]) -> Diff:
     """Build a :class:`~pydiggs.diff.Diff` from a diggs-diff document.
 
+    A document is checked for what the report needs and for what it says about itself:
+    each summary entry has its four counts, every count is an integer of 0 or more,
+    ``op`` and ``matched_by`` are values the format defines, ``limits_hit`` is text and
+    is empty exactly when ``complete`` is true, and ``identical`` is not true for an
+    incomplete comparison or one that counts or lists a difference.
+
     Raises:
-        ValueError: ``data`` is not a diggs-diff 1.x document.
+        ValueError: ``data`` is not a diggs-diff 1.x document, or contradicts itself.
     """
     if not isinstance(data, Mapping):
         raise ValueError("a diggs-diff document is a JSON object")
@@ -181,20 +261,28 @@ def from_document(data: Mapping[str, Any]) -> Diff:
     version = data["schema_version"]
     if not isinstance(version, str) or _VERSION.fullmatch(version) is None:
         raise ValueError(f"unsupported diggs-diff schema_version {version!r}")
-    changes = _need(data, "changes", list, "$")
+    listed = _need(data, "changes", list, "$")
     notes = _need(data, "notes", list, "$")
+    identical = _need(data, "identical", bool, "$")
+    complete = _need(data, "complete", bool, "$")
+    limits = _decode_limits(data, identical=identical, complete=complete)
+    summary = _decode_summary(_need(data, "summary", Mapping, "$"))
+    changes = tuple(_decode_change(c, f"$.changes[{i}]") for i, c in enumerate(listed))
+    value_changes = _count(data, "value_changes", "$")
+    if identical and (value_changes or _differs(summary, changes)):
+        raise ValueError("$.identical: a comparison that counts or lists a difference is not")
     return Diff(
         tool=_copy(_need(data, "tool", Mapping, "$")),
-        identical=_need(data, "identical", bool, "$"),
-        complete=_need(data, "complete", bool, "$"),
-        limits_hit=tuple(_copy(_need(data, "limits_hit", list, "$"))),
+        identical=identical,
+        complete=complete,
+        limits_hit=limits,
         old=_copy(_need(data, "old", Mapping, "$")),
         new=_copy(_need(data, "new", Mapping, "$")),
         options=_copy(_need(data, "options", Mapping, "$")),
-        summary=_copy(_need(data, "summary", Mapping, "$")),
-        value_changes=_need(data, "value_changes", int, "$"),
-        reformatted=_need(data, "reformatted", int, "$"),
-        renamed=_need(data, "renamed", int, "$"),
-        changes=tuple(_decode_change(c, f"$.changes[{i}]") for i, c in enumerate(changes)),
+        summary=summary,
+        value_changes=value_changes,
+        reformatted=_count(data, "reformatted", "$"),
+        renamed=_count(data, "renamed", "$"),
+        changes=changes,
         notes=tuple(_finding(n, f"$.notes[{i}]") for i, n in enumerate(notes)),
     )

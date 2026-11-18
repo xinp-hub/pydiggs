@@ -580,8 +580,11 @@ def _catalogue() -> tuple[_Entry, ...]:
         _Entry(
             Operation(
                 id="diff",
-                label="Compare two DIGGS files: what was added, removed or changed",
-                stability="stable",
+                label=(
+                    "Compare two DIGGS files: what was added, removed or changed"
+                    " (preview: the report format and the comparison rules may change)"
+                ),
+                stability="preview",
                 inputs=(*diggs, model),
                 outputs=(f"diggs-diff-{DIFF_SCHEMA_VERSION}",),
                 options={

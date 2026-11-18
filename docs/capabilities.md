@@ -101,7 +101,7 @@ exactly the operations the installed release offers. `needs` is the extra to ins
 | `ags4.check` | preview |  | Check an AGS4 file against the AGS4 rules |
 | `convert.ags4-to-diggs` | stable |  | Convert an AGS4 file to DIGGS 3.0.0, listing everything not carried over and keeping it in a residual AGS4 file |
 | `convert.diggs-to-ags4` | stable |  | Convert a DIGGS file (or a read one) to an AGS4 file, listing everything not carried over |
-| `diff` | stable |  | Compare two DIGGS files: what was added, removed or changed |
+| `diff` | preview |  | Compare two DIGGS files: what was added, removed or changed (preview: the report format and the comparison rules may change) |
 | `export.pandas` | stable | `frames` | Tables of a read file as a pandas data frame |
 | `export.polars` | stable | `polars` | Tables of a read file as a polars data frame |
 | `gis.transform` | stable | `gis` | Add longitude and latitude to every location that has a known CRS |

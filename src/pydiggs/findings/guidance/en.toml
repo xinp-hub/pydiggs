@@ -627,8 +627,8 @@ fix = "If you need them compared, give each item a unique name or ID in both fil
 
 [rules."diff.limit"]
 title = "Comparison stopped early"
-meaning = "The comparison reached a size limit, so the list of differences is cut short, or one of the files was only partly read. The totals it reports may be partial, and the files cannot be called the same."
-fix = "Raise the limit on the number of changes listed, or compare smaller files, then run it again."
+meaning = "The comparison reached a size limit, so the list of differences is cut short, or one of the files was only partly read, or was read without its test results, so those were not compared. The totals it reports may be partial, and the files cannot be called the same."
+fix = "Raise the limit on the number of changes listed, compare smaller files, or compare the files themselves so their test results are read, then run it again."
 
 [rules."diff.timeout"]
 title = "Comparison timed out"
