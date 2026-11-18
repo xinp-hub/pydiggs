@@ -49,6 +49,7 @@ OPENRPC = PACKAGE / "sidecar" / "openrpc.json"
 MODEL = PACKAGE / "model" / "diggs-model-1.0.schema.json"
 DIFF = PACKAGE / "diff" / "diggs-diff-1.0-beta.1.schema.json"
 CAPABILITIES = PACKAGE / "_capabilities" / "diggs-capabilities-1.0.schema.json"
+MAPPING = PACKAGE / "convert" / "convert-mapping-1.schema.json"
 #: Every published document: packaged source -> path under the site root.
 DOCUMENTS: dict[Path, Path] = {
     SCHEMA: PUBLISHED,
@@ -57,6 +58,7 @@ DOCUMENTS: dict[Path, Path] = {
     MODEL: Path("schemas") / MODEL.name,
     DIFF: Path("schemas") / "preview" / DIFF.name,
     CAPABILITIES: Path("schemas") / CAPABILITIES.name,
+    MAPPING: Path("schemas") / MAPPING.name,
     **{earlier: Path("schemas") / earlier.name for earlier in EARLIER_SCHEMAS},
 }
 

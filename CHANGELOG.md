@@ -7,81 +7,153 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-11-18
+
 ### Added
-- **`pydiggs diff` and `pydiggs.diff`: what changed between two DIGGS files, at model
-  level.** `pydiggs diff OLD NEW` prints which boreholes, samples, tests and values were
-  added, removed or changed, as text or, with `--format json`, as a diggs-diff 1.0 document
-  (`-o FILE` writes it to a file). Options: `--match auto|gml-id|natural`, `--rel-tol`,
-  `--abs-tol`, `--max-changes`, `--time-budget`, `--max-bytes`, and `--verbose` to list the
-  values that are only written differently and the records whose `gml:id` changed. It
-  exits **0** when the files are identical and the comparison finished, **1** when they differ or the comparison is incomplete, and
-  **2** on a usage error, a file that cannot be read or is not DIGGS, or a report that
-  cannot be written: the codes of `diff(1)`. `pydiggs.capabilities()` lists the operation
-  `diff`, and the new page [Comparing two files](https://xinp-hub.github.io/pydiggs/diff/)
-  describes what counts as a change.
-  In Python, `diff.compare(old, new)` takes paths, bytes or `Model`s and returns a `Diff` of added,
-  removed and changed nodes and values. Element order, number formatting, provenance
-  and a node's own `gml:id` do not count. Nodes are matched by `gml:id` and element, then by a natural key
-  (a borehole's kind and name, a sample's borehole, name and top, ...), so nodes stay
-  paired when their ids change, and two exports of the same data with new ids are
-  identical. A node paired by natural key whose id differs is counted in `Diff.renamed`
-  and listed, with its old and new id, only with `show_renamed=True`; with
-  `match="gml-id"` it is removed and added. The `gml:id` of a geometry, a time instant or
-  any other element inside a node is not compared, and a local reference
-  (`xlink:href="#x"`, `srsName="#x"`) is compared by what it points to, not by the id's
-  text; one that cannot be resolved for certain is compared as text. A reference to an
-  element the model does not keep, such as a borehole's linear referencing system naming
-  its centre line (`linearElement`), is resolved from the files as they are read (the
-  record holding the element and its path below it, when no element on the path has a
-  same-named sibling), so it needs paths or bytes: between two `Model`s it is compared
-  as text, and so is a link to it (by its record and its text): comparing files gives
-  the fullest independence from ids, and comparing `Model`s may list references whose
-  target could not be established. Repeated elements that differ only in what their
-  references point to are not taken as equal, also below the 64 levels compared one by
-  one; those that come in another order with new ids are the same data when each still
-  names its target (unless one has a `gml:id` inside). A link to one of two equal
-  elements is compared by its text, and a link to an element inside a record is shown
-  as the record's name and the link (`B-1 #p2`). A site grid that no record keeps is
-  the same grid under a new id only when the file defines no other system with its name
-  and unit, which takes the files.
-  `Diff.to_text()` escapes every bracket that could open `rich` markup, so no tag can
-  form across two values when the text is printed through a `rich` console. A key that more than
-  one node has is never matched and is reported as `diff.ambiguous-match`. Numbers compare
-  within `rel_tol` (default 1e-9) and `abs_tol`; a change of unit is always a change and
-  nothing is converted; the same number written differently is counted as reformatted and listed only with
-  `show_reformatted=True`.
-  Result tables align rows by the domain index (depth) when it is unique. `max_changes` and
-  `time_budget` bound the work and the list (`complete=False`, with `diff.limit` or
-  `diff.timeout`); the summary counts stay exact unless the time ran out. `Diff.to_json()`
-  writes a new contract, **diggs-diff 1.0**, with its JSON Schema (`diff.diff_schema()`).
-  Pure stdlib, no new dependency, and `import pydiggs` does not import it. It also runs
-  in the browser under Pyodide. The HTTP API, the sidecar, the MCP server and
-  `@pydiggs/client` do not offer it yet.
+- **`pydiggs.diff` and `pydiggs diff`: what changed between two DIGGS files.** The
+  comparison is of what the files describe, not of how they are written: it reads both
+  with `pydiggs.read` and reports which boreholes, samples, tests and other records were
+  added or removed, and which values changed in the records both files hold.
+  **It is a preview in 1.12:** the report format and the comparison rules may change in
+  a minor release; the stable `pydiggs.diff` and diggs-diff 1.0 are planned for 1.13.
+  The new page [Comparing two files](https://xinp-hub.github.io/pydiggs/diff/) describes
+  what counts as a change.
+
+  ```python
+  from pydiggs import diff
+
+  d = diff.compare("site-rev1.xml", "site-rev2.xml")
+  d.identical  # False
+  d.summary["features"]  # {'added': 0, 'removed': 0, 'changed': 1, 'unchanged': 0}
+  print(d.to_text())  # the report `pydiggs diff` prints
+  d.to_json(indent=2)  # a diggs-diff 1.0-beta.1 document
+  ```
+
+  - **Command line.** `pydiggs diff OLD NEW` prints the report as text or, with
+    `--format json`, as a diggs-diff document; `-o FILE` writes it to a file, in UTF-8.
+    Options: `--match auto|gml-id|natural`, `--rel-tol`, `--abs-tol`, `--max-changes`,
+    `--time-budget`, `--max-bytes`, and `--verbose` to also list the values that are only
+    written differently and the records whose `gml:id` changed. The exit codes are those
+    of `diff(1)`: **0** when the files are identical and the comparison finished, **1**
+    when they differ or the comparison is incomplete, **2** on a usage error, a file that
+    cannot be read or is not DIGGS, or a report that cannot be written.
+  - **Python.** `diff.compare(old, new)` takes paths, bytes or `Model`s, in any mix, and
+    returns a `Diff` of the added, removed and changed nodes and their values.
+  - **Compare the files for the full comparison.** Given two files (paths or bytes), the
+    comparison covers what `pydiggs.read` puts in a model and, beyond that, what each
+    record holds that a model does not keep: the unit labels, axis labels and dimension
+    of a location, the geometry of a lithology layer, a grid's origin and offsets, the
+    files of a data package, a column's property class, declared type and index, the
+    reason of a null value, the decimal mark and separators of a result set, and values
+    in a result row that no column holds. Such a value is listed under a path that
+    starts with `xml.`; an element that is renamed, added or removed is listed as a count
+    under a path that ends in `#elements`, and text after a comment or a child element
+    under one that ends in `#tail`. Such content stays tied to the typed value of its
+    element, so two names that exchange their `codeSpace` are a difference, and a
+    separator after the last value of a result row is one more value. Given two
+    `Model`s, or a file and a `Model`, the comparison is of the two models and can only
+    see what a model holds.
+  - **What does not count.** Element order, number formatting, provenance and every
+    `gml:id`: a record's own, and that of a geometry, a time instant or any other element
+    inside a record. Two exports of the same data with newly generated ids are identical.
+  - **Matching.** Nodes are paired by `gml:id` and element, then by a natural key (a
+    borehole's kind and name; a sample's borehole, name and top; ...), so they stay
+    paired when their ids change. A node paired by natural key whose id differs is
+    *renamed*, not changed: it is counted in `Diff.renamed` and listed, with its old and
+    new id, only with `show_renamed=True` (`--verbose`). With `match="gml-id"` there is
+    no natural key, so such a node is removed and added. A key that more than one node
+    has is never matched and is reported as `diff.ambiguous-match`.
+  - **References.** A local reference (`xlink:href="#x"`, `srsName="#x"`) is compared by
+    what it points to, not by the text of the id; one that cannot be resolved for certain
+    is compared as text, which errs on the side of reporting a difference. A link to an
+    element inside a record is shown as the record's name and the link (`B-1 #p2`), and a
+    link to one of two equal elements is compared by its text. Repeated elements that
+    differ only in what their references point to are not taken as equal, also below the
+    64 levels compared one by one; those that come in another order with new ids are the
+    same data when each still names its target (unless one has a `gml:id` inside). A
+    reference that kept its text and names another element is shown as
+    `#a -> #a (another target)`.
+  - **Compare files for the fullest independence from ids.** A reference to an element
+    the model does not keep, such as a borehole's linear referencing system naming its
+    centre line (`linearElement`), is resolved from the files as they are read (by the
+    record holding the element and its path below it, when no element on the path has a
+    same-named sibling), so it needs paths or bytes. Between two `Model`s that reference,
+    and a link to such an element, are compared as text (the link by its record and its
+    text), so the result may list references whose target could not be established. A
+    site grid that no record keeps is the same grid under a new id only when the file
+    defines no other system with its name and unit, which also takes the files.
+  - **Numbers and units.** Numbers compare within `rel_tol` (default 1e-9, below 1) and
+    `abs_tol`. The same number written differently is counted as reformatted and listed
+    only with `show_reformatted=True` (`--verbose`). A change of unit is always a change,
+    and nothing is converted.
+  - **Result tables** align rows by the domain index (depth) when it is unique.
+  - **Limits.** `max_changes` and `time_budget` bound the work and the list: the result
+    then has `complete=False` and a `diff.limit` or `diff.timeout` finding. The summary
+    counts stay exact unless the time ran out, and a long value such as a coordinate
+    list is compared within the time budget. A result set the reader could not read,
+    and a file with more content outside the model than a file of its size may have,
+    also make the comparison incomplete, so it never ends as identical.
+  - **Output.** `Diff.to_json()` writes a new contract, **diggs-diff 1.0-beta.1**, with
+    its JSON Schema (`diff.diff_schema()`, published as
+    [`diggs-diff-1.0-beta.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json)).
+    Paths in it are at most 1000 characters. On a terminal whose encoding cannot hold a
+    character, the command line writes it in escaped form.
+    `Diff.to_text()` escapes every bracket that could open `rich` markup, so no tag can
+    form across two values when the text is printed through a `rich` console.
+  - **Where it runs.** Pure standard library, no new dependency, and `import pydiggs`
+    does not import it. `pydiggs.capabilities()` lists the operation `diff` as `preview`. It also runs
+    in the browser under Pyodide. The HTTP API, the sidecar, the MCP server and
+    `@pydiggs/client` do not offer it yet.
 - **diggs-findings 1.2** adds the step `diff` and the rule ids `diff.ambiguous-match`,
-  `diff.limit` and `diff.timeout`; it only adds to 1.1, and the 1.0 and 1.1 schema files are
-  packaged and published unchanged. Documents now declare 1.2; the OpenAPI and OpenRPC
-  documents and the generated `@pydiggs/client` types follow.
-- **US survey foot in AGS4 as `ftUS`.** A value in US survey feet (DIGGS unit `ft[US]`, or
-  a CRS such as EPSG:2263 or 6539 whose axes are in US survey feet) was reported as
+  `diff.limit` and `diff.timeout`. It only adds to 1.1, and the 1.0 and 1.1 schema files
+  are packaged and published unchanged.
+- **US survey foot in AGS4, as `ftUS`.** A value in US survey feet (DIGGS unit `ft[US]`,
+  or a CRS such as EPSG:2263 or 6539 whose axes are in US survey feet) was reported as
   `convert.unmapped-unit` and left out when writing AGS4. It is now written as given, in
   the project-defined unit `ftUS`, and the UNIT group of the file defines it as "US survey
   foot (1200/3937 m)", as AGS4 requires of a unit it does not list. Plain `ft` stays the
-  international foot. A file that uses `ftUS` reads back to `ft[US]` for coordinates.
-  Values are never converted. The mapping table is now **1.2** (`mapping_version`, a
-  minor version: a unit was added, then depths in feet).
+  international foot. A file that uses `ftUS` reads back to `ft[US]`. Values are never
+  converted.
 - **AGS4 depths in feet are carried into DIGGS.** The unit of `LOCA_FDEP` (`m`, `ft` or
   `ftUS`) is now the unit of every depth along a feature: of each feature's linear
-  referencing system, of the CPT depth column and of the sample and layer depths, as DIGGS
-  `m`, `ft` or `ft[US]`. Before, a depth in feet was reported as `convert.unmapped-unit`
-  and left out of the DIGGS file, so a US-unit file lost every depth-keyed value, and the
-  DIGGS to AGS4 to DIGGS round trip of the official US examples lost all its depths. Depths
-  are carried, never converted. A file with no unit on `LOCA_FDEP` is still read in metres
-  (declared as `convert.assumed`), and a depth heading in a unit other than the one of
-  `LOCA_FDEP` is reported as `convert.unmapped-unit`, naming both units, and not written.
-  Output for files in metres is unchanged. The DIGGS writer names the US survey foot as
-  linear referencing method `Other: trueUSSurveyFootage`, as DIGGS 3.0.0 has no name for it.
-  The mapping table is now **1.2** (`mapping_version`, a minor version: content reported
-  as lost is now written).
+  referencing system, of the CPT depth column and of the sample and layer depths, as
+  DIGGS `m`, `ft` or `ft[US]`. Before, a depth in feet was reported as
+  `convert.unmapped-unit` and left out of the DIGGS file, so a US-unit file lost every
+  depth-keyed value, and the DIGGS to AGS4 to DIGGS round trip of the official US
+  examples lost all its depths. Depths are carried, never converted. A file with no unit
+  on `LOCA_FDEP` is still read in metres (declared as `convert.assumed`). The DIGGS
+  writer names the US survey foot as linear referencing method
+  `Other: trueUSSurveyFootage`, as DIGGS 3.0.0 has no name for it.
+
+### Changed
+- **The documentation site is versioned.** `latest/` is the newest release and `dev/`
+  is master; the site root redirects to `latest/`, and every page states the version it
+  describes. The command-line facts page and the operations table in
+  [Capabilities](https://xinp-hub.github.io/pydiggs/latest/capabilities/) are generated
+  from the code, and the Python examples in the guides are run in CI. Every JSON Schema
+  stays at its published URL under `schemas/` at the site root, which the `$schema` of
+  every document pyDIGGS writes names.
+- **Findings documents now declare diggs-findings 1.2** (`schema_version` and `$schema`),
+  on every surface: the Python API, the command line, the HTTP API, the sidecar and the
+  MCP server. The OpenAPI and OpenRPC documents and the generated `@pydiggs/client` types
+  follow. Nothing was removed or renamed, and every 1.1 document is a valid 1.2 document.
+  A consumer that checks documents against the 1.1 schema must move to the 1.2 schema,
+  because each schema pins `$schema` to its own URL; one that compares `schema_version`
+  for equality should accept any 1.x.
+- **The AGS4 and DIGGS mapping table is 1.2** (`mapping_version`; 1.11.0 shipped 1.0), a
+  minor version: it adds the unit `ftUS`, and depths in feet, reported as lost before,
+  are now written. Output for files with depths in metres is unchanged.
+- **A file has one depth unit, that of `LOCA_FDEP`.** A depth heading in another unit is
+  reported as `convert.unmapped-unit`, naming both units, and not written. This changes
+  one case: in a file whose `LOCA_FDEP` is in feet while other depth headings are in
+  metres, 1.11 left out `LOCA_FDEP` and wrote the depths in metres; 1.12 writes
+  `LOCA_FDEP` and the depths in feet, and reports the ones in metres.
+
+### Fixed
+- **The mapping table's JSON Schema is published.** `convert-mapping-1.schema.json`,
+  shipped in the wheel since 1.11.0, names
+  `https://xinp-hub.github.io/pydiggs/schemas/convert-mapping-1.schema.json` as its
+  `$id`, but the documentation site did not publish it there. It does now.
 
 ## [1.11.0] - 2026-11-16
 
@@ -1199,7 +1271,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/xinp-hub/pydiggs/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/xinp-hub/pydiggs/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/xinp-hub/pydiggs/compare/v1.8.0...v1.9.0

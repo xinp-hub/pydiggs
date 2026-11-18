@@ -354,7 +354,7 @@ lists what is in it, with hashes, in `pydiggs-vendor.json`. Then:
 ```ts
 const pydiggs = new PydiggsBrowser({
   pyodideBaseUrl: "/pydiggs/",
-  pydiggsWheelUrl: "/pydiggs/pydiggs-1.11.0-py3-none-any.whl",
+  pydiggsWheelUrl: "/pydiggs/pydiggs-1.12.0-py3-none-any.whl",
 });
 ```
 
@@ -372,7 +372,7 @@ import { cachePydiggs } from "@pydiggs/client/sw";
 
 cachePydiggs(self as unknown as ServiceWorkerGlobalScope, {
   // the same values you pass to PydiggsBrowser, if you self-host:
-  // pyodideBaseUrl: "/pydiggs/", pydiggsWheelUrl: "/pydiggs/pydiggs-1.11.0-py3-none-any.whl",
+  // pyodideBaseUrl: "/pydiggs/", pydiggsWheelUrl: "/pydiggs/pydiggs-1.12.0-py3-none-any.whl",
   // precache: true,   // download everything at install, not on first use
 });
 ```
@@ -487,7 +487,7 @@ functions), not in edge functions. Four things decide whether it runs well there
   ```ts
   const engine = new PydiggsNode({
     packageCacheDir: join(process.cwd(), "pydiggs-runtime"),
-    pydiggsWheelPath: join(process.cwd(), "pydiggs-runtime", "pydiggs-1.11.0-py3-none-any.whl"),
+    pydiggsWheelPath: join(process.cwd(), "pydiggs-runtime", "pydiggs-1.12.0-py3-none-any.whl"),
   });
   ```
 
