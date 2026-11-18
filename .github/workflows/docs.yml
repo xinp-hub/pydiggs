@@ -148,6 +148,7 @@ jobs:
           }
           live() {
             get "$site/dev/" > /dev/null || return 1
+            get "$site/schemas/diggs-findings-1.2.schema.json" | jq -e '."$id"' > /dev/null || return 1
             get "$site/versions.json" | jq -e 'any(.[]; .version == "dev")' > /dev/null || return 1
             if [ -n "$BUILT" ]; then lists "$BUILT" || return 1; fi
             if [ -n "$RELEASED" ]; then

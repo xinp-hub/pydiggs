@@ -9,7 +9,11 @@ trees into one site:
 - ``<version>/index.html``, a redirect to ``latest/``, because the switcher links to a
   version by its number;
 - a root ``index.html`` that redirects to ``latest/``, or to ``dev/`` before any release;
-- a root copy of ``llms.txt`` and ``llms-full.txt`` from the tree the root redirects to.
+- a root copy of ``llms.txt`` and ``llms-full.txt`` from the tree the root redirects to;
+- ``schemas/`` at the root, because every published JSON Schema and every document
+  pyDIGGS writes names its schema by a URL there (``$id``, ``$schema``), and those URLs
+  must keep resolving. The release's schemas are copied first; a schema only ``dev/``
+  has (one that is not released yet) is added beside them, never over a released one.
 
 Older releases are not kept: every deploy replaces the whole site.
 
@@ -93,6 +97,28 @@ def assemble(site: Path, latest: str = "") -> None:
     for name in ("llms.txt", "llms-full.txt"):
         if (site / home / name).is_file():
             shutil.copyfile(site / home / name, site / name)
+    _root_schemas(site, trees[::-1])
+
+
+def _root_schemas(site: Path, trees: list[str]) -> None:
+    """Copy ``<tree>/schemas/`` of each tree to ``site/schemas/``, the first tree winning.
+
+    A schema's URL is fixed by its ``$id`` at the site root, so it must be served there
+    whichever version the root redirects to.
+    """
+    root = site / "schemas"
+    for tree in trees:
+        source = site / tree / "schemas"
+        if not source.is_dir():
+            continue
+        for path in sorted(source.rglob("*")):
+            if not path.is_file():
+                continue
+            target = root / path.relative_to(source)
+            if target.exists():
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
 
 
 def main(argv: list[str] | None = None) -> int:
