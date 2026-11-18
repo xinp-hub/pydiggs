@@ -125,12 +125,16 @@ jobs:
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346  # v5.0.1
 
   # A green deploy only says the upload was accepted. This reads the public site the way a
-  # reader does. It holds no token and checks out nothing.
+  # reader does. It holds no token and checks out nothing, so a failed run can simply be
+  # re-run. GitHub Pages lets its CDN serve a page for up to ten minutes (Cache-Control:
+  # max-age=600) and may ignore the query string, so a page replaced by this deploy can
+  # stay old for that long: the check keeps trying for fifteen minutes, and each attempt
+  # says what it is still waiting for.
   verify:
     name: verify the live site
     needs: [build, deploy]
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions: {}
     steps:
       - name: The site serves what was just published
@@ -146,23 +150,34 @@ jobs:
             get "$site/versions.json" |
               jq -e --arg v "$1" 'any(.[]; .version == $v and (.aliases | index("latest") != null))' > /dev/null
           }
-          live() {
-            get "$site/dev/" > /dev/null || return 1
-            get "$site/schemas/diggs-findings-1.2.schema.json" | jq -e '."$id"' > /dev/null || return 1
-            get "$site/versions.json" | jq -e 'any(.[]; .version == "dev")' > /dev/null || return 1
-            if [ -n "$BUILT" ]; then lists "$BUILT" || return 1; fi
+          # Prints what is not live yet; prints nothing when everything is.
+          # grep reads the whole page (no -q): with pipefail, grep -q stopping early can
+          # fail the pipeline on a page larger than the pipe buffer although it matched.
+          missing() {
+            get "$site/dev/" > /dev/null || { echo "dev/"; return; }
+            get "$site/schemas/diggs-findings-1.2.schema.json" | jq -e '."$id"' > /dev/null ||
+              { echo "schemas/ at the site root"; return; }
+            get "$site/versions.json" | jq -e 'any(.[]; .version == "dev")' > /dev/null ||
+              { echo "dev in versions.json"; return; }
+            if [ -n "$BUILT" ]; then
+              lists "$BUILT" || { echo "$BUILT as latest in versions.json"; return; }
+            fi
             if [ -n "$RELEASED" ]; then
-              lists "$RELEASED" || return 1
-              get "$site/latest/" | grep -Fq "<meta name=\"package-version\" content=\"$RELEASED\">" || return 1
+              lists "$RELEASED" || { echo "$RELEASED as latest in versions.json"; return; }
+              get "$site/latest/" |
+                grep -F "<meta name=\"package-version\" content=\"$RELEASED\">" > /dev/null ||
+                { echo "the $RELEASED version tag on latest/"; return; }
             fi
           }
-          for attempt in $(seq 1 20); do
-            if live; then
+          waiting=""
+          for attempt in $(seq 1 60); do
+            waiting="$(missing)"
+            if [ -z "$waiting" ]; then
               echo "Verified $site (dev${BUILT:+, latest = $BUILT})."
               exit 0
             fi
-            echo "Attempt $attempt: not there yet."
+            echo "Attempt $attempt: waiting for $waiting."
             sleep 15
           done
-          echo "::error title=The live docs are not what was published::$site does not serve dev/${RELEASED:+, or versions.json and the package-version meta tag of latest/ do not carry $RELEASED}."
+          echo "::error title=The live docs are not what was published::After 15 minutes $site still does not serve $waiting."
           exit 1
