@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 
-{# The version of the checkout that was built, set by scripts/docs_hooks.py. The verify
+{# The version of the checkout that was built, set by scripts/mkdocs_hooks.py. The verify
    job in docs.yml reads it from the live site after a release. #}
 {% block extrahead %}
   <meta name="package-version" content="{{ config.extra.package_version }}">
 {% endblock %}
 
 {# Material shows this on every version other than `extra.version.default` (latest),
-   which on this site is dev/. The link goes to the site root, which redirects. #}
+   which on this site is dev/. The link goes one level above this version's root, which
+   is the site root, and that redirects. base_url is relative on ordinary pages (".",
+   "..") and absolute on 404.html ("/pydiggs/dev/"), so the parent is appended to it,
+   after any trailing slash (a "//" would make ".." step back to dev/ itself). #}
 {% block outdated %}
   This page describes unreleased code on the default branch.
-  <a href="{{ '../' ~ base_url }}"><strong>Go to the latest release.</strong></a>
+  <a href="{{ base_url.rstrip('/') }}/../"><strong>Go to the latest release.</strong></a>
 {% endblock %}

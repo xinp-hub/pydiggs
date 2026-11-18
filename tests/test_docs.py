@@ -152,3 +152,10 @@ def test_llms_documents_list_every_page_in_navigation_order():
     assert full.index("Text.") < full.index("## validate") < full.index("Not in the navigation.")
     hooks.on_config(config)
     assert hooks._PAGES == {}
+
+
+def test_dev_notice_links_to_the_site_root_from_every_page():
+    """The dev/ notice link must work where base_url is absolute (404.html) as well."""
+    override = (ROOT / "overrides" / "main.html").read_text(encoding="utf-8")
+    assert "{{ base_url.rstrip('/') }}/../" in override
+    assert "'../' ~ base_url" not in override
