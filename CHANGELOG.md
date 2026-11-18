@@ -149,6 +149,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metres, 1.11 left out `LOCA_FDEP` and wrote the depths in metres; 1.12 writes
   `LOCA_FDEP` and the depths in feet, and reports the ones in metres.
 
+### Fixed
+- **The mapping table's JSON Schema is published.** `convert-mapping-1.schema.json`,
+  shipped in the wheel since 1.11.0, names
+  `https://xinp-hub.github.io/pydiggs/schemas/convert-mapping-1.schema.json` as its
+  `$id`, but the documentation site did not publish it there. It does now.
+
 ## [1.11.0] - 2026-11-16
 
 ### Added

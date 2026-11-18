@@ -13,6 +13,12 @@ _SPEC = importlib.util.spec_from_file_location("docs_site", ROOT / "scripts" / "
 assert _SPEC is not None and _SPEC.loader is not None
 docs_site = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(docs_site)
+_HOOKS_SPEC = importlib.util.spec_from_file_location(
+    "mkdocs_hooks", ROOT / "scripts" / "mkdocs_hooks.py"
+)
+assert _HOOKS_SPEC is not None and _HOOKS_SPEC.loader is not None
+mkdocs_hooks = importlib.util.module_from_spec(_HOOKS_SPEC)
+_HOOKS_SPEC.loader.exec_module(mkdocs_hooks)
 
 SITE_ROOT = "https://xinp-hub.github.io/pydiggs/"
 
@@ -58,3 +64,8 @@ def test_every_packaged_schema_names_a_url_at_the_site_root(schema: Path) -> Non
     rel = schema_id.removeprefix(SITE_ROOT)
     assert rel.startswith("schemas/"), schema_id
     assert not rel.startswith(("latest/", "dev/")), schema_id
+    # The docs build publishes it at exactly that path (and the site root keeps it there).
+    published = {
+        source.resolve(): path.as_posix() for source, path in mkdocs_hooks.DOCUMENTS.items()
+    }
+    assert published.get(schema.resolve()) == rel, f"{schema.name} is not published at {rel}"
