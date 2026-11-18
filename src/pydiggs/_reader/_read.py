@@ -22,6 +22,7 @@ from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
 from functools import cache, lru_cache
 from importlib import resources
+from itertools import chain, islice
 from typing import Any, Final
 
 from lxml import etree
@@ -34,7 +35,7 @@ from pydiggs.findings.keys import normalise_xpath
 from pydiggs.findings.model import Finding, Severity, Step
 from pydiggs.findings.run import MAX_NAMESPACE_CHARS, _Cancelled
 from pydiggs.model._model import MODEL_SCHEMA_VERSION, Model, _encode
-from pydiggs.model._values import CrsRef
+from pydiggs.model._values import CrsRef, ExtraNode
 from pydiggs.units import UnitConverter
 
 __all__ = ["read_document"]
@@ -151,6 +152,10 @@ _LIMIT_TEXT: Final = {
 }
 
 
+class _Enough(Exception):  # noqa: N818 - control flow inside this module only
+    """The content the model lacks has reached the work limit of the read."""
+
+
 class _LimitError(Exception):
     """A work limit stopped the read inside a member; ``name`` goes into ``limits_hit``."""
 
@@ -248,30 +253,46 @@ def _plain_reference(el: etree._Element, text: str | None) -> bool:
     )
 
 
-def _time_index(domain: etree._Element, rows: int) -> list[dict[str, Any]]:
+#: Tells the reader that a typed field holds the text of an element (``""``) or one of
+#: its attributes, so it is not content the model lacks (see :meth:`_Reader._took`).
+Took = Callable[[etree._Element | None, str], None]
+
+
+def _not_noted(_el: etree._Element | None, _what: str = "") -> None:
+    return None
+
+
+def _time_index(domain: etree._Element, rows: int, took: Took = _not_noted) -> list[dict[str, Any]]:
     """The time of each row, from a result's ``timeDomain``, when it has one per row."""
     obj = next(_elements(domain), None)
     if obj is None or rows == 0:
         return []
     local = _local(obj.tag)
     if local == "TimeIntervalList":
-        values = [_number(t) for t in (_text(_child(obj, "timeIntervalList")) or "").split()]
+        listed = _child(obj, "timeIntervalList")
+        values = [_number(t) for t in (_text(listed) or "").split()]
         if len(values) != rows or any(v is None for v in values):
             return []
         unit = obj.get("unit")
+        took(listed, "")
+        took(obj, "unit")
         return [_index_column("elapsed_time", values, _TIME_UNITS.get(unit or "", unit))]
     if local == "TimePositionList":
-        times = (_text(_child(obj, "timePositionList")) or "").split()
+        sources = [_child(obj, "timePositionList")]
+        times = (_text(sources[0]) or "").split()
     elif local == "MultiTimeInstant":
-        times = [
-            t
+        sources = [
+            e
             for e in obj.iter(etree.Element)
-            if _local(e.tag) == "timePosition" and (t := _text(e)) is not None
+            if _local(e.tag) == "timePosition" and _text(e) is not None
         ]
+        times = [_text(e) or "" for e in sources]
     else:
         return []
     if len(times) != rows:
         return []
+    for source in sources:
+        took(source, "")
     column = _index_column("time", [], None)
     column.update(type="datetime", values=times)
     return [column]
@@ -306,34 +327,35 @@ def _index_column(name: str, values: Sequence[float | None], uom: str | None) ->
     }
 
 
-def _code(el: etree._Element | None) -> dict[str, Any] | None:
+def _code(el: etree._Element | None, took: Took = _not_noted) -> dict[str, Any] | None:
     text = _text(el)
     if el is None or text is None:
         return None
+    took(el, "")
+    took(el, "codeSpace")
     return {"value": text, "code_space": el.get("codeSpace")}
 
 
-def _codes(lithology: etree._Element) -> list[dict[str, Any]]:
+def _codes(lithology: etree._Element, took: Took = _not_noted) -> list[dict[str, Any]]:
     """A lithology's classification codes, in document order."""
     names = {*_CLASSIFICATION, "lithologyClassification"}
     return [
         code
         for e in _elements(lithology)
-        if _local(e.tag) in names and (code := _code(e)) is not None
+        if _local(e.tag) in names and (code := _code(e, took)) is not None
     ]
 
 
-def _method(holder: etree._Element | None) -> dict[str, Any] | None:
+def _method(holder: etree._Element | None, took: Took = _not_noted) -> dict[str, Any] | None:
     """A method property as a code: the specification's name, or the property's text."""
     if holder is None:
         return None
     named = next((e for e in holder.iter(etree.Element) if _local(e.tag) == "name"), None)
     source = named if named is not None and _text(named) else holder
-    text = _text(source)
-    return None if text is None else {"value": text, "code_space": source.get("codeSpace")}
+    return _code(source, took)
 
 
-def _time(holder: etree._Element) -> dict[str, Any] | None:
+def _time(holder: etree._Element, took: Took = _not_noted) -> dict[str, Any] | None:
     """The first time instant or interval in ``holder``, ends as written."""
     for el in holder.iter(etree.Element):
         local = _local(el.tag)
@@ -344,8 +366,10 @@ def _time(holder: etree._Element) -> dict[str, Any] | None:
             name = _local(child.tag)
             if name in ("start", "beginPosition", "timePosition") and start is None:
                 start = _text(child)
+                took(child, "")
             elif name in ("end", "endPosition") and end is None:
                 end = _text(child)
+                took(child, "")
         return {"start": start, "end": end}
     return None
 
@@ -394,6 +418,9 @@ class _Reader:
         #: With ``index_ids``: where each identified element below a record sits, as the
         #: key of that record and the element's path below it. Not part of the model.
         self.id_places: dict[str, tuple[str, str]] | None = {} if index_ids else None
+        #: With ``index_ids``: each identified element that got no place there (see
+        #: :meth:`_mark`), as the key of its record and its mark. Not part of the model.
+        self.id_marks: dict[str, list[tuple[str, str]]] = {}
         self.extra_ids: set[str] = set()
         self._child_names: dict[etree._Element, Counter[str]] = {}
         self.extra_count = 0
@@ -408,6 +435,33 @@ class _Reader:
         self.complete = True
         self.limits_hit: list[str] = []
         self.final_places: dict[str, tuple[str, str]] = {}
+        self.final_marks: dict[str, tuple[tuple[str, str], ...]] = {}
+        #: With ``index_ids``: what typed fields hold of each element of the member being
+        #: read (``""`` for its text, else an attribute), and the elements kept whole in
+        #: ``extra``. What is in neither is the content the model lacks (:meth:`_left`).
+        self._masks: dict[etree._Element, set[str]] | None = {} if index_ids else None
+        self._kept: set[etree._Element] = set()
+        #: Result values no column holds, per ``dataValues``: row, column, text.
+        self._cells: dict[etree._Element, list[tuple[int, int, str]]] = {}
+        #: The content the model lacks, by the key of the record it belongs to.
+        self.unread: dict[str, list[ExtraNode]] = {}
+        #: How many elements each record has that typed fields hold in full, by the
+        #: names from the record down to the element.
+        self.names: dict[str, Counter[str]] = {}
+        self.final_names: dict[str, dict[str, int]] = {}
+        self.unread_count = 0
+        self.unread_seen = 0
+        self.unread_complete = True
+        self.final_unread: dict[str, tuple[ExtraNode, ...]] = {}
+
+    def _took(self, el: etree._Element | None, what: str = "") -> None:
+        """Note that a typed field holds the text of ``el`` (``""``) or one attribute of it.
+
+        Only what a field holds in full is noted: a value read in part, or read and not
+        kept, stays content the model lacks.
+        """
+        if self._masks is not None and el is not None:
+            self._masks.setdefault(el, set()).add(what)
 
     # --- notes ----------------------------------------------------------------------
 
@@ -568,7 +622,8 @@ class _Reader:
             node["results"] = []
             self.collections["others"].append(node)
             nested[prop] = node["key"]
-            self._scan(prop, xpath, node["key"], nested)
+            self._scan(prop, xpath, node["key"], nested, base=len(xpath))
+            self._lacking(prop, node["key"], nested)
             self._child_names.clear()
             return
         category = _CATEGORY.get(_local(prop.tag), "others")
@@ -587,7 +642,8 @@ class _Reader:
                 self.document = node
             else:
                 self.collections[kind].append(node)
-        self._scan(prop, xpath, owner, nested)
+        self._scan(prop, xpath, owner, nested, base=len(xpath))
+        self._lacking(prop, owner, nested)
         self._child_names.clear()
 
     def _scan(
@@ -596,17 +652,27 @@ class _Reader:
         xpath: str,
         owner: str,
         nested: dict[etree._Element, str],
-    ) -> None:
-        """Record every id, link and srsName in ``el``'s subtree, with its owning node."""
-        owner = nested.get(el, owner)
+        *,
+        base: int,
+        marking: bool = False,
+    ) -> str | None:
+        """Record every id, link and srsName in ``el``'s subtree, with its owning node.
+
+        ``base`` is how much of ``xpath`` leads to the record that holds ``el``. Inside
+        an element that is being marked (``marking``, see :meth:`_mark`) the digest of
+        what ``el`` holds is returned; nothing is digested anywhere else.
+        """
+        if el in nested:
+            owner, base = nested[el], len(xpath)
         gml_id = el.get(_GML_ID)
+        marked = False
         if gml_id:
             self.id_owner.setdefault(gml_id, owner)
             self.id_count[gml_id] += 1
             if self.id_count[gml_id] == 2:  # noqa: PLR2004 - the first repeat
                 self.id_repeat[gml_id] = el.sourceline
             if self.id_places is not None and el not in nested:
-                self._index_id(el, gml_id, owner, nested)
+                marked = not self._index_id(el, gml_id, owner, nested)
         href = el.get(_XLINK_HREF)
         if href is not None:
             relation = _local(el.tag)
@@ -619,23 +685,231 @@ class _Reader:
             described = _local_crs(el)
             self.local_crs.setdefault(gml_id, described)
             self.crs_defined[described] += 1
+        marking = marking or marked
+        below: list[str | None] = []
         # A plain dict: this runs for every element, and a Counter costs more to make.
         counts: dict[tuple[str | None, str], int] = {}
         for child in _elements(el):
             key = (child.prefix, _local(child.tag))
             counts[key] = position = counts.get(key, 0) + 1
-            self._scan(child, f"{xpath}/{_qname(child)}[{position}]", owner, nested)
+            held = self._scan(
+                child,
+                f"{xpath}/{_qname(child)}[{position}]",
+                owner,
+                nested,
+                base=base,
+                marking=marking,
+            )
+            if marking:
+                below.append(held)
+        if not marking:
+            return None
+        digest = _held(el, below)
+        if marked and gml_id:
+            self._mark(gml_id, owner, xpath[base:], digest)
+        return digest
+
+    def _lacking(self, prop: etree._Element, owner: str, nested: dict[etree._Element, str]) -> None:
+        """Collect what the member holds that its records do not (see :meth:`_left`)."""
+        masks = self._masks
+        if masks is None:
+            return
+        try:
+            if self.unread_complete:
+                home = etree.QName(prop).namespace
+                names = self.names.setdefault(owner, Counter())
+                node, _ = self._left(prop, nested, (_local(prop.tag), names, home))
+                if node is not None:
+                    self.unread.setdefault(owner, []).append(node)
+        except _Enough:
+            self.unread_complete = False
+        finally:
+            masks.clear()
+            self._kept.clear()
+            self._cells.clear()
+
+    def _left(
+        self,
+        el: etree._Element,
+        nested: dict[etree._Element, str],
+        at: tuple[str, Counter[str], str | None],
+    ) -> tuple[ExtraNode | None, str]:
+        """What ``el`` holds that the model does not: the rest of it, as an ``extra`` element.
+
+        Returns that element, if anything is left, and a digest of what typed fields
+        hold of ``el`` and of everything below it (empty when they hold nothing).
+
+        A typed field reads part of an element (a position out of a point location) and
+        the model keeps that part; the element is not kept in ``extra``. What is left is
+        every attribute and text that no field holds (:meth:`_took`), in every element
+        that ``extra`` does not keep whole. Ids are left out, and so is a link that is
+        all its element has: an id is not compared, and every link is one of the model's
+        ``links``. An element with
+        nothing left is left out with them, unless it never had anything: an empty
+        element is there or not.
+
+        A record nested in ``el`` is given its own (by its key), so each record has what
+        it lacks. The elements that have something left are counted against the work
+        limit of the read, as those of ``extra`` are, and stopped by it
+        (:class:`_Enough`); every element looked at counts toward the time budget.
+
+        An element that is left out because typed fields hold all of it is still an
+        element of the file: it is counted, by the names of the elements from its record
+        down to it (``at``: that path, the counts of its record, and the namespace a
+        name is written without). So an element that is renamed, added or removed is
+        seen whatever it holds. Each path counts against the same work limit.
+
+        What is left of an element stays tied to what typed fields hold of it: the
+        digest is kept with the element (:data:`HELD`), and the comparison tells
+        same-named siblings apart by it. Without it, two names that exchanged their
+        ``codeSpace`` would leave the same two attributes behind, in any order. Text
+        after a comment or a child element is no field's either: it is kept as
+        :data:`TAIL`.
+        """
+        path, names = at[0], at[1]
+        self.unread_seen += 1
+        if self.unread_seen % _CHECK_EVERY == 0:
+            self._tick()
+        took = (self._masks or {}).get(el, ())
+        attrs = {
+            _attr_name(el, str(name)): str(value)
+            for name, value in el.attrib.items()
+            if name not in (_GML_ID, _XLINK_HREF) and str(name) not in took
+        }
+        href = el.get(_XLINK_HREF)
+        text = None if "" in took else _text(el)
+        children, below, tail = self._left_below(el, nested, at)
+        if tail:
+            attrs[TAIL] = tail
+        own = sorted(
+            (name, value)
+            for name in took
+            if name != "srsName"  # an id of the file, compared by what it names
+            and (value := _text(el) if not name else el.get(name)) is not None
+        )
+        held = _digest_of((own, sorted(below))) if own or below else ""
+        bare = not el.attrib and not took and not len(el)
+        left = bool(attrs or text is not None or children or bare)
+        if left:
+            self.unread_count += 1 + len(self._cells.get(el, ()))
+        elif el not in nested:
+            self.unread_count += path not in names
+            names[path] += 1
+        if self.unread_count > self.limit:
+            raise _Enough
+        if not left:
+            return None, held
+        if held:
+            attrs[HELD] = held
+        if href is not None:
+            # A link is one of the record's ``links``, which do not say which element
+            # holds it. Where the element has more than the link, the link stays with
+            # it, compared by what it names: two such elements that exchange their
+            # links are then seen.
+            attrs[_attr_name(el, _XLINK_HREF)] = str(href)
+        node = ExtraNode(
+            qname=_qname(el),
+            ns=etree.QName(el).namespace,
+            attrs=attrs,
+            text=text,
+            children=tuple(children),
+            line=el.sourceline,
+        )
+        return node, held
+
+    def _left_below(
+        self,
+        el: etree._Element,
+        nested: dict[etree._Element, str],
+        at: tuple[str, Counter[str], str | None],
+    ) -> tuple[list[ExtraNode], list[str], str]:
+        """What is left of the children of ``el`` (see :meth:`_left`), and of its values.
+
+        With it, the digests of what typed fields hold below ``el`` (not below a record
+        nested in it, which stands for itself), and the text that follows the children,
+        comments and processing instructions of ``el``.
+        """
+        path, names, home = at
+        children: list[ExtraNode] = []
+        helds: list[str] = []
+        tails: list[str] = []
+        for child in el:
+            if child.tail and (tail := child.tail.strip()):
+                tails.append(tail)
+            if not isinstance(child.tag, str):
+                continue
+            if child in self._kept:
+                # ``extra`` keeps the element and its text, and no text after a child.
+                if inside := _tails(child):
+                    kept = ExtraNode(
+                        qname=_qname(child), ns=etree.QName(child).namespace, attrs={TAIL: inside}
+                    )
+                    children.append(kept)
+                continue
+            step = _local(child.tag) if etree.QName(child).namespace == home else str(child.tag)
+            if child in nested:
+                below = (step, self.names.setdefault(nested[child], Counter()), home)
+            else:
+                below = (_short(f"{path}.{step}"), names, home)
+            node, held = self._left(child, nested, below)
+            if child in nested:
+                if node is not None:
+                    self.unread.setdefault(nested[child], []).append(node)
+                continue
+            if held:
+                helds.append(held)
+            if node is not None:
+                children.append(node)
+        for row, column, cell in self._cells.get(el, ()):
+            # A value no column holds, as it is written, with where it stands; or how
+            # many values a row has that is shorter than the columns.
+            children.append(
+                ExtraNode(qname="value", attrs={"row": str(row), "column": str(column)}, text=cell)
+                if column
+                else ExtraNode(qname="row", attrs={"row": str(row), "values": cell})
+            )
+        return children, helds, " ".join(tails)
 
     def _index_id(
         self, el: etree._Element, gml_id: str, owner: str, nested: dict[etree._Element, str]
-    ) -> None:
-        """Record the place of an identified element that is not itself a record."""
+    ) -> bool:
+        """Record the place of an identified element that is not itself a record.
+
+        False when the element has to be marked instead (see :meth:`_mark`): it got no
+        place, or an element before it has its id (whichever of them the model keeps).
+        """
         places = self.id_places
-        if places is None or len(places) >= self.limit:
-            return  # past the work limit nothing more is indexed: such an id has no place
+        if places is None:
+            return True
+        if self.id_count[gml_id] > 1:
+            return False
+        if gml_id in self.extra_ids:
+            return True  # the model keeps the element itself, which says more
+        if len(places) >= self.limit:
+            return False  # past the work limit nothing more is indexed
         place = self._place(el, nested)
-        if place is not None:
-            places.setdefault(gml_id, (owner, place))
+        if place is None:
+            return False
+        places[gml_id] = (owner, place)
+        return True
+
+    def _mark(self, gml_id: str, owner: str, below: str, digest: str) -> None:
+        """Note where an identified element with no place of its own sits, and what it holds.
+
+        A place (:meth:`_place`) names one element whatever the order of the file. An
+        element without one (a same-named sibling on the way, too deep, past the work
+        limit, an id used twice) is told by its position among its siblings below its
+        record (``below``, the rest of its XPath) and by a digest of what it holds. The
+        position alone would not do: two same-named siblings can change places while a
+        reference moves from one to the other. Neither part has an id in it, so a mark
+        is the same when only ids changed, and two elements that exchange their ids
+        exchange their marks. The cost is one digest per element inside a marked one,
+        each made once: bounded by the size of the member.
+        """
+        mark = hashlib.blake2b(
+            repr((below, digest)).encode("utf-8", "surrogatepass"), digest_size=16
+        ).hexdigest()
+        self.id_marks.setdefault(gml_id, []).append((owner, mark))
 
     def _place(self, el: etree._Element, nested: dict[etree._Element, str]) -> str | None:
         """The path of ``el`` below the record that holds it, when no step could be another.
@@ -694,14 +968,19 @@ class _Reader:
             self._tick()
         element = _local(el.tag)
         element = _aliases().get((self.version, element), element)
-        names = [t for c in _elements(el) if _local(c.tag) == "name" and (t := _text(c))]
-        remarks = [
-            t
+        named = [c for c in _elements(el) if _local(c.tag) == "name" and _text(c)]
+        names = [_text(c) for c in named]
+        noted = [
+            content
             for c in _elements(el)
             if _local(c.tag) == "remark"
             for content in c.iter(f"{{{etree.QName(c).namespace}}}content")
-            if (t := _text(content))
+            if _text(content)
         ]
+        remarks = [_text(content) for content in noted]
+        described = _child(el, "description")
+        for read in (*named, *noted, described):
+            self._took(read)
         skip = {"name", "description", "remark", *consumed}
         params, rest = self._params(el, xpath, skip)
         return {
@@ -711,7 +990,7 @@ class _Reader:
             "kind": kind or _kind(element),
             "name": names[0] if names else None,
             "names": names,
-            "description": _text(_child(el, "description")),
+            "description": _text(described),
             "remarks": remarks,
             "params": params,
             "provenance": {
@@ -757,6 +1036,8 @@ class _Reader:
             return self._quantity(el, xpath)
         text = _text(el) or ""
         code_space = el.get("codeSpace")
+        self._took(el)
+        self._took(el, "codeSpace")
         return text if code_space is None else {"value": text, "code_space": code_space}
 
     def _extra(self, el: etree._Element, depth: int = 1) -> dict[str, Any]:
@@ -770,6 +1051,8 @@ class _Reader:
             self._tick()
         if self.id_places is not None and (kept := el.get(_GML_ID)):
             self.extra_ids.add(kept)
+        if depth == 1 and self._masks is not None:
+            self._kept.add(el)
         return {
             "qname": _qname(el),
             "ns": etree.QName(el).namespace,
@@ -853,7 +1136,7 @@ class _Reader:
             role=role,
             interval=self._interval(interval_prop),
             location=None if pos is None else self._position(pos, xpath),
-            time=None if time_prop is None else _time(time_prop),
+            time=None if time_prop is None else _time(time_prop, self._took),
             components=children,
         )
         nested[el] = node["key"]
@@ -864,7 +1147,9 @@ class _Reader:
         self, obj: etree._Element, xpath: str, _nested: dict[etree._Element, str]
     ) -> dict[str, Any]:
         node = self._header(obj, xpath, kind="document_info", consumed=frozenset({"creationDate"}))
-        node["creation_date"] = _text(_child(obj, "creationDate"))
+        created = _child(obj, "creationDate")
+        node["creation_date"] = _text(created)
+        self._took(created)
         return node
 
     def _map_projects(
@@ -874,11 +1159,10 @@ class _Reader:
         locality = _child(obj, "locality")
         place = None if locality is None else next(_elements(locality), None)
         node["client"] = None
-        node["locality"] = (
-            None
-            if place is None
-            else (_text(_child(place, "description")) or _text(_child(place, "name")))
-        )
+        sources = [] if place is None else [_child(place, "description"), _child(place, "name")]
+        source = next((e for e in sources if _text(e)), None)
+        node["locality"] = _text(source)
+        self._took(source)
         return node
 
     def _map_associates(
@@ -886,9 +1170,9 @@ class _Reader:
     ) -> dict[str, Any]:
         node = self._header(obj, xpath, kind="associate")
         node["roles"] = [
-            {"value": t, "code_space": r.get("codeSpace")}
+            code
             for r in obj.iter(etree.Element)
-            if _local(r.tag) == "rolePerformed" and (t := _text(r))
+            if _local(r.tag) == "rolePerformed" and (code := _code(r, self._took)) is not None
         ]
         return node
 
@@ -904,7 +1188,7 @@ class _Reader:
         )
         node = self._header(obj, xpath, consumed=consumed)
         constructed = _child(obj, "whenConstructed")
-        node["when_constructed"] = None if constructed is None else _time(constructed)
+        node["when_constructed"] = None if constructed is None else _time(constructed, self._took)
         point = _child(obj, "referencePoint")
         pos = None if point is None else self._first(point, "pos")
         node["location"] = None if pos is None else self._position(pos, xpath)
@@ -934,11 +1218,11 @@ class _Reader:
         node = self._header(obj, xpath, kind="sampling_activity", consumed=consumed)
         node["feature"] = None
         node["interval"] = self._interval(_child(obj, "samplingLocation"))
-        node["method"] = _method(_child(obj, "samplingMethod"))
+        node["method"] = _method(_child(obj, "samplingMethod"), self._took)
         recovery = _child(obj, "totalSampleRecoveryLength")
         node["recovery"] = None if recovery is None else self._quantity(recovery, xpath)
         date = _child(obj, "samplingDate")
-        node["date"] = None if date is None else _time(date)
+        node["date"] = None if date is None else _time(date, self._took)
         return node
 
     def _map_samples(
@@ -949,13 +1233,7 @@ class _Reader:
         )
         node.update(feature=None, sampling_activity=None, method=None, recovery=None)
         node["interval"] = self._interval(_child(obj, "samplingLocation"))
-        classification = _child(obj, "classification")
-        text = _text(classification)
-        node["type"] = (
-            None
-            if classification is None or text is None
-            else {"value": text, "code_space": classification.get("codeSpace")}
-        )
+        node["type"] = _code(_child(obj, "classification"), self._took)
         return node
 
     def _map_observations(
@@ -995,22 +1273,27 @@ class _Reader:
             consumed=frozenset({"location", "unitName"} | used),
         )
         node["interval"] = self._interval(_child(el, "location"))
-        node["geologic_unit"] = _text(_child(el, "unitName"))
+        unit = _child(el, "unitName")
+        node["geologic_unit"] = _text(unit)
+        self._took(unit)
         holder = _child(el, "primaryLithology")
         primary = None if holder is None else _object(holder)
-        node["classification"] = [] if primary is None else _codes(primary)
+        node["classification"] = [] if primary is None else _codes(primary, self._took)
         if node["description"] is None and primary is not None:
-            node["description"] = _text(_child(primary, "lithDescription"))
+            described = _child(primary, "lithDescription")
+            node["description"] = _text(described)
+            self._took(described)
         colours = [] if primary is None else list(primary.iter(etree.Element))
-        node["colour"] = next(
+        colour = next(
             (
-                code
+                e
                 for name in ("colorCode", "colorName")
                 for e in colours
-                if _local(e.tag) == name and (code := _code(e)) is not None
+                if _local(e.tag) == name and _text(e) is not None
             ),
             None,
         )
+        node["colour"] = _code(colour, self._took)
         node["components"] = components
         return node
 
@@ -1023,7 +1306,7 @@ class _Reader:
             feature=None,
             samples=[],
             specimen=None,
-            result_time=None if result_time is None else _time(result_time),
+            result_time=None if result_time is None else _time(result_time, self._took),
         )
         holders = [c for c in _elements(obj) if _local(c.tag) == "procedure"]
         procedure = None if not holders else next(_elements(holders[0]), None)
@@ -1079,6 +1362,8 @@ class _Reader:
                 xpath=xpath,
             )
         uom = el.get("uom")
+        self._took(el)
+        self._took(el, "uom")
         si = None
         if value is not None and uom:
             base = _converter().base_unit(uom)
@@ -1097,6 +1382,7 @@ class _Reader:
         if len(tokens) != 2:  # noqa: PLR2004 - a 1-D interval: top and base
             return None
         srs = self._srs(extent)
+        self._took(extent)
         top, base = ({"text": t, "value": _number(t), "uom": None, "si": None} for t in tokens)
         return {"top": top, "base": base, "lrs": srs}
 
@@ -1115,7 +1401,14 @@ class _Reader:
         return None
 
     def _srs(self, el: etree._Element) -> str | None:
-        return self._inherited(el, "srsName")
+        node: etree._Element | None = el
+        while node is not None:
+            value = node.get("srsName")
+            if value:
+                self._took(node, "srsName")
+                return str(value)
+            node = node.getparent()
+        return None
 
     def _dim(self, el: etree._Element, count: int, *, single: bool) -> int:
         stated = self._inherited(el, "srsDimension")
@@ -1146,6 +1439,7 @@ class _Reader:
         dim = self._dim(el, len(coords), single=True)
         if dim != len(coords):
             return None
+        self._took(el)
         return self._make_position(coords, dim, self._srs(el), el, xpath)
 
     def _positions(self, el: etree._Element, xpath: str) -> list[dict[str, Any]] | None:
@@ -1155,6 +1449,7 @@ class _Reader:
         dim = self._dim(el, len(coords), single=False)
         if dim < 1 or len(coords) % dim:
             return None
+        self._took(el)
         srs = self._srs(el)
         out = []
         for i in range(0, len(coords), dim):
@@ -1231,6 +1526,7 @@ class _Reader:
                 line=rs.sourceline,
                 xpath=xpath,
             )
+        self._took_values(values_el, rows, columns)
         if not self.results:
             for column in columns:
                 column["values"] = []
@@ -1246,7 +1542,7 @@ class _Reader:
         index, extent, crs = self._index(shape_el, len(rows))
         time_domain = None if holder is None else _child(holder, "timeDomain")
         if not index and time_domain is not None:
-            index = _time_index(time_domain, len(rows))
+            index = _time_index(time_domain, len(rows), self._took)
             if index:
                 shape = "temporal"
         if not self.results:
@@ -1259,6 +1555,37 @@ class _Reader:
             "location": point,
             "extent": extent,
         }
+
+    def _took_values(
+        self,
+        values_el: etree._Element | None,
+        rows: list[list[str]],
+        columns: list[dict[str, Any]],
+    ) -> None:
+        """Note that the columns hold the values of a result set, and which they do not.
+
+        The columns hold every value but those they could not: a value read as null (not
+        a number in a numeric column, not a boolean in a boolean one) and a value beyond
+        the declared columns, empty or not (a separator after the last value is one
+        more). Those stay as they are written, each with its row and column.
+        """
+        if values_el is None or self._masks is None:
+            return
+        self._took(values_el)
+        width = len(columns)
+        cells = (
+            (n + 1, i + 1, raw.strip())
+            for n, row in enumerate(rows)
+            for i, raw in enumerate(row)
+            if i >= width or (raw.strip() and columns[i]["values"][n] is None)
+        )
+        # A row with fewer values than columns is padded with nulls: how many it has is
+        # written down (as column 0), so that one more separator is one more value.
+        short = ((n + 1, 0, str(len(row))) for n, row in enumerate(rows) if len(row) < width)
+        every = chain(cells, short)
+        lost = list(islice(every, self.limit + 1))  # more than that is over the limit
+        if lost:
+            self._cells[values_el] = lost
 
     def _pos_list(
         self, shape_el: etree._Element | None
@@ -1291,9 +1618,13 @@ class _Reader:
         labels = (self._inherited(pos_list, "uomLabels") or "").split()
         if local == "MultiPointLocation":
             dim = self._dim(pos_list, 1, single=True)
-            return _point_index(numbers, dim, rows, labels), None, crs
+            points = _point_index(numbers, dim, rows, labels)
+            if points:
+                self._took(pos_list)
+            return points, None, crs
         uom = labels[0] if labels else None
         if rows > 1 and len(numbers) == 2 * rows:
+            self._took(pos_list)
             return (
                 [
                     _index_column("top", numbers[0::2], uom),
@@ -1310,6 +1641,7 @@ class _Reader:
             if uom:
                 top.update(self._with_unit(top, uom))
                 base.update(self._with_unit(base, uom))
+            self._took(pos_list)
             return [], {"top": top, "base": base, "lrs": crs}, crs
         return [], None, crs
 
@@ -1320,7 +1652,16 @@ class _Reader:
         if code_space and "#" in code_space:
             key = code_space.rpartition("#")[2] or key
         declared = (_text(_child(prop, "typeData")) or "").lower()
-        uom = _text(_child(prop, "uom")) or prop.get("uom")
+        uom_el = _child(prop, "uom")
+        uom = _text(uom_el) or prop.get("uom")
+        named, null = _child(prop, "propertyName"), _child(prop, "nullValue")
+        # What the column holds as written: its name, unit, null value and definition,
+        # and the class when that is its key. The declared type is read into a kind
+        # (``double`` and ``float`` are both numbers), so it is not.
+        for held in (named, null, pclass if key == _text(pclass) else None):
+            self._took(held)
+        self._took(pclass, "codeSpace")
+        self._took(*((uom_el, "") if _text(uom_el) else (prop, "uom")))
         if declared in _NUMBER_TYPES:
             kind = "number"
         elif declared in _BOOLEAN_TYPES:
@@ -1353,12 +1694,12 @@ class _Reader:
         affine = _converter()._affine(uom) if uom and kind == "number" else None
         return (
             {
-                "name": _text(_child(prop, "propertyName")) or "",
+                "name": _text(named) or "",
                 "key": key,
                 "definition": code_space,
                 "uom": uom,
                 "type": kind,
-                "null_value": _text(_child(prop, "nullValue")),
+                "null_value": _text(null),
                 "values": values,
                 "si_uom": None if affine is None else affine[0],
                 "si_factor": None if affine is None else affine[1],
@@ -1372,6 +1713,13 @@ class _Reader:
     def _finish(self) -> dict[str, Any]:
         rename = self._final_keys()
         self.final_places = self._final_places(rename)
+        self.final_marks = self._final_marks(rename)
+        self.final_unread = {
+            rename[key]: tuple(nodes) for key, nodes in self.unread.items() if key in rename
+        }
+        self.final_names = {
+            rename[key]: dict(names) for key, names in self.names.items() if names and key in rename
+        }
         links = self._links(rename)
         self._typed_refs(links)
         crs_table = self._crs()
@@ -1458,6 +1806,22 @@ class _Reader:
             for gml_id, (owner, place) in (self.id_places or {}).items()
             if self.id_count[gml_id] == 1 and gml_id not in self.extra_ids and owner in rename
         }
+
+    def _final_marks(self, rename: dict[str, str]) -> dict[str, tuple[tuple[str, str], ...]]:
+        """The marked ids, each with every element that has it, by the final key of its record.
+
+        An id two elements have names them both: where each sits is part of what a
+        reference to it means. Every element with the id but the first is marked. The
+        first may have a place, and is then listed first; or it is marked itself; or
+        the model keeps it in ``extra``, where the comparison finds it.
+        """
+        out: dict[str, tuple[tuple[str, str], ...]] = {}
+        for gml_id, marks in self.id_marks.items():
+            first = (self.id_places or {}).get(gml_id)
+            every = [*([(first[0], f"at:{first[1]}")] if first else []), *marks]
+            if all(owner in rename for owner, _ in every):
+                out[gml_id] = tuple((rename[owner], mark) for owner, mark in every)
+        return out
 
     def _links(self, rename: dict[str, str]) -> list[dict[str, Any]]:
         links = []
@@ -1626,6 +1990,56 @@ def _field_locations(el: etree._Element, rest: list[etree._Element]) -> dict[str
     return fields
 
 
+#: In what is left of an element (:meth:`_Reader._left`): the digest of what typed fields
+#: hold of it, and the text after its children and comments. Neither can be the name of
+#: an attribute of a file; ``pydiggs.diff`` knows both.
+HELD: Final = "\x00held"
+TAIL: Final = "#tail"
+
+
+def _digest_of(value: object) -> str:
+    return hashlib.blake2b(repr(value).encode("utf-8", "surrogatepass"), digest_size=12).hexdigest()
+
+
+def _tails(root: etree._Element) -> str:
+    """The text after each child, comment and processing instruction inside ``root``."""
+    return " ".join(
+        tail
+        for node in root.iter()
+        if node is not root and node.tail and (tail := node.tail.strip())
+    )
+
+
+#: Longest path of element names kept as it is (see :func:`_short`).
+_MAX_NAMES: Final = 600
+
+
+def _short(path: str) -> str:
+    """``path``, or its start, a digest of all of it and its end when it is very long."""
+    if len(path) <= _MAX_NAMES:
+        return path
+    digest = hashlib.blake2b(path.encode("utf-8", "surrogatepass"), digest_size=16).hexdigest()
+    return f"{path[:150]}…#{digest}…{path[-300:]}"
+
+
+def _held(el: etree._Element, below: list[str | None]) -> str:
+    """A digest of what an element holds: its name, attributes, text and children.
+
+    Its own ``gml:id`` is left out, and so is the order of its children, as everywhere
+    in a model. ``below`` is the digest of each child.
+    """
+    record = (
+        _local(el.tag),
+        etree.QName(el).namespace or "",
+        sorted((str(name), str(value)) for name, value in el.attrib.items() if name != _GML_ID),
+        (el.text or "").strip(),
+        sorted(item or "" for item in below),
+    )
+    return hashlib.blake2b(
+        repr(record).encode("utf-8", "surrogatepass"), digest_size=16
+    ).hexdigest()
+
+
 def _local_crs(el: etree._Element) -> tuple[str | None, str | None]:
     """A CRS defined in the file: its name and the units it states."""
     name = _text(next((e for e in _elements(el) if _local(e.tag) == "name"), None))
@@ -1677,6 +2091,9 @@ def read_document(
     should_stop: Callable[[], bool] | None = None,
     id_places: dict[str, tuple[str, str]] | None = None,
     crs_defined: Counter[tuple[str | None, str | None]] | None = None,
+    id_marks: dict[str, tuple[tuple[str, str], ...]] | None = None,
+    unread: dict[str, tuple[ExtraNode, ...]] | None = None,
+    names: dict[str, dict[str, int]] | None = None,
 ) -> Model:
     """Read checked bytes into a model (the shared core of ``read`` and ``read_bytes``).
 
@@ -1688,9 +2105,16 @@ def read_document(
     reference point), the key of the record that holds the element and the element's
     path below it. Only ids that name one element for certain are in it (see
     :meth:`_Reader._place`); ``pydiggs.diff`` compares a reference to such an element by
-    it. ``crs_defined`` is filled with how many coordinate systems the file defines
-    with each name and unit, referenced or not (the model's ``crs`` table has only the
-    referenced ones). The model is the same with or without.
+    it. ``id_marks`` is filled with the ids of such elements that could not be placed
+    that way, each with the record, position and content of every element that has it
+    (see :meth:`_Reader._mark`). ``unread`` is filled with what each record holds in the
+    file and not in the model, by the record's key (see :meth:`_Reader._left`); the key
+    ``""`` is there, with nothing, when a work limit cut that short. ``names`` is filled
+    with how many elements each record has that typed fields hold in full, by the names
+    of the elements from the record down to them. ``crs_defined`` is
+    filled with how many coordinate systems the file defines with each name and unit,
+    referenced or not (the model's ``crs`` table has only the referenced ones). The
+    model is the same with or without.
     """
     deadline = None if time_budget is None else time.monotonic() + time_budget
     reader = _Reader(
@@ -1704,6 +2128,14 @@ def read_document(
     model = reader.run(deadline, should_stop)
     if id_places is not None:
         id_places.update(reader.final_places)
+    if id_marks is not None:
+        id_marks.update(reader.final_marks)
+    if unread is not None:
+        unread.update(reader.final_unread)
+        if not reader.unread_complete:
+            unread[""] = ()
+    if names is not None:
+        names.update(reader.final_names)
     if crs_defined is not None:
         crs_defined.update(reader.crs_defined)
     return model

@@ -36,9 +36,11 @@ class ValueChange:
     ``added`` or ``removed``). ``op`` is ``reformatted`` when the same number is written
     differently, and ``renamed`` for the record's own ``gml:id`` (path ``gml_id``, with the
     old and the new id; None on a side that gives the record no id). Neither is a change.
-    ``at`` is the XPath of the node in the new file (the old file for a
-    removed node). ``truncated`` is True when ``old`` or ``new`` was cut to fit 200
-    characters (or 200 list items).
+    ``at`` is the XPath of the node in the new file: a value change belongs to a node
+    both files hold (a node that was added or removed is listed without values).
+    ``truncated`` is True when ``old`` or ``new`` was cut to fit 200 characters (or 200
+    list items). ``path`` and ``at`` are at most 1,000 characters: a longer one keeps
+    its start and its end, around a digest of the whole.
     """
 
     op: str
@@ -84,8 +86,10 @@ class Diff:
     ``identical`` is True only when nothing differs and the comparison finished
     (``complete``). A number written differently and a record's own ``gml:id`` are not
     differences, so two exports of the same data with new ids are identical.
-    ``limits_hit`` names what stopped it (``max_changes``, ``time_budget``,
-    ``old_read_incomplete``, ``new_read_incomplete``). ``summary`` counts nodes per
+    ``limits_hit`` names what stopped it or what it could not look at (``max_changes``,
+    ``time_budget``, ``old_read_incomplete``, ``new_read_incomplete``,
+    ``old_results_not_read``, ``new_results_not_read``); it is empty exactly when
+    ``complete`` is True. ``summary`` counts nodes per
     collection (``added``, ``removed``, ``changed``, ``unchanged``) and stays exact when
     ``max_changes`` stops the list, but is partial after a ``time_budget`` stop.
     ``value_changes`` counts every differing value, ``reformatted`` every value written
@@ -115,13 +119,13 @@ class Diff:
         object.__setattr__(self, "summary", MappingProxyType(summary))
 
     def to_dict(self) -> dict[str, Any]:
-        """The diff as a diggs-diff 1.0 document (plain dicts and lists)."""
+        """The diff as a diggs-diff document (plain dicts and lists)."""
         from pydiggs.diff import _document  # noqa: PLC0415
 
         return _document.to_document(self)
 
     def to_json(self, indent: int | None = None) -> str:
-        """The diff as diggs-diff 1.0 JSON: keys sorted, no NaN, the same bytes every time."""
+        """The diff as diggs-diff JSON: keys sorted, no NaN, the same bytes every time."""
         from pydiggs.diff import _document  # noqa: PLC0415
 
         return _document.dumps(self, indent=indent)

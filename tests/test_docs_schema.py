@@ -36,8 +36,10 @@ def test_hook_publishes_the_packaged_schema_byte_for_byte(tmp_path):
             resources.files("pydiggs.findings").joinpath(earlier).read_bytes()
         )
     # The model diff's contract is published with them.
-    assert (tmp_path / "schemas" / "diggs-diff-1.0.schema.json").read_bytes() == (
-        resources.files("pydiggs.diff").joinpath("diggs-diff-1.0.schema.json").read_bytes()
+    # A beta while pydiggs.diff is a preview, so with the preview schemas.
+    name = "diggs-diff-1.0-beta.1.schema.json"
+    assert (tmp_path / "schemas" / "preview" / name).read_bytes() == (
+        resources.files("pydiggs.diff").joinpath(name).read_bytes()
     )
 
 

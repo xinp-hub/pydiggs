@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json",
-  "title": "diggs-diff 1.0",
-  "description": "The difference between two DIGGS files at model level, as pydiggs.diff.compare() writes it (pyDIGGS 1.12 and later). Open for consumers: objects accept unknown fields, so a 1.0 consumer accepts any 1.x document. A new optional field is a minor version; anything else is a new major. Nothing is converted: a change of unit is a change.",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json",
+  "title": "diggs-diff 1.0 (beta 1)",
+  "description": "BETA, written by pydiggs.diff.compare() in pyDIGGS 1.12, where pydiggs.diff is a preview: the report format and the comparison rules may change in a minor release, until diggs-diff 1.0 is frozen (planned for pyDIGGS 1.13). The difference between two DIGGS files at model level. Open for consumers: objects accept unknown fields, so a 1.0 consumer accepts any 1.x document. A new optional field is a minor version; anything else is a new major. Nothing is converted: a change of unit is a change.",
   "type": "object",
   "required": [
     "$schema",
@@ -30,8 +30,8 @@
     "format": { "const": "diggs-diff" },
     "schema_version": {
       "type": "string",
-      "pattern": "^1\\.[0-9]+$",
-      "description": "Major.minor of diggs-diff."
+      "pattern": "^1\\.[0-9]+(-beta\\.[0-9]+)?$",
+      "description": "Major.minor of diggs-diff; a pre-release adds -beta.N."
     },
     "tool": {
       "type": "object",
@@ -47,12 +47,22 @@
     },
     "complete": {
       "type": "boolean",
-      "description": "False when a limit stopped the comparison or a file was read in part; see limits_hit and notes."
+      "description": "False when a limit stopped the comparison, a file was read in part, or values were not there to compare; see limits_hit and notes. An incomplete comparison is never identical."
     },
     "limits_hit": {
       "type": "array",
-      "items": { "type": "string", "examples": ["max_changes", "time_budget", "new_read_incomplete"] },
-      "description": "What stopped the comparison; empty when complete."
+      "items": {
+        "type": "string",
+        "examples": [
+          "max_changes",
+          "time_budget",
+          "old_read_incomplete",
+          "new_read_incomplete",
+          "old_results_not_read",
+          "new_results_not_read"
+        ]
+      },
+      "description": "What stopped the comparison or what it could not look at; empty exactly when complete. max_changes: the list of changes was cut. time_budget: the time ran out. old_read_incomplete, new_read_incomplete: that file was read in part. old_results_not_read, new_results_not_read: that side is a model read without the values of its result tables, so their cells were not compared. A later minor version may add a value."
     },
     "old": { "$ref": "#/$defs/source" },
     "new": { "$ref": "#/$defs/source" },
@@ -61,7 +71,7 @@
       "required": ["match", "rel_tol", "abs_tol", "max_changes", "time_budget"],
       "properties": {
         "match": { "enum": ["auto", "gml-id", "natural"] },
-        "rel_tol": { "type": "number", "minimum": 0 },
+        "rel_tol": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 },
         "abs_tol": { "type": "number", "minimum": 0 },
         "max_changes": { "type": "integer", "minimum": 0 },
         "time_budget": { "type": ["number", "null"], "exclusiveMinimum": 0 }
@@ -98,6 +108,36 @@
       "description": "Findings of step diff: diff.ambiguous-match, diff.limit, diff.timeout."
     }
   },
+  "allOf": [
+    {
+      "description": "Identical means complete, and nothing counted or listed as a difference.",
+      "if": { "required": ["identical"], "properties": { "identical": { "const": true } } },
+      "then": {
+        "properties": {
+          "complete": { "const": true },
+          "value_changes": { "const": 0 },
+          "summary": {
+            "additionalProperties": {
+              "properties": {
+                "added": { "const": 0 },
+                "removed": { "const": 0 },
+                "changed": { "const": 0 }
+              }
+            }
+          },
+          "changes": {
+            "items": { "properties": { "op": { "enum": ["reformatted", "renamed"] } } }
+          }
+        }
+      }
+    },
+    {
+      "description": "A complete comparison names no limit; an incomplete one names at least one.",
+      "if": { "required": ["complete"], "properties": { "complete": { "const": true } } },
+      "then": { "properties": { "limits_hit": { "maxItems": 0 } } },
+      "else": { "properties": { "limits_hit": { "minItems": 1 } } }
+    }
+  ],
   "$defs": {
     "source": {
       "type": "object",
@@ -159,13 +199,15 @@
         "path": {
           "type": "string",
           "minLength": 1,
-          "description": "Which value: name, params.<element>, interval.top, results[0].columns[<key>].cells[@<index>] ...; gml_id is the record's own gml:id."
+          "maxLength": 1000,
+          "description": "Which value: name, params.<element>, interval.top, results[0].columns[<key>].cells[@<index>] ...; gml_id is the record's own gml:id. A path that would be longer than 1,000 characters keeps its first 200 and its last 400, around a digest of the whole path, so two different paths stay different."
         },
         "old": { "description": "The value in the old file as JSON (a quantity is its text and unit, e.g. \"1.50 ft\"); null when the old file has none. Text is cut to 200 characters and lists to 200 items." },
         "new": { "description": "The value in the new file; null when the new file has none." },
         "at": {
           "type": ["string", "null"],
-          "description": "XPath of the node in the new file (the old file for a removed node)."
+          "maxLength": 1000,
+          "description": "XPath of the record in the new file. An XPath that would be longer than 1,000 characters is shortened as a path is, and is then no longer an XPath."
         },
         "truncated": {
           "type": "boolean",

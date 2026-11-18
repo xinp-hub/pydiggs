@@ -238,10 +238,18 @@ def column_of(table: Any, name: str) -> Column:
 # --- schema ---------------------------------------------------------------------------
 
 
+#: Keywords whose subschemas add conditions to an object and declare none of its fields.
+_CONDITIONS = frozenset({"allOf", "if", "then", "else"})
+
+
 def close_schema(node: Any, name: str = "") -> Any:
-    """The strict variant: every object with declared properties accepts no others."""
+    """The strict variant: every object with declared properties accepts no others.
+
+    A condition (``allOf``, ``if`` / ``then`` / ``else``) is left as it is: it says
+    something more about fields declared elsewhere.
+    """
     if isinstance(node, dict):
-        out = {k: close_schema(v, k) for k, v in node.items()}
+        out = {k: v if k in _CONDITIONS else close_schema(v, k) for k, v in node.items()}
         if "properties" in out and name != "properties":
             out["unevaluatedProperties"] = False
         return out

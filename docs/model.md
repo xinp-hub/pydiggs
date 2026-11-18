@@ -138,9 +138,15 @@ GeoParquet (`.parquet`) or GeoJSON (`.geojson`). It replaces an existing file.
   Run `validate()` for a verdict. What reading had to work around (a link that goes
   nowhere, a number that is not a number) is recorded in `notes`, as
   [findings](findings.md).
-- **Nothing is dropped.** Every element the reader has no typed field for is kept, in
-  document order, in the node's `extra` list. Coverage grows in minor releases by moving
-  content from `extra` into typed fields.
+- **What has no typed field is kept.** Every element the reader has no typed field for
+  is kept, in document order, in the node's `extra` list. Coverage grows in minor
+  releases by moving content from `extra` into typed fields. An element a typed field
+  reads from is not kept in `extra`, and the model holds what the field reads and not
+  the rest of that element: a location's `uomLabels` and `srsDimension`, the geometry of
+  a lithology layer, a grid or a data package under a result's `outcome`, a column's
+  declared type, a value that is not a number in a numeric column (read as null, with a
+  note). A model is therefore not a copy of the file. To compare two files in full,
+  give [`pydiggs.diff`](diff.md#files-and-models) the files, not their models.
 - **Values are kept as written.** A quantity keeps its `text` exactly as reported, its
   parsed `value` and `uom`, and an `si` value only when the unit converts. Coordinates
   stay in the file's CRS and axis order. Nothing is converted or transformed silently.

@@ -22,7 +22,7 @@ from pydiggs.findings.run import (
     _payload,
     _reason,
 )
-from pydiggs.model import Model
+from pydiggs.model import ExtraNode, Model
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -120,14 +120,29 @@ def read_with_places(
     *,
     max_bytes: int = DEFAULT_MAX_BYTES,
     time_budget: float | None = None,
-) -> tuple[Model, dict[str, tuple[str, str]], Counter[tuple[str | None, str | None]]]:
+) -> tuple[
+    Model,
+    dict[str, tuple[str, str]],
+    Counter[tuple[str | None, str | None]],
+    dict[str, tuple[tuple[str, str], ...]],
+    dict[str, tuple[ExtraNode, ...]],
+    dict[str, dict[str, int]],
+]:
     """:func:`read` or :func:`read_bytes`, and what the reader saw that the model does not keep.
 
     For ``pydiggs.diff`` only. The second value maps the ``gml:id`` of each element a
     typed field read (so the model keeps neither the id nor the element) to the key of
     the record that holds it and the element's path below that record. The third
     counts the coordinate systems the file defines, by name and unit, referenced or not.
-    Both are built in the same pass as the model, which is the model :func:`read` gives.
+    The fourth has the ids of such elements that have no path of their own (a same-named
+    sibling on the way, too deep, an id used twice): for each, the record, and a digest
+    of the position and the content, of every element with that id. The fifth has,
+    by the key of each record, what the file holds of it that the model does not: the
+    attributes and text that no typed field holds, as ``extra`` elements (the key ``""``
+    is there when a work limit cut that short). The sixth counts, per record, the
+    elements whose whole content typed fields hold, by the names of the elements from
+    the record down to them. All are built in the same pass as the
+    model, which is the model :func:`read` gives.
     """
     limit = _check(None, max_bytes, time_budget, "object")
     if isinstance(source, str | os.PathLike):
@@ -137,6 +152,9 @@ def read_with_places(
         data = _payload(source, limit, name)
     places: dict[str, tuple[str, str]] = {}
     systems: Counter[tuple[str | None, str | None]] = Counter()
+    marks: dict[str, tuple[tuple[str, str], ...]] = {}
+    unread: dict[str, tuple[ExtraNode, ...]] = {}
+    names: dict[str, dict[str, int]] = {}
     model = read_document(
         data,
         name=name,
@@ -145,8 +163,11 @@ def read_with_places(
         time_budget=time_budget,
         id_places=places,
         crs_defined=systems,
+        id_marks=marks,
+        unread=unread,
+        names=names,
     )
-    return model, places, systems
+    return model, places, systems, marks, unread, names
 
 
 def read_bytes(

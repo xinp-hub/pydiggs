@@ -511,10 +511,10 @@ source = "def"
 path = "docs/crs/DIGGS/0.1/lrm.xml"
 sha256 = "85d2c01598cab180a22eaeb0247e2014e58a3dc7e262e3d8f6bafa5f1cdd92f2"
 
-[files."diff/diggs-diff-1.0.schema.json"]
+[files."diff/diggs-diff-1.0-beta.1.schema.json"]
 source = "local"
 note = "The diggs-diff JSON Schema (pydiggs.diff): pyDIGGS's own output contract, checked against the output by tests/diff."
-sha256 = "49d4e5eb71e1075817d4b99f9bfd007397b08fd2e9ecc8cea54e54e4af054d27"
+sha256 = "26401405f68d3b5838c69474dde633cc77e3f7973b122b99d0ab2ae700c32000"
 
 [files."findings/diggs-findings-1.0.schema.json"]
 source = "local"
@@ -529,7 +529,7 @@ sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
 [files."findings/guidance/en.toml"]
 source = "local"
 note = "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own content, kept complete by tests/test_rule_guidance.py."
-sha256 = "7438174a9605354ce5073aa0d8b9e963e714d2396f286fdf93e452633b25db74"
+sha256 = "b432c1a0e36cca6883264801ce402865266040a9ef7386e075bca017d0db06c1"
 
 [files."findings/diggs-findings-1.2.schema.json"]
 source = "local"

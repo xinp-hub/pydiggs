@@ -118,7 +118,10 @@ def test_ships_findings_schema():
     assert newer.is_file()
     assert '"$id"' in newer.read_text(encoding="utf-8")
     # 1.2 (the diff step) and the model diff's own schema ship beside them.
-    for name in ("findings/diggs-findings-1.2.schema.json", "diff/diggs-diff-1.0.schema.json"):
+    for name in (
+        "findings/diggs-findings-1.2.schema.json",
+        "diff/diggs-diff-1.0-beta.1.schema.json",
+    ):
         assert resources.files(pkg).joinpath(name).is_file()
 
 

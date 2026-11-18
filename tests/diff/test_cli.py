@@ -194,7 +194,7 @@ def test_json_is_the_diggs_diff_document_of_compare(changed, capsys):
     assert (code, err) == (1, "")
     document = json.loads(out)
     assert schema_errors(document) == []
-    assert (document["format"], document["schema_version"]) == ("diggs-diff", "1.0")
+    assert (document["format"], document["schema_version"]) == ("diggs-diff", "1.0-beta.1")
     assert document["tool"]["version"] == pydiggs.__version__
     assert (document["old"]["name"], document["new"]["name"]) == ("Aeromag.xml", "changed.xml")
     assert out == diff.compare(AEROMAG, changed).to_json(indent=2) + "\n"

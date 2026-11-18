@@ -8,16 +8,28 @@ of a record do not matter. Records stay paired when their `gml:id`s change, so t
 of the same data with newly generated ids are identical. The renamed ids are counted, and
 listed on request.
 
+**Compare the files.** Given two files (paths or bytes), the comparison is the full
+one: it covers what [`pydiggs.read`](model.md) puts in a model and, beyond that, the
+content of each record that a model does not keep. Given two `Model`s, it compares the
+two models, and can only see what a model holds; a file and a `Model` are compared as
+two models. See [Files and models](#files-and-models).
+
 Typical uses: checking a revised deliverable against the previous one, checking that an
 export from a new software version still holds the same data, and checking a file after a
 round trip through another format.
 
-`pydiggs.diff` is **stable** from pyDIGGS 1.12 and follows Semantic Versioning. It needs
+!!! warning "Preview"
+    `pydiggs.diff` and `pydiggs diff` are a preview in pyDIGGS 1.12: the report format
+    and the comparison rules may change in a minor release. The report is a
+    **diggs-diff 1.0-beta.1** document. The stable `pydiggs.diff` and diggs-diff 1.0
+    are planned for pyDIGGS 1.13.
+
+It needs
 nothing beyond the core install, and it reads any DIGGS version
 [`pydiggs.read`](model.md) reads. The two files may be different DIGGS versions.
 
 - **JSON Schema of the result:**
-  [`schemas/diggs-diff-1.0.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json)
+  [`schemas/preview/diggs-diff-1.0-beta.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json)
   (also `pydiggs.diff.diff_schema()`; `pydiggs.diff.DIFF_SCHEMA_URL` and
   `pydiggs.diff.DIFF_SCHEMA_VERSION`).
 - **API reference:** [Comparing files](reference.md#comparing-files).
@@ -62,7 +74,7 @@ nothing beyond the core install, and it reads any DIGGS version
         for value in change.values:  # each value that differs in it
             print("   ", value.path, value.old, "->", value.new)
     d.to_text()  # the same report as the command prints, with rich markup escaped
-    d.to_json(indent=2)  # a diggs-diff 1.0 document
+    d.to_json(indent=2)  # a diggs-diff document
     ```
 
     `compare()` takes two paths, the bytes of two files, or two
@@ -81,11 +93,82 @@ Both files are read with [`pydiggs.read`](model.md), and the two models are comp
   fields (depths, dates, locations, intervals) and its links to other records;
 - everything the model keeps as `extra` (elements pyDIGGS has no typed field for),
   compared by structure;
-- the result tables: their columns and every cell.
+- the result tables: their columns and every cell;
+- **between two files, what the model does not keep.** A typed field reads part of an
+  element (the position out of a point location, the cells out of a result set) and the
+  model keeps that part. The rest is compared too, as part of the record, under paths
+  that start with `xml.`: the unit labels, axis labels and dimension of a location, the
+  geometry of a layer, a grid's origin and offset vectors, source and receiver
+  positions, the files of a data package, a column's property class, declared type and
+  index, the reason of a null value, the separators and decimal mark of a result set,
+  and any other attribute or text no field holds. See
+  [Files and models](#files-and-models).
 
 A link is compared by what it points to, not by the text of its `href`: if a sample
 still belongs to the same borehole, renaming that borehole's `gml:id` is not a change of
 the sample. See [Ids and references](#ids-and-references).
+
+### Files and models
+
+A model is what `pydiggs.read` makes of a file: every record, with typed fields for what
+pyDIGGS understands and `extra` for the elements it has no field for. An element a typed
+field reads from is not kept whole. A borehole's `referencePoint` gives the model the
+position and its coordinate system, and the model has no place for the `uomLabels` next
+to them.
+
+When `compare` is given **two files**, the reader hands it, with each model, what the
+file holds of every record that the model does not: each attribute and each text that
+no typed field holds, in every element that is not kept in `extra`. It is compared like
+`extra`, value by value:
+
+```console
+$ pydiggs diff rev1.xml rev2.xml
+…
+changed features bh_TEST_HOLE_1 (TEST HOLE 1), matched by gml:id
+    xml.Borehole[1].referencePoint[1].PointLocation[1]@uomLabels: deg deg m -> deg deg ft
+```
+
+- A path starts with `xml.` and follows the elements of the file below the record
+  (`@name` for an attribute, `#text` for a text). Same-named siblings are compared in
+  any order, ids are not compared and a reference is compared by what it points to, as
+  everywhere else.
+- A value a typed field holds is compared once, by its field, with the tolerance and
+  with no regard to how a number is written. It is not compared again as text.
+- A text is compared word by word, and a word that is a number as a number, within the
+  same tolerance. So the coordinates of a layer's geometry or of a grid's origin are
+  numbers here too, and the space between them is not compared.
+- A result value no column holds is kept as it is written, with its row and column
+  (`….dataValues[1].value[1]`): a value that is not a number in a numeric column (the
+  model reads it as null, so `abc` and `xyz` would be the same null), and a value
+  beyond the declared columns, empty or not (the model cuts the row). A row with fewer
+  values than columns has its number of values written down (`….dataValues[1].row[1]`),
+  so one more separator at the end of a row is one more value.
+- Text after a comment, a processing instruction or a child element
+  (`<gml:name>B<!-- note -->01</gml:name>`: the model reads `B`) is compared as
+  `#tail`, in elements kept in `extra` too. The comment itself is not compared.
+- What is left of an element stays with what typed fields hold of it. Two `gml:name`
+  that exchange their `codeSpace`, or two columns that exchange their declared type,
+  are a difference; the same elements in another order are not. The price: where
+  same-named siblings both change a typed value and their order, what is left of them
+  is compared in the order of the file and may be listed.
+- An element whose whole content typed fields hold has no value listed again. It is
+  still an element of the file: one that is renamed, added or removed is listed as a
+  count (`xml.Borehole.remark.Remark#elements: 3 -> 2`).
+- A link (`xlink:href`) is compared as one of the record's `links`. Where its element
+  has more than the link, the link is also compared with the element, by what it names,
+  so that two such elements that exchange their links are seen; a changed link of that
+  kind is listed twice.
+- This content counts toward the reader's work limit (100,000 elements plus one per
+  200 bytes of the file) and the time budget. A file with more of it is compared in
+  part, and the comparison is incomplete (`old_read_incomplete`,
+  `new_read_incomplete`).
+
+When `compare` is given **two `Model`s**, none of this exists, and the comparison says
+whether the two models differ. Two files that differ only in content a model does not
+keep give two equal models: comparing the models reports no difference, and comparing
+the files reports one. A file and a `Model` are compared as two models. This is also why
+a reference to an element the model does not keep can only be established between two
+files (see [Ids and references](#ids-and-references)).
 
 ## What does not count as a change
 
@@ -104,12 +187,17 @@ the sample. See [Ids and references](#ids-and-references).
   to it. See [Ids and references](#ids-and-references).
 - **The order** of elements in the file, and of rows in a table whose rows are matched by
   depth.
-- **How a number is written**: `1.50` and `1.5` are the same value. Such values are
-  counted as *reformatted* and listed only on request (`--verbose`,
-  `show_reformatted=True`). Two files that differ only in this way are identical.
+- **How a number is written**, where pyDIGGS reads a number: a quantity with a unit
+  (`<totalMeasuredDepth uom="ft">1.50</totalMeasuredDepth>` and `1.5`), a coordinate and
+  a numeric cell of a result table. `1.50` and `1.5` are then the same value. A quantity
+  written differently is counted as *reformatted* and listed only on request
+  (`--verbose`, `show_reformatted=True`). Two files that differ only in this way are
+  identical. A value pyDIGGS keeps as text is compared as text: a parameter with no unit
+  (`<someDepth>1.50</someDepth>` against `1.5`) is listed as changed.
 - **Where a record sits in the file**: line numbers and XPaths.
-- **The file itself**: its name, size, encoding, indentation, comments and
-  `schemaLocation`. The DIGGS version of each file is recorded in the result but is not a
+- **Namespace prefixes** of elements (`gml:pos` and `g:pos` for the same namespace).
+- **The file itself**: its name, size, encoding, indentation and other white space,
+  comments, processing instructions and `schemaLocation`. The DIGGS version of each file is recorded in the result but is not a
   change.
 
 A **unit change is always a change**. `5 ft` against `1.524 m` is reported as changed:
@@ -131,13 +219,16 @@ element that has an id in one file and none in the other is not a change either.
 `Diff.renamed` counts records only.
 
 A reference to something in the same file (`xlink:href="#x"`, `srsName="#x"`) is
-compared by **what it points to**, never by the text of the id:
+compared by **what it points to**, never by the text of the id. Only those two
+attributes are treated as references: an id written another way (in another attribute,
+as the text of an element, or as `file.xml#x`) is compared as text.
 
 | the reference names | it is the same reference when |
 |---|---|
 | a record | the two records are paired |
 | an element inside a record that the model keeps in `extra` (a geometry, a time instant) | the two elements sit in paired records, at the same place among the elements compared |
 | an element inside a record that pyDIGGS reads into typed fields and does not keep (a borehole's centre line or reference point) | the two elements sit in paired records, at the same path below the record, and no step of that path could be another element (see below) |
+| such an element with no path of its own (one of two `centerLine`) | the two elements sit in paired records, at the same position among their siblings, and hold the same content (see below) |
 | a borehole's own depth system (its linear referencing system) | the two boreholes are paired |
 | a coordinate system a record keeps in `extra` (a site grid defined in the document information) | as an element inside `extra`: paired records, the same place |
 | a coordinate system defined in the file that no record keeps | it sits at the same path below paired records (as the row for typed fields), or pyDIGGS reads the same name, unit and axes for both and the file defines no other system, referenced or not, with that name and unit. This needs the two files |
@@ -155,6 +246,23 @@ whatever the order of the file. An element with a same-named sibling anywhere on
 way (the second of two `centerLine`) has no such path, and neither has one more than 16
 elements below its record. Nothing is read twice and no file is parsed a second time.
 
+An element with no such path is told by its **position and its content**: the record
+that holds it, its position among its siblings at every step below the record, and what
+it holds (its attributes, text and children, in any order, without its `gml:id`). The
+text of its id never decides. So when two centre lines exchange their ids, a reference
+that kept its text is listed as changed: it names the other line. The content is part
+of the place because positions alone can mislead: two same-named siblings may change
+places while the reference moves to the other one, and it would name "the first" in
+both files. The same holds for an id that two elements of the file have (the reference
+is compared by where both sit and what both hold) and for a file with more identified
+elements than the reader's work limit (100,000 plus one per 200 bytes of the file).
+
+This errs on the side of reporting. A reference to such an element is also listed as
+changed when the element only moved among its same-named siblings, when its content was
+edited (the edit is listed as well, if the model keeps that content), or when its
+namespace prefix changed. The text is then the same on both sides and the element it
+names is not, so the new side says so: `#a -> #a (another target)`.
+
 Two repeated elements that are equal except for what their references point to are not
 equal: if the ids of two points change places, a reference that kept its text names
 another point and is listed as changed. The same holds for an element nested deeper than
@@ -168,28 +276,32 @@ inside, they are compared in the order of the file, and a reordering of them is 
 as changes. An element with an id is placed by its order, so taking its siblings out of
 that order could make references to two different elements look alike.
 
-**Comparing files gives the fullest independence from ids.** Comparing `Model`s may
-list references whose target could not be established (see below), because a model
-does not keep everything the file had.
+**Only the files can establish what such a reference points to.** A `Model` keeps
+neither an element pyDIGGS read into typed fields nor its id, so with a `Model` on
+either side the reference is compared by the record that holds the element and the text
+of the id (see below). That has two consequences. Two models of a file exported again
+with new ids list those references as changed. And if two such elements of **one
+record** exchange their ids (a borehole's reference point and its centre line), the two
+models are equal: comparing them reports no difference, where comparing the two files
+does. The same goes for two coordinate systems no record keeps that read the same. When
+a reference to such an element matters, give `compare` the files.
 
 A link to an element inside a record is shown as the record's name and the link as
 written (`B-1 #p2`), so that two links into one record can be told apart.
 
-A reference that cannot be resolved for certain is compared **as text**, as it is
-written. This errs on the side of reporting a difference, never of hiding one:
+A reference that names nothing pyDIGGS can place is compared **as text**, as it is
+written:
 
 - a link to another document, or to an id that is not in the file;
-- an id that two elements of the file have;
-- two elements with exactly the same content in the same record: they cannot be told
-  apart, so a reference to one of them is compared by its id;
-- a reference to an element that pyDIGGS reads into typed fields and does not keep, when
-  that element has no path of its own (a same-named sibling on the way, or too deep), or
-  when the file has more identified elements than the reader's work limit (100,000 plus
-  one per 200 bytes of the file);
-- the same reference **when either side is a `Model`** and not a file: a model no longer
-  has the file, so there is nothing to place the element by. Two models of a re-exported
-  file with boreholes therefore list, per borehole, the reference of its depth system to
-  its centre line
+- a link to a record that only one of the two files has (the record is listed as added
+  or removed);
+- two elements with exactly the same content at the same place in the `extra` of one
+  record: nothing tells them apart, so a reference to one of them is compared by its id;
+- a reference to an element that pyDIGGS reads into typed fields and does not keep,
+  **when either side is a `Model`** and not a file: a model no longer has the file, so
+  there is nothing to place the element by. Two models of a re-exported file with
+  boreholes therefore list, per borehole, the reference of its depth system to its
+  centre line
   (`extra.linearReferencing[1].LinearSpatialReferenceSystem[1].linearElement[1]@xlink:href`
   and `links.linearElement`), and any other link to an element the model does not keep;
   give `compare` the files to have them resolved;
@@ -197,14 +309,21 @@ written. This errs on the side of reporting a difference, never of hiding one:
   the systems that are referenced, not those the file defines, so it cannot say that a
   grid is the only one of its kind), or when the file defines two that read the same.
 
+Comparing as text reports a difference when only an id changed. Between two files it
+does not hide one: every element of a file is placed by one of the rows above, and what
+is left to its text names nothing in the file, a record that is listed as added or
+removed anyway, or one of two elements that nothing tells apart. Between two models it
+can hide one, in the case described above: two elements that the model does not keep
+exchange their ids.
+
 A link the model lists in `links` to an element whose place cannot be established is
 compared by the record that holds the element **and** the text of the link. A link
-moved from one such element to another in the same record is therefore always a
-difference; the price is that it is also listed when only the id changed.
+moved to an element of another record is therefore always a difference; the price is
+that it is also listed when only the id changed.
 
 Resolving by path can also report a difference where a person would see none: if one
 file has a single `centerLine` and the other has two, the reference has a path in one
-file and only its text in the other, and is listed as changed.
+file and a position in the other, and is listed as changed.
 
 Records that only their `gml:id` told apart (two layers with no depths in the same
 observation) cannot be paired once the ids change: they share a natural key, are listed
@@ -273,8 +392,9 @@ Two numbers are equal when
 ```
 
 The defaults are `rel_tol = 1e-9` and `abs_tol = 0`: exact, apart from the noise of
-binary floating point. To ignore differences below a reporting precision, raise one of
-them:
+binary floating point. `rel_tol` is 0 or more and less than 1 (at 1 every number would
+equal 0), and `abs_tol` is 0 or more; anything else is refused. To ignore differences
+below a reporting precision, raise one of them:
 
 ```bash
 pydiggs diff old.xml new.xml --abs-tol 0.005     # values within 0.005 of each other are equal
@@ -288,13 +408,15 @@ makes two different units equal.
 ## Result tables
 
 Columns are paired by their property key (the DIGGS dictionary key), or by name when a
-column has no key. A column only one file has is an added or removed column.
+column has no key: data columns and index columns alike, so their order is not data. A
+column only one file has is an added or removed column.
 
 Rows are paired by the table's **depth index** (a CPT's depth, an interval's top and
 base) when every row of both tables has a different index value. Rows are then matched
 by depth, within the tolerance, in whatever order they are written, and a reading
 inserted in the middle of a sounding shows as one added row rather than as a change of
-every row after it. When the index is missing or repeats, rows are paired by row number.
+every row after it. When the index is missing or repeats, or the two tables are not
+indexed by the same columns, rows are paired by row number.
 
 A changed cell is listed with its column and row, for example
 `results[0].columns[tip_resistance].cells[@1.5]` (the cell at depth 1.5) or
@@ -312,13 +434,25 @@ Both files are untrusted input, so the work is bounded:
 | `--time-budget`, `time_budget` | none | the comparison stops, reading included; the counts are partial; note `diff.timeout` |
 
 A value longer than 200 characters is shortened in the report and marked (`truncated`
-in JSON, `(shortened)` in text).
+in JSON, `(shortened)` in text). A `path` is at most 1,000 characters, however deep the
+element it names and however long the names on the way: a longer one keeps its first
+200 and its last 400 characters around a digest of the whole path (`…#` and 32
+hexadecimal digits), so two different paths stay different. The XPath in `at` is
+bounded in the same way.
 
-When a limit cuts the list or stops the work, the result is **incomplete**:
-`Diff.complete` is false, `Diff.limits_hit` names what stopped it (`max_changes`,
-`time_budget`, or `old_read_incomplete` / `new_read_incomplete` when a file could only
-be partly read), and `Diff.identical` is false even if no difference was found, because
-an incomplete comparison cannot say the files are the same. The command exits 1.
+When a limit cuts the list or stops the work, or something could not be looked at, the
+result is **incomplete**: `Diff.complete` is false, `Diff.limits_hit` names why, and
+`Diff.identical` is false even if no difference was found, because an incomplete
+comparison cannot say the files are the same. The command exits 1.
+
+| `limits_hit` | meaning |
+|---|---|
+| `max_changes` | the list of changes was cut |
+| `time_budget` | the time budget ran out |
+| `old_read_incomplete`, `new_read_incomplete` | that file could only be partly read, or it holds more content outside the model than the reader's work limit allows (see [Files and models](#files-and-models)) |
+| `old_results_not_read`, `new_results_not_read` | that side is a `Model` read with `results=False`: its result tables have columns and no values, so their cells were not compared. Only the columns and the row counts were. Two such models are never identical; read with results, or give `compare` the files |
+
+`limits_hit` is empty exactly when `complete` is true. A later version may add a value.
 
 The notes (`Diff.notes`) are [findings](findings.md) of step `diff`:
 `diff.ambiguous-match`, `diff.limit` and `diff.timeout`.
@@ -334,10 +468,10 @@ pydiggs diff OLD NEW [--format text|json] [-o FILE] [--match auto|gml-id|natural
 | option | meaning |
 |---|---|
 | `OLD`, `NEW` | the earlier and the later DIGGS file |
-| `--format text\|json` | the report: text (the default), or a [diggs-diff 1.0](#the-json-document) document |
+| `--format text\|json` | the report: text (the default), or a [diggs-diff](#the-json-document) document |
 | `-o FILE`, `--output FILE` | write the report to `FILE` instead of stdout. An existing file is replaced; a symlink, or one of the two inputs, is refused |
 | `--match auto\|gml-id\|natural` | how records are paired (see [Matching](#matching)) |
-| `--rel-tol R`, `--abs-tol A` | the number tolerance (see [Tolerances](#tolerances)) |
+| `--rel-tol R`, `--abs-tol A` | the number tolerance (see [Tolerances](#tolerances)); `R` is less than 1 |
 | `--max-changes N` | list at most `N` changes (default 10,000) |
 | `--time-budget SECONDS` | stop after this long (default: no limit) |
 | `--max-bytes N` | refuse a file larger than `N` bytes (default 100 MiB) |
@@ -352,6 +486,17 @@ pydiggs diff OLD NEW [--format text|json] [-o FILE] [--match auto|gml-id|natural
 | **1** | the files differ, **or** the comparison is incomplete |
 | **2** | a usage error, a file that cannot be read or is not a DIGGS file, or a report that cannot be written |
 
+What 0 means depends on what was compared. The command compares files, and for two
+files 0 means that they describe the same data as far as pyDIGGS reads XML content:
+every element, attribute and text of every record was compared, with these deliberate
+exclusions: ids (`gml:id`; a reference is compared by its target), the order of
+elements where the model does not keep an order, how a number is written, white space,
+comments, namespace prefixes and `schemaLocation`. Content outside every top-level
+member of the file (attributes of the root element, text between two members) is not
+compared. In Python, with
+two `Model`s, an identical result means the two models are equal, no more (see
+[Files and models](#files-and-models)).
+
 So a script can rely on 0 meaning "the same data":
 
 ```bash
@@ -364,16 +509,23 @@ Text from the files is data, not formatting: control characters and
 direction-override characters in a name or value are printed spelled out (`\x1b`,
 `‮`), so a file cannot rewrite what the terminal shows.
 
+The report is never lost to an encoding. `-o FILE` is always UTF-8. On stdout the report
+is written in the encoding of the stream, and a character that encoding cannot write (a
+redirected stdout on Windows is cp1252; `φ` is not in it) is written as an escape: a
+backslash escape in the text report (`\u03c6`), and JSON's own `\uXXXX` in the JSON
+report, which is then plain ASCII and the same document. A report that cannot be written
+at all is exit 2 with one line on stderr.
+
 ## The JSON document
 
-`pydiggs diff --format json` and `Diff.to_json()` write a **diggs-diff 1.0** document.
+`pydiggs diff --format json` and `Diff.to_json()` write a **diggs-diff 1.0-beta.1** document.
 Keys are sorted and the same comparison always gives the same bytes.
 
 ```json
 {
-  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json",
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json",
   "format": "diggs-diff",
-  "schema_version": "1.0",
+  "schema_version": "1.0-beta.1",
   "tool": {"name": "pydiggs", "version": "1.12.0"},
   "identical": false,
   "complete": true,
@@ -415,20 +567,26 @@ Keys are sorted and the same comparison always gives the same bytes.
 
 | field | meaning |
 |---|---|
-| `identical` | true only when nothing differs and the comparison finished. A number written differently and a record's own `gml:id` are not differences |
-| `complete`, `limits_hit` | whether a limit stopped the comparison, and which |
+| `identical` | true only when nothing differs and the comparison finished. A number written differently and a record's own `gml:id` are not differences. Between two files this covers the content a model does not keep; between two models it says the models are equal |
+| `complete`, `limits_hit` | whether the comparison finished and looked at everything, and if not, why (see [Limits](#limits-and-incomplete-comparisons)). `limits_hit` is empty exactly when `complete` is true |
 | `old`, `new` | each file's name, DIGGS version, size and sha256 |
 | `options` | the matching mode, tolerances and limits that were used |
 | `summary` | per collection, how many records were `added`, `removed`, `changed` and `unchanged` |
 | `value_changes`, `reformatted` | how many values differ, and how many are only written differently |
 | `renamed` | how many records were paired by natural key and have a different `gml:id` in the two files. Counted whether listed or not |
 | `changes[]` | one entry per record added, removed or changed, ordered by collection, then key. `op` is `added`, `removed` or `changed`. On request, the records that did not change are listed too: `renamed` (its `gml:id` differs) and `reformatted` (it only has numbers written differently). `old_key` and `new_key` are the record's keys in the two files, its `gml:id`s when it has them (null on the side that lacks the record); `matched_by` is `gml_id` or `natural` |
-| `changes[].values[]` | each value that differs: its `op` (`added`, `removed`, `changed`, or `reformatted` and `renamed` when those are listed), its `path` in the record (`gml_id` is the record's own id), the `old` and `new` values (a quantity as text with its unit, null on the side that lacks it), and `at`, the XPath of the record in the new file (the old file for a removed record) |
+| `changes[].values[]` | each value that differs: its `op` (`added`, `removed`, `changed`, or `reformatted` and `renamed` when those are listed), its `path` in the record (`gml_id` is the record's own id; a path that starts with `xml.` is content of the file that the model does not keep), the `old` and `new` values (a quantity as text with its unit, null on the side that lacks it), and `at`, the XPath of the record in the new file. `path` and `at` are at most 1,000 characters |
 | `notes[]` | findings of step `diff`, in the [diggs-findings](findings.md) form |
 
-`Diff.from_dict()` reads a document back into a `Diff`. The format is versioned like
-the other pyDIGGS documents: a consumer of 1.0 accepts any 1.x document, and a new
-optional field is a minor version.
+`Diff.from_dict()` reads a document back into a `Diff`. It refuses, with `ValueError`,
+a document the report could not be made from or one that contradicts itself: a summary
+entry without its four counts, a count that is not an integer of 0 or more, an `op` or
+`matched_by` the format does not define, a `limits_hit` that is not text or does not
+agree with `complete`, and `identical` set to true for an incomplete comparison or one
+that counts or lists a difference. The JSON Schema says the same. The format is
+a beta while the comparison is a preview, and may change before 1.0 is frozen. From
+then on it is versioned like the other pyDIGGS documents: a consumer of 1.0 accepts any
+1.x document, and a new optional field is a minor version.
 
 ## In an application
 

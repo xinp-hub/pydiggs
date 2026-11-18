@@ -3,7 +3,11 @@
 When a table's domain index (CPT depth, interval top and base) is unique on both sides,
 rows are aligned by index value within the tolerance, in whatever order they are written;
 otherwise by row number. A row only one side has is an addition or removal of each of its
-cells. Pure.
+cells. Index columns are paired by key like data columns, so their order is not data.
+
+A table whose values were not read (a model read with ``results=False``) has columns and
+a row count, and no cells to compare: the comparison says which side that was, and its
+caller makes the result incomplete. Pure.
 """
 
 from __future__ import annotations
@@ -35,6 +39,11 @@ def _describe_column(column: Column) -> str:
 def _has_values(table: ResultTable) -> bool:
     columns = (*table.columns, *table.domain.index)
     return bool(columns) and all(len(c.values) == table.row_count for c in columns)
+
+
+def _unread(table: ResultTable) -> bool:
+    """Whether ``table`` has columns and not their values: cells nobody can compare."""
+    return bool(table.columns or table.domain.index) and not _has_values(table)
 
 
 def _paired(columns: Sequence[Column]) -> dict[str, list[Column]]:
@@ -102,6 +111,31 @@ def _ranks(
     return [cluster.get(value, -1) for value in old], [cluster.get(value, -1) for value in new]
 
 
+def _index_pairs(
+    old: Sequence[Column], new: Sequence[Column]
+) -> tuple[list[Column], list[Column]] | None:
+    """The index columns of both sides in one order, each old one with the new one of its key.
+
+    The order is that of the old table, so a row is labelled as its file writes it (top,
+    then base). Same-keyed columns pair in order of appearance, as data columns do. None
+    when a column of one side has no partner on the other: the two tables are then not
+    indexed by the same things.
+    """
+    if len(old) != len(new):
+        return None
+    new_by = _paired(new)
+    taken: dict[str, int] = defaultdict(int)
+    partners: list[Column] = []
+    for column in old:
+        ident = column.key or column.name
+        twins = new_by.get(ident, [])
+        if taken[ident] >= len(twins):
+            return None
+        partners.append(twins[taken[ident]])
+        taken[ident] += 1
+    return list(old), partners
+
+
 def _align_by_index(
     old: Sequence[Column],
     new: Sequence[Column],
@@ -113,11 +147,14 @@ def _align_by_index(
 ) -> tuple[list[tuple[int, int]], list[int], list[int]] | None:
     """Rows paired by index value within ``tol``, or None when the index cannot be used.
 
-    It cannot be used when a side has no index, the two have a different number of index
-    columns, a value is not a number, or two rows of one side could be the same row: the
-    tolerance cannot tell them apart, and pairing either would be a guess. Rows are found
-    by the clusters of their values, never by their order, so the work stays near linear
-    and noise in one column cannot misalign the rest.
+    ``old`` and ``new`` are the index columns as :func:`_index_pairs` gives them: the
+    same number, each old one with the new one of its key.
+
+    It cannot be used when a side has no index, a value is not a number, or two rows of
+    one side could be the same row: the tolerance cannot tell them apart, and pairing
+    either would be a guess. Rows are found by the clusters of their values, never by
+    their order, so the work stays near linear and noise in one column cannot misalign
+    the rest.
     """
     if not old or len(old) != len(new):
         return None
@@ -199,7 +236,8 @@ def _compare_table(
     tol: Tol,
     emit: Emit,
     tick: Tick,
-) -> None:
+) -> tuple[bool, bool]:
+    """Compare two tables; whether the values of the old, of the new one were not read."""
     head_old: dict[str, Any] = {"domain.shape": old.domain.shape}
     head_new: dict[str, Any] = {"domain.shape": new.domain.shape}
     for head, table, side in ((head_old, old, sides[0]), (head_new, new, sides[1])):
@@ -230,23 +268,29 @@ def _compare_table(
 
         diff_maps(attrs_a, attrs_b, tol, emit_attr, tick)
 
-    both_values = _has_values(old) and _has_values(new)
     # Only a table with no column of either kind has nothing but its row count to compare:
     # index columns alone (the depths of a table whose data was not kept) are values too.
     if not (old.columns or new.columns or old.domain.index or new.domain.index):
         if old.row_count != new.row_count:
             emit(f"{base}.row_count", "changed", old.row_count, new.row_count)
-        return
-    if not both_values:
+        return False, False
+    unread = (_unread(old), _unread(new))
+    if any(unread):
         _compare_unread(base, old, new, emit=emit, tick=tick)
-        return
-    _compare_rows(base, old, new, tol=tol, emit=emit, tick=tick)
+    else:
+        _compare_rows(base, old, new, tol=tol, emit=emit, tick=tick)
+    return unread
 
 
 def _compare_unread(
     base: str, old: ResultTable, new: ResultTable, *, emit: Emit, tick: Tick
 ) -> None:
-    """At least one side was read without values: say so, and compare what is there."""
+    """At least one side was read without values: compare what is there.
+
+    That is the row count when neither side has values, and otherwise a column with
+    values against the same column without. Equal row counts say nothing about the
+    cells, so the caller reports the comparison as incomplete either way.
+    """
     if not _has_values(old) and not _has_values(new):
         if old.row_count != new.row_count:
             emit(f"{base}.row_count", "changed", old.row_count, new.row_count)
@@ -273,11 +317,16 @@ def _compare_rows(
     base: str, old: ResultTable, new: ResultTable, *, tol: Tol, emit: Emit, tick: Tick
 ) -> None:
     rows_old, rows_new = old.row_count, new.row_count
-    aligned = _align_by_index(
-        old.domain.index, new.domain.index, rows_old, rows_new, tol=tol, tick=tick
+    # The index columns in one order for both sides: paired by key, like data columns,
+    # so that ``top, base`` and ``base, top`` index the same rows.
+    indexed = _index_pairs(old.domain.index, new.domain.index)
+    aligned = (
+        None
+        if indexed is None
+        else _align_by_index(indexed[0], indexed[1], rows_old, rows_new, tol=tol, tick=tick)
     )
     by_index = aligned is not None
-    if aligned is None:
+    if aligned is None or indexed is None:
         common = min(rows_old, rows_new)
         pairs = [(i, i) for i in range(common)]
         removed = list(range(common, rows_old))
@@ -285,8 +334,8 @@ def _compare_rows(
         labels_old = labels_new = [str(i + 1) for i in range(max(rows_old, rows_new))]
     else:
         pairs, removed, added = aligned
-        labels_old = _index_labels(old.domain.index, rows_old, tick)
-        labels_new = _index_labels(new.domain.index, rows_new, tick)
+        labels_old = _index_labels(indexed[0], rows_old, tick)
+        labels_new = _index_labels(indexed[1], rows_new, tick)
     label_pair = (labels_old, labels_new)
     index_pairs = [
         p
@@ -337,8 +386,13 @@ def compare_results(
     tol: Tol,
     emit: Emit,
     tick: Tick,
-) -> None:
-    """Compare two nodes' result tables (``results[i]`` aligned by position)."""
+) -> tuple[bool, bool]:
+    """Compare two nodes' result tables (``results[i]`` aligned by position).
+
+    Returns whether a table of the old, of the new node that has a table to be compared
+    with has columns whose values were not read: the cells of the two were not compared.
+    """
+    unread = [False, False]
     for i in range(max(len(old), len(new))):
         base = f"results[{i}]"
         if i >= len(old):
@@ -346,4 +400,6 @@ def compare_results(
         elif i >= len(new):
             emit(base, "removed", _describe_table(old[i]), None)
         else:
-            _compare_table(base, old[i], new[i], sides=sides, tol=tol, emit=emit, tick=tick)
+            one = _compare_table(base, old[i], new[i], sides=sides, tol=tol, emit=emit, tick=tick)
+            unread = [was or now for was, now in zip(unread, one, strict=True)]
+    return unread[0], unread[1]
