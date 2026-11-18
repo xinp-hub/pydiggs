@@ -1,7 +1,8 @@
 site_name: pyDIGGS
 site_description: Offline validation for DIGGS geotechnical and geoenvironmental XML, from the command line, Python, web, desktop, AI assistants and the browser.
 site_author: Xin Peng
-site_url: https://xinp-hub.github.io/pydiggs/
+# docs.yml builds the site twice, under dev/ and latest/, and gives each its own address.
+site_url: !ENV [DOCS_SITE_URL, "https://xinp-hub.github.io/pydiggs/"]
 repo_url: https://github.com/xinp-hub/pydiggs
 repo_name: xinp-hub/pydiggs
 edit_uri: edit/master/docs/
@@ -11,6 +12,9 @@ copyright: >-
 
 theme:
   name: material
+  # overrides/main.html: the version meta tag, and the notice on dev/ pages that they
+  # describe unreleased code.
+  custom_dir: overrides
   icon:
     repo: fontawesome/brands/github
     edit: material/pencil
@@ -64,6 +68,8 @@ hooks:
 
 plugins:
   - search
+  # llms.txt and llms-full.txt are written by scripts/mkdocs_hooks.py (every page, so a
+  # new guide cannot be forgotten), not by a plugin: see the note there.
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -121,6 +127,11 @@ markdown_extensions:
   - pymdownx.tilde
 
 extra:
+  # The published site has two versions (docs.yml); versions.json is written by
+  # scripts/docs_site.py in the format mike uses. A local `mkdocs serve` has no switcher.
+  version:
+    provider: mike
+    default: latest
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/xinp-hub/pydiggs
@@ -164,10 +175,11 @@ nav:
   - Reference:
     - Python API: reference.md
     - AGS4 and DIGGS mapping: convert-mapping.md
+    - Command line and extras: facts.md
   - Project:
     - Contributing: contributing.md
     - Authors: authors.md
     - Licence and use: license.md
-    - History: history.md
+    - Changelog: history.md
     - Stay updated: stay-updated.md
     - Security policy: https://github.com/xinp-hub/pydiggs/security/policy

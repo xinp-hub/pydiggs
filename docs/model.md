@@ -27,6 +27,7 @@ DIGGS 2.5.a, 2.6 and 3.x, as Python objects and as JSON.
 
 ```python
 import pydiggs
+from pydiggs.model import Measurement
 
 m = pydiggs.read("site.xml")  # or pydiggs.read_bytes(data, name="site.xml")
 for f in m.features:
@@ -37,6 +38,8 @@ print(bh.params["boreholeType"])  # Code(value='Borehole', code_space='https://�
 for c in bh.construction:  # construction methods, casing, backfill …
     print(c.role, c.interval)
 for test in m.related(bh, relation="samplingFeature", direction="in"):
+    if not isinstance(test, Measurement):  # sampling activities refer to the hole too
+        continue
     print(test.procedure.type, dict(test.procedure.params))  # tipArea, hammerEfficiency …
     for table in getattr(test, "results", ()):
         depth = table.domain.index  # e.g. the CPT depth of every row, in metres

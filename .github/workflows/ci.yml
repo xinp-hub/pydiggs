@@ -465,12 +465,49 @@ jobs:
       - name: Build (strict, a broken link fails the build)
         run: uv run --group docs mkdocs build --strict
 
+  # What users read must follow what users get. A pull request that changes the public API
+  # (griffe reads the source; nothing from the pull request is imported) or the console
+  # scripts or extras must also change docs/, README.md or CHANGELOG.md, or carry the label
+  # `no-docs-needed`. The base branch's copy of the script judges, so a pull request cannot
+  # relax the check that judges it. The labels are read when the job runs, not from the
+  # event, so adding the label and re-running this job is enough.
+  docs-impact:
+    name: docs follow the API
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read # the labels as they are now
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          python-version: "3.11"
+      - name: Public API, scripts and extras against the docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          labels="$(gh api "repos/$GH_REPO/pulls/$PR" --jq '[.labels[].name] | join(",")')"
+          judge="$RUNNER_TEMP/docs_impact.py"
+          if ! git show "$BASE_SHA:scripts/docs_impact.py" > "$judge" 2> /dev/null; then
+            cp scripts/docs_impact.py "$judge"
+          fi
+          python3 "$judge" --base "$BASE_SHA" --labels "$labels"
+
   all-green:
     name: all green
     if: always()
     # dco is not listed yet: it reports on every pull request, and joins this list once a
     # Dependabot pull request has passed it (plan risk R13).
-    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, ags4-fuzz, js, docs]
+    needs: [lint, test, test-os, core-only, build, pyodide, container-build, sidecar-frozen, conformance, ags4-fuzz, js, docs, docs-impact]
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     steps:

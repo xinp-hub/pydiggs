@@ -9,8 +9,18 @@
 - the diggs-capabilities JSON Schema (``pydiggs.capabilities()``), at the path its
   ``$id`` names.
 
+``docs/history.md`` is the root CHANGELOG.md, embedded here (one history, not two); its
+links to ``docs/...`` are rewritten to work from inside ``docs/``.
+
+It writes ``llms.txt`` (an index of every page) and ``llms-full.txt`` (their text) for
+language-model readers.
+
 It also renders the email sign-up form on the "Stay updated" page from
-``extra.newsletter.buttondown`` in mkdocs.yml.
+``extra.newsletter.buttondown`` in mkdocs.yml, and stamps the version of the checkout being
+built into every page (``<meta name="package-version">``, written by
+``overrides/main.html``), so that no committed page repeats it and a release bump touches
+nothing in ``docs/``. The ``verify`` job of ``.github/workflows/docs.yml`` reads that tag
+from the live site after a release.
 
 Each is copied byte for byte from the package at build time, so the published file can
 never drift from the one in the wheel (``tests/test_docs_schema.py``).
@@ -20,6 +30,7 @@ from __future__ import annotations
 
 import re
 import shutil
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +60,9 @@ DOCUMENTS: dict[Path, Path] = {
     **{earlier: Path("schemas") / earlier.name for earlier in EARLIER_SCHEMAS},
 }
 
+
+INIT = PACKAGE / "__init__.py"
+_VERSION = re.compile(r"""^__version__\s*=\s*["']([^"']+)["']""", re.MULTILINE)
 
 #: Placeholder in a page that becomes the email sign-up form (docs/stay-updated.md).
 NEWSLETTER_MARKER = "<!-- pydiggs:newsletter-form -->"
@@ -97,8 +111,55 @@ def newsletter_block(username: str) -> str:
     return NEWSLETTER_FORM.format(username=username)
 
 
-def on_page_markdown(markdown: str, *, config: Any, **_: Any) -> str:
-    """Replace the newsletter placeholder with the sign-up form (or a note)."""
+def package_version() -> str:
+    """Return ``__version__`` as written in this checkout's source, never an installed copy.
+
+    Raises:
+        RuntimeError: The source declares no ``__version__``; the build must not go on and
+            publish pages that claim no version.
+    """
+    found = _VERSION.search(INIT.read_text(encoding="utf-8"))
+    if not found:
+        msg = f"no __version__ in {INIT}"
+        raise RuntimeError(msg)
+    return found.group(1)
+
+
+def on_config(config: Any) -> Any:
+    """Set ``extra.package_version`` before any page is rendered."""
+    config["extra"]["package_version"] = package_version()
+    _PAGES.clear()
+    _ORDER.clear()
+    return config
+
+
+#: The line of docs/history.md that stands for the root CHANGELOG.md.
+CHANGELOG_MARKER = '--8<-- "CHANGELOG.md"'
+
+
+def changelog_links(markdown: str) -> str:
+    """Make the root CHANGELOG.md's links to ``docs/`` pages work from inside ``docs/``."""
+    return markdown.replace("](docs/", "](")
+
+
+def embed_changelog(markdown: str) -> str:
+    """Replace the marker line by the root CHANGELOG.md, with its links made relative.
+
+    pymdownx.snippets would embed the file but only after MkDocs has checked the page's
+    links, and the changelog's ``docs/...`` links (right on GitHub) would then fail
+    ``--strict``. So the page is built here.
+    """
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    return markdown.replace(CHANGELOG_MARKER, changelog_links(changelog))
+
+
+def on_page_markdown(markdown: str, *, config: Any, page: Any = None, **_: Any) -> str:
+    """Fix the embedded changelog's links, and replace the newsletter placeholder."""
+    if page is not None and page.file.src_uri == "history.md":
+        markdown = embed_changelog(markdown)
+    if page is not None:
+        # Kept as written, before the sign-up form's HTML goes in: llms-full.txt is text.
+        _PAGES[page.file.src_uri] = LlmsPage(str(page.title or ""), page.url, markdown)
     if NEWSLETTER_MARKER not in markdown:
         return markdown
     newsletter = (config.get("extra") or {}).get("newsletter") or {}
@@ -106,9 +167,123 @@ def on_page_markdown(markdown: str, *, config: Any, **_: Any) -> str:
     return markdown.replace(NEWSLETTER_MARKER, newsletter_block(username))
 
 
+# --- llms.txt and llms-full.txt --------------------------------------------------------
+#
+# Written here, with the standard library, and not by the mkdocs-llmstxt plugin: that
+# plugin needs mdformat, which holds markdown-it-py below 4, and markdown-it-py is a
+# runtime dependency of pyDIGGS (through rich). A docs plugin must not decide which
+# version of a runtime dependency uv.lock, and so the tested constraints file, carries.
+
+
+class LlmsPage:
+    """One page as a language-model reader gets it.
+
+    A plain class, not a dataclass: the tests load this file by path without registering
+    it in ``sys.modules``, which ``dataclasses`` needs.
+    """
+
+    __slots__ = ("text", "title", "url")
+
+    def __init__(self, title: str, url: str, text: str) -> None:
+        self.title = title
+        self.url = url
+        self.text = text
+
+
+#: Every page of the build in progress, by source path.
+_PAGES: dict[str, LlmsPage] = {}
+#: The navigation's page order, by source path.
+_ORDER: list[str] = []
+#: A page written as directives (``::: pydiggs``) has its content only once rendered.
+_DIRECTIVE = re.compile(r"^::: ", re.MULTILINE)
+_BLOCKS = frozenset(
+    {"p", "div", "section", "pre", "li", "tr", "table", "dt", "dd", "br", "blockquote"}
+    | {f"h{level}" for level in range(1, 7)}
+)
+_SILENT = frozenset({"script", "style", "svg"})
+
+
+class _Text(HTMLParser):
+    """Rendered HTML as plain text: headings marked, one block per line."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self._silent = 0
+
+    def handle_starttag(
+        self,
+        tag: str,
+        attrs: list[tuple[str, str | None]],  # noqa: ARG002 - HTMLParser's signature
+    ) -> None:
+        if tag in _SILENT:
+            self._silent += 1
+        elif tag in _BLOCKS:
+            self.parts.append("\n")
+            if tag[0] == "h" and tag[1:].isdigit():
+                self.parts.append("#" * int(tag[1:]) + " ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _SILENT:
+            self._silent = max(0, self._silent - 1)
+        elif tag in _BLOCKS:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if not self._silent:
+            self.parts.append(data)
+
+
+def html_text(html: str) -> str:
+    """Return the text of rendered HTML, without the permalink marks or blank runs."""
+    parser = _Text()
+    parser.feed(html)
+    parser.close()
+    lines = (
+        line.rstrip().removesuffix("¶").rstrip() for line in "".join(parser.parts).splitlines()
+    )
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+
+
+def on_nav(nav: Any, **_: Any) -> Any:
+    """Remember the order pages have in the navigation."""
+    _ORDER[:] = [page.file.src_uri for page in nav.pages]
+    return nav
+
+
+def on_page_content(html: str, *, page: Any, **_: Any) -> str:
+    """Take a generated page's text from what was rendered (the API reference)."""
+    known = _PAGES.get(page.file.src_uri)
+    if known is not None and _DIRECTIVE.search(known.text):
+        known.text = html_text(html)
+    return html
+
+
+def llms_documents(config: Any) -> tuple[str, str]:
+    """Return ``llms.txt`` (an index of every page) and ``llms-full.txt`` (their text)."""
+    site = str(config.get("site_url") or "").rstrip("/")
+    ordered = [name for name in _ORDER if name in _PAGES]
+    ordered += sorted(set(_PAGES) - set(ordered))
+    head = [f"# {config.get('site_name') or 'Documentation'}", ""]
+    if config.get("site_description"):
+        head += [f"> {config['site_description']}", ""]
+    index = [*head, f"Version {package_version()}.", "", "## Documentation", ""]
+    full = list(head)
+    for name in ordered:
+        page = _PAGES[name]
+        address = f"{site}/{page.url}"
+        index.append(f"- [{page.title}]({address})")
+        full += [f"<!-- {address} -->", "", page.text.strip(), "", ""]
+    return "\n".join(index) + "\n", "\n".join(full).rstrip() + "\n"
+
+
 def on_post_build(config: Any) -> None:
-    """Copy every document in ``DOCUMENTS`` into ``<site_dir>/schemas/``."""
+    """Copy every document in ``DOCUMENTS`` into ``<site_dir>/schemas/``; write llms.txt."""
     for source, published in DOCUMENTS.items():
         target = Path(config["site_dir"]) / published
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
+    index, full = llms_documents(config)
+    for name, text in (("llms.txt", index), ("llms-full.txt", full)):
+        with (Path(config["site_dir"]) / name).open("w", encoding="utf-8", newline="\n") as out:
+            out.write(text)

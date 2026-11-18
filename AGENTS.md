@@ -60,11 +60,16 @@ gets a line in [CHANGELOG.md](CHANGELOG.md) under "Unreleased", written for user
   output (JSON, SARIF) keeps file data as it is, as its contract says
   (`docs/findings.md`); the consumer escapes it for display.
 - **Generated files are regenerated, not edited:** `docs/convert-mapping.md`,
-  `openapi.json`, `openrpc.json`, `js/src/generated/`, and the hashes in
+  `docs/facts.md`, the marked operations table in `docs/capabilities.md`
+  (`scripts/docs_gen.py`), `openapi.json`, `openrpc.json`, `js/src/generated/`, and the hashes in
   `src/pydiggs/PROVENANCE.toml`. Use the script that owns each one.
 - **Commits.** Conventional Commits, one concern per pull request, every commit signed
   off (`git commit -s`). Never add a `Co-authored-by:` or similar trailer naming an AI
   agent, and never commit as an agent identity; CI refuses both.
+- **Docs follow the API.** A change to the public API, a console script or an extra needs a
+  change to `docs/`, `README.md` or `CHANGELOG.md` in the same pull request, and the
+  examples in them run in `tests/test_docs.py`. Never add the `no-docs-needed` label
+  yourself: it is the maintainer's override.
 - **No secrets.** Publishing uses PyPI Trusted Publishing. If you think you need a token,
   the setup is wrong.
 

@@ -84,30 +84,58 @@ about the server's own interpreter.
 
 ## Operations
 
-| id | stability | needs | Python |
+The table is generated from `pydiggs.capabilities()` and checked in CI, so it lists
+exactly the operations the installed release offers. `needs` is the extra to install
+(for example `pydiggs[gis]`).
+
+<!-- docs_gen:operations:start -->
+| id | stability | needs | what it does |
 |---|---|---|---|
-| `validate` | stable | | `pydiggs.validate()`, `validate_bytes()` |
-| `read` | stable | | `pydiggs.read()`, `read_bytes()` |
-| `detect` | stable | | `pydiggs.detect_diggs_version()` |
-| `rules.list` | stable | | `pydiggs.rule_catalogue()` |
-| `rules.explain` | stable | | `pydiggs.explain_rule()` |
-| `ags4.read` | preview | | `pydiggs.ags4.read()`, `read_bytes()` |
-| `ags4.write` | preview | | `pydiggs.ags4.dumps()`, `write()` |
-| `ags4.check` | preview | | `pydiggs.ags4.check()` |
-| `convert.ags4-to-diggs` | stable | | `pydiggs.convert.ags4_to_diggs()` |
-| `convert.diggs-to-ags4` | stable | | `pydiggs.convert.diggs_to_ags4()`, `model_to_ags4()` |
-| `diff` | preview | | `pydiggs.diff.compare()` |
-| `export.pandas` | stable | `frames` | `pydiggs.frames.to_pandas()` |
-| `export.polars` | stable | `polars` | `pydiggs.frames.to_polars()` |
-| `gis.transform` | stable | `gis` | `pydiggs.gis.transform()` |
-| `export.geodataframe` | stable | `gis` | `pydiggs.gis.to_geodataframe()` |
-| `export.gpkg`, `export.geoparquet`, `export.geojson` | stable | `gis` | `pydiggs.gis.write()` |
+| `validate` | stable |  | Check a DIGGS file against the schema, dictionaries and business rules |
+| `read` | stable |  | Read what a DIGGS file holds: boreholes, samples, tests and results |
+| `detect` | stable |  | Tell which DIGGS version a file is written in |
+| `rules.list` | stable |  | List every rule pyDIGGS can report |
+| `rules.explain` | stable |  | Explain one rule a finding names |
+| `ags4.read` | preview |  | Read an AGS4 file as tables |
+| `ags4.write` | preview |  | Write tables as an AGS4 file |
+| `ags4.check` | preview |  | Check an AGS4 file against the AGS4 rules |
+| `convert.ags4-to-diggs` | stable |  | Convert an AGS4 file to DIGGS 3.0.0, listing everything not carried over and keeping it in a residual AGS4 file |
+| `convert.diggs-to-ags4` | stable |  | Convert a DIGGS file (or a read one) to an AGS4 file, listing everything not carried over |
+| `diff` | preview |  | Compare two DIGGS files: what was added, removed or changed (preview: the report format and the comparison rules may change) |
+| `export.pandas` | stable | `frames` | Tables of a read file as a pandas data frame |
+| `export.polars` | stable | `polars` | Tables of a read file as a polars data frame |
+| `gis.transform` | stable | `gis` | Add longitude and latitude to every location that has a known CRS |
+| `export.geodataframe` | stable | `gis` | Boreholes and other features as map points (a GeoDataFrame) |
+| `export.gpkg` | stable | `gis` | Save features as a GeoPackage (.gpkg) |
+| `export.geoparquet` | stable | `gis` | Save features as GeoParquet (.parquet) |
+| `export.geojson` | stable | `gis` | Save features as GeoJSON (.geojson) |
+<!-- docs_gen:operations:end -->
+
+Where each is in Python:
+
+| id | Python |
+|---|---|
+| `validate` | `pydiggs.validate()`, `validate_bytes()` |
+| `read` | `pydiggs.read()`, `read_bytes()` |
+| `detect` | `pydiggs.detect_diggs_version()` |
+| `rules.list` | `pydiggs.rule_catalogue()` |
+| `rules.explain` | `pydiggs.explain_rule()` |
+| `ags4.read` | `pydiggs.ags4.read()`, `read_bytes()` |
+| `ags4.write` | `pydiggs.ags4.dumps()`, `write()` |
+| `ags4.check` | `pydiggs.ags4.check()` |
+| `convert.ags4-to-diggs` | `pydiggs.convert.ags4_to_diggs()` |
+| `convert.diggs-to-ags4` | `pydiggs.convert.diggs_to_ags4()`, `model_to_ags4()` |
+| `diff` | `pydiggs.diff.compare()` |
+| `export.pandas` | `pydiggs.frames.to_pandas()` |
+| `export.polars` | `pydiggs.frames.to_polars()` |
+| `gis.transform` | `pydiggs.gis.transform()` |
+| `export.geodataframe` | `pydiggs.gis.to_geodataframe()` |
+| `export.gpkg`, `export.geoparquet`, `export.geojson` | `pydiggs.gis.write()` |
 
 The AGS4 reading, writing and checking operations are a preview; conversion
 (`pydiggs.convert`) is stable from pyDIGGS 1.11, both ways. `POST /v1/convert` and the
 sidecar's `convert` are either conversion operation, chosen by their `to` parameter.
-`diff` ([Comparing two files](diff.md), from pyDIGGS 1.12) is a preview: the report format
-and the comparison rules may change in a minor release. It is offered in Python and as
+`diff` ([Comparing two files](diff.md), from pyDIGGS 1.12) is offered in Python and as
 `pydiggs diff`; the HTTP API, the sidecar and the MCP server do not offer it yet. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).
