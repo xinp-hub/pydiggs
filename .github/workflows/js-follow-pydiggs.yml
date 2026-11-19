@@ -42,8 +42,10 @@ jobs:
         id: status
         run: |
           set -uo pipefail
-          node js/scripts/follow-pydiggs.mjs --check > status.json
-          code=$?
+          # The default shell is bash -e, which would end the step on exit 3 before the
+          # code is read; `|| code=$?` keeps it, so a lag opens the issue below.
+          code=0
+          node js/scripts/follow-pydiggs.mjs --check > status.json || code=$?
           cat status.json
           if [ "$code" -eq 3 ]; then
             echo "lags=true" >> "$GITHUB_OUTPUT"
