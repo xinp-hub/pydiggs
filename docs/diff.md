@@ -18,18 +18,20 @@ Typical uses: checking a revised deliverable against the previous one, checking 
 export from a new software version still holds the same data, and checking a file after a
 round trip through another format.
 
-!!! warning "Preview"
-    `pydiggs.diff` and `pydiggs diff` are a preview in pyDIGGS 1.12: the report format
-    and the comparison rules may change in a minor release. The report is a
-    **diggs-diff 1.0-beta.1** document. The stable `pydiggs.diff` and diggs-diff 1.0
-    are planned for pyDIGGS 1.13.
+!!! info "Stable from pyDIGGS 1.13"
+    `pydiggs.diff` and `pydiggs diff` are stable from pyDIGGS 1.13 (a preview in 1.12)
+    and follow [Semantic Versioning](https://semver.org/): what they compare, what
+    they report and the report's format change only in a major release, except that a
+    minor release may report a difference that was missed. The report is a
+    **diggs-diff 1.0** document; the 1.0-beta.1 documents of pyDIGGS 1.12 are still
+    read (see [The JSON document](#the-json-document)).
 
 It needs
 nothing beyond the core install, and it reads any DIGGS version
 [`pydiggs.read`](model.md) reads. The two files may be different DIGGS versions.
 
 - **JSON Schema of the result:**
-  [`schemas/preview/diggs-diff-1.0-beta.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json)
+  [`schemas/diggs-diff-1.0.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json)
   (also `pydiggs.diff.diff_schema()`; `pydiggs.diff.DIFF_SCHEMA_URL` and
   `pydiggs.diff.DIFF_SCHEMA_VERSION`).
 - **API reference:** [Comparing files](reference.md#comparing-files).
@@ -102,7 +104,11 @@ Both files are read with [`pydiggs.read`](model.md), and the two models are comp
   positions, the files of a data package, a column's property class, declared type and
   index, the reason of a null value, the separators and decimal mark of a result set,
   and any other attribute or text no field holds. See
-  [Files and models](#files-and-models).
+  [Files and models](#files-and-models);
+- **between two files, what the file holds outside every record**: the attributes of
+  its root element (other than `xsi:schemaLocation` and its `gml:id`) and any text
+  before, between or after its members. They belong to the document, and are compared
+  with its document information (see [Outside every record](#outside-every-record)).
 
 A link is compared by what it points to, not by the text of its `href`: if a sample
 still belongs to the same borehole, renaming that borehole's `gml:id` is not a change of
@@ -156,12 +162,55 @@ changed features bh_TEST_HOLE_1 (TEST HOLE 1), matched by gml:id
   count (`xml.Borehole.remark.Remark#elements: 3 -> 2`).
 - A link (`xlink:href`) is compared as one of the record's `links`. Where its element
   has more than the link, the link is also compared with the element, by what it names,
-  so that two such elements that exchange their links are seen; a changed link of that
-  kind is listed twice.
+  so that two such elements that exchange their links are seen. A changed link is
+  listed once, in `links` (see [Each edit once](#each-edit-once)).
 - This content counts toward the reader's work limit (100,000 elements plus one per
   200 bytes of the file) and the time budget. A file with more of it is compared in
   part, and the comparison is incomplete (`old_read_incomplete`,
   `new_read_incomplete`).
+
+### Each edit once
+
+Some content of the file is read by a typed field and kept as it is written as well. An
+edit to it is listed once, where the typed field reports it:
+
+- A column's declared type (`typeData`): the column's `type` says what kind of value
+  it reads (`number`, `boolean`, `datetime`, `string`). `boolean` changed to `string`
+  is listed as the column's `type`, not again as `xml.….typeData[1]#text`. A change
+  that the column does not show (`double` to `integer`, both numbers) is listed as the
+  `typeData` text, and `double` against `float` is only written differently
+  (see [What does not count as a change](#what-does-not-count-as-a-change)).
+- Unit labels (`uomLabels`) that give a result table's index or extent its units: the
+  index column's or the extent's unit is listed (`….domain.index[position].uom`); a
+  label no column reads stays content of the file and is listed there.
+- A link on an element that holds more than the link (`<projectRef xlink:href="#p"
+  role="owner"/>`), in `extra` or in the file: listed in `links`. Two such elements
+  that exchange their links leave `links` the same, and are listed at the elements.
+
+A repeat is dropped only when the typed change it repeats is listed in the same record:
+one listed change takes away one repeat. Anything that cannot be matched to one is
+listed. The counts (`value_changes`) count each edit once too.
+
+### Outside every record
+
+A file holds a few things outside every record: the attributes of its root element
+(`<Diggs … note="rev 2">`) and any text before, between or after its members. Between
+two files they are compared as one more element, named as the root, with the
+document's own record (`documentInformation`, which DIGGS requires):
+
+```console
+changed document di_1, matched by gml:id
+    xml.Diggs[1]@note: rev 1 -> rev 2
+```
+
+When the two files have no pair of document records (one has none, or they were not
+paired), the root is listed on its own, as element `Diggs` of collection `document`
+with the key `@/Diggs[1]`, matched by natural key, and counted as a changed document if
+it differs. The text outside the members is
+compared word by word, a number as a number, and joined in the order of the file, so
+moving it from one gap between members to another is not a change. Not compared: the
+root's `gml:id` (an id), `xsi:schemaLocation` (where the schema is), namespace
+declarations, comments, processing instructions and white space.
 
 When `compare` is given **two `Model`s**, none of this exists, and the comparison says
 whether the two models differ. Two files that differ only in content a model does not
@@ -199,6 +248,22 @@ files (see [Ids and references](#ids-and-references)).
 - **The file itself**: its name, size, encoding, indentation and other white space,
   comments, processing instructions and `schemaLocation`. The DIGGS version of each file is recorded in the result but is not a
   change.
+- **How a result set's values are written**, when every value reads the same. Another
+  column separator (`cs`) or row separator (`ts`), with the values written with it,
+  and a separator written out with its default value (`cs=","`) or left out, are
+  *reformatted*. "Reads the same" means that pyDIGGS reads, with each file's own
+  separators, the same rows of the same values: each cell is compared, a number as a
+  number within the tolerance, and a value no column holds as it is written. If one
+  value differs, that value is a change, and the separators are still only
+  reformatted; a separator changed while the values were left as they were splits
+  them differently, and those values are changes. The decimal mark (`decimal`) is not
+  read: pyDIGGS reads a number written with a point. Writing `decimal="."` out or
+  leaving it out is reformatted; another decimal mark (`","`) is a change, and so are
+  values written with it (`0,5` is not a number pyDIGGS reads).
+- **How a column's type is declared**, when it reads the same values: `double` and
+  `float` (both binary floating-point numbers), and the same name in other letter case
+  (`Double`), are *reformatted*. Any other change of `typeData` is a change, also when
+  the column reads the same kind of value (`double` to `integer`).
 
 A **unit change is always a change**. `5 ft` against `1.524 m` is reported as changed:
 nothing is converted, because a comparison that converts would hide exactly the kind of
@@ -378,8 +443,9 @@ guess. Those records are listed as removed and added, and a note
 `diff.ambiguous-match` names the key. At most 50 such notes are written, then one that
 counts the rest.
 
-`--match gml-id` runs the first pass only: use it when the ids are known to be stable and
-a record whose id changed should show as removed and added. `--match natural` runs the
+`--match gml-id` (`match="gml-id"`, or `gml_id` as the report spells `matched_by`) runs
+the first pass only: use it when the ids are known to be stable and a record whose id
+changed should show as removed and added. The report gives the option as `gml-id`. `--match natural` runs the
 second pass only: use it when the ids of the two files are unrelated, so that an id which
 happens to appear in both does not pair two different records.
 
@@ -488,14 +554,14 @@ pydiggs diff OLD NEW [--format text|json] [-o FILE] [--match auto|gml-id|natural
 
 What 0 means depends on what was compared. The command compares files, and for two
 files 0 means that they describe the same data as far as pyDIGGS reads XML content:
-every element, attribute and text of every record was compared, with these deliberate
+every element, attribute and text of every record, and the attributes of the root
+element and the text between its members, were compared, with these deliberate
 exclusions: ids (`gml:id`; a reference is compared by its target), the order of
-elements where the model does not keep an order, how a number is written, white space,
-comments, namespace prefixes and `schemaLocation`. Content outside every top-level
-member of the file (attributes of the root element, text between two members) is not
-compared. In Python, with
-two `Model`s, an identical result means the two models are equal, no more (see
-[Files and models](#files-and-models)).
+elements where the model does not keep an order, how a number is written, how the
+values of a result set are separated and a column's type spelled when every value
+reads the same, white space, comments, namespace prefixes and `schemaLocation`. In
+Python, with two `Model`s, an identical result means the two models are equal, no more
+(see [Files and models](#files-and-models)).
 
 So a script can rely on 0 meaning "the same data":
 
@@ -518,15 +584,15 @@ at all is exit 2 with one line on stderr.
 
 ## The JSON document
 
-`pydiggs diff --format json` and `Diff.to_json()` write a **diggs-diff 1.0-beta.1** document.
+`pydiggs diff --format json` and `Diff.to_json()` write a **diggs-diff 1.0** document.
 Keys are sorted and the same comparison always gives the same bytes.
 
 ```json
 {
-  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json",
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json",
   "format": "diggs-diff",
-  "schema_version": "1.0-beta.1",
-  "tool": {"name": "pydiggs", "version": "1.12.0"},
+  "schema_version": "1.0",
+  "tool": {"name": "pydiggs", "version": "1.13.0"},
   "identical": false,
   "complete": true,
   "limits_hit": [],
@@ -572,7 +638,7 @@ Keys are sorted and the same comparison always gives the same bytes.
 | `old`, `new` | each file's name, DIGGS version, size and sha256 |
 | `options` | the matching mode, tolerances and limits that were used |
 | `summary` | per collection, how many records were `added`, `removed`, `changed` and `unchanged` |
-| `value_changes`, `reformatted` | how many values differ, and how many are only written differently |
+| `value_changes`, `reformatted` | how many values differ, each edit counted once, and how many are only written differently (a number, a result set's separators, a column's declared type: see [What does not count as a change](#what-does-not-count-as-a-change)) |
 | `renamed` | how many records were paired by natural key and have a different `gml:id` in the two files. Counted whether listed or not |
 | `changes[]` | one entry per record added, removed or changed, ordered by collection, then key. `op` is `added`, `removed` or `changed`. On request, the records that did not change are listed too: `renamed` (its `gml:id` differs) and `reformatted` (it only has numbers written differently). `old_key` and `new_key` are the record's keys in the two files, its `gml:id`s when it has them (null on the side that lacks the record); `matched_by` is `gml_id` or `natural` |
 | `changes[].values[]` | each value that differs: its `op` (`added`, `removed`, `changed`, or `reformatted` and `renamed` when those are listed), its `path` in the record (`gml_id` is the record's own id; a path that starts with `xml.` is content of the file that the model does not keep), the `old` and `new` values (a quantity as text with its unit, null on the side that lacks it), and `at`, the XPath of the record in the new file. `path` and `at` are at most 1,000 characters |
@@ -583,10 +649,18 @@ a document the report could not be made from or one that contradicts itself: a s
 entry without its four counts, a count that is not an integer of 0 or more, an `op` or
 `matched_by` the format does not define, a `limits_hit` that is not text or does not
 agree with `complete`, and `identical` set to true for an incomplete comparison or one
-that counts or lists a difference. The JSON Schema says the same. The format is
-a beta while the comparison is a preview, and may change before 1.0 is frozen. From
-then on it is versioned like the other pyDIGGS documents: a consumer of 1.0 accepts any
-1.x document, and a new optional field is a minor version.
+that counts or lists a difference. The JSON Schema says the same.
+
+diggs-diff 1.0 is frozen, and versioned like the other pyDIGGS documents: a consumer of
+1.0 accepts any 1.x document, a new optional field or a new value of an open
+vocabulary (a collection, a value of `limits_hit`) is a minor version, and anything
+else is a new major. `Diff.from_dict()` also reads the **1.0-beta.1** documents
+pyDIGGS 1.12 wrote; their schema stays published at
+[`schemas/preview/diggs-diff-1.0-beta.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json),
+the URL their `$schema` names. A 1.0 document has the fields of a beta one; besides
+`$schema` and `schema_version`, what differs is what pyDIGGS 1.13 compares and lists
+(the root element and the text between members, each edit once, and more kinds of
+*reformatted*).
 
 ## In an application
 

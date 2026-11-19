@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, TextIO
 
 import pydiggs
-from pydiggs import _xml
+from pydiggs import _stdout, _xml
 from pydiggs._pool import JobTimeoutError, PoolError, WorkerPool
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.errors import InstanceReadError, ResourceError
@@ -521,12 +521,18 @@ def main(argv: Sequence[str]) -> int:
     if args.output:
         try:
             with _open_output(args.output) as fh:
-                fh.write(body)
+                fh.write(
+                    _stdout.encodable(body, json_report=args.format != "text", encoding="utf-8")
+                )
         except OSError as exc:
             print(f"pydiggs validate: cannot write {args.output}: {exc}", file=sys.stderr)
             return 2
     else:
-        sys.stdout.write(body)
+        # A stdout that cannot encode a name gets escapes, never a traceback.
+        problem = _stdout.write_report(body, json_report=args.format != "text")
+        if problem is not None:
+            print(f"pydiggs validate: {_safe(problem)}", file=sys.stderr)
+            return 2
     if unreadable:
         return 2
     threshold = Severity(args.fail_on).rank

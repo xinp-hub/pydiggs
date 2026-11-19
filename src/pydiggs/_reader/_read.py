@@ -43,6 +43,8 @@ __all__ = ["read_document"]
 _GML: Final = "http://www.opengis.net/gml/3.2"
 _GML_ID: Final = f"{{{_GML}}}id"
 _XLINK_HREF: Final = "{http://www.w3.org/1999/xlink}href"
+#: Where the schema of a file is: the one attribute of the root element not compared.
+_SCHEMA_LOCATION: Final = "{http://www.w3.org/2001/XMLSchema-instance}schemaLocation"
 _CHUNK: Final = 64 * 1024
 
 #: Top-level member property -> model collection.
@@ -311,6 +313,19 @@ def _point_index(
     ]
 
 
+def _column_kind(declared: str, cells: list[str]) -> str:
+    """The kind of value a column reads: from its declared type, else from its cells."""
+    if declared in _NUMBER_TYPES:
+        return "number"
+    if declared in _BOOLEAN_TYPES:
+        return "boolean"
+    if declared in _DATETIME_TYPES:
+        return "datetime"
+    if declared:
+        return "string"
+    return "number" if all(_number(c) is not None for c in cells if c) and any(cells) else "string"
+
+
 def _index_column(name: str, values: Sequence[float | None], uom: str | None) -> dict[str, Any]:
     affine = _converter()._affine(uom) if uom else None
     return {
@@ -443,6 +458,10 @@ class _Reader:
         self._kept: set[etree._Element] = set()
         #: Result values no column holds, per ``dataValues``: row, column, text.
         self._cells: dict[etree._Element, list[tuple[int, int, str]]] = {}
+        #: The ``typeData`` each column was read from, with the kind of value it gave.
+        self._declared: dict[etree._Element, str] = {}
+        #: The ``dataValues`` whose values the columns hold (see :data:`SPELLED`).
+        self._spelled: set[etree._Element] = set()
         #: The content the model lacks, by the key of the record it belongs to.
         self.unread: dict[str, list[ExtraNode]] = {}
         #: How many elements each record has that typed fields hold in full, by the
@@ -453,6 +472,12 @@ class _Reader:
         self.unread_seen = 0
         self.unread_complete = True
         self.final_unread: dict[str, tuple[ExtraNode, ...]] = {}
+        #: With ``index_ids``: the attributes of the root element, and the text between,
+        #: before and after its members, in the order of the file (see :meth:`_outside`).
+        self._root_qname = "Diggs"
+        self._root_attrs: dict[str, str] = {}
+        self._between: list[str] = []
+        self._root_text_read = False
 
     def _took(self, el: etree._Element | None, what: str = "") -> None:
         """Note that a typed field holds the text of ``el`` (``""``) or one attribute of it.
@@ -542,7 +567,11 @@ class _Reader:
                     counts[key] += 1
                     try:
                         self._member(el, f"/{root_step}/{_qname(el)}[{counts[key]}]")
-                        el.clear()
+                        # The text after a member is not read yet (the parser has only
+                        # just closed it): it stays with the member, and is taken with
+                        # the text after the members before it once the next one is read.
+                        el.clear(keep_tail=True)
+                        self._outside(root, el)
                         while el.getprevious() is not None:
                             del root[0]
                         self._tick()
@@ -553,6 +582,7 @@ class _Reader:
         parser.close()
         if root is None:
             raise etree.XMLSyntaxError("Document is empty", 0, 1, 1)
+        self._outside(root, None)
 
     def _root(self, el: etree._Element) -> str:
         if _local(el.tag) != "Diggs":
@@ -568,7 +598,35 @@ class _Reader:
         self.namespace = ns
         if self.requested is None:
             self.version = NAMESPACE_PROFILES.get(ns or "", "3.0.0")
+        if self._masks is not None:
+            self._root_qname = _qname(el)
+            self._root_attrs = {
+                _attr_name(el, str(name)): str(value)
+                for name, value in el.attrib.items()
+                if name not in (_GML_ID, _SCHEMA_LOCATION)
+            }
         return f"{_qname(el)}[1]"
+
+    def _outside(self, root: etree._Element, last: etree._Element | None) -> None:
+        """Keep the text of the root element that is outside every member.
+
+        That is the text before the first member and the text after each member,
+        comment and processing instruction, read only once the parser is past it: the
+        text after the children of ``root`` before ``last`` (the member just read), or
+        after all of them at the end of the file (``last`` None). Those children are
+        dropped next, and their text with them. Only for a comparison (``index_ids``).
+        """
+        if self._masks is None:
+            return
+        if not self._root_text_read:
+            self._root_text_read = True
+            if root.text and (text := root.text.strip()):
+                self._between.append(text)
+        for child in root:
+            if child is last:
+                break
+            if child.tail and (tail := child.tail.strip()):
+                self._between.append(tail)
 
     @staticmethod
     def _check_namespace(declaration: Any) -> None:
@@ -727,6 +785,8 @@ class _Reader:
             masks.clear()
             self._kept.clear()
             self._cells.clear()
+            self._declared.clear()
+            self._spelled.clear()
 
     def _left(
         self,
@@ -789,7 +849,9 @@ class _Reader:
         )
         held = _digest_of((own, sorted(below))) if own or below else ""
         bare = not el.attrib and not took and not len(el)
-        left = bool(attrs or text is not None or children or bare)
+        # A result set's values say how they are written even when no attribute is
+        # there to say it (the defaults apply): their element is always left.
+        left = bool(attrs or text is not None or children or bare or el in self._spelled)
         if left:
             self.unread_count += 1 + len(self._cells.get(el, ()))
         elif el not in nested:
@@ -801,6 +863,11 @@ class _Reader:
             return None, held
         if held:
             attrs[HELD] = held
+        if el in self._spelled:
+            attrs[SPELLED] = " ".join(_SEPARATORS)
+        kind = self._declared.get(el)
+        if kind is not None and text is not None:
+            attrs[DECLARED] = kind
         if href is not None:
             # A link is one of the record's ``links``, which do not say which element
             # holds it. Where the element has more than the link, the link stays with
@@ -1391,6 +1458,16 @@ class _Reader:
         return next((e for e in el.iter(etree.Element) if _local(e.tag) == local), None)
 
     @staticmethod
+    def _inherited_by(el: etree._Element, attr: str) -> etree._Element | None:
+        """The element ``attr`` is inherited from: ``el`` or its nearest ancestor with it."""
+        node: etree._Element | None = el
+        while node is not None:
+            if node.get(attr):
+                return node
+            node = node.getparent()
+        return None
+
+    @staticmethod
     def _inherited(el: etree._Element, attr: str) -> str | None:
         node: etree._Element | None = el
         while node is not None:
@@ -1572,6 +1649,7 @@ class _Reader:
         if values_el is None or self._masks is None:
             return
         self._took(values_el)
+        self._spelled.add(values_el)
         width = len(columns)
         cells = (
             (n + 1, i + 1, raw.strip())
@@ -1615,16 +1693,24 @@ class _Reader:
             return [], None, None
         local, pos_list, numbers = found
         crs = self._srs(pos_list)
-        labels = (self._inherited(pos_list, "uomLabels") or "").split()
+        labelled = self._inherited_by(pos_list, "uomLabels")
+        labels = (labelled.get("uomLabels") or "").split() if labelled is not None else []
         if local == "MultiPointLocation":
             dim = self._dim(pos_list, 1, single=True)
             points = _point_index(numbers, dim, rows, labels)
             if points:
                 self._took(pos_list)
+                if len(labels) <= dim:
+                    # Every label is the unit of one index column: the columns hold them.
+                    self._took(labelled, "uomLabels")
             return points, None, crs
         uom = labels[0] if labels else None
+        # One label is the unit of the top and the base below: they hold it, when they
+        # are read. Otherwise nothing reads it, and it stays to compare.
+        took = self._took if len(labels) == 1 else _not_noted
         if rows > 1 and len(numbers) == 2 * rows:
             self._took(pos_list)
+            took(labelled, "uomLabels")
             return (
                 [
                     _index_column("top", numbers[0::2], uom),
@@ -1642,6 +1728,7 @@ class _Reader:
                 top.update(self._with_unit(top, uom))
                 base.update(self._with_unit(base, uom))
             self._took(pos_list)
+            took(labelled, "uomLabels")
             return [], {"top": top, "base": base, "lrs": crs}, crs
         return [], None, crs
 
@@ -1651,7 +1738,8 @@ class _Reader:
         key = _text(pclass)
         if code_space and "#" in code_space:
             key = code_space.rpartition("#")[2] or key
-        declared = (_text(_child(prop, "typeData")) or "").lower()
+        declared_el = _child(prop, "typeData")
+        declared = (_text(declared_el) or "").lower()
         uom_el = _child(prop, "uom")
         uom = _text(uom_el) or prop.get("uom")
         named, null = _child(prop, "propertyName"), _child(prop, "nullValue")
@@ -1662,20 +1750,9 @@ class _Reader:
             self._took(held)
         self._took(pclass, "codeSpace")
         self._took(*((uom_el, "") if _text(uom_el) else (prop, "uom")))
-        if declared in _NUMBER_TYPES:
-            kind = "number"
-        elif declared in _BOOLEAN_TYPES:
-            kind = "boolean"
-        elif declared in _DATETIME_TYPES:
-            kind = "datetime"
-        elif declared:
-            kind = "string"
-        else:
-            kind = (
-                "number"
-                if all(_number(c) is not None for c in cells if c) and any(cells)
-                else "string"
-            )
+        kind = _column_kind(declared, cells)
+        if declared and declared_el is not None and self._masks is not None:
+            self._declared[declared_el] = kind
         values: list[Any] = []
         bad = 0
         for cell in cells:
@@ -1717,6 +1794,9 @@ class _Reader:
         self.final_unread = {
             rename[key]: tuple(nodes) for key, nodes in self.unread.items() if key in rename
         }
+        root = self._root_left()
+        if root is not None:
+            self.final_unread[ROOT] = (root,)
         self.final_names = {
             rename[key]: dict(names) for key, names in self.names.items() if names and key in rename
         }
@@ -1759,6 +1839,25 @@ class _Reader:
             "links": links,
             "notes": [_finding_dict(n) for n in self.notes],
         }
+
+    def _root_left(self) -> ExtraNode | None:
+        """What the file holds outside every record, as one element named as its root.
+
+        Its attributes (not its ``gml:id``, nor where its schema is) and the text outside
+        every member, joined. Counted against the work limit like what records lack.
+        """
+        if self._masks is None or not (self._root_attrs or self._between):
+            return None
+        self.unread_count += 1
+        if self.unread_count > self.limit:
+            self.unread_complete = False
+            return None
+        return ExtraNode(
+            qname=self._root_qname,
+            ns=self.namespace,
+            attrs=dict(self._root_attrs),
+            text=" ".join(self._between) or None,
+        )
 
     def _nodes(self) -> Iterator[dict[str, Any]]:
         if self.document is not None:
@@ -1995,6 +2094,20 @@ def _field_locations(el: etree._Element, rest: list[etree._Element]) -> dict[str
 #: an attribute of a file; ``pydiggs.diff`` knows both.
 HELD: Final = "\x00held"
 TAIL: Final = "#tail"
+#: The key, in what records lack, of what the file holds outside every record (the
+#: attributes of its root element and the text between its members). No record has it:
+#: a key is a ``gml:id`` or starts with ``@``, and no XML text holds ``\x00``.
+ROOT: Final = "\x00root"
+#: On the ``dataValues`` whose values the columns hold: the attributes that only say how
+#: those values are written (separators, decimal mark). The columns hold what the values
+#: read as, so another spelling that reads the same values is no change.
+SPELLED: Final = "\x00spelled"
+#: On a ``typeData`` a column's kind was read from: that kind (``number``, ``boolean``,
+#: ``datetime``, ``string``). The column says what its values read as; the text says how
+#: the type was declared.
+DECLARED: Final = "\x00declared"
+#: The attributes of a ``dataValues`` that say how its values are written.
+_SEPARATORS: Final = ("cs", "ts", "decimal")
 
 
 def _digest_of(value: object) -> str:
@@ -2108,8 +2221,9 @@ def read_document(
     it. ``id_marks`` is filled with the ids of such elements that could not be placed
     that way, each with the record, position and content of every element that has it
     (see :meth:`_Reader._mark`). ``unread`` is filled with what each record holds in the
-    file and not in the model, by the record's key (see :meth:`_Reader._left`); the key
-    ``""`` is there, with nothing, when a work limit cut that short. ``names`` is filled
+    file and not in the model, by the record's key (see :meth:`_Reader._left`), and with
+    what the file holds outside every record under the key :data:`ROOT`; the key ``""``
+    is there, with nothing, when a work limit cut that short. ``names`` is filled
     with how many elements each record has that typed fields hold in full, by the names
     of the elements from the record down to them. ``crs_defined`` is
     filled with how many coordinate systems the file defines with each name and unit,

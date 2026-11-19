@@ -1,10 +1,11 @@
 """The diggs-diff JSON codec: a :class:`~pydiggs.diff.Diff` to a document and back.
 
-The format is 1.0-beta.1 while ``pydiggs.diff`` is a preview.
+The format is diggs-diff 1.0, frozen in pyDIGGS 1.13: a 1.0 reader accepts any 1.x
+document, a new optional field is a minor version, and anything else is a new major.
+:func:`from_document` also reads the 1.0-beta.1 documents pyDIGGS 1.12 wrote.
 
 Pure: no I/O. Keys are written sorted and NaN is refused, so one diff always gives the
-same bytes. The JSON Schema ships next to this package as
-``diggs-diff-1.0-beta.1.schema.json``.
+same bytes. The JSON Schema ships next to this package as ``diggs-diff-1.0.schema.json``.
 """
 
 from __future__ import annotations
@@ -30,12 +31,10 @@ __all__ = [
 ]
 
 FORMAT: Final = "diggs-diff"
-#: A beta while ``pydiggs.diff`` is a preview; 1.0 is frozen when it becomes stable.
-DIFF_SCHEMA_VERSION: Final = "1.0-beta.1"
-DIFF_SCHEMA_URL: Final = (
-    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json"
-)
-SCHEMA_RESOURCE: Final = "diggs-diff-1.0-beta.1.schema.json"
+#: Frozen in pyDIGGS 1.13 (pyDIGGS 1.12 wrote ``1.0-beta.1``, which is still read).
+DIFF_SCHEMA_VERSION: Final = "1.0"
+DIFF_SCHEMA_URL: Final = "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
+SCHEMA_RESOURCE: Final = "diggs-diff-1.0.schema.json"
 
 _VERSION: Final = re.compile(r"1\.[0-9]+(-beta\.[0-9]+)?")
 _REQUIRED: Final = (

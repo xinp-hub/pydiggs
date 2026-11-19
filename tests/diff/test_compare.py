@@ -193,6 +193,19 @@ def test_match_gml_id_never_uses_natural_keys():
         assert result.identical is False and result.renamed == 0
 
 
+def test_match_takes_gml_id_spelled_as_the_report_spells_it():
+    old = make_model(features=(make_feature("f1", "B-1"),))
+    new = make_model(features=(make_feature("g9", "B-1"),))
+    hyphen = diff.compare(old, new, match="gml-id")
+    underscore = diff.compare(old, new, match="gml_id")
+    assert underscore == hyphen
+    # The report names the option one way, whichever way it was given.
+    assert underscore.options["match"] == "gml-id"
+    for wrong in ("gml id", "GML_ID", "gmlid", "id"):
+        with pytest.raises(ValueError, match="match must be one of"):
+            diff.compare(old, new, match=wrong)
+
+
 def test_match_natural_ignores_equal_gml_ids():
     old = make_model(features=(make_feature("f1", "B-1"), make_feature("f2", "B-2", at=2)))
     new = make_model(features=(make_feature("f1", "B-2", at=1), make_feature("f2", "B-1", at=2)))
@@ -742,10 +755,10 @@ def test_the_public_names_are_sorted_and_documented():
         "compare",
         "diff_schema",
     }
-    assert diff.DIFF_SCHEMA_VERSION == "1.0-beta.1"
+    assert diff.DIFF_SCHEMA_VERSION == "1.0"
     assert (
         diff.DIFF_SCHEMA_URL
-        == "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json"
+        == "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
     )
     assert diff.diff_schema()["$id"] == diff.DIFF_SCHEMA_URL
 

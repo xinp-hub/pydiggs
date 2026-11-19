@@ -12,6 +12,7 @@ from __future__ import annotations
 import itertools
 import os
 import random
+import re
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -57,7 +58,7 @@ INVISIBLE = [
     (SURVEY, " 230 270 ", " 999 270 ", "MultiPointLocation[1].posList[1]#text"),
     (AEROMAG, "380300 3745100", "1 2", "RectifiedGrid[1].origin[1].PointLocation[1].pos[1]#text"),
     (MWD, ">Penetration rate<", ">Advance rate<", "propertyClass[1]#text"),
-    (MWD, "<typeData>double</typeData>", "<typeData>float</typeData>", "typeData[1]#text"),
+    (MWD, "<typeData>double</typeData>", "<typeData>integer</typeData>", "typeData[1]#text"),
     (MWD, 'index="2"', 'index="12"', "]@index"),
     (MWD, 'reason="missing"', 'reason="not measured"', "nullValue[1]@reason"),
     (ANNOTATED, 'decimal="."', 'decimal=","', "dataValues[1]@decimal"),
@@ -273,6 +274,126 @@ def test_every_official_file_is_identical_to_itself(path):
     assert result.identical and result.complete and result.changes == ()
 
 
+# --- outside every record: the root element and the text between members ----------------
+
+ROOT = '  gml:id="BOR-Converter">'
+
+
+def _root(attrs: str = "", between: str = "", *, path: Path = MWD) -> bytes:
+    """``path`` with ``attrs`` on its root element and ``between`` after its project member."""
+    text = path.read_text("utf-8")
+    assert text.count(ROOT) == 1 and text.count("</project>") == 1
+    text = text.replace(ROOT, f'  gml:id="BOR-Converter"{attrs}>')
+    return text.replace("</project>", f"</project>{between}").encode()
+
+
+def test_an_attribute_of_the_root_element_is_compared():
+    old, new = _root(' note="rev 1"'), _root(' note="rev 2"')
+    assert diff.compare(old, old).identical
+    result = diff.compare(old, new)
+    assert result.identical is False and result.complete
+    assert _values(result) == [("xml.Diggs[1]@note", "rev 1", "rev 2")]
+    (change,) = result.changes
+    assert (change.collection, change.element, change.op) == (
+        "document",
+        "DocumentInformation",
+        "changed",
+    )
+    assert result.summary["document"]["changed"] == 1
+    # One file has it and the other does not; a namespaced one too.
+    assert diff.compare(_root(), old).identical is False
+    spaced = _root(' xmlns:x="urn:x" x:note="1"'), _root(' xmlns:x="urn:x" x:note="2"')
+    assert _values(diff.compare(*spaced)) == [("xml.Diggs[1]@x:note", "1", "2")]
+    assert schema_errors(result.to_dict()) == []
+
+
+def test_the_first_root_attribute_or_text_is_listed_once():
+    """Adding root content to a file that had none lists that content, not the root too.
+
+    The root of the file without root content is the same element: only what was added
+    or removed is a change (#368 review).
+    """
+    plain = _root()
+    for other, path in (
+        (_root(' note="rev 1"'), "xml.Diggs[1]@note"),
+        (_root(between="\n  words between members\n"), "xml.Diggs[1]#text"),
+    ):
+        for old, new in ((plain, other), (other, plain)):
+            result = diff.compare(old, new)
+            paths = [v.path for c in result.changes for v in c.values]
+            assert paths == [path], paths
+            assert result.value_changes == 1
+
+
+def test_what_says_nothing_about_the_data_at_the_root_is_not_compared():
+    plain = _root()
+    for other in (
+        plain.replace(b"3.0.0/Diggs.xsd", b"3.0.0/Other.xsd"),  # where the schema is
+        plain.replace(b'gml:id="BOR-Converter"', b'gml:id="another"'),  # an id
+        _root(' xmlns:unused="urn:x"'),  # a namespace declaration
+        _root(between="\n\n  <!-- a comment -->\n"),  # white space and a comment
+    ):
+        assert other != plain
+        result = diff.compare(plain, other)
+        assert result.identical and result.complete, _values(result)
+
+
+def test_text_between_two_members_is_compared():
+    old, new = _root(between="lost words"), _root(between="other words")
+    assert read_bytes(old).projects == read_bytes(new).projects
+    assert diff.compare(old, old).identical
+    result = diff.compare(old, new)
+    assert result.identical is False and result.complete
+    assert _values(result) == [("xml.Diggs[1]#text", "lost words", "other words")]
+    assert diff.compare(_root(), old).identical is False
+    # Text after a comment between members, before the first and after the last member.
+    text = MWD.read_text("utf-8")
+    for edited in (
+        text.replace("</project>", "</project><!-- c -->words", 1),
+        text.replace(ROOT, f"{ROOT}words", 1),
+        text.replace("</Diggs>", "words</Diggs>", 1),
+        text.replace("</Diggs>", "<!-- c -->words\n</Diggs>", 1),
+    ):
+        assert diff.compare(text.encode(), edited.encode()).identical is False, edited[-40:]
+    # Numbers in it are numbers, as in any text the model does not keep.
+    assert diff.compare(_root(between="1.50"), _root(between="1.5")).identical
+
+
+def test_text_between_members_is_read_whole_whatever_the_chunks(monkeypatch):
+    words = " ".join(f"w{i}" for i in range(40_000))  # longer than one chunk of the reader
+    old, new = _root(between=words), _root(between=words.replace("w39999", "x"))
+    assert diff.compare(old, old).identical
+    result = diff.compare(old, new)
+    assert result.identical is False and len(_values(result)) == 1
+    monkeypatch.setattr(_read, "_CHUNK", 7)
+    assert diff.compare(old, new).identical is False
+    assert diff.compare(old, old).identical
+
+
+def test_the_root_is_compared_where_a_file_has_no_document_information():
+    text = MWD.read_text("utf-8")
+    start, end = text.index("<documentInformation>"), text.index("</documentInformation>")
+    bare = text[:start] + text[end + len("</documentInformation>") :]
+    old = bare.replace(ROOT, '  gml:id="BOR-Converter" note="1">').encode()
+    new = bare.replace(ROOT, '  gml:id="BOR-Converter" note="2">').encode()
+    assert diff.compare(old, old).identical
+    result = diff.compare(old, new)
+    assert result.identical is False and result.complete
+    (change,) = result.changes
+    assert (change.collection, change.element, change.op) == ("document", "Diggs", "changed")
+    assert _values(result) == [("xml.Diggs[1]@note", "1", "2")]
+    assert result.summary["document"] == {"added": 0, "removed": 0, "changed": 1, "unchanged": 0}
+    assert schema_errors(result.to_dict()) == []
+    # And where only one file has it: the record is added, and the root still compared.
+    one = diff.compare(old, text.replace(ROOT, '  gml:id="BOR-Converter" note="2">').encode())
+    assert ("xml.Diggs[1]@note", "1", "2") in _values(one)
+
+
+def test_two_models_know_nothing_of_the_root():
+    old, new = _root(' note="1"', "a"), _root(' note="2"', "b")
+    assert diff.compare(read_bytes(old), read_bytes(new)).identical
+
+
 # --- models -------------------------------------------------------------------------------
 
 
@@ -349,15 +470,13 @@ def test_a_reference_that_kept_its_text_says_that_it_names_another_target():
     swapped = swapped.replace('gml:id="KEEP"', 'gml:id="cl_bh_TEST_HOLE_1"')
     result = diff.compare(text.encode(), swapped.encode())
     shown = {value[0].rpartition(".")[2]: value[1:] for value in _values(result)}
-    assert shown["linearElement[1]@xlink:href"] == (
-        "#cl_bh_TEST_HOLE_1",
-        "#cl_bh_TEST_HOLE_1 (another target)",
-    )
+    # Listed once, in the record's links; the depth system's own element repeats it.
+    assert "linearElement[1]@xlink:href" not in shown
     assert shown["linearElement"] == (
         ["TEST HOLE 1 #cl_bh_TEST_HOLE_1"],
         ["TEST HOLE 1 #cl_bh_TEST_HOLE_1 (another target)"],
     )
-    assert "#cl_bh_TEST_HOLE_1 -> #cl_bh_TEST_HOLE_1 (another target)" in result.to_text()
+    assert "#cl_bh_TEST_HOLE_1 (another target)" in result.to_text()
     assert schema_errors(result.to_dict()) == []
     long = "p" * 400
     both = [t.replace("cl_bh_TEST_HOLE_1", long) for t in (text, swapped)]
@@ -365,7 +484,11 @@ def test_a_reference_that_kept_its_text_says_that_it_names_another_target():
     assert all(
         len(v) <= 200 for _, _, new in values for v in ([new] if isinstance(new, str) else new)
     )
-    assert any(str(new).endswith("(another target)") for _, _, new in values)
+    assert any(
+        v.endswith("(another target)")
+        for _, _, new in values
+        for v in ([new] if isinstance(new, str) else new)
+    )
 
 
 # --- no single edit goes unseen -----------------------------------------------------------
@@ -385,9 +508,10 @@ EVERY_SITE = os.environ.get("PYDIGGS_FUZZ_ALL") == "1"
 SMALL = [MWD, AEROMAG, TRENCH]
 LARGER = [SURVEY, ANNOTATED, V3 / "PorePressureDissipation_Example.xml", GRADING]
 #: The kinds of edit: a text or an attribute value, the name of an element, text after
-#: an element, an attribute exchanged between two like siblings, and one more separator
-#: at the end of a result row.
-KINDS = ("value", "name", "tail", "swap", "separator")
+#: an element, an attribute exchanged between two like siblings, one more separator at
+#: the end of a result row, an attribute of the root element added or taken away, and
+#: text before, between and after the members of the root.
+KINDS = ("value", "name", "tail", "swap", "separator", "root", "between")
 OPTIONS = _options(
     match="auto",
     rel_tol=1e-9,
@@ -497,8 +621,46 @@ def _separator_edits(root: Any) -> Iterator[Edit]:
             )
 
 
+def _root_edits(root: Any) -> Iterator[Edit]:
+    """An attribute added to the root element, with and without a namespace, and each of
+    its attributes taken away (a value of one is a ``value`` edit)."""
+    for name in ("note", "{urn:x}note"):
+        yield f"root/@{name} added", _setter(root, name, "9"), lambda name=name: _unset(root, name)
+    for name, value in root.attrib.items():
+        if name != GML_ID and name not in ALLOWED:
+            yield (
+                f"root/@{name} removed",
+                lambda name=name: _unset(root, name),
+                _setter(root, name, value),
+            )
+
+
+def _unset(el: Any, name: str) -> None:
+    del el.attrib[name]
+
+
+def _between_edits(root: Any) -> Iterator[Edit]:
+    """Text before the first member, and after every member, comment and instruction."""
+    yield "root text", _setter(root, "text", "9"), _setter(root, "text", root.text)
+    for n, child in enumerate(root):
+        where = f"after {etree.QName(child).localname if isinstance(child.tag, str) else 'comment'}"
+        yield f"{where} [{n}]", _setter(child, "tail", "9"), _setter(child, "tail", child.tail)
+
+
 EDITS = dict(
-    zip(KINDS, (_value_edits, _name_edits, _tail_edits, _swap_edits, _separator_edits), strict=True)
+    zip(
+        KINDS,
+        (
+            _value_edits,
+            _name_edits,
+            _tail_edits,
+            _swap_edits,
+            _separator_edits,
+            _root_edits,
+            _between_edits,
+        ),
+        strict=True,
+    )
 )
 
 
@@ -613,10 +775,11 @@ def test_two_names_that_exchange_their_code_space_are_a_difference():
 
 def test_two_columns_that_exchange_their_declared_type_are_a_difference():
     text = MWD.read_text("utf-8").replace(' index="1"', "").replace(' index="2"', "")
-    old = text.replace("<typeData>double</typeData>", "<typeData>float</typeData>", 1)
-    new = text.replace("<typeData>double</typeData>", "<typeData>float</typeData>", 2)
-    new = new.replace("<typeData>float</typeData>", "<typeData>double</typeData>", 1)
-    assert old != new and old.count("float") == new.count("float") == 1
+    # Both are numbers: the columns read the same kind, the declarations differ.
+    old = text.replace("<typeData>double</typeData>", "<typeData>integer</typeData>", 1)
+    new = text.replace("<typeData>double</typeData>", "<typeData>integer</typeData>", 2)
+    new = new.replace("<typeData>integer</typeData>", "<typeData>double</typeData>", 1)
+    assert old != new and old.count("integer") == new.count("integer") == 1
     assert diff.compare(old.encode(), old.encode()).identical
     result = diff.compare(old.encode(), new.encode())
     assert result.identical is False
@@ -624,10 +787,202 @@ def test_two_columns_that_exchange_their_declared_type_are_a_difference():
 
 
 def test_the_mark_of_what_a_field_holds_is_never_listed_and_is_the_readers():
-    assert (_compare.HELD, _compare.TAIL) == (_read.HELD, _read.TAIL)
+    assert (_compare.HELD, _compare.TAIL, _compare.ROOT) == (_read.HELD, _read.TAIL, _read.ROOT)
     result = diff.compare(*_edited(MWD, "<gml:name>LIM</gml:name>", "<gml:name>LIN</gml:name>"))
     assert [p for p, _, _ in _values(result)] == ["name", "names"]
     assert "held" not in result.to_json()
+
+
+# --- each edit is listed once -------------------------------------------------------------
+
+
+def test_an_edit_to_the_declared_type_of_a_column_is_listed_once_at_its_column():
+    old, new = _edited(MWD, "<typeData>boolean</typeData>", "<typeData>string</typeData>")
+    result = diff.compare(old, new)
+    paths = [p for p, _, _ in _values(result)]
+    assert "results[0].columns[event_new_rod].type" in paths
+    assert not any("typeData" in p for p in paths), [p for p in paths if p.startswith("xml.")]
+    assert result.value_changes == len(paths)
+    # A declared type that reads the same kind of value is the residue's to report.
+    old, new = _edited(MWD, "<typeData>boolean</typeData>", "<typeData>integer</typeData>")
+    once = [p for p, _, _ in _values(diff.compare(old, new)) if "typeData" in p or ".type" in p]
+    assert once == ["results[0].columns[event_new_rod].type"]
+
+
+def test_a_declared_type_change_the_columns_do_not_show_is_still_listed():
+    old, new = _edited(MWD, "<typeData>double</typeData>", "<typeData>integer</typeData>")
+    result = diff.compare(old, new)
+    assert result.identical is False
+    assert {(p.rpartition(".")[2], a, b) for p, a, b in _values(result)} == {
+        ("typeData[1]#text", "double", "integer")
+    }
+
+
+def _cpt_labels(labels: str | None) -> bytes:
+    """The CPT file with ``uomLabels`` on the location its first sounding's results index."""
+    tag = '<MultiPointLocation srsName="#lsr-BENT_9_MIDDLE_A" srsDimension="1"'
+    data = ANNOTATED.read_bytes()
+    assert data.count(tag.encode()) == 1
+    if labels is None:
+        return data
+    return data.replace(tag.encode(), f'{tag} uomLabels="{labels}"'.encode())
+
+
+def test_unit_labels_a_result_index_reads_are_listed_once_at_the_index():
+    result = diff.compare(_cpt_labels("ft"), _cpt_labels("m"))
+    assert result.identical is False
+    assert [(p.rpartition(".")[2], a, b) for p, a, b in _values(result)] == [("uom", "ft", "m")]
+    assert _values(result)[0][0].startswith("results[0].domain.index[")
+    # A label the index has no column for is the residue's: still compared.
+    result = diff.compare(_cpt_labels("ft m"), _cpt_labels("ft s"))
+    assert [(p.rpartition(".")[2], a, b) for p, a, b in _values(result)] == [
+        ("MultiPointLocation[1]@uomLabels", "ft m", "ft s")
+    ]
+    # Labels that give the index the unit it had anyway (that of its depth system).
+    assert diff.compare(_cpt_labels(None), _cpt_labels("ft")).identical
+
+
+def _link_with_more(href: str) -> bytes:
+    text = MWD.read_text("utf-8")
+    one = '<projectRef xlink:href="#pr_LIM"/>'
+    assert text.count(one) == 2
+    return text.replace(one, f'<projectRef xlink:href="{href}" role="owner"/>', 1).encode()
+
+
+def test_a_changed_link_on_an_element_with_more_is_listed_once_in_links():
+    result = diff.compare(_link_with_more("#pr_LIM"), _link_with_more("other.xml#p"))
+    assert result.identical is False
+    assert [p for p, _, _ in _values(result)] == ["links.project"]
+    assert result.value_changes == 1
+
+
+def test_two_elements_that_exchange_their_links_are_still_seen():
+    text = MWD.read_text("utf-8")
+    one = '<projectRef xlink:href="#pr_LIM"/>'
+    two = '<project><Project gml:id="pr_TWO"><gml:name>TWO</gml:name></Project></project>'
+    text = text.replace("</project>", f"</project>{two}", 1)
+    pair = '<projectRef xlink:href="{}" role="a"/><projectRef xlink:href="{}" role="b"/>'
+    old = text.replace(one, pair.format("#pr_LIM", "#pr_TWO"), 1)
+    new = text.replace(one, pair.format("#pr_TWO", "#pr_LIM"), 1)
+    result = diff.compare(old.encode(), new.encode())
+    assert result.identical is False
+    paths = [p.rpartition(".")[2] for p, _, _ in _values(result)]
+    assert paths == ["projectRef[1]@xlink:href", "projectRef[2]@xlink:href"]
+
+
+def test_two_columns_that_move_and_exchange_their_declared_type_are_a_difference():
+    # Found in 1.12.0: what was left of two same-named elements whose typed content
+    # was the same was compared in the order of the file, so two columns that moved
+    # and exchanged a declared type of the same kind compared identical.
+    text = re.sub(r' index="\d+"', "", MWD.read_text("utf-8"))
+    text = re.sub(r'<propertyClass codeSpace="[^"]*">', "<propertyClass>", text)
+    start, middle = text.index('<Property gml:id="prop1"'), text.index('<Property gml:id="prop2"')
+    end = text.index('<Property gml:id="prop3"')
+    first, second = text[start:middle], text[middle:end]
+    old = text[:start] + first.replace(">double<", ">integer<") + second + text[end:]
+    values_at = text.index(">", text.index("<dataValues")) + 1
+    rows = text[values_at : text.index("</dataValues>")].split()
+    swapped = " ".join(
+        ",".join([r.split(",")[1], r.split(",")[0], *r.split(",")[2:]]) for r in rows
+    )
+    moved = second.replace(">double<", ">integer<") + first
+    new = text[:start] + moved + text[end:values_at] + swapped + text[text.index("</dataValues>") :]
+    assert (
+        read_bytes(old.encode()).measurements[0].results[0].columns[0].values[:3]
+        == read_bytes(new.encode()).measurements[0].results[0].columns[1].values[:3]
+    )
+    result = diff.compare(old.encode(), new.encode())
+    assert result.identical is False
+    assert {p.rpartition(".")[2] for p, _, _ in _values(result)} == {"typeData[1]#text"}
+
+
+# --- a re-export that only writes the values another way ----------------------------------
+
+
+def _separated(
+    cs: str | None, ts: str | None, decimal: str | None = ".", *, rows: Any = None
+) -> bytes:
+    """The MWD file with its result set written with these separators (None: not written)."""
+    text = MWD.read_text("utf-8")
+    head = '<dataValues cs="," ts=" " decimal=".">'
+    assert text.count(head) == 1
+    start = text.index(head) + len(head)
+    end = text.index("</dataValues>")
+    table = [row.split(",") for row in text[start:end].split()]
+    if rows is not None:
+        table = rows(table)
+    body = (ts or " ").join((cs or ",").join(row) for row in table)
+    attrs = "".join(
+        f' {name}="{value}"'
+        for name, value in (("cs", cs), ("ts", ts), ("decimal", decimal))
+        if value
+    )
+    return (text[: start - len(head)] + f"<dataValues{attrs}>" + body + text[end:]).encode()
+
+
+@pytest.mark.parametrize(
+    ("cs", "ts", "decimal"),
+    [(";", " ", "."), (",", ";", "."), (";", "|", "."), (None, None, None), (",", " ", None)],
+    ids=["cs", "ts", "both", "defaults-unwritten", "decimal-unwritten"],
+)
+def test_other_separators_that_read_the_same_values_are_reformatted(cs, ts, decimal):
+    old, new = _separated(",", " "), _separated(cs, ts, decimal)
+    assert new != old
+    result = diff.compare(old, new)
+    assert result.identical and result.complete and result.changes == ()
+    assert result.reformatted >= 1 and result.value_changes == 0
+    listed = diff.compare(old, new, show_reformatted=True)
+    ops = {(v.path.rpartition("@")[2], v.op) for c in listed.changes for v in c.values}
+    assert ops and {op for _, op in ops} == {"reformatted"}
+    assert {name for name, _ in ops} <= {"cs", "ts", "decimal"}
+    assert schema_errors(listed.to_dict()) == []
+
+
+def test_other_separators_with_one_value_that_changed_are_a_change():
+    def edit(table: list[list[str]]) -> list[list[str]]:
+        table[3][1] = "7.25"
+        return table
+
+    old, new = _separated(",", " "), _separated(";", "|", rows=edit)
+    result = diff.compare(old, new, show_reformatted=True)
+    assert result.identical is False and result.value_changes == 1
+    ops = sorted((v.op, v.path.partition("].")[2]) for c in result.changes for v in c.values)
+    assert ("changed", "columns[penetration_rate].cells[@219.3]") in ops
+    assert {op for op, path in ops if "cells" not in path} == {"reformatted"}
+
+
+def test_a_separator_changed_and_the_values_left_as_they_were_is_a_change():
+    data = _separated(",", " ")
+    other = data.replace(b'<dataValues cs=","', b'<dataValues cs=";"')
+    assert diff.compare(data, other).identical is False
+
+
+def test_a_decimal_comma_pydiggs_does_not_read_is_a_change():
+    # pyDIGGS reads a number written with a point; 0,5 is not one, so it is not 0.5.
+    def comma(table: list[list[str]]) -> list[list[str]]:
+        return [[cell.replace(".", ",") for cell in row] for row in table]
+
+    old, new = _separated(",", " "), _separated(";", " ", ",", rows=comma)
+    assert diff.compare(old, new).identical is False
+
+
+@pytest.mark.parametrize("spelled", ["float", "Double", "DOUBLE"])
+def test_double_written_as_float_is_reformatted(spelled):
+    old, new = _edited(MWD, "<typeData>double</typeData>", f"<typeData>{spelled}</typeData>")
+    result = diff.compare(old, new)
+    assert result.identical and result.reformatted >= 1 and result.changes == ()
+    listed = diff.compare(old, new, show_reformatted=True)
+    assert {(v.op, v.path.rpartition(".")[2]) for c in listed.changes for v in c.values} == {
+        ("reformatted", "typeData[1]#text")
+    }
+
+
+def test_double_written_as_float_with_a_value_that_changed_is_a_change():
+    old = _mwd_rows(ROWS)
+    new = _mwd_rows(ROWS.replace("0.5", "0.75")).replace(b">double<", b">float<", 1)
+    result = diff.compare(old, new, show_reformatted=True)
+    assert result.identical is False and result.value_changes == 1
+    assert sorted(v.op for c in result.changes for v in c.values) == ["changed", "reformatted"]
 
 
 # --- text after a comment or a child element ------------------------------------------------

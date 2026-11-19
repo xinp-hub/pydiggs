@@ -1,7 +1,8 @@
 """Model-level comparison of two DIGGS files: what was added, removed or changed.
 
-A preview in pyDIGGS 1.12: the report format and the comparison rules may change in a
-minor release. The stable ``pydiggs.diff`` and diggs-diff 1.0 are planned for pyDIGGS 1.13.
+Stable from pyDIGGS 1.13 (a preview in 1.12), and versioned with Semantic Versioning:
+the comparison rules and the report change only in a major release, except to report a
+difference that was missed. The report is a diggs-diff 1.0 document.
 
 :func:`compare` reads two files (or takes two :class:`~pydiggs.model.Model`) and says what
 differs *in what they describe*, not in how they are written: element order, number
@@ -22,9 +23,11 @@ unique.
 
 Comparing two files (paths or bytes) is the full comparison: it also covers what each
 file holds of a record that the model does not keep (the unit labels of a location, the
-geometry of a layer, a grid, a value a column could not read), under paths that start
-with ``xml.``. Comparing two models compares the two models, and can only see what a
-model holds; a file and a model are compared as two models.
+geometry of a layer, a grid, a value a column could not read), and what it holds outside
+every record (the attributes of its root element, text between its members), under
+paths that start with ``xml.``. Each edit is listed once: a value a typed field or a
+link reports is not listed again there. Comparing two models compares the two models,
+and can only see what a model holds; a file and a model are compared as two models.
 
 The result is a :class:`Diff`: a summary, the listed :class:`Change` items, and notes that
 are findings of step ``diff``. :meth:`Diff.to_json` writes it as a diggs-diff document,
@@ -40,7 +43,7 @@ Examples:
     >>> result.identical, result.complete, len(result.changes)
     (True, True, 0)
     >>> result.to_dict()["format"], diff.DIFF_SCHEMA_VERSION
-    ('diggs-diff', '1.0-beta.1')
+    ('diggs-diff', '1.0')
 """
 
 from __future__ import annotations
@@ -106,7 +109,10 @@ def _options(
     show_reformatted: bool,
     show_renamed: bool,
 ) -> _engine.Options:
-    if match not in _engine.MATCH_MODES:
+    # The report says how a record was matched as ``gml_id``: the option takes that
+    # spelling too, and is reported as ``gml-id`` whichever it was given in.
+    mode = _engine.MATCH_ALIASES.get(match, match) if isinstance(match, str) else match
+    if mode not in _engine.MATCH_MODES:
         raise ValueError(f"match must be one of {', '.join(_engine.MATCH_MODES)}, got {match!r}")
     rel = _number("rel_tol", rel_tol, allow_zero=True)
     if rel >= 1:
@@ -120,7 +126,7 @@ def _options(
     if time_budget is not None:
         _number("time_budget", time_budget, allow_zero=False)
     return _engine.Options(
-        match=match,
+        match=mode,
         rel_tol=rel,
         abs_tol=absolute,
         max_changes=max_changes,
@@ -165,8 +171,7 @@ def compare(
 ) -> Diff:
     """Compare two DIGGS files at model level.
 
-    A preview in pyDIGGS 1.12: the report format and the comparison rules may change in
-    a minor release.
+    Stable from pyDIGGS 1.13; the result is a diggs-diff 1.0 document (:meth:`Diff.to_json`).
 
     Give it the two files (paths or bytes) for the full comparison: what a model holds,
     and what each file holds of a record that its model does not keep. Given two
@@ -188,9 +193,10 @@ def compare(
         new: The later file, in the same forms. The two may be different DIGGS versions;
             both are recorded in the result.
         match: How nodes are paired. ``"auto"``: by ``gml:id`` and element, then by natural
-            key; ``"gml-id"``: the first pass only, so a node whose id changed is
-            removed and added; ``"natural"``: the second pass only. A natural key that
-            several nodes share is never matched.
+            key; ``"gml-id"`` (or ``"gml_id"``, as the report spells ``matched_by``): the
+            first pass only, so a node whose id changed is removed and added;
+            ``"natural"``: the second pass only. A natural key that several nodes share
+            is never matched. The report gives ``options.match`` as ``"gml-id"``.
         rel_tol: Two numbers are equal when ``|a - b| <= max(abs_tol, rel_tol * max(|a|,
             |b|))``. The default is exact up to float noise. From 0 to less than 1: at
             1 every number would equal 0.
@@ -202,7 +208,8 @@ def compare(
             out the result is ``complete=False`` with a ``diff.timeout`` note.
         max_bytes: Largest file read (default 100 MiB, as for :func:`pydiggs.read`).
         show_reformatted: List the values written differently but equal (``1.50`` and
-            ``1.5``); they are always counted.
+            ``1.5``; other separators in a result set whose values read the same;
+            ``double`` declared as ``float``); they are always counted.
         show_renamed: List the nodes matched by natural key whose own ``gml:id`` differs,
             each with the value ``gml_id`` (old and new id); they are always counted. A
             changed id is not a difference: such a node is unchanged unless one of its
