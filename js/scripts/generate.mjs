@@ -1,11 +1,11 @@
 // Generates everything under src/generated/ and schemas/ from pydiggs's own contracts:
 //
-//   ../src/pydiggs/findings/diggs-findings-1.2.schema.json  -> src/generated/findings.ts
-//   ../src/pydiggs/model/diggs-model-1.0.schema.json        -> src/generated/model.ts
+//   ../src/pydiggs/findings/diggs-findings-<latest>.schema.json -> src/generated/findings.ts
+//   ../src/pydiggs/model/diggs-model-<only>.schema.json     -> src/generated/model.ts
 //   ../src/pydiggs/server/openapi.json                      -> src/generated/http.ts
 //   ../examples/browser-worker/worker.mjs (the pins)        -> src/generated/pins.ts
 //   both JSON Schemas, byte for byte                        -> schemas/
-//   ../src/pydiggs/findings/diggs-findings-1.{0,1}.schema.json -> schemas/ (the earlier
+//   ../src/pydiggs/findings/diggs-findings-<earlier>.schema.json -> schemas/ (the earlier
 //     versions: unchanged, still shipped, and what diggs-model 1.0's notes (1.0) and 1.1
 //     documents refer to)
 //
@@ -15,21 +15,44 @@
 // No dependencies. It handles the JSON Schema keywords these contracts use and stops on
 // any other, so a new keyword is a decision here and never a silently wrong type.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = join(JS_ROOT, "..");
 
-const FINDINGS_SCHEMA = "src/pydiggs/findings/diggs-findings-1.2.schema.json";
+// Every released version of a contract, oldest first, found on disk rather than named
+// here: a pyDIGGS change that adds diggs-findings 1.3 regenerates these types, so
+// `--check` fails in that same pull request instead of the client quietly keeping the
+// old types. Only `<name>-X.Y.schema.json` counts (a beta is not a contract to follow).
+function contractVersions(directory, name) {
+  const pattern = new RegExp(`^${name}-(\\d+)\\.(\\d+)\\.schema\\.json$`);
+  const found = readdirSync(join(REPO_ROOT, directory))
+    .map((file) => ({ file, match: pattern.exec(file) }))
+    .filter(({ match }) => match)
+    .map(({ file, match }) => ({ path: `${directory}/${file}`, major: Number(match[1]), minor: Number(match[2]) }))
+    .sort((a, b) => a.major - b.major || a.minor - b.minor);
+  if (found.length === 0) throw new Error(`${directory}: no ${name}-X.Y.schema.json`);
+  const current = found.at(-1);
+  if (found.some((version) => version.major !== current.major)) {
+    // Earlier versions resolve to the current types, which holds only within a major.
+    throw new Error(`${directory}: ${name} has more than one major version; decide how the earlier one ships`);
+  }
+  return { current: current.path, earlier: found.slice(0, -1).map((version) => version.path) };
+}
+
+const findingsVersions = contractVersions("src/pydiggs/findings", "diggs-findings");
+const FINDINGS_SCHEMA = findingsVersions.current;
 // Earlier diggs-findings versions. Each stays shipped byte for byte, and a $ref to one
 // resolves to the current types: a minor version only adds to the one before it.
-const EARLIER_FINDINGS_SCHEMAS = [
-  "src/pydiggs/findings/diggs-findings-1.0.schema.json",
-  "src/pydiggs/findings/diggs-findings-1.1.schema.json",
-];
-const MODEL_SCHEMA = "src/pydiggs/model/diggs-model-1.0.schema.json";
+const EARLIER_FINDINGS_SCHEMAS = findingsVersions.earlier;
+const modelVersions = contractVersions("src/pydiggs/model", "diggs-model");
+if (modelVersions.earlier.length > 0) {
+  // Earlier model schemas are not shipped yet; that is a decision, not a default.
+  throw new Error(`src/pydiggs/model: a second diggs-model version; decide how ${modelVersions.earlier.join(", ")} ships`);
+}
+const MODEL_SCHEMA = modelVersions.current;
 const OPENAPI = "src/pydiggs/server/openapi.json";
 const WORKER = "examples/browser-worker/worker.mjs";
 

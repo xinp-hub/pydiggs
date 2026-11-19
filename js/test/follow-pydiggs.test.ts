@@ -9,6 +9,7 @@ import { PYDIGGS_VERSION } from "../src/generated/pins.ts";
 const script = fileURLToPath(new URL("../scripts/follow-pydiggs.mjs", import.meta.url));
 const fakePypi = new URL("./fixtures/fake-pypi.mjs", import.meta.url).href;
 const pin = JSON.parse(readFileSync(new URL("../pydiggs-wheel.json", import.meta.url), "utf8"));
+const coverage = JSON.parse(readFileSync(new URL("../capabilities-coverage.json", import.meta.url), "utf8"));
 // A pyDIGGS release PR bumps PYDIGGS_VERSION before that release is on PyPI; until this
 // script pins it, the pin names the previous release and the steady-state tests do not apply.
 const BETWEEN = pin.version === PYDIGGS_VERSION ? false : `pydiggs-wheel.json pins ${pin.version}, the worker targets ${PYDIGGS_VERSION}`;
@@ -44,6 +45,7 @@ test("--check exits 0 when the pinned wheel is the latest release, 3 when PyPI i
     client_targets: pin.version,
     wheel_pinned: pin.version,
     lags: false,
+    not_in_client_yet: coverage.planned,
   });
   const behind = run(["--check"], { "https://pypi.org/pypi/pydiggs/json": { info: { version: "99.0.0" } } });
   assert.equal(behind.status, 3);
