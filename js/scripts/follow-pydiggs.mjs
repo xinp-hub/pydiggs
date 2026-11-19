@@ -67,7 +67,9 @@ if (args.check) {
     client_targets: workerVersion,
     wheel_pinned: pinned?.version ?? null,
     lags: latest !== workerVersion || pinned?.version !== workerVersion,
-    not_in_client_yet: JSON.parse(readFileSync(COVERAGE, "utf8")).planned,
+    not_in_client_yet: Object.fromEntries(
+      Object.entries(JSON.parse(readFileSync(COVERAGE, "utf8")).planned).map(([op, plan]) => [op, plan.why]),
+    ),
   };
   console.log(JSON.stringify(status));
   process.exit(status.lags ? 3 : 0);
