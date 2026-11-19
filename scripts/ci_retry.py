@@ -89,12 +89,18 @@ def _fetch(token: str) -> Fetch:
     return get
 
 
-def _jobs(get: Fetch, repo: str, run_id: int, attempt: int) -> list[dict[str, Any]]:
+def _jobs(get: Fetch, repo: str, run_id: int) -> list[dict[str, Any]]:
+    """Every job of the run at its latest attempt.
+
+    ``filter=latest`` gives each job's most recent result whichever attempt ran it, so a
+    failure from an earlier attempt that a partial re-run left alone is still seen. The
+    per-attempt endpoint lists only the jobs that attempt ran.
+    """
     jobs: list[dict[str, Any]] = []
     page = 1
     while True:
         data = get(
-            f"/repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100&page={page}"
+            f"/repos/{repo}/actions/runs/{run_id}/jobs?filter=latest&per_page=100&page={page}"
         )
         jobs.extend(data.get("jobs", []))
         if len(jobs) >= int(data.get("total_count", 0)) or not data.get("jobs"):
@@ -116,8 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     get = _fetch(token)
     run = get(f"/repos/{args.repo}/actions/runs/{args.run}")
-    attempt = int(run.get("run_attempt") or 1)
-    jobs = _jobs(get, args.repo, args.run, attempt)
+    jobs = _jobs(get, args.repo, args.run)
 
     def annotations_of(job: Mapping[str, Any]) -> list[dict[str, Any]]:
         result: list[dict[str, Any]] = get(f"/repos/{args.repo}/check-runs/{job['id']}/annotations")

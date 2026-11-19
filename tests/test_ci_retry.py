@@ -98,3 +98,19 @@ def test_the_workflow_only_re_runs_and_never_runs_the_inspected_code() -> None:
     assert "--failed" in text
     ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "\nname: CI\n" in ci  # the name workflow_run listens for
+
+
+def test_jobs_are_read_at_their_latest_attempt_across_attempts() -> None:
+    """A partial re-run must not hide an earlier attempt's real failure (#366 review)."""
+    asked: list[str] = []
+    lint = job("lint & types", "failure", jid=7)  # failed in attempt 1, not re-run
+
+    def get(path: str) -> dict[str, Any]:
+        asked.append(path)
+        return {"total_count": 3, "jobs": [lint, MACOS, SUMMARY]}
+
+    jobs = ci_retry._jobs(get, "o/r", 5)
+    assert all("filter=latest" in p and "/attempts/" not in p for p in asked)
+    rerun, reason = ci_retry.decide(run(2), jobs, annotations)
+    assert rerun is False
+    assert "lint & types" in reason
