@@ -541,7 +541,8 @@ functions), not in edge functions. Four things decide whether it runs well there
   handler above, so warm invocations reuse the loaded worker.
 - **Memory.** Give the function about 14 times the largest document you accept (Sizing,
   below), plus room for Node and the loaded runtime (an estimate of 250 MiB; measure
-  your own); set `maxBytes` to match.
+  your own); set `maxBytes` to match. A `/v1/diff` request holds two documents, so if
+  you serve it, plan on about twice that.
 - **Time.** Set `timeoutMs` below the platform's maximum duration, so a slow document
   gets pyDIGGS's 504 and not the platform's own cut-off; a fresh worker then serves the
   next request.

@@ -76,7 +76,7 @@ def _outcome(out):
 def _too_old(what, version="1.10.0"):
     return _problem("internal", f"this pydiggs is too old for {what} (needs {version} or later)")
 
-_DIFF_OPTIONS = ("match", "rel_tol", "abs_tol", "max_changes", "show_reformatted", "show_renamed")
+_DIFF_OPTIONS = ("match", "rel_tol", "abs_tol", "max_changes", "show_reformatted", "show_renamed", "max_result_bytes")
 
 def run(kind, data, name, max_bytes, parameters, dictionary=None, new_data=None, new_name=None):
     if _svc is None:

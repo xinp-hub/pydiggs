@@ -18,6 +18,11 @@ matching pyDIGGS version number.
 - `PydiggsHybrid` has `validateSarif` and `checkAgs4Sarif`, as the other engines do. They
   route like `validate` and `checkAgs4`, and go to the server when the browser engine
   has no SARIF call.
+- `createPydiggsHandler` takes `bodyTimeoutMs` (default 30000, as pyDIGGS): a request
+  body that has not arrived by then is answered 408 `request-timeout`.
+- `diff()` takes `maxResultBytes`: pyDIGGS refuses a larger answer as `result-too-large`
+  before building it. The handler sets it to four times `maxBodyBytes`, as pyDIGGS's
+  server does.
 
 ### Changed
 
@@ -35,7 +40,9 @@ matching pyDIGGS version number.
 - A request beyond `maxPending` is refused with 503 `busy` before its body is read.
   `maxPending` now counts requests from arrival until they are answered, as pyDIGGS
   admits them. Before, uploads still being received did not count, so many slow uploads
-  at once could each hold a body in memory.
+  at once could each hold a body in memory. A body must arrive within `bodyTimeoutMs`,
+  and a request whose client goes away gives up its place, so slow or abandoned uploads
+  cannot hold every place.
 - A field sent as a file part (say `name` as a file) is refused with 400
   `invalid-multipart` on `/v1/validate`, `/v1/read`, `/v1/convert` and `/v1/ags4/check`.
   Before, it was dropped silently.
@@ -46,6 +53,13 @@ matching pyDIGGS version number.
   `Content-Encoding` header is accepted.
 - A multipart body may be as large as pyDIGGS allows: the file part up to
   `maxBodyBytes`, plus room for the multipart framing.
+- Multipart parts are checked in pyDIGGS's order and within its limits. No file part is
+  400 `missing-input` (it was `invalid-multipart`), and on `/v1/diff` a missing file is
+  reported before an unknown field. More than 8 fields, a field over 64 KiB, or more
+  file parts than the route takes, is `invalid-multipart`. A too-large `/v1/diff` body
+  closes the connection, and an upload whose client went away is `missing-input`.
+- Names are measured in characters, as pyDIGGS counts them, not UTF-16 units. A name of
+  emoji is no longer refused below the 4096-character limit.
 
 ## [0.6.0] - 2026-11-16
 
