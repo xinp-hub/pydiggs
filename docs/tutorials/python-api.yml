@@ -1,0 +1,34 @@
+id: python-api
+title: Validate and read DIGGS files in Python
+summary: Call pyDIGGS from a script, act on the report, and read boreholes from the file.
+kind: terminal
+setup:
+  - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
+  - pydiggs convert site.ags -o site.xml > /dev/null
+  - |
+    cat > check_site.py <<'PY'
+    import pydiggs
+
+    report = pydiggs.validate("site.xml")
+    print(report.verdict, report.counts)
+
+    model = pydiggs.read("site.xml")
+    for feature in model.features:
+        depth = feature.total_depth
+        print(feature.kind, feature.name, depth.text, depth.uom)
+    PY
+scenes:
+  - title: The script
+    say: >-
+      Here is a short Python script. It imports pydiggs, validates site dot X M L, and
+      prints the verdict and the counts. Then it reads the same file into a model and
+      prints the kind, name and total depth of each sampling feature.
+    run: cat check_site.py
+    expect: 'pydiggs\.read'
+  - title: Run it
+    say: >-
+      Running the script prints valid, with zero errors and zero warnings. Below that are
+      the three sampling features in the file: two boreholes and a trial pit, each with its
+      depth exactly as the file writes it, and its unit.
+    run: python check_site.py
+    expect: 'trial_pit TP01 3\.20 m'

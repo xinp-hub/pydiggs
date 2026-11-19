@@ -1,0 +1,83 @@
+# Renders the video tutorials on a pull request that changes them or their renderer, so a
+# tutorial that cannot be recorded fails before it reaches master (where docs.yml renders
+# them again for the site). The rehearsal in tests/test_tutorials.py already checks, on
+# every pull request, that each command still prints what its narration says; this adds
+# the recording itself: VHS, Playwright, the voice and ffmpeg.
+name: Tutorials
+
+on:
+  pull_request:
+    paths:
+      - "docs/tutorials/**"
+      - "tools/tutorials/**"
+      - ".github/workflows/tutorials.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tutorials-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+  UV_PYTHON_PREFERENCE: only-managed
+
+jobs:
+  render:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: false
+          python-version: "3.12"
+      # Same pinned binaries as docs.yml; keep the two in step.
+      - name: Install the tutorial renderer
+        env:
+          VHS_URL: https://github.com/charmbracelet/vhs/releases/download/v0.12.1/vhs_0.12.1_Linux_x86_64.tar.gz
+          VHS_SHA256: eb33787a5b1cebf91fe0b18bd231e2d71d36c1ff4babd99ddac1a6ab411efd10
+          TTYD_URL: https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64
+          TTYD_SHA256: 8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
+          FFMPEG_URL: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64
+          FFMPEG_SHA256: e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99
+          FFPROBE_URL: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-x64
+          FFPROBE_SHA256: 4f231a1960d83e403d08f7971e271707bec278a9ae18e21b8b5b03186668450d
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/tutorial-bin"
+          mkdir -p "$bin"
+          fetch() {
+            curl --fail --silent --show-error --location --output "$2" "$1"
+            echo "$3  $2" | sha256sum --check --strict
+          }
+          fetch "$VHS_URL" "$RUNNER_TEMP/vhs.tar.gz" "$VHS_SHA256"
+          tar -xzf "$RUNNER_TEMP/vhs.tar.gz" -C "$RUNNER_TEMP"
+          find "$RUNNER_TEMP" -maxdepth 2 -type f -name vhs -exec mv {} "$bin/vhs" \;
+          fetch "$TTYD_URL" "$bin/ttyd" "$TTYD_SHA256"
+          fetch "$FFMPEG_URL" "$bin/ffmpeg" "$FFMPEG_SHA256"
+          fetch "$FFPROBE_URL" "$bin/ffprobe" "$FFPROBE_SHA256"
+          chmod +x "$bin"/*
+          echo "$bin" >> "$GITHUB_PATH"
+      - name: Render
+        env:
+          TUTORIALS_CHROME_CHANNEL: chrome
+        run: |
+          set -euo pipefail
+          uv sync --group docs --group dev
+          uv run --group docs python tools/tutorials/check.py
+          TUTORIALS_PACKAGE_VERSION="$(.venv/bin/python -c 'import pydiggs; print(pydiggs.__version__)')" \
+          PATH="$PWD/.venv/bin:$PATH" \
+          uv run --locked --script tools/tutorials/build.py --out build/tutorials
+          du -sh build/tutorials/*
+      # Download the artifact to watch the videos before merging.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: tutorials
+          path: build/tutorials
+          retention-days: 7
+          if-no-files-found: error

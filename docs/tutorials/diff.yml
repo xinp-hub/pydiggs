@@ -1,0 +1,23 @@
+id: diff
+title: Compare two DIGGS files
+summary: See what changed between two revisions of a DIGGS file, by meaning rather than by text.
+kind: terminal
+setup:
+  - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
+  - pydiggs convert site.ags -o site.xml > /dev/null
+  - sed -e '102s/10.00/12.50/' site.xml > site-rev2.xml
+scenes:
+  - title: Compare two revisions
+    say: >-
+      We have two revisions of the same site file. pydiggs diff takes the older file
+      first, then the newer one. It compares what the files describe, not how they are
+      written, so element order and number formatting do not count.
+    run: pydiggs diff site.xml site-rev2.xml
+    expect: 'total_depth'
+  - title: Read the change
+    say: >-
+      The report counts records by kind: added, removed, changed and unchanged. One
+      feature changed. At the bottom, borehole B H 0 2 is matched by its identifier, and
+      its total depth went from ten metres to twelve and a half metres.
+    run: pydiggs diff site.xml site-rev2.xml | tail -n 2
+    expect: '10\.00 m -> 12\.50 m'

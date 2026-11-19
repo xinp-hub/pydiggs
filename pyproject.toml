@@ -178,10 +178,16 @@ warn_unreachable = true
 warn_unused_ignores = true
 pretty = true
 show_error_codes = true
-files = ["src", "scripts"]
+files = ["src", "scripts", "tools"]
 # Legacy validation modules are gradually typed; gate on clean package surface first.
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+
+# The tutorial renderer's own dependencies (PEP 723, tools/tutorials/build.py) are not in
+# the project environment; PyYAML comes with MkDocs and has no stubs installed here.
+[[tool.mypy.overrides]]
+module = ["yaml", "kokoro_onnx", "playwright", "playwright.*"]
+ignore_missing_imports = true
 
 # New modules are fully typed; keep them that way.
 [[tool.mypy.overrides]]
