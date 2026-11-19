@@ -1,5 +1,5 @@
 {
-  "$comment": "Where each operation of pydiggs.capabilities() stands in @pydiggs/client. Every operation id is listed in exactly one section; tests/test_js_client_coverage.py fails when pyDIGGS gains an operation that is not, so a new pyDIGGS feature is a decision for the client in the pull request that adds it. js/test/coverage.test.ts holds the 'offered' methods to the code. 'hybrid' is true when PydiggsHybrid offers the methods too (operations on a document).",
+  "$comment": "Where each operation of pydiggs.capabilities() stands in @pydiggs/client. Every operation id is listed in exactly one section; tests/test_js_client_coverage.py fails when pyDIGGS gains an operation that is not, so a new pyDIGGS feature is a decision for the client in the pull request that adds it. js/test/coverage.test.ts holds the 'offered' methods to the code. 'hybrid' is true when PydiggsHybrid offers the methods too (operations on a document). A 'planned' entry names the methods it will add and why; once they exist on every engine, js/test/coverage.test.ts fails until the entry moves to 'offered'.",
   "offered": {
     "validate": { "methods": ["validate", "validateSarif"], "hybrid": true },
     "read": { "methods": ["read"], "hybrid": true },
@@ -7,11 +7,10 @@
     "rules.explain": { "methods": ["explainRule"], "hybrid": false },
     "ags4.check": { "methods": ["checkAgs4", "checkAgs4Sarif"], "hybrid": true },
     "convert.ags4-to-diggs": { "methods": ["convert"], "hybrid": true },
-    "convert.diggs-to-ags4": { "methods": ["convert"], "hybrid": true }
+    "convert.diggs-to-ags4": { "methods": ["convert"], "hybrid": true },
+    "diff": { "methods": ["diff"], "hybrid": true }
   },
-  "planned": {
-    "diff": "pyDIGGS 1.13.0 work package S2 (HG1 approved 2026-11-18): diff() on every engine, typed from diggs-diff 1.0, once the report format is frozen."
-  },
+  "planned": {},
   "not_offered": {
     "detect": "No HTTP route; validate and read detect the DIGGS version themselves and report it.",
     "ags4.read": "Returns Python AGS4 tables; in JavaScript, convert an AGS4 file to DIGGS and read that.",
