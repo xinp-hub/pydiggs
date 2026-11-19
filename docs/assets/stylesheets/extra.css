@@ -91,3 +91,24 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Tutorial videos (tools/tutorials/mkdocs_tutorials.py). */
+.md-typeset figure.tutorial {
+  margin: 1.5em 0;
+  width: 100%;
+}
+.md-typeset figure.tutorial video {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 0.2rem;
+  background: var(--md-code-bg-color);
+}
+.md-typeset figure.tutorial figcaption {
+  max-width: none;
+  margin-top: 0.4em;
+  text-align: left;
+}
+.md-typeset details.tutorial-transcript {
+  text-align: left;
+}

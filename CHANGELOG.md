@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Video tutorials.** The documentation has a
+  [Video tutorials](https://xinp-hub.github.io/pydiggs/dev/tutorials/) page, and the
+  Quickstart, Reading files, AGS4 files, conversion, comparison and Browser pages each
+  open with a short narrated video of that feature. Every video has English captions,
+  chapters and a full transcript, plays from the docs site itself with no third-party
+  player or cookies, and is rendered from a script in `docs/tutorials/` each time the
+  site is published. The commands shown really run, and a video whose output no longer
+  matches its script stops the build, so the videos cannot fall behind the software.
+
 ## [1.13.0] - 2026-11-19
 
 ### Added

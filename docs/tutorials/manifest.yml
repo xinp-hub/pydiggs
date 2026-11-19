@@ -1,0 +1,65 @@
+# Which public features have a video tutorial, and why the rest do not.
+# tools/tutorials/check.py fails CI when a CLI subcommand or a name in pydiggs.__all__ is
+# covered by no feature here: a new feature ships with a tutorial, or with a waiver that
+# says why a video would not help. See FORGE's docs-video skill.
+version: 1
+voice: af_heart          # Kokoro-82M voice; changing it re-renders every video
+speed: 1.0
+pronounce:               # how the voice says a word; captions keep the written form
+  pyDIGGS: pie diggs
+  DIGGS: diggs
+  AGS4: A G S 4
+  SARIF: sarriff
+  JSON: jason
+  XML: X M L
+  CI: C I
+discover:
+  cli: pydiggs.cli:_SUBCOMMANDS
+  api: pydiggs:__all__
+features:
+  - id: validate
+    covers: [cli:validate]
+    tutorial: validate
+  - id: python-api
+    covers: [api:validate, api:validate_bytes, api:validator, api:warm_up, api:Report,
+             api:Finding, api:Severity, api:Step, api:read, api:read_bytes, api:Model,
+             api:detect_diggs_version, api:explain_rule, api:rule_catalogue, api:RuleInfo,
+             api:Guidance, api:PydiggsError, api:DocumentError, api:InstanceReadError,
+             api:ResourceError]
+    tutorial: python-api
+  - id: convert
+    covers: [cli:convert]
+    tutorial: convert
+  - id: diff
+    covers: [cli:diff]
+    tutorial: diff
+  - id: ags4-check
+    covers: [cli:ags4]
+    tutorial: ags4-check
+  - id: browser
+    covers: [page:browser]
+    tutorial: browser
+  - id: serve
+    covers: [cli:serve]
+    waiver: >-
+      Serves validation to other programs over stdio, HTTP or MCP; there is nothing to
+      watch, and the HTTP API, sidecar and MCP pages show the requests and replies.
+  - id: capabilities
+    covers: [cli:capabilities, api:capabilities, api:Capabilities, api:Operation,
+             api:OptionSpec, api:capabilities_schema, api:CAPABILITIES_SCHEMA_URL,
+             api:CAPABILITIES_SCHEMA_VERSION]
+    waiver: >-
+      A machine-readable listing for integrators who build on pyDIGGS; the capabilities
+      page documents the document field by field.
+  - id: documents
+    covers: [api:findings_document, api:findings_json, api:findings_schema,
+             api:model_schema, api:FINDINGS_SCHEMA_URL, api:FINDINGS_SCHEMA_VERSION,
+             api:MODEL_SCHEMA_URL, api:MODEL_SCHEMA_VERSION]
+    waiver: >-
+      Schema constants and serialisers for program authors; the findings and reading
+      pages document the JSON contracts, and the validate tutorial shows the output.
+  - id: version-info
+    covers: [api:version_info, api:VersionInfo]
+    waiver: >-
+      Reports the installed version and its bundled reference data; one call, shown on
+      the installation page.

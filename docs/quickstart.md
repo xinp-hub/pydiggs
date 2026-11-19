@@ -3,6 +3,8 @@
 Validate your first DIGGS file in about five minutes. You need Python 3.11 or later and
 a DIGGS instance file (any `.xml` file in DIGGS 2.5.a, 2.6 or 3.0.0).
 
+<!-- tutorial: validate -->
+
 ## 1. Install
 
 === "uv"

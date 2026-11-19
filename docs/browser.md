@@ -9,6 +9,8 @@ The [browser-worker example](https://github.com/xinp-hub/pydiggs/tree/master/exa
 is a complete page in four small files, with no build step and no dependency besides
 Pyodide. It runs pydiggs in a module Web Worker, so validation never blocks the page.
 
+<!-- tutorial: browser -->
+
 !!! warning "Every string field in a findings document is untrusted"
     `message`, `location.xpath`, `location.gml_id` and `files[].path` are copied from the
     document or its file name, so a crafted file can put any text there, including HTML

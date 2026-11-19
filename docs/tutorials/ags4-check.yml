@@ -1,0 +1,23 @@
+id: ags4-check
+title: Check an AGS4 file against the AGS4 rules
+summary: Run the AGS4 rule checks on a file and read which rule failed and where.
+kind: terminal
+setup:
+  - cp {repo}/tests/fixtures/ags4/rule_13.ags received.ags
+  - cp {repo}/tests/fixtures/ags4/clean_4_2.ags site.ags
+scenes:
+  - title: Check a received file
+    say: >-
+      pyDIGGS also checks AGS4 files. We run pydiggs A G S 4 check on a file we received.
+      The verdict is not valid, with one error. The finding names rule 13 and the group,
+      PROJ: the project group may hold only one data row, and this file has two.
+    run: pydiggs ags4 check received.ags
+    expect: 'ags4\.rule-13'
+  - title: A clean file
+    say: >-
+      Checking a clean file prints valid with no errors. The information line says that no
+      AGS data dictionary was given, so the dictionary rules were checked against the
+      groups the file defines itself. Pass dash dash dictionary to check the standard
+      groups too.
+    run: pydiggs ags4 check site.ags
+    expect: 'site\.ags: valid'

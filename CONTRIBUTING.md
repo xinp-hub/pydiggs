@@ -74,6 +74,25 @@ uv run pytest
 should come with a test that fails without it. A change users will notice gets a line in
 [CHANGELOG.md](CHANGELOG.md) under "Unreleased".
 
+## Video tutorials
+
+Each user-facing feature has a narrated video, made from a script in `docs/tutorials/`
+(`<id>.yml`: what is said, and what is typed or clicked while it is said).
+`docs/tutorials/manifest.yml` maps every `pydiggs` subcommand and every name in
+`pydiggs.__all__` to a tutorial, or to a waiver that says why a video would not help.
+`tests/test_tutorials.py` fails when a new subcommand or public name is in neither, and
+runs every terminal tutorial's commands to check they still print what the narration says.
+
+To add one: write `docs/tutorials/<id>.yml`, name it in the manifest, and put
+`<!-- tutorial: <id> -->` where it belongs in a page. Use only example files written for
+the purpose, never project data. The videos are rendered in CI (`docs.yml`, and
+`tutorials.yml` on a pull request, whose artifact you can download and watch). To render
+locally you need ffmpeg and [VHS](https://github.com/charmbracelet/vhs):
+
+```bash
+PATH="$PWD/.venv/bin:$PATH" uv run --locked --script tools/tutorials/build.py --only validate
+```
+
 ## Releases
 
 Merging a pull request never publishes anything. Only a maintainer releases: each release

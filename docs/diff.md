@@ -8,6 +8,8 @@ of a record do not matter. Records stay paired when their `gml:id`s change, so t
 of the same data with newly generated ids are identical. The renamed ids are counted, and
 listed on request.
 
+<!-- tutorial: diff -->
+
 **Compare the files.** Given two files (paths or bytes), the comparison is the full
 one: it covers what [`pydiggs.read`](model.md) puts in a model and, beyond that, the
 content of each record that a model does not keep. Given two `Model`s, it compares the

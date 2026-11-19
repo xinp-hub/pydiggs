@@ -5,6 +5,8 @@ files, and tells you exactly what did not make it across. The conversion is the 
 Python, on the command line, over HTTP, in the stdio sidecar and in the browser: the same
 input gives the same bytes everywhere.
 
+<!-- tutorial: convert -->
+
 `pydiggs.convert` is **stable** from pyDIGGS 1.11 and follows Semantic Versioning. Both
 directions use one bundled mapping table, **1.2**, whose 25 groups have all been
 reviewed against the AGS4 4.1.1 and 4.2 dictionaries and DIGGS 3.0.0; the generated

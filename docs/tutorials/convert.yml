@@ -1,0 +1,29 @@
+id: convert
+title: Convert AGS4 to DIGGS, and back
+summary: Turn an AGS4 file into a valid DIGGS 3.0 document, see what did not convert, and go back to AGS4.
+kind: terminal
+setup:
+  - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
+scenes:
+  - title: AGS4 to DIGGS
+    say: >-
+      We start from an AGS4 file, site dot A G S. pydiggs convert, with dash o for the
+      output, writes a DIGGS 3.0 document. The first line sums it up: the mapping table
+      version, the number of losses, and that the output is valid.
+    run: pydiggs convert site.ags -o site.xml | head -n 4
+    expect: 'output valid'
+  - title: Every loss is reported
+    say: >-
+      Nothing is dropped in silence. Here we count the losses by kind. Unmapped headings
+      have no DIGGS target, unmapped codes and units could not be carried, and assumed
+      means the converter had to fill something in. Each loss in the full report names
+      the line of the source file it came from.
+    run: pydiggs convert site.ags -o site.xml --force | grep -o 'convert\.[a-z-]*' | sort | uniq -c
+    expect: 'convert\.unmapped-heading'
+  - title: DIGGS back to AGS4
+    say: >-
+      To go the other way, add dash dash to A G S 4. The DIGGS file becomes an AGS4 file,
+      which is checked against the AGS4 rules as it is written. Here one value needed an
+      assumption, and it is reported the same way.
+    run: pydiggs convert site.xml --to ags4 -o back.ags
+    expect: 'back\.ags: AGS4'

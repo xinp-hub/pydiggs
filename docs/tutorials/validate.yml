@@ -1,0 +1,32 @@
+id: validate
+title: Validate a DIGGS file from the command line
+summary: Check a DIGGS 3.0 file, read the findings, and write a SARIF report for CI.
+kind: terminal
+setup:
+  - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
+  - pydiggs convert site.ags -o site.xml > /dev/null
+  - sed -e 's#<totalMeasuredDepth uom="m">15.00#<totalMeasuredDepth uom="m">fifteen#' site.xml > broken.xml
+scenes:
+  - title: Validate a file
+    say: >-
+      This terminal holds a DIGGS 3.0 file called site dot X M L. We type pydiggs validate
+      and the file name. pyDIGGS runs every check: structure, schema, dictionary,
+      Schematron rules, geometry and context. The last line reads valid, with no errors
+      and no warnings.
+    run: pydiggs validate site.xml
+    expect: 'site\.xml: valid: 0 error'
+  - title: Read the findings
+    say: >-
+      Now we validate broken dot X M L, where a borehole depth was typed as a word. The
+      verdict is not valid, with two errors. Each finding gives the line number, the rule
+      that failed, and what is wrong: the schema expects a number, and the Schematron rule
+      says the depth must be positive.
+    run: pydiggs validate broken.xml
+    expect: 'not-valid: 2 error'
+  - title: Write a report for CI
+    say: >-
+      For continuous integration, ask for SARIF and write it to a file. The command exits
+      with a non-zero status when the file is not valid, so a pipeline stops. Listing the
+      folder shows results dot sarriff, ready for GitHub code scanning or any SARIF viewer.
+    run: pydiggs validate broken.xml --format sarif --output results.sarif; ls
+    expect: 'results\.sarif'

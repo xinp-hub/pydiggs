@@ -7,6 +7,8 @@ every time, and checks them against the AGS4 rules. To turn an AGS4 file into DI
 DIGGS file into AGS4, see [AGS4 and DIGGS conversion](convert.md) (`pydiggs.convert`,
 stable from pyDIGGS 1.11).
 
+<!-- tutorial: ags4-check -->
+
 !!! note "Not an AGS-approved tool; no AGS files bundled"
     pyDIGGS implements the published AGS4 rules (section 4.1.1 of the AGS4 specification,
     Edition 4.2, December 2025) independently. It is not an AGS-approved validator, and it

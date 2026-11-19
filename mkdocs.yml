@@ -65,6 +65,11 @@ theme:
 
 hooks:
   - scripts/mkdocs_hooks.py
+  - tools/tutorials/mkdocs_tutorials.py
+
+# The tutorial specs are build input, not pages (tools/tutorials/build.py).
+exclude_docs: |
+  tutorials/*.yml
 
 plugins:
   - search
@@ -155,6 +160,7 @@ nav:
   - Get started:
     - Installation: installation.md
     - Quickstart: quickstart.md
+    - Video tutorials: tutorials.md
   - Guides:
     - Validation checks: usage.md
     - Findings (JSON / SARIF): findings.md

@@ -39,7 +39,7 @@ jobs:
     name: build dev and latest
     # GitHub-hosted on purpose, like release.yml: what is published is built there only.
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 45
     outputs:
       newest: ${{ steps.tag.outputs.version }}
       built: ${{ steps.latest.outputs.built }}
@@ -70,12 +70,65 @@ jobs:
           path: release
           fetch-depth: 0
           persist-credentials: false
+      # The video tutorials (docs/tutorials/*.yml; FORGE's docs-video skill). VHS records
+      # the terminal with the runner's Chrome, ttyd serves it, ffmpeg encodes. Static
+      # binaries, each pinned by sha256, into a directory on PATH: no root, no apt.
+      - name: Install the tutorial renderer
+        env:
+          VHS_URL: https://github.com/charmbracelet/vhs/releases/download/v0.12.1/vhs_0.12.1_Linux_x86_64.tar.gz
+          VHS_SHA256: eb33787a5b1cebf91fe0b18bd231e2d71d36c1ff4babd99ddac1a6ab411efd10
+          TTYD_URL: https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64
+          TTYD_SHA256: 8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
+          FFMPEG_URL: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64
+          FFMPEG_SHA256: e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99
+          FFPROBE_URL: https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-x64
+          FFPROBE_SHA256: 4f231a1960d83e403d08f7971e271707bec278a9ae18e21b8b5b03186668450d
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/tutorial-bin"
+          mkdir -p "$bin"
+          fetch() {
+            curl --fail --silent --show-error --location --output "$2" "$1"
+            echo "$3  $2" | sha256sum --check --strict
+          }
+          fetch "$VHS_URL" "$RUNNER_TEMP/vhs.tar.gz" "$VHS_SHA256"
+          tar -xzf "$RUNNER_TEMP/vhs.tar.gz" -C "$RUNNER_TEMP"
+          find "$RUNNER_TEMP" -maxdepth 2 -type f -name vhs -exec mv {} "$bin/vhs" \;
+          fetch "$TTYD_URL" "$bin/ttyd" "$TTYD_SHA256"
+          fetch "$FFMPEG_URL" "$bin/ffmpeg" "$FFMPEG_SHA256"
+          fetch "$FFPROBE_URL" "$bin/ffprobe" "$FFPROBE_SHA256"
+          chmod +x "$bin"/*
+          echo "$bin" >> "$GITHUB_PATH"
+      # Rendered into each checkout's build/tutorials/, where the mkdocs hook finds them. The
+      # renderer has its own locked environment (tools/tutorials/build.py.lock); the
+      # checkout's .venv/bin goes first on PATH, so the videos run that checkout's pydiggs.
+      # The dev tutorials must render: a failed expect is a broken feature or a stale
+      # tutorial. A release tag from before tutorials existed has none and builds without.
+      - name: Render the tutorials
+        env:
+          HAS_RELEASE: ${{ steps.tag.outputs.tag }}
+          TUTORIALS_CHROME_CHANNEL: chrome
+        run: |
+          set -euo pipefail
+          render() {
+            (cd "$1" && uv sync --group docs --group dev &&
+              TUTORIALS_PACKAGE_VERSION="$(.venv/bin/python -c 'import pydiggs; print(pydiggs.__version__)')" \
+              PATH="$PWD/.venv/bin:$PATH" \
+              uv run --locked --script tools/tutorials/build.py --out build/tutorials)
+          }
+          render dev
+          if [ -n "$HAS_RELEASE" ] && [ -f release/tools/tutorials/build.py ]; then
+            render release ||
+              echo "::warning title=Release tutorials were not rendered::latest/ is published with transcripts only."
+          fi
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
         id: pages
       - name: Build dev (strict, a broken link fails the build)
         working-directory: dev
         env:
           DOCS_SITE_URL: ${{ steps.pages.outputs.base_url }}/dev/
+          # A page that embeds a tutorial whose video was not rendered fails the build.
+          TUTORIALS_REQUIRE: "1"
         run: |
           uv sync --group docs --group dev
           uv run --group docs mkdocs build --strict --site-dir "$RUNNER_TEMP/site/dev"

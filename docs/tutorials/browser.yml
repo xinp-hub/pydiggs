@@ -1,0 +1,37 @@
+id: browser
+title: Validate a DIGGS file in the browser
+summary: Run pyDIGGS in a web page with Pyodide; the file never leaves the browser.
+kind: browser
+setup:
+  - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
+  - pydiggs convert site.ags -o site.xml > /dev/null
+  - sed -e 's#<totalMeasuredDepth uom="m">15.00#<totalMeasuredDepth uom="m">fifteen#' site.xml > broken.xml
+serve: python3 examples/browser-worker/serve.py --port {port}
+ready: http://127.0.0.1:{port}/
+scenes:
+  - title: Load the page
+    say: >-
+      This is the browser example that ships with pyDIGGS. The page loads Pyodide, Python
+      compiled to WebAssembly, and installs pyDIGGS inside the tab. When the status line
+      says Ready, with the versions it loaded, the file picker is enabled.
+    steps:
+      - goto: /
+      - wait_text: '^Ready: pydiggs'
+  - title: Validate a file
+    say: >-
+      We pick site dot X M L. The file is read in the page and validated in a background
+      worker, so it is never uploaded anywhere. The report shows the verdict, valid, for
+      DIGGS 3.0.0, with no errors and no warnings.
+    steps:
+      - upload: {selector: '#file', file: '{work}/site.xml'}
+      - expect_text: '^valid \(DIGGS 3\.0\.0\)'
+      - wait: 1500
+  - title: Read the findings
+    say: >-
+      Now we pick broken dot X M L, where a borehole depth was typed as a word. The verdict
+      changes to not valid, with two errors, and each finding below it gives the rule and
+      the line, just as on the command line.
+    steps:
+      - upload: {selector: '#file', file: '{work}/broken.xml'}
+      - expect_text: '^not-valid \(DIGGS 3\.0\.0\)'
+      - wait: 2500
