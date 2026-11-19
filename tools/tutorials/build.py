@@ -438,6 +438,17 @@ def _do(page: Any, step: Step, base: str, work: Path) -> None:
         page.locator(value["selector"]).first.set_input_files(path)
 
 
+def align(marks: list[tuple[float, float]], lag: float) -> list[tuple[float, float]]:
+    """Move scene marks from the wall clock to the video's own timeline.
+
+    Playwright's recording starts a moment after the page exists, so the video is shorter
+    than the wall-clock time the steps took by that lag. Cutting at the wall-clock marks
+    would put each scene's cut late, into the next scene's first step: the viewer would
+    see an action before the narration describes it.
+    """
+    return [(max(0.0, begin - lag), max(0.0, end - lag)) for begin, end in marks]
+
+
 def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
     """Start the tutorial's server, do each scene's steps on camera; return the clips."""
     from playwright.sync_api import sync_playwright  # noqa: PLC0415
@@ -485,13 +496,16 @@ def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
                 page.wait_for_timeout(800)
                 marks.append((begin, time.monotonic() - started))
             video = Path(page.video.path())
-            context.close()
+            wall = time.monotonic() - started
+            context.close()  # the video file is complete only once its context is closed
             browser.close()
     finally:
         server.terminate()
         server.wait(timeout=10)
+    lag = max(0.0, wall - duration(video))
+    print(f"{tutorial.id}: the recording started {lag:.2f} s after the first step")
     clips: list[Path] = []
-    for index, (begin, end) in enumerate(marks, 1):
+    for index, (begin, end) in enumerate(align(marks, lag), 1):
         clip = scratch / f"scene-{index:02d}.mp4"
         run(
             ["ffmpeg", "-y", "-v", "error", "-ss", f"{begin:.3f}", "-to", f"{end:.3f}",

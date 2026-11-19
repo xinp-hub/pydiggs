@@ -215,6 +215,12 @@ def test_tape_types_the_command_and_waits_for_the_expected_screen(tmp_path: Path
     assert tape.index("Hide") < tape.index("Show") < tape.index("Type 'pydiggs")
 
 
+def test_browser_scene_marks_move_back_by_the_recording_lag() -> None:
+    marks = [(0.0, 14.0), (14.0, 22.5)]
+    assert build.align(marks, 2.5) == [(0.0, 11.5), (11.5, 20.0)]
+    assert build.align(marks, 0.0) == marks
+
+
 def _page(src_uri: str, url: str) -> SimpleNamespace:
     return SimpleNamespace(url=url, file=SimpleNamespace(src_uri=src_uri))
 
