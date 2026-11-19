@@ -8,6 +8,8 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-19
+
 ### Added
 
 - `diff(old, new, options)` compares two DIGGS files (pyDIGGS 1.13), on the HTTP, browser,
@@ -26,8 +28,9 @@ matching pyDIGGS version number.
 
 ### Changed
 
-- Runs pyDIGGS 1.13.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's record. AGS4 files with depths in feet convert to DIGGS (mapping table 1.2,
-  pyDIGGS 1.12).
+- Runs pyDIGGS 1.13.1 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. AGS4 files with depths in feet convert to DIGGS (mapping table 1.2, pyDIGGS
+  1.12).
 - The findings types follow **diggs-findings 1.2** (pyDIGGS 1.12), which only adds to 1.1:
   the step `"diff"` (the findings of a model diff). `FINDINGS_SCHEMA_URL` is the 1.2 schema,
   shipped as `@pydiggs/client/schemas/diggs-findings-1.2.schema.json`; the 1.0 and 1.1
