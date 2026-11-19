@@ -307,6 +307,24 @@ def test_an_attribute_of_the_root_element_is_compared():
     assert schema_errors(result.to_dict()) == []
 
 
+def test_the_first_root_attribute_or_text_is_listed_once():
+    """Adding root content to a file that had none lists that content, not the root too.
+
+    The root of the file without root content is the same element: only what was added
+    or removed is a change (#368 review).
+    """
+    plain = _root()
+    for other, path in (
+        (_root(' note="rev 1"'), "xml.Diggs[1]@note"),
+        (_root(between="\n  words between members\n"), "xml.Diggs[1]#text"),
+    ):
+        for old, new in ((plain, other), (other, plain)):
+            result = diff.compare(old, new)
+            paths = [v.path for c in result.changes for v in c.values]
+            assert paths == [path], paths
+            assert result.value_changes == 1
+
+
 def test_what_says_nothing_about_the_data_at_the_root_is_not_compared():
     plain = _root()
     for other in (

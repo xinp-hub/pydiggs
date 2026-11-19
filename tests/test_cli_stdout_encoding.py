@@ -75,7 +75,8 @@ def test_a_validate_report_stdout_can_encode_is_written_as_before(files, capsys)
     assert main(["validate", str(files["valid"]), "--format", "json"]) == 0
     rendered = capsys.readouterr().out
     done = _run("validate", str(files["valid"]), "--format", "json", encoding="utf-8")
-    assert done.stdout.decode("utf-8") == rendered
+    # A text-mode stdout on Windows writes each newline as CRLF; the characters are the same.
+    assert done.stdout.decode("utf-8").replace("\r\n", "\n") == rendered
     assert f"ok-{GREEK}.xml" in rendered
 
 

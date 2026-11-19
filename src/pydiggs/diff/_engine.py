@@ -399,7 +399,15 @@ class _Comparison:
         if self.seen is None or any("" in seen.unread for seen in self.seen):
             return None
         old, new = (seen.unread.get(ROOT, ()) for seen in self.seen)
-        return (old, new) if old or new else None
+        if not (old or new):
+            return None
+        # A file with nothing outside its records has the same root element, empty: give
+        # it that shell, so only what was added or taken away is listed, not the root.
+        if not old:
+            old = _shells(new)
+        elif not new:
+            new = _shells(old)
+        return old, new
 
     def compare_root(
         self, roots: tuple[tuple[ExtraNode, ...], tuple[ExtraNode, ...]], sides: tuple[Side, Side]
@@ -684,3 +692,12 @@ def _version() -> str:
     import pydiggs  # noqa: PLC0415  # the package imports nothing from here
 
     return pydiggs.__version__
+
+
+def _shells(nodes: tuple[ExtraNode, ...]) -> tuple[ExtraNode, ...]:
+    """``nodes`` with nothing in them: the same elements, with no attributes, text or children.
+
+    The empty root of the other file. Its namespace is taken as this one's; a file in
+    another DIGGS namespace differs in its version, which the comparison already lists.
+    """
+    return tuple(ExtraNode(qname=node.qname, ns=node.ns) for node in nodes)
