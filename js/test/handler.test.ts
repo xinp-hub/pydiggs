@@ -451,6 +451,11 @@ test("a query value a form field overrides is still checked, as in pyDIGGS", asy
   const ok = await post("/v1/read?diggs_version=2.6", { diggs_version: "3.0.0" });
   assert.equal(ok.status, 200, "a valid query value is overridden by the form's");
   assert.equal(calls[0]?.diggsVersion, "3.0.0");
+  // pyDIGGS 1.13.1: an overridden value is checked on its own, not against the query's
+  // other values, so a valid convert request is not refused.
+  const convert = await post("/v1/convert?to=ags4&ags_version=4.2", { ags_version: "4.1.1" });
+  assert.equal(convert.status, 200, "pyDIGGS 1.13.1 accepts this request");
+  assert.equal(calls[1]?.agsVersion, "4.1.1");
 });
 
 test("the media type is checked before the encoding, as in pyDIGGS", async () => {
