@@ -181,6 +181,13 @@ def _check_regex(where: str, expect: str, problems: list[str]) -> None:
         problems.append(f"{where}: expect is not a valid regex: {exc}")
 
 
+def _matches(expect: str, text: str) -> bool:
+    try:
+        return re.search(expect, text) is not None
+    except re.error:
+        return False
+
+
 def _load_scene(raw: Any, where: str, kind: str, problems: list[str]) -> Scene | None:
     if not isinstance(raw, dict):
         problems.append(f"{where} must be a mapping")
@@ -205,6 +212,11 @@ def _load_scene(raw: Any, where: str, kind: str, problems: list[str]) -> Scene |
         if not expect:
             problems.append(f"{where}: a command needs expect, the text that proves it worked")
     _check_regex(where, expect, problems)
+    if run and expect and _matches(expect, run):
+        problems.append(
+            f"{where}: expect also matches the typed command, so it proves nothing;"
+            " anchor it to the output, for example (?m)^text$"
+        )
     steps: tuple[Step, ...] = ()
     if "steps" in raw:
         if kind != "browser":
@@ -249,6 +261,8 @@ def load_tutorial(path: Path) -> Tutorial:
     if kind == "terminal" and (serve or ready):
         problems.append("serve and ready are for browser tutorials")
 
+    title = _text(data, "title", problems)
+    summary = _text(data, "summary", problems)
     raw_scenes = data.get("scenes")
     if not isinstance(raw_scenes, list) or not raw_scenes:
         problems.append("scenes must be a non-empty list")
@@ -261,8 +275,8 @@ def load_tutorial(path: Path) -> Tutorial:
         raise SpecError(path.name, problems)
     return Tutorial(
         id=tid,
-        title=_text(data, "title", problems),
-        summary=_text(data, "summary", problems),
+        title=title,
+        summary=summary,
         kind=kind,
         scenes=tuple(scene for scene in scenes if scene is not None),
         path=path,
@@ -359,6 +373,30 @@ def markers(docs_dir: Path = DOCS_DIR) -> dict[str, list[str]]:
 def sentences(text: str) -> list[str]:
     """Split narration into sentences; each becomes one voice clip and caption cue."""
     return [part.strip() for part in _SENTENCE_END.split(" ".join(text.split())) if part.strip()]
+
+
+#: ``{glob:dist/*.whl}`` is the one file in the work directory matching the pattern (its
+#: absolute path); ``{globname:...}`` is its name. Expanded after setup has run.
+_GLOB = re.compile(r"\{(glob|globname):([^{}]+)\}")
+
+
+def expand(text: str, *, work: Path, port: int | None = None) -> str:
+    """Fill ``{repo}``, ``{work}``, ``{port}`` and the ``{glob:...}`` placeholders.
+
+    Raises:
+        SpecError: a glob does not match exactly one file.
+    """
+
+    def one(match: re.Match[str]) -> str:
+        found = sorted(work.glob(match.group(2)))
+        if len(found) != 1:
+            msg = f"{match.group(0)} matches {len(found)} files in the work directory, not 1"
+            raise SpecError("placeholder", [msg])
+        return found[0].name if match.group(1) == "globname" else str(found[0])
+
+    text = _GLOB.sub(one, text)
+    text = text.replace("{repo}", str(ROOT)).replace("{work}", str(work))
+    return text.replace("{port}", str(port)) if port is not None else text
 
 
 def spoken(text: str, pronounce: dict[str, str]) -> str:

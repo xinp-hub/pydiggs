@@ -27,6 +27,7 @@ scenes:
     say: >-
       For continuous integration, ask for SARIF and write it to a file. The command exits
       with a non-zero status when the file is not valid, so a pipeline stops. Listing the
-      folder shows results dot sarriff, ready for GitHub code scanning or any SARIF viewer.
-    run: pydiggs validate broken.xml --format sarif --output results.sarif; ls
-    expect: 'results\.sarif'
+      report shows results dot sarriff on its own line, ready for GitHub code scanning or
+      any SARIF viewer.
+    run: pydiggs validate broken.xml --format sarif --output results.sarif; ls -1 *.sarif
+    expect: '(?m)^results\.sarif\s*$'

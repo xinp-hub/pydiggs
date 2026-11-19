@@ -53,8 +53,8 @@ kind: terminal
 scenes:
   - title: First
     say: This scene shows the demo command and what it prints on screen.
-    run: echo hello
-    expect: hello
+    run: echo hello | tr a-z A-Z
+    expect: HELLO
 """
 
 
@@ -86,12 +86,12 @@ def test_a_valid_spec_loads(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("change", "reason"),
     [
-        (("expect: hello\n", ""), "a command needs expect"),
+        (("expect: HELLO\n", ""), "a command needs expect"),
         (("run: echo hello", "run: cat /Users/someone/file"), "absolute path"),
         (("run: echo hello", "run: echo token=abc123"), "secret"),
         (("kind: terminal", "kind: video"), "kind must be one of"),
         (("id: demo", "id: other"), "must match the file name"),
-        (("expect: hello", "expect: '('"), "not a valid regex"),
+        (("expect: HELLO", "expect: '('"), "not a valid regex"),
         (
             (
                 "say: This scene shows the demo command and what it prints on screen.",
@@ -99,7 +99,7 @@ def test_a_valid_spec_loads(tmp_path: Path) -> None:
             ),
             "narration is",
         ),
-        (("    expect: hello\n", "    expect: hello\n    steps: [{goto: /}]\n"), "browser"),
+        (("    expect: HELLO\n", "    expect: HELLO\n    steps: [{goto: /}]\n"), "browser"),
     ],
 )
 def test_a_bad_spec_is_refused_with_a_reason(
@@ -110,6 +110,44 @@ def test_a_bad_spec_is_refused_with_a_reason(
     with pytest.raises(spec.SpecError) as raised:
         spec.load_tutorial(_write(tmp_path, "demo", text))
     assert any(reason in problem for problem in raised.value.problems), raised.value.problems
+
+
+def test_an_expect_that_the_typed_command_satisfies_is_refused(tmp_path: Path) -> None:
+    text = GOOD.replace("run: echo hello", "run: ls -1 report.sarif").replace(
+        "expect: HELLO", "expect: 'report\\.sarif'"
+    )
+    with pytest.raises(spec.SpecError, match="also matches the typed command"):
+        spec.load_tutorial(_write(tmp_path, "demo", text))
+    anchored = text.replace("'report\\.sarif'", "'(?m)^report\\.sarif\\s*$'")
+    assert spec.load_tutorial(_write(tmp_path, "demo", anchored)).scenes[0].run
+
+
+@pytest.mark.parametrize("field", ["title", "summary"])
+def test_a_spec_without_a_title_or_summary_is_refused(tmp_path: Path, field: str) -> None:
+    text = "\n".join(line for line in GOOD.splitlines() if not line.startswith(f"{field}:"))
+    with pytest.raises(spec.SpecError, match=f"{field} is required"):
+        spec.load_tutorial(_write(tmp_path, "demo", text + "\n"))
+
+
+def test_glob_placeholders_name_exactly_one_file(tmp_path: Path) -> None:
+    (tmp_path / "dist").mkdir()
+    wheel = tmp_path / "dist" / "pydiggs-9.9.9-py3-none-any.whl"
+    wheel.write_bytes(b"")
+    assert spec.expand("--wheel {glob:dist/*.whl}", work=tmp_path) == f"--wheel {wheel}"
+    assert spec.expand("?w={globname:dist/*.whl}&p={port}", work=tmp_path, port=8) == (
+        "?w=pydiggs-9.9.9-py3-none-any.whl&p=8"
+    )
+    (tmp_path / "dist" / "pydiggs-0.0.1-py3-none-any.whl").write_bytes(b"")
+    with pytest.raises(spec.SpecError, match="matches 2 files"):
+        spec.expand("{glob:dist/*.whl}", work=tmp_path)
+
+
+def test_the_recorded_shell_runs_the_project_not_the_renderer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("TUTORIALS_PROJECT_BIN", str(tmp_path))
+    monkeypatch.setenv("PATH", "/renderer/bin")
+    assert build.project_env()["PATH"].split(":")[0] == str(tmp_path)
 
 
 def test_a_browser_upload_must_stay_in_the_repo_or_work_dir(tmp_path: Path) -> None:

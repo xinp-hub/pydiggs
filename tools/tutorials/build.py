@@ -69,6 +69,7 @@ from spec import (
     Scene,
     Step,
     Tutorial,
+    expand,
     load_manifest,
     load_tutorial,
     sentences,
@@ -180,6 +181,24 @@ def write_vtt(path: Path, cues: list[Cue]) -> None:
         blocks += [vtt_escape(line) for line in wrap(cue.text)]
         blocks.append("")
     path.write_text("\n".join(blocks), encoding="utf-8", newline="\n")
+
+
+def project_env() -> dict[str, str]:
+    """The environment for everything the video shows: the project's own commands first.
+
+    ``uv run --script`` puts the renderer's isolated environment first on ``PATH``, and
+    that environment does not have the package. So the setup, the recorded shell and the
+    browser example's server get the project's ``bin`` directory in front:
+    ``$TUTORIALS_PROJECT_BIN``, or ``.venv/bin`` (``Scripts`` on Windows) in the repository.
+    """
+    env = dict(os.environ)
+    project_bin = os.environ.get("TUTORIALS_PROJECT_BIN") or str(
+        ROOT / ".venv" / ("Scripts" if os.name == "nt" else "bin")
+    )
+    if Path(project_bin).is_dir():
+        env["PATH"] = project_bin + os.pathsep + env.get("PATH", "")
+    env.pop("VIRTUAL_ENV", None)
+    return env
 
 
 # --- the voice -------------------------------------------------------------------------
@@ -325,7 +344,7 @@ def run_setup(tutorial: Tutorial, work: Path) -> None:
     """Run the spec's setup lines, off camera, in the work directory."""
     for line in tutorial.setup:
         command = line.replace("{repo}", shlex.quote(str(ROOT)))
-        run(["bash", "-euo", "pipefail", "-c", command], cwd=work)
+        run(["bash", "-euo", "pipefail", "-c", command], cwd=work, env=project_env())
 
 
 def record_terminal(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
@@ -341,6 +360,7 @@ def record_terminal(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]
             capture_output=True,
             text=True,
             cwd=work,
+            env=project_env(),
         )
         if result.returncode != 0:
             sys.stderr.write(result.stdout + result.stderr)
@@ -397,7 +417,7 @@ def _do(page: Any, step: Step, base: str, work: Path) -> None:
 
     value = step.value
     if step.action == "goto":
-        page.goto(base + str(value).lstrip("/"))
+        page.goto(base + expand(str(value), work=work).lstrip("/"))
     elif step.action == "wait":
         page.wait_for_timeout(int(value))
     elif step.action in {"wait_text", "expect_text"}:
@@ -414,7 +434,7 @@ def _do(page: Any, step: Step, base: str, work: Path) -> None:
     elif step.action == "press":
         page.locator(value["selector"]).first.press(str(value.get("key", "Enter")))
     elif step.action == "upload":
-        path = str(value["file"]).replace("{repo}", str(ROOT)).replace("{work}", str(work))
+        path = expand(str(value["file"]), work=work)
         page.locator(value["selector"]).first.set_input_files(path)
 
 
@@ -422,10 +442,16 @@ def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
     """Start the tutorial's server, do each scene's steps on camera; return the clips."""
     from playwright.sync_api import sync_playwright  # noqa: PLC0415
 
+    # Playwright records video with its own ffmpeg build, not the one on PATH.
+    run([sys.executable, "-m", "playwright", "install", "ffmpeg"])
     port = _free_port()
-    command = tutorial.serve.replace("{port}", str(port)).replace("{repo}", str(ROOT))
+    command = expand(tutorial.serve, work=work, port=port)
     server = subprocess.Popen(  # noqa: S603
-        shlex.split(command), cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        shlex.split(command),
+        cwd=ROOT,
+        env=project_env(),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     base = tutorial.ready.replace("{port}", str(port))
     if not base.endswith("/"):

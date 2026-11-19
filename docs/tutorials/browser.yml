@@ -6,7 +6,9 @@ setup:
   - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
   - pydiggs convert site.ags -o site.xml > /dev/null
   - sed -e 's#<totalMeasuredDepth uom="m">15.00#<totalMeasuredDepth uom="m">fifteen#' site.xml > broken.xml
-serve: python3 examples/browser-worker/serve.py --port {port}
+  # The page runs this checkout's pyDIGGS, not the PyPI release (serve.py --wheel, ?wheel=).
+  - uv build --wheel --out-dir dist {repo}
+serve: python3 examples/browser-worker/serve.py --port {port} --wheel {glob:dist/pydiggs-*.whl}
 ready: http://127.0.0.1:{port}/
 scenes:
   - title: Load the page
@@ -15,7 +17,7 @@ scenes:
       compiled to WebAssembly, and installs pyDIGGS inside the tab. When the status line
       says Ready, with the versions it loaded, the file picker is enabled.
     steps:
-      - goto: /
+      - goto: '/?wheel=/wheels/{globname:dist/pydiggs-*.whl}'
       - wait_text: '^Ready: pydiggs'
   - title: Validate a file
     say: >-

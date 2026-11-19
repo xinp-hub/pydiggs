@@ -103,14 +103,14 @@ def _shell(command: str, work: Path) -> subprocess.CompletedProcess[str]:
 def rehearse(tutorial: Tutorial) -> list[str]:
     """Run a terminal tutorial off camera; return how its output failed its ``expect``."""
     found: list[str] = []
+    if tutorial.kind != "terminal":
+        return found  # a browser tutorial is checked by recording it (tutorials.yml)
     with tempfile.TemporaryDirectory(prefix=f"rehearse-{tutorial.id}-") as tmp:
         work = Path(tmp)
         for line in tutorial.setup:
             result = _shell(line.replace("{repo}", shlex.quote(str(ROOT))), work)
             if result.returncode != 0:
                 return [f"{tutorial.id}: setup failed: {line.splitlines()[0]}\n{result.stderr}"]
-        if tutorial.kind != "terminal":
-            return found
         for index, scene in enumerate(tutorial.scenes, 1):
             if not scene.run:
                 continue
