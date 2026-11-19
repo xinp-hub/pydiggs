@@ -215,10 +215,14 @@ def test_tape_types_the_command_and_waits_for_the_expected_screen(tmp_path: Path
     assert tape.index("Hide") < tape.index("Show") < tape.index("Type 'pydiggs")
 
 
-def test_browser_scene_marks_move_back_by_the_recording_lag() -> None:
-    marks = [(0.0, 14.0), (14.0, 22.5)]
-    assert build.align(marks, 2.5) == [(0.0, 11.5), (11.5, 20.0)]
-    assert build.align(marks, 0.0) == marks
+def test_a_browser_scene_is_cut_from_the_frames_painted_in_its_window() -> None:
+    a, b, c, d = (Path(f"{n}.jpg") for n in "abcd")
+    frames = [(10.0, a), (12.0, b), (15.0, c), (21.0, d)]
+    # Opens on the frame already on screen, then each frame until the next or the end.
+    assert build.scene_frames(frames, 11.0, 16.0) == [(a, 1.0), (b, 3.0), (c, 1.0)]
+    # A later scene never shows a frame painted after it ended (d at 21 s).
+    assert build.scene_frames(frames, 16.0, 20.0) == [(c, 4.0)]
+    assert build.scene_frames([], 0.0, 1.0) == []
 
 
 def _page(src_uri: str, url: str) -> SimpleNamespace:

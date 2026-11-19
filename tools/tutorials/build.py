@@ -33,9 +33,9 @@ How a video is made, scene by scene:
 
 Needs: ffmpeg and ffprobe; VHS (and its ttyd) for terminal tutorials; Chromium for
 browser tutorials (``playwright install chromium``, or an installed Chrome with
-``TUTORIALS_CHROME_CHANNEL=chrome``). The voice model is downloaded once,
-checked against pinned SHA-256 digests, into ``$TUTORIALS_MODEL_DIR`` (default
-``~/.cache/forge-tutorials``).
+``TUTORIALS_CHROME_CHANNEL=chrome``), recorded through its DevTools screencast. The
+voice model is downloaded once, checked against pinned SHA-256 digests, into
+``$TUTORIALS_MODEL_DIR`` (default ``~/.cache/forge-tutorials``).
 """
 
 from __future__ import annotations
@@ -438,23 +438,57 @@ def _do(page: Any, step: Step, base: str, work: Path) -> None:
         page.locator(value["selector"]).first.set_input_files(path)
 
 
-def align(marks: list[tuple[float, float]], lag: float) -> list[tuple[float, float]]:
-    """Move scene marks from the wall clock to the video's own timeline.
+Frame = tuple[float, Path]
 
-    Playwright's recording starts a moment after the page exists, so the video is shorter
-    than the wall-clock time the steps took by that lag. Cutting at the wall-clock marks
-    would put each scene's cut late, into the next scene's first step: the viewer would
-    see an action before the narration describes it.
+
+def scene_frames(frames: list[Frame], begin: float, end: float) -> list[tuple[Path, float]]:
+    """The screencast frames that make up the window ``[begin, end]``, with durations.
+
+    Chrome sends a frame only when the page changes, each stamped with the time it was
+    painted. A scene opens on the last frame painted before it began, and each frame lasts
+    until the next one (or the end of the window). Cutting on these stamps, which share the
+    clock of the scene marks, puts every action exactly where its scene's narration is.
     """
-    return [(max(0.0, begin - lag), max(0.0, end - lag)) for begin, end in marks]
+    shown: list[tuple[Path, float]] = []
+    previous = [f for f in frames if f[0] <= begin]
+    inside = [f for f in frames if begin < f[0] < end]
+    timeline = ([(begin, previous[-1][1])] if previous else []) + inside
+    if not timeline:
+        return shown
+    for (at, path), following in zip(timeline, [*timeline[1:], (end, Path())], strict=True):
+        if following[0] > at:
+            shown.append((path, following[0] - at))
+    return shown
+
+
+def write_clip(shown: list[tuple[Path, float]], target: Path) -> None:
+    """Encode frames with their durations (ffmpeg's concat demuxer) at a constant rate."""
+    listing = target.with_suffix(".frames.txt")
+    lines = [f"file '{path}'\nduration {length:.4f}\n" for path, length in shown]
+    # The concat demuxer applies the last duration only if the last file is listed again.
+    lines.append(f"file '{shown[-1][0]}'\n")
+    listing.write_text("".join(lines), encoding="utf-8")
+    run(
+        ["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0", "-i", str(listing),
+         "-vf", f"scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=decrease,"
+         f"pad={WIDTH}:{HEIGHT}:(ow-iw)/2:(oh-ih)/2,fps={FPS}",
+         "-t", f"{sum(length for _, length in shown):.3f}",
+         "-an", "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", str(target)]
+    )  # fmt: skip
 
 
 def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
-    """Start the tutorial's server, do each scene's steps on camera; return the clips."""
+    """Start the tutorial's server, do each scene's steps on camera; return the clips.
+
+    The screen is captured with Chrome's own screencast (DevTools ``Page.startScreencast``),
+    not Playwright's video file: each frame carries the time it was painted, while a video
+    file drifts against the clock by a varying amount, which put actions on screen before
+    their narration in the first renders.
+    """
+    import base64  # noqa: PLC0415
+
     from playwright.sync_api import sync_playwright  # noqa: PLC0415
 
-    # Playwright records video with its own ffmpeg build, not the one on PATH.
-    run([sys.executable, "-m", "playwright", "install", "ffmpeg"])
     port = _free_port()
     command = expand(tutorial.serve, work=work, port=port)
     server = subprocess.Popen(  # noqa: S603
@@ -468,6 +502,9 @@ def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
     if not base.endswith("/"):
         base += "/"
     marks: list[tuple[float, float]] = []
+    frames: list[Frame] = []
+    frame_dir = scratch / "frames"
+    frame_dir.mkdir()
     try:
         _wait_for(base)
         with sync_playwright() as playwright:
@@ -476,17 +513,29 @@ def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
             browser = playwright.chromium.launch(channel=channel)
             context = browser.new_context(
                 viewport={"width": WIDTH, "height": HEIGHT},
-                record_video_dir=str(scratch),
-                record_video_size={"width": WIDTH, "height": HEIGHT},
+                device_scale_factor=1,
                 color_scheme="light",
                 reduced_motion="reduce",
                 locale="en-US",
             )
             context.add_init_script(POINTER)
             page = context.new_page()
-            started = time.monotonic()
+            devtools = context.new_cdp_session(page)
+
+            def on_frame(params: dict[str, Any]) -> None:
+                path = frame_dir / f"{len(frames):06d}.jpg"
+                path.write_bytes(base64.b64decode(params["data"]))
+                frames.append((float(params["metadata"]["timestamp"]), path))
+                devtools.send("Page.screencastFrameAck", {"sessionId": params["sessionId"]})
+
+            devtools.on("Page.screencastFrame", on_frame)
+            devtools.send(
+                "Page.startScreencast",
+                {"format": "jpeg", "quality": 92, "maxWidth": WIDTH, "maxHeight": HEIGHT},
+            )
+            page.goto("about:blank")
             for index, scene in enumerate(tutorial.scenes, 1):
-                begin = time.monotonic() - started
+                begin = time.time()  # the clock of the frames' timestamps
                 for step in scene.steps:
                     try:
                         _do(page, step, base, work)
@@ -494,24 +543,30 @@ def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
                         msg = f"{tutorial.id} scene {index}: {step.action} failed: {exc}"
                         raise SystemExit(msg) from exc
                 page.wait_for_timeout(800)
-                marks.append((begin, time.monotonic() - started))
-            video = Path(page.video.path())
-            wall = time.monotonic() - started
-            context.close()  # the video file is complete only once its context is closed
+                marks.append((begin, time.time()))
+            page.wait_for_timeout(300)  # let the last frames arrive
+            devtools.send("Page.stopScreencast")
+            context.close()
             browser.close()
     finally:
         server.terminate()
         server.wait(timeout=10)
-    lag = max(0.0, wall - duration(video))
-    print(f"{tutorial.id}: the recording started {lag:.2f} s after the first step")
+    print(f"{tutorial.id}: {len(frames)} screencast frames")
+    return cut_scenes(tutorial, frames, marks, scratch)
+
+
+def cut_scenes(
+    tutorial: Tutorial, frames: list[Frame], marks: list[tuple[float, float]], scratch: Path
+) -> list[Path]:
+    """One clip per scene, from the frames painted within its marks."""
     clips: list[Path] = []
-    for index, (begin, end) in enumerate(align(marks, lag), 1):
+    for index, (begin, end) in enumerate(marks, 1):
+        shown = scene_frames(frames, begin, end)
+        if not shown:
+            msg = f"{tutorial.id} scene {index}: the screencast sent no frame"
+            raise SystemExit(msg)
         clip = scratch / f"scene-{index:02d}.mp4"
-        run(
-            ["ffmpeg", "-y", "-v", "error", "-ss", f"{begin:.3f}", "-to", f"{end:.3f}",
-             "-i", str(video), "-an", "-c:v", "libx264", "-crf", "16", "-r", str(FPS),
-             "-pix_fmt", "yuv420p", str(clip)]
-        )  # fmt: skip
+        write_clip(shown, clip)
         clips.append(clip)
     return clips
 
