@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-11-19
+
+### Added
+- **Compare two files over HTTP, the sidecar and `@pydiggs/client`.** The comparison
+  `pydiggs diff` makes is now offered on every surface, each answering the same
+  diggs-diff 1.0 document:
+  - **HTTP.** `POST /v1/diff` takes the two files as multipart parts `old` and `new`,
+    with the options `match`, `rel_tol`, `abs_tol`, `max_changes`, `show_reformatted`,
+    `show_renamed`, `old_name` and `new_name` in the query or the form. Each file is held
+    to the server's `max_body_bytes`, the pair runs as one job under its time limit, and
+    an answer larger than four times `max_body_bytes` is 422 `result-too-large`, as for
+    `/v1/read`. See [HTTP API](https://xinp-hub.github.io/pydiggs/http-api/).
+  - **Sidecar protocol 1.3.** The method `diff` takes each file as base64 or as a path;
+    `initialize` reports `capabilities.diff` and `diff_schema_url`. A session that
+    negotiated protocol 1.0 to 1.2 is refused the method.
+  - **`@pydiggs/client`.** `diff(old, new, options)` on the HTTP, browser, Node, pool and
+    hybrid clients, and `/v1/diff` in `createPydiggsHandler`. Requires pyDIGGS 1.13.0 on
+    the server or in the worker.
+
+  A refused file is named by its side (`old` or `new`); errors never carry a path or the
+  file's content.
+
+### Changed
+- **`pydiggs.diff` is stable, and its report format diggs-diff 1.0 is frozen.** A
+  diggs-diff 1.0 document changes only in a major release of the format. `to_json()`
+  writes `"schema_version": "1.0"` against
+  [diggs-diff-1.0.schema.json](https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json);
+  documents written by 1.12 (`1.0-beta.1`) still read, and the beta schema stays
+  published under `schemas/preview/`. `capabilities()` lists `diff` as stable.
+- **Two files are also compared on the root element and between records.** The root
+  element's attributes (other than its id and `xsi:schemaLocation`) and text before,
+  between or after the top-level members are compared and listed with the document's
+  record, under paths that start with `xml.Diggs[1]`.
+- **Each edit is listed once.** A changed declared type is listed at the column's type,
+  unit labels a result index reads at the index's unit, and a changed link at its links;
+  none is listed again as file content.
+- **Fewer differences that are only re-export noise.** Other `cs`/`ts` separators, a
+  default separator written out or left out, and `double` declared as `float` are
+  *reformatted* (listed only with `--verbose`) when every value reads the same. A
+  different decimal mark is still a change, since pyDIGGS reads numbers written with a
+  point.
+- `compare(match="gml_id")` and `--match gml_id` are accepted as another spelling of
+  `gml-id`.
+
+### Fixed
+- Two result columns that moved and exchanged a declared type of the same kind compared
+  identical. Content that the model does not keep is now paired by what its typed fields
+  hold before file order.
+- `pydiggs validate` and `pydiggs convert` no longer fail with a traceback when the
+  terminal cannot encode the report (for example a non-UTF-8 Windows console); a stdout
+  that cannot be written exits 2, as `pydiggs diff` does.
+- `diff.compare` raised `OverflowError` for a tolerance or time budget given as an integer
+  too large for a float (such as `abs_tol=10**400`); it now raises the documented
+  `ValueError` naming the option.
+
 ## [1.12.0] - 2026-11-18
 
 ### Added
@@ -1271,7 +1326,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/xinp-hub/pydiggs/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/xinp-hub/pydiggs/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/xinp-hub/pydiggs/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/xinp-hub/pydiggs/compare/v1.9.0...v1.10.0

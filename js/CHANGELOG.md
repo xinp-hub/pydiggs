@@ -10,14 +10,20 @@ matching pyDIGGS version number.
 
 ### Added
 
+- `diff(old, new, options)` compares two DIGGS files (pyDIGGS 1.13), on the HTTP, browser,
+  Node, pool and hybrid clients, and `createPydiggsHandler` serves `/v1/diff`. The answer
+  is a diggs-diff 1.0 document, typed as `DiggsDiffDocument` and shipped as
+  `@pydiggs/client/schemas/diggs-diff-1.0.schema.json`. It needs pyDIGGS 1.13.0 or
+  later on the server or in the worker.
 - `PydiggsHybrid` has `validateSarif` and `checkAgs4Sarif`, as the other engines do. They
   route like `validate` and `checkAgs4`, and go to the server when the browser engine
   has no SARIF call.
 
 ### Changed
 
-- Runs pyDIGGS 1.12.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256. AGS4 files with
-  depths in feet now convert to DIGGS (mapping table 1.2).
+- Runs pyDIGGS 1.13.0 (`PYDIGGS_VERSION`); its wheel is pinned by sha256 from PyPI's record
+  once published. AGS4 files with depths in feet convert to DIGGS (mapping table 1.2,
+  pyDIGGS 1.12).
 - The findings types follow **diggs-findings 1.2** (pyDIGGS 1.12), which only adds to 1.1:
   the step `"diff"` (the findings of a model diff). `FINDINGS_SCHEMA_URL` is the 1.2 schema,
   shipped as `@pydiggs/client/schemas/diggs-findings-1.2.schema.json`; the 1.0 and 1.1

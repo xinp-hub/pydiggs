@@ -86,16 +86,18 @@ def diff_schema() -> dict[str, Any]:
 
 
 def _number(name: str, value: object, *, allow_zero: bool) -> float:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, int | float)
-        or not math.isfinite(value)
-        or value < 0
-        or (value == 0 and not allow_zero)
-    ):
+    number = math.nan
+    if not isinstance(value, bool) and isinstance(value, int | float):
+        try:
+            number = float(value)
+        except OverflowError:  # an int too large for a float
+            number = math.inf
+    if not math.isfinite(number) or number < 0 or (number == 0 and not allow_zero):
         kind = "a finite number, 0 or more" if allow_zero else "a positive finite number"
-        raise ValueError(f"{name} must be {kind}, got {value!r}")
-    return float(value)
+        too_large = isinstance(value, int) and number == math.inf
+        shown = "an integer too large for a float" if too_large else repr(value)
+        raise ValueError(f"{name} must be {kind}, got {shown}")
+    return number
 
 
 def _options(

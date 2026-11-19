@@ -259,21 +259,29 @@ def close_schema(node: Any, name: str = "") -> Any:
 
 
 @cache
-def closed_validator() -> Any:
-    import jsonschema
+def findings_registry() -> Any:
+    """A registry holding diggs-findings 1.2, which the diff schema's notes refer to."""
     import referencing
-
-    from pydiggs import diff
 
     findings = json.loads(
         resources.files("pydiggs.findings")
         .joinpath("diggs-findings-1.2.schema.json")
         .read_text("utf-8")
     )
-    registry = referencing.Registry().with_resource(
+    return referencing.Registry().with_resource(
         findings["$id"], referencing.Resource.from_contents(findings)
     )
-    return jsonschema.Draft202012Validator(close_schema(diff.diff_schema()), registry=registry)
+
+
+@cache
+def closed_validator() -> Any:
+    import jsonschema
+
+    from pydiggs import diff
+
+    return jsonschema.Draft202012Validator(
+        close_schema(diff.diff_schema()), registry=findings_registry()
+    )
 
 
 def schema_errors(document: Any) -> list[str]:
