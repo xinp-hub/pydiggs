@@ -101,7 +101,7 @@ exactly the operations the installed release offers. `needs` is the extra to ins
 | `ags4.check` | preview |  | Check an AGS4 file against the AGS4 rules |
 | `convert.ags4-to-diggs` | stable |  | Convert an AGS4 file to DIGGS 3.0.0, listing everything not carried over and keeping it in a residual AGS4 file |
 | `convert.diggs-to-ags4` | stable |  | Convert a DIGGS file (or a read one) to an AGS4 file, listing everything not carried over |
-| `diff` | preview |  | Compare two DIGGS files: what was added, removed or changed (preview: the report format and the comparison rules may change) |
+| `diff` | stable |  | Compare two DIGGS files: what was added, removed or changed |
 | `export.pandas` | stable | `frames` | Tables of a read file as a pandas data frame |
 | `export.polars` | stable | `polars` | Tables of a read file as a polars data frame |
 | `gis.transform` | stable | `gis` | Add longitude and latitude to every location that has a known CRS |
@@ -135,7 +135,7 @@ Where each is in Python:
 The AGS4 reading, writing and checking operations are a preview; conversion
 (`pydiggs.convert`) is stable from pyDIGGS 1.11, both ways. `POST /v1/convert` and the
 sidecar's `convert` are either conversion operation, chosen by their `to` parameter.
-`diff` ([Comparing two files](diff.md), from pyDIGGS 1.12) is offered in Python and as
+`diff` ([Comparing two files](diff.md), from pyDIGGS 1.12, stable from 1.13) is offered in Python and as
 `pydiggs diff`; the HTTP API, the sidecar and the MCP server do not offer it yet. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).

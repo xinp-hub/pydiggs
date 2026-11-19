@@ -137,7 +137,7 @@ Stable from pyDIGGS 1.11; see [AGS4 and DIGGS conversion](convert.md).
 
 ## Comparing files
 
-Stable from pyDIGGS 1.12; see [Comparing two files](diff.md). `import pydiggs` does not
+Stable from pyDIGGS 1.13 (a preview in 1.12); see [Comparing two files](diff.md). `import pydiggs` does not
 load `pydiggs.diff`: use `from pydiggs import diff`.
 
 ::: pydiggs.diff.compare

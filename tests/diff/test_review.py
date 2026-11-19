@@ -225,10 +225,7 @@ def test_swapping_the_ids_of_two_centre_lines_moves_the_reference_to_the_other_l
     assert "a" not in places and "b" not in places and {"a", "b"} <= marks.keys()
     result = diff.compare(old, new)
     assert result.identical is False
-    assert {path.rpartition(".")[2] for path in _paths(result)} == {
-        "linearElement[1]@xlink:href",
-        "linearElement",
-    }
+    assert {path.rpartition(".")[2] for path in _paths(result)} == {"linearElement"}
     assert diff.compare(old, old).identical
 
 
@@ -291,10 +288,7 @@ def test_swapped_ids_past_the_readers_index_limit_are_seen(monkeypatch):
     assert diff.compare(old, old).changes == ()
     swapped = diff.compare(old, text("Q", "P"))
     assert swapped.complete is False
-    assert {path.rpartition(".")[2] for path in _paths(swapped)} == {
-        "linearElement[1]@xlink:href",
-        "linearElement",
-    }
+    assert {path.rpartition(".")[2] for path in _paths(swapped)} == {"linearElement"}
 
 
 def test_an_edit_inside_an_element_placed_by_position_is_reported_with_its_reference():

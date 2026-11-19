@@ -33,7 +33,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
 
-from pydiggs import _service
+from pydiggs import _service, _stdout
 from pydiggs.findings._cli import _safe
 
 __all__ = ["build_parser", "main"]
@@ -360,7 +360,12 @@ def main(argv: Sequence[str]) -> int:
         )
         return 2
     if args.format == "json":
-        sys.stdout.write(_summary_json(result, args.output, args.residual))
+        summary = _summary_json(result, args.output, args.residual)
     else:
-        sys.stdout.write(_summary_text(result, args.input, args.output, args.residual))
+        summary = _summary_text(result, args.input, args.output, args.residual)
+    # A stdout that cannot encode a name gets escapes, never a traceback.
+    problem = _stdout.write_report(summary, json_report=args.format == "json", what="summary")
+    if problem is not None:
+        print(f"{_PROG}: {_safe(problem)}", file=sys.stderr)
+        return 2
     return 1 if _failed(result, args.fail_on) else 0

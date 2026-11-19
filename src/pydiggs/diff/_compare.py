@@ -38,10 +38,12 @@ from typing import Any, Final, NamedTuple, TypeVar
 from pydiggs.model import Code, ExtraNode, Feature, Link, Model, Node, Quantity
 
 __all__ = [
+    "Declared",
     "NestedIds",
     "Ref",
     "Seen",
     "Side",
+    "Spelled",
     "Tick",
     "Tokens",
     "Tol",
@@ -50,6 +52,7 @@ __all__ = [
     "close",
     "diff_maps",
     "flatten",
+    "href_relation",
     "put",
     "put_extra",
     "same",
@@ -90,6 +93,19 @@ HELD: Final = "\x00held"
 TAIL: Final = "#tail"
 #: The start of the path of a value the file holds and the model does not.
 UNREAD: Final = "xml"
+#: The key, in :attr:`Seen.unread`, of what a file holds outside every record: the
+#: attributes of its root element and the text between its members. It is compared with
+#: the document's own record (:func:`flatten`), or on its own when there is no pair of
+#: those. As the reader gives it.
+ROOT: Final = "\x00root"
+#: On an element of what a file holds and its model does not, as the reader gives them:
+#: the attributes that only say how values the model holds are written (the separators
+#: and decimal mark of a result set), and the kind of value a declared type was read as.
+SPELLED: Final = "\x00spelled"
+DECLARED: Final = "\x00declared"
+#: Declared types that read values the same way and are only written differently: the
+#: same name in other letter case, and the two names of a binary floating-point number.
+_SAME_DECLARED: Final = frozenset({"double", "float"})
 #: The path of a record's own ``gml:id``. No other leaf has it: every other path of that
 #: shape is a field of the model, and parameters, links and ``extra`` have a prefix.
 OWN_ID: Final = "gml_id"
@@ -215,12 +231,68 @@ class Seen(NamedTuple):
     #: position below the record and of what it holds.
     marks: Mapping[str, tuple[tuple[str, str], ...]] = MappingProxyType({})
     #: What the file holds of each record that its model does not, by the record's key:
-    #: the attributes and text no typed field holds, as ``extra`` elements. The key ``""``
-    #: is there when the reader's work limit cut it short.
+    #: the attributes and text no typed field holds, as ``extra`` elements; and what it
+    #: holds outside every record, by :data:`ROOT`. The key ``""`` is there when the
+    #: reader's work limit cut it short.
     unread: Mapping[str, tuple[ExtraNode, ...]] = MappingProxyType({})
     #: How many elements each record has that typed fields hold in full (so they are
     #: not in ``unread``), by the names of the elements from the record down to them.
     names: Mapping[str, Mapping[str, int]] = MappingProxyType({})
+
+
+#: The attributes of a result set's values that say how they are written: what each is
+#: when it is not written, and whether pyDIGGS reads the values with it. pyDIGGS reads a
+#: number written with a point, whatever the decimal mark says.
+_SPELLINGS: Final = {"cs": (",", True), "ts": (" ", True), "decimal": (".", False)}
+
+
+@dataclass(frozen=True, slots=True)
+class Spelled:
+    """How the values of a result set are written: a separator, or the decimal mark.
+
+    ``text`` is None where the file does not write the attribute. Two separators that
+    differ only in being written (``cs=","`` and none) are the same; two different
+    separators are written differently too, because the columns hold what the values
+    read as and compare that: values that read the same with each file's separators
+    are the same values. The decimal mark is not read, so a different one (``.`` and
+    ``,``) is a change: a reader that follows it would read other numbers.
+    """
+
+    name: str
+    text: str | None
+
+    def same(self, other: Spelled, _tol: Tol | None = None) -> str | None:
+        """None, ``"reformatted"`` or ``"changed"``, as :func:`same` gives for two leaves."""
+        if self == other:
+            return None
+        default, read = _SPELLINGS.get(self.name, ("", False))
+        if self.name != other.name:
+            return CHANGED
+        if read or (self.text or default) == (other.text or default):
+            return REFORMATTED
+        return CHANGED
+
+
+@dataclass(frozen=True, slots=True)
+class Declared:
+    """The declared type of a result column (``typeData``), with the kind it was read as.
+
+    The column compares the kind. The text is the same declaration written differently
+    when it differs only in letter case, or when it is ``double`` against ``float``:
+    each reads the same values. Any other change of the text is a change.
+    """
+
+    text: str
+    kind: str
+
+    def same(self, other: Declared, _tol: Tol | None = None) -> str | None:
+        """None, ``"reformatted"`` or ``"changed"``, as :func:`same` gives for two leaves."""
+        if self.text == other.text:
+            return None
+        mine, theirs = self.text.lower(), other.text.lower()
+        if mine == theirs or {mine, theirs} <= _SAME_DECLARED:
+            return REFORMATTED
+        return CHANGED
 
 
 class Ref:
@@ -291,6 +363,26 @@ def own_id(name: str) -> bool:
 
 def _is_href(name: str) -> bool:
     return _attr_local(name) == ("href", True)
+
+
+#: Where the leaves of an element kept in ``extra`` or held only by the file start.
+_ELEMENT_PATHS: Final = ("extra.", "procedure.extra.", f"{UNREAD}.")
+
+
+def href_relation(path: str) -> str | None:
+    """The relation of the link at ``path``, when it is the ``xlink:href`` of an element.
+
+    That is a leaf of ``extra`` or of what the file holds beyond the model, and the
+    record's ``links`` have it too, by the name of the element (``projectRef`` is
+    ``project``), as the reader names a link.
+    """
+    if not path.startswith(_ELEMENT_PATHS):
+        return None
+    element, at, name = path.rpartition("@")
+    if not at or not _is_href(name):
+        return None
+    local = element.rpartition(".")[2].partition("[")[0]
+    return local.removesuffix("Ref") or local
 
 
 def _local_target(href: str) -> str | None:
@@ -754,15 +846,23 @@ def _put_element(
     # The namespace is written even when there is none, so that an element with no
     # namespace, attribute, text or child still has a leaf and is seen to come or go.
     out[f"{path}#ns"] = item.ns or ""
+    spelled = item.attrs.get(SPELLED, "").split()
     for key, value in item.attrs.items():
-        if own_id(key) or key == HELD:
+        if own_id(key) or key in (HELD, SPELLED, DECLARED) or key in spelled:
             continue  # which element this is in its file, not a value of it
         if key == TAIL:
             out[f"{path}{TAIL}"] = Tokens(value) if words else value
             continue
         out[f"{path}@{seg(key)}"] = value if side is None else side.attr_ref(key, value)
+    for key in spelled:
+        # Written on both sides, there or not: not writing one is a spelling too.
+        out[f"{path}@{key}"] = Spelled(key, item.attrs.get(key))
     if item.text is not None:
-        out[f"{path}#text"] = Tokens(item.text) if words else item.text
+        kind = item.attrs.get(DECLARED)
+        if kind is not None:
+            out[f"{path}#text"] = Declared(item.text, kind)
+        else:
+            out[f"{path}#text"] = Tokens(item.text) if words else item.text
 
 
 #: How :func:`_walk_extra` met an element: walked (its leaves are compared and its children
@@ -818,6 +918,7 @@ def _walk_extra(
                     before = len(a)
                     a, b = refine(a, b)
                     first += before - len(a)
+                a, b = _held_first(a, b)
                 for item in same_old:
                     yield group, (item, None), EQUAL, depth
                 for item in same_new:
@@ -836,6 +937,38 @@ def _walk_extra(
                 below = tuple(() if item is None else item.children for item in pair)
                 if below[0] or below[1]:
                     stack.append((path, below[0], below[1], depth + 1))
+
+
+def _held_first(a: list[ExtraNode], b: list[ExtraNode]) -> tuple[list[ExtraNode], list[ExtraNode]]:
+    """Same-named siblings in the order they are compared: each with its like first.
+
+    What is left of an element in the file is tied to what typed fields hold of it by
+    :data:`HELD`. Siblings that hold the same there are the same element, and compared
+    with each other whatever their order; the rest follow in the order of the file. In
+    the order of the file alone, two columns that moved and exchanged a declared type
+    would compare what is left of each with what is left of the other, and be equal.
+    """
+    if len(a) + len(b) <= 2 or not a or not b:  # noqa: PLR2004 - one each is a pair
+        return a, b
+    waiting: dict[str, list[ExtraNode]] = defaultdict(list)
+    for item in reversed(b):
+        held = item.attrs.get(HELD)
+        if held is not None:
+            waiting[held].append(item)
+    olds: list[ExtraNode] = []
+    news: list[ExtraNode] = []
+    rest: list[ExtraNode] = []
+    for item in a:
+        like = waiting.get(item.attrs.get(HELD, ""))
+        if like:
+            olds.append(item)
+            news.append(like.pop())
+        else:
+            rest.append(item)
+    if not olds:
+        return a, b
+    paired = {id(item) for item in news}
+    return olds + rest, news + [item for item in b if id(item) not in paired]
 
 
 def put_extra(
@@ -1118,9 +1251,19 @@ def _put_node(node: Node, side: Side, tick: Tick) -> dict[str, Any]:
 
 
 def flatten(
-    old: Node, new: Node, sides: tuple[Side, Side], tick: Tick = _no_tick
+    old: Node,
+    new: Node,
+    sides: tuple[Side, Side],
+    tick: Tick = _no_tick,
+    *,
+    also: tuple[tuple[ExtraNode, ...], tuple[ExtraNode, ...]] = ((), ()),
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Every value of two matched nodes that takes part in a comparison, by path."""
+    """Every value of two matched nodes that takes part in a comparison, by path.
+
+    ``also`` is more of what the two files hold and their models do not, compared with
+    what the two records lack: what each file holds outside every record (:data:`ROOT`),
+    with the document's own record.
+    """
     outs = (_put_node(old, sides[0], tick), _put_node(new, sides[1], tick))
     for prefix, both in _extras(old, new):
         put_extra(outs, prefix, both, tick, sides)
@@ -1134,7 +1277,10 @@ def flatten(
         # have it: a model has what it holds and no more. Where the reader's work limit
         # cut it short for either file, the two halves say nothing of each other: the
         # comparison is incomplete, and lists none of it.
-        unread = (seen[0].unread.get(old.key, ()), seen[1].unread.get(new.key, ()))
+        unread = (
+            (*also[0], *seen[0].unread.get(old.key, ())),
+            (*also[1], *seen[1].unread.get(new.key, ())),
+        )
         if unread[0] or unread[1]:
             put_extra(outs, UNREAD, unread, tick, sides, words=True)
         _put_names(outs, (seen[0].names.get(old.key), seen[1].names.get(new.key)), tick)
@@ -1169,12 +1315,18 @@ def _put_names(
                     out[leaf] = count
 
 
+#: The leaves of text the model does not hold, each with its own ``same``.
+_UNREAD_TEXTS: Final = frozenset({Tokens, Spelled, Declared})
+
+
 def same(a: Any, b: Any, tol: Tol) -> str | None:  # noqa: PLR0911 - one return per kind
     """None when equal, ``"reformatted"`` when only the text differs, else ``"changed"``."""
     if isinstance(a, Ref) or isinstance(b, Ref):
         return None if a == b else CHANGED
-    if isinstance(a, Tokens) or isinstance(b, Tokens):
-        return a.same(b, tol) if isinstance(a, Tokens) and isinstance(b, Tokens) else CHANGED
+    if type(a) in _UNREAD_TEXTS or type(b) in _UNREAD_TEXTS:
+        # Text the model does not hold, compared as what it says; never equal to a value
+        # of another kind. (A lookup by type: this runs for every leaf.)
+        return a.same(b, tol) if type(a) is type(b) else CHANGED
     if isinstance(a, Quantity) and isinstance(b, Quantity):
         if a.uom != b.uom:
             return CHANGED
@@ -1214,8 +1366,10 @@ def show(value: Any) -> tuple[Any, bool]:  # noqa: PLR0911 - one return per kind
         return _clip(value)
     if isinstance(value, Ref):
         return _clip(value.shown)
-    if isinstance(value, Tokens):
+    if isinstance(value, Tokens | Declared):
         return _clip(value.text)
+    if isinstance(value, Spelled):
+        return (None, False) if value.text is None else _clip(value.text)
     if isinstance(value, Quantity):
         return _clip(f"{value.text} {value.uom}" if value.uom else value.text)
     if isinstance(value, Code):

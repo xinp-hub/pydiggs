@@ -138,8 +138,9 @@ def read_with_places(
     sibling on the way, too deep, an id used twice): for each, the record, and a digest
     of the position and the content, of every element with that id. The fifth has,
     by the key of each record, what the file holds of it that the model does not: the
-    attributes and text that no typed field holds, as ``extra`` elements (the key ``""``
-    is there when a work limit cut that short). The sixth counts, per record, the
+    attributes and text that no typed field holds, as ``extra`` elements, and under the
+    key ``_read.ROOT`` what the file holds outside every record (the key ``""`` is there
+    when a work limit cut that short). The sixth counts, per record, the
     elements whose whole content typed fields hold, by the names of the elements from
     the record down to them. All are built in the same pass as the
     model, which is the model :func:`read` gives.

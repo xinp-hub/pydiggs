@@ -1,6 +1,6 @@
 r"""``pydiggs diff``: what changed between two DIGGS files, as text or diggs-diff JSON.
 
-A preview in pyDIGGS 1.12: the report format and the comparison rules may change in a minor release.
+Stable from pyDIGGS 1.13 (a preview in 1.12): the JSON report is a diggs-diff 1.0 document.
 
 The comparison is :func:`pydiggs.diff.compare`: the same options, the same result. The
 JSON report is :meth:`~pydiggs.diff.Diff.to_json` (a diggs-diff document). The text
@@ -26,15 +26,13 @@ from __future__ import annotations
 
 import argparse
 import math
-import os
-import re
 import sys
 import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
-from pydiggs import _service
+from pydiggs import _service, _stdout
 from pydiggs import diff as _diff
 from pydiggs._convert_cli import _same_file
 from pydiggs.diff import _engine, _text
@@ -59,9 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=_PROG,
         description=(
-            "Compare two DIGGS files by what they describe, not by how they are written"
-            " (preview: the report format and the comparison rules may change in a minor"
-            " release):"
+            "Compare two DIGGS files by what they describe, not by how they are written:"
             " element order, number formatting, line numbers and the gml:id of a record"
             " do not count. Boreholes, samples, tests and the other records are matched by"
             " gml:id, then by a natural key (a borehole's kind and name, a sample's"
@@ -91,11 +87,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--match",
         choices=list(_engine.MATCH_MODES),
+        # gml_id, as the report spells it, is gml-id: converted before the choice is checked.
+        type=lambda mode: _engine.MATCH_ALIASES.get(mode, mode),
         default=_engine.MATCH_MODES[0],
         help=(
             "how records are paired: auto (the default; by gml:id, then by natural key),"
-            " gml-id (ids only; a record whose gml:id changed is removed and added) or"
-            " natural (natural keys only)"
+            " gml-id (ids only, also written gml_id; a record whose gml:id changed is"
+            " removed and added) or natural (natural keys only)"
         ),
     )
     parser.add_argument(
@@ -144,7 +142,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "also list what is not a change: values that are only written differently"
-            " (1.50 and 1.5) and records whose gml:id changed; both are always counted"
+            " (1.50 and 1.5, other separators that read the same values, double and"
+            " float) and records whose gml:id changed; both are always counted"
         ),
     )
     return parser
@@ -244,74 +243,9 @@ def _write(body: str, fmt: str, output: str | None) -> str | None:
     """Write the report to ``output``, or to stdout; what went wrong, or None.
 
     Whatever goes wrong is one line for stderr and exit status 2, never a traceback and
-    never status 1, which would say "the files differ" to a caller that got no report.
+    never status 1, which would say "the files differ" to a caller that got no report
+    (:func:`pydiggs._stdout.write_report`, as for ``validate`` and ``convert``).
     """
-    try:
-        if output:
-            with _open_output(output) as stream:
-                stream.write(_encodable(body, fmt, "utf-8"))
-            return None
-        stdout = sys.stdout
-        if stdout is None:  # started with no standard output at all
-            return "cannot write the report: there is no standard output"
-        stdout.write(_encodable(body, fmt, getattr(stdout, "encoding", None) or "utf-8"))
-        stdout.flush()
-    except (OSError, ValueError) as exc:  # ValueError: a closed stream, an encoding
-        if output:
-            return f"cannot write {output}: {getattr(exc, 'strerror', None) or exc}"
-        _silence_stdout()
-        return f"cannot write the report: {getattr(exc, 'strerror', None) or exc}"
-    return None
-
-
-_NOT_ASCII: Final = re.compile(r"[^\x00-\x7f]")
-_BMP_END: Final = 0x10000
-
-
-def _json_escape(match: re.Match[str]) -> str:
-    """One character as JSON writes it in ASCII (two escapes above the basic plane)."""
-    code = ord(match[0])
-    if code < _BMP_END:
-        return f"\\u{code:04x}"
-    code -= _BMP_END
-    return f"\\u{0xD800 + (code >> 10):04x}\\u{0xDC00 + (code & 0x3FF):04x}"
-
-
-def _encodable(body: str, fmt: str, encoding: str) -> str:
-    r"""``body`` as it is when ``encoding`` can write it, else with escapes in place.
-
-    A name or a value from a file can hold any character, and a stream may be ASCII or
-    cp1252 (a redirected stdout on Windows), or UTF-8 faced with a lone surrogate (a
-    file name that is not valid UTF-8). The JSON report then escapes every character
-    outside ASCII the way JSON does: the same document, readable in any encoding. The
-    text report keeps what the stream can write and spells out the rest
-    (``\u03c6``), as it spells out control characters.
-    """
-    try:
-        body.encode(encoding)
-    except LookupError:  # an encoding this Python does not know: the stream decides
-        return body
-    except UnicodeError:
-        pass
-    else:
-        return body
-    if fmt == "json":
-        # Outside ASCII a JSON document has only the characters inside its strings.
-        return _NOT_ASCII.sub(_json_escape, body)
-    return body.encode(encoding, "backslashreplace").decode(encoding)
-
-
-def _silence_stdout() -> None:
-    """Point stdout at the null device after a failed write.
-
-    Text may still sit in the stream's buffer. Python flushes it again at exit, and a second
-    failure there would replace this command's exit status with a traceback.
-    """
-    try:
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        try:
-            os.dup2(devnull, sys.stdout.fileno())
-        finally:
-            os.close(devnull)
-    except (OSError, ValueError, AttributeError):
-        pass  # stdout has no file descriptor (it was replaced by an in-memory stream)
+    return _stdout.write_report(
+        body, json_report=fmt == "json", output=output, open_output=_open_output
+    )

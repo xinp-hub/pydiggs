@@ -194,7 +194,7 @@ def test_json_is_the_diggs_diff_document_of_compare(changed, capsys):
     assert (code, err) == (1, "")
     document = json.loads(out)
     assert schema_errors(document) == []
-    assert (document["format"], document["schema_version"]) == ("diggs-diff", "1.0-beta.1")
+    assert (document["format"], document["schema_version"]) == ("diggs-diff", "1.0")
     assert document["tool"]["version"] == pydiggs.__version__
     assert (document["old"]["name"], document["new"]["name"]) == ("Aeromag.xml", "changed.xml")
     assert out == diff.compare(AEROMAG, changed).to_json(indent=2) + "\n"
@@ -291,6 +291,13 @@ def test_matching_by_gml_id_only_makes_a_renamed_record_removed_and_added(rename
     assert "The two files differ." in out
     assert "removed measurements amt" in out and "added measurements amt-2" in out
     assert "have a different gml:id" not in out
+
+
+def test_match_takes_gml_id_with_an_underscore_too(renamed, capsys):
+    hyphen = _run(capsys, AEROMAG, renamed, "--match", "gml-id", "--format", "json")
+    underscore = _run(capsys, AEROMAG, renamed, "--match", "gml_id", "--format", "json")
+    assert underscore == hyphen and underscore[0] == 1
+    assert json.loads(underscore[1])["options"]["match"] == "gml-id"
 
 
 def test_a_renamed_id_with_a_real_change_exits_1(tmp_path, capsys):

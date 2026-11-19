@@ -176,7 +176,7 @@ def test_a_linear_element_pointed_at_another_element_of_its_borehole_is_a_differ
     for new in (moved, reissue_ids(moved)):
         result = diff.compare(text.encode(), new.encode())
         assert result.identical is False
-        assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"}
+        assert _last(result) == {"links.linearElement"}
         (change,) = result.changes
         assert (change.collection, change.name) == ("features", "B-01")
         target = tmp_path / "moved.xml"
@@ -194,7 +194,7 @@ def test_a_linear_element_pointed_at_another_boreholes_centre_line_is_a_differen
     for new in (moved, reissue_ids(moved)):
         result = diff.compare(text.encode(), new.encode())
         assert result.identical is False
-        assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"}
+        assert _last(result) == {"links.linearElement"}
     # Each borehole's system naming the other's centre line: the same two ids, crossed.
     crossed = moved.replace(
         'linearElement xlink:href="#cl-BENT_9_MIDDLE_A"/>\n\t\t\t\t\t<lrm>\n\t\t\t\t\t\t<LinearReferencingMethod gml:id="lrm-BENT',
@@ -220,11 +220,8 @@ def test_between_models_a_reference_whose_target_is_not_in_the_model_is_compared
     for a, b in ((old, new), (old, again), (data, new)):
         result = diff.compare(a, b)
         assert result.identical is False
-        assert _last(result) == {
-            f"{LINEAR_ELEMENT}@xlink:href",
-            "links.linearElement",
-            "links.samplingMethod",
-        }
+        # Each link once, in links: the depth system's own element repeats it.
+        assert _last(result) == {"links.linearElement", "links.samplingMethod"}
         assert not [c for c in result.changes if c.op != "changed"]
     assert diff.compare(old, old).identical
     assert diff.compare(old, data).identical and diff.compare(data, old).identical
@@ -233,10 +230,7 @@ def test_between_models_a_reference_whose_target_is_not_in_the_model_is_compared
     moved = data.replace(
         b'linearElement xlink:href="#cl-B-01"', b'linearElement xlink:href="#pl-B-01"'
     )
-    assert _last(diff.compare(old, read_bytes(moved))) == {
-        f"{LINEAR_ELEMENT}@xlink:href",
-        "links.linearElement",
-    }
+    assert _last(diff.compare(old, read_bytes(moved))) == {"links.linearElement"}
 
 
 def _centre_line(text: str, inside: str = "", after: str = "") -> str:
@@ -290,7 +284,7 @@ def test_an_element_with_no_path_of_its_own_is_told_by_its_position_and_content(
     assert moved != text
     result = diff.compare(text.encode(), moved.encode())
     assert result.identical is False
-    assert {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"} <= _last(result)
+    assert {"links.linearElement"} <= _last(result)
 
 
 def test_a_place_does_not_depend_on_the_order_or_the_prefix_of_the_elements():
@@ -353,7 +347,7 @@ def test_the_index_of_places_stops_at_the_readers_work_limit(monkeypatch):
     assert moved != text
     result = diff.compare(data, reissue_ids(moved).encode())
     assert result.identical is False
-    assert _last(result) == {f"{LINEAR_ELEMENT}@xlink:href", "links.linearElement"}
+    assert _last(result) == {"links.linearElement"}
 
 
 def test_ids_nested_as_deep_as_the_parser_allows_are_read_and_not_placed():

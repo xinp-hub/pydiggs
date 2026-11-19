@@ -195,16 +195,15 @@ usage: pydiggs diff [-h] [--format {text,json}] [-o FILE]
                     [--max-bytes N] [--verbose]
                     OLD NEW
 
-Compare two DIGGS files by what they describe, not by how they are written
-(preview: the report format and the comparison rules may change in a minor
-release): element order, number formatting, line numbers and the gml:id of a
-record do not count. Boreholes, samples, tests and the other records are
-matched by gml:id, then by a natural key (a borehole's kind and name, a
-sample's borehole, name and top), so records stay paired when their gml:ids
-change: two exports of the same data with new ids are identical. The renamed
-ids are counted, and listed with --verbose. Numbers compare within a
-tolerance; a change of unit is always a change, and nothing is converted. The
-two files may be different DIGGS versions.
+Compare two DIGGS files by what they describe, not by how they are written:
+element order, number formatting, line numbers and the gml:id of a record do
+not count. Boreholes, samples, tests and the other records are matched by
+gml:id, then by a natural key (a borehole's kind and name, a sample's
+borehole, name and top), so records stay paired when their gml:ids change: two
+exports of the same data with new ids are identical. The renamed ids are
+counted, and listed with --verbose. Numbers compare within a tolerance; a
+change of unit is always a change, and nothing is converted. The two files may
+be different DIGGS versions.
 
 positional arguments:
   OLD                   the earlier DIGGS file
@@ -218,9 +217,9 @@ options:
                         write the report here, not to stdout
   --match {auto,gml-id,natural}
                         how records are paired: auto (the default; by gml:id,
-                        then by natural key), gml-id (ids only; a record whose
-                        gml:id changed is removed and added) or natural
-                        (natural keys only)
+                        then by natural key), gml-id (ids only, also written
+                        gml_id; a record whose gml:id changed is removed and
+                        added) or natural (natural keys only)
   --rel-tol R           two numbers are equal when they differ by at most R
                         times the larger one; 0 or more and less than 1
                         (default 1e-09)
@@ -232,8 +231,9 @@ options:
                         is then incomplete
   --max-bytes N         refuse files larger than N bytes (default 100 MiB)
   --verbose             also list what is not a change: values that are only
-                        written differently (1.50 and 1.5) and records whose
-                        gml:id changed; both are always counted
+                        written differently (1.50 and 1.5, other separators
+                        that read the same values, double and float) and
+                        records whose gml:id changed; both are always counted
 
 Exit status: 0 the files are identical and the comparison finished; 1 they
 differ, or the comparison is incomplete; 2 usage error, an input that cannot

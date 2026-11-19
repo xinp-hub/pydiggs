@@ -35,12 +35,24 @@ def test_hook_publishes_the_packaged_schema_byte_for_byte(tmp_path):
         assert (tmp_path / "schemas" / earlier).read_bytes() == (
             resources.files("pydiggs.findings").joinpath(earlier).read_bytes()
         )
-    # The model diff's contract is published with them.
-    # A beta while pydiggs.diff is a preview, so with the preview schemas.
-    name = "diggs-diff-1.0-beta.1.schema.json"
-    assert (tmp_path / "schemas" / "preview" / name).read_bytes() == (
+    # The model diff's contract is published with them, at the path its $id names.
+    name = "diggs-diff-1.0.schema.json"
+    assert (tmp_path / "schemas" / name).read_bytes() == (
         resources.files("pydiggs.diff").joinpath(name).read_bytes()
     )
+    assert not (tmp_path / "schemas" / "preview" / name).exists()
+
+
+def test_the_diff_beta_schema_stays_published_where_its_documents_name_it():
+    # pyDIGGS 1.12 wrote diggs-diff 1.0-beta.1 documents whose $schema names this URL;
+    # the docs site serves docs/schemas/preview/ as it is.
+    beta = ROOT / "docs" / "schemas" / "preview" / "diggs-diff-1.0-beta.1.schema.json"
+    schema = json.loads(beta.read_text("utf-8"))
+    assert schema["$id"] == (
+        "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json"
+    )
+    assert schema["title"] == "diggs-diff 1.0 (beta 1)"
+    assert not resources.files("pydiggs.diff").joinpath(beta.name).is_file()
 
 
 def test_published_path_matches_the_schema_id():
