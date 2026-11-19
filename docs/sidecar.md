@@ -320,7 +320,10 @@ answers. Validate it against its own `$schema` and tolerate unknown fields.
   and a `diff.timeout` note.
 - A file that is not a DIGGS document is the error `invalid-document` with the `kind`
   of `read` and `data.errors` naming it (`{"param": "old", "problem": "is not a DIGGS
-  document"}`); a file over its limit is `input-too-large`. A bad option is
+  document"}`); a file over its limit is `input-too-large`. A file given by path that
+  is refused names its parameter, never the path: `{"param": "new_path", "problem": "is
+  not permitted"}` (`path-not-permitted`), `"is larger than allowed"`
+  (`input-too-large`) or `"is compressed"` (`compressed-input`). A bad option is
   `invalid-params` naming it. A result over `limits.max_result_bytes` is
   `result-too-large`: list fewer changes with `max_changes`.
 - A `diff` shares the queue with the other document methods (one running, one waiting).

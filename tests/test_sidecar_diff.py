@@ -266,6 +266,20 @@ def test_path_mode_and_mixed_transports(session, root):
     ]
 
 
+def test_a_compressed_file_by_path_names_its_side(session, root):
+    import gzip
+
+    (root / "old.xml.gz").write_bytes(gzip.compress(OLD.read_bytes()))
+    s = session(roots=(root,))
+    _initialize(s)
+    reply = s.call(
+        "diff", {"old_path": str(root / "old.xml.gz"), "new_base64": _b64(OLD.read_bytes())}
+    )
+    assert _slug(reply) == "compressed-input"
+    assert reply["error"]["data"]["errors"] == [{"param": "old_path", "problem": "is compressed"}]
+    assert str(root) not in json.dumps(reply)
+
+
 def test_each_file_follows_its_own_transports_limit(session, root):
     """An inline file keeps max_bytes even when the other comes by path."""
     data = OLD.read_bytes()
