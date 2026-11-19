@@ -20,6 +20,7 @@ from ._helpers import (
     close_schema,
     column,
     corpus_paths,
+    findings_registry,
     make_feature,
     make_model,
     make_test,
@@ -29,6 +30,10 @@ from ._helpers import (
     small_models,
     table,
 )
+
+# Imported here, not inside the @given test: importing it there runs its @given
+# decorators inside a running test, which Hypothesis reports as nested.
+from .test_properties import _edit
 
 URL = "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
 BETA_URL = "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-diff-1.0-beta.1.schema.json"
@@ -78,6 +83,27 @@ def test_the_open_schema_accepts_unknown_fields_and_the_closed_variant_refuses_t
     nested["changes"][0]["x-extra"] = 1
     assert schema_errors(nested)
     assert close_schema(diff.diff_schema())["unevaluatedProperties"] is False
+
+
+def test_a_note_is_open_too_so_a_later_findings_field_leaves_a_1_0_document_valid():
+    # A diff.limit note: max_changes=0 on two models that differ.
+    document = _sample_diff_with_note()
+    assert document["notes"], "the sample must carry a note"
+    open_v = jsonschema.Draft202012Validator(diff.diff_schema(), registry=findings_registry())
+    assert open_v.is_valid(document)
+    document["notes"][0]["guidance"] = "a field a later findings minor might add"
+    document["notes"][0]["location"]["x-extra"] = 1
+    assert list(open_v.iter_errors(document)) == []
+    assert schema_errors(document)  # the closed variant still refuses unknown fields
+    broken = _sample_diff_with_note()
+    broken["notes"][0]["rule_id"] = "not a rule id"
+    assert not open_v.is_valid(broken)
+
+
+def _sample_diff_with_note() -> dict:
+    old = make_model(features=(make_feature("f1", "B-1", params={"a": "1"}),))
+    new = make_model(features=(make_feature("f1", "B-1", params={"a": "2"}),))
+    return diff.compare(old, new, max_changes=0).to_dict()
 
 
 @pytest.mark.parametrize(
@@ -179,8 +205,6 @@ def test_the_diff_of_corpus_files_validates_against_the_closed_schema(path):
 @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(st.data())
 def test_documents_of_edited_models_validate_and_round_trip(data):
-    from .test_properties import _edit
-
     model = data.draw(st.sampled_from(small_models()))
     edited, _ = _edit(data, model)
     result = diff.compare(model, edited, show_reformatted=True, show_renamed=True)

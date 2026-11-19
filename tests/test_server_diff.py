@@ -399,7 +399,9 @@ def test_the_openapi_document_describes_the_operation():
     assert schema == {"$ref": "#/components/schemas/DiggsDiffDocument"}
     components = document["components"]["schemas"]
     notes = components["DiggsDiffDocument"]["properties"]["notes"]["items"]
-    assert notes == {"$ref": "#/components/schemas/DiggsFindingsFinding"}
+    assert notes == {"$ref": "#/components/schemas/DiggsDiffNote"}
+    # A note is open, as every diggs-diff 1.0 object is: a later findings field stays valid.
+    assert "additionalProperties" not in json.dumps(components["DiggsDiffNote"])
     assert {"DiggsDiffSource", "DiggsDiffChange", "DiggsDiffValueChange"} <= set(components)
     assert set(operation["requestBody"]["content"]) == {"multipart/form-data"}
     form = operation["requestBody"]["content"]["multipart/form-data"]["schema"]

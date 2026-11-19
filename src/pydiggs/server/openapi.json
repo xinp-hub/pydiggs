@@ -2043,7 +2043,7 @@
           "notes": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DiggsFindingsFinding"
+              "$ref": "#/components/schemas/DiggsDiffNote"
             },
             "description": "Findings of step diff: diff.ambiguous-match, diff.limit, diff.timeout."
           }
@@ -2127,6 +2127,104 @@
             }
           }
         ]
+      },
+      "DiggsDiffNote": {
+        "type": "object",
+        "description": "A finding of step diff, as diggs-findings 1.2 writes one. Open, like every object in this schema: a field a later findings minor adds leaves a 1.0 document valid.",
+        "required": [
+          "layer",
+          "step",
+          "rule_id",
+          "severity",
+          "message",
+          "location"
+        ],
+        "properties": {
+          "layer": {
+            "enum": [
+              "native",
+              "official"
+            ]
+          },
+          "step": {
+            "enum": [
+              "structure",
+              "schema",
+              "codeType",
+              "dictionary",
+              "schematron",
+              "geometry",
+              "crs",
+              "coordinate",
+              "deprecation",
+              "context",
+              "ags4",
+              "convert",
+              "diff"
+            ]
+          },
+          "rule_id": {
+            "type": "string",
+            "pattern": "^(structure|schema|codeType|dictionary|schematron|geometry|crs|coordinate|deprecation|context|ags4|convert|diff)\\.[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Stable id; the part before the first dot equals step."
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "location": {
+            "type": "object",
+            "required": [
+              "line",
+              "column",
+              "xpath",
+              "gml_id"
+            ],
+            "properties": {
+              "line": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "column": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "xpath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "gml_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          },
+          "source_snippet": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        }
       },
       "DiggsDiffOp": {
         "enum": [

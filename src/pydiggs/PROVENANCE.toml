@@ -514,7 +514,7 @@ sha256 = "85d2c01598cab180a22eaeb0247e2014e58a3dc7e262e3d8f6bafa5f1cdd92f2"
 [files."diff/diggs-diff-1.0.schema.json"]
 source = "local"
 note = "The diggs-diff 1.0 JSON Schema (pydiggs.diff): pyDIGGS's own output contract, checked against the output by tests/diff."
-sha256 = "bc9361649fd25057fe2e563eded44fbac2abd8ecd4ffa999546584ff1593db9b"
+sha256 = "87a6bdb5b0cb5e78f00c3705851022cb394932042c954ce2fb0a6acd7fcc046e"
 
 [files."findings/diggs-findings-1.0.schema.json"]
 source = "local"
@@ -1124,7 +1124,7 @@ sha256 = "0b4b88c53ba222023d1eb9334db5d0445adcf8a2ec7b4e166324ee8ffc43dbd0"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "c3773677f91e3719fd2f10f716fbffee0d3beaa92c7faf6cf929e9d48156e923"
+sha256 = "1b1c46d3ae36b4c740935447321bb3ea266229f77092fdec01acf5a2e7052f1d"
 
 [files."sidecar/openrpc.json"]
 source = "local"
