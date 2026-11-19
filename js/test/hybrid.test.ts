@@ -48,6 +48,14 @@ class FakeBrowser {
     this.calls.push(`checkAgs4 ${options.name} ${options.dictionary !== undefined}`);
     return { from: "browser" };
   }
+  async validateSarif(_input: unknown, options: { name: string; checks?: unknown }) {
+    this.calls.push(`validateSarif ${options.name} ${options.checks}`);
+    return { from: "browser" };
+  }
+  async checkAgs4Sarif(_input: unknown, options: { name?: string; dictionary?: unknown }) {
+    this.calls.push(`checkAgs4Sarif ${options.name} ${options.dictionary !== undefined}`);
+    return { from: "browser" };
+  }
 }
 
 class FakeServer {
@@ -66,6 +74,14 @@ class FakeServer {
   }
   async checkAgs4(_input: unknown, options: { name?: string; dictionary?: unknown }) {
     this.calls.push(`checkAgs4 ${options.name} ${options.dictionary !== undefined}`);
+    return { from: "server" };
+  }
+  async validateSarif(_input: unknown, options: { name: string; checks?: unknown }) {
+    this.calls.push(`validateSarif ${options.name} ${options.checks}`);
+    return { from: "server" };
+  }
+  async checkAgs4Sarif(_input: unknown, options: { name?: string; dictionary?: unknown }) {
+    this.calls.push(`checkAgs4Sarif ${options.name} ${options.dictionary !== undefined}`);
     return { from: "server" };
   }
 }
@@ -241,4 +257,19 @@ test("an engine without convert sends conversions to the server", async () => {
   const result = await hybrid({ browser, server }).convert(new Uint8Array(3));
   assert.deepEqual([result.via, result.reason], ["server", "no-browser"]);
   assert.deepEqual(server.calls, ["convert undefined undefined"], "an unnamed AGS4 file stays unnamed");
+});
+
+test("the SARIF calls route like the others, and go to the server for an engine without them", async () => {
+  const browser = new FakeBrowser();
+  const server = new FakeServer();
+  const xml = new File([new Uint8Array(10)], "site.xml");
+  const inTab = await hybrid({ browser, server }).validateSarif(xml, { checks: ["schema"] });
+  assert.deepEqual([inTab.document, inTab.via], [{ from: "browser" }, "browser"]);
+  const big = await hybrid({ browser, server, maxBrowserBytes: 5 }).checkAgs4Sarif(xml, { dictionary: new Uint8Array(1) });
+  assert.deepEqual([big.via, big.reason], ["server", "too-large"]);
+  (browser as { validateSarif?: unknown }).validateSarif = undefined;
+  const noSarif = await hybrid({ browser, server }).validateSarif(xml);
+  assert.deepEqual([noSarif.via, noSarif.reason], ["server", "no-browser"]);
+  assert.deepEqual(browser.calls, ["validateSarif site.xml schema"]);
+  assert.deepEqual(server.calls, ["checkAgs4Sarif site.xml true", "validateSarif site.xml undefined"]);
 });

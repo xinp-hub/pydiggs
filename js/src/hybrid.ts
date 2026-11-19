@@ -12,7 +12,16 @@ import { PydiggsError } from "./errors.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import { DEFAULT_MAX_BYTES } from "./generated/pins.ts";
-import type { ConversionResult, ConvertAgsVersion, ConvertDiggsVersion, ConvertTarget, DiggsVersion, PydiggsHttpClient, ValidateCheck } from "./http.ts";
+import type {
+  ConversionResult,
+  ConvertAgsVersion,
+  ConvertDiggsVersion,
+  ConvertTarget,
+  DiggsVersion,
+  PydiggsHttpClient,
+  SarifLog,
+  ValidateCheck,
+} from "./http.ts";
 
 export { PydiggsError } from "./errors.ts";
 
@@ -45,7 +54,7 @@ export interface HybridResult<T> {
  * your own without `convert` or `checkAgs4` sends those requests to the server.
  */
 export type HybridBrowser = Pick<PoolEngine, "status" | "ready" | "validate" | "read"> &
-  Partial<Pick<PoolEngine, "convert" | "checkAgs4">>;
+  Partial<Pick<PoolEngine, "validateSarif" | "convert" | "checkAgs4" | "checkAgs4Sarif">>;
 
 export interface HybridConvertOptions {
   /** File name of the input. Default: the `File`'s own name. */
@@ -167,18 +176,35 @@ export class PydiggsHybrid {
    * error: it comes back as findings, with the verdict in `files[0].verdict`.
    */
   validate(input: BrowserDocumentInput, options: HybridValidateOptions = {}): Promise<HybridResult<DiggsFindingsDocument>> {
-    const request = {
-      name: nameOf(input, options),
-      ...(options.signal ? { signal: options.signal } : {}),
-      ...(options.checks ? { checks: options.checks } : {}),
-      ...(options.diggsVersion ? { diggsVersion: options.diggsVersion } : {}),
-    };
+    const request = this.#validateRequest(input, options);
     return this.#run(
       input,
       options.signal,
       () => this.#browser!.validate(input, request),
       () => this.#server!.validate(input, request),
     );
+  }
+
+  /** Validates a document where it can run, as a SARIF 2.1.0 log for code-scanning tools. */
+  validateSarif(input: BrowserDocumentInput, options: HybridValidateOptions = {}): Promise<HybridResult<SarifLog>> {
+    const request = this.#validateRequest(input, options);
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.validateSarif!(input, request),
+      () => this.#server!.validateSarif(input, request),
+      browser?.validateSarif === undefined,
+    );
+  }
+
+  #validateRequest(input: BrowserDocumentInput, options: HybridValidateOptions) {
+    return {
+      name: nameOf(input, options),
+      ...(options.signal ? { signal: options.signal } : {}),
+      ...(options.checks ? { checks: options.checks } : {}),
+      ...(options.diggsVersion ? { diggsVersion: options.diggsVersion } : {}),
+    };
   }
 
   /**
@@ -238,6 +264,20 @@ export class PydiggsHybrid {
       () => browser!.checkAgs4!(input, { ...request, ...dictionary }),
       () => this.#server!.checkAgs4(input, { ...request, ...dictionary }),
       browser?.checkAgs4 === undefined,
+    );
+  }
+
+  /** Checks an AGS4 file against the AGS4 rules where it can run, as a SARIF 2.1.0 log. */
+  checkAgs4Sarif(input: BrowserDocumentInput, options: HybridAgs4CheckOptions = {}): Promise<HybridResult<SarifLog>> {
+    const request = this.#ags4Request(input, options);
+    const dictionary = options.dictionary !== undefined ? { dictionary: options.dictionary } : {};
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.checkAgs4Sarif!(input, { ...request, ...dictionary }),
+      () => this.#server!.checkAgs4Sarif(input, { ...request, ...dictionary }),
+      browser?.checkAgs4Sarif === undefined,
     );
   }
 

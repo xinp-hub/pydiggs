@@ -6,6 +6,10 @@
 name: npm package follows pyDIGGS
 
 on:
+  # As soon as a pyDIGGS release run finishes, and daily in case that was missed.
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   schedule:
     - cron: "41 7 * * *"
   workflow_dispatch:
@@ -20,6 +24,8 @@ concurrency:
 jobs:
   check:
     name: does the client lag pyDIGGS?
+    # After a release run, only when it succeeded: a failed release published nothing.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
@@ -66,6 +72,8 @@ jobs:
             echo "1. If \`examples/browser-worker/worker.mjs\` does not name $latest yet, the pyDIGGS release PR has not merged."
             echo "2. \`node js/scripts/follow-pydiggs.mjs\` pins the wheel from PyPI's record and regenerates \`js/src/generated/pins.ts\`."
             echo "3. Release the client as usual: version bump and changelog PR, then the signed \`js-vX.Y.Z\` tag."
+            echo
+            echo "\`not_in_client_yet\` above lists pyDIGGS operations \`js/capabilities-coverage.json\` plans for the client; each is its own change, not part of following the pin."
           } > body.md
           number=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
           if [ -n "$number" ]; then

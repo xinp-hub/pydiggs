@@ -6,7 +6,10 @@
 //   node scripts/follow-pydiggs.mjs           write pydiggs-wheel.json from PyPI's record
 //                                             of PYDIGGS_VERSION, and regenerate the pins
 //   node scripts/follow-pydiggs.mjs --check   report whether the client lags PyPI; exit 0
-//                                             when current, 3 when it lags (for CI)
+//                                             when current, 3 when it lags (for CI). The
+//                                             report also lists the pyDIGGS operations
+//                                             capabilities-coverage.json plans for the
+//                                             client but it does not offer yet.
 //
 // The sha256 comes from PyPI's JSON API for that exact release. The wheel URL must be on
 // files.pythonhosted.org and name a pure wheel, or nothing is written. Releasing the
@@ -22,6 +25,7 @@ import { parseArgs } from "node:util";
 const JS_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const WORKER = join(JS_ROOT, "..", "examples", "browser-worker", "worker.mjs");
 const PIN = join(JS_ROOT, "pydiggs-wheel.json");
+const COVERAGE = join(JS_ROOT, "capabilities-coverage.json");
 
 const { values: args } = parseArgs({ options: { check: { type: "boolean", default: false } } });
 
@@ -63,6 +67,7 @@ if (args.check) {
     client_targets: workerVersion,
     wheel_pinned: pinned?.version ?? null,
     lags: latest !== workerVersion || pinned?.version !== workerVersion,
+    not_in_client_yet: JSON.parse(readFileSync(COVERAGE, "utf8")).planned,
   };
   console.log(JSON.stringify(status));
   process.exit(status.lags ? 3 : 0);
