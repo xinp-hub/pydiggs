@@ -224,6 +224,24 @@ function diffOption(key: string, text: string): unknown {
   return text.length <= 64 && NUMBER.test(text) ? Number(text) : text;
 }
 
+const DIFF_MATCH = ["auto", "gml-id", "natural", "gml_id"];
+const finite = (value: unknown, belowOne = false): boolean =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && (!belowOne || value < 1);
+
+// pyDIGGS's own check of one parameter, with its fixed text, for a query value that a
+// form field overrides: pyDIGGS never sees that value, yet both sources must be valid.
+function diffParameterProblem(key: string, text: string): string | null {
+  const value = diffOption(key, text);
+  if (key === "old_name" || key === "new_name") {
+    return text.length > 4096 ? "must be a string of at most 4096 characters" : null;
+  }
+  if (key === "match") return DIFF_MATCH.includes(text) ? null : "expected one of auto, gml-id, natural";
+  if (key === "rel_tol") return finite(value, true) ? null : "must be a finite number, 0 or more and less than 1";
+  if (key === "abs_tol") return finite(value) ? null : "must be a finite number, 0 or more";
+  if (key === "max_changes") return typeof value === "number" ? null : "must be an integer, 0 or more";
+  return typeof value === "boolean" ? null : "must be true or false";
+}
+
 interface Parsed {
   data: Uint8Array;
   /** The reported name, reduced to its base name; `input.xml` when none was given. */
@@ -508,7 +526,9 @@ export function createPydiggsHandler(
       return problem(error instanceof TooLarge ? "input-too-large" : "invalid-multipart");
     }
     const fields = [...new Set(form.keys())].filter((key) => !(DIFF_FILES as readonly string[]).includes(key));
-    if (fields.some((key) => !DIFF_FIELDS.has(key))) return problem("invalid-multipart");
+    if (fields.some((key) => !DIFF_FIELDS.has(key) || form.getAll(key).some((value) => typeof value !== "string"))) {
+      return problem("invalid-multipart");
+    }
     const files: Uint8Array[] = [];
     const names: (string | null)[] = [];
     for (const side of DIFF_FILES) {
@@ -523,11 +543,17 @@ export function createPydiggsHandler(
       names.push(part instanceof File ? part.name : null);
     }
     const params = new Map<string, string[]>();
+    const overridden: { parameter: string; problem: string }[] = [];
     for (const key of DIFF_FIELDS) {
       const values = [...url.searchParams.getAll(key)];
       const formed = form.getAll(key).filter((value): value is string => typeof value === "string");
+      if (formed.length > 0 && values.length > 0) {
+        const wrong = diffParameterProblem(key, values.at(-1)!);
+        if (wrong !== null) overridden.push({ parameter: key, problem: wrong });
+      }
       params.set(key, formed.length > 0 ? formed : values);
     }
+    if (overridden.length > 0) return problem("invalid-parameter", { errors: overridden });
     const name = (side: "old" | "new", index: number): string | Response => {
       const given = params.get(`${side}_name`)?.at(-1) ?? names[index] ?? null;
       if (given !== null && given.length > 4096) {
@@ -560,7 +586,14 @@ export function createPydiggsHandler(
         .filter(([, value]) => value !== undefined),
     );
     try {
-      return json(await engine.diff(files[0]!, files[1]!, { ...compare, oldName, newName, signal: request.signal }));
+      const result = await engine.diff(files[0]!, files[1]!, { ...compare, oldName, newName, signal: request.signal });
+      // The same bound as pyDIGGS's endpoint: four times the per-file body limit.
+      const body = new TextEncoder().encode(JSON.stringify(result));
+      if (body.byteLength > 4 * maxBody) return problem("result-too-large");
+      return new Response(body as BodyInit, {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Vary: "Accept" },
+      });
     } catch (error) {
       return failure(error);
     }

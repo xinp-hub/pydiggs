@@ -147,6 +147,8 @@ def test_bad_parameters_are_invalid_params(session, params, param):
         ("match", "fuzzy"),
         ("rel_tol", 1),
         ("abs_tol", -1),
+        ("abs_tol", 10**400),
+        ("rel_tol", 10**400),
         ("max_changes", 1.5),
         ("max_changes", True),
         ("show_reformatted", "true"),

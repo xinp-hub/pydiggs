@@ -177,6 +177,30 @@ test("the handler refuses what pyDIGGS refuses on /v1/diff", async () => {
     await status(new Request("http://app.test/v1/diff", { method: "GET" })),
     [405, "method-not-allowed"],
   );
+  // An option sent as a file part is refused, not dropped in favour of the default.
+  assert.deepEqual(
+    await status(multipart([["old", new Blob(["a"])], ["new", new Blob(["b"])], ["max_changes", new Blob(["5"]), "m.txt"]])),
+    [400, "invalid-multipart"],
+  );
+  // The form wins, but a query value it overrides must still be valid, as in pyDIGGS.
+  const overridden = await handle(multipart([["old", new Blob(["a"])], ["new", new Blob(["b"])], ["match", "auto"]], "?match=fuzzy"));
+  assert.equal(overridden.status, 422);
+  assert.deepEqual(((await overridden.json()) as { errors: unknown }).errors, [
+    { parameter: "match", problem: "expected one of auto, gml-id, natural" },
+  ]);
+  const valid = await handle(multipart([["old", new Blob(["a"])], ["new", new Blob(["b"])], ["rel_tol", "0.1"]], "?rel_tol=0.2"));
+  assert.equal(valid.status, 200);
+});
+
+test("the handler holds a diff answer to four times maxBodyBytes, as pyDIGGS's endpoint does", async () => {
+  const change = { kind: "changed", path: "x".repeat(40) };
+  const big = { ...DIFF, identical: false, changes: Array.from({ length: 20 }, () => change) };
+  const handle = createPydiggsHandler({ diff: async () => big } as unknown as PydiggsEngine, { maxBodyBytes: 100 });
+  const response = await handle(multipart([["old", new Blob(["a"])], ["new", new Blob(["b"])]]));
+  assert.equal(response.status, 422);
+  assert.equal(((await response.json()) as { code: string }).code, "result-too-large");
+  const roomy = createPydiggsHandler({ diff: async () => big } as unknown as PydiggsEngine, { maxBodyBytes: 1000 });
+  assert.equal((await roomy(multipart([["old", new Blob(["a"])], ["new", new Blob(["b"])]]))).status, 200);
 });
 
 test("PydiggsHttpClient.diff works against the handler, and a refusal names the file", async () => {

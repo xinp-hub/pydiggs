@@ -1331,13 +1331,13 @@ class DiffRequest:
 
 def _finite(value: object, *, below_one: bool = False) -> bool:
     """A finite number, 0 or more (and less than 1 when ``below_one``); never a bool."""
-    return (
-        not isinstance(value, bool)
-        and isinstance(value, int | float)
-        and math.isfinite(value)
-        and value >= 0
-        and (not below_one or value < 1)
-    )
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return False
+    try:
+        number = float(value)  # a huge int (a 401-digit JSON number) overflows here
+    except OverflowError:
+        return False
+    return math.isfinite(number) and number >= 0 and (not below_one or number < 1)
 
 
 def _diff_parameter_errors(request: DiffRequest) -> tuple[tuple[str, str], ...]:
