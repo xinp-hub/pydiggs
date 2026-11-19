@@ -18,16 +18,48 @@ matching pyDIGGS version number.
 - `PydiggsHybrid` has `validateSarif` and `checkAgs4Sarif`, as the other engines do. They
   route like `validate` and `checkAgs4`, and go to the server when the browser engine
   has no SARIF call.
+- `createPydiggsHandler` takes `bodyTimeoutMs` (default 30000, as pyDIGGS): a request
+  body that has not arrived by then is answered 408 `request-timeout`.
+- `diff()` takes `maxResultBytes`: pyDIGGS refuses a larger answer as `result-too-large`
+  before building it. The handler sets it to four times `maxBodyBytes`, as pyDIGGS's
+  server does.
 
 ### Changed
 
-- Runs pyDIGGS 1.13.0 (`PYDIGGS_VERSION`); its wheel is pinned by sha256 from PyPI's record
-  once published. AGS4 files with depths in feet convert to DIGGS (mapping table 1.2,
+- Runs pyDIGGS 1.13.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's record. AGS4 files with depths in feet convert to DIGGS (mapping table 1.2,
   pyDIGGS 1.12).
 - The findings types follow **diggs-findings 1.2** (pyDIGGS 1.12), which only adds to 1.1:
   the step `"diff"` (the findings of a model diff). `FINDINGS_SCHEMA_URL` is the 1.2 schema,
   shipped as `@pydiggs/client/schemas/diggs-findings-1.2.schema.json`; the 1.0 and 1.1
   schema files are still shipped unchanged.
+
+### Fixed
+
+`createPydiggsHandler` now answers as pyDIGGS's own server does, where it did not:
+
+- A request beyond `maxPending` is refused with 503 `busy` before its body is read.
+  `maxPending` now counts requests from arrival until they are answered, as pyDIGGS
+  admits them. Before, uploads still being received did not count, so many slow uploads
+  at once could each hold a body in memory. A body must arrive within `bodyTimeoutMs`,
+  and a request whose client goes away gives up its place, so slow or abandoned uploads
+  cannot hold every place.
+- A field sent as a file part (say `name` as a file) is refused with 400
+  `invalid-multipart` on `/v1/validate`, `/v1/read`, `/v1/convert` and `/v1/ags4/check`.
+  Before, it was dropped silently.
+- A query value that a form field overrides is still checked. An invalid one is refused
+  with 422 `invalid-parameter`, with pyDIGGS's texts.
+- The media type is checked before the encoding. A compressed body of the wrong type is
+  now 415 `unsupported-media-type`, as in pyDIGGS, not `compressed-input`. An empty
+  `Content-Encoding` header is accepted.
+- A multipart body may be as large as pyDIGGS allows: the file part up to
+  `maxBodyBytes`, plus room for the multipart framing.
+- Multipart parts are checked in pyDIGGS's order and within its limits. No file part is
+  400 `missing-input` (it was `invalid-multipart`), and on `/v1/diff` a missing file is
+  reported before an unknown field. More than 8 fields, a field over 64 KiB, or more
+  file parts than the route takes, is `invalid-multipart`. A too-large `/v1/diff` body
+  closes the connection, and an upload whose client went away is `missing-input`.
+- Names are measured in characters, as pyDIGGS counts them, not UTF-16 units. A name of
+  emoji is no longer refused below the 4096-character limit.
 
 ## [0.6.0] - 2026-11-16
 

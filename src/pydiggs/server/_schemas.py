@@ -967,6 +967,8 @@ def _diff_options() -> dict[str, _JsonSchema]:
         "max_changes": {
             "type": "integer",
             "minimum": 0,
+            # The server reads at most 18 digits (_app._INTEGER).
+            "maximum": 999_999_999_999_999_999,
             "default": defaults["max_changes"],
             "description": (
                 "Most changes listed; the counts stay exact, and a cut list is an"
@@ -1034,8 +1036,9 @@ def diff_responses() -> dict[int | str, dict[str, Any]]:
             "description": (
                 "A diggs-diff 1.0 document: what pydiggs.diff.compare() returns for the same"
                 " bytes and options, each file under its basename. Identical or not, the"
-                " answer is a 200; a limit or an exhausted time budget is a 200 with"
-                " complete: false."
+                " answer is a 200; a max_changes limit is a 200 with complete: false. Running"
+                " out of time is a 200 with complete: false under thread isolation, and 504"
+                " timeout under process isolation (create_app's default)."
             ),
             "content": {FINDINGS_MEDIA_TYPE: {"schema": _diff_inline()}},
         },

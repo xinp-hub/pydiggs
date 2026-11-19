@@ -41,8 +41,17 @@ export interface PydiggsHandlerOptions {
    * `maxBytes`. `/v1/diff` takes two files of up to this size each, as pyDIGGS does.
    */
   maxBodyBytes?: number;
-  /** Requests allowed to wait at once; beyond it the answer is 503 `busy`. Default: 8. */
+  /**
+   * Requests in progress at once, counted from before their body is read until they are
+   * answered, as pyDIGGS admits them; beyond it the answer is 503 `busy`. Default: 8.
+   */
   maxPending?: number;
+  /**
+   * Longest wait for a request's body, in milliseconds. A body that has not fully arrived
+   * by then is answered 408 `request-timeout`, and its place among `maxPending` is freed.
+   * Default: 30000, as pyDIGGS.
+   */
+  bodyTimeoutMs?: number;
   /**
    * Refuse requests a browser marks as cross-site (`Sec-Fetch-Site: cross-site`), as
    * pydiggs does by default. Default: true.
@@ -105,22 +114,46 @@ function json(value: unknown, status = 200, type = "application/json"): Response
 }
 
 class TooLarge extends Error {}
+class BodyTimeout extends Error {}
+class BodyAborted extends Error {}
 
-// Reads the body without ever holding more than `limit` bytes of it.
-async function readLimited(body: ReadableStream<Uint8Array> | null, limit: number): Promise<Uint8Array> {
+// Reads the body without ever holding more than `limit` bytes of it, and gives up when
+// it has not arrived within `timeoutMs` or the client has gone: an admitted request must
+// not keep its place for as long as a client cares to trickle bytes (pyDIGGS's
+// `body_timeout_s`).
+async function readLimited(
+  body: ReadableStream<Uint8Array> | null,
+  limit: number,
+  signal?: AbortSignal,
+  timeoutMs = Number.POSITIVE_INFINITY,
+): Promise<Uint8Array> {
   if (!body) return new Uint8Array(0);
+  const reader = body.getReader();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: (() => void) | undefined;
+  const stop = new Promise<never>((_resolve, reject) => {
+    if (signal?.aborted) reject(new BodyAborted());
+    onAbort = () => reject(new BodyAborted());
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (Number.isFinite(timeoutMs)) timer = setTimeout(() => reject(new BodyTimeout()), timeoutMs);
+  });
+  stop.catch(() => {});
   const chunks: Uint8Array[] = [];
   let size = 0;
-  const reader = body.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > limit) {
-      await reader.cancel();
-      throw new TooLarge();
+  try {
+    for (;;) {
+      const { done, value } = await Promise.race([reader.read(), stop]);
+      if (done) break;
+      size += value.byteLength;
+      if (size > limit) throw new TooLarge();
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch (error) {
+    reader.cancel().catch(() => {});
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) signal?.removeEventListener("abort", onAbort);
   }
   const all = new Uint8Array(size);
   let offset = 0;
@@ -184,11 +217,54 @@ function baseName(name: string | null): string {
 
 
 const MAX_CHECKS_CHARS = 512;
+const MAX_CHECKS = 32;
+const MAX_NAME_CHARS = 4096;
+const NAME_PROBLEM = `must be a string of at most ${MAX_NAME_CHARS} characters`;
 const MAX_SELECT_CHARS = 64 * 1024;
 const MAX_SELECT_KEYS = 1000;
 const SELECT_PROBLEM = `expected {"results": "all" | "none" | [at most ${MAX_SELECT_KEYS} node keys]}`;
-const VALIDATE_FIELDS = new Set(["name", "checks", "diggs_version"]);
-const READ_FIELDS = new Set(["name", "diggs_version", "select"]);
+
+// Every value of a generated union type, at run time. The compiler refuses a list that
+// misses one, so a value pyDIGGS's OpenAPI document adds cannot be refused here unseen.
+function every<T extends string>() {
+  return <const L extends readonly T[]>(...list: L & ([T] extends [L[number]] ? unknown : never)): L => list;
+}
+const DIGGS_VERSIONS = every<DiggsVersion>()("2.5.a", "2.6", "3.0.0", "3.1-dev");
+const STEPS = every<ValidateCheck>()("context", "deprecation", "dictionary", "geometry", "schema", "schematron", "structure");
+const CONVERT_DIGGS_VERSIONS = every<ConvertDiggsVersion>()("3.0.0");
+const CONVERT_AGS_VERSIONS = every<ConvertAgsVersion>()("4.2", "4.1.1");
+
+/** pyDIGGS's check of one parameter's values, with its fixed text; null when they are valid. */
+type ParameterCheck = (values: string[]) => string | null;
+const oneOf =
+  (allowed: readonly string[], text: string): ParameterCheck =>
+  (values) =>
+    allowed.includes(values.at(-1)!) ? null : text;
+// Python counts characters, not UTF-16 units: an emoji is one.
+const chars = (text: string): number => [...text].length;
+const nameCheck: ParameterCheck = (values) => (chars(values.at(-1)!) > MAX_NAME_CHARS ? NAME_PROBLEM : null);
+const diggsVersionCheck = oneOf(DIGGS_VERSIONS, `expected one of ${[...DIGGS_VERSIONS].sort().join(", ")}`);
+const checksCheck: ParameterCheck = (values) => {
+  const checks = checksOf(values) ?? [];
+  const valid = checks.length > 0 && checks.length <= MAX_CHECKS && checks.every((c) => (STEPS as readonly string[]).includes(c));
+  return valid ? null : `expected some of ${[...STEPS].sort().join(",")}`;
+};
+
+// The parameters of each route, in the order pyDIGGS checks them. A query value that a
+// form field overrides never reaches pyDIGGS, so it is checked here, as pyDIGGS's own
+// server checks it, and refused as `invalid-parameter`.
+const VALIDATE_CHECKS: Record<string, ParameterCheck> = {
+  name: nameCheck,
+  checks: checksCheck,
+  diggs_version: diggsVersionCheck,
+};
+const READ_CHECKS: Record<string, ParameterCheck> = {
+  name: nameCheck,
+  diggs_version: diggsVersionCheck,
+  select: (values) => (resultsOf(values) === null ? SELECT_PROBLEM : null),
+};
+const VALIDATE_FIELDS = new Set(Object.keys(VALIDATE_CHECKS));
+const READ_FIELDS = new Set(Object.keys(READ_CHECKS));
 
 // What each kind of body may be sent as, raw: DIGGS as XML; AGS4, which has no registered
 // media type, as generic text or bytes. Either may also come as multipart/form-data.
@@ -196,9 +272,16 @@ const RAW_TYPES = {
   diggs: new Set(["application/xml", "text/xml"]),
   ags4: new Set(["application/octet-stream", "text/csv", "text/plain"]),
 };
-const CONVERT_FIELDS = new Set(["name", "to", "diggs_version", "ags_version"]);
-const AGS4_CHECK_FIELDS = new Set(["name"]);
-const CONVERT_TARGETS = ["diggs", "ags4"];
+const CONVERT_TARGETS = every<ConvertTarget>()("diggs", "ags4");
+const CONVERT_CHECKS: Record<string, ParameterCheck> = {
+  name: nameCheck,
+  to: oneOf(CONVERT_TARGETS, `expected one of ${CONVERT_TARGETS.join(", ")}`),
+  diggs_version: oneOf(CONVERT_DIGGS_VERSIONS, `expected one of ${CONVERT_DIGGS_VERSIONS.join(", ")}`),
+  ags_version: oneOf(CONVERT_AGS_VERSIONS, `expected one of ${CONVERT_AGS_VERSIONS.join(", ")}`),
+};
+const AGS4_CHECK_CHECKS: Record<string, ParameterCheck> = { name: nameCheck };
+const CONVERT_FIELDS = new Set(Object.keys(CONVERT_CHECKS));
+const AGS4_CHECK_FIELDS = new Set(Object.keys(AGS4_CHECK_CHECKS));
 const DIFF_FILES = ["old", "new"] as const;
 const DIFF_FIELDS = new Set([
   "old_name",
@@ -211,7 +294,24 @@ const DIFF_FIELDS = new Set([
   "show_renamed",
 ]);
 // What multipart framing and the short fields may add to a body, as in pyDIGGS.
-const MULTIPART_SLACK = 8 * 64 * 1024 + 64 * 1024;
+const MAX_FIELDS = 8;
+const MAX_FIELD_BYTES = 64 * 1024;
+const MULTIPART_SLACK = MAX_FIELDS * MAX_FIELD_BYTES + 64 * 1024;
+
+// pyDIGGS's multipart parser refuses more file parts than the route takes, more than
+// MAX_FIELDS text fields, or a text field over MAX_FIELD_BYTES, before anything else.
+function withinLimits(form: FormData, maxFiles: number): boolean {
+  let fields = 0;
+  let files = 0;
+  for (const [, value] of form) {
+    if (typeof value !== "string") {
+      files += 1;
+    } else if ((fields += 1) > MAX_FIELDS || new TextEncoder().encode(value).byteLength > MAX_FIELD_BYTES) {
+      return false;
+    }
+  }
+  return files <= maxFiles;
+}
 // Numbers and integers as pyDIGGS's server reads them; other text is passed on as text,
 // so pyDIGGS refuses it as `invalid-parameter` with its own fixed text.
 const NUMBER = /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/;
@@ -233,13 +333,30 @@ const finite = (value: unknown, belowOne = false): boolean =>
 function diffParameterProblem(key: string, text: string): string | null {
   const value = diffOption(key, text);
   if (key === "old_name" || key === "new_name") {
-    return text.length > 4096 ? "must be a string of at most 4096 characters" : null;
+    return [...text].length > 4096 ? "must be a string of at most 4096 characters" : null;
   }
   if (key === "match") return DIFF_MATCH.includes(text) ? null : "expected one of auto, gml-id, natural";
   if (key === "rel_tol") return finite(value, true) ? null : "must be a finite number, 0 or more and less than 1";
   if (key === "abs_tol") return finite(value) ? null : "must be a finite number, 0 or more";
   if (key === "max_changes") return typeof value === "number" ? null : "must be an integer, 0 or more";
   return typeof value === "boolean" ? null : "must be true or false";
+}
+
+interface Preflight {
+  url: URL;
+  multipart: boolean;
+  /** The largest body accepted: a file, plus the framing when it is multipart. */
+  limit: number;
+}
+
+function mediaType(request: Request): string {
+  return (request.headers.get("Content-Type") ?? "").split(";")[0]!.trim().toLowerCase();
+}
+
+// pyDIGGS accepts no encoding header, an empty one, or "identity".
+function compressed(request: Request): boolean {
+  const encoding = (request.headers.get("Content-Encoding") ?? "").trim().toLowerCase();
+  return encoding !== "" && encoding !== "identity";
 }
 
 interface Parsed {
@@ -299,14 +416,19 @@ export function createPydiggsHandler(
   const base = (options.basePath ?? "").replace(/\/+$/, "");
   const maxBody = options.maxBodyBytes ?? 25 * MiB;
   const maxPending = options.maxPending ?? 8;
+  const bodyTimeoutMs = options.bodyTimeoutMs ?? 30_000;
+
+  // A body that could not be read: too large, too slow, or its client gone.
+  function unread(error: unknown): Response {
+    if (error instanceof TooLarge) return problem("input-too-large", { headers: { Connection: "close" } });
+    if (error instanceof BodyTimeout) return problem("request-timeout", { headers: { Connection: "close" } });
+    return problem("missing-input");
+  }
   const rejectCrossSite = options.rejectCrossSite ?? true;
 
-  async function parse(
-    request: Request,
-    allowed: Set<string>,
-    kind: "diggs" | "ags4" = "diggs",
-    extraFiles: ReadonlySet<string> = new Set(),
-  ): Promise<Parsed | Response> {
+  // What pyDIGGS checks before it admits a request and reads its body, in its order: the
+  // media type, then the encoding, then the declared length.
+  function preflight(request: Request, allowed: Set<string>, kind: "diggs" | "ags4" = "diggs"): Preflight | Response {
     const url = new URL(request.url);
     const unsupported = [...new Set(url.searchParams.keys())].filter((key) => !allowed.has(key));
     if (unsupported.length > 0) {
@@ -314,61 +436,94 @@ export function createPydiggsHandler(
         errors: unsupported.slice(0, 20).map((parameter) => ({ parameter, problem: "unknown parameter" })),
       });
     }
-    const encoding = (request.headers.get("Content-Encoding") ?? "identity").toLowerCase();
-    if (encoding !== "identity") return problem("compressed-input");
+    const multipart = mediaType(request) === "multipart/form-data";
+    if (!multipart && !RAW_TYPES[kind].has(mediaType(request))) return problem("unsupported-media-type");
+    if (compressed(request)) return problem("compressed-input");
+    const limit = maxBody + (multipart ? MULTIPART_SLACK : 0);
     const length = Number(request.headers.get("Content-Length") ?? "NaN");
-    if (Number.isFinite(length) && length > maxBody) return problem("input-too-large");
+    if (Number.isFinite(length) && length > limit) return problem("input-too-large");
+    return { url, multipart, limit };
+  }
 
-    const type = (request.headers.get("Content-Type") ?? "").split(";")[0]!.trim().toLowerCase();
+  // Requests in progress, from before their body is read until they are answered. pyDIGGS
+  // admits a request the same way, so many slow uploads cannot each hold a body in memory.
+  let inFlight = 0;
+  const busy = (): Response => problem("busy", { headers: { "Retry-After": "1", Connection: "close" } });
+
+  async function admitted(run: () => Promise<Response>): Promise<Response> {
+    if (inFlight >= maxPending) return busy();
+    inFlight += 1;
+    try {
+      return await run();
+    } finally {
+      inFlight -= 1;
+    }
+  }
+
+  async function parse(
+    request: Request,
+    pre: Preflight,
+    checks: Record<string, ParameterCheck>,
+    extraFiles: ReadonlySet<string> = new Set(),
+  ): Promise<Parsed | Response> {
     let raw: Uint8Array;
     try {
-      raw = await readLimited(request.body, maxBody);
+      raw = await readLimited(request.body, pre.limit, request.signal, bodyTimeoutMs);
     } catch (error) {
-      if (error instanceof TooLarge) return problem("input-too-large");
-      return problem("missing-input");
+      return unread(error);
     }
 
     const params = new Map<string, string[]>();
-    for (const key of allowed) params.set(key, url.searchParams.getAll(key));
+    for (const key of Object.keys(checks)) params.set(key, pre.url.searchParams.getAll(key));
     let data: Uint8Array;
     let fileName: string | null = null;
     let dictionary: Uint8Array | undefined;
-    if (RAW_TYPES[kind].has(type)) {
+    if (!pre.multipart) {
       data = raw;
-    } else if (type === "multipart/form-data") {
+    } else {
       let form: FormData;
       try {
         form = await new Response(raw as BodyInit, { headers: { "Content-Type": request.headers.get("Content-Type")! } }).formData();
       } catch {
         return problem("invalid-multipart");
       }
+      if (!withinLimits(form, 1 + extraFiles.size)) return problem("invalid-multipart");
+      // pyDIGGS's order: the file part, its size, then the other parts and fields.
       const files = form.getAll("file");
+      if (files.length > 1) return problem("invalid-multipart");
+      const file = files[0];
+      if (!(file instanceof Blob)) return problem("missing-input");
+      if (file.size > maxBody) return problem("input-too-large", { headers: { Connection: "close" } });
       const fields = [...new Set(form.keys())].filter((key) => key !== "file" && !extraFiles.has(key));
       const extras = [...extraFiles].map((key) => form.getAll(key));
       if (
-        files.length !== 1 ||
-        !(files[0] instanceof Blob) ||
-        fields.some((key) => !allowed.has(key)) ||
+        // A field is short text, as in pyDIGGS: a file part in its place is refused.
+        fields.some((key) => !(key in checks) || form.getAll(key).some((value) => typeof value !== "string")) ||
         extras.some((parts) => parts.length > 1 || (parts.length === 1 && !(parts[0] instanceof Blob)))
       ) {
         return problem("invalid-multipart");
       }
+      if (extras.some((parts) => parts[0] instanceof Blob && parts[0].size > maxBody)) {
+        return problem("input-too-large", { headers: { Connection: "close" } });
+      }
+      const overridden: { parameter: string; problem: string }[] = [];
+      for (const [key, check] of Object.entries(checks)) {
+        const query = params.get(key) ?? [];
+        if (!fields.includes(key) || query.length === 0) continue;
+        const wrong = check(query);
+        if (wrong !== null) overridden.push({ parameter: key, problem: wrong });
+      }
+      if (overridden.length > 0) return problem("invalid-parameter", { errors: overridden });
+      for (const key of fields) params.set(key, form.getAll(key) as string[]);
       const extra = form.get("dictionary");
       if (extraFiles.has("dictionary") && extra instanceof Blob) dictionary = new Uint8Array(await extra.arrayBuffer());
-      const file = files[0];
       data = new Uint8Array(await file.arrayBuffer());
       if (file instanceof File) fileName = file.name;
-      for (const key of fields) {
-        const values = form.getAll(key).filter((value): value is string => typeof value === "string");
-        if (values.length > 0) params.set(key, values);
-      }
-    } else {
-      return problem("unsupported-media-type");
     }
     if (data.byteLength === 0) return problem("missing-input");
     const name = params.get("name")?.at(-1) ?? fileName;
-    if (name !== null && name.length > 4096) {
-      return problem("invalid-parameter", { errors: [{ parameter: "name", problem: "must be a string of at most 4096 characters" }] });
+    if (name !== null && chars(name) > MAX_NAME_CHARS) {
+      return problem("invalid-parameter", { errors: [{ parameter: "name", problem: NAME_PROBLEM }] });
     }
     const parsed: Parsed = { data, name: baseName(name), givenName: name === null ? undefined : baseName(name), params };
     if (dictionary !== undefined) parsed.dictionary = dictionary;
@@ -399,7 +554,7 @@ export function createPydiggsHandler(
       return problem("not-acceptable", { detail: "Accept application/json." });
     }
     if (engine.status === "failed") return problem("not-ready");
-    if (engine.pending >= maxPending) return problem("busy", { headers: { "Retry-After": "1" } });
+    if (engine.pending >= maxPending) return busy();
     return null;
   }
 
@@ -408,7 +563,13 @@ export function createPydiggsHandler(
     if (refused) return refused;
     const format = negotiate(request.headers.get("Accept"));
     if (format === null) return problem("not-acceptable");
-    const parsed = await parse(request, VALIDATE_FIELDS);
+    const pre = preflight(request, VALIDATE_FIELDS);
+    if (pre instanceof Response) return pre;
+    return admitted(() => validateAdmitted(request, pre, format));
+  }
+
+  async function validateAdmitted(request: Request, pre: Preflight, format: "findings" | "sarif"): Promise<Response> {
+    const parsed = await parse(request, pre, VALIDATE_CHECKS);
     if (parsed instanceof Response) return parsed;
     const checks = checksOf(parsed.params.get("checks") ?? []);
     const diggsVersion = parsed.params.get("diggs_version")?.at(-1);
@@ -429,7 +590,13 @@ export function createPydiggsHandler(
   async function read(request: Request): Promise<Response> {
     const refused = gate(request);
     if (refused) return refused;
-    const parsed = await parse(request, READ_FIELDS);
+    const pre = preflight(request, READ_FIELDS);
+    if (pre instanceof Response) return pre;
+    return admitted(() => readAdmitted(request, pre));
+  }
+
+  async function readAdmitted(request: Request, pre: Preflight): Promise<Response> {
+    const parsed = await parse(request, pre, READ_CHECKS);
     if (parsed instanceof Response) return parsed;
     const results = resultsOf(parsed.params.get("select") ?? []);
     if (results === null) {
@@ -455,10 +622,16 @@ export function createPydiggsHandler(
     if (refused) return refused;
     // A raw body is DIGGS XML for to=ags4 (given in the query) and AGS4 otherwise.
     const toAgs4 = new URL(request.url).searchParams.getAll("to").at(-1) === "ags4";
-    const parsed = await parse(request, CONVERT_FIELDS, toAgs4 ? "diggs" : "ags4");
+    const pre = preflight(request, CONVERT_FIELDS, toAgs4 ? "diggs" : "ags4");
+    if (pre instanceof Response) return pre;
+    return admitted(() => convertAdmitted(request, pre));
+  }
+
+  async function convertAdmitted(request: Request, pre: Preflight): Promise<Response> {
+    const parsed = await parse(request, pre, CONVERT_CHECKS);
     if (parsed instanceof Response) return parsed;
     const to = parsed.params.get("to")?.at(-1);
-    if (to !== undefined && !CONVERT_TARGETS.includes(to)) {
+    if (to !== undefined && !(CONVERT_TARGETS as readonly string[]).includes(to)) {
       return problem("invalid-parameter", {
         errors: [{ parameter: "to", problem: `expected one of ${CONVERT_TARGETS.join(", ")}` }],
       });
@@ -485,7 +658,13 @@ export function createPydiggsHandler(
     if (refused) return refused;
     const format = negotiate(request.headers.get("Accept"));
     if (format === null) return problem("not-acceptable");
-    const parsed = await parse(request, AGS4_CHECK_FIELDS, "ags4", new Set(["dictionary"]));
+    const pre = preflight(request, AGS4_CHECK_FIELDS, "ags4");
+    if (pre instanceof Response) return pre;
+    return admitted(() => checkAgs4Admitted(request, pre, format));
+  }
+
+  async function checkAgs4Admitted(request: Request, pre: Preflight, format: "findings" | "sarif"): Promise<Response> {
+    const parsed = await parse(request, pre, AGS4_CHECK_CHECKS, new Set(["dictionary"]));
     if (parsed instanceof Response) return parsed;
     const call = {
       signal: request.signal,
@@ -511,24 +690,33 @@ export function createPydiggsHandler(
         errors: unsupported.slice(0, 20).map((parameter) => ({ parameter, problem: "unknown parameter" })),
       });
     }
-    const encoding = (request.headers.get("Content-Encoding") ?? "identity").toLowerCase();
-    if (encoding !== "identity") return problem("compressed-input");
-    const type = (request.headers.get("Content-Type") ?? "").split(";")[0]!.trim().toLowerCase();
-    if (type !== "multipart/form-data") return problem("unsupported-media-type", { detail: "Send multipart/form-data." });
+    if (mediaType(request) !== "multipart/form-data") return problem("unsupported-media-type", { detail: "Send multipart/form-data." });
+    if (compressed(request)) return problem("compressed-input");
     const limit = DIFF_FILES.length * maxBody + MULTIPART_SLACK;
     const length = Number(request.headers.get("Content-Length") ?? "NaN");
     if (Number.isFinite(length) && length > limit) return problem("input-too-large");
+    return admitted(() => diffAdmitted(request, url, limit, engine.diff!));
+  }
+
+  async function diffAdmitted(
+    request: Request,
+    url: URL,
+    limit: number,
+    run: NonNullable<PydiggsEngine["diff"]>,
+  ): Promise<Response> {
+    let raw: Uint8Array;
+    try {
+      raw = await readLimited(request.body, limit, request.signal, bodyTimeoutMs);
+    } catch (error) {
+      return unread(error);
+    }
     let form: FormData;
     try {
-      const raw = await readLimited(request.body, limit);
       form = await new Response(raw as BodyInit, { headers: { "Content-Type": request.headers.get("Content-Type")! } }).formData();
-    } catch (error) {
-      return problem(error instanceof TooLarge ? "input-too-large" : "invalid-multipart");
-    }
-    const fields = [...new Set(form.keys())].filter((key) => !(DIFF_FILES as readonly string[]).includes(key));
-    if (fields.some((key) => !DIFF_FIELDS.has(key) || form.getAll(key).some((value) => typeof value !== "string"))) {
+    } catch {
       return problem("invalid-multipart");
     }
+    if (!withinLimits(form, DIFF_FILES.length)) return problem("invalid-multipart");
     const files: Uint8Array[] = [];
     const names: (string | null)[] = [];
     for (const side of DIFF_FILES) {
@@ -541,6 +729,11 @@ export function createPydiggsHandler(
       if (part.size > maxBody) return problem("input-too-large", { headers: { Connection: "close" } });
       files.push(new Uint8Array(await part.arrayBuffer()));
       names.push(part instanceof File ? part.name : null);
+    }
+    // pyDIGGS's order: the two files first, then the fields.
+    const fields = [...new Set(form.keys())].filter((key) => !(DIFF_FILES as readonly string[]).includes(key));
+    if (fields.some((key) => !DIFF_FIELDS.has(key) || form.getAll(key).some((value) => typeof value !== "string"))) {
+      return problem("invalid-multipart");
     }
     const params = new Map<string, string[]>();
     const overridden: { parameter: string; problem: string }[] = [];
@@ -556,7 +749,7 @@ export function createPydiggsHandler(
     if (overridden.length > 0) return problem("invalid-parameter", { errors: overridden });
     const name = (side: "old" | "new", index: number): string | Response => {
       const given = params.get(`${side}_name`)?.at(-1) ?? names[index] ?? null;
-      if (given !== null && given.length > 4096) {
+      if (given !== null && chars(given) > MAX_NAME_CHARS) {
         return problem("invalid-parameter", {
           errors: [{ parameter: `${side}_name`, problem: "must be a string of at most 4096 characters" }],
         });
@@ -586,8 +779,15 @@ export function createPydiggsHandler(
         .filter(([, value]) => value !== undefined),
     );
     try {
-      const result = await engine.diff(files[0]!, files[1]!, { ...compare, oldName, newName, signal: request.signal });
-      // The same bound as pyDIGGS's endpoint: four times the per-file body limit.
+      // The same bound as pyDIGGS's endpoint, four times the per-file body limit: pyDIGGS
+      // refuses a larger answer before building it, and the check below stays as a backstop.
+      const result = await run(files[0]!, files[1]!, {
+        ...compare,
+        oldName,
+        newName,
+        maxResultBytes: 4 * maxBody,
+        signal: request.signal,
+      });
       const body = new TextEncoder().encode(JSON.stringify(result));
       if (body.byteLength > 4 * maxBody) return problem("result-too-large");
       return new Response(body as BodyInit, {

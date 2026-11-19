@@ -921,7 +921,7 @@
         "operationId": "diff",
         "responses": {
           "200": {
-            "description": "A diggs-diff 1.0 document: what pydiggs.diff.compare() returns for the same bytes and options, each file under its basename. Identical or not, the answer is a 200; a limit or an exhausted time budget is a 200 with complete: false.",
+            "description": "A diggs-diff 1.0 document: what pydiggs.diff.compare() returns for the same bytes and options, each file under its basename. Identical or not, the answer is a 200; a max_changes limit is a 200 with complete: false. Running out of time is a 200 with complete: false under thread isolation, and 504 timeout under process isolation (create_app's default).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1105,6 +1105,7 @@
             "schema": {
               "type": "integer",
               "minimum": 0,
+              "maximum": 999999999999999999,
               "default": 10000
             },
             "description": "Most changes listed; the counts stay exact, and a cut list is an incomplete comparison (complete: false)."
@@ -1186,6 +1187,7 @@
                   "max_changes": {
                     "type": "integer",
                     "minimum": 0,
+                    "maximum": 999999999999999999,
                     "default": 10000,
                     "description": "Most changes listed; the counts stay exact, and a cut list is an incomplete comparison (complete: false)."
                   },

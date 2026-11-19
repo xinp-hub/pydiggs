@@ -140,6 +140,7 @@ test("the handler serves /v1/diff from the engine, parsing options as pyDIGGS do
       showRenamed: true,
       oldName: "a.xml",
       newName: "renamed.xml",
+      maxResultBytes: 4 * 25 * 1024 * 1024,
     },
   ]);
   // Text that is not a value goes on as text, for pyDIGGS to refuse with its fixed text.
@@ -211,7 +212,13 @@ test("PydiggsHttpClient.diff works against the handler, and a refusal names the 
       handler(new Request(new URL(String(input), "http://app.test"), init))) as typeof globalThis.fetch;
   const client = new PydiggsHttpClient({ baseUrl: "/api", fetch: fetchFor(handle) });
   assert.equal((await client.diff("<a/>", "<b/>", { maxChanges: 3, newName: "n.xml" })).identical, true);
-  assert.deepEqual(calls[0], { sizes: [4, 4], maxChanges: 3, oldName: "input.xml", newName: "n.xml" });
+  assert.deepEqual(calls[0], {
+    sizes: [4, 4],
+    maxChanges: 3,
+    oldName: "input.xml",
+    newName: "n.xml",
+    maxResultBytes: 4 * 25 * 1024 * 1024,
+  });
 
   const refusing = new PydiggsHttpClient({
     baseUrl: "/api",

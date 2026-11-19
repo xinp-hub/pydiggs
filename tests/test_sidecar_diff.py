@@ -261,6 +261,23 @@ def test_path_mode_and_mixed_transports(session, root):
     )
     assert _slug(outside) == "path-not-permitted"
     assert str(root.parent) not in json.dumps(outside)
+    assert outside["error"]["data"]["errors"] == [
+        {"param": "new_path", "problem": "is not permitted"}
+    ]
+
+
+def test_a_compressed_file_by_path_names_its_side(session, root):
+    import gzip
+
+    (root / "old.xml.gz").write_bytes(gzip.compress(OLD.read_bytes()))
+    s = session(roots=(root,))
+    _initialize(s)
+    reply = s.call(
+        "diff", {"old_path": str(root / "old.xml.gz"), "new_base64": _b64(OLD.read_bytes())}
+    )
+    assert _slug(reply) == "compressed-input"
+    assert reply["error"]["data"]["errors"] == [{"param": "old_path", "problem": "is compressed"}]
+    assert str(root) not in json.dumps(reply)
 
 
 def test_each_file_follows_its_own_transports_limit(session, root):
@@ -273,6 +290,15 @@ def test_each_file_follows_its_own_transports_limit(session, root):
     assert by_path["result"]["identical"] is True
     inline = s.call("diff", {"old_path": str(root / "old.xml"), "new_base64": _b64(data)}, id=2)
     assert _slug(inline) == "input-too-large"
+    too_big = ServeOptions(max_bytes=10 * len(data), max_path_bytes=len(data) - 1)
+    small = session(options=too_big, roots=(root,))
+    _initialize(small)
+    by_path_big = small.call("diff", {"old_base64": _b64(data), "new_path": str(root / "old.xml")})
+    assert _slug(by_path_big) == "input-too-large"
+    assert by_path_big["error"]["data"]["errors"] == [
+        {"param": "new_path", "problem": "is larger than allowed"}
+    ]
+    assert str(root) not in json.dumps(by_path_big)
 
 
 def test_a_queued_diff_can_be_cancelled(session, monkeypatch):

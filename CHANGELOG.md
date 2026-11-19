@@ -17,6 +17,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   site is published. The commands shown really run, and a video whose output no longer
   matches its script stops the build, so the videos cannot fall behind the software.
 
+## [1.13.1] - 2026-11-19
+
+### Fixed
+- **HTTP: a valid `/v1/convert` request was refused when a form field overrode a query
+  value.** With `?to=ags4&ags_version=4.2` and the multipart field `ags_version=4.1.1`,
+  the server answered 422 "applies only to to=ags4", because it checked the overridden
+  query value without the query's `to`. Each overridden query value is now checked on
+  its own in the request the fields complete, as the docs say ("a field wins, but both
+  must be valid"); an invalid one, such as `?to=bogus` with the field `to=diggs`, is
+  still 422. `/v1/diff` follows the same rule.
+- **Sidecar: a `diff` file given by path that is refused now names its side.** A
+  refusal (`path-not-permitted`, `input-too-large` or `compressed-input`) carries
+  `errors: [{"param": "new_path", "problem": "is not permitted"}]` or the like, as a
+  refusal of an inline file already named `old` or `new`. The path itself is never
+  included.
+- **The OpenAPI document of `POST /v1/diff`.** `max_changes` now has the `maximum` the
+  server reads (18 digits); a longer number was valid by the document but refused. The
+  200 response now says that running out of time is a 200 with `complete: false` under
+  thread isolation, and 504 `timeout` under process isolation (`create_app`'s default).
+- **Docs: what a hand-built `Model` needs for `diff`.** A `Model` built by hand must set
+  `source.sha256` to a 64-digit lowercase hex digest for `diff.compare` to give a valid
+  diggs-diff 1.0 report: the report copies it unchanged. Models from `pydiggs.read` and
+  `pydiggs.convert` always do.
+
 ## [1.13.0] - 2026-11-19
 
 ### Added
@@ -1336,7 +1360,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.13.1...HEAD
+[1.13.1]: https://github.com/xinp-hub/pydiggs/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/xinp-hub/pydiggs/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/xinp-hub/pydiggs/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/xinp-hub/pydiggs/compare/v1.10.0...v1.11.0

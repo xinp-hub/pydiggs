@@ -87,8 +87,12 @@ Send the document either way:
   the query parameters `name`, `checks`, `diggs_version`.
 - **Multipart:** `Content-Type: multipart/form-data` with one part named `file` and the
   optional fields `name`, `checks`, `diggs_version`. A field wins over the same query
-  parameter, but both must be valid. `name` wins over the part's file name. Other fields
-  are refused.
+  parameter, but both must be valid. An overridden query value is checked in the
+  request the fields complete, and only for itself: on `/v1/convert`,
+  `?to=ags4&ags_version=4.2` with the field `ags_version=4.1.1`, and `?to=diggs` with
+  the fields `to=ags4` and `ags_version=4.2`, are accepted; `?to=bogus` with the field
+  `to=diggs` is refused (422). `name` wins over the part's file name. Other fields are
+  refused.
 
 | parameter | meaning |
 |---|---|

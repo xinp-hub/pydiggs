@@ -219,6 +219,10 @@ def compare(
 
     Returns:
         A :class:`Diff`. A problem with the *data* is a finding in ``Diff.notes``.
+        Each side's ``source.sha256`` is copied into the report as it is: a
+        :class:`~pydiggs.model.Model` you build yourself must give the 64-digit hex
+        digest the diggs-model schema requires, or :meth:`Diff.to_json` is not a valid
+        diggs-diff 1.0 document.
 
     Raises:
         InstanceReadError: A file is missing, unreadable, too large or compressed.

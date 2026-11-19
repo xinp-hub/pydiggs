@@ -221,6 +221,13 @@ the files reports one. A file and a `Model` are compared as two models. This is 
 a reference to an element the model does not keep can only be established between two
 files (see [Ids and references](#ids-and-references)).
 
+A `Model` from `pydiggs.read` carries the sha256 of the file it was read from, and the
+report gives it as `old.sha256` and `new.sha256`. **A `Model` you build yourself** must
+set `source.sha256` to a 64-digit lowercase hex digest, as the
+[diggs-model schema](model.md) requires: the comparison copies it into the report
+unchanged, and a report holding any other value (such as an empty string) is not a valid
+diggs-diff 1.0 document.
+
 ## What does not count as a change
 
 - **The `gml:id` of a record.** An id says which record is which inside one file; it is

@@ -76,6 +76,8 @@ export interface RequestParameters {
   show_reformatted?: boolean;
   /** diff: also list records whose gml:id changed. */
   show_renamed?: boolean;
+  /** diff: the largest answer pyDIGGS may build, in bytes. */
+  max_result_bytes?: number;
   /** rules: only this step's rules. */
   step?: string;
   /** explain: the rule id. */

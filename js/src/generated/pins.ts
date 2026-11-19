@@ -5,7 +5,7 @@ export const PYODIDE_VERSION: string = "314.0.7";
 /** Subresource Integrity hash of that release's pyodide.mjs loader. */
 export const PYODIDE_SRI: string = "sha384-Lp79fMwxa4n2BLtugpUAoQMlbxIdg8iCUiP1r3h7nJLkQjwlXT1JzZTeHVL+f4Dg";
 /** The pydiggs release the worker installs from PyPI unless given a wheel URL. */
-export const PYDIGGS_VERSION: string = "1.13.0";
+export const PYDIGGS_VERSION: string = "1.13.1";
 /**
  * The published wheel of PYDIGGS_VERSION and its sha256, from PyPI; null until
  * js/pydiggs-wheel.json names that version (then micropip installs it by version).
