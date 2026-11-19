@@ -339,6 +339,8 @@ _FORBIDDEN_NAMES = {
     "ags4_to_diggs",
     "diggs_to_ags4",
     "model_to_ags4",
+    "compare",
+    "compare_models",
 }
 
 

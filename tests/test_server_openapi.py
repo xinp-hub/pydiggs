@@ -57,6 +57,7 @@ def test_the_document_is_openapi_3_1_with_every_reference_resolving():
         "/v1/read",
         "/v1/convert",
         "/v1/ags4/check",
+        "/v1/diff",
         "/v1/versions",
         "/v1/capabilities",
         "/v1/rules",
@@ -107,6 +108,10 @@ def test_a_mounted_router_publishes_a_self_contained_document():
     result = convert["content"]["application/json"]["schema"]
     assert result["title"] == "ConversionResult"
     assert result["properties"]["report"]["title"] == "diggs-findings 1.2"
+    diff = document["paths"]["/v1/diff"]["post"]["responses"]["200"]
+    compared = diff["content"]["application/json"]["schema"]
+    assert compared["title"] == "diggs-diff 1.0"
+    assert compared["properties"]["notes"]["items"]["properties"]["rule_id"]
 
 
 def test_model_components_are_derived_from_the_packaged_schema():
@@ -154,12 +159,19 @@ _SCHEMA = schemathesis.openapi.from_dict(json.loads(COMMITTED.read_text("utf-8")
 _SCHEMA.app = _APP
 
 
+#: The file parts of the operations' multipart bodies.
+_FILE_PARTS = ("file", "dictionary", "old", "new")
+
+
 def _starts_gzipped(body) -> bool:
-    raw = body.get("file") if isinstance(body, dict) else body
-    raw = getattr(raw, "data", raw)  # a schemathesis ``Binary`` goes out as its bytes
-    if isinstance(raw, str):
-        raw = raw.encode("utf-8", "surrogatepass")
-    return isinstance(raw, bytes | bytearray) and bytes(raw[:2]) == b"\x1f\x8b"
+    parts = [body.get(k) for k in _FILE_PARTS] if isinstance(body, dict) else [body]
+    for part in parts:
+        raw = getattr(part, "data", part)  # a schemathesis ``Binary`` goes out as its bytes
+        if isinstance(raw, str):
+            raw = raw.encode("utf-8", "surrogatepass")
+        if isinstance(raw, bytes | bytearray) and bytes(raw[:2]) == b"\x1f\x8b":
+            return True
+    return False
 
 
 @pytest.mark.timeout(600)
@@ -174,14 +186,14 @@ def test_the_api_conforms_to_its_openapi_document(case):
     # /v1/read answers 422 invalid-document for bytes that are not a DIGGS document
     # (/v1/validate reports the same as findings); OpenAPI cannot say "a DIGGS file".
     # Likewise /v1/convert for bytes that are not AGS4, and /v1/ags4/check for a
-    # dictionary part that is not an AGS4 dictionary.
-    unparseable = ("/v1/read", "/v1/convert", "/v1/ags4/check")
+    # dictionary part that is not an AGS4 dictionary, and /v1/diff for either file.
+    unparseable = ("/v1/read", "/v1/convert", "/v1/ags4/check", "/v1/diff")
     if case.operation.path in unparseable and positive_data_acceptance not in excluded:
         excluded.append(positive_data_acceptance)
     # Multipart fields are text on the wire: a "negative" null, boolean or number value
     # goes out as text (or not at all), which can be a valid value.
     if isinstance(case.body, dict) and any(
-        not isinstance(v, str) for k, v in case.body.items() if k != "file"
+        not isinstance(v, str) for k, v in case.body.items() if k not in _FILE_PARTS
     ):
         excluded.append(negative_data_rejection)
     response = case.call_and_validate(excluded_checks=excluded)

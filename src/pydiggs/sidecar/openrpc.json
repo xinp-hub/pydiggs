@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "pydiggs stdio sidecar",
-    "version": "1.2",
+    "version": "1.3",
     "description": "JSON-RPC 2.0 over NDJSON on stdin/stdout (pydiggs serve --stdio). The -32000..-32099 error band is pydiggs-defined; switch on error.data.code."
   },
   "methods": [
@@ -92,6 +92,12 @@
               "type": "string"
             },
             "model_schema_url": {
+              "type": "string"
+            },
+            "diff_schema_version": {
+              "type": "string"
+            },
+            "diff_schema_url": {
               "type": "string"
             },
             "diggs_versions": {
@@ -602,6 +608,178 @@
       ]
     },
     {
+      "name": "diff",
+      "summary": "Compare two DIGGS files (protocol 1.3): what was added, removed or changed, as the diggs-diff 1.0 document pydiggs.diff.compare gives. Each file is given as base64 content or (if enabled) an absolute path.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "old_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "required": false
+        },
+        {
+          "name": "old_path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "old_name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "new_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "required": false
+        },
+        {
+          "name": "new_path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "new_name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "match",
+          "schema": {
+            "enum": [
+              "auto",
+              "gml-id",
+              "natural",
+              "gml_id"
+            ],
+            "default": "auto"
+          },
+          "required": false,
+          "summary": "How records are paired: auto (by gml:id, then by natural key), gml-id (ids only; also written gml_id) or natural (natural keys only)."
+        },
+        {
+          "name": "rel_tol",
+          "schema": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": 1,
+            "default": 1e-09
+          },
+          "required": false
+        },
+        {
+          "name": "abs_tol",
+          "schema": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0.0
+          },
+          "required": false
+        },
+        {
+          "name": "max_changes",
+          "schema": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 10000
+          },
+          "required": false,
+          "summary": "Most changes listed; the counts stay exact."
+        },
+        {
+          "name": "show_reformatted",
+          "schema": {
+            "type": "boolean",
+            "default": false
+          },
+          "required": false
+        },
+        {
+          "name": "show_renamed",
+          "schema": {
+            "type": "boolean",
+            "default": false
+          },
+          "required": false
+        },
+        {
+          "name": "time_budget_s",
+          "schema": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "required": false
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/busy"
+        },
+        {
+          "$ref": "#/components/errors/input-too-large"
+        },
+        {
+          "$ref": "#/components/errors/compressed-input"
+        },
+        {
+          "$ref": "#/components/errors/path-not-permitted"
+        },
+        {
+          "$ref": "#/components/errors/input-unreadable"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/cancelled"
+        },
+        {
+          "$ref": "#/components/errors/internal"
+        },
+        {
+          "$ref": "#/components/errors/invalid-document"
+        },
+        {
+          "$ref": "#/components/errors/result-too-large"
+        }
+      ]
+    },
+    {
       "name": "ping",
       "summary": "Liveness check.",
       "paramStructure": "by-name",
@@ -1090,6 +1268,24 @@
               },
               "dictionary": {
                 "type": "boolean"
+              }
+            }
+          },
+          "diff": {
+            "type": "object",
+            "description": "Protocol 1.3 and later.",
+            "properties": {
+              "content": {
+                "type": "boolean"
+              },
+              "path": {
+                "type": "boolean"
+              },
+              "match": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },

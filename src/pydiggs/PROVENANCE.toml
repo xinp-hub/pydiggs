@@ -1124,9 +1124,9 @@ sha256 = "0b4b88c53ba222023d1eb9334db5d0445adcf8a2ec7b4e166324ee8ffc43dbd0"
 [files."server/openapi.json"]
 source = "local"
 note = "The HTTP API's OpenAPI document, generated from pydiggs.server (drift-tested)."
-sha256 = "9719448fea6016e1830737b184fbae3857a6070f03195f165491f6939bc47f77"
+sha256 = "c3773677f91e3719fd2f10f716fbffee0d3beaa92c7faf6cf929e9d48156e923"
 
 [files."sidecar/openrpc.json"]
 source = "local"
 note = "OpenRPC description of the stdio sidecar protocol: pyDIGGS's own contract, generated from pydiggs.sidecar._protocol and drift-tested."
-sha256 = "d60e73d41b7fb0f623f61071569932586357e1c565d7a70eb99909aaeeda1f82"
+sha256 = "d9618392ffc86980e7a63d2ce8e05a93e2c2e0d9db73a04faef765796ddd052f"

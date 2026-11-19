@@ -17,3 +17,5 @@ export const DEFAULT_MAX_BYTES: number = 25 * 1024 * 1024;
 export const FINDINGS_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json";
 /** The diggs-model schema these types were generated from. */
 export const MODEL_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json";
+/** The diggs-diff schema these types were generated from. */
+export const DIFF_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json";

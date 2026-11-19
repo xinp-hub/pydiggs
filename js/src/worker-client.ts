@@ -3,6 +3,7 @@
 // requests by id, and turns replies into resolved or rejected promises.
 
 import { PydiggsError } from "./errors.ts";
+import type { DiggsDiffDocument } from "./generated/diff.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type {
   Capabilities,
@@ -10,6 +11,7 @@ import type {
   ConvertAgsVersion,
   ConvertDiggsVersion,
   ConvertTarget,
+  DiffMatch,
   DiggsVersion,
   RuleInfo,
   RuleStep,
@@ -35,6 +37,7 @@ export type {
   ConvertAgsVersion,
   ConvertDiggsVersion,
   ConvertTarget,
+  DiffMatch,
   DiggsVersion,
   RuleInfo,
   RuleStep,
@@ -112,6 +115,44 @@ export interface WorkerAgs4CheckOptions extends WorkerRequestOptions {
    * rules that need it check only what the file itself declares.
    */
   dictionary?: DocumentBytes;
+}
+
+/** The comparison options of `diff`, as `pydiggs.diff.compare` takes them. */
+export interface DiffCompareOptions {
+  /**
+   * How records are paired: `"auto"` (the default; by gml:id, then by natural key),
+   * `"gml-id"` (ids only; also written `"gml_id"`) or `"natural"` (natural keys only).
+   */
+  match?: DiffMatch;
+  /** Two numbers are equal within this fraction of the larger one: 0 to less than 1. Default: 1e-9. */
+  relTol?: number;
+  /** Or within this much, in the value's own unit. Default: 0. */
+  absTol?: number;
+  /** Most changes listed; the counts stay exact, and a cut list is `complete: false`. Default: 10000. */
+  maxChanges?: number;
+  /** Also list values only written differently (1.50 and 1.5). Default: false. */
+  showReformatted?: boolean;
+  /** Also list records whose gml:id changed (never a difference). Default: false. */
+  showRenamed?: boolean;
+}
+
+export interface WorkerDiffOptions extends WorkerCallOptions, DiffCompareOptions {
+  /** Name to report the old file as. Default: the `File`'s own name, else `input.xml`. */
+  oldName?: string;
+  /** Name to report the new file as. Default: the `File`'s own name, else `input.xml`. */
+  newName?: string;
+}
+
+/** The parameters of a comparison, in the HTTP API's own names; only those given. */
+export function diffParameters(options: DiffCompareOptions): RequestParameters {
+  const parameters: RequestParameters = {};
+  if (options.match !== undefined) parameters.match = options.match;
+  if (options.relTol !== undefined) parameters.rel_tol = options.relTol;
+  if (options.absTol !== undefined) parameters.abs_tol = options.absTol;
+  if (options.maxChanges !== undefined) parameters.max_changes = options.maxChanges;
+  if (options.showReformatted !== undefined) parameters.show_reformatted = options.showReformatted;
+  if (options.showRenamed !== undefined) parameters.show_renamed = options.showRenamed;
+  return parameters;
 }
 
 export interface WorkerRulesOptions extends WorkerCallOptions {
@@ -327,6 +368,24 @@ export class WorkerClient {
     return this.#document("ags4-check", input, options, { format: "sarif" }, options.dictionary) as Promise<SarifLog>;
   }
 
+  /**
+   * Compares two DIGGS files, as `/v1/diff` does: what was added, removed or changed,
+   * as a diggs-diff 1.0 document. Each file is held to the size limit on its own.
+   * Bytes that are not a DIGGS document are an error with `problem.code`
+   * "invalid-document" and `problem.errors` naming the file ("old" or "new"). Needs
+   * pyDIGGS 1.13 or later.
+   */
+  async diff(oldInput: DocumentBytes, newInput: DocumentBytes, options: WorkerDiffOptions = {}): Promise<DiggsDiffDocument> {
+    options.signal?.throwIfAborted();
+    if (this.#failure) throw this.#failure;
+    for (const input of [oldInput, newInput]) this.#checkSize(input);
+    const [oldData, newData] = await Promise.all([copyBytes(oldInput), copyBytes(newInput)]);
+    return this.#send("diff", documentName(oldInput, options.oldName), oldData, diffParameters(options), options.signal, undefined, {
+      name: documentName(newInput, options.newName),
+      data: newData,
+    }) as Promise<DiggsDiffDocument>;
+  }
+
   /** What this pydiggs can do, as `/v1/capabilities` gives it. */
   capabilities(options: WorkerCallOptions = {}): Promise<Capabilities> {
     return this.#send("capabilities", undefined, undefined, {}, options.signal) as Promise<Capabilities>;
@@ -373,6 +432,15 @@ export class WorkerClient {
   ): Promise<unknown> {
     options.signal?.throwIfAborted();
     if (this.#failure) throw this.#failure;
+    this.#checkSize(input);
+    const data = await copyBytes(input);
+    const extra = dictionary === undefined ? undefined : await copyBytes(dictionary);
+    const ags4 = type === "convert" || type === "ags4-check";
+    const name = ags4 ? givenName(input, options.name) : documentName(input, options.name);
+    return this.#send(type, name, data, parameters, options.signal, extra);
+  }
+
+  #checkSize(input: DocumentBytes): void {
     const size = input instanceof Blob ? input.size : input.byteLength;
     if (size > this.#maxBytes) {
       throw this.#makeError(`the document is larger than ${this.#maxBytes} bytes`, {
@@ -380,11 +448,6 @@ export class WorkerClient {
         detail: `larger than ${this.#maxBytes} bytes`,
       });
     }
-    const data = await copyBytes(input);
-    const extra = dictionary === undefined ? undefined : await copyBytes(dictionary);
-    const ags4 = type === "convert" || type === "ags4-check";
-    const name = ags4 ? givenName(input, options.name) : documentName(input, options.name);
-    return this.#send(type, name, data, parameters, options.signal, extra);
   }
 
   #send(
@@ -394,6 +457,7 @@ export class WorkerClient {
     parameters: RequestParameters,
     signal: AbortSignal | undefined,
     dictionary?: ArrayBuffer,
+    other?: { name: string; data: ArrayBuffer },
   ): Promise<unknown> {
     try {
       signal?.throwIfAborted();
@@ -406,6 +470,10 @@ export class WorkerClient {
     if (name !== undefined) message.name = name;
     if (data !== undefined) message.data = data;
     if (dictionary !== undefined) message.dictionary = dictionary;
+    if (other !== undefined) {
+      message.newName = other.name;
+      message.newData = other.data;
+    }
     if (Object.keys(parameters).length > 0) message.parameters = parameters;
     return new Promise<unknown>((resolve, reject) => {
       const onAbort = (): void => {
@@ -423,7 +491,7 @@ export class WorkerClient {
         },
       });
       signal?.addEventListener("abort", onAbort, { once: true });
-      this.#worker.postMessage(message, [data, dictionary].filter((buffer) => buffer !== undefined));
+      this.#worker.postMessage(message, [data, dictionary, other?.data].filter((buffer) => buffer !== undefined));
     });
   }
 
@@ -571,6 +639,14 @@ export class SupervisedWorker {
   /** Checks an AGS4 file and returns the findings as a SARIF 2.1.0 log. */
   checkAgs4Sarif(input: DocumentBytes, options: WorkerAgs4CheckOptions = {}): Promise<SarifLog> {
     return this.#run(options.signal, (client) => client.checkAgs4Sarif(input, options));
+  }
+
+  /**
+   * Compares two DIGGS files: what was added, removed or changed, as a diggs-diff 1.0
+   * document (`/v1/diff`). Both files run as one request, under one time limit.
+   */
+  diff(oldInput: DocumentBytes, newInput: DocumentBytes, options: WorkerDiffOptions = {}): Promise<DiggsDiffDocument> {
+    return this.#run(options.signal, (client) => client.diff(oldInput, newInput, options));
   }
 
   /** What this pydiggs can do: its operations, their options and extras. */

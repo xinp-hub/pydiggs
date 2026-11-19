@@ -9,6 +9,7 @@
 import type { BrowserDocumentInput } from "./browser.ts";
 import type { PoolEngine } from "./pool.ts";
 import { PydiggsError } from "./errors.ts";
+import type { DiggsDiffDocument } from "./generated/diff.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import { DEFAULT_MAX_BYTES } from "./generated/pins.ts";
@@ -17,6 +18,7 @@ import type {
   ConvertAgsVersion,
   ConvertDiggsVersion,
   ConvertTarget,
+  DiffOptions,
   DiggsVersion,
   PydiggsHttpClient,
   SarifLog,
@@ -51,10 +53,13 @@ export interface HybridResult<T> {
 
 /**
  * What runs pydiggs in the tab: a `PydiggsBrowser` or a `PydiggsPool`. An engine of
- * your own without `convert` or `checkAgs4` sends those requests to the server.
+ * your own without `convert`, `checkAgs4` or `diff` sends those requests to the server.
  */
 export type HybridBrowser = Pick<PoolEngine, "status" | "ready" | "validate" | "read"> &
-  Partial<Pick<PoolEngine, "validateSarif" | "convert" | "checkAgs4" | "checkAgs4Sarif">>;
+  Partial<Pick<PoolEngine, "validateSarif" | "convert" | "checkAgs4" | "checkAgs4Sarif" | "diff">>;
+
+/** The options of `diff`: the comparison's, a name for each file, and `signal`. */
+export type HybridDiffOptions = DiffOptions;
 
 export interface HybridConvertOptions {
   /** File name of the input. Default: the `File`'s own name. */
@@ -278,6 +283,32 @@ export class PydiggsHybrid {
       () => browser!.checkAgs4Sarif!(input, { ...request, ...dictionary }),
       () => this.#server!.checkAgs4Sarif(input, { ...request, ...dictionary }),
       browser?.checkAgs4Sarif === undefined,
+    );
+  }
+
+  /**
+   * Compares two DIGGS files where they can run: in the tab when the browser can take
+   * the larger of the two, else on the server. Both always go the same way. The
+   * browser's worker needs pyDIGGS 1.13 or later, the server too.
+   */
+  diff(
+    oldInput: BrowserDocumentInput,
+    newInput: BrowserDocumentInput,
+    options: HybridDiffOptions = {},
+  ): Promise<HybridResult<DiggsDiffDocument>> {
+    const request: HybridDiffOptions = {
+      ...options,
+      oldName: nameOf(oldInput, { ...(options.oldName !== undefined ? { name: options.oldName } : {}) }),
+      newName: nameOf(newInput, { ...(options.newName !== undefined ? { name: options.newName } : {}) }),
+    };
+    const larger = sizeOf(oldInput) >= sizeOf(newInput) ? oldInput : newInput;
+    const browser = this.#browser;
+    return this.#run(
+      larger,
+      options.signal,
+      () => browser!.diff!(oldInput, newInput, request),
+      () => this.#server!.diff(oldInput, newInput, request),
+      browser?.diff === undefined,
     );
   }
 

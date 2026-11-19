@@ -1,5 +1,5 @@
 // Serves pyDIGGS's HTTP API (`/v1/validate`, `/v1/read`, `/v1/convert`, `/v1/ags4/check`,
-// `/v1/versions`, `/v1/capabilities`, `/v1/rules`, `/v1/rules/{rule_id}`, `/v1/readyz`)
+// `/v1/diff`, `/v1/versions`, `/v1/capabilities`, `/v1/rules`, `/v1/rules/{rule_id}`, `/v1/readyz`)
 // from a JavaScript
 // server, as a standard Fetch handler: `(request: Request) => Promise<Response>`. That is
 // the signature of Next.js route handlers, Hono, Bun.serve, Deno.serve and Remix
@@ -30,12 +30,16 @@ export type PydiggsEngine = Pick<
   | "checkAgs4"
   | "checkAgs4Sarif"
   | "capabilities"
->;
+> &
+  Partial<Pick<PoolEngine, "diff">>;
 
 export interface PydiggsHandlerOptions {
   /** Path the API is mounted under, without `/v1`, e.g. "/api/pydiggs". Default: "". */
   basePath?: string;
-  /** Largest request body, in bytes. Default: 25 MiB. Keep it at or below the engine's `maxBytes`. */
+  /**
+   * Largest request body, in bytes. Default: 25 MiB. Keep it at or below the engine's
+   * `maxBytes`. `/v1/diff` takes two files of up to this size each, as pyDIGGS does.
+   */
   maxBodyBytes?: number;
   /** Requests allowed to wait at once; beyond it the answer is 503 `busy`. Default: 8. */
   maxPending?: number;
@@ -195,6 +199,48 @@ const RAW_TYPES = {
 const CONVERT_FIELDS = new Set(["name", "to", "diggs_version", "ags_version"]);
 const AGS4_CHECK_FIELDS = new Set(["name"]);
 const CONVERT_TARGETS = ["diggs", "ags4"];
+const DIFF_FILES = ["old", "new"] as const;
+const DIFF_FIELDS = new Set([
+  "old_name",
+  "new_name",
+  "match",
+  "rel_tol",
+  "abs_tol",
+  "max_changes",
+  "show_reformatted",
+  "show_renamed",
+]);
+// What multipart framing and the short fields may add to a body, as in pyDIGGS.
+const MULTIPART_SLACK = 8 * 64 * 1024 + 64 * 1024;
+// Numbers and integers as pyDIGGS's server reads them; other text is passed on as text,
+// so pyDIGGS refuses it as `invalid-parameter` with its own fixed text.
+const NUMBER = /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/;
+const INTEGER = /^[0-9]{1,18}$/;
+
+function diffOption(key: string, text: string): unknown {
+  if (key === "match") return text;
+  if (key === "show_reformatted" || key === "show_renamed") return text === "true" ? true : text === "false" ? false : text;
+  if (key === "max_changes") return INTEGER.test(text) ? Number(text) : text;
+  return text.length <= 64 && NUMBER.test(text) ? Number(text) : text;
+}
+
+const DIFF_MATCH = ["auto", "gml-id", "natural", "gml_id"];
+const finite = (value: unknown, belowOne = false): boolean =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && (!belowOne || value < 1);
+
+// pyDIGGS's own check of one parameter, with its fixed text, for a query value that a
+// form field overrides: pyDIGGS never sees that value, yet both sources must be valid.
+function diffParameterProblem(key: string, text: string): string | null {
+  const value = diffOption(key, text);
+  if (key === "old_name" || key === "new_name") {
+    return text.length > 4096 ? "must be a string of at most 4096 characters" : null;
+  }
+  if (key === "match") return DIFF_MATCH.includes(text) ? null : "expected one of auto, gml-id, natural";
+  if (key === "rel_tol") return finite(value, true) ? null : "must be a finite number, 0 or more and less than 1";
+  if (key === "abs_tol") return finite(value) ? null : "must be a finite number, 0 or more";
+  if (key === "max_changes") return typeof value === "number" ? null : "must be an integer, 0 or more";
+  return typeof value === "boolean" ? null : "must be true or false";
+}
 
 interface Parsed {
   data: Uint8Array;
@@ -242,8 +288,9 @@ function resultsOf(values: string[]): "all" | "none" | string[] | null {
 }
 
 /**
- * Returns a Fetch handler serving `/v1/validate`, `/v1/read`, `/v1/versions`,
- * `/v1/rules`, `/v1/rules/{rule_id}` and `/v1/readyz` from `engine`.
+ * Returns a Fetch handler serving `/v1/validate`, `/v1/read`, `/v1/convert`,
+ * `/v1/ags4/check`, `/v1/diff`, `/v1/versions`, `/v1/capabilities`, `/v1/rules`,
+ * `/v1/rules/{rule_id}` and `/v1/readyz` from `engine`.
  */
 export function createPydiggsHandler(
   engine: PydiggsEngine,
@@ -453,6 +500,105 @@ export function createPydiggsHandler(
     }
   }
 
+  async function diff(request: Request): Promise<Response> {
+    const refused = gate(request);
+    if (refused) return refused;
+    if (engine.diff === undefined) return problem("not-found");
+    const url = new URL(request.url);
+    const unsupported = [...new Set(url.searchParams.keys())].filter((key) => !DIFF_FIELDS.has(key));
+    if (unsupported.length > 0) {
+      return problem("invalid-parameter", {
+        errors: unsupported.slice(0, 20).map((parameter) => ({ parameter, problem: "unknown parameter" })),
+      });
+    }
+    const encoding = (request.headers.get("Content-Encoding") ?? "identity").toLowerCase();
+    if (encoding !== "identity") return problem("compressed-input");
+    const type = (request.headers.get("Content-Type") ?? "").split(";")[0]!.trim().toLowerCase();
+    if (type !== "multipart/form-data") return problem("unsupported-media-type", { detail: "Send multipart/form-data." });
+    const limit = DIFF_FILES.length * maxBody + MULTIPART_SLACK;
+    const length = Number(request.headers.get("Content-Length") ?? "NaN");
+    if (Number.isFinite(length) && length > limit) return problem("input-too-large");
+    let form: FormData;
+    try {
+      const raw = await readLimited(request.body, limit);
+      form = await new Response(raw as BodyInit, { headers: { "Content-Type": request.headers.get("Content-Type")! } }).formData();
+    } catch (error) {
+      return problem(error instanceof TooLarge ? "input-too-large" : "invalid-multipart");
+    }
+    const fields = [...new Set(form.keys())].filter((key) => !(DIFF_FILES as readonly string[]).includes(key));
+    if (fields.some((key) => !DIFF_FIELDS.has(key) || form.getAll(key).some((value) => typeof value !== "string"))) {
+      return problem("invalid-multipart");
+    }
+    const files: Uint8Array[] = [];
+    const names: (string | null)[] = [];
+    for (const side of DIFF_FILES) {
+      const parts = form.getAll(side);
+      if (parts.length > 1) return problem("invalid-multipart");
+      const part = parts[0];
+      if (!(part instanceof Blob)) {
+        return problem("missing-input", { detail: "Send the two documents in multipart parts named 'old' and 'new'." });
+      }
+      if (part.size > maxBody) return problem("input-too-large", { headers: { Connection: "close" } });
+      files.push(new Uint8Array(await part.arrayBuffer()));
+      names.push(part instanceof File ? part.name : null);
+    }
+    const params = new Map<string, string[]>();
+    const overridden: { parameter: string; problem: string }[] = [];
+    for (const key of DIFF_FIELDS) {
+      const values = [...url.searchParams.getAll(key)];
+      const formed = form.getAll(key).filter((value): value is string => typeof value === "string");
+      if (formed.length > 0 && values.length > 0) {
+        const wrong = diffParameterProblem(key, values.at(-1)!);
+        if (wrong !== null) overridden.push({ parameter: key, problem: wrong });
+      }
+      params.set(key, formed.length > 0 ? formed : values);
+    }
+    if (overridden.length > 0) return problem("invalid-parameter", { errors: overridden });
+    const name = (side: "old" | "new", index: number): string | Response => {
+      const given = params.get(`${side}_name`)?.at(-1) ?? names[index] ?? null;
+      if (given !== null && given.length > 4096) {
+        return problem("invalid-parameter", {
+          errors: [{ parameter: `${side}_name`, problem: "must be a string of at most 4096 characters" }],
+        });
+      }
+      return baseName(given);
+    };
+    const oldName = name("old", 0);
+    if (oldName instanceof Response) return oldName;
+    const newName = name("new", 1);
+    if (newName instanceof Response) return newName;
+    const option = (key: string): unknown => {
+      const text = params.get(key)?.at(-1);
+      return text === undefined ? undefined : diffOption(key, text);
+    };
+    const compare = Object.fromEntries(
+      (
+        [
+          ["match", "match"],
+          ["relTol", "rel_tol"],
+          ["absTol", "abs_tol"],
+          ["maxChanges", "max_changes"],
+          ["showReformatted", "show_reformatted"],
+          ["showRenamed", "show_renamed"],
+        ] as const
+      )
+        .map(([key, field]) => [key, option(field)] as const)
+        .filter(([, value]) => value !== undefined),
+    );
+    try {
+      const result = await engine.diff(files[0]!, files[1]!, { ...compare, oldName, newName, signal: request.signal });
+      // The same bound as pyDIGGS's endpoint: four times the per-file body limit.
+      const body = new TextEncoder().encode(JSON.stringify(result));
+      if (body.byteLength > 4 * maxBody) return problem("result-too-large");
+      return new Response(body as BodyInit, {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Vary: "Accept" },
+      });
+    } catch (error) {
+      return failure(error);
+    }
+  }
+
   async function info(request: Request, route: string): Promise<Response> {
     const refused = gate(request);
     if (refused) return refused;
@@ -484,6 +630,10 @@ export function createPydiggsHandler(
       if (route === "/v1/validate" || route === "/v1/read") {
         if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });
         return route === "/v1/validate" ? await validate(request) : await read(request);
+      }
+      if (route === "/v1/diff") {
+        if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });
+        return await diff(request);
       }
       if (route === "/v1/convert" || route === "/v1/ags4/check") {
         if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });

@@ -21,6 +21,7 @@ import {
 } from "./worker-client.ts";
 
 export type { LoadStage, RuntimeVersions } from "./protocol.ts";
+export type { DiggsDiffDocument } from "./generated/diff.ts";
 export type {
   DiggsVersion,
   Capabilities,
@@ -28,6 +29,8 @@ export type {
   ConvertAgsVersion,
   ConvertDiggsVersion,
   ConvertTarget,
+  DiffCompareOptions,
+  DiffMatch,
   RuleInfo,
   RuleStep,
   SarifLog,
@@ -39,6 +42,7 @@ export type {
   WorkerLike,
   WorkerAgs4CheckOptions,
   WorkerConvertOptions,
+  WorkerDiffOptions,
   WorkerRulesOptions,
   WorkerValidateOptions,
 } from "./worker-client.ts";

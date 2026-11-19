@@ -10,6 +10,7 @@ from importlib import resources
 import pytest
 
 import pydiggs
+from pydiggs import diff
 from pydiggs._service import Code
 from pydiggs.sidecar import _loop, _paths, _protocol
 from pydiggs.sidecar._protocol import ErrorCode, Invalid, Message, ProtocolError
@@ -210,11 +211,12 @@ def test_negotiation():
     assert _protocol.negotiate("1.0") == "1.0"
     assert _protocol.negotiate("1.1") == "1.1"
     assert _protocol.negotiate("1.2") == "1.2"
-    assert _protocol.negotiate("1.9999") == "1.2"
+    assert _protocol.negotiate("1.3") == "1.3"
+    assert _protocol.negotiate("1.9999") == "1.3"
     for bad in ("0.9", "2.0"):
         error = _problem(lambda v=bad: _protocol.negotiate(v))
         assert error.error.slug == "unsupported-protocol-version"
-        assert error.data()["supported"] == ["1.0", "1.1", "1.2"]
+        assert error.data()["supported"] == ["1.0", "1.1", "1.2", "1.3"]
 
 
 def test_unknown_params_are_refused_with_safe_names():
@@ -314,10 +316,12 @@ def test_the_committed_openrpc_document_matches_the_code():
     committed = json.loads(
         resources.files("pydiggs.sidecar").joinpath("openrpc.json").read_text("utf-8")
     )
-    expected = _protocol.openrpc_document(pydiggs.FINDINGS_SCHEMA_URL, pydiggs.MODEL_SCHEMA_URL)
+    expected = _protocol.openrpc_document(
+        pydiggs.FINDINGS_SCHEMA_URL, pydiggs.MODEL_SCHEMA_URL, diff.DIFF_SCHEMA_URL
+    )
     assert committed == expected, (
-        "openrpc.json is stale: regenerate it from"
-        " pydiggs.sidecar._protocol.openrpc_document(FINDINGS_SCHEMA_URL, MODEL_SCHEMA_URL)"
+        "openrpc.json is stale: regenerate it from pydiggs.sidecar._protocol.openrpc_document("
+        "FINDINGS_SCHEMA_URL, MODEL_SCHEMA_URL, pydiggs.diff.DIFF_SCHEMA_URL)"
     )
     names = [m["name"] for m in committed["methods"]]
     assert names == [
@@ -326,6 +330,7 @@ def test_the_committed_openrpc_document_matches_the_code():
         "read",
         "convert",
         "ags4.check",
+        "diff",
         "ping",
         "versions",
         "rules.list",

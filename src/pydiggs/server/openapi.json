@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "pydiggs HTTP API",
-    "summary": "Validate and read DIGGS documents (XSD, dictionaries, Schematron); check AGS4 files, and convert AGS4 to DIGGS and DIGGS to AGS4.",
+    "summary": "Validate, read and compare DIGGS documents (XSD, dictionaries, Schematron); check AGS4 files, and convert AGS4 to DIGGS and DIGGS to AGS4.",
     "version": "1"
   },
   "paths": {
@@ -90,7 +90,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -310,7 +310,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -538,7 +538,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -795,7 +795,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -905,6 +905,308 @@
                 },
                 "dictionary": {
                   "contentType": "application/octet-stream, text/csv, text/plain, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/diff": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Compare two DIGGS documents: what was added, removed or changed",
+        "operationId": "diff",
+        "responses": {
+          "200": {
+            "description": "A diggs-diff 1.0 document: what pydiggs.diff.compare() returns for the same bytes and options, each file under its basename. Identical or not, the answer is a 200; a limit or an exhausted time budget is a 200 with complete: false.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiggsDiffDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows none of the media types this operation sends",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "old_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Name to report the old file as (a basename)."
+          },
+          {
+            "name": "new_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Name to report the new file as (a basename)."
+          },
+          {
+            "name": "match",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "auto",
+                "gml-id",
+                "natural",
+                "gml_id"
+              ],
+              "default": "auto"
+            },
+            "description": "How records are paired: auto (by gml:id, then by natural key), gml-id (ids only; also written gml_id) or natural (natural keys only)."
+          },
+          {
+            "name": "rel_tol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMaximum": 1,
+              "default": 1e-09
+            },
+            "description": "Two numbers are equal within this fraction of the larger one."
+          },
+          {
+            "name": "abs_tol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0.0
+            },
+            "description": "Or within this much, in the value's own unit."
+          },
+          {
+            "name": "max_changes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 10000
+            },
+            "description": "Most changes listed; the counts stay exact, and a cut list is an incomplete comparison (complete: false)."
+          },
+          {
+            "name": "show_reformatted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Also list values that are only written differently (1.50 and 1.5)."
+          },
+          {
+            "name": "show_renamed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Also list records whose gml:id changed (never a difference)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "old",
+                  "new"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "old": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The earlier DIGGS file; at most the server's max_body_bytes."
+                  },
+                  "new": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The later DIGGS file; at most the server's max_body_bytes."
+                  },
+                  "old_name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "new_name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "match": {
+                    "enum": [
+                      "auto",
+                      "gml-id",
+                      "natural",
+                      "gml_id"
+                    ],
+                    "default": "auto",
+                    "description": "How records are paired: auto (by gml:id, then by natural key), gml-id (ids only; also written gml_id) or natural (natural keys only)."
+                  },
+                  "rel_tol": {
+                    "type": "number",
+                    "minimum": 0,
+                    "exclusiveMaximum": 1,
+                    "default": 1e-09,
+                    "description": "Two numbers are equal within this fraction of the larger one."
+                  },
+                  "abs_tol": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 0.0,
+                    "description": "Or within this much, in the value's own unit."
+                  },
+                  "max_changes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 10000,
+                    "description": "Most changes listed; the counts stay exact, and a cut list is an incomplete comparison (complete: false)."
+                  },
+                  "show_reformatted": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Also list values that are only written differently (1.50 and 1.5)."
+                  },
+                  "show_renamed": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Also list records whose gml:id changed (never a difference)."
+                  }
+                }
+              },
+              "encoding": {
+                "old": {
+                  "contentType": "application/xml, text/xml, */*"
+                },
+                "new": {
+                  "contentType": "application/xml, text/xml, */*"
                 }
               }
             }
@@ -1026,7 +1328,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1102,7 +1404,7 @@
             }
           },
           "422": {
-            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting), or a result over the limit",
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1494,6 +1796,413 @@
             "contentEncoding": "base64",
             "contentMediaType": "text/plain; charset=utf-8",
             "description": "AGS4 to DIGGS: the AGS4 file of every value a convert finding names, with the key fields of its row, so that the output and this file together hold everything the source did; null when everything was converted, and always null for DIGGS to AGS4. Standard base64."
+          }
+        }
+      },
+      "DiggsDiffChange": {
+        "type": "object",
+        "required": [
+          "op",
+          "collection",
+          "element",
+          "name",
+          "old_key",
+          "new_key",
+          "matched_by",
+          "truncated",
+          "values"
+        ],
+        "properties": {
+          "op": {
+            "$ref": "#/components/schemas/DiggsDiffOp"
+          },
+          "collection": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Where the record lives: document, projects, features, samples, measurements, layers, components ... What a file holds outside every record (the attributes of its root element, the text between its members) is the document's: compared with its record, or listed as the root element (element Diggs) when the two files have no pair of document records."
+          },
+          "element": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "old_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "new_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "matched_by": {
+            "enum": [
+              "gml_id",
+              "natural",
+              null
+            ]
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when name or a key was cut to 200 characters."
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsDiffValueChange"
+            }
+          }
+        }
+      },
+      "DiggsDiffCounts": {
+        "type": "object",
+        "required": [
+          "added",
+          "removed",
+          "changed",
+          "unchanged"
+        ],
+        "properties": {
+          "added": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "changed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unchanged": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "DiggsDiffDocument": {
+        "title": "diggs-diff 1.0",
+        "description": "The difference between two DIGGS files at model level, as pydiggs.diff.compare() writes it (pyDIGGS 1.13 and later). Open for consumers: objects accept unknown fields, so a 1.0 consumer accepts any 1.x document. A new optional field is a minor version; anything else is a new major. Nothing is converted: a change of unit is a change.",
+        "type": "object",
+        "required": [
+          "$schema",
+          "format",
+          "schema_version",
+          "tool",
+          "identical",
+          "complete",
+          "limits_hit",
+          "old",
+          "new",
+          "options",
+          "summary",
+          "value_changes",
+          "reformatted",
+          "renamed",
+          "changes",
+          "notes"
+        ],
+        "properties": {
+          "$schema": {
+            "type": "string",
+            "description": "URL of the schema the document follows."
+          },
+          "format": {
+            "const": "diggs-diff"
+          },
+          "schema_version": {
+            "type": "string",
+            "pattern": "^1\\.[0-9]+(-beta\\.[0-9]+)?$",
+            "description": "Major.minor of diggs-diff; a pre-release adds -beta.N (1.0-beta.1 was written by pyDIGGS 1.12)."
+          },
+          "tool": {
+            "type": "object",
+            "required": [
+              "name",
+              "version"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "identical": {
+            "type": "boolean",
+            "description": "True only when nothing differs and the comparison finished (complete). A number written differently (reformatted) and a record's own gml:id (renamed) are not differences."
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "False when a limit stopped the comparison, a file was read in part, or values were not there to compare; see limits_hit and notes. An incomplete comparison is never identical."
+          },
+          "limits_hit": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "examples": [
+                "max_changes",
+                "time_budget",
+                "old_read_incomplete",
+                "new_read_incomplete",
+                "old_results_not_read",
+                "new_results_not_read"
+              ]
+            },
+            "description": "What stopped the comparison or what it could not look at; empty exactly when complete. max_changes: the list of changes was cut. time_budget: the time ran out. old_read_incomplete, new_read_incomplete: that file was read in part. old_results_not_read, new_results_not_read: that side is a model read without the values of its result tables, so their cells were not compared. A later minor version may add a value."
+          },
+          "old": {
+            "$ref": "#/components/schemas/DiggsDiffSource"
+          },
+          "new": {
+            "$ref": "#/components/schemas/DiggsDiffSource"
+          },
+          "options": {
+            "type": "object",
+            "required": [
+              "match",
+              "rel_tol",
+              "abs_tol",
+              "max_changes",
+              "time_budget"
+            ],
+            "properties": {
+              "match": {
+                "enum": [
+                  "auto",
+                  "gml-id",
+                  "natural"
+                ]
+              },
+              "rel_tol": {
+                "type": "number",
+                "minimum": 0,
+                "exclusiveMaximum": 1
+              },
+              "abs_tol": {
+                "type": "number",
+                "minimum": 0
+              },
+              "max_changes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "time_budget": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "exclusiveMinimum": 0
+              }
+            }
+          },
+          "summary": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/DiggsDiffCounts"
+            },
+            "description": "Node counts per collection (features, samples, measurements, layers, components ...). Exact when only max_changes stopped the list; partial after a time_budget stop."
+          },
+          "value_changes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many values differ (every listed value change counts, listed or not)."
+          },
+          "reformatted": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many values are written differently but are equal: a number (1.50 and 1.5), the separators of a result set whose values read the same, a declared type written another way (double and float)."
+          },
+          "renamed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many records were matched by their natural key and have a different gml:id in the two files. Not a difference: such a record counts as unchanged unless a value of it differs."
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsDiffChange"
+            },
+            "description": "Ordered by collection, then key, then path. At most max_changes entries (changes plus value changes). A record with op reformatted or renamed did not change; it is listed only on request."
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiggsFindingsFinding"
+            },
+            "description": "Findings of step diff: diff.ambiguous-match, diff.limit, diff.timeout."
+          }
+        },
+        "allOf": [
+          {
+            "description": "Identical means complete, and nothing counted or listed as a difference.",
+            "if": {
+              "required": [
+                "identical"
+              ],
+              "properties": {
+                "identical": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "complete": {
+                  "const": true
+                },
+                "value_changes": {
+                  "const": 0
+                },
+                "summary": {
+                  "additionalProperties": {
+                    "properties": {
+                      "added": {
+                        "const": 0
+                      },
+                      "removed": {
+                        "const": 0
+                      },
+                      "changed": {
+                        "const": 0
+                      }
+                    }
+                  }
+                },
+                "changes": {
+                  "items": {
+                    "properties": {
+                      "op": {
+                        "enum": [
+                          "reformatted",
+                          "renamed"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "description": "A complete comparison names no limit; an incomplete one names at least one.",
+            "if": {
+              "required": [
+                "complete"
+              ],
+              "properties": {
+                "complete": {
+                  "const": true
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "limits_hit": {
+                  "maxItems": 0
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "limits_hit": {
+                  "minItems": 1
+                }
+              }
+            }
+          }
+        ]
+      },
+      "DiggsDiffOp": {
+        "enum": [
+          "added",
+          "removed",
+          "changed",
+          "reformatted",
+          "renamed"
+        ],
+        "description": "reformatted: the same value written differently (1.50 and 1.5; the separators of a result set whose values read the same; double and float). renamed: the record's own gml:id differs (a value with path gml_id), or, on a record, its id differs and no value changed. Neither is a difference."
+      },
+      "DiggsDiffSource": {
+        "type": "object",
+        "required": [
+          "name",
+          "sha256",
+          "size",
+          "diggs_version"
+        ],
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "diggs_version": {
+            "type": "string"
+          }
+        }
+      },
+      "DiggsDiffValueChange": {
+        "type": "object",
+        "required": [
+          "op",
+          "path",
+          "old",
+          "new",
+          "at",
+          "truncated"
+        ],
+        "properties": {
+          "op": {
+            "$ref": "#/components/schemas/DiggsDiffOp"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "description": "Which value: name, params.<element>, interval.top, results[0].columns[<key>].cells[@<index>] ...; gml_id is the record's own gml:id; a path that starts with xml. is content of the file that the model does not keep, below the record (xml.Diggs[1] is the root element). A path that would be longer than 1,000 characters keeps its first 200 and its last 400, around a digest of the whole path, so two different paths stay different."
+          },
+          "old": {
+            "description": "The value in the old file as JSON (a quantity is its text and unit, e.g. \"1.50 ft\"); null when the old file has none. Text is cut to 200 characters and lists to 200 items."
+          },
+          "new": {
+            "description": "The value in the new file; null when the new file has none."
+          },
+          "at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000,
+            "description": "XPath of the record in the new file. An XPath that would be longer than 1,000 characters is shortened as a path is, and is then no longer an XPath."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when old or new was cut."
           }
         }
       },

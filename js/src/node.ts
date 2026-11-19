@@ -32,6 +32,8 @@ export type {
   ConvertAgsVersion,
   ConvertDiggsVersion,
   ConvertTarget,
+  DiffCompareOptions,
+  DiffMatch,
   RuleInfo,
   RuleStep,
   SarifLog,
@@ -43,11 +45,13 @@ export type {
   WorkerRequestOptions,
   WorkerAgs4CheckOptions,
   WorkerConvertOptions,
+  WorkerDiffOptions,
   WorkerRulesOptions,
   WorkerStatus,
   WorkerValidateOptions,
 } from "./worker-client.ts";
 export type { LoadStage, RuntimeVersions } from "./protocol.ts";
+export type { DiggsDiffDocument } from "./generated/diff.ts";
 export { DEFAULT_INTERRUPT_GRACE_MS, PydiggsWorkerError } from "./worker-client.ts";
 export { PydiggsError } from "./errors.ts";
 export { conversionOutput, conversionResidual } from "./convert.ts";

@@ -47,6 +47,7 @@ export type RequestKind =
   | "versions"
   | "convert"
   | "ags4-check"
+  | "diff"
   | "capabilities";
 
 /** The request's parameters, in the HTTP API's own names. */
@@ -63,6 +64,18 @@ export interface RequestParameters {
   ags_version?: string;
   /** read: which result tables keep their values. */
   select?: { results: "all" | "none" | string[] };
+  /** diff: how records are paired. */
+  match?: string;
+  /** diff: the relative tolerance for numbers. */
+  rel_tol?: number;
+  /** diff: the absolute tolerance for numbers. */
+  abs_tol?: number;
+  /** diff: most changes listed. */
+  max_changes?: number;
+  /** diff: also list values only written differently. */
+  show_reformatted?: boolean;
+  /** diff: also list records whose gml:id changed. */
+  show_renamed?: boolean;
   /** rules: only this step's rules. */
   step?: string;
   /** explain: the rule id. */
@@ -73,10 +86,14 @@ export interface RequestParameters {
 export interface RequestMessage {
   id: number;
   type: RequestKind;
-  /** validate, read: the file name to report. */
+  /** validate, read: the file name to report; diff: the old file's. */
   name?: string;
-  /** validate, read, convert, ags4-check: the document. */
+  /** validate, read, convert, ags4-check: the document; diff: the old file. */
   data?: ArrayBuffer;
+  /** diff: the new file's name to report. */
+  newName?: string;
+  /** diff: the new file. Transferred like `data`. */
+  newData?: ArrayBuffer;
   /** ags4-check: an AGS4 data dictionary. Transferred like `data`. */
   dictionary?: ArrayBuffer;
   parameters?: RequestParameters;

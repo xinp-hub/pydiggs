@@ -329,7 +329,7 @@ jobs:
             --collect-data pydiggs \
             --distpath "$RUNNER_TEMP/frozen/dist" --workpath "$RUNNER_TEMP/frozen/build" \
             --specpath "$RUNNER_TEMP/frozen" tests/frozen/sidecar_main.py
-      - name: Drive initialize, validate, shutdown and exit
+      - name: Drive initialize, validate, diff, shutdown and exit
         run: |
           exe="$RUNNER_TEMP/frozen/dist/pydiggs/pydiggs"
           if [ "$RUNNER_OS" = "Windows" ]; then exe="$exe.exe"; fi

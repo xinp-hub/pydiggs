@@ -76,7 +76,9 @@ def _outcome(out):
 def _too_old(what, version="1.10.0"):
     return _problem("internal", f"this pydiggs is too old for {what} (needs {version} or later)")
 
-def run(kind, data, name, max_bytes, parameters, dictionary=None):
+_DIFF_OPTIONS = ("match", "rel_tol", "abs_tol", "max_changes", "show_reformatted", "show_renamed")
+
+def run(kind, data, name, max_bytes, parameters, dictionary=None, new_data=None, new_name=None):
     if _svc is None:
         return _problem("internal", "this pydiggs is too old for @pydiggs/client (needs 1.7.0 or later)")
     p = json.loads(parameters) if parameters else {}
@@ -108,6 +110,13 @@ def run(kind, data, name, max_bytes, parameters, dictionary=None):
                 content=data.to_bytes(), name=name or None,
                 dictionary=dictionary.to_bytes() if dictionary is not None else None,
                 format=p.get("format", "findings"), max_bytes=max_bytes)))
+        if kind == "diff":
+            if not hasattr(_svc, "diff"):
+                return _too_old("diff", "1.13.0")
+            return _outcome(_svc.diff(_svc.DiffRequest(
+                old=data.to_bytes(), new=new_data.to_bytes(), old_name=name or None,
+                new_name=new_name or None, max_bytes=max_bytes,
+                **{k: p[k] for k in _DIFF_OPTIONS if k in p})))
         if kind == "capabilities":
             if not hasattr(_svc, "capabilities"):
                 return _too_old("capabilities")
@@ -224,12 +233,14 @@ async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Load
   return loaded;
 }
 
-const NEEDS_DOCUMENT = new Set(["validate", "read", "convert", "ags4-check"]);
-const KINDS = new Set(["validate", "read", "rules", "explain", "versions", "convert", "ags4-check", "capabilities"]);
+const NEEDS_DOCUMENT = new Set(["validate", "read", "convert", "ags4-check", "diff"]);
+const KINDS = new Set(["validate", "read", "rules", "explain", "versions", "convert", "ags4-check", "diff", "capabilities"]);
 
 function answer(loaded: Loaded, request: RequestMessage): ReplyMessage {
   const { id, type } = request;
-  if (NEEDS_DOCUMENT.has(type) && request.data!.byteLength > loaded.maxBytes) {
+  // Each file of a comparison is held to the limit on its own, as on pyDIGGS's server.
+  const sizes = [request.data, request.newData].filter((data) => data !== undefined).map((data) => data.byteLength);
+  if (NEEDS_DOCUMENT.has(type) && Math.max(...sizes) > loaded.maxBytes) {
     const problem: ServiceProblem = { code: "input-too-large", detail: `larger than ${loaded.maxBytes} bytes` };
     return { id, type: "error", message: `the document is larger than ${loaded.maxBytes} bytes`, problem };
   }
@@ -239,9 +250,11 @@ function answer(loaded: Loaded, request: RequestMessage): ReplyMessage {
   const bytes = request.data ? new Uint8Array(request.data) : undefined;
   const dictionary = request.dictionary instanceof ArrayBuffer ? new Uint8Array(request.dictionary) : undefined;
   const parameters = request.parameters ? JSON.stringify(request.parameters) : "";
+  const newBytes = request.newData instanceof ArrayBuffer ? new Uint8Array(request.newData) : undefined;
+  const newName = typeof request.newName === "string" && request.newName !== "" ? request.newName : "input.xml";
   // A stop meant for an earlier request that finished first must not stop this one.
   if (loaded.interrupt) Atomics.store(loaded.interrupt, 0, 0);
-  const result = loaded.run(type, bytes, name, loaded.maxBytes, parameters, dictionary) as string;
+  const result = loaded.run(type, bytes, name, loaded.maxBytes, parameters, dictionary, newBytes, newName) as string;
   if (result.startsWith("D")) return { id, type: "result", document: JSON.parse(result.slice(1)) };
   const problem = JSON.parse(result.slice(1)) as ServiceProblem;
   return { id, type: "error", message: problem.detail || problem.code, problem };
@@ -270,6 +283,7 @@ export function createWorkerCore(options: WorkerCoreOptions): (message: unknown)
     const request = message as RequestMessage;
     if (typeof request.id !== "number") return;
     if (NEEDS_DOCUMENT.has(type) && !(request.data instanceof ArrayBuffer)) return;
+    if (type === "diff" && !(request.newData instanceof ArrayBuffer)) return;
     const ready = loading;
     queue = queue.then(async () => {
       try {
