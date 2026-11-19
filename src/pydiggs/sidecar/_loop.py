@@ -71,6 +71,7 @@ _DocumentKind = Literal["validate", "read", "convert", "ags4.check", "diff"]
 _PATH_PROBLEMS: Final[dict[ErrorCode, str]] = {
     ErrorCode.PATH_NOT_PERMITTED: "is not permitted",
     ErrorCode.INPUT_TOO_LARGE: "is larger than allowed",
+    ErrorCode.COMPRESSED_INPUT: "is compressed",
 }
 
 
@@ -653,7 +654,7 @@ class Server:
                 try:
                     contents[side] = self._read_path(path)
                 except ProtocolError as error:
-                    # Name the side, as an inline file's refusal does; never the path.
+                    # Name the parameter (old_path, new_path); never the path itself.
                     if error.errors:
                         raise
                     problem = _PATH_PROBLEMS.get(error.error, "could not be read")
