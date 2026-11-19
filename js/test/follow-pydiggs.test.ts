@@ -45,7 +45,7 @@ test("--check exits 0 when the pinned wheel is the latest release, 3 when PyPI i
     client_targets: pin.version,
     wheel_pinned: pin.version,
     lags: false,
-    not_in_client_yet: coverage.planned,
+    not_in_client_yet: Object.fromEntries(Object.entries(coverage.planned).map(([op, plan]) => [op, (plan as { why: string }).why])),
   });
   const behind = run(["--check"], { "https://pypi.org/pypi/pydiggs/json": { info: { version: "99.0.0" } } });
   assert.equal(behind.status, 3);

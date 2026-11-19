@@ -51,9 +51,12 @@ def test_every_operation_has_one_place_in_the_npm_client():
 
 def test_reasons_are_written_down():
     coverage = _coverage()
-    for section in ("planned", "not_offered"):
-        for op_id, reason in coverage[section].items():
-            assert isinstance(reason, str) and reason.strip(), f"{section}.{op_id} needs a reason"
+    for op_id, reason in coverage["not_offered"].items():
+        assert isinstance(reason, str) and reason.strip(), f"not_offered.{op_id} needs a reason"
+    for op_id, plan in coverage["planned"].items():
+        assert isinstance(plan, dict), op_id
+        assert plan.get("methods"), f"planned.{op_id} names no client method"
+        assert str(plan.get("why", "")).strip(), f"planned.{op_id} needs a reason"
     for op_id, entry in coverage["offered"].items():
         assert isinstance(entry, dict), op_id
         assert entry.get("methods"), f"offered.{op_id} names no client method"
