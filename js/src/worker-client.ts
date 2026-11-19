@@ -141,6 +141,11 @@ export interface WorkerDiffOptions extends WorkerCallOptions, DiffCompareOptions
   oldName?: string;
   /** Name to report the new file as. Default: the `File`'s own name, else `input.xml`. */
   newName?: string;
+  /**
+   * The largest answer pyDIGGS may build, in bytes; a larger one is refused as
+   * `result-too-large` before it is built. Default: pyDIGGS's, 256 MiB.
+   */
+  maxResultBytes?: number;
 }
 
 /** The parameters of a comparison, in the HTTP API's own names; only those given. */
@@ -380,7 +385,9 @@ export class WorkerClient {
     if (this.#failure) throw this.#failure;
     for (const input of [oldInput, newInput]) this.#checkSize(input);
     const [oldData, newData] = await Promise.all([copyBytes(oldInput), copyBytes(newInput)]);
-    return this.#send("diff", documentName(oldInput, options.oldName), oldData, diffParameters(options), options.signal, undefined, {
+    const parameters = diffParameters(options);
+    if (options.maxResultBytes !== undefined) parameters.max_result_bytes = options.maxResultBytes;
+    return this.#send("diff", documentName(oldInput, options.oldName), oldData, parameters, options.signal, undefined, {
       name: documentName(newInput, options.newName),
       data: newData,
     }) as Promise<DiggsDiffDocument>;

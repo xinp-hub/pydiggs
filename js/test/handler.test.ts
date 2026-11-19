@@ -470,3 +470,94 @@ test("the media type is checked before the encoding, as in pyDIGGS", async () =>
   const gz = await handler(xml("/v1/validate", { headers: { "Content-Encoding": "gzip" } }));
   assert.equal((await gz.json()).code, "compressed-input");
 });
+
+test("a body that does not arrive in time is 408 request-timeout and frees its place", async () => {
+  const { value } = engine();
+  const handler = createPydiggsHandler(value, { maxPending: 1, bodyTimeoutMs: 50 });
+  const stalled = slowBody(); // never finished
+  const timedOut = await handler(slowXml(stalled.body));
+  assert.equal(timedOut.status, 408);
+  assert.equal((await timedOut.json()).code, "request-timeout");
+  assert.equal(timedOut.headers.get("Connection"), "close");
+  const next = await handler(xml("/v1/validate"));
+  assert.equal(next.status, 200, "the stalled request's place was freed");
+});
+
+test("a request whose client goes away frees its place", async () => {
+  const { value } = engine();
+  const handler = createPydiggsHandler(value, { maxPending: 1 });
+  const gone = new AbortController();
+  const stalled = slowBody();
+  const request = new Request("http://app.test/v1/validate", {
+    method: "POST",
+    body: stalled.body,
+    headers: { "Content-Type": "application/xml" },
+    duplex: "half",
+    signal: gone.signal,
+  } as RequestInit);
+  const answer = handler(request);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  gone.abort();
+  assert.equal((await (await answer).json()).code, "missing-input");
+  assert.equal((await handler(xml("/v1/validate"))).status, 200, "its place was freed");
+});
+
+test("multipart parts are checked in pyDIGGS's order and within its limits", async () => {
+  const { value, calls } = engine();
+  const diffCalls: Record<string, unknown>[] = [];
+  const withDiff: PydiggsEngine = {
+    ...value,
+    status: "ready",
+    pending: 0,
+    diff: async (_old, _new, options) => {
+      const { signal: _signal, ...rest } = options ?? {};
+      diffCalls.push(rest);
+      return {} as never;
+    },
+  };
+  const handler = createPydiggsHandler(withDiff, { maxBodyBytes: 1000 });
+  const send = (path: string, build: (form: FormData) => void) => {
+    const form = new FormData();
+    build(form);
+    return handler(new Request(`http://app.test${path}`, { method: "POST", body: form }));
+  };
+  const code = async (response: Response) => (await response.json()).code;
+  const doc = () => new File(["<Diggs/>"], "a.xml");
+
+  assert.equal(await code(await send("/v1/validate", (f) => f.set("name", "a.xml"))), "missing-input", "no file part");
+  assert.equal(
+    await code(await send("/v1/validate", (f) => (f.append("file", doc()), f.append("file", doc())))),
+    "invalid-multipart",
+    "two file parts",
+  );
+  assert.equal(
+    await code(await send("/v1/diff", (f) => (f.set("old", doc()), f.set("nope", "1")))),
+    "missing-input",
+    "a missing file is reported before an unknown field, as in pyDIGGS",
+  );
+  assert.equal(
+    await code(await send("/v1/diff", (f) => (f.set("old", doc()), f.set("new", doc()), f.set("old_name", "x".repeat(64 * 1024 + 1))))),
+    "invalid-multipart",
+    "a field over 64 KiB",
+  );
+  assert.equal(
+    await code(await send("/v1/validate", (f) => {
+      f.set("file", doc());
+      for (let i = 0; i < 9; i++) f.append("name", "a.xml");
+    })),
+    "invalid-multipart",
+    "more than 8 fields",
+  );
+  const big = await send("/v1/diff", (f) => (f.set("old", new File(["x".repeat(3000)], "a.xml")), f.set("new", doc())));
+  assert.equal(big.status, 413);
+  assert.equal(big.headers.get("Connection"), "close");
+
+  const emoji = "\u{1F600}".repeat(3000) + ".xml"; // 3004 characters, 6004 UTF-16 units
+  const named = await send("/v1/validate", (f) => (f.set("file", doc()), f.set("name", emoji)));
+  assert.equal(named.status, 200, "a name is measured in characters, as Python counts");
+  assert.equal(calls.length, 1);
+
+  const ok = await send("/v1/diff", (f) => (f.set("old", doc()), f.set("new", doc())));
+  assert.equal(ok.status, 200);
+  assert.equal(diffCalls[0]?.maxResultBytes, 4000, "pyDIGGS is told the answer's limit");
+});
