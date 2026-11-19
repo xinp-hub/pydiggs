@@ -455,6 +455,37 @@ _Build: TypeAlias = Callable[[bytes, dict[str, list[str]], str | None], _Job]
 _Reader: TypeAlias = Callable[[], Awaitable["_Job | Response"]]
 
 
+def _overridden_errors(
+    query: dict[str, list[str]],
+    form: dict[str, list[str]],
+    check: Callable[[dict[str, list[str]]], tuple[tuple[str, str], ...]],
+) -> tuple[tuple[str, str], ...]:
+    """The problems of the query values the form overrides, each judged on its own.
+
+    The form wins, but a query value it overrides must still be valid. Each such value
+    is put in place of the form's in the effective request (the query, then the form),
+    and only the problems that request reports about that same parameter count, less
+    any the effective request has itself (the service reports those). A problem it
+    causes in another parameter does not count: that parameter's effective value comes
+    from elsewhere. So ``?to=ags4&ags_version=4.2`` with the field ``ags_version=4.1.1``
+    and ``?to=diggs`` with the fields ``to=ags4&ags_version=4.2`` are both accepted,
+    and ``?to=bogus`` with the field ``to=diggs`` is not. ``check`` gives a parameter
+    set's problems as ``(parameter, problem)`` pairs, with fixed texts.
+    """
+    effective = query | form
+    own: set[tuple[str, str]] | None = None
+    errors: list[tuple[str, str]] = []
+    for key in form:
+        if not query.get(key):
+            continue
+        if own is None:
+            own = set(check(effective))
+        for error in check(effective | {key: query[key]}):
+            if error[0] == key and error not in own and error not in errors:
+                errors.append(error)
+    return tuple(errors)
+
+
 async def _read_input(
     request: Request,
     settings: ServerSettings,
@@ -467,7 +498,8 @@ async def _read_input(
     """Read the body (streamed, counted) and the parameters into a service request.
 
     A multipart request may give each parameter in the query or in the form; the
-    form wins, but both must be valid (``invalid-parameter``). The ``name`` parameter
+    form wins, but both must be valid (``invalid-parameter``; an overridden query value
+    is judged in context, see :func:`_overridden_errors`). The ``name`` parameter
     wins over the part's file name. Repeated values: the last ``name``, ``to``,
     ``diggs_version``, ``ags_version`` and ``select`` count; ``checks`` values are joined. An AGS4
     check's ``dictionary`` part (``files``) goes into the request as bytes.
@@ -482,12 +514,14 @@ async def _read_input(
             if isinstance(upload, Response):
                 return upload
             content, filename, attachments = upload.content, upload.filename, upload.attachments
-            overridden = {k: v for k, v in params.items() if k in upload.fields and v}
-            if overridden:
-                errors = _service.parameter_errors(build(b"", overridden, None))
-                if errors:
-                    return problem("invalid-parameter", "invalid parameters", errors=errors)
-            params.update(upload.fields)
+            errors = _overridden_errors(
+                params,
+                upload.fields,
+                lambda given: _service.parameter_errors(build(b"", given, filename)),
+            )
+            if errors:
+                return problem("invalid-parameter", "invalid parameters", errors=errors)
+            params |= upload.fields
         else:
             content = await _read_raw(request, limit)
     except _TooLargeError:
@@ -614,12 +648,14 @@ async def _read_diff_input(request: Request, settings: ServerSettings) -> _Job |
         return _too_large()
     if isinstance(pair, Response):
         return pair
-    overridden = {k: v for k, v in params.items() if k in pair.fields and v}
-    if overridden:
-        errors = _service.parameter_errors(_diff_request(b"", b"", overridden, {}))
-        if errors:
-            return problem("invalid-parameter", "invalid parameters", errors=errors)
-    params.update(pair.fields)
+    errors = _overridden_errors(
+        params,
+        pair.fields,
+        lambda given: _service.parameter_errors(_diff_request(b"", b"", given, pair.filenames)),
+    )
+    if errors:
+        return problem("invalid-parameter", "invalid parameters", errors=errors)
+    params |= pair.fields
     job = _diff_request(pair.contents["old"], pair.contents["new"], params, pair.filenames)
     return dataclasses.replace(
         job,

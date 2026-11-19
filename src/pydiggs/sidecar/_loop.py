@@ -67,6 +67,13 @@ _SINCE_MINOR: Final = {"validate": 0, "read": 1, "convert": 2, "ags4.check": 2, 
 _DocumentKind = Literal["validate", "read", "convert", "ags4.check", "diff"]
 
 
+#: What a refused by-path diff file's ``errors`` entry says; fixed texts, never the path.
+_PATH_PROBLEMS: Final[dict[ErrorCode, str]] = {
+    ErrorCode.PATH_NOT_PERMITTED: "is not permitted",
+    ErrorCode.INPUT_TOO_LARGE: "is larger than allowed",
+}
+
+
 class _TooLong:
     """Marker: the line was longer than ``max_line_bytes`` and has been discarded."""
 
@@ -643,7 +650,16 @@ class Server:
         for side in _service.DIFF_SIDES:
             path = params.paths[side]
             if path is not None:
-                contents[side] = self._read_path(path)
+                try:
+                    contents[side] = self._read_path(path)
+                except ProtocolError as error:
+                    # Name the side, as an inline file's refusal does; never the path.
+                    if error.errors:
+                        raise
+                    problem = _PATH_PROBLEMS.get(error.error, "could not be read")
+                    raise ProtocolError(
+                        error.error, error.message, ((f"{side}_path", problem),), error.extra
+                    ) from None
                 limit = max(limit, self.options.max_path_bytes)
                 if names[side] is None:
                     names[side] = _basename(path)
