@@ -9,6 +9,7 @@ its narration says (the rehearsal), and the caption and page markup are well for
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -146,8 +147,9 @@ def test_the_recorded_shell_runs_the_project_not_the_renderer(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("TUTORIALS_PROJECT_BIN", str(tmp_path))
-    monkeypatch.setenv("PATH", "/renderer/bin")
-    assert build.project_env()["PATH"].split(":")[0] == str(tmp_path)
+    renderer = str(tmp_path / "renderer")
+    monkeypatch.setenv("PATH", renderer)
+    assert build.project_env()["PATH"].split(os.pathsep) == [str(tmp_path), renderer]
 
 
 def test_a_browser_upload_must_stay_in_the_repo_or_work_dir(tmp_path: Path) -> None:
