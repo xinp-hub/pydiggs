@@ -21,8 +21,7 @@ matching pyDIGGS version number.
 
 ### Changed
 
-- Runs pyDIGGS 1.13.0 (`PYDIGGS_VERSION`); its wheel is pinned by sha256 from PyPI's record
-  once published. AGS4 files with depths in feet convert to DIGGS (mapping table 1.2,
+- Runs pyDIGGS 1.13.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's record. AGS4 files with depths in feet convert to DIGGS (mapping table 1.2,
   pyDIGGS 1.12).
 - The findings types follow **diggs-findings 1.2** (pyDIGGS 1.12), which only adds to 1.1:
   the step `"diff"` (the findings of a model diff). `FINDINGS_SCHEMA_URL` is the 1.2 schema,
