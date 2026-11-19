@@ -28,6 +28,25 @@ matching pyDIGGS version number.
   shipped as `@pydiggs/client/schemas/diggs-findings-1.2.schema.json`; the 1.0 and 1.1
   schema files are still shipped unchanged.
 
+### Fixed
+
+`createPydiggsHandler` now answers as pyDIGGS's own server does, where it did not:
+
+- A request beyond `maxPending` is refused with 503 `busy` before its body is read.
+  `maxPending` now counts requests from arrival until they are answered, as pyDIGGS
+  admits them. Before, uploads still being received did not count, so many slow uploads
+  at once could each hold a body in memory.
+- A field sent as a file part (say `name` as a file) is refused with 400
+  `invalid-multipart` on `/v1/validate`, `/v1/read`, `/v1/convert` and `/v1/ags4/check`.
+  Before, it was dropped silently.
+- A query value that a form field overrides is still checked. An invalid one is refused
+  with 422 `invalid-parameter`, with pyDIGGS's texts.
+- The media type is checked before the encoding. A compressed body of the wrong type is
+  now 415 `unsupported-media-type`, as in pyDIGGS, not `compressed-input`. An empty
+  `Content-Encoding` header is accepted.
+- A multipart body may be as large as pyDIGGS allows: the file part up to
+  `maxBodyBytes`, plus room for the multipart framing.
+
 ## [0.6.0] - 2026-11-16
 
 ### Added

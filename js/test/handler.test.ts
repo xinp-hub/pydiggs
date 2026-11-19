@@ -365,3 +365,108 @@ test("capabilities is served", async () => {
   const response = await createPydiggsHandler(value)(new Request("http://app.test/v1/capabilities"));
   assert.equal((await response.json()).schema_version, "1.0");
 });
+
+// A request body that arrives only when `finish` is called, and counts how often it was read.
+function slowBody() {
+  let finish!: () => void;
+  const reads = { count: 0 };
+  const done = new Promise<void>((resolve) => (finish = resolve));
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      reads.count += 1;
+      await done;
+      controller.enqueue(new TextEncoder().encode("<Diggs/>"));
+      controller.close();
+    },
+  }, { highWaterMark: 0 }); // pulled only when someone reads it
+  return { body, reads, finish };
+}
+
+const slowXml = (body: ReadableStream<Uint8Array>) =>
+  new Request("http://app.test/v1/validate", {
+    method: "POST",
+    body,
+    headers: { "Content-Type": "application/xml" },
+    duplex: "half",
+  } as RequestInit);
+
+test("a request beyond maxPending is refused before its body is read, as pyDIGGS admits", async () => {
+  const { value, calls } = engine();
+  const handler = createPydiggsHandler(value, { maxPending: 2 });
+  const slow = [slowBody(), slowBody()];
+  const waiting = slow.map((one) => handler(slowXml(one.body)));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  const extra = slowBody();
+  const refused = await handler(slowXml(extra.body));
+  assert.equal(refused.status, 503);
+  assert.equal((await refused.json()).code, "busy");
+  assert.equal(refused.headers.get("Retry-After"), "1");
+  assert.equal(extra.reads.count, 0, "the refused body was never read");
+  for (const one of slow) one.finish();
+  assert.deepEqual((await Promise.all(waiting)).map((r) => r.status), [200, 200]);
+  assert.equal(calls.length, 2);
+  const after = await handler(xml("/v1/validate"));
+  assert.equal(after.status, 200, "finished requests leave the count");
+});
+
+test("a field sent as a file part is refused as invalid-multipart, as in pyDIGGS", async () => {
+  const { value, calls } = engine();
+  const handler = createPydiggsHandler(value);
+  for (const path of ["/v1/validate", "/v1/read", "/v1/convert", "/v1/ags4/check"]) {
+    const form = new FormData();
+    form.set("file", new File(["<Diggs/>"], "a.xml"));
+    form.set("name", new Blob(["b.xml"]));
+    const response = await handler(new Request(`http://app.test${path}`, { method: "POST", body: form }));
+    assert.equal(response.status, 400, path);
+    assert.equal((await response.json()).code, "invalid-multipart", path);
+  }
+  assert.equal(calls.length, 0);
+});
+
+test("a query value a form field overrides is still checked, as in pyDIGGS", async () => {
+  const { value, calls } = engine();
+  const handler = createPydiggsHandler(value);
+  const post = (path: string, fields: Record<string, string>) => {
+    const form = new FormData();
+    form.set("file", new File(["<Diggs/>"], "a.xml"));
+    for (const [key, text] of Object.entries(fields)) form.set(key, text);
+    return handler(new Request(`http://app.test${path}`, { method: "POST", body: form }));
+  };
+  const cases: [string, Record<string, string>, string, string][] = [
+    ["/v1/read?diggs_version=9", { diggs_version: "3.0.0" }, "diggs_version", "expected one of 2.5.a, 2.6, 3.0.0, 3.1-dev"],
+    ["/v1/read?select=nope", { select: '{"results":"all"}' }, "select", 'expected {"results": "all" | "none" | [at most 1000 node keys]}'],
+    ["/v1/validate?checks=bogus", { checks: "schema" }, "checks", "expected some of context,deprecation,dictionary,geometry,schema,schematron,structure"],
+    ["/v1/validate?name=" + "x".repeat(4097), { name: "a.xml" }, "name", "must be a string of at most 4096 characters"],
+    ["/v1/convert?to=csv", { to: "diggs" }, "to", "expected one of diggs, ags4"],
+    ["/v1/convert?ags_version=4.0", { ags_version: "4.2" }, "ags_version", "expected one of 4.2, 4.1.1"],
+  ];
+  for (const [path, fields, parameter, text] of cases) {
+    const response = await post(path, fields);
+    assert.equal(response.status, 422, path);
+    const body = await response.json();
+    assert.equal(body.code, "invalid-parameter", path);
+    assert.deepEqual(body.errors, [{ parameter, problem: text }], path);
+  }
+  assert.equal(calls.length, 0, "nothing ran");
+  const ok = await post("/v1/read?diggs_version=2.6", { diggs_version: "3.0.0" });
+  assert.equal(ok.status, 200, "a valid query value is overridden by the form's");
+  assert.equal(calls[0]?.diggsVersion, "3.0.0");
+});
+
+test("the media type is checked before the encoding, as in pyDIGGS", async () => {
+  const { value } = engine();
+  const withDiff: PydiggsEngine = { ...value, status: value.status, pending: value.pending, diff: async () => ({}) as never };
+  const handler = createPydiggsHandler(withDiff);
+  for (const path of ["/v1/validate", "/v1/diff"]) {
+    const response = await handler(
+      new Request(`http://app.test${path}`, {
+        method: "POST",
+        body: "x",
+        headers: { "Content-Type": "text/plain", "Content-Encoding": "gzip" },
+      }),
+    );
+    assert.equal((await response.json()).code, "unsupported-media-type", path);
+  }
+  const gz = await handler(xml("/v1/validate", { headers: { "Content-Encoding": "gzip" } }));
+  assert.equal((await gz.json()).code, "compressed-input");
+});
