@@ -2,9 +2,10 @@
 //
 //   ../src/pydiggs/findings/diggs-findings-<latest>.schema.json -> src/generated/findings.ts
 //   ../src/pydiggs/model/diggs-model-<only>.schema.json     -> src/generated/model.ts
+//   ../src/pydiggs/diff/diggs-diff-<only>.schema.json       -> src/generated/diff.ts
 //   ../src/pydiggs/server/openapi.json                      -> src/generated/http.ts
 //   ../examples/browser-worker/worker.mjs (the pins)        -> src/generated/pins.ts
-//   both JSON Schemas, byte for byte                        -> schemas/
+//   the three JSON Schemas, byte for byte                   -> schemas/
 //   ../src/pydiggs/findings/diggs-findings-<earlier>.schema.json -> schemas/ (the earlier
 //     versions: unchanged, still shipped, and what diggs-model 1.0's notes (1.0) and 1.1
 //     documents refer to)
@@ -53,6 +54,12 @@ if (modelVersions.earlier.length > 0) {
   throw new Error(`src/pydiggs/model: a second diggs-model version; decide how ${modelVersions.earlier.join(", ")} ships`);
 }
 const MODEL_SCHEMA = modelVersions.current;
+const diffVersions = contractVersions("src/pydiggs/diff", "diggs-diff");
+if (diffVersions.earlier.length > 0) {
+  // Earlier diff schemas are not shipped yet; that is a decision, not a default.
+  throw new Error(`src/pydiggs/diff: a second diggs-diff version; decide how ${diffVersions.earlier.join(", ")} ships`);
+}
+const DIFF_SCHEMA = diffVersions.current;
 const OPENAPI = "src/pydiggs/server/openapi.json";
 const WORKER = "examples/browser-worker/worker.mjs";
 
@@ -73,6 +80,8 @@ const VALIDATION_ONLY = new Set([
   "format",
   "contentMediaType",
   "contentEncoding",
+  "exclusiveMinimum",
+  "exclusiveMaximum",
 ]);
 const ANNOTATIONS = new Set(["title", "description", "examples", "default", "$schema", "$id", "$defs"]);
 const STRUCTURAL = new Set([
@@ -271,6 +280,8 @@ const earlierFindings = EARLIER_FINDINGS_SCHEMAS.map((path) => {
 });
 const findingsTypes = { prefix: "DiggsFindings", module: "./findings.ts" };
 const modelSchema = JSON.parse(modelText);
+const diffText = readText(DIFF_SCHEMA);
+const diffSchema = JSON.parse(diffText);
 const openapi = JSON.parse(readText(OPENAPI));
 const workerText = readText(WORKER);
 
@@ -292,12 +303,20 @@ const model = emitSchema({
   ),
 });
 
-// The OpenAPI document derives its DiggsFindings* and DiggsModel* components from the
-// same two schemas. Holding the names equal keeps this package, the OpenAPI document
-// and any client generated from it speaking of the same types.
+const diff = emitSchema({
+  schema: diffSchema,
+  prefix: "DiggsDiff",
+  rootName: "DiggsDiffDocument",
+  sourcePath: DIFF_SCHEMA,
+  external: { [findingsSchema.$id]: findingsTypes },
+});
+
+// The OpenAPI document derives its DiggsFindings*, DiggsModel* and DiggsDiff* components
+// from the same three schemas. Holding the names equal keeps this package, the OpenAPI
+// document and any client generated from it speaking of the same types.
 const components = openapi.components.schemas;
-const expected = Object.keys(components).filter((name) => /^Diggs(Findings|Model)/.test(name));
-const generated = new Set([...findings.exported, ...model.exported]);
+const expected = Object.keys(components).filter((name) => /^Diggs(Findings|Model|Diff)/.test(name));
+const generated = new Set([...findings.exported, ...model.exported, ...diff.exported]);
 const missing = expected.filter((name) => !generated.has(name));
 const unknown = [...generated].filter((name) => !expected.includes(name));
 if (missing.length > 0 || unknown.length > 0) {
@@ -370,6 +389,9 @@ function emitHttp() {
     `/** AGS4 version of a DIGGS to AGS4 conversion's output. */\nexport type ConvertAgsVersion = ${emitter.type(convertAgs.schema, "ags_version")};\n`,
   );
 
+  const match = queryParameter("/v1/diff", "post", "match");
+  blocks.push(`/** ${match.description} */\nexport type DiffMatch = ${emitter.type(match.schema, "match")};\n`);
+
   const imports = [...imported]
     .sort()
     .map((name) => `import type { ${name} } from "${HTTP_IMPORTS[name]}";\n`)
@@ -430,6 +452,8 @@ function emitPins() {
     `export const FINDINGS_SCHEMA_URL: string = ${JSON.stringify(findingsSchema.$id)};`,
     "/** The diggs-model schema these types were generated from. */",
     `export const MODEL_SCHEMA_URL: string = ${JSON.stringify(modelSchema.$id)};`,
+    "/** The diggs-diff schema these types were generated from. */",
+    `export const DIFF_SCHEMA_URL: string = ${JSON.stringify(diffSchema.$id)};`,
     "",
   ].join("\n");
 }
@@ -439,11 +463,13 @@ function emitPins() {
 const outputs = new Map([
   ["src/generated/findings.ts", findings.text],
   ["src/generated/model.ts", model.text],
+  ["src/generated/diff.ts", diff.text],
   ["src/generated/http.ts", emitHttp()],
   ["src/generated/pins.ts", emitPins()],
   [`schemas/${FINDINGS_SCHEMA.split("/").at(-1)}`, findingsText],
   ...earlierFindings.map((earlier) => [`schemas/${earlier.path.split("/").at(-1)}`, earlier.text]),
   ["schemas/diggs-model-1.0.schema.json", modelText],
+  ["schemas/diggs-diff-1.0.schema.json", diffText],
 ]);
 
 const check = process.argv.includes("--check");

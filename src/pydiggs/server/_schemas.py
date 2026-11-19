@@ -33,6 +33,9 @@ __all__ = [
     "convert_parameters",
     "convert_request_body",
     "convert_responses",
+    "diff_parameters",
+    "diff_request_body",
+    "diff_responses",
     "error_responses",
     "lift_components",
     "readyz_responses",
@@ -134,18 +137,22 @@ def _model_component_name(definition: str) -> str:
     return _MODEL_PREFIX + "".join(part.capitalize() for part in definition.split("_"))
 
 
-def _rewrite_model(node: Any, local: Any, finding: Any) -> Any:
-    """Copy ``node``; ``local(name)`` replaces a ``#/$defs`` reference, ``finding()`` a note's."""
+def _rewrite_model(node: Any, local: Any, finding: Any, finding_ref: str = _FINDING_REF) -> Any:
+    """Copy ``node``; ``local(name)`` replaces a ``#/$defs`` reference, ``finding()`` a note's.
+
+    ``finding_ref`` is how the schema ends its reference to a finding (the diggs-model
+    and diggs-diff schemas name different diggs-findings versions).
+    """
     if isinstance(node, dict):
         ref = node.get("$ref")
         if isinstance(ref, str) and len(node) == 1:
             if ref.startswith("#/$defs/"):
                 return local(ref.removeprefix("#/$defs/"))
-            if ref.endswith(_FINDING_REF):
+            if ref.endswith(finding_ref):
                 return finding()
-        return {k: _rewrite_model(v, local, finding) for k, v in node.items()}
+        return {k: _rewrite_model(v, local, finding, finding_ref) for k, v in node.items()}
     if isinstance(node, list):
-        return [_rewrite_model(v, local, finding) for v in node]
+        return [_rewrite_model(v, local, finding, finding_ref) for v in node]
     return node
 
 
@@ -194,6 +201,67 @@ def _model_inline() -> _JsonSchema:
         return inline_finding("finding")
 
     inlined: _JsonSchema = _rewrite_model(_root(_model_packaged()), local, finding)
+    return inlined
+
+
+# --- diggs-diff --------------------------------------------------------------------------
+
+_DIFF_FILE: Final = "diggs-diff-1.0.schema.json"
+_DIFF_PREFIX: Final = "DiggsDiff"
+#: The one reference the diff schema makes outside itself: a note is a finding.
+_DIFF_FINDING_REF: Final = "/diggs-findings-1.2.schema.json#/$defs/finding"
+
+
+@cache
+def _diff_packaged() -> _JsonSchema:
+    """The packaged diggs-diff JSON Schema (read once)."""
+    text = resources.files("pydiggs.diff").joinpath(_DIFF_FILE).read_text("utf-8")
+    loaded: _JsonSchema = json.loads(text)
+    return loaded
+
+
+def _diff_component_name(definition: str) -> str:
+    return _DIFF_PREFIX + "".join(part.capitalize() for part in definition.split("_"))
+
+
+def _diff_components() -> dict[str, _JsonSchema]:
+    """``DiggsDiff*`` components: the root and each ``$defs`` entry, refs rewritten."""
+    schema = _diff_packaged()
+
+    def local(name: str) -> _JsonSchema:
+        return {"$ref": _COMPONENTS + _diff_component_name(name)}
+
+    def finding() -> _JsonSchema:
+        return {"$ref": _COMPONENTS + _component_name("finding")}
+
+    out = {
+        _DIFF_PREFIX + "Document": _rewrite_model(_root(schema), local, finding, _DIFF_FINDING_REF)
+    }
+    for name, definition in schema.get("$defs", {}).items():
+        out[_diff_component_name(name)] = _rewrite_model(
+            definition, local, finding, _DIFF_FINDING_REF
+        )
+    return out
+
+
+@cache
+def _diff_inline() -> _JsonSchema:
+    """The document schema with every reference inlined (it has no cycles)."""
+    defs = _diff_packaged().get("$defs", {})
+    findings = _packaged().get("$defs", {})
+
+    def local(name: str) -> Any:
+        return _rewrite_model(defs[name], local, finding, _DIFF_FINDING_REF)
+
+    def inline_finding(name: str) -> Any:
+        return _rewrite(findings[name], inline_finding)
+
+    def finding() -> Any:
+        return inline_finding("finding")
+
+    inlined: _JsonSchema = _rewrite_model(
+        _root(_diff_packaged()), local, finding, _DIFF_FINDING_REF
+    )
     return inlined
 
 
@@ -418,6 +486,7 @@ def _named() -> dict[str, _JsonSchema]:
         "ConversionResult": _conversion(_findings_inline()),
         "DiggsFindingsDocument": _findings_inline(),
         "DiggsModelDocument": _model_inline(),
+        "DiggsDiffDocument": _diff_inline(),
         "SarifLog": _SARIF,
         "Problem": _PROBLEM,
         "RuleInfo": _rule_info(),
@@ -432,13 +501,19 @@ def components() -> dict[str, _JsonSchema]:
 
     Examples:
         >>> sorted(components())[:3]
-        ['Capabilities', 'ConversionResult', 'DiggsFindingsCommit']
+        ['Capabilities', 'ConversionResult', 'DiggsDiffChange']
     """
-    inlined = ("ConversionResult", "DiggsFindingsDocument", "DiggsModelDocument")
+    inlined = (
+        "ConversionResult",
+        "DiggsDiffDocument",
+        "DiggsFindingsDocument",
+        "DiggsModelDocument",
+    )
     out = {k: copy.deepcopy(v) for k, v in _named().items() if k not in inlined}
     out["ConversionResult"] = _conversion({"$ref": _COMPONENTS + "DiggsFindingsDocument"})
     out.update(_findings_components())
     out.update(_model_components())
+    out.update(_diff_components())
     return dict(sorted(out.items()))
 
 
@@ -486,7 +561,7 @@ _STATUS_TEXT: Final = {
     415: "Unsupported media type, or compressed input",
     422: (
         "Invalid parameter, unreadable input, not a document of the expected format"
-        " (reading, converting), or a result over the limit"
+        " (reading, converting, comparing), or a result over the limit"
     ),
     500: "Internal error (fixed text and a correlation id)",
     503: "Busy (see Retry-After) or not ready",
@@ -856,6 +931,113 @@ def ags4_check_responses() -> dict[int | str, dict[str, Any]]:
                 FINDINGS_MEDIA_TYPE: {"schema": _findings_inline()},
                 SARIF_MEDIA_TYPE: {"schema": _SARIF},
             },
+        },
+        **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
+    }
+
+
+# --- comparing two files -----------------------------------------------------------------
+
+
+def _diff_options() -> dict[str, _JsonSchema]:
+    """The comparison options, with :func:`pydiggs.diff.compare`'s defaults."""
+    defaults = _service.DIFF_DEFAULTS
+    return {
+        "match": {
+            "enum": list(_service.DIFF_MATCH),
+            "default": defaults["match"],
+            "description": (
+                "How records are paired: auto (by gml:id, then by natural key), gml-id (ids"
+                " only; also written gml_id) or natural (natural keys only)."
+            ),
+        },
+        "rel_tol": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": 1,
+            "default": defaults["rel_tol"],
+            "description": "Two numbers are equal within this fraction of the larger one.",
+        },
+        "abs_tol": {
+            "type": "number",
+            "minimum": 0,
+            "default": defaults["abs_tol"],
+            "description": "Or within this much, in the value's own unit.",
+        },
+        "max_changes": {
+            "type": "integer",
+            "minimum": 0,
+            "default": defaults["max_changes"],
+            "description": (
+                "Most changes listed; the counts stay exact, and a cut list is an"
+                " incomplete comparison (complete: false)."
+            ),
+        },
+        "show_reformatted": {
+            "type": "boolean",
+            "default": defaults["show_reformatted"],
+            "description": "Also list values that are only written differently (1.50 and 1.5).",
+        },
+        "show_renamed": {
+            "type": "boolean",
+            "default": defaults["show_renamed"],
+            "description": "Also list records whose gml:id changed (never a difference).",
+        },
+    }
+
+
+def diff_parameters() -> list[dict[str, Any]]:
+    """The query parameters of ``POST /v1/diff``."""
+    names = [
+        _query(f"{side}_name", _name_schema(), f"Name to report the {side} file as (a basename).")
+        for side in _service.DIFF_SIDES
+    ]
+    options = [
+        _query(name, {k: v for k, v in schema.items() if k != "description"}, schema["description"])
+        for name, schema in _diff_options().items()
+    ]
+    return [*names, *options]
+
+
+def diff_request_body() -> dict[str, Any]:
+    """The request body of ``POST /v1/diff``: a multipart form with both files."""
+    file_text = "The {} DIGGS file; at most the server's max_body_bytes."
+    form = {
+        "schema": {
+            "type": "object",
+            "required": list(_service.DIFF_SIDES),
+            "additionalProperties": False,
+            "properties": {
+                **{
+                    side: {
+                        "type": "string",
+                        "format": "binary",
+                        "description": file_text.format("earlier" if side == "old" else "later"),
+                    }
+                    for side in _service.DIFF_SIDES
+                },
+                **{f"{side}_name": _name_schema() for side in _service.DIFF_SIDES},
+                **_diff_options(),
+            },
+        },
+        "encoding": {
+            side: {"contentType": "application/xml, text/xml, */*"} for side in _service.DIFF_SIDES
+        },
+    }
+    return {"required": True, "content": {"multipart/form-data": form}}
+
+
+def diff_responses() -> dict[int | str, dict[str, Any]]:
+    """The responses of ``POST /v1/diff``."""
+    return {
+        200: {
+            "description": (
+                "A diggs-diff 1.0 document: what pydiggs.diff.compare() returns for the same"
+                " bytes and options, each file under its basename. Identical or not, the"
+                " answer is a 200; a limit or an exhausted time budget is a 200 with"
+                " complete: false."
+            ),
+            "content": {FINDINGS_MEDIA_TYPE: {"schema": _diff_inline()}},
         },
         **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
     }

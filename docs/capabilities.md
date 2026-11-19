@@ -135,8 +135,9 @@ Where each is in Python:
 The AGS4 reading, writing and checking operations are a preview; conversion
 (`pydiggs.convert`) is stable from pyDIGGS 1.11, both ways. `POST /v1/convert` and the
 sidecar's `convert` are either conversion operation, chosen by their `to` parameter.
-`diff` ([Comparing two files](diff.md), from pyDIGGS 1.12, stable from 1.13) is offered in Python and as
-`pydiggs diff`; the HTTP API, the sidecar and the MCP server do not offer it yet. The
+`diff` ([Comparing two files](diff.md), from pyDIGGS 1.12, stable from 1.13) is offered in Python, as
+`pydiggs diff`, and from 1.13 as `POST /v1/diff` and the sidecar's `diff` (protocol 1.3);
+the MCP server does not offer it yet. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).
 

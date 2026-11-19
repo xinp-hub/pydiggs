@@ -18,6 +18,7 @@ import functools
 import json
 import logging
 import math
+import re
 import threading
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias
@@ -36,7 +37,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from pydiggs import _service
-from pydiggs._service import Ags4CheckRequest, ConvertRequest, Outcome, ReadRequest
+from pydiggs._service import Ags4CheckRequest, ConvertRequest, DiffRequest, Outcome, ReadRequest
 from pydiggs._service import Request as ValidationRequest
 from pydiggs.server import _schemas
 from pydiggs.server._problems import (
@@ -54,8 +55,8 @@ if TYPE_CHECKING:
 
 __all__ = ["create_app", "create_router", "openapi_text"]
 
-#: Multipart limits: one file (two for an AGS4 check: the file and a dictionary), a
-#: few short fields.
+#: Multipart limits: one file (two for an AGS4 check, the file and a dictionary, and for
+#: a comparison, the old and the new file), a few short fields.
 MAX_FILES: Final = 1
 MAX_FIELDS: Final = 8
 MAX_PART_SIZE: Final = 64 * 2**10
@@ -71,6 +72,25 @@ _FORM_FIELDS: Final = frozenset({"name", "checks", "diggs_version"})
 _READ_FIELDS: Final = frozenset({"name", "diggs_version", "select"})
 _CONVERT_FIELDS: Final = frozenset({"name", "to", "diggs_version", "ags_version"})
 _CHECK_FIELDS: Final = frozenset({"name"})
+_DIFF_FIELDS: Final = frozenset(
+    {
+        "old_name",
+        "new_name",
+        "match",
+        "rel_tol",
+        "abs_tol",
+        "max_changes",
+        "show_reformatted",
+        "show_renamed",
+    }
+)
+#: The file parts a comparison takes, both required, each within ``max_body_bytes``.
+_DIFF_FILES: Final = _service.DIFF_SIDES
+#: A number as JSON writes it (``float()`` alone would take ``nan``, ``inf`` and ``1_0``).
+_NUMBER: Final = re.compile(r"-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?")
+#: An integer of at most 18 digits (``int()`` alone would take ``1_0`` and spaces).
+_INTEGER: Final = re.compile(r"[0-9]{1,18}")
+_MAX_NUMBER_CHARS: Final = 64
 #: The file parts an AGS4 check takes: the file and, optionally, a data dictionary.
 _CHECK_FILES: Final = ("file", "dictionary")
 
@@ -326,12 +346,15 @@ def _precheck(
     sarif: bool = True,
     json_text: str = "Accept application/json (diggs-model).",
     raw_media: Sequence[str] = _schemas.XML_MEDIA_TYPES,
+    files: int = 1,
 ) -> tuple[Format, bool] | Response:
     """Checks that need only the headers: Accept, media type, encoding, Content-Length.
 
     Returns the chosen format and whether the body is multipart, or the refusal.
     ``sarif=False`` is for an endpoint that only sends ``application/json``
-    (``json_text`` is its refusal); ``raw_media`` are the media types of a raw body.
+    (``json_text`` is its refusal); ``raw_media`` are the media types of a raw body
+    (none: multipart only). ``files`` is how many files of up to ``max_body_bytes``
+    each the body may carry.
     """
     accept = request.headers.get("accept")
     fmt: Format | None = negotiate(accept) if sarif else None
@@ -347,20 +370,20 @@ def _precheck(
     media = _media_type(request)
     multipart = media == "multipart/form-data"
     if not multipart and media not in raw_media:
-        return problem(
-            "unsupported-media-type", f"Send {', '.join(raw_media)} or multipart/form-data."
-        )
+        accepted = [*raw_media, "multipart/form-data"]
+        text = " or ".join(filter(None, (", ".join(accepted[:-1]), accepted[-1])))
+        return problem("unsupported-media-type", f"Send {text}.")
     encoding = request.headers.get("content-encoding", "").strip().lower()
     if encoding not in ("", "identity"):
         return problem("compressed-input", "Compressed request bodies are not accepted.")
     length = _content_length(request)
-    if length is not None and length > _body_limit(settings, multipart=multipart):
+    if length is not None and length > _body_limit(settings, multipart=multipart, files=files):
         return _too_large()
     return fmt, multipart
 
 
-def _body_limit(settings: ServerSettings, *, multipart: bool) -> int:
-    return settings.max_body_bytes + (MULTIPART_SLACK if multipart else 0)
+def _body_limit(settings: ServerSettings, *, multipart: bool, files: int = 1) -> int:
+    return files * settings.max_body_bytes + (MULTIPART_SLACK if multipart else 0)
 
 
 def _parameters(
@@ -427,8 +450,9 @@ def _check_parameters(
     return Ags4CheckRequest(content=content, name=names[-1] if names else filename, format=fmt)
 
 
-_Job: TypeAlias = ValidationRequest | ReadRequest | ConvertRequest | Ags4CheckRequest
+_Job: TypeAlias = ValidationRequest | ReadRequest | ConvertRequest | Ags4CheckRequest | DiffRequest
 _Build: TypeAlias = Callable[[bytes, dict[str, list[str]], str | None], _Job]
+_Reader: TypeAlias = Callable[[], Awaitable["_Job | Response"]]
 
 
 async def _read_input(
@@ -475,6 +499,133 @@ async def _read_input(
     if isinstance(job, Ags4CheckRequest) and "dictionary" in attachments:
         job = dataclasses.replace(job, dictionary=attachments["dictionary"])
     return job
+
+
+# --- comparing two files -------------------------------------------------------------------
+
+
+@dataclasses.dataclass(slots=True)
+class _Pair:
+    """The two file parts of a comparison and its short fields."""
+
+    contents: dict[str, bytes]
+    filenames: dict[str, str | None]
+    fields: dict[str, list[str]]
+
+
+def _diff_option(key: str, text: str) -> object:
+    """One comparison option from its text; text that does not parse is kept as text.
+
+    The service then refuses it as ``invalid-parameter`` with a fixed problem, so the
+    caller's value is never echoed.
+    """
+    if key == "match":
+        return text
+    if key in ("show_reformatted", "show_renamed"):
+        return {"true": True, "false": False}.get(text, text)
+    if key == "max_changes":
+        return int(text) if _INTEGER.fullmatch(text) else text
+    if len(text) <= _MAX_NUMBER_CHARS and _NUMBER.fullmatch(text):
+        return float(text)
+    return text
+
+
+def _diff_request(
+    old: bytes, new: bytes, params: dict[str, list[str]], filenames: dict[str, str | None]
+) -> DiffRequest:
+    """The service request: the last value of each parameter; a name wins over the part's."""
+    names: dict[str, str | None] = {}
+    for side in _service.DIFF_SIDES:
+        given = params.get(f"{side}_name")
+        names[side] = given[-1] if given else filenames.get(side)
+    options = {
+        key: _diff_option(key, values[-1])
+        for key, values in params.items()
+        if key in _service.DIFF_DEFAULTS and values
+    }
+    return DiffRequest(
+        old=old,
+        new=new,
+        old_name=names["old"],
+        new_name=names["new"],
+        **options,  # type: ignore[arg-type]  # the service checks every value
+    )
+
+
+async def _read_pair(request: Request, limit: int, file_limit: int) -> _Pair | Response:
+    """Parse the ``old`` and ``new`` parts (both required, once each) and the short fields.
+
+    The whole body counts against ``limit`` while it streams; each file part against
+    ``file_limit``. Spooled parts are closed (and so deleted) before returning.
+    """
+    parser = MultiPartParser(
+        request.headers,
+        _counted(request, limit),
+        max_files=len(_DIFF_FILES),
+        max_fields=MAX_FIELDS,
+        max_part_size=MAX_PART_SIZE,
+    )
+    try:
+        form = await parser.parse()
+    except MultiPartException:
+        return problem("invalid-multipart", "The multipart body could not be parsed.")
+    try:
+        contents: dict[str, bytes] = {}
+        filenames: dict[str, str | None] = {}
+        for side in _DIFF_FILES:
+            parts = form.getlist(side)
+            if len(parts) > 1:
+                return problem("invalid-multipart", f"Send exactly one part named '{side}'.")
+            if not parts or not isinstance(parts[0], UploadFile):
+                return problem(
+                    "missing-input",
+                    "Send the two documents in multipart parts named 'old' and 'new'.",
+                )
+            contents[side] = await parts[0].read(file_limit + 1)
+            if len(contents[side]) > file_limit:
+                return _too_large()
+            filenames[side] = parts[0].filename
+        fields: dict[str, list[str]] = {}
+        for key, value in form.multi_items():
+            if key in _DIFF_FILES:
+                continue
+            if key not in _DIFF_FIELDS or not isinstance(value, str):
+                names = ", ".join(sorted({*_DIFF_FILES, *_DIFF_FIELDS}))
+                return problem("invalid-multipart", f"Only the fields {names} are accepted.")
+            fields.setdefault(key, []).append(value)
+        return _Pair(contents=contents, filenames=filenames, fields=fields)
+    finally:
+        await form.close()
+
+
+async def _read_diff_input(request: Request, settings: ServerSettings) -> _Job | Response:
+    """Read a comparison's two files and parameters into a service request.
+
+    As :func:`_read_input` does for one file: each parameter in the query or in the
+    form (the form wins, but both must be valid), the body streamed and counted. The
+    body may carry two files of up to ``max_body_bytes`` each; the result is held to
+    the same :data:`RESULT_FACTOR` times ``max_body_bytes`` as a read's.
+    """
+    params = {key: request.query_params.getlist(key) for key in _DIFF_FIELDS}
+    limit = _body_limit(settings, multipart=True, files=len(_DIFF_FILES))
+    try:
+        pair = await _read_pair(request, limit, settings.max_body_bytes)
+    except _TooLargeError:
+        return _too_large()
+    if isinstance(pair, Response):
+        return pair
+    overridden = {k: v for k, v in params.items() if k in pair.fields and v}
+    if overridden:
+        errors = _service.parameter_errors(_diff_request(b"", b"", overridden, {}))
+        if errors:
+            return problem("invalid-parameter", "invalid parameters", errors=errors)
+    params.update(pair.fields)
+    job = _diff_request(pair.contents["old"], pair.contents["new"], params, pair.filenames)
+    return dataclasses.replace(
+        job,
+        max_bytes=settings.max_body_bytes,
+        max_result_bytes=RESULT_FACTOR * settings.max_body_bytes,
+    )
 
 
 # --- per-router state --------------------------------------------------------------------
@@ -589,6 +740,7 @@ _RUNNERS: Final[dict[type, tuple[str, str]]] = {
     ReadRequest: ("read", "read_in_pool"),
     ConvertRequest: ("convert", "convert_in_pool"),
     Ags4CheckRequest: ("ags4_check", "ags4_check_in_pool"),
+    DiffRequest: ("diff", "diff_in_pool"),
 }
 
 
@@ -621,11 +773,16 @@ async def _admitted(
     request: Request,
     *,
     multipart: bool,
-    fields: frozenset[str],
-    build: _Build,
+    fields: frozenset[str] = frozenset(),
+    build: _Build | None = None,
     files: Sequence[str] = ("file",),
+    reader: _Reader | None = None,
 ) -> Outcome | Response:
-    """Read the request's input and run it, within the admission and body limits."""
+    """Read the request's input and run it, within the admission and body limits.
+
+    The input is read by :func:`_read_input` with ``fields``, ``build`` and ``files``,
+    or by ``reader`` when given (a comparison's two files).
+    """
     settings = state.settings
     if not state.admission.try_enter():
         return problem(
@@ -636,9 +793,18 @@ async def _admitted(
     try:
         try:
             with anyio.fail_after(settings.body_timeout_s):
-                job = await _read_input(
-                    request, settings, multipart=multipart, fields=fields, build=build, files=files
-                )
+                if reader is not None:
+                    job = await reader()
+                else:
+                    assert build is not None  # noqa: S101  # one of the two is given
+                    job = await _read_input(
+                        request,
+                        settings,
+                        multipart=multipart,
+                        fields=fields,
+                        build=build,
+                        files=files,
+                    )
         except TimeoutError:
             return problem(
                 "request-timeout",
@@ -746,6 +912,46 @@ def _add_ags4_routes(router: APIRouter, state: _State) -> None:
     )
 
 
+def _add_diff_route(router: APIRouter, state: _State) -> None:
+    """``POST /v1/diff``: two multipart files, as ``/v1/read`` takes one."""
+    settings = state.settings
+
+    async def diff(request: Request) -> Response:
+        checked = _precheck(
+            request,
+            settings,
+            sarif=False,
+            json_text="Accept application/json (a diggs-diff document).",
+            raw_media=(),
+            files=len(_DIFF_FILES),
+        )
+        if isinstance(checked, Response):
+            return checked
+        outcome = await _admitted(
+            state, request, multipart=True, reader=lambda: _read_diff_input(request, settings)
+        )
+        if isinstance(outcome, Response):
+            return outcome
+        if not outcome.ok or outcome.document is None:
+            return from_outcome(outcome)
+        return Response(
+            outcome.document, media_type=_schemas.FINDINGS_MEDIA_TYPE, headers={"Vary": "Accept"}
+        )
+
+    router.add_api_route(
+        "/diff",
+        _guarded(state, diff),
+        methods=["POST"],
+        summary="Compare two DIGGS documents: what was added, removed or changed",
+        operation_id="diff",
+        responses=_schemas.diff_responses(),
+        openapi_extra={
+            "parameters": _schemas.diff_parameters(),
+            "requestBody": _schemas.diff_request_body(),
+        },
+    )
+
+
 def _build_router(state: _State) -> APIRouter:
     settings = state.settings
 
@@ -844,6 +1050,7 @@ def _build_router(state: _State) -> APIRouter:
         },
     )
     _add_ags4_routes(router, state)
+    _add_diff_route(router, state)
     if settings.versions_enabled:
         router.add_api_route(
             "/versions",
@@ -913,8 +1120,8 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
 
     Returns:
         The router: ``POST /v1/validate``, ``POST /v1/read``, ``POST /v1/convert``,
-        ``POST /v1/ags4/check``, ``GET /v1/versions`` and ``GET /v1/capabilities``
-        (if ``versions_enabled``),
+        ``POST /v1/ags4/check``, ``POST /v1/diff``, ``GET /v1/versions`` and
+        ``GET /v1/capabilities`` (if ``versions_enabled``),
         ``GET /v1/rules``, ``GET /v1/rules/{rule_id}`` and ``GET /v1/readyz``.
 
     Examples:
@@ -997,8 +1204,8 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
         title="pydiggs HTTP API",
         version="1",
         summary=(
-            "Validate and read DIGGS documents (XSD, dictionaries, Schematron); check AGS4"
-            " files, and convert AGS4 to DIGGS and DIGGS to AGS4."
+            "Validate, read and compare DIGGS documents (XSD, dictionaries, Schematron);"
+            " check AGS4 files, and convert AGS4 to DIGGS and DIGGS to AGS4."
         ),
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,

@@ -6,6 +6,7 @@
 // while it works: js/README.md, Sizing), so keep N small, above all in a browser tab.
 
 import { PydiggsError } from "./errors.ts";
+import type { DiggsDiffDocument } from "./generated/diff.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type { DiggsModelDocument } from "./generated/model.ts";
 import type { RuntimeVersions } from "./protocol.ts";
@@ -19,6 +20,7 @@ import type {
   WorkerAgs4CheckOptions,
   WorkerCallOptions,
   WorkerConvertOptions,
+  WorkerDiffOptions,
   WorkerReadOptions,
   WorkerRulesOptions,
   WorkerStatus,
@@ -40,6 +42,8 @@ export interface PoolEngine {
   checkAgs4(input: DocumentBytes, options?: WorkerAgs4CheckOptions): Promise<DiggsFindingsDocument>;
   checkAgs4Sarif(input: DocumentBytes, options?: WorkerAgs4CheckOptions): Promise<SarifLog>;
   capabilities(options?: WorkerCallOptions): Promise<Capabilities>;
+  /** Optional, so that an engine of your own written before it still is one. */
+  diff?(oldInput: DocumentBytes, newInput: DocumentBytes, options?: WorkerDiffOptions): Promise<DiggsDiffDocument>;
   terminate(): void;
 }
 
@@ -133,6 +137,13 @@ export class PydiggsPool<E extends PoolEngine = PoolEngine> {
   /** Checks an AGS4 file on the least busy engine, as a SARIF 2.1.0 log. */
   checkAgs4Sarif(input: DocumentBytes, options?: WorkerAgs4CheckOptions): Promise<SarifLog> {
     return this.#pick().checkAgs4Sarif(input, options);
+  }
+
+  /** Compares two DIGGS files on the least busy engine. */
+  diff(oldInput: DocumentBytes, newInput: DocumentBytes, options?: WorkerDiffOptions): Promise<DiggsDiffDocument> {
+    const engine = this.#pick();
+    if (engine.diff === undefined) return Promise.reject(new PydiggsError("this pool's engines cannot compare files"));
+    return engine.diff(oldInput, newInput, options);
   }
 
   /** What pydiggs can do, from the least busy engine. */

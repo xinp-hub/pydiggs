@@ -4,8 +4,8 @@
 application can start and talk to over its standard input and output. It suits desktop
 and native applications in any language (Rust, C#, Java, Swift, C++, TypeScript on Node or
 Electron, and so on) that cannot embed CPython. This page is the normative specification
-of protocol version **1.2** (1.0 plus the `read` method in 1.1, and `convert` and
-`ags4.check` in 1.2). [Host guidance](sidecar-hosts.md) covers supervision,
+of protocol version **1.3** (1.0 plus the `read` method in 1.1, `convert` and
+`ags4.check` in 1.2, and `diff` in 1.3). [Host guidance](sidecar-hosts.md) covers supervision,
 packaging and example clients.
 
 The sidecar is part of the core package: it needs no extra and uses only the Python
@@ -92,7 +92,7 @@ content or absolute paths, and client strings are escaped.
 
 `initialize.params.protocol_version` is `"MAJOR.MINOR"`. The major must equal the
 sidecar's (`1`), otherwise the answer is `unsupported-protocol-version` with
-`data.supported`, e.g. `["1.0", "1.1", "1.2"]`. The sidecar answers the highest minor it supports that
+`data.supported`, e.g. `["1.0", "1.1", "1.2", "1.3"]`. The sidecar answers the highest minor it supports that
 does not exceed the requested one. Minor versions only add: hosts must ignore unknown
 result fields; new methods are advertised in `capabilities`. The sidecar refuses unknown
 parameters with `-32602` (except unknown keys inside `capabilities`, which it ignores).
@@ -131,7 +131,7 @@ ends it with status 1. `exit` is honoured at any time and abandons any running w
 
 | param | type | notes |
 |---|---|---|
-| `protocol_version` | string, required | `"1.2"` (or `"1.1"`: no 1.2 members, and `convert` and `ags4.check` are `method-not-found`; or `"1.0"`: no 1.1 members either, and `read` is `method-not-found` too) |
+| `protocol_version` | string, required | `"1.3"` (or `"1.2"`: no 1.3 members, and `diff` is `method-not-found`; or `"1.1"`: no 1.2 members either, and `convert` and `ags4.check` are `method-not-found` too; or `"1.0"`: no 1.1 members either, and `read` is `method-not-found` too) |
 | `client_info` | object | `{name ≤ 128 chars, version ≤ 64 chars}`, logged at `info` |
 | `capabilities` | object | `{progress: bool}` asks for `$/progress` notifications |
 | `diggs_versions` | string[] | DIGGS versions to warm up (default: every released bundled version, not the experimental `3.1-dev`) |
@@ -140,12 +140,14 @@ Result:
 
 ```json
 {
-  "protocol_version": "1.2",
-  "pydiggs_version": "1.12.0",
+  "protocol_version": "1.3",
+  "pydiggs_version": "1.13.0",
   "findings_schema_version": "1.2",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json",
   "model_schema_version": "1.0",
   "model_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json",
+  "diff_schema_version": "1.0",
+  "diff_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json",
   "diggs_versions": ["2.5.a", "2.6", "3.0.0", "3.1-dev"],
   "reference_data": {"def": "…", "schema-dev": "…", "schemas": "…"},
   "capabilities": {
@@ -153,6 +155,7 @@ Result:
     "read": {"content": true, "path": false, "select": true},
     "convert": {"content": true, "path": false, "to": ["diggs", "ags4"], "ags_versions": ["4.2", "4.1.1"], "residual": true},
     "ags4_check": {"content": true, "path": false, "dictionary": true},
+    "diff": {"content": true, "path": false, "match": ["auto", "gml-id", "natural", "gml_id"]},
     "cancel": true, "progress": false, "rules": true, "ping": true
   },
   "limits": {
@@ -168,7 +171,8 @@ was started with `--allow-path`. `max_response_bytes_estimate` is a rough upper 
 sizing buffers for `validate`, not a guarantee; `max_result_bytes` is the hard limit for a
 `read` result. A host that negotiates `"1.0"` gets the 1.0 answer: no `model_schema_*`,
 no `capabilities.read` and no `max_result_bytes`; one that negotiates `"1.1"` gets no
-`capabilities.convert` and no `capabilities.ags4_check`.
+`capabilities.convert` and no `capabilities.ags4_check`; one that negotiates `"1.2"` gets
+no `diff_schema_*` and no `capabilities.diff`.
 
 ### `validate`
 
@@ -282,6 +286,47 @@ reading the dictionary and checking together: a dictionary read it stops is
 findings. The sidecar writes the file to a private temporary folder (mode 0700) for the
 checker and removes it at once.
 
+### `diff` {#diff}
+
+Protocol 1.3. Compares two DIGGS files with the stable
+[`pydiggs.diff.compare()`](diff.md) and answers with its **diggs-diff 1.0** document:
+what was added, removed or changed. A session that negotiated 1.2 or older gets
+`method-not-found`.
+
+| param | type | notes |
+|---|---|---|
+| `old_base64`, `new_base64` | string | the earlier and the later file, standard base64 as for `validate` |
+| `old_path`, `new_path` | string | a file by path, under an `--allow-path` root (vetted like `path`), instead of its content |
+| `old_name`, `new_name` | string ≤ 4096 | the names to report; reduced to a basename (default `input.xml`, or the path's basename) |
+| `match` | string | how records are paired: `"auto"` (the default), `"gml-id"` (also `"gml_id"`) or `"natural"` |
+| `rel_tol` | number | two numbers are equal within this fraction of the larger one: `0 ≤ r < 1`, default `1e-9` |
+| `abs_tol` | number | or within this much, in the value's own unit: `≥ 0`, default 0 |
+| `max_changes` | integer | most changes listed, `≥ 0` (default 10000); the counts stay exact |
+| `show_reformatted`, `show_renamed` | boolean | also list values only written differently, and records whose `gml:id` changed (default false) |
+| `time_budget_s` | number | `0 < t ≤ --timeout`; covers reading both files and comparing them |
+
+Exactly one of `old_base64` and `old_path`, and one of `new_base64` and `new_path`; the
+two may come different ways. Each file is held to the limit of the way it came:
+`max_bytes` inline, `max_path_bytes` by path. Inline, both travel in one request line, so
+they must fit in `max_line_bytes` together: give paths for two large files. There is no
+new limit.
+
+The result is the document `pydiggs.diff.compare(old, new, ...).to_json()` gives for the
+same bytes and options, each file under its basename, and the same bytes `POST /v1/diff`
+answers. Validate it against its own `$schema` and tolerate unknown fields.
+
+- Identical or not, the answer is a result: read `identical` and `complete`.
+- When `time_budget_s` runs out, the result is still a document, with `complete: false`
+  and a `diff.timeout` note.
+- A file that is not a DIGGS document is the error `invalid-document` with the `kind`
+  of `read` and `data.errors` naming it (`{"param": "old", "problem": "is not a DIGGS
+  document"}`); a file over its limit is `input-too-large`. A bad option is
+  `invalid-params` naming it. A result over `limits.max_result_bytes` is
+  `result-too-large`: list fewer changes with `max_changes`.
+- A `diff` shares the queue with the other document methods (one running, one waiting).
+  A queued one can be cancelled; a running one is checked for cancellation only when it
+  ends. `$/progress` reports `step: "diff"`.
+
 ### `ping`, `versions`
 
 `ping` takes no parameters and returns `{}`. `versions` returns the same fields as
@@ -311,7 +356,8 @@ See [Shutdown and exit](#shutdown-and-exit). `shutdown` takes no parameters and 
 Other notifications, `$/`-prefixed or not, are ignored. `$/progress`
 reports `step: "queue", status: "waiting"` when a validation or a read waits behind
 another, `step: "validate", status: "started"` when a validation starts and
-`status: "running"` at each step boundary (`step: "read"` for a read). Treat it as a liveness signal; hosts must ignore step and status values they do
+`status: "running"` at each step boundary (`step: "read"` for a read, `step: "diff"`
+for a comparison). Treat it as a liveness signal; hosts must ignore step and status values they do
 not know (later minors may name the individual checks).
 
 ## Errors
@@ -337,8 +383,8 @@ it with LSP or MCP meanings.
 | -32007 | `resource-error` | the bundled reference data could not be loaded | `correlation_id` |
 | -32008 | `cancelled` | cancelled by `$/cancelRequest` | |
 | -32009 | `unsupported-protocol-version` | major version mismatch | `supported` |
-| -32010 | `invalid-document` | `read` and `convert` to AGS4: the bytes are not a DIGGS document; `convert` to DIGGS: not AGS4 | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long`; for `convert` to DIGGS `not-ags4` or `unsupported-version` |
-| -32011 | `result-too-large` | `read`, `convert`: the result is over `max_result_bytes` (for `read`, ask for fewer tables with `select`) | `max_result_bytes` |
+| -32010 | `invalid-document` | `read`, `diff` and `convert` to AGS4: the bytes are not a DIGGS document; `convert` to DIGGS: not AGS4 | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long`; for `convert` to DIGGS `not-ags4` or `unsupported-version`; for `diff`, `errors` names the file (`old` or `new`) |
+| -32011 | `result-too-large` | `read`, `convert`, `diff`: the result is over `max_result_bytes` (for `read`, ask for fewer tables with `select`; for `diff`, list fewer changes with `max_changes`) | `max_result_bytes` |
 
 Errors for unparseable lines carry `"id": null`. A broken notification gets no answer.
 Messages never echo request values; at most they name the reported basename.
@@ -382,8 +428,8 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 ## Example session
 
 ```text
-→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.2","client_info":{"name":"example-host","version":"0.1"}}}
-← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.2","pydiggs_version":"1.12.0",…}}
+→ {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.3","client_info":{"name":"example-host","version":"0.1"}}}
+← {"jsonrpc":"2.0","id":1,"result":{"protocol_version":"1.3","pydiggs_version":"1.13.0",…}}
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}

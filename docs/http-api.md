@@ -70,6 +70,7 @@ app, a reverse proxy or an API gateway for that.
 | `POST /v1/read` | 200 with a diggs-model 1.0 document: what is in the file ([Reading files](model.md)) |
 | `POST /v1/convert` | 200 with a conversion result: an AGS4 file as DIGGS 3.0.0, or a DIGGS document as AGS4 (base64), and every loss ([AGS4 and DIGGS conversion](convert.md)) |
 | `POST /v1/ags4/check` | 200 with a diggs-findings 1.2 document of the AGS4 rules, or SARIF 2.1.0 ([AGS4 files](ags4.md)) |
+| `POST /v1/diff` | 200 with a diggs-diff 1.0 document: what was added, removed or changed between two DIGGS files ([Comparing two files](diff.md)) |
 | `GET /v1/versions` | pydiggs, findings schema and DIGGS versions, reference-data commits, `api_version: "1"` (off with `versions_enabled=False`) |
 | `GET /v1/capabilities` | a [diggs-capabilities 1.0](capabilities.md) document: what this server's pydiggs can do (off with `versions_enabled=False`) |
 | `GET /v1/rules?step=` | every rule id pydiggs can emit (open families as patterns) |
@@ -230,6 +231,52 @@ limit. The server writes the file to a private temporary folder (mode 0700) for 
 checker and removes it at once; with the container's read-only root filesystem that is
 the `/tmp` tmpfs.
 
+### `POST /v1/diff` {#post-v1diff}
+
+Compares two DIGGS files with the stable [`pydiggs.diff.compare()`](diff.md) and answers
+with its **diggs-diff 1.0** document. The body is exactly what
+`compare(old, new, ...).to_json()` gives for the same bytes and options, with each file
+reported under its basename, so every surface gives the same bytes for the same pair.
+From pyDIGGS 1.13.
+
+Send both files as **multipart** (`Content-Type: multipart/form-data`): one part named
+`old` (the earlier file) and one named `new` (the later), each exactly once, and the
+optional fields below. A raw body is 415: there are two files. As for `/v1/validate`,
+a field wins over the same query parameter, and both must be valid.
+
+| parameter | meaning |
+|---|---|
+| `old_name`, `new_name` | File names to report; reduced to a basename, the part's file name when not given, `input.xml` when empty |
+| `match` | How records are paired: `auto` (the default; by `gml:id`, then by natural key), `gml-id` (also written `gml_id`) or `natural` |
+| `rel_tol` | Two numbers are equal within this fraction of the larger one: from 0 to less than 1, default `1e-9` |
+| `abs_tol` | Or within this much, in the value's own unit: 0 or more, default 0 |
+| `max_changes` | Most changes listed, 0 or more (default 10000); the counts stay exact, and a cut list is `complete: false` |
+| `show_reformatted` | `true` to also list values only written differently (default `false`) |
+| `show_renamed` | `true` to also list records whose `gml:id` changed (default `false`) |
+
+```bash
+curl -s -F old=@BH-01-v1.xml -F new=@BH-01-v2.xml -F max_changes=100 \
+  http://127.0.0.1:8000/v1/diff | jq '{identical, summary, value_changes}'
+```
+
+- **A difference is not an error.** Identical or not, the answer is 200; read
+  `identical` and `complete`.
+- **Limits are those of `/v1/read`, per file.** Each file may be up to
+  `max_body_bytes`, so the body may carry twice that (plus the multipart allowance); a
+  larger file is 413. Both files are read and compared in **one** job in one worker,
+  under the one `timeout_s` and the one admission slot: no new limit or setting. A
+  result larger than four times `max_body_bytes` is 422 `result-too-large`; list fewer
+  changes with `max_changes`.
+- **Not a DIGGS document** is 422 `invalid-document` with the `kind` of `/v1/read`, and
+  `errors` naming the file: `[{"parameter": "new", "problem": "is not a DIGGS
+  document"}]`. (The CLI exits 2 for the same input.)
+- **Time limit:** with thread isolation, running out of time is a 200 with
+  `complete: false` and a `diff.timeout` note, and `options.time_budget` is the
+  server's `timeout_s`; with process isolation it is 504 `timeout` and
+  `options.time_budget` is null.
+- The two files are compared in memory; nothing is written to disk. Every string in the
+  document (names, keys, values) comes from the files: escape it before you render it.
+
 ## Limits and admission
 
 Checks run in this order, before the body is read where possible:
@@ -240,8 +287,10 @@ Checks run in this order, before the body is read where possible:
 4. Admission: a slot among `workers + queue_depth` is taken **without waiting**; when
    none is free the answer is 503 `busy` with `Retry-After: 1`, body not read.
 5. The body is streamed with a running byte count and abandoned at the limit (413), so
-   chunked bodies are bounded too. Multipart allows one file and at most 8 fields of
-   64 KiB; the file counts against `max_body_bytes`; spooled parts are deleted.
+   chunked bodies are bounded too. Multipart allows one file (two for `/v1/ags4/check`
+   and `/v1/diff`) and at most 8 fields of 64 KiB; each `/v1/diff` file counts against
+   `max_body_bytes` on its own, any other file against it together; spooled parts are
+   deleted.
 6. The whole body must arrive within `body_timeout_s` (30 s) of admission; otherwise the
    answer is 408 `request-timeout` with `Connection: close`, and the slot is freed.
 
@@ -316,20 +365,20 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 
 | status | code | when |
 |---|---|---|
-| 400 | <span id="problem-missing-input"></span>`missing-input` | no `file` part, or the body stopped arriving |
-| 400 | <span id="problem-invalid-multipart"></span>`invalid-multipart` | unparseable multipart, a second file (other than `/v1/ags4/check`'s `dictionary`), too many, unknown or oversized fields |
+| 400 | <span id="problem-missing-input"></span>`missing-input` | no `file` part (`/v1/diff`: no `old` or `new` part), or the body stopped arriving |
+| 400 | <span id="problem-invalid-multipart"></span>`invalid-multipart` | unparseable multipart, a second file (other than `/v1/ags4/check`'s `dictionary` and `/v1/diff`'s pair), too many, unknown or oversized fields |
 | 400 | <span id="problem-invalid-host"></span>`invalid-host` | `Host` not in `allowed_hosts` (app only) |
 | 403 | <span id="problem-cross-site"></span>`cross-site` | cross-site request |
 | 404 | <span id="problem-not-found"></span>`not-found` | unknown path (app only) |
 | 405 | <span id="problem-method-not-allowed"></span>`method-not-allowed` | wrong method; see `Allow` (app only) |
-| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF (`/v1/read`, `/v1/convert`: not JSON) |
+| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF (`/v1/read`, `/v1/convert`, `/v1/diff`: not JSON) |
 | 408 | <span id="problem-request-timeout"></span>`request-timeout` | the body did not arrive within `body_timeout_s` |
 | 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes` |
 | 415 | <span id="problem-compressed-input"></span>`compressed-input` | gzip document, or `Content-Encoding` other than `identity` |
-| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (`to=ags4` takes `application/xml` or `text/xml`; AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart) |
-| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `ags_version`, `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, or an unusable AGS4 `dictionary` |
-| 422 | <span id="problem-invalid-document"></span>`invalid-document` | Titled "Invalid document". `/v1/read` and `/v1/convert?to=ags4`: the bytes are not a DIGGS document; `/v1/convert` to DIGGS: not AGS4 (`not-ags4`) or AGS 3 (`unsupported-version`); `kind` says why |
-| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read`, `/v1/convert`: the result is larger than four times `max_body_bytes` (for `/v1/read`, ask for fewer tables with `select`) |
+| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (`/v1/diff`: not multipart; `to=ags4` takes `application/xml` or `text/xml`; AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart) |
+| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `ags_version`, `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, a `/v1/diff` option, or an unusable AGS4 `dictionary` |
+| 422 | <span id="problem-invalid-document"></span>`invalid-document` | Titled "Invalid document". `/v1/read`, `/v1/convert?to=ags4` and `/v1/diff`: the bytes are not a DIGGS document (`/v1/diff` names the file in `errors`); `/v1/convert` to DIGGS: not AGS4 (`not-ags4`) or AGS 3 (`unsupported-version`); `kind` says why |
+| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read`, `/v1/convert`, `/v1/diff`: the result is larger than four times `max_body_bytes` (for `/v1/read`, ask for fewer tables with `select`; for `/v1/diff`, list fewer changes with `max_changes`) |
 | 422 | <span id="problem-input-unreadable"></span>`input-unreadable` | the document could not be read |
 | 500 | <span id="problem-resource-error"></span>`resource-error` | bundled reference data could not be loaded |
 | 500 | <span id="problem-internal"></span>`internal` | anything else |
@@ -342,6 +391,7 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 The OpenAPI 3.1 document is committed as `pydiggs/server/openapi.json`, tested
 against the code and published as
 [schemas/openapi.json](https://xinp-hub.github.io/pydiggs/schemas/openapi.json). Its
-`DiggsFindings*` components are derived from the packaged findings JSON Schema. A
+`DiggsFindings*`, `DiggsModel*` and `DiggsDiff*` components are derived from the
+packaged JSON Schemas. A
 breaking wire change would be served as `/v2` beside `/v1`; within `/v1`, validate
 documents against their own `$schema` and ignore unknown fields.

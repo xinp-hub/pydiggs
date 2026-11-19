@@ -666,5 +666,19 @@ the URL their `$schema` names. A 1.0 document has the fields of a beta one; besi
 
 [`pydiggs.capabilities()`](capabilities.md) lists the comparison as the operation
 `diff`, with its options. It runs in the browser under [Pyodide](browser.md) as it does
-in CPython. The HTTP API, the stdio sidecar, the MCP server and `@pydiggs/client` do not
-offer it yet.
+in CPython. From pyDIGGS 1.13 it is offered on the other surfaces too, each answering
+with the same diggs-diff 1.0 document `compare(...).to_json()` gives, each file under its
+basename:
+
+| surface | how |
+|---|---|
+| [HTTP API](http-api.md#post-v1diff) | `POST /v1/diff`, a multipart body with the parts `old` and `new` |
+| [Stdio sidecar](sidecar.md#diff) | method `diff`, protocol 1.3 (`old_base64` or `old_path`, `new_base64` or `new_path`) |
+| [`@pydiggs/client`](javascript.md) | `diff(old, new, options)` over HTTP (`PydiggsHttpClient`) and in the browser or Node engines |
+
+Each takes the options above except `max_bytes` and `time_budget`, which are the
+server's or the sidecar's own limits: each file is held to the per-file limit
+(`max_body_bytes`, or `--max-bytes` and `--max-path-bytes`), and one time limit covers
+reading both files and comparing them. A file that is not a DIGGS document is an
+`invalid-document` error naming the file (`old` or `new`), where the CLI exits 2. The
+MCP server does not offer the comparison yet.

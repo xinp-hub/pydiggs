@@ -6,6 +6,7 @@
 // it before it reaches HTML, a terminal or a prompt.
 
 import { PydiggsError } from "./errors.ts";
+import type { DiggsDiffDocument } from "./generated/diff.ts";
 import type { DiggsFindingsDocument } from "./generated/findings.ts";
 import type {
   Capabilities,
@@ -13,6 +14,7 @@ import type {
   ConvertAgsVersion,
   ConvertDiggsVersion,
   ConvertTarget,
+  DiffMatch,
   DiggsVersion,
   Problem,
   RuleInfo,
@@ -29,6 +31,7 @@ export type {
   ConvertAgsVersion,
   ConvertDiggsVersion,
   ConvertTarget,
+  DiffMatch,
   DiggsVersion,
   Problem,
   Ready,
@@ -38,6 +41,7 @@ export type {
   ValidateCheck,
   Versions,
 } from "./generated/http.ts";
+export type { DiggsDiffDocument } from "./generated/diff.ts";
 export { conversionOutput, conversionResidual } from "./convert.ts";
 export { PydiggsError } from "./errors.ts";
 
@@ -117,6 +121,28 @@ export interface Ags4CheckOptions extends RequestOptions {
    * rules that need it check only what the file itself declares.
    */
   dictionary?: DocumentInput;
+}
+
+export interface DiffOptions extends RequestOptions {
+  /** Name to report the old file as; the server reduces it to a base name. Default: `input.xml`. */
+  oldName?: string;
+  /** Name to report the new file as; the server reduces it to a base name. Default: `input.xml`. */
+  newName?: string;
+  /**
+   * How records are paired: `"auto"` (the default; by gml:id, then by natural key),
+   * `"gml-id"` (ids only; also written `"gml_id"`) or `"natural"` (natural keys only).
+   */
+  match?: DiffMatch;
+  /** Two numbers are equal within this fraction of the larger one: 0 to less than 1. Default: 1e-9. */
+  relTol?: number;
+  /** Or within this much, in the value's own unit. Default: 0. */
+  absTol?: number;
+  /** Most changes listed; the counts stay exact, and a cut list is `complete: false`. Default: 10000. */
+  maxChanges?: number;
+  /** Also list values only written differently (1.50 and 1.5). Default: false. */
+  showReformatted?: boolean;
+  /** Also list records whose gml:id changed (never a difference). Default: false. */
+  showRenamed?: boolean;
 }
 
 export interface ListRulesOptions extends RequestOptions {
@@ -280,6 +306,35 @@ export class PydiggsHttpClient {
       throw new PydiggsHttpError("The answer is not a SARIF 2.1.0 log.", 200);
     }
     return body as unknown as SarifLog;
+  }
+
+  /**
+   * Compares two DIGGS files (`POST /v1/diff`, pyDIGGS 1.13 or later): what was added,
+   * removed or changed, as a diggs-diff 1.0 document. Identical or not, the answer is a
+   * document; read `identical` and `complete`. Each file may be as large as the
+   * server's body limit. Bytes that are not a DIGGS document are a `PydiggsHttpError`
+   * with code `invalid-document` and `problem.errors` naming the file ("old" or "new").
+   */
+  async diff(oldDocument: DocumentInput, newDocument: DocumentInput, options: DiffOptions = {}): Promise<DiggsDiffDocument> {
+    const form = new FormData();
+    form.append("old", toBlob(oldDocument), options.oldName ?? "input.xml");
+    form.append("new", toBlob(newDocument), options.newName ?? "input.xml");
+    const fields: [string, string | number | boolean | undefined][] = [
+      ["match", options.match],
+      ["rel_tol", options.relTol],
+      ["abs_tol", options.absTol],
+      ["max_changes", options.maxChanges],
+      ["show_reformatted", options.showReformatted],
+      ["show_renamed", options.showRenamed],
+    ];
+    for (const [key, value] of fields) {
+      if (value !== undefined) form.append(key, String(value));
+    }
+    const body = await this.#json({ method: "POST", path: "/v1/diff", body: form, signal: options.signal });
+    if (!isRecord(body) || body["format"] !== "diggs-diff" || !Array.isArray(body["changes"])) {
+      throw new PydiggsHttpError("The answer is not a diggs-diff document.", 200);
+    }
+    return body as unknown as DiggsDiffDocument;
   }
 
   /** What the server's pydiggs can do: its operations, their options and extras. */

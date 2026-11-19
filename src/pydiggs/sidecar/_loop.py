@@ -4,8 +4,8 @@ Three threads share one :class:`Server`:
 
 * the **reader** reads bounded lines from stdin, answers cheap methods (``ping``,
   ``versions``, ``rules.*``) at once, and queues ``initialize``, the document methods
-  (``validate``, ``read``, ``convert``, ``ags4.check``) and ``shutdown`` for the
-  executor;
+  (``validate``, ``read``, ``convert``, ``ags4.check``, ``diff``) and ``shutdown`` for
+  the executor;
 * the **executor** runs one queued job at a time (validators are compiled per
   thread, so warm-up and validation share this thread);
 * the **main** thread waits for the end (``exit``, EOF, a broken pipe or a signal)
@@ -50,13 +50,21 @@ _DISCARD_CHUNK: Final = 1 << 20
 _WAIT_SECONDS: Final = 0.5
 #: Requests answered without the executor.
 _CHEAP: Final = frozenset({"ping", "versions", "rules.list", "rules.explain"})
-_KNOWN: Final = _CHEAP | {"initialize", "validate", "read", "convert", "ags4.check", "shutdown"}
+_KNOWN: Final = _CHEAP | {
+    "initialize",
+    "validate",
+    "read",
+    "convert",
+    "ags4.check",
+    "diff",
+    "shutdown",
+}
 #: The requests that take a document: one runs, one waits, both can be cancelled.
-_DOCUMENT: Final = ("validate", "read", "convert", "ags4.check")
+_DOCUMENT: Final = ("validate", "read", "convert", "ags4.check", "diff")
 #: The protocol minor that added each document method (1.0 has validate).
-_SINCE_MINOR: Final = {"validate": 0, "read": 1, "convert": 2, "ags4.check": 2}
+_SINCE_MINOR: Final = {"validate": 0, "read": 1, "convert": 2, "ags4.check": 2, "diff": 3}
 
-_DocumentKind = Literal["validate", "read", "convert", "ags4.check"]
+_DocumentKind = Literal["validate", "read", "convert", "ags4.check", "diff"]
 
 
 class _TooLong:
@@ -70,7 +78,7 @@ Phase = Literal["new", "initializing", "ready", "shutdown"]
 
 @dataclass(eq=False)
 class _Job:
-    kind: Literal["initialize", "validate", "read", "convert", "ags4.check", "shutdown"]
+    kind: Literal["initialize", "validate", "read", "convert", "ags4.check", "diff", "shutdown"]
     id: RequestId
     params: Any = None
     cancel: threading.Event = field(default_factory=threading.Event)
@@ -302,7 +310,8 @@ class Server:
         elif phase != "ready":
             raise ProtocolError(ErrorCode.NOT_INITIALIZED)
         elif method in _SINCE_MINOR:
-            # read is protocol 1.1, convert and ags4.check 1.2: an older session lacks them
+            # read is protocol 1.1, convert and ags4.check 1.2, diff 1.3: an older
+            # session lacks them
             if self._minor < _SINCE_MINOR[method]:
                 raise ProtocolError(ErrorCode.METHOD_NOT_FOUND)
             kind: _DocumentKind = method  # type: ignore[assignment]
@@ -442,6 +451,8 @@ class Server:
                     self._convert(job)
                 elif job.kind == "ags4.check":
                     self._ags4_check(job)
+                elif job.kind == "diff":
+                    self._diff(job)
                 else:
                     self._validate(job)
             except ProtocolError as error:
@@ -515,6 +526,13 @@ class Server:
                 "content": True,
                 "path": bool(self.roots),
                 "dictionary": True,
+            }
+        if minor >= 3:  # noqa: PLR2004  # protocol 1.3: diff
+            result.update(_service.diff_info())
+            result["capabilities"]["diff"] = {
+                "content": True,
+                "path": bool(self.roots),
+                "match": list(_service.DIFF_MATCH),
             }
         with self._cv:
             if self._phase == "initializing":
@@ -614,6 +632,44 @@ class Server:
         )
         self._answer(job, _service.ags4_check(request, should_stop=should_stop))
 
+    def _diff(self, job: _Job) -> None:
+        params: _protocol.DiffParams = job.params
+        self._progress_note(job, "diff", "started")
+        contents: dict[str, bytes] = {}
+        names = dict(params.names)
+        limit = self.options.max_bytes
+        # Each file keeps its own transport's limit (inline max_bytes, a path
+        # max_path_bytes), already applied here; the comparison takes the larger.
+        for side in _service.DIFF_SIDES:
+            path = params.paths[side]
+            if path is not None:
+                contents[side] = self._read_path(path)
+                limit = max(limit, self.options.max_path_bytes)
+                if names[side] is None:
+                    names[side] = _basename(path)
+            else:
+                content = params.contents[side]
+                assert content is not None  # noqa: S101  # exactly one is set
+                contents[side] = content
+
+        def should_stop() -> bool:
+            stop = job.cancel.is_set() or self._done.is_set()
+            if not stop:
+                self._progress_note(job, "diff", "running")
+            return stop
+
+        request = _service.DiffRequest(
+            old=contents["old"],
+            new=contents["new"],
+            old_name=names["old"],
+            new_name=names["new"],
+            **params.options,
+            max_bytes=limit,
+            time_budget=params.time_budget,
+            max_result_bytes=_protocol.MAX_RESULT_BYTES,
+        )
+        self._answer(job, _service.diff(request, should_stop=should_stop))
+
     def _validate(self, job: _Job) -> None:
         params: _protocol.ValidateParams = job.params
         content, name, limit, should_stop = self._document(job, "validate")
@@ -657,6 +713,7 @@ _CHECKS: Final = {
     "read": "check_read",
     "convert": "check_convert",
     "ags4.check": "check_ags4_check",
+    "diff": "check_diff",
 }
 
 

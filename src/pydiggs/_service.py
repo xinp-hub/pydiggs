@@ -5,12 +5,13 @@ documents through :func:`validate` (in the calling thread) or :func:`validate_in
 (in a worker process with a hard timeout), read them into diggs-model documents
 through :func:`read` or :func:`read_in_pool`, check AGS4 files through
 :func:`ags4_check` or :func:`ags4_check_in_pool`, convert AGS4 to DIGGS and DIGGS to
-AGS4 through :func:`convert` or :func:`convert_in_pool`, and answer rule and version questions
+AGS4 through :func:`convert` or :func:`convert_in_pool`, compare two DIGGS files
+through :func:`diff` or :func:`diff_in_pool`, and answer rule and version questions
 through :func:`rules`, :func:`explain` and :func:`versions`. They never call
 :func:`pydiggs.validate`, :func:`pydiggs.validate_bytes`, :func:`pydiggs.read`,
-:func:`pydiggs.read_bytes`, :func:`pydiggs.ags4.check`, :mod:`pydiggs.convert` or the legacy
-validator themselves (a test enforces this), so every remote caller gets the same
-pinned settings:
+:func:`pydiggs.read_bytes`, :func:`pydiggs.ags4.check`, :mod:`pydiggs.convert`,
+:mod:`pydiggs.diff` or the legacy validator themselves (a test enforces this), so every
+remote caller gets the same pinned settings:
 
 * only the bundled schema, dictionaries and Schematron rules;
 * ``allow_network=False``, ``include_snippets=False``, local dictionaries off;
@@ -72,6 +73,9 @@ __all__ = [
     "CONVERT_AGS_VERSIONS",
     "CONVERT_DIGGS_VERSIONS",
     "CONVERT_TARGETS",
+    "DIFF_DEFAULTS",
+    "DIFF_MATCH",
+    "DIFF_SIDES",
     "DIGGS_MEDIA_TYPE",
     "DOCUMENT_KINDS",
     "MAX_NAME_INPUT_CHARS",
@@ -79,6 +83,7 @@ __all__ = [
     "Ags4CheckRequest",
     "Code",
     "ConvertRequest",
+    "DiffRequest",
     "Outcome",
     "ReadRequest",
     "Request",
@@ -88,6 +93,9 @@ __all__ = [
     "capabilities_schema",
     "convert",
     "convert_in_pool",
+    "diff",
+    "diff_in_pool",
+    "diff_info",
     "explain",
     "make_pool",
     "model_info",
@@ -906,6 +914,8 @@ def parameter_errors(request: object) -> tuple[tuple[str, str], ...]:
         return _convert_parameter_errors(request)
     if isinstance(request, Ags4CheckRequest):
         return _ags4_check_parameter_errors(request)
+    if isinstance(request, DiffRequest):
+        return _diff_parameter_errors(request)
     raise TypeError(f"not a service request: {type(request).__name__}")
 
 
@@ -1256,6 +1266,224 @@ def _ags4_check_outcome(request: Ags4CheckRequest, shown: str) -> Outcome:
     return Outcome(document=_json.dumps(body, indent=None).encode("utf-8", "backslashreplace"))
 
 
+# --- comparing two files ----------------------------------------------------------------
+
+#: The ways :func:`diff` pairs records (``match``): :func:`pydiggs.diff.compare`'s own.
+DIFF_MATCH: Final = ("auto", "gml-id", "natural", "gml_id")
+#: :func:`pydiggs.diff.compare`'s defaults, which every surface uses when not given.
+DIFF_DEFAULTS: Final[Mapping[str, object]] = {
+    "match": "auto",
+    "rel_tol": 1e-9,
+    "abs_tol": 0.0,
+    "max_changes": 10_000,
+    "show_reformatted": False,
+    "show_renamed": False,
+}
+#: The two inputs of a comparison, as parameter names and in the order they are read.
+DIFF_SIDES: Final = ("old", "new")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class DiffRequest:
+    """One comparison of two DIGGS files. Limits come from the adapter, not the caller.
+
+    ``old`` and ``new`` are the two files' bytes, each held to ``max_bytes`` (the
+    adapter's per-file limit). The names and the comparison options may come from the
+    caller; they are checked by :func:`diff`, which answers ``invalid-parameter``
+    rather than raising. ``time_budget`` covers reading both files and comparing them.
+
+    Examples:
+        >>> DiffRequest(old=b"<a/>", new=b"<b/>").match
+        'auto'
+        >>> DiffRequest(old=b"", new="text")
+        Traceback (most recent call last):
+        ...
+        TypeError: new must be bytes, not str
+    """
+
+    old: bytes
+    new: bytes
+    old_name: str | None = None
+    new_name: str | None = None
+    match: object = "auto"
+    rel_tol: object = 1e-9
+    abs_tol: object = 0.0
+    max_changes: object = 10_000
+    show_reformatted: object = False
+    show_renamed: object = False
+    max_bytes: int = 25 * 2**20
+    time_budget: float | None = None
+    max_result_bytes: int | None = 256 * 2**20
+
+    def __post_init__(self) -> None:
+        for side in DIFF_SIDES:
+            content = getattr(self, side)
+            if not isinstance(content, bytes):
+                raise TypeError(f"{side} must be bytes, not {type(content).__name__}")
+        _check_limits(self.old, self.max_bytes, self.time_budget)
+        if self.max_result_bytes is not None and (
+            type(self.max_result_bytes) is not int or self.max_result_bytes < 1
+        ):
+            raise ValueError(
+                f"max_result_bytes must be a positive int or None, got {self.max_result_bytes!r}"
+            )
+
+
+def _finite(value: object, *, below_one: bool = False) -> bool:
+    """A finite number, 0 or more (and less than 1 when ``below_one``); never a bool."""
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, int | float)
+        and math.isfinite(value)
+        and value >= 0
+        and (not below_one or value < 1)
+    )
+
+
+def _diff_parameter_errors(request: DiffRequest) -> tuple[tuple[str, str], ...]:
+    """Check the caller-supplied parameters; fixed texts that never echo the value."""
+    errors = [
+        (f"{side}_name", problem)
+        for side in DIFF_SIDES
+        for _, problem in _name_errors(getattr(request, f"{side}_name"))
+    ]
+    if not isinstance(request.match, str) or request.match not in DIFF_MATCH:
+        errors.append(("match", f"expected one of {', '.join(DIFF_MATCH[:3])}"))
+    if not _finite(request.rel_tol, below_one=True):
+        errors.append(("rel_tol", "must be a finite number, 0 or more and less than 1"))
+    if not _finite(request.abs_tol):
+        errors.append(("abs_tol", "must be a finite number, 0 or more"))
+    changes = request.max_changes
+    if isinstance(changes, bool) or not isinstance(changes, int) or changes < 0:
+        errors.append(("max_changes", "must be an integer, 0 or more"))
+    errors.extend(
+        (flag, "must be true or false")
+        for flag in ("show_reformatted", "show_renamed")
+        if not isinstance(getattr(request, flag), bool)
+    )
+    return tuple(errors)
+
+
+def diff(request: DiffRequest, *, should_stop: Callable[[], bool] | None = None) -> Outcome:
+    """Compare two DIGGS files with :func:`pydiggs.diff.compare`, in the calling thread.
+
+    The document is the diggs-diff 1.0 document :meth:`pydiggs.diff.Diff.to_json` gives
+    for the same bytes and options, with each file reported under its basename
+    (``old_name``, ``new_name``; ``input.xml`` when not given), so every surface answers
+    with the same bytes. ``time_budget`` covers reading both files and comparing them;
+    running out still gives a document, with ``complete: false`` and a ``diff.timeout``
+    note. ``should_stop`` is checked before the comparison starts and after it ends: the
+    comparison itself cannot be interrupted.
+
+    A problem with one of the files names it: ``errors`` holds ``("old", ...)`` or
+    ``("new", ...)`` with a fixed text, for ``input-too-large``, ``compressed-input``,
+    ``input-unreadable`` and ``invalid-document`` (``kind`` as for :func:`read`).
+
+    Args:
+        request: The two files and the comparison options.
+        should_stop: Cancellation hook for adapters that can cancel (the sidecar).
+
+    Returns:
+        The document, or an error :class:`Code`: the ones :func:`read` answers. Never
+        raises for bad input.
+
+    Examples:
+        >>> from pathlib import Path
+        >>> data = Path("tests/fixtures/official/3.0/Aeromag.xml").read_bytes()
+        >>> outcome = diff(DiffRequest(old=data, new=data, old_name="up/a.xml"))
+        >>> result = json.loads(outcome.document)
+        >>> result["identical"], result["old"]["name"], result["new"]["name"]
+        (True, 'a.xml', 'input.xml')
+        >>> bad = diff(DiffRequest(old=data, new=b"<html/>"))
+        >>> bad.code, bad.kind
+        (<Code.INVALID_DOCUMENT: 'invalid-document'>, 'not-diggs')
+        >>> bad.errors
+        (('new', 'is not a DIGGS document'),)
+    """
+    errors = _diff_parameter_errors(request)
+    if errors:
+        return Outcome(code=Code.INVALID_PARAMETER, detail="invalid parameters", errors=errors)
+    shown = {side: run._input_name(getattr(request, f"{side}_name")) for side in DIFF_SIDES}
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    reading = [DIFF_SIDES[0]]  # the file being read, so that a failure can name it
+    try:
+        outcome = _diff_outcome(request, shown, reading)
+    except Exception as exc:  # fail closed: no traceback or path reaches the caller
+        return _diff_failure(exc, reading[-1], shown[reading[-1]])
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    return outcome
+
+
+def _diff_outcome(request: DiffRequest, shown: Mapping[str, str], reading: list[str]) -> Outcome:
+    """:func:`diff` after its parameter checks: :func:`pydiggs.diff.compare`'s own steps.
+
+    The same options, one deadline for the whole call, the old file read first. Each
+    file's name is appended to ``reading`` before it is read; reader errors propagate.
+    """
+    from pydiggs.diff import _engine, _load, _options  # noqa: PLC0415  # loads on first use
+
+    for side in DIFF_SIDES:  # before reading either: the limit is per file
+        if len(getattr(request, side)) > request.max_bytes:
+            return Outcome(
+                code=Code.INPUT_TOO_LARGE,
+                detail=f"The {side} file, {shown[side]}, is larger than allowed",
+                errors=((side, "is larger than allowed"),),
+            )
+    options = _options(
+        match=request.match,  # type: ignore[arg-type]  # checked by diff()
+        rel_tol=request.rel_tol,  # type: ignore[arg-type]
+        abs_tol=request.abs_tol,  # type: ignore[arg-type]
+        max_changes=request.max_changes,  # type: ignore[arg-type]
+        time_budget=request.time_budget,
+        max_bytes=request.max_bytes,
+        show_reformatted=bool(request.show_reformatted),
+        show_renamed=bool(request.show_renamed),
+    )
+    budget = request.time_budget
+    deadline = None if budget is None else _engine._now() + float(budget)
+    old_model, old_seen = _load(request.old, "old", request.max_bytes, deadline)
+    reading.append("new")
+    new_model, new_seen = _load(request.new, "new", request.max_bytes, deadline)
+    seen = None if old_seen is None or new_seen is None else (old_seen, new_seen)
+    compared = _engine.compare_models(old_model, new_model, options, deadline=deadline, seen=seen)
+    document = compared.diff.to_dict()
+    for side in DIFF_SIDES:
+        document[side]["name"] = shown[side]
+    for note in document["notes"]:
+        note["message"] = _scrub(note["message"])
+    body = json.dumps(document, ensure_ascii=False, allow_nan=False, sort_keys=True).encode(
+        "utf-8", "backslashreplace"
+    )
+    if request.max_result_bytes is not None and len(body) > request.max_result_bytes:
+        return Outcome(
+            code=Code.RESULT_TOO_LARGE,
+            detail=(
+                f"The comparison of {shown['old']} and {shown['new']} is larger than"
+                " allowed; list fewer changes with max_changes."
+            ),
+        )
+    return Outcome(document=body)
+
+
+def _diff_failure(exc: Exception, side: str, shown: str) -> Outcome:
+    """The outcome of a comparison that raised, naming the file when it was one of them."""
+    outcome = _read_failure(exc, shown)
+    if outcome.code is Code.INVALID_DOCUMENT:
+        return dataclasses.replace(
+            outcome,
+            detail=f"The {side} file: {outcome.detail}",
+            errors=((side, "is not a DIGGS document"),),
+        )
+    if outcome.code in (Code.INPUT_TOO_LARGE, Code.COMPRESSED_INPUT, Code.INPUT_UNREADABLE):
+        problem = outcome.detail.removeprefix(f"{shown} ")
+        return dataclasses.replace(
+            outcome, detail=f"The {side} file: {outcome.detail}", errors=((side, problem),)
+        )
+    return outcome
+
+
 # --- process isolation ------------------------------------------------------------------
 
 
@@ -1307,7 +1535,7 @@ def make_pool(workers: int, *, timeout: float, memory_mb: int | None = 2048) -> 
     )
 
 
-_AnyRequest = Request | ReadRequest | ConvertRequest | Ags4CheckRequest
+_AnyRequest = Request | ReadRequest | ConvertRequest | Ags4CheckRequest | DiffRequest
 
 
 def _run(request: _AnyRequest) -> Outcome:
@@ -1318,6 +1546,8 @@ def _run(request: _AnyRequest) -> Outcome:
         return convert(request)
     if isinstance(request, Ags4CheckRequest):
         return ags4_check(request)
+    if isinstance(request, DiffRequest):
+        return diff(request)
     return validate(request)
 
 
@@ -1426,6 +1656,23 @@ def ags4_check_in_pool(pool: WorkerPool, request: Ags4CheckRequest, *, timeout: 
     return _in_pool(pool, request, timeout=timeout, what="Checking")
 
 
+def diff_in_pool(pool: WorkerPool, request: DiffRequest, *, timeout: float) -> Outcome:
+    """Compare two files in a worker process, killing it after ``timeout`` seconds.
+
+    As :func:`validate_in_pool`, for :func:`diff`: one job reads both files and
+    compares them, so ``timeout`` covers the pair.
+
+    Args:
+        pool: From :func:`make_pool`.
+        request: The two files and the comparison options.
+        timeout: Hard limit in seconds.
+
+    Returns:
+        As for :func:`diff`, plus ``timeout``.
+    """
+    return _in_pool(pool, request, timeout=timeout, what="Comparison")
+
+
 def _in_pool(pool: WorkerPool, request: _AnyRequest, *, timeout: float, what: str) -> Outcome:
     from pydiggs._pool import JobFailedError, JobTimeoutError, PoolError  # noqa: PLC0415
 
@@ -1469,6 +1716,18 @@ def model_schema() -> dict[str, Any]:
     from pydiggs.model import model_schema as packaged  # noqa: PLC0415
 
     return packaged()
+
+
+def diff_info() -> dict[str, str]:
+    """The diggs-diff version and schema URL that :func:`diff` answers with.
+
+    Examples:
+        >>> diff_info()["diff_schema_version"]
+        '1.0'
+    """
+    from pydiggs.diff import DIFF_SCHEMA_URL, DIFF_SCHEMA_VERSION  # noqa: PLC0415
+
+    return {"diff_schema_version": DIFF_SCHEMA_VERSION, "diff_schema_url": DIFF_SCHEMA_URL}
 
 
 def versions() -> dict[str, Any]:

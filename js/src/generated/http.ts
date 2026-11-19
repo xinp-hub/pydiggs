@@ -146,3 +146,6 @@ export type ConvertTarget = "diggs" | "ags4";
 
 /** AGS4 version of a DIGGS to AGS4 conversion's output. */
 export type ConvertAgsVersion = "4.2" | "4.1.1";
+
+/** How records are paired: auto (by gml:id, then by natural key), gml-id (ids only; also written gml_id) or natural (natural keys only). */
+export type DiffMatch = "auto" | "gml-id" | "natural" | "gml_id";

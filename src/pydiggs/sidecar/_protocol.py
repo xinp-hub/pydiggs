@@ -25,6 +25,9 @@ from pydiggs._service import (
     CONVERT_AGS_VERSIONS,
     CONVERT_DIGGS_VERSIONS,
     CONVERT_TARGETS,
+    DIFF_DEFAULTS,
+    DIFF_MATCH,
+    DIFF_SIDES,
     MAX_NAME_INPUT_CHARS,
     Code,
 )
@@ -39,6 +42,7 @@ __all__ = [
     "check_ags4_check",
     "check_cancel",
     "check_convert",
+    "check_diff",
     "check_empty",
     "check_explain",
     "check_initialize",
@@ -56,11 +60,11 @@ __all__ = [
 ]
 
 #: The protocol version this build speaks best.
-PROTOCOL_VERSION: Final = "1.2"
+PROTOCOL_VERSION: Final = "1.3"
 #: Every protocol version this build can answer, oldest first. 1.1 adds ``read``; 1.2
-#: adds ``convert`` and ``ags4.check``.
-SUPPORTED_VERSIONS: Final = ("1.0", "1.1", "1.2")
-#: Largest ``read`` or ``convert`` result sent; a larger one is ``result-too-large``.
+#: adds ``convert`` and ``ags4.check``; 1.3 adds ``diff``.
+SUPPORTED_VERSIONS: Final = ("1.0", "1.1", "1.2", "1.3")
+#: Largest ``read``, ``convert`` or ``diff`` result sent; a larger one is ``result-too-large``.
 MAX_RESULT_BYTES: Final = 256 * 2**20
 
 #: Longest string id accepted on a request.
@@ -494,13 +498,13 @@ def negotiate(requested: str) -> str:
         ProtocolError: ``unsupported-protocol-version`` with ``data.supported``.
 
     Examples:
-        >>> negotiate("1.0"), negotiate("1.1"), negotiate("1.7")
-        ('1.0', '1.1', '1.2')
+        >>> negotiate("1.0"), negotiate("1.2"), negotiate("1.7")
+        ('1.0', '1.2', '1.3')
         >>> try:
         ...     negotiate("2.0")
         ... except ProtocolError as error:
         ...     print(error.data())
-        {'code': 'unsupported-protocol-version', 'supported': ['1.0', '1.1', '1.2']}
+        {'code': 'unsupported-protocol-version', 'supported': ['1.0', '1.1', '1.2', '1.3']}
     """
     major, minor = (int(p) for p in requested.split("."))
     candidates = [
@@ -620,17 +624,7 @@ def _check_document(
         raise _bad("content_base64", "give exactly one of content_base64 and path")
     name = _optional_str(params, "name", MAX_NAME_INPUT_CHARS)
     version = _optional_str(params, "diggs_version", 64)
-    budget: float = time_limit
-    if "time_budget_s" in params:
-        raw = params["time_budget_s"]
-        if (
-            isinstance(raw, bool)
-            or not isinstance(raw, int | float)
-            or not 0 < raw <= time_limit  # before isfinite: a huge int would overflow
-            or not math.isfinite(raw)
-        ):
-            raise _bad("time_budget_s", f"must be a number of seconds in (0, {time_limit:g}]")
-        budget = raw
+    budget = _time_budget(params, time_limit)
     content = path = None
     if "path" in params:
         path = params["path"]
@@ -761,6 +755,81 @@ def check_ags4_check(
     return Ags4CheckParams(content, path, name, budget, dictionary, dictionary_path)
 
 
+@dataclass(frozen=True, slots=True)
+class DiffParams:
+    """``diff`` parameters, checked: each file as decoded content or a path to vet.
+
+    ``contents``, ``paths`` and ``names`` are keyed by ``"old"`` and ``"new"``; for each
+    side exactly one of its content and its path is set. ``options`` holds the
+    comparison options given (the service checks their values).
+    """
+
+    contents: dict[str, bytes | None]
+    paths: dict[str, str | None]
+    names: dict[str, str | None]
+    options: dict[str, Any]
+    time_budget: float
+
+
+def check_diff(params: dict[str, Any], *, max_bytes: int, time_limit: float) -> DiffParams:
+    """Check ``diff`` parameters (protocol 1.3) and decode the base64 contents.
+
+    Each file is ``<side>_base64`` or ``<side>_path`` (exactly one of the two, for
+    ``old`` and for ``new``), named by ``<side>_name``. Each is held to ``max_bytes``;
+    both travel in the one request line, so two inline files together must fit
+    ``max_line_bytes`` (give paths for larger ones). The options are those of
+    :func:`pydiggs.diff.compare`; their values are checked by the service.
+
+    Raises:
+        ProtocolError: ``invalid-params`` or ``input-too-large``.
+
+    Examples:
+        >>> p = check_diff(
+        ...     {"old_base64": "PERpZ2dzLz4=", "new_path": "/data/b.xml", "max_changes": 5},
+        ...     max_bytes=100,
+        ...     time_limit=60,
+        ... )
+        >>> p.contents["old"], p.paths["new"], p.options, p.time_budget
+        (b'<Diggs/>', '/data/b.xml', {'max_changes': 5}, 60)
+    """
+    sides = {f"{side}_{part}" for side in DIFF_SIDES for part in ("base64", "path", "name")}
+    _only(params, frozenset({*sides, *DIFF_DEFAULTS, "time_budget_s"}))
+    budget = _time_budget(params, time_limit)
+    contents: dict[str, bytes | None] = {}
+    paths: dict[str, str | None] = {}
+    names: dict[str, str | None] = {}
+    for side in DIFF_SIDES:
+        inline, by_path = f"{side}_base64", f"{side}_path"
+        if (inline in params) == (by_path in params):
+            raise _bad(inline, f"give exactly one of {inline} and {by_path}")
+        names[side] = _optional_str(params, f"{side}_name", MAX_NAME_INPUT_CHARS)
+        contents[side] = paths[side] = None
+        if by_path in params:
+            path = params[by_path]
+            if not isinstance(path, str) or not path or len(path) > MAX_PATH_CHARS:
+                raise _bad(by_path, f"must be a string of at most {MAX_PATH_CHARS} characters")
+            paths[side] = path
+        else:
+            contents[side] = _decode_base64(params[inline], inline, max_bytes)
+    options = {key: params[key] for key in DIFF_DEFAULTS if key in params}
+    return DiffParams(contents, paths, names, options, budget)
+
+
+def _time_budget(params: dict[str, Any], time_limit: float) -> float:
+    """``time_budget_s``: at most the launch ``--timeout``, which is also the default."""
+    if "time_budget_s" not in params:
+        return time_limit
+    raw = params["time_budget_s"]
+    if (
+        isinstance(raw, bool)
+        or not isinstance(raw, int | float)
+        or not 0 < raw <= time_limit  # before isfinite: a huge int would overflow
+        or not math.isfinite(raw)
+    ):
+        raise _bad("time_budget_s", f"must be a number of seconds in (0, {time_limit:g}]")
+    return raw
+
+
 def _decode_base64(encoded: object, param: str, max_bytes: int) -> bytes:
     """Strictly decode one base64 parameter, refusing more than ``max_bytes`` bytes."""
     if not isinstance(encoded, str):
@@ -844,18 +913,22 @@ def _method(
     }
 
 
-def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[str, Any]:
-    """The OpenRPC 1.3 description of protocol 1.2, committed as ``openrpc.json``.
+def openrpc_document(
+    findings_schema_url: str, model_schema_url: str, diff_schema_url: str
+) -> dict[str, Any]:
+    """The OpenRPC 1.3 description of protocol 1.3, committed as ``openrpc.json``.
 
     Notifications (``exit``, ``$/cancelRequest``, ``$/progress``) are described in
     ``x-notifications``, since OpenRPC has no notification object.
 
     Examples:
         >>> doc = openrpc_document(
-        ...     "https://example.invalid/f.json", "https://example.invalid/m.json"
+        ...     "https://example.invalid/f.json",
+        ...     "https://example.invalid/m.json",
+        ...     "https://example.invalid/d.json",
         ... )
-        >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:5]
-        ('1.2', ['initialize', 'validate', 'read', 'convert', 'ags4.check'])
+        >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:6]
+        ('1.3', ['initialize', 'validate', 'read', 'convert', 'ags4.check', 'diff'])
     """
     rule = {"$ref": "#/components/schemas/RuleInfo"}
     common = [ErrorCode.INVALID_REQUEST, ErrorCode.NOT_INITIALIZED, ErrorCode.SHUTTING_DOWN]
@@ -904,6 +977,8 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
             "findings_schema_url": _STR,
             "model_schema_version": _STR,
             "model_schema_url": _STR,
+            "diff_schema_version": _STR,
+            "diff_schema_url": _STR,
             "diggs_versions": {"type": "array", "items": _STR},
             "reference_data": {"type": "object", "additionalProperties": _STR},
             "capabilities": {"$ref": "#/components/schemas/ServerCapabilities"},
@@ -1052,6 +1127,66 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
             ],
             {"$ref": findings_schema_url},
             [*common, *document_errors],
+        ),
+        _method(
+            "diff",
+            "Compare two DIGGS files (protocol 1.3): what was added, removed or changed, as"
+            " the diggs-diff 1.0 document pydiggs.diff.compare gives. Each file is given as"
+            " base64 content or (if enabled) an absolute path.",
+            [
+                *(
+                    param
+                    for side in DIFF_SIDES
+                    for param in (
+                        _param(f"{side}_base64", {"type": "string", "contentEncoding": "base64"}),
+                        _param(f"{side}_path", {"type": "string", "maxLength": MAX_PATH_CHARS}),
+                        _param(
+                            f"{side}_name", {"type": "string", "maxLength": MAX_NAME_INPUT_CHARS}
+                        ),
+                    )
+                ),
+                _param(
+                    "match",
+                    {"enum": list(DIFF_MATCH), "default": DIFF_DEFAULTS["match"]},
+                    summary=(
+                        "How records are paired: auto (by gml:id, then by natural key), gml-id"
+                        " (ids only; also written gml_id) or natural (natural keys only)."
+                    ),
+                ),
+                _param(
+                    "rel_tol",
+                    {
+                        "type": "number",
+                        "minimum": 0,
+                        "exclusiveMaximum": 1,
+                        "default": DIFF_DEFAULTS["rel_tol"],
+                    },
+                ),
+                _param(
+                    "abs_tol",
+                    {"type": "number", "minimum": 0, "default": DIFF_DEFAULTS["abs_tol"]},
+                ),
+                _param(
+                    "max_changes",
+                    {"type": "integer", "minimum": 0, "default": DIFF_DEFAULTS["max_changes"]},
+                    summary="Most changes listed; the counts stay exact.",
+                ),
+                _param(
+                    "show_reformatted",
+                    {"type": "boolean", "default": DIFF_DEFAULTS["show_reformatted"]},
+                ),
+                _param(
+                    "show_renamed", {"type": "boolean", "default": DIFF_DEFAULTS["show_renamed"]}
+                ),
+                _param("time_budget_s", {"type": "number", "exclusiveMinimum": 0}),
+            ],
+            {"$ref": diff_schema_url},
+            [
+                *common,
+                *document_errors,
+                ErrorCode.INVALID_DOCUMENT,
+                ErrorCode.RESULT_TOO_LARGE,
+            ],
         ),
         _method("ping", "Liveness check.", [], _EMPTY, common),
         _method(
@@ -1204,6 +1339,15 @@ def openrpc_document(findings_schema_url: str, model_schema_url: str) -> dict[st
                                 "content": {"type": "boolean"},
                                 "path": {"type": "boolean"},
                                 "dictionary": {"type": "boolean"},
+                            },
+                        },
+                        "diff": {
+                            "type": "object",
+                            "description": "Protocol 1.3 and later.",
+                            "properties": {
+                                "content": {"type": "boolean"},
+                                "path": {"type": "boolean"},
+                                "match": {"type": "array", "items": _STR},
                             },
                         },
                         "cancel": {"type": "boolean"},

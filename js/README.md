@@ -9,7 +9,7 @@ package gives you the types of what comes back and the code to ask for it.
 
 | Import | What it is | Runs |
 |---|---|---|
-| `@pydiggs/client` | Types for diggs-findings 1.2 and diggs-model 1.0 documents | anywhere (types only) |
+| `@pydiggs/client` | Types for diggs-findings 1.2, diggs-model 1.0 and diggs-diff 1.0 documents | anywhere (types only) |
 | `@pydiggs/client/http` | Client for the pyDIGGS HTTP API | Node 22+, Deno, Bun, browsers |
 | `@pydiggs/client/browser` | pyDIGGS in a Web Worker; the file never leaves the tab | browsers |
 | `@pydiggs/client/hybrid` | The browser when it can, your server when it cannot | browsers |
@@ -36,8 +36,8 @@ function errors(document: DiggsFindingsDocument): number {
 }
 ```
 
-The names are those of the `DiggsFindings*` and `DiggsModel*` components in pyDIGGS's
-OpenAPI document. The types are generated from the JSON Schemas, which are also in the
+The names are those of the `DiggsFindings*`, `DiggsModel*` and `DiggsDiff*` components
+in pyDIGGS's OpenAPI document. The types are generated from the JSON Schemas, which are also in the
 package for a validator such as Ajv:
 
 ```ts
@@ -67,6 +67,8 @@ console.log(model.features.map((feature) => feature.name));
 
 - **An invalid document is not an error.** `validate` resolves with findings; read the
   verdict. Only a request that produced no document throws.
+- **Comparing two files** (pyDIGGS 1.13 or later) is `diff`; see
+  [Comparing two files](#comparing-two-files).
 - **Errors** are `PydiggsHttpError` with `status`, the problem's `code` (switch on it),
   the whole `problem` document and `retryAfterSeconds`. A busy server answers 503
   `busy` with a retry time.
@@ -191,6 +193,48 @@ under the Content Security Policy below, and compares every answer with CPython'
 
 - **Answer from your server meanwhile,** if your users accept an upload: see
   [Hybrid](#hybrid).
+
+## Comparing two files
+
+`diff(old, new, options)` compares two DIGGS files with pyDIGGS's stable
+[`pydiggs.diff.compare()`](https://xinp-hub.github.io/pydiggs/diff/) and resolves with its
+**diggs-diff 1.0** document, typed as `DiggsDiffDocument`: what was added, removed or
+changed, record by record. It needs pyDIGGS 1.13 or later, and it is on every client:
+`PydiggsHttpClient` (`POST /v1/diff`), `PydiggsBrowser`, `PydiggsNode`, `PydiggsPool`,
+`PydiggsHybrid` and the handler `createPydiggsHandler` serves.
+
+```ts
+import type { DiggsDiffDocument } from "@pydiggs/client";
+
+const result: DiggsDiffDocument = await pydiggs.diff(before, after, {
+  oldName: "BH-01-v1.xml",
+  newName: "BH-01-v2.xml",
+  maxChanges: 500,          // the counts stay exact; a cut list is complete: false
+  // match: "auto" | "gml-id" | "natural", relTol, absTol, showReformatted, showRenamed
+});
+if (result.identical) {
+  note.textContent = "No change";
+} else {
+  for (const change of result.changes) {
+    const row = list.appendChild(document.createElement("li"));
+    row.textContent = `${change.op} ${change.collection} ${change.name ?? change.new_key ?? change.old_key}`;
+  }
+}
+```
+
+- **A difference is not an error.** Identical or not, `diff` resolves with the document;
+  read `identical` and `complete`.
+- **Both files run as one request**, under one time limit. Each is held to the size limit
+  on its own (`maxBytes` in the tab, the server's `max_body_bytes`); `PydiggsHybrid`
+  sends the pair where the larger of the two can go.
+- **A file that is not DIGGS** is an error with `problem.code` `invalid-document`, and
+  `problem.errors` naming the file: `[{ parameter: "new", problem: "is not a DIGGS
+  document" }]`.
+- **Every string in the document comes from the files** (names, keys, values): write them
+  with `textContent`, never `innerHTML`.
+- The browser and Node engines run the pinned pyDIGGS; with a release before 1.13 `diff`
+  is refused with `code: "internal"` ("too old for diff"). `PoolEngine.diff` is optional,
+  so an engine of your own written before it still is one.
 
 ## Hybrid
 
@@ -509,7 +553,8 @@ functions), not in edge functions. Four things decide whether it runs well there
 `Accept: application/sarif+json`), `/v1/read` (with `diggs_version` and `select`,
 node keys included), `/v1/convert` (AGS4 as text or bytes, or DIGGS XML with `to=ags4` and
 `ags_version`) and `/v1/ags4/check` (with an optional `dictionary` part), each also as
-multipart, `/v1/versions`, `/v1/capabilities`,
+multipart, `/v1/diff` (multipart parts `old` and `new`, each up to `maxBodyBytes`),
+`/v1/versions`, `/v1/capabilities`,
 `/v1/rules`, `/v1/rules/{rule_id}` and `/v1/readyz`, with pyDIGGS's own status codes and problem documents, including 504
 `timeout` and 503 `busy` with `Retry-After`. `PydiggsHttpClient`
 and `PydiggsHybrid` work against it unchanged. In a
@@ -580,7 +625,7 @@ in the model encoder). That is the next thing to speed up in pyDIGGS itself.
 
 | This package | Works with |
 |---|---|
-| types, `/http` | any pyDIGGS server that speaks HTTP API `/v1` with diggs-findings 1.x; `read` needs pyDIGGS 1.7.0 or later |
+| types, `/http` | any pyDIGGS server that speaks HTTP API `/v1` with diggs-findings 1.x; `read` needs pyDIGGS 1.7.0 or later, `diff` 1.13.0 or later |
 | `/browser` | the pinned `PYODIDE_VERSION` and `PYDIGGS_VERSION`, both exported |
 
 ## Development

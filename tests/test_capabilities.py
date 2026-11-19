@@ -114,6 +114,7 @@ HTTP_ROUTES: dict[str, str | tuple[str, ...] | None] = {
     "/v1/read": "read",
     "/v1/convert": ("convert.ags4-to-diggs", "convert.diggs-to-ags4"),  # by ``to``
     "/v1/ags4/check": "ags4.check",
+    "/v1/diff": "diff",
     "/v1/rules": "rules.list",
     "/v1/rules/{rule_id}": "rules.explain",
     "/v1/versions": None,
@@ -138,6 +139,7 @@ SIDECAR_METHODS: dict[str, str | tuple[str, ...] | None] = {
     "read": "read",
     "convert": ("convert.ags4-to-diggs", "convert.diggs-to-ags4"),  # by ``to``
     "ags4.check": "ags4.check",
+    "diff": "diff",
     "ping": None,
     "versions": None,
     "rules.list": "rules.list",

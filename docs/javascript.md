@@ -52,6 +52,12 @@ An invalid document is not an error: `validate` resolves with findings, and the 
 says what was found. Errors carry the [problem `code`](http-api.md#errors). From a browser,
 call the API through your own server; pyDIGGS refuses cross-site requests by default.
 
+`diff(old, new, options)` compares two files (`POST /v1/diff`, pyDIGGS 1.13 or later)
+and resolves with a typed diggs-diff 1.0 document ([Comparing two files](diff.md)),
+identical or not. It is on the browser, Node, pool and hybrid clients too, with the same
+options (`match`, `relTol`, `absTol`, `maxChanges`, `showReformatted`, `showRenamed`,
+`oldName`, `newName`).
+
 ## In the browser
 
 ```ts
@@ -161,18 +167,18 @@ pyDIGGS's process pool, its own limits and logging, or documents above 256 MiB.
 ## Types only
 
 ```ts
-import type { DiggsFindingsDocument, DiggsModelDocument } from "@pydiggs/client";
+import type { DiggsDiffDocument, DiggsFindingsDocument, DiggsModelDocument } from "@pydiggs/client";
 ```
 
-The types are generated from the JSON Schemas and carry the names of the `DiggsFindings*`
-and `DiggsModel*` components in the [OpenAPI document](http-api.md#openapi-and-versioning).
+The types are generated from the JSON Schemas and carry the names of the `DiggsFindings*`,
+`DiggsModel*` and `DiggsDiff*` components in the [OpenAPI document](http-api.md#openapi-and-versioning).
 The schemas ship in the package too, as `@pydiggs/client/schemas/*.json`.
 
 ## Versions
 
 The package has its own version number. What it works with is stated by contract: any
 pyDIGGS server that speaks HTTP API `/v1`, and diggs-findings 1.x and diggs-model 1.x
-documents; `read` needs pyDIGGS 1.7.0 or later. The browser entry pins one Pyodide and
+documents; `read` needs pyDIGGS 1.7.0 or later, `diff` 1.13.0 or later. The browser entry pins one Pyodide and
 one pyDIGGS release, exported as `PYODIDE_VERSION` and `PYDIGGS_VERSION`.
 
 The package's own [README](https://github.com/xinp-hub/pydiggs/tree/master/js#readme) has
