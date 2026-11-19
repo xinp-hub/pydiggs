@@ -460,25 +460,30 @@ def _overridden_errors(
     form: dict[str, list[str]],
     check: Callable[[dict[str, list[str]]], tuple[tuple[str, str], ...]],
 ) -> tuple[tuple[str, str], ...]:
-    """The problems of the query values the form overrides, each judged in context.
+    """The problems of the query values the form overrides, each judged on its own.
 
-    The query as sent must be valid even where the form wins. So the overridden query
-    values are checked inside the effective request (the query, then the form's
-    values for the keys the query does not give): that is, the request the query
-    alone would have made, completed by the form. The problems reported are those
-    that this request has and the effective request has not; the rest are the
-    effective request's own and the service reports them. A substituted value that
-    makes another parameter fail counts too: the query as sent was inconsistent.
-    ``check`` gives a parameter set's problems, with fixed texts.
+    The form wins, but a query value it overrides must still be valid. Each such value
+    is put in place of the form's in the effective request (the query, then the form),
+    and only the problems that request reports about that same parameter count, less
+    any the effective request has itself (the service reports those). A problem it
+    causes in another parameter does not count: that parameter's effective value comes
+    from elsewhere. So ``?to=ags4&ags_version=4.2`` with the field ``ags_version=4.1.1``
+    and ``?to=diggs`` with the fields ``to=ags4&ags_version=4.2`` are both accepted,
+    and ``?to=bogus`` with the field ``to=diggs`` is not. ``check`` gives a parameter
+    set's problems as ``(parameter, problem)`` pairs, with fixed texts.
     """
-    if not any(query.get(key) for key in form):
-        return ()
     effective = query | form
-    own = set(check(effective))
-    sent = {key: values for key, values in query.items() if values} | {
-        key: values for key, values in form.items() if not query.get(key)
-    }
-    return tuple(error for error in check(sent) if error not in own)
+    own: set[tuple[str, str]] | None = None
+    errors: list[tuple[str, str]] = []
+    for key in form:
+        if not query.get(key):
+            continue
+        if own is None:
+            own = set(check(effective))
+        for error in check(effective | {key: query[key]}):
+            if error[0] == key and error not in own and error not in errors:
+                errors.append(error)
+    return tuple(errors)
 
 
 async def _read_input(

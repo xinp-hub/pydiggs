@@ -116,11 +116,37 @@ def test_an_invalid_overridden_version_is_refused_in_context(client, site_xml):
     assert body["errors"] == [{"parameter": "ags_version", "problem": "expected one of 4.2, 4.1.1"}]
 
 
-def test_an_inconsistent_query_is_refused_even_when_the_form_fixes_it(client, site_xml):
-    # As sent, the query asks for an AGS4 version of a DIGGS conversion.
-    response = _convert(client, site_xml, {"to": "diggs", "ags_version": "4.2"}, {"to": "ags4"})
-    body = _problem(response, 422, "invalid-parameter")
-    assert body["errors"] == [{"parameter": "ags_version", "problem": "applies only to to=ags4"}]
+@pytest.mark.parametrize(
+    ("query", "form", "to"),
+    [
+        # The query's target is overridden; the form's options belong to the form's target.
+        ({"to": "diggs"}, {"to": "ags4", "ags_version": "4.2"}, "ags4"),
+        ({"to": "ags4"}, {"to": "diggs", "diggs_version": "3.0.0"}, "diggs"),
+        # Each query value is valid by itself; the form settles which target is meant.
+        ({"to": "diggs", "ags_version": "4.2"}, {"to": "ags4"}, "ags4"),
+    ],
+)
+# A value only the query gives is not overridden: it stays in the effective request,
+# so ?to=ags4&ags_version=4.2 with the field to=diggs is the service's own 422.
+def test_switching_the_target_in_the_form_is_accepted(client, site_xml, query, form, to):
+    data = site_xml
+    files = None
+    if to == "diggs":
+        files = {"file": ("site.ags", _ags4_text(site_xml), "text/plain")}
+    response = client.post(
+        "/v1/convert",
+        params=query,
+        files=files or {"file": ("site.xml", data, "application/xml")},
+        data=form,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["to"] == to
+
+
+def _ags4_text(site_xml: bytes) -> bytes:
+    result = convert.diggs_to_ags4(site_xml, name="site.xml")
+    assert result.ags4 is not None
+    return ags4.dumps(result.ags4)
 
 
 # --- diff: the options do not depend on each other -----------------------------------------------
