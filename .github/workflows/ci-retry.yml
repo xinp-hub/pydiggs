@@ -1,0 +1,54 @@
+# Re-runs a failed CI run when its only failures are jobs GitHub never gave a runner.
+#
+# GitHub-hosted macOS arm64 runners are sometimes short of capacity; a job left waiting is
+# cancelled with "The job was not acquired by Runner of type hosted even after multiple
+# attempts" (seen on #356, #359 and #360 in November 2026). It never started, so it says
+# nothing about the code. scripts/ci_retry.py decides: every failure must be of that kind,
+# and the run must have had fewer than three attempts. Anything else is left for a person.
+#
+# workflow_run runs this file from the default branch with the default branch's script; it
+# never checks out or runs the code of the run it inspects. Its only write is the re-run.
+name: CI retry
+
+on:
+  # Deliberate, see the header: default-branch code only, the inspected run is data.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: ci-retry-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    name: re-run jobs that never got a runner
+    if: github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # the default branch's scripts/ci_retry.py
+      actions: write # read the run's jobs; re-run its failed jobs
+      checks: read # read the jobs' annotations
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci_retry.py
+          sparse-checkout-cone-mode: false
+      - name: Decide
+        id: decide
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python3 scripts/ci_retry.py decide --run "$RUN_ID" --repo "$GITHUB_REPOSITORY" >> "$GITHUB_OUTPUT"
+      - name: Re-run the failed jobs
+        if: steps.decide.outputs.rerun == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          gh run rerun "$RUN_ID" --failed --repo "$GITHUB_REPOSITORY"
+          echo "::notice title=CI re-run::Run $RUN_ID re-run: jobs were never given a runner."
