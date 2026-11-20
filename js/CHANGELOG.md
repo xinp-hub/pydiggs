@@ -8,6 +8,15 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-20
+
+### Changed
+
+- Runs pyDIGGS 1.14.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. Its HTTP server now refuses a query parameter an endpoint does not take, with
+  422 `invalid-parameter`, as `createPydiggsHandler` already does. `PydiggsHttpClient`
+  sends only parameters each endpoint takes, so it works with it unchanged.
+
 ### Fixed
 
 - `createPydiggsHandler` answers 503 `busy` only after a request's own checks, as
