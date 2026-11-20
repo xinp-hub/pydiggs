@@ -20,6 +20,7 @@ import logging
 import math
 import re
 import threading
+import warnings
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias
 from urllib.parse import urlsplit
@@ -72,6 +73,7 @@ _FORM_FIELDS: Final = frozenset({"name", "checks", "diggs_version"})
 _READ_FIELDS: Final = frozenset({"name", "diggs_version", "select"})
 _CONVERT_FIELDS: Final = frozenset({"name", "to", "diggs_version", "ags_version"})
 _CHECK_FIELDS: Final = frozenset({"name"})
+_RULES_FIELDS: Final = frozenset({"step"})
 _DIFF_FIELDS: Final = frozenset(
     {
         "old_name",
@@ -347,6 +349,7 @@ def _precheck(
     json_text: str = "Accept application/json (diggs-model).",
     raw_media: Sequence[str] = _schemas.XML_MEDIA_TYPES,
     files: int = 1,
+    allowed: frozenset[str] = frozenset(),
 ) -> tuple[Format, bool] | Response:
     """Checks that need only the headers: Accept, media type, encoding, Content-Length.
 
@@ -354,19 +357,16 @@ def _precheck(
     ``sarif=False`` is for an endpoint that only sends ``application/json``
     (``json_text`` is its refusal); ``raw_media`` are the media types of a raw body
     (none: multipart only). ``files`` is how many files of up to ``max_body_bytes``
-    each the body may carry.
+    each the body may carry. ``allowed`` are the query parameters the endpoint takes;
+    any other is refused (see :func:`_unknown_query`), after ``Accept`` and before the
+    media type, as ``@pydiggs/client``'s handler does.
     """
-    accept = request.headers.get("accept")
-    fmt: Format | None = negotiate(accept) if sarif else None
-    if not sarif:
-        if not accepts_json(accept):
-            return problem("not-acceptable", json_text)
-        fmt = "findings"
-    if fmt is None:
-        return problem(
-            "not-acceptable",
-            "Accept application/json (diggs-findings) or application/sarif+json.",
-        )
+    fmt = _negotiated(request, sarif=sarif, json_text=json_text)
+    if isinstance(fmt, Response):
+        return fmt
+    unknown = _unknown_query(request, settings, allowed)
+    if unknown is not None:
+        return unknown
     media = _media_type(request)
     multipart = media == "multipart/form-data"
     if not multipart and media not in raw_media:
@@ -380,6 +380,48 @@ def _precheck(
     if length is not None and length > _body_limit(settings, multipart=multipart, files=files):
         return _too_large()
     return fmt, multipart
+
+
+def _negotiated(request: Request, *, sarif: bool, json_text: str) -> Format | Response:
+    """The format ``Accept`` asks for, or ``406 not-acceptable``."""
+    accept = request.headers.get("accept")
+    if not sarif:
+        return "findings" if accepts_json(accept) else problem("not-acceptable", json_text)
+    fmt = negotiate(accept)
+    if fmt is None:
+        return problem(
+            "not-acceptable",
+            "Accept application/json (diggs-findings) or application/sarif+json.",
+        )
+    return fmt
+
+
+def _unknown_query(
+    request: Request, settings: ServerSettings, allowed: frozenset[str]
+) -> Response | None:
+    """``422 invalid-parameter`` for query parameters the endpoint does not take.
+
+    Each name once, in the order of the URL, at most :data:`~._problems.MAX_ERRORS`;
+    a name given with no value (``?foo``) or an empty name (``?=x``) counts. Values
+    are never echoed. With ``unknown_query="ignore"`` (deprecated) they are logged
+    and ignored, as in 1.13 and earlier. Multipart fields are not query parameters:
+    an unknown field stays ``400 invalid-multipart``.
+    """
+    unknown = [name for name in dict.fromkeys(request.query_params.keys()) if name not in allowed]
+    if not unknown:
+        return None
+    if settings.unknown_query == "ignore":
+        _log.warning(
+            "ignored %d unknown query parameter(s) on %s (unknown_query='ignore' is deprecated)",
+            len(unknown),
+            request.url.path,
+        )
+        return None
+    return problem(
+        "invalid-parameter",
+        "invalid parameters",
+        errors=tuple((name, "unknown parameter") for name in unknown),
+    )
 
 
 def _body_limit(settings: ServerSettings, *, multipart: bool, files: int = 1) -> int:
@@ -691,6 +733,13 @@ class _State:
     """What one router owns: settings, admission, the run limiter and the pool."""
 
     def __init__(self, settings: ServerSettings, isolation: Literal["process", "thread"]) -> None:
+        if settings.unknown_query == "ignore":
+            warnings.warn(
+                "unknown_query='ignore' is deprecated and will be removed in pyDIGGS 2.0:"
+                " send only the query parameters an endpoint takes",
+                DeprecationWarning,
+                stacklevel=3,  # the caller of create_app or create_router
+            )
         self.settings = settings
         self.isolation = isolation
         self.admission = _Admission(settings.admission_slots)
@@ -878,6 +927,7 @@ def _add_ags4_routes(router: APIRouter, state: _State) -> None:
             sarif=False,
             json_text="Accept application/json (a conversion result).",
             raw_media=_schemas.XML_MEDIA_TYPES if to_ags4 else _schemas.AGS4_MEDIA_TYPES,
+            allowed=_CONVERT_FIELDS,
         )
         if isinstance(checked, Response):
             return checked
@@ -897,7 +947,9 @@ def _add_ags4_routes(router: APIRouter, state: _State) -> None:
         )
 
     async def ags4_check(request: Request) -> Response:
-        checked = _precheck(request, settings, raw_media=_schemas.AGS4_MEDIA_TYPES)
+        checked = _precheck(
+            request, settings, raw_media=_schemas.AGS4_MEDIA_TYPES, allowed=_CHECK_FIELDS
+        )
         if isinstance(checked, Response):
             return checked
         fmt, multipart = checked
@@ -960,6 +1012,7 @@ def _add_diff_route(router: APIRouter, state: _State) -> None:
             json_text="Accept application/json (a diggs-diff document).",
             raw_media=(),
             files=len(_DIFF_FILES),
+            allowed=_DIFF_FIELDS,
         )
         if isinstance(checked, Response):
             return checked
@@ -1002,7 +1055,7 @@ def _build_router(state: _State) -> APIRouter:
     router = APIRouter(prefix="/v1", lifespan=lifespan, tags=["pydiggs"])
 
     async def validate(request: Request) -> Response:
-        checked = _precheck(request, settings)
+        checked = _precheck(request, settings, allowed=_FORM_FIELDS)
         if isinstance(checked, Response):
             return checked
         fmt, multipart = checked
@@ -1023,7 +1076,7 @@ def _build_router(state: _State) -> APIRouter:
         return Response(outcome.document, media_type=_MEDIA[fmt], headers={"Vary": "Accept"})
 
     async def read(request: Request) -> Response:
-        checked = _precheck(request, settings, sarif=False)
+        checked = _precheck(request, settings, sarif=False, allowed=_READ_FIELDS)
         if isinstance(checked, Response):
             return checked
         outcome = await _admitted(
@@ -1046,6 +1099,9 @@ def _build_router(state: _State) -> APIRouter:
         return _json(_service.capabilities())
 
     async def rules(request: Request) -> Response:
+        unknown = _unknown_query(request, settings, _RULES_FIELDS)
+        if unknown is not None:
+            return unknown
         answer = _service.rules(request.query_params.get("step"))
         if isinstance(answer, Outcome):
             return from_outcome(answer)

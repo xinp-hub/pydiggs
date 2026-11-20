@@ -18,10 +18,26 @@ _TRUE: Final = frozenset({"1", "true", "yes", "on"})
 _FALSE: Final = frozenset({"0", "false", "no", "off"})
 
 Isolation = Literal["process", "thread"]
+UnknownQuery = Literal["refuse", "ignore"]
 
 
 def _default_workers() -> int:
     return max(1, min(4, (os.cpu_count() or 1) - 1))
+
+
+def _check_unknown_query(value: object) -> None:
+    if value not in ("refuse", "ignore"):
+        raise ValueError(f"unknown_query must be 'refuse' or 'ignore', got {value!r}")
+
+
+def _unknown_query_from(env: Mapping[str, str]) -> dict[str, object]:
+    raw = env.get("PYDIGGS_UNKNOWN_QUERY")
+    if raw is None:
+        return {}
+    word = raw.strip().lower()
+    if word not in ("refuse", "ignore"):
+        raise ValueError("PYDIGGS_UNKNOWN_QUERY: expected refuse or ignore")
+    return {"unknown_query": word}
 
 
 def _positive(name: str, value: object) -> None:
@@ -41,6 +57,10 @@ class ServerSettings:
     when bound to a loopback address, and must be set otherwise (see
     :meth:`hosts_for`). ``"*"`` is refused in ``cors_origins``. ``body_timeout_s``
     bounds reading one request body, after its admission slot is taken (``408``).
+    ``unknown_query`` ``"refuse"`` (the default from 1.14) answers a query parameter
+    an endpoint does not take with ``422 invalid-parameter``; ``"ignore"`` keeps the
+    behaviour of 1.13 and earlier, is deprecated (an app or router built with it warns),
+    and goes in 2.0.
 
     Examples:
         >>> s = ServerSettings(workers=2)
@@ -65,6 +85,7 @@ class ServerSettings:
     reject_cross_site: bool = True
     docs_enabled: bool = False
     versions_enabled: bool = True
+    unknown_query: UnknownQuery = "refuse"
 
     def __post_init__(self) -> None:
         for name in ("max_body_bytes", "max_findings", "workers", "worker_memory_mb"):
@@ -97,6 +118,7 @@ class ServerSettings:
         for name in ("reject_cross_site", "docs_enabled", "versions_enabled"):
             if not isinstance(getattr(self, name), bool):
                 raise ValueError(f"{name} must be a bool")
+        _check_unknown_query(self.unknown_query)
 
     @property
     def queue_limit(self) -> int:
@@ -140,7 +162,8 @@ class ServerSettings:
         ``PYDIGGS_QUEUE_DEPTH``, ``PYDIGGS_ISOLATION``, ``PYDIGGS_WORKER_MEMORY_MB``,
         ``PYDIGGS_CORS_ORIGINS`` and ``PYDIGGS_ALLOWED_HOSTS`` (comma-separated),
         ``PYDIGGS_REJECT_CROSS_SITE``, ``PYDIGGS_DOCS_ENABLED`` and
-        ``PYDIGGS_VERSIONS_ENABLED`` (true/false).
+        ``PYDIGGS_VERSIONS_ENABLED`` (true/false), and ``PYDIGGS_UNKNOWN_QUERY``
+        (refuse/ignore).
 
         Args:
             environ: Where to read; default :data:`os.environ`.
@@ -193,6 +216,7 @@ class ServerSettings:
                 if word not in _TRUE | _FALSE:
                     raise ValueError(f"PYDIGGS_{name.upper()}: expected true or false")
                 values[name] = word in _TRUE
+        values.update(_unknown_query_from(env))
         try:
             return cls(**values)  # type: ignore[arg-type]  # each value checked in __post_init__
         except ValueError as exc:
