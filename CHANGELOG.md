@@ -17,6 +17,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   site is published. The commands shown really run, and a video whose output no longer
   matches its script stops the build, so the videos cannot fall behind the software.
 
+### Changed
+- **The HTTP API refuses a query parameter an endpoint does not take.** `/v1/validate`,
+  `/v1/read`, `/v1/convert`, `/v1/ags4/check`, `/v1/diff` and `/v1/rules` answer
+  `422 invalid-parameter` with `errors: [{"parameter": "max_change", "problem": "unknown
+  parameter"}]` instead of ignoring it, so a misspelt option is an error rather than a
+  silent default. Values are never echoed; at most 20 names are listed. This is what
+  `@pydiggs/client`'s handler already does. The Python library, the CLI and the sidecar
+  already refused unknown options and do not change.
+
+  **Upgrading:** remove the parameter the answer names. To keep the old behaviour for a
+  while, set `ServerSettings(unknown_query="ignore")` or `PYDIGGS_UNKNOWN_QUERY=ignore`.
+  See [Unknown query parameters](https://xinp-hub.github.io/pydiggs/http-api/#unknown-query-parameters).
+
+### Deprecated
+- `ServerSettings(unknown_query="ignore")` and `PYDIGGS_UNKNOWN_QUERY=ignore`: they
+  exist only to ease the upgrade to 1.14, warn when used, and will be removed in
+  pyDIGGS 2.0.
+
 ## [1.13.1] - 2026-11-19
 
 ### Fixed

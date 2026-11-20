@@ -286,7 +286,9 @@ curl -s -F old=@BH-01-v1.xml -F new=@BH-01-v2.xml -F max_changes=100 \
 Checks run in this order, before the body is read where possible:
 
 1. Cross-site refusal (403).
-2. `Accept` (406), media type (415), `Content-Encoding` other than `identity` (415).
+2. `Accept` (406), then a query parameter the endpoint does not take (422
+   `invalid-parameter`, see [Unknown query parameters](#unknown-query-parameters)), then
+   media type (415), `Content-Encoding` other than `identity` (415).
 3. `Content-Length` above the limit: 413 at once, body not read.
 4. Admission: a slot among `workers + queue_depth` is taken **without waiting**; when
    none is free the answer is 503 `busy` with `Retry-After: 1`, body not read.
@@ -354,6 +356,32 @@ Size the host for *ASGI server processes × pydiggs workers × about 2 GiB*.
 | `reject_cross_site` | `PYDIGGS_REJECT_CROSS_SITE` | true |
 | `docs_enabled` | `PYDIGGS_DOCS_ENABLED` | false |
 | `versions_enabled` | `PYDIGGS_VERSIONS_ENABLED` | true |
+| `unknown_query` | `PYDIGGS_UNKNOWN_QUERY` (`refuse` or `ignore`) | `refuse` |
+
+### Unknown query parameters
+
+From pyDIGGS 1.14, `/v1/validate`, `/v1/read`, `/v1/convert`, `/v1/ags4/check`,
+`/v1/diff` and `/v1/rules` refuse a query parameter they do not take, so a misspelt
+option (`?max_change=5`) is an error rather than a silent default:
+
+```json
+{"type": "https://xinp-hub.github.io/pydiggs/http-api/#problem-invalid-parameter",
+ "title": "Invalid parameter", "status": 422, "detail": "invalid parameters",
+ "code": "invalid-parameter",
+ "errors": [{"parameter": "max_change", "problem": "unknown parameter"}]}
+```
+
+Each name is listed once, in the order of the URL, at most 20; values are never echoed. A
+name with no value (`?foo`) counts. The check comes before the body is read, and an
+unknown name is reported alone, not with value errors. `@pydiggs/client`'s
+`createPydiggsHandler` answers the same. Multipart fields are not query parameters: an
+unknown field is `400 invalid-multipart`, as before. `/v1/versions`, `/v1/capabilities`
+and the probes ignore the query.
+
+**Upgrading from 1.13 or earlier.** Remove the parameter the answer names. If you cannot
+change a client yet, `unknown_query="ignore"` (`PYDIGGS_UNKNOWN_QUERY=ignore`) restores
+the old behaviour and logs a warning per request; it is deprecated and will be removed in
+pyDIGGS 2.0.
 
 ## Errors
 
@@ -380,7 +408,7 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 | 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes` |
 | 415 | <span id="problem-compressed-input"></span>`compressed-input` | gzip document, or `Content-Encoding` other than `identity` |
 | 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (`/v1/diff`: not multipart; `to=ags4` takes `application/xml` or `text/xml`; AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart) |
-| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `ags_version`, `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, a `/v1/diff` option, or an unusable AGS4 `dictionary` |
+| 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `ags_version`, `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, a `/v1/diff` option, an unusable AGS4 `dictionary`, or a query parameter the endpoint does not take |
 | 422 | <span id="problem-invalid-document"></span>`invalid-document` | Titled "Invalid document". `/v1/read`, `/v1/convert?to=ags4` and `/v1/diff`: the bytes are not a DIGGS document (`/v1/diff` names the file in `errors`); `/v1/convert` to DIGGS: not AGS4 (`not-ags4`) or AGS 3 (`unsupported-version`); `kind` says why |
 | 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read`, `/v1/convert`, `/v1/diff`: the result is larger than four times `max_body_bytes` (for `/v1/read`, ask for fewer tables with `select`; for `/v1/diff`, list fewer changes with `max_changes`) |
 | 422 | <span id="problem-input-unreadable"></span>`input-unreadable` | the document could not be read |
@@ -398,4 +426,7 @@ against the code and published as
 `DiggsFindings*`, `DiggsModel*` and `DiggsDiff*` components are derived from the
 packaged JSON Schemas. A
 breaking wire change would be served as `/v2` beside `/v1`; within `/v1`, validate
-documents against their own `$schema` and ignore unknown fields.
+documents against their own `$schema` and ignore unknown fields. One tightening was made
+within `/v1`, in 1.14: a query parameter an endpoint does not take is refused, with the
+`unknown_query="ignore"` setting to keep the old behaviour until 2.0 (see
+[Unknown query parameters](#unknown-query-parameters)).
