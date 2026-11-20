@@ -566,3 +566,74 @@ test("multipart parts are checked in pyDIGGS's order and within its limits", asy
   assert.equal(ok.status, 200);
   assert.equal(diffCalls[0]?.maxResultBytes, 4000, "pyDIGGS is told the answer's limit");
 });
+
+test("a full engine is busy only after the request's own checks, as pyDIGGS admits", async () => {
+  const { value, calls } = engine({ pending: 8 });
+  const handler = createPydiggsHandler({ ...value, status: value.status, pending: value.pending, diff: async () => ({}) as never });
+  const cases: [Request, number, string][] = [
+    [xml("/v1/validate?bogus=1"), 422, "invalid-parameter"],
+    [xml("/v1/read", { headers: { "Content-Type": "text/plain" } }), 415, "unsupported-media-type"],
+    [xml("/v1/validate", { headers: { "Content-Encoding": "gzip" } }), 415, "compressed-input"],
+    [xml("/v1/read", { headers: { "Content-Length": String(26 * 1024 * 1024) } }), 413, "input-too-large"],
+    [new Request("http://app.test/v1/diff?old=x", { method: "POST", body: new FormData() }), 422, "invalid-parameter"],
+    [xml("/v1/validate"), 503, "busy"],
+  ];
+  for (const [request, status, code] of cases) {
+    const response = await handler(request);
+    assert.deepEqual([response.status, (await response.json()).code], [status, code], request.url);
+  }
+  assert.equal(calls.length, 0, "nothing ran");
+});
+
+test("versions, capabilities and rules keep their first answers and are not busy after it", async () => {
+  const { value, calls } = engine();
+  const shared = { ...value, status: value.status as PydiggsEngine["status"], pending: 0 };
+  const handler = createPydiggsHandler(shared);
+  const get = (path: string) => handler(new Request(`http://app.test${path}`));
+  const paths = ["/v1/versions", "/v1/capabilities", "/v1/rules", "/v1/rules?step=schema", "/v1/rules/schema.1"];
+
+  shared.pending = 8;
+  for (const path of paths) {
+    const refused = await get(path);
+    assert.deepEqual([refused.status, (await refused.json()).code], [503, "busy"], `${path}: nothing kept yet`);
+  }
+  assert.equal(calls.length, 0);
+
+  shared.pending = 0;
+  const first = await Promise.all(paths.map(async (path) => (await get(path)).json()));
+  assert.equal(calls.length, paths.length);
+
+  shared.pending = 8;
+  shared.status = "failed";
+  const again = await Promise.all(
+    paths.map(async (path) => {
+      const response = await get(path);
+      assert.equal(response.status, 200, `${path}: answered from what was kept`);
+      return response.json();
+    }),
+  );
+  assert.deepEqual(again, first);
+  assert.equal(calls.length, paths.length, "the engine was not asked again");
+  const other = await get("/v1/rules/schema.2");
+  assert.equal(other.status, 503, "a rule never asked for is not kept");
+  const unknown = await get("/v1/rules?bogus=1");
+  assert.equal(unknown.status, 422, "the query is still checked");
+});
+
+test("an unknown rule is not kept, so any id cannot grow what is kept", async () => {
+  const { value, calls } = engine();
+  const unknownRules = { ...value, status: value.status, pending: value.pending, explainRule: async (ruleId: string) => (calls.push({ ruleId }), { id: ruleId, known: false }) as never };
+  const handler = createPydiggsHandler(unknownRules);
+  for (let i = 0; i < 2; i += 1) assert.equal((await handler(new Request("http://app.test/v1/rules/nope.1"))).status, 200);
+  assert.equal(calls.length, 2, "asked again");
+});
+
+test("a refusal from the engine is not kept", async () => {
+  const { value, calls } = engine({ fail: "crashed" });
+  const shared = { ...value, status: "ready" as PydiggsEngine["status"], pending: 0 };
+  const handler = createPydiggsHandler(shared);
+  const first = await handler(new Request("http://app.test/v1/versions"));
+  assert.equal(first.status, 500);
+  await handler(new Request("http://app.test/v1/versions"));
+  assert.equal(calls.length, 2, "asked again");
+});

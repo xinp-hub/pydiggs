@@ -8,6 +8,19 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Fixed
+
+- `createPydiggsHandler` answers 503 `busy` only after a request's own checks, as
+  pyDIGGS admits requests. A request that is wrong anyway (an unknown query parameter,
+  the wrong media type, a compressed or too-large body) now gets that answer, 422, 415
+  or 413, when the engine is full, not 503 `busy`.
+- `/v1/versions`, `/v1/capabilities`, `/v1/rules` and `/v1/rules/{rule_id}` no longer
+  wait behind documents or answer `busy` once they have answered. pyDIGGS answers them
+  at once; the handler now keeps each first answer, which does not change while the
+  engine runs, and gives it again without asking the engine. Refusals and unknown rules
+  are never kept. Until a route has answered once, a full engine still makes it 503
+  `busy`.
+
 ## [0.7.0] - 2026-11-19
 
 ### Added
