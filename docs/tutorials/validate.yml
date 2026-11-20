@@ -6,6 +6,8 @@ setup:
   - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
   - pydiggs convert site.ags -o site.xml > /dev/null
   - sed -e 's#<totalMeasuredDepth uom="m">15.00#<totalMeasuredDepth uom="m">fifteen#' site.xml > broken.xml
+# What the viewer downloads to follow along: the work files setup made.
+files: [site.xml, broken.xml]
 scenes:
   - title: Validate a file
     say: >-

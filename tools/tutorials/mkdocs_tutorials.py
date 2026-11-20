@@ -20,11 +20,13 @@ import os
 import posixpath
 import shutil
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from files import FOLDER, install_steps, published
 from spec import (
     MARKER,
     ROOT,
@@ -86,6 +88,66 @@ def figure(tutorial: Tutorial, base: str, *, rendered: bool) -> str:
     return "\n".join(parts)
 
 
+def _package() -> str:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    return str(project["name"])
+
+
+def _size(count: int) -> str:
+    return f"{count / 1024:.1f} KB" if count >= 1024 else f"{count} bytes"  # noqa: PLR2004
+
+
+def _downloads(base: str, description: dict[str, Any]) -> str:
+    folder = f"{base}/{FOLDER}"
+    archive = description["zip"]
+    singles = ", ".join(
+        f'<a href="{folder}/{html.escape(str(f["name"]))}" download>'
+        f"<code>{html.escape(str(f['name']))}</code></a>"
+        for f in description["files"]
+    )
+    return (
+        "The files this video starts from, exactly as it used them: "
+        f'<a href="{folder}/{html.escape(str(archive["name"]))}" download>'
+        f"<code>{html.escape(str(archive['name']))}</code></a> "
+        f"({_size(int(archive['bytes']))}, SHA-256 <code>{archive['sha256']}</code>), "
+        f"or one by one: {singles}. They are synthetic examples, Apache-2.0."
+    )
+
+
+def try_it(tutorial: Tutorial, base: str) -> str:
+    """The "Try it yourself" admonition: the files the video starts from, and its commands.
+
+    The files and their SHA-256 come from what build.py published (``files/files.json``);
+    the commands come from the spec, so the page and the video cannot disagree. Links are
+    HTML (``download``), not Markdown, because the files are build output, not pages.
+    """
+    if not tutorial.files:
+        return ""
+    description = published(MEDIA / tutorial.id)
+    if description is not None:
+        body = [_downloads(base, description)]
+        install = [str(step) for step in description["install"]]
+    else:
+        body = ["The files this video starts from are published with the site, next to it."]
+        install = install_steps(_package(), "")
+    if tutorial.kind == "terminal":
+        body += [
+            "",
+            "Set up a folder with [uv](https://docs.astral.sh/uv/) and the version the video "
+            "shows, put the files in it, and run each command there (on Windows, activate "
+            r"with `.venv\Scripts\activate`):",
+            "",
+            "```bash",
+            *install,
+            *(scene.run for scene in tutorial.scenes if scene.run),
+            "```",
+        ]
+    else:
+        body += ["", "Run the browser example as described below, then pick these files."]
+    indented = "\n".join(f"    {line}" if line else "" for line in body)
+    return f'\n!!! example "Try it yourself"\n\n{indented}\n'
+
+
 def on_config(config: Any) -> Any:
     """Load every spec once per build; a bad spec stops the build."""
     _TUTORIALS.clear()
@@ -123,7 +185,8 @@ def on_page_markdown(markdown: str, *, page: Any, **_: Any) -> str:
             msg = f"{page.file.src_uri}: tutorial {tid!r} has no rendered video in {MEDIA}"
             raise ValueError(msg)
         _USED.add(tid)
-        return "\n" + figure(tutorial, posixpath.join(base, tid), rendered=rendered) + "\n"
+        media = posixpath.join(base, tid)
+        return "\n" + figure(tutorial, media, rendered=rendered) + "\n" + try_it(tutorial, media)
 
     return MARKER.sub(replace, markdown)
 
@@ -139,3 +202,6 @@ def on_post_build(config: Any) -> None:
         for item in source.iterdir():
             if item.suffix in {".mp4", ".webm", ".vtt", ".jpg", ".json"}:
                 shutil.copyfile(item, target / item.name)
+        files = source / FOLDER
+        if files.is_dir():
+            shutil.copytree(files, target / FOLDER, dirs_exist_ok=True)

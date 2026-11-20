@@ -11,6 +11,11 @@ documented version, and a video whose output no longer matches its script stops 
 build, so the videos cannot fall behind the software. The example files are written for
 the purpose; none holds project data.
 
+**Follow along.** Under each video, *Try it yourself* offers the files the video starts
+from, exactly as it used them (one by one, or as a zip with its SHA-256), and the commands
+it runs, ready to copy. Every build checks that those files alone are enough: the
+commands are run from the unpacked zip and must print what the video shows.
+
 ## Command line
 
 <!-- tutorial: validate -->

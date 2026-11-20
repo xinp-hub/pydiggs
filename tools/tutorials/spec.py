@@ -45,6 +45,9 @@ _ABSOLUTE = re.compile(
 )
 
 NARRATION_MIN, NARRATION_MAX = 20, 1200
+#: What a viewer may download to follow a tutorial: plain text files of these kinds only.
+FILE_TYPES = frozenset({".xml", ".ags", ".py", ".json", ".csv", ".txt"})
+_FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 WAIT_MAX_MS = 30_000
 WAIVER_MIN = 15
 SPEED_MIN, SPEED_MAX = 0.7, 1.3
@@ -91,6 +94,7 @@ class Tutorial:
     setup: tuple[str, ...] = ()
     serve: str = ""
     ready: str = ""
+    files: tuple[str, ...] = ()
 
     def transcript(self) -> list[tuple[str, str]]:
         """Return ``(chapter title, narration)`` per scene, in order."""
@@ -188,6 +192,31 @@ def _matches(expect: str, text: str) -> bool:
         return False
 
 
+def _files(data: dict[str, Any], kind: str, problems: list[str]) -> tuple[str, ...]:
+    """The files a viewer downloads to follow along: names in the work directory.
+
+    Every terminal tutorial lists them (they are what its setup made, which the video
+    cannot show), so that the page can offer exactly the files the video used.
+    """
+    raw = data.get("files")
+    if raw is None:
+        if kind == "terminal":
+            problems.append("files is required: the work files a viewer downloads to follow along")
+        return ()
+    if not isinstance(raw, list) or not all(isinstance(name, str) for name in raw):
+        problems.append("files must be a list of file names")
+        return ()
+    for name in raw:
+        if not _FILE_NAME.match(name) or ".." in name:
+            problems.append(f"files: {name!r} must be a plain file name in the work directory")
+        elif Path(name).suffix not in FILE_TYPES:
+            allowed = ", ".join(sorted(FILE_TYPES))
+            problems.append(f"files: {name!r} is not one of the text types offered ({allowed})")
+    if len(set(raw)) != len(raw):
+        problems.append("files: a name is listed twice")
+    return tuple(raw)
+
+
 def _load_scene(raw: Any, where: str, kind: str, problems: list[str]) -> Scene | None:
     if not isinstance(raw, dict):
         problems.append(f"{where} must be a mapping")
@@ -241,7 +270,17 @@ def load_tutorial(path: Path) -> Tutorial:
         raise SpecError(path.name, [f"not valid YAML: {exc}"]) from exc
     if not isinstance(data, dict):
         raise SpecError(path.name, ["must be a mapping"])
-    unknown = set(data) - {"id", "title", "summary", "kind", "setup", "serve", "ready", "scenes"}
+    unknown = set(data) - {
+        "id",
+        "title",
+        "summary",
+        "kind",
+        "setup",
+        "serve",
+        "ready",
+        "files",
+        "scenes",
+    }
     if unknown:
         problems.append(f"unknown keys: {', '.join(sorted(unknown))}")
     tid = _text(data, "id", problems)
@@ -262,6 +301,7 @@ def load_tutorial(path: Path) -> Tutorial:
         problems.append("serve and ready are for browser tutorials")
 
     title = _text(data, "title", problems)
+    files = _files(data, kind, problems)
     summary = _text(data, "summary", problems)
     raw_scenes = data.get("scenes")
     if not isinstance(raw_scenes, list) or not raw_scenes:
@@ -283,6 +323,7 @@ def load_tutorial(path: Path) -> Tutorial:
         setup=tuple(setup),
         serve=serve,
         ready=ready,
+        files=files,
     )
 
 

@@ -5,6 +5,8 @@ kind: terminal
 setup:
   - cp {repo}/tests/fixtures/ags4/rule_13.ags received.ags
   - cp {repo}/tests/fixtures/ags4/clean_4_2.ags site.ags
+# What the viewer downloads to follow along: the work files setup made.
+files: [received.ags, site.ags]
 scenes:
   - title: Check a received file
     say: >-

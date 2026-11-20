@@ -28,10 +28,12 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from files import FOLDER, FilesError, snapshot
 from spec import (
     MANIFEST,
     ROOT,
@@ -101,25 +103,48 @@ def _shell(command: str, work: Path) -> subprocess.CompletedProcess[str]:
 
 
 def rehearse(tutorial: Tutorial) -> list[str]:
-    """Run a terminal tutorial off camera; return how its output failed its ``expect``."""
-    found: list[str] = []
+    """Follow a terminal tutorial as a viewer would; return how it failed its ``expect``.
+
+    Setup runs in one directory; the files the page offers are taken from it exactly as
+    build.py publishes them (the same checks, the same zip); then the zip is unpacked in
+    an empty directory and every command runs there. So this proves that the download is
+    enough to repeat the video, and that each command still prints what its narration says.
+    """
     if tutorial.kind != "terminal":
-        return found  # a browser tutorial is checked by recording it (tutorials.yml)
+        return []  # a browser tutorial is checked by recording it (tutorials.yml)
+    found: list[str] = []
     with tempfile.TemporaryDirectory(prefix=f"rehearse-{tutorial.id}-") as tmp:
-        work = Path(tmp)
+        made, published_to, viewer = (Path(tmp) / name for name in ("made", "out", "viewer"))
+        made.mkdir()
+        viewer.mkdir()
         for line in tutorial.setup:
-            result = _shell(line.replace("{repo}", shlex.quote(str(ROOT))), work)
+            result = _shell(line.replace("{repo}", shlex.quote(str(ROOT))), made)
             if result.returncode != 0:
                 return [f"{tutorial.id}: setup failed: {line.splitlines()[0]}\n{result.stderr}"]
+        commands = [scene.run for scene in tutorial.scenes if scene.run]
+        try:
+            description = snapshot(
+                tutorial.id,
+                tutorial.title,
+                tutorial.files,
+                made,
+                published_to,
+                commands=commands,
+                install=[],
+            )
+        except FilesError as exc:
+            return [f"{tutorial.id}: {exc}"]
+        with zipfile.ZipFile(published_to / FOLDER / str(description["zip"]["name"])) as archive:
+            archive.extractall(viewer)
         for index, scene in enumerate(tutorial.scenes, 1):
             if not scene.run:
                 continue
-            result = _shell(scene.run, work)
+            result = _shell(scene.run, viewer)
             screen = result.stdout + result.stderr
             if not re.search(scene.expect, screen):
                 found.append(
-                    f"{tutorial.id} scene {index}: `{scene.run}` did not show "
-                    f"{scene.expect!r}; it printed:\n{screen[-1500:]}"
+                    f"{tutorial.id} scene {index}: from the downloaded files, `{scene.run}` "
+                    f"did not show {scene.expect!r}; it printed:\n{screen[-1500:]}"
                 )
     return found
 

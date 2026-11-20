@@ -4,6 +4,8 @@ summary: Turn an AGS4 file into a valid DIGGS 3.0 document, see what did not con
 kind: terminal
 setup:
   - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
+# What the viewer downloads to follow along: the work files setup made.
+files: [site.ags]
 scenes:
   - title: AGS4 to DIGGS
     say: >-

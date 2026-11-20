@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   player or cookies, and is rendered from a script in `docs/tutorials/` each time the
   site is published. The commands shown really run, and a video whose output no longer
   matches its script stops the build, so the videos cannot fall behind the software.
+- **Follow the video tutorials step by step.** Under each video, *Try it yourself* offers
+  the files the video starts from, exactly as it used them, one by one or as a zip with
+  its SHA-256, and the commands it runs, ready to copy, after a three-line uv setup that
+  pins the pyDIGGS version the video shows. The files are synthetic examples (Apache-2.0).
+  Every docs build runs the commands from the unpacked zip and checks they print what the
+  video shows, so the download is always enough to repeat it.
 
 ## [1.13.1] - 2026-11-19
 

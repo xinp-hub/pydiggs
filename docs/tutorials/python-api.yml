@@ -17,6 +17,8 @@ setup:
         depth = feature.total_depth
         print(feature.kind, feature.name, depth.text, depth.uom)
     PY
+# What the viewer downloads to follow along: the work files setup made.
+files: [site.xml, check_site.py]
 scenes:
   - title: The script
     say: >-

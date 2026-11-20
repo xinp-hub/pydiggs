@@ -83,8 +83,9 @@ Each user-facing feature has a narrated video, made from a script in `docs/tutor
 `tests/test_tutorials.py` fails when a new subcommand or public name is in neither, and
 runs every terminal tutorial's commands to check they still print what the narration says.
 
-To add one: write `docs/tutorials/<id>.yml`, name it in the manifest, and put
-`<!-- tutorial: <id> -->` where it belongs in a page. Use only example files written for
+To add one: write `docs/tutorials/<id>.yml`, list under `files:` the work files its
+`setup` makes that a viewer needs to follow along (they are offered under the video),
+name it in the manifest, and put `<!-- tutorial: <id> -->` where it belongs in a page. Use only example files written for
 the purpose, never project data. The videos are rendered in CI (`docs.yml`, and
 `tutorials.yml` on a pull request, whose artifact you can download and watch). To render
 locally you need ffmpeg and [VHS](https://github.com/charmbracelet/vhs):
