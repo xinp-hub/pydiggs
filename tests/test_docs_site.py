@@ -142,6 +142,19 @@ def test_before_any_release_the_stubs_lead_to_dev(tmp_path: Path) -> None:
     assert '"dev"' in (tmp_path / "404.html").read_text(encoding="utf-8")
 
 
+def test_before_any_release_latest_is_still_reserved(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _pages(tmp_path, "dev", ["latest", "latest/inner", "ok"])
+    docs_site.assemble(tmp_path)
+    assert not (tmp_path / "latest").exists()
+    assert "no redirect for latest/" in capsys.readouterr().err
+    assert _target(tmp_path / "ok" / "index.html") == "../dev/ok/"
+    page = (tmp_path / "404.html").read_text(encoding="utf-8")
+    assert _run_404(page, "/pydiggs/latest/gone/") is None
+    assert _run_404(page, "/pydiggs/gone/") == "/pydiggs/dev/gone/?a=1#h"
+
+
 def test_a_page_named_like_a_root_entry_is_skipped_not_written_over(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -202,13 +215,15 @@ def _run_404(page: str, pathname: str) -> str | None:
     node = shutil.which("node")
     if node is None:
         pytest.skip("node is not installed")
-    script = re.search(r"<script>(.*?)</script>", page, re.DOTALL)
-    assert script is not None
+    # The page is ours and its one script is plain; split on the literal tags rather
+    # than use a regular expression that looks like HTML filtering (CodeQL).
+    assert page.count("<script>") == 1, page
+    script = page.split("<script>", 1)[1].split("</script>", 1)[0]
     harness = "\n".join(
         [
             f"var went = null, location = {{pathname: {json.dumps(pathname)},",
             "  search: '?a=1', hash: '#h', replace: function (u) { went = u; }};",
-            script.group(1),
+            script,
             "console.log(JSON.stringify(went));",
         ]
     )

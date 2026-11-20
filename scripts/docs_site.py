@@ -165,7 +165,9 @@ def assemble(site: Path, latest: str = "", base_url: str = SITE_URL) -> None:
         if (site / home / name).is_file():
             shutil.copyfile(site / home / name, site / name)
     _root_schemas(site, trees[::-1])
-    reserved = {*trees, *([latest] if latest else []), *_root_names(site)}
+    # Both tree names are reserved even before the first release, so a dev-only build
+    # never writes a root latest/ stub or sends a missing /latest/... path into dev/.
+    reserved = {"dev", "latest", *([latest] if latest else []), *_root_names(site)}
     _page_stubs(site, home, reserved)
     _not_found(site, home, reserved, base_path(base_url))
 
