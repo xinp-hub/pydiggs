@@ -78,15 +78,24 @@ should come with a test that fails without it. A change users will notice gets a
 
 Each user-facing feature has a narrated video, made from a script in `docs/tutorials/`
 (`<id>.yml`: what is said, and what is typed or clicked while it is said).
-`docs/tutorials/manifest.yml` maps every `pydiggs` subcommand and every name in
-`pydiggs.__all__` to a tutorial, or to a waiver that says why a video would not help.
-`tests/test_tutorials.py` fails when a new subcommand or public name is in neither, and
-runs every terminal tutorial's commands to check they still print what the narration says.
+`docs/tutorials/manifest.yml` maps everything pyDIGGS offers to a tutorial, or to a waiver
+that says why a video would not help: every `pydiggs` subcommand and each of its options,
+every name in `pydiggs.__all__`, every operation in `pydiggs.capabilities()`, every HTTP
+endpoint and query parameter, every sidecar method and MCP tool, and every
+`@pydiggs/client` entry point, each found from the package itself. `tests/test_tutorials.py`
+fails when a new one is in neither, and runs every terminal tutorial's commands to check
+they still print what the narration says.
+
+Narration says quantities in words ("two errors") and keeps digits for names ("rule 13").
+A scene that states a quantity lists it under `claims:`, regexes its output must match, so
+a video cannot keep saying "two errors" over a screen that shows three. On a pull request,
+`tutorials.yml` adds a *Tutorial videos to watch* table to the run's summary: the videos
+whose narration changed or whose scenes now end on a different screen.
 
 To add one: write `docs/tutorials/<id>.yml`, list under `files:` the work files its
 `setup` makes that a viewer needs to follow along (they are offered under the video),
-name it in the manifest, and put `<!-- tutorial: <id> -->` where it belongs in a page. Use only example files written for
-the purpose, never project data. The videos are rendered in CI (`docs.yml`, and
+name it in the manifest, and put `<!-- tutorial: <id> -->` where it belongs in a page.
+Use only example files written for the purpose, never project data. The videos are rendered in CI (`docs.yml`, and
 `tutorials.yml` on a pull request, whose artifact you can download and watch). To render
 locally you need ffmpeg and [VHS](https://github.com/charmbracelet/vhs):
 

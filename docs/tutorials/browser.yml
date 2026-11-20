@@ -39,3 +39,4 @@ scenes:
       - upload: {selector: '#file', file: '{work}/broken.xml'}
       - expect_text: '^not-valid \(DIGGS 3\.0\.0\)'
       - wait: 2500
+    claims: ['not-valid \(DIGGS 3\.0\.0\): 2 errors', 'schematron\.Borehole\.totalMeasuredDepth']

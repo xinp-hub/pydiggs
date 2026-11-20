@@ -70,10 +70,13 @@ gets a line in [CHANGELOG.md](CHANGELOG.md) under "Unreleased", written for user
   change to `docs/`, `README.md` or `CHANGELOG.md` in the same pull request, and the
   examples in them run in `tests/test_docs.py`. Never add the `no-docs-needed` label
   yourself: it is the maintainer's override.
-- **Features ship with a tutorial.** A new subcommand or public name needs a video tutorial
+- **Features ship with a tutorial.** A new subcommand, option, public name, operation,
+  endpoint, sidecar method, MCP tool or JS entry point needs a video tutorial
   (`docs/tutorials/<id>.yml`, see CONTRIBUTING.md) or a waiver with a reason in
-  `docs/tutorials/manifest.yml`; `tests/test_tutorials.py` enforces it. Narration says what
-  is on screen. Demo data is written for the purpose: never project or client data.
+  `docs/tutorials/manifest.yml`; `tests/test_tutorials.py` enforces it. Draft a missing one
+  as FORGE's docs-video skill describes ("Draft a missing tutorial"); the owner reviews it.
+  Narration says what is on screen, and a quantity it states is a `claims:` entry. Demo
+  data is written for the purpose: never project or client data.
 - **No secrets.** Publishing uses PyPI Trusted Publishing. If you think you need a token,
   the setup is wrong.
 

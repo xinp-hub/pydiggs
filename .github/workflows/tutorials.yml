@@ -68,12 +68,16 @@ jobs:
           TUTORIALS_CHROME_CHANNEL: chrome
         run: |
           set -euo pipefail
-          uv sync --group docs --group dev
-          uv run --group docs python tools/tutorials/check.py
+          uv sync --all-extras --group docs --group dev
+          uv run --all-extras --group docs python tools/tutorials/check.py
           TUTORIALS_PACKAGE_VERSION="$(.venv/bin/python -c 'import pydiggs; print(pydiggs.__version__)')" \
           PATH="$PWD/.venv/bin:$PATH" \
           uv run --locked --script tools/tutorials/build.py --out build/tutorials
           du -sh build/tutorials/*
+      # Advice for the reviewer, never a failure: which videos changed what they show or say,
+      # compared with the published dev/ site (tools/tutorials/report.py).
+      - name: Videos to watch
+        run: python3 tools/tutorials/report.py --built build/tutorials --summary "$GITHUB_STEP_SUMMARY"
       # Download the artifact to watch the videos before merging.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:

@@ -10,16 +10,16 @@ See FORGE's ``docs-video`` skill for the format and the narration style.
 
 from __future__ import annotations
 
-import importlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import discover as sources
 import yaml
 
 #: Bumped when the spec format or the rendering changes what a video looks like.
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "1.1.0"
 
 ROOT = Path(__file__).resolve().parents[2]
 TUTORIALS_DIR = ROOT / "docs" / "tutorials"
@@ -80,6 +80,7 @@ class Scene:
     run: str = ""
     expect: str = ""
     steps: tuple[Step, ...] = ()
+    claims: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -118,7 +119,7 @@ class Manifest:
 
     voice: str
     speed: float
-    discover: dict[str, str]
+    discover: dict[str, Any]
     features: list[Feature]
     pronounce: dict[str, str] = field(default_factory=dict)
 
@@ -218,11 +219,50 @@ def _files(data: dict[str, Any], kind: str, problems: list[str]) -> tuple[str, .
     return tuple(raw)
 
 
+#: A quantity in the narration. Narration speaks quantities as words ("two errors",
+#: "twelve and a half metres") so the voice reads them naturally, and keeps digits for
+#: names ("DIGGS 3.0", "rule 13"); so a number word is a claim about the output.
+_QUANTITY = re.compile(
+    r"\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|"
+    r"fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|"
+    r"eighty|ninety|hundred|thousand|half|twice|double)\b",
+    re.IGNORECASE,
+)
+
+
+def _claims(
+    raw: dict[str, Any], where: str, say: str, run: str, problems: list[str]
+) -> tuple[str, ...]:
+    """What the narration states about the output, each a regex the output must match.
+
+    A scene whose narration names a quantity must list at least one, so that a video
+    whose output changed while its ``expect`` still matches cannot keep saying "two
+    errors" over a screen showing three.
+    """
+    value = raw.get("claims")
+    quantity = _QUANTITY.search(say)
+    if value is None:
+        if quantity:
+            problems.append(
+                f"{where}: the narration states a quantity ({quantity.group(0)!r}); "
+                "list it under claims:, as a regex the output must match"
+            )
+        return ()
+    if not isinstance(value, list) or not all(isinstance(c, str) and c for c in value):
+        problems.append(f"{where}: claims is a list of regexes")
+        return ()
+    for claim in value:
+        _check_regex(f"{where} claim", claim, problems)
+        if run and _matches(claim, run):
+            problems.append(f"{where}: claim {claim!r} also matches the typed command")
+    return tuple(value)
+
+
 def _load_scene(raw: Any, where: str, kind: str, problems: list[str]) -> Scene | None:
     if not isinstance(raw, dict):
         problems.append(f"{where} must be a mapping")
         return None
-    extra = set(raw) - {"title", "say", "run", "expect", "steps"}
+    extra = set(raw) - {"title", "say", "run", "expect", "steps", "claims"}
     if extra:
         problems.append(f"{where}: unknown keys {', '.join(sorted(extra))}")
     say = _text(raw, "say", problems)
@@ -255,7 +295,8 @@ def _load_scene(raw: Any, where: str, kind: str, problems: list[str]) -> Scene |
             steps = _steps(raw["steps"], where, problems)
     elif kind == "browser":
         problems.append(f"{where}: a browser scene needs steps")
-    return Scene(say, _text(raw, "title", problems, required=False), run, expect, steps)
+    claims = _claims(raw, where, say, run, problems)
+    return Scene(say, _text(raw, "title", problems, required=False), run, expect, steps, claims)
 
 
 def load_tutorial(path: Path) -> Tutorial:
@@ -344,11 +385,11 @@ def load_manifest(path: Path = MANIFEST) -> Manifest:
     if not isinstance(data, dict) or data.get("version") != 1:
         raise SpecError(path.name, ["must be a mapping with version: 1"])
     discover = data.get("discover") or {}
-    if not isinstance(discover, dict) or not all(
-        isinstance(v, str) and ":" in v for v in discover.values()
-    ):
-        problems.append("discover maps a label to module:attribute")
+    if not isinstance(discover, dict):
+        problems.append("discover maps a label to a source")
         discover = {}
+    for label, source in discover.items():
+        problems += [f"discover {label}: {p}" for p in sources.problems(source)]
     pronounce = data.get("pronounce") or {}
     if not isinstance(pronounce, dict):
         problems.append("pronounce maps a written word to how it is said")
@@ -392,14 +433,11 @@ def load_manifest(path: Path = MANIFEST) -> Manifest:
 def discover(manifest: Manifest) -> set[str]:
     """Return every public item the manifest says to look for, as ``label:name``.
 
-    Each ``discover`` entry names an iterable (a list, ``__all__``, or a dict of
-    subcommands) in an importable module.
+    The sources are described in ``discover.py``.
     """
     found: set[str] = set()
-    for label, target in manifest.discover.items():
-        module_name, _, attribute = target.partition(":")
-        value = getattr(importlib.import_module(module_name), attribute)
-        found |= {f"{label}:{name}" for name in value}
+    for label, source in manifest.discover.items():
+        found |= {f"{label}:{name}" for name in sources.names(source, ROOT)}
     return found
 
 

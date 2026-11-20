@@ -37,6 +37,7 @@ from files import FOLDER, FilesError, snapshot
 from spec import (
     MANIFEST,
     ROOT,
+    Manifest,
     SpecError,
     Tutorial,
     discover,
@@ -45,6 +46,36 @@ from spec import (
     markers,
     tutorial_paths,
 )
+
+
+def _coverage(manifest: Manifest, tutorials: set[str]) -> list[str]:
+    """Every public item covered by exactly one feature; every feature's tutorial exists."""
+    found: list[str] = []
+    public = discover(manifest)
+    covered: dict[str, str] = {}
+    for feature in manifest.features:
+        if feature.tutorial and feature.tutorial not in tutorials:
+            found.append(f"feature {feature.id}: tutorial {feature.tutorial!r} has no spec")
+        for item in feature.covers:
+            label = item.partition(":")[0]
+            if label in manifest.discover and item not in public:
+                found.append(f"feature {feature.id}: {item} is not a public item (any more)")
+            if item in covered:
+                found.append(f"{item} is covered by both {covered[item]} and {feature.id}")
+            covered[item] = feature.id
+    missing = sorted(public - covered.keys())
+    where = MANIFEST.relative_to(MANIFEST.parents[2])
+    found.extend(
+        f"{item} is public but has no tutorial: add it to a feature's covers in "
+        f"{where}, with a tutorial or a waiver"
+        for item in missing
+    )
+    if missing:
+        found.append(
+            "to draft a tutorial for a new feature, follow 'Draft a missing tutorial' in "
+            "FORGE's docs-video skill; a waiver states why a video would not help"
+        )
+    return found
 
 
 def problems() -> list[str]:
@@ -62,23 +93,7 @@ def problems() -> list[str]:
     except SpecError as exc:
         return found + [f"{exc.source}: {problem}" for problem in exc.problems]
 
-    public = discover(manifest)
-    covered: dict[str, str] = {}
-    for feature in manifest.features:
-        if feature.tutorial and feature.tutorial not in tutorials:
-            found.append(f"feature {feature.id}: tutorial {feature.tutorial!r} has no spec")
-        for item in feature.covers:
-            label = item.partition(":")[0]
-            if label in manifest.discover and item not in public:
-                found.append(f"feature {feature.id}: {item} is not a public item (any more)")
-            if item in covered:
-                found.append(f"{item} is covered by both {covered[item]} and {feature.id}")
-            covered[item] = feature.id
-    for item in sorted(public - covered.keys()):
-        found.append(
-            f"{item} is public but has no tutorial: add it to a feature's covers in "
-            f"{MANIFEST.relative_to(MANIFEST.parents[2])}, with a tutorial or a waiver"
-        )
+    found += _coverage(manifest, tutorials)
 
     embedded = markers()
     for tid in sorted(tutorials - embedded.keys()):
@@ -146,6 +161,12 @@ def rehearse(tutorial: Tutorial) -> list[str]:
                     f"{tutorial.id} scene {index}: from the downloaded files, `{scene.run}` "
                     f"did not show {scene.expect!r}; it printed:\n{screen[-1500:]}"
                 )
+            found += [
+                f"{tutorial.id} scene {index}: the narration claims {claim!r}, which "
+                f"`{scene.run}` did not print; fix the narration and the claim together"
+                for claim in scene.claims
+                if not re.search(claim, screen)
+            ]
     return found
 
 

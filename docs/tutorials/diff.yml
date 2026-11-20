@@ -16,10 +16,15 @@ scenes:
       written, so element order and number formatting do not count.
     run: pydiggs diff site.xml site-rev2.xml
     expect: 'total_depth'
+    claims: ['Compared site\.xml \(DIGGS 3\.0\.0\) with site-rev2\.xml']
   - title: Read the change
     say: >-
-      The report counts records by kind: added, removed, changed and unchanged. One
-      feature changed. At the bottom, borehole B H 0 2 is matched by its identifier, and
-      its total depth went from ten metres to twelve and a half metres.
-    run: pydiggs diff site.xml site-rev2.xml | tail -n 2
+      Here we keep only the lines about features. The count line shows that one feature
+      changed and two are unchanged. Below it, borehole B H 0 2 is matched by its
+      identifier, and its total depth went from ten metres to twelve and a half metres.
+    run: pydiggs diff site.xml site-rev2.xml | grep -E 'features|total_depth'
     expect: '10\.00 m -> 12\.50 m'
+    claims:
+      - 'features: 0 added, 0 removed, 1 changed, 2 unchanged'
+      - 'changed features BH02 \(BH02\), matched by gml:id'
+      - '10\.00 m -> 12\.50 m'

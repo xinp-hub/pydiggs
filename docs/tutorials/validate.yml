@@ -25,6 +25,7 @@ scenes:
       says the depth must be positive.
     run: pydiggs validate broken.xml
     expect: 'not-valid: 2 error'
+    claims: ['not-valid: 2 error\(s\)', 'must be positive']
   - title: Write a report for CI
     say: >-
       For continuous integration, ask for SARIF and write it to a file. The command exits

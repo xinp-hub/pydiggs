@@ -33,4 +33,7 @@ scenes:
       the three sampling features in the file: two boreholes and a trial pit, each with its
       depth exactly as the file writes it, and its unit.
     run: python check_site.py
+    claims:
+      - "valid \\{'error': 0, 'warning': 0"
+      - '(?s)borehole BH01 .*borehole BH02 .*trial_pit TP01'
     expect: 'trial_pit TP01 3\.20 m'
