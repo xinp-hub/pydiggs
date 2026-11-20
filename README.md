@@ -11,14 +11,14 @@
 
 A Python package for Data Interchange for Geotechnical and Geoenvironmental Specialists (DIGGS).
 
-* Licensed under the Apache License 2.0; see [Licence and use](https://xinp-hub.github.io/pydiggs/license/)
+* Licensed under the Apache License 2.0; see [Licence and use](https://xinp-hub.github.io/pydiggs/latest/license/)
   for redistribution, bundled third-party material and professional use
 * Documentation: [https://xinp-hub.github.io/pydiggs](https://xinp-hub.github.io/pydiggs)
 * GitHub: [https://github.com/xinp-hub/pydiggs](https://github.com/xinp-hub/pydiggs)
 * PyPI: [https://pypi.org/project/pydiggs](https://pypi.org/project/pydiggs)
 * Release updates: **Watch → Custom → Releases** on this repository, the
   [releases feed](https://github.com/xinp-hub/pydiggs/releases.atom), or email
-  (see [Stay updated](https://xinp-hub.github.io/pydiggs/stay-updated/))
+  (see [Stay updated](https://xinp-hub.github.io/pydiggs/latest/stay-updated/))
 
 ## Authors
 
@@ -42,7 +42,7 @@ off (`git commit -s`) under the
     * Lightweight context checks (structure / SRS / xlink / dataBlock arity)
 * Read what is in a file: `pydiggs.read()` returns boreholes, samples, tests and their
   result tables as Python objects and as JSON (diggs-model 1.0), the same shape for
-  DIGGS 2.5.a, 2.6 and 3.x ([Reading files](https://xinp-hub.github.io/pydiggs/model/)).
+  DIGGS 2.5.a, 2.6 and 3.x ([Reading files](https://xinp-hub.github.io/pydiggs/latest/model/)).
   With the `frames`, `polars` and `gis` extras, `pydiggs.frames` gives pandas or
   polars data frames and `pydiggs.gis` gives GeoDataFrames, GeoPackage and
   GeoParquet files. For reading, the public modules are `pydiggs`, `pydiggs.model`,
@@ -50,14 +50,14 @@ off (`git commit -s`) under the
 * AGS4: read, write and check AGS4 files against the AGS4 rules (`pydiggs.ags4`,
   `pydiggs ags4 check`), and convert AGS4 to DIGGS 3.0.0 and DIGGS to AGS4 (4.2 or
   4.1.1) with every loss reported (`pydiggs.convert`, `pydiggs convert`,
-  `POST /v1/convert`; [AGS4 files](https://xinp-hub.github.io/pydiggs/ags4/),
-  [AGS4 and DIGGS conversion](https://xinp-hub.github.io/pydiggs/convert/)). No AGS dictionary or
+  `POST /v1/convert`; [AGS4 files](https://xinp-hub.github.io/pydiggs/latest/ags4/),
+  [AGS4 and DIGGS conversion](https://xinp-hub.github.io/pydiggs/latest/convert/)). No AGS dictionary or
   example file is bundled, and pyDIGGS is not an AGS-approved tool.
 * Compare two DIGGS files: `pydiggs diff old.xml new.xml` and `pydiggs.diff.compare()`
   list the boreholes, samples, tests and values that were added, removed or changed,
   whatever the `gml:id`s, the element order and the number formatting; a change of unit
   is always reported and nothing is converted
-  ([Comparing two files](https://xinp-hub.github.io/pydiggs/diff/)).
+  ([Comparing two files](https://xinp-hub.github.io/pydiggs/latest/diff/)).
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
       JSON (diggs-findings 1.2) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)
@@ -111,7 +111,7 @@ Not a Python user? Looking for leveraging the power of pyDIGGS in a modern web a
 ## Quick Start
 
 Install pydiggs (requires Python 3.11+), then validate a file. The
-[Quickstart](https://xinp-hub.github.io/pydiggs/quickstart/) walks through it:
+[Quickstart](https://xinp-hub.github.io/pydiggs/latest/quickstart/) walks through it:
 ```bash
 uv tool install pydiggs   # or: python -m pip install pydiggs
 pydiggs validate BH-01.xml
@@ -163,7 +163,7 @@ print(report.ok, report.counts)
 for finding in report.findings:
     print(finding.rule_id, finding.severity, finding.line, finding.xpath)
 ```
-See [findings](https://xinp-hub.github.io/pydiggs/findings/) for the format, rule ids,
+See [findings](https://xinp-hub.github.io/pydiggs/latest/findings/) for the format, rule ids,
 exit codes and privacy defaults (no snippets, no absolute paths).
 
 Basic usage with CLI:
@@ -184,8 +184,8 @@ pydiggs context_check "path/to/your/diggs_file.xml"
 pydiggs schematron_check "path/to/your/diggs_file.xml" --schematron_path "path/to/schematron.sch"
 ```
 
-See [usage](https://xinp-hub.github.io/pydiggs/usage/) for `diggs_version` / `schema_path`
-overrides, log output options, and [known limits](https://xinp-hub.github.io/pydiggs/usage/#known-limits)
+See [usage](https://xinp-hub.github.io/pydiggs/latest/usage/) for `diggs_version` / `schema_path`
+overrides, log output options, and [known limits](https://xinp-hub.github.io/pydiggs/latest/usage/#known-limits)
 (dictionary check 12 as WARNING, bundled Schematron subset, and more).
 
 For more detailed information and advanced usage, please see the [documentation](https://xinp-hub.github.io/pydiggs).

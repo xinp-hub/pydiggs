@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-19
+
 ### Added
 - **Video tutorials.** The documentation has a
-  [Video tutorials](https://xinp-hub.github.io/pydiggs/dev/tutorials/) page, and the
+  [Video tutorials](https://xinp-hub.github.io/pydiggs/latest/tutorials/) page, and the
   Quickstart, Reading files, AGS4 files, conversion, comparison and Browser pages each
   open with a short narrated video of that feature. Every video has English captions,
   chapters and a full transcript, plays from the docs site itself with no third-party
@@ -34,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   **Upgrading:** remove the parameter the answer names. To keep the old behaviour for a
   while, set `ServerSettings(unknown_query="ignore")` or `PYDIGGS_UNKNOWN_QUERY=ignore`.
-  See [Unknown query parameters](https://xinp-hub.github.io/pydiggs/http-api/#unknown-query-parameters).
+  See [Unknown query parameters](https://xinp-hub.github.io/pydiggs/latest/http-api/#unknown-query-parameters).
 
 ### Deprecated
 - `ServerSettings(unknown_query="ignore")` and `PYDIGGS_UNKNOWN_QUERY=ignore`: they
@@ -76,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `show_renamed`, `old_name` and `new_name` in the query or the form. Each file is held
     to the server's `max_body_bytes`, the pair runs as one job under its time limit, and
     an answer larger than four times `max_body_bytes` is 422 `result-too-large`, as for
-    `/v1/read`. See [HTTP API](https://xinp-hub.github.io/pydiggs/http-api/).
+    `/v1/read`. See [HTTP API](https://xinp-hub.github.io/pydiggs/latest/http-api/).
   - **Sidecar protocol 1.3.** The method `diff` takes each file as base64 or as a path;
     `initialize` reports `capabilities.diff` and `diff_schema_url`. A session that
     negotiated protocol 1.0 to 1.2 is refused the method.
@@ -129,7 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   added or removed, and which values changed in the records both files hold.
   **It is a preview in 1.12:** the report format and the comparison rules may change in
   a minor release; the stable `pydiggs.diff` and diggs-diff 1.0 are planned for 1.13.
-  The new page [Comparing two files](https://xinp-hub.github.io/pydiggs/diff/) describes
+  The new page [Comparing two files](https://xinp-hub.github.io/pydiggs/latest/diff/) describes
   what counts as a change.
 
   ```python
@@ -342,7 +344,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The Pyodide smoke converts an AGS4 file to DIGGS and that DIGGS back to AGS4 4.2 and
   4.1.1, and compares the outputs and the residual file with CPython's bytes.
 - Documentation: the conversion page is now [AGS4 and DIGGS
-  conversion](https://xinp-hub.github.io/pydiggs/convert/), and the conversion API is in
+  conversion](https://xinp-hub.github.io/pydiggs/latest/convert/), and the conversion API is in
   the Python API reference.
 
 ### Changed
@@ -444,8 +446,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   describes protocol 1.2.
 - The conversion and the check run in the browser (Pyodide) and give CPython's bytes;
   the Pyodide smoke now converts an AGS4 file and compares.
-- Documentation: [AGS4 files](https://xinp-hub.github.io/pydiggs/ags4/) and
-  [AGS4 to DIGGS](https://xinp-hub.github.io/pydiggs/convert/).
+- Documentation: [AGS4 files](https://xinp-hub.github.io/pydiggs/latest/ags4/) and
+  [AGS4 to DIGGS](https://xinp-hub.github.io/pydiggs/latest/convert/).
 - **`pydiggs.capabilities()`: what this pyDIGGS can do, machine-readable.** It returns a
   `Capabilities` with one `Operation` per thing pyDIGGS offers (`validate`, `read`,
   `detect`, `rules.list`, `rules.explain`, `ags4.read`, `ags4.write`, `ags4.check`,
@@ -626,7 +628,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The AGS4 to DIGGS mapping table** (version 0.1), data that can be reviewed and
   corrected: `src/pydiggs/convert/mappings/` (`ags4-diggs.toml`, `units.toml`,
   `codes.toml`), with its own JSON Schema (`convert-mapping-1.schema.json`) and a
-  generated page, [AGS4 to DIGGS mapping](https://xinp-hub.github.io/pydiggs/convert-mapping/).
+  generated page, [AGS4 to DIGGS mapping](https://xinp-hub.github.io/pydiggs/latest/convert-mapping/).
   Every group is a draft; mapping table 1.0 is signed off with pyDIGGS 1.10, when
   conversion becomes stable in `pydiggs.convert`. `convert.mapping_info()` describes
   the table. It holds only AGS4 group and heading names, keys and parents, and no text
@@ -642,7 +644,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OGC and EPSG material that the licence metadata did not name before. The wheel ships it
   with the third-party licence texts in `.dist-info/licenses/`. Every file in the
   repository has its copyright and licence recorded in `REUSE.toml` (REUSE 3.3), checked
-  in CI. A new [Licence and use](https://xinp-hub.github.io/pydiggs/license/) page says
+  in CI. A new [Licence and use](https://xinp-hub.github.io/pydiggs/latest/license/) page says
   what you may do, what you must do when you redistribute, and what a pyDIGGS check does
   and does not tell you about engineering data. The pyDIGGS licence is unchanged
   (Apache-2.0).
@@ -652,7 +654,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   LicenseRef-OASIS` (the container image label likewise, without the test-only OASIS
   entry). If your SBOM or licence scanner allows only SPDX-listed licences, it will now
   flag pyDIGGS for review; the terms behind each `LicenseRef-` are in `LICENSES/` and on
-  the [Licence and use](https://xinp-hub.github.io/pydiggs/license/) page, which now has
+  the [Licence and use](https://xinp-hub.github.io/pydiggs/latest/license/) page, which now has
   a checklist for products that include pyDIGGS. The units dictionary is now recorded as
   containing Energistics definitions, as it says itself.
 - The 26 unused Energistics schemas in DIGGS 2.6's `witsml/2.0/RemovedFromProfile/` are no
@@ -1384,7 +1386,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.13.1...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/xinp-hub/pydiggs/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/xinp-hub/pydiggs/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/xinp-hub/pydiggs/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/xinp-hub/pydiggs/compare/v1.11.0...v1.12.0

@@ -19,6 +19,9 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 TOOLS = ROOT / "tools" / "tutorials"
 
+if not TOOLS.is_dir():  # the sdist ships tests but not tools/; skip before loading it
+    pytest.skip("tools/tutorials is not in this tree", allow_module_level=True)
+
 
 def _load(name: str) -> ModuleType:
     sys.path.insert(0, str(TOOLS))
