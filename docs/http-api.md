@@ -376,7 +376,9 @@ name with no value (`?foo`) counts. The check comes before the body is read, and
 unknown name is reported alone, not with value errors. `@pydiggs/client`'s
 `createPydiggsHandler` answers the same. Multipart fields are not query parameters: an
 unknown field is `400 invalid-multipart`, as before. `/v1/versions`, `/v1/capabilities`
-and the probes ignore the query.
+and the probes ignore the query. The `GET` endpoints (`/v1/rules`, `/v1/versions`,
+`/v1/capabilities`) always answer JSON and do not negotiate `Accept`, so on `/v1/rules`
+an unknown parameter is 422 whatever `Accept` says.
 
 **Upgrading from 1.13 or earlier.** Remove the parameter the answer names. If you cannot
 change a client yet, `unknown_query="ignore"` (`PYDIGGS_UNKNOWN_QUERY=ignore`) restores

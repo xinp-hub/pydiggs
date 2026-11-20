@@ -111,6 +111,13 @@ def test_unknown_comes_after_accept_and_before_the_media_type(client):
     _unknown(wrong_media, "x")
 
 
+def test_rules_does_not_negotiate_accept_so_an_unknown_parameter_is_422(client):
+    # The GET endpoints always answer JSON (no 406 in their OpenAPI responses).
+    assert client.get("/v1/rules", headers={"Accept": "text/html"}).status_code == 200
+    response = client.get("/v1/rules", params={"typo": "1"}, headers={"Accept": "text/html"})
+    _unknown(response, "typo")
+
+
 def test_known_parameters_still_work(client):
     response = client.post(
         "/v1/validate",
