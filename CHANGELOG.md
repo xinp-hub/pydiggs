@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Unversioned documentation addresses work again.** Since the documentation became
+  versioned (1.12.0), an address such as `https://xinp-hub.github.io/pydiggs/http-api/`
+  was a 404: only `latest/` and `dev/` were served. pyDIGGS emits such addresses itself
+  (the `type` of every HTTP API problem, the SARIF `helpUri` of a finding), and older
+  READMEs on PyPI link to them. Every page now has a redirect at its unversioned address
+  that keeps the `?query` and `#fragment`, and any other unversioned path falls back to
+  the same path under `latest/`. What pyDIGGS emits is unchanged.
+
 ## [1.14.0] - 2026-11-19
 
 ### Added
