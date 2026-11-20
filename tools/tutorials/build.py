@@ -62,6 +62,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from files import FilesError, install_steps, snapshot
 from spec import (
     ENGINE_VERSION,
     ROOT,
@@ -631,13 +632,18 @@ def fingerprint(tutorial: Tutorial, manifest: Manifest) -> str:
     return digest.hexdigest()
 
 
+def package_name() -> str:
+    """The distribution name, ``[project] name`` in pyproject.toml."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    return str(project["name"])
+
+
 def package_version() -> str:
     """The installed version of the package the tutorials show (``[project] name``)."""
     if os.environ.get("TUTORIALS_PACKAGE_VERSION"):
         return os.environ["TUTORIALS_PACKAGE_VERSION"]
-    name = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["name"]
     try:
-        return importlib.metadata.version(name)
+        return importlib.metadata.version(package_name())
     except importlib.metadata.PackageNotFoundError:
         return "unknown"
 
@@ -653,6 +659,21 @@ def build(tutorial: Tutorial, manifest: Manifest, voice: Voice, out_root: Path) 
         work.mkdir()
         narrations = [narrate(voice, s, scratch, i) for i, s in enumerate(tutorial.scenes, 1)]
         run_setup(tutorial, work)
+        if tutorial.files:
+            # Before anything is recorded: the download is what the video starts from.
+            try:
+                snapshot(
+                    tutorial.id,
+                    tutorial.title,
+                    tutorial.files,
+                    work,
+                    out,
+                    commands=[scene.run for scene in tutorial.scenes if scene.run],
+                    install=install_steps(package_name(), package_version()),
+                )
+            except FilesError as exc:
+                msg = f"{tutorial.id}: {exc}"
+                raise SystemExit(msg) from exc
         if tutorial.kind == "terminal":
             clips = record_terminal(tutorial, work, scratch)
         else:

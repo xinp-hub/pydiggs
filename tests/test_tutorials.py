@@ -38,6 +38,7 @@ spec = _load("spec")
 check = _load("check")
 build = _load("build")
 hook = _load("mkdocs_tutorials")
+files = _load("files")
 
 
 def _write(tmp_path: Path, name: str, text: str) -> Path:
@@ -51,6 +52,7 @@ id: demo
 title: A demo
 summary: Shows the demo.
 kind: terminal
+files: []
 scenes:
   - title: First
     say: This scene shows the demo command and what it prints on screen.
@@ -277,3 +279,150 @@ def test_an_unknown_marker_fails_the_docs_build(monkeypatch: pytest.MonkeyPatch)
     hook.on_config({})
     with pytest.raises(ValueError, match="no tutorial named"):
         hook.on_page_markdown("<!-- tutorial: nope -->", page=_page("q.md", "q/"))
+
+
+# --- the follow-along files ----------------------------------------------------------
+
+
+def test_a_terminal_tutorial_must_say_which_files_a_viewer_gets(tmp_path: Path) -> None:
+    with pytest.raises(spec.SpecError, match="files is required"):
+        spec.load_tutorial(_write(tmp_path, "demo", GOOD.replace("files: []\n", "")))
+
+
+@pytest.mark.parametrize(
+    ("listed", "reason"),
+    [
+        ("[../secret.xml]", "plain file name"),
+        ("[sub/site.xml]", "plain file name"),
+        ("[run.sh]", "not one of the text types"),
+        ("[site.xml, site.xml]", "listed twice"),
+    ],
+)
+def test_only_plain_text_files_in_the_work_directory_are_offered(
+    tmp_path: Path, listed: str, reason: str
+) -> None:
+    text = GOOD.replace("files: []", f"files: {listed}")
+    with pytest.raises(spec.SpecError, match=reason):
+        spec.load_tutorial(_write(tmp_path, "demo", text))
+
+
+def _snapshot(work: Path, out: Path, names: tuple[str, ...]) -> dict[str, object]:
+    result: dict[str, object] = files.snapshot(
+        "demo",
+        "A demo",
+        names,
+        work,
+        out,
+        commands=["pydiggs validate a.xml"],
+        install=files.install_steps("pydiggs", "1.13.1"),
+    )
+    return result
+
+
+def test_the_zip_is_the_same_bytes_on_every_build(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "a.xml").write_text("<a/>\n", encoding="utf-8")
+    (work / "b.ags").write_text('"GROUP","PROJ"\n', encoding="utf-8")
+    first = _snapshot(work, tmp_path / "one", ("a.xml", "b.ags"))
+    import os
+
+    os.utime(work / "a.xml", (1_000_000_000, 1_000_000_000))
+    second = _snapshot(work, tmp_path / "two", ("a.xml", "b.ags"))
+    assert first["zip"] == second["zip"]
+    archive = tmp_path / "one" / "files" / "demo-files.zip"
+    import zipfile
+
+    with zipfile.ZipFile(archive) as opened:
+        assert opened.namelist() == ["README.txt", "a.xml", "b.ags"]
+        assert {info.date_time for info in opened.infolist()} == {(1980, 1, 1, 0, 0, 0)}
+        readme = opened.read("README.txt").decode()
+    # REUSE-IgnoreStart: the README's tag, not this file's
+    assert "SPDX-License-Identifier: Apache-2.0" in readme
+    # REUSE-IgnoreEnd
+    assert 'uv add "pydiggs==1.13.1"' in readme
+    assert "pydiggs validate a.xml" in readme
+    assert files.published(tmp_path / "one") == first
+
+
+@pytest.mark.parametrize(
+    ("content", "reason"),
+    [
+        (b"x" * (1_048_576 + 1), "at most"),
+        (b"\xff\xfe not text", "not UTF-8"),
+        (b"token ghp_" + b"a" * 30, "credential"),
+        (b"<path>/Users/someone/site.xml</path>", "path from the machine"),
+    ],
+)
+def test_a_file_unfit_to_publish_is_refused(tmp_path: Path, content: bytes, reason: str) -> None:
+    (tmp_path / "a.xml").write_bytes(content)
+    with pytest.raises(files.FilesError, match=reason):
+        _snapshot(tmp_path, tmp_path / "out", ("a.xml",))
+
+
+def test_a_missing_or_linked_file_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(files.FilesError, match="regular file"):
+        _snapshot(tmp_path, tmp_path / "out", ("a.xml",))
+    (tmp_path / "real.xml").write_text("<a/>", encoding="utf-8")
+    try:
+        (tmp_path / "a.xml").symlink_to(tmp_path / "real.xml")
+    except OSError:
+        pytest.skip("this system cannot make symlinks")
+    with pytest.raises(files.FilesError, match="regular file"):
+        _snapshot(tmp_path, tmp_path / "out", ("a.xml",))
+
+
+def test_install_steps_pin_a_release_and_carry_no_comment() -> None:
+    assert files.install_steps("pydiggs", "1.13.1") == [
+        "uv init --bare",
+        'uv add "pydiggs==1.13.1"',
+        "source .venv/bin/activate",
+    ]
+    assert files.install_steps("pydiggs", "1.14.0.dev3")[1] == "uv add pydiggs"
+    assert not any("#" in step for step in files.install_steps("pydiggs", "1.0"))
+
+
+def test_the_page_offers_the_files_and_the_commands(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "site.xml").write_text("<a/>", encoding="utf-8")
+    (work / "broken.xml").write_text("<b/>", encoding="utf-8")
+    files.snapshot(
+        "validate",
+        "t",
+        ("site.xml", "broken.xml"),
+        work,
+        tmp_path / "validate",
+        commands=["x"],
+        install=files.install_steps("pydiggs", "1.13.1"),
+    )
+    monkeypatch.setattr(hook, "MEDIA", tmp_path)
+    monkeypatch.delenv("TUTORIALS_REQUIRE", raising=False)
+    hook.on_config({})
+    page = hook.on_page_markdown("<!-- tutorial: validate -->", page=_page("q.md", "q/"))
+    assert '!!! example "Try it yourself"' in page
+    assert '<a href="../tutorials/validate/files/validate-files.zip" download>' in page
+    assert '<a href="../tutorials/validate/files/broken.xml" download>' in page
+    assert "SHA-256 <code>" in page
+    tutorial = spec.load_tutorial(spec.TUTORIALS_DIR / "validate.yml")
+    for line in ['    uv add "pydiggs==1.13.1"', *(f"    {s.run}" for s in tutorial.scenes)]:
+        assert line in page.splitlines()
+
+
+def test_without_rendered_files_the_commands_are_still_given(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(hook, "MEDIA", tmp_path)
+    monkeypatch.delenv("TUTORIALS_REQUIRE", raising=False)
+    hook.on_config({})
+    page = hook.on_page_markdown("<!-- tutorial: diff -->", page=_page("q.md", "q/"))
+    assert "published with the site" in page
+    assert "    uv add pydiggs" in page.splitlines()
+    assert "    pydiggs diff site.xml site-rev2.xml" in page.splitlines()
+
+
+def test_every_tutorial_offers_its_files() -> None:
+    for path in spec.tutorial_paths():
+        assert spec.load_tutorial(path).files, path.name

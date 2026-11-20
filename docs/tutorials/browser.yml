@@ -10,6 +10,8 @@ setup:
   - uv build --wheel --out-dir dist {repo}
 serve: python3 examples/browser-worker/serve.py --port {port} --wheel {glob:dist/pydiggs-*.whl}
 ready: http://127.0.0.1:{port}/
+# What the viewer downloads to follow along: the work files setup made.
+files: [site.xml, broken.xml]
 scenes:
   - title: Load the page
     say: >-

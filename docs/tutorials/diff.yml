@@ -6,6 +6,8 @@ setup:
   - cp {repo}/tests/fixtures/ags4/convert_tier_a.ags site.ags
   - pydiggs convert site.ags -o site.xml > /dev/null
   - sed -e '102s/10.00/12.50/' site.xml > site-rev2.xml
+# What the viewer downloads to follow along: the work files setup made.
+files: [site.xml, site-rev2.xml]
 scenes:
   - title: Compare two revisions
     say: >-
