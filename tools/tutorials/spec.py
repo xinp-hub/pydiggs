@@ -57,6 +57,7 @@ class SpecError(ValueError):
     """A tutorial spec or the manifest is not valid; ``problems`` lists every reason."""
 
     def __init__(self, source: str, problems: list[str]) -> None:
+        """Keep where the problems were found, and every one of them."""
         self.source = source
         self.problems = problems
         super().__init__(f"{source}: " + "; ".join(problems))
@@ -432,7 +433,8 @@ def expand(text: str, *, work: Path, port: int | None = None) -> str:
         found = sorted(work.glob(match.group(2)))
         if len(found) != 1:
             msg = f"{match.group(0)} matches {len(found)} files in the work directory, not 1"
-            raise SpecError("placeholder", [msg])
+            where = "placeholder"
+            raise SpecError(where, [msg])
         return found[0].name if match.group(1) == "globname" else str(found[0])
 
     text = _GLOB.sub(one, text)
