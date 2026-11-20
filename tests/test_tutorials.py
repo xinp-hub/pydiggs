@@ -471,6 +471,7 @@ def test_a_file_source_must_stay_in_the_repository(tmp_path: Path) -> None:
         sources.names({"openrpc": "../x.json"}, tmp_path)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="the stand-in tool is a POSIX shell script")
 def test_help_yields_each_long_option_of_each_command(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -535,6 +536,9 @@ def test_a_claim_the_typed_command_satisfies_is_refused(tmp_path: Path) -> None:
         spec.load_tutorial(_write(tmp_path, "demo", text))
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="the rehearsal runs bash, as the Linux recorder does"
+)
 def test_the_rehearsal_fails_a_claim_the_output_does_not_bear_out(tmp_path: Path) -> None:
     text = GOOD.replace("    expect: HELLO\n", "    expect: HELLO\n    claims: ['GOODBYE']\n")
     tutorial = spec.load_tutorial(_write(tmp_path, "demo", text))
