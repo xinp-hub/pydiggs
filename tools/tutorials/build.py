@@ -478,6 +478,22 @@ def write_clip(shown: list[tuple[Path, float]], target: Path) -> None:
     )  # fmt: skip
 
 
+def _check_claims(page: Any, tid: str, index: int, claims: tuple[str, ...]) -> None:
+    """Each claim the narration makes must be on the page when the scene ends.
+
+    Terminal claims are proved by the rehearsal against the same commands' real output:
+    matching them on the recorded screen would break wherever a long line wraps.
+    """
+    from playwright.sync_api import expect  # noqa: PLC0415
+
+    for claim in claims:
+        try:
+            expect(page.locator("body")).to_contain_text(re.compile(claim), timeout=10_000)
+        except AssertionError as exc:
+            msg = f"{tid} scene {index}: the narration claims {claim!r}, not on the page"
+            raise SystemExit(msg) from exc
+
+
 def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
     """Start the tutorial's server, do each scene's steps on camera; return the clips.
 
@@ -543,6 +559,7 @@ def record_browser(tutorial: Tutorial, work: Path, scratch: Path) -> list[Path]:
                     except Exception as exc:
                         msg = f"{tutorial.id} scene {index}: {step.action} failed: {exc}"
                         raise SystemExit(msg) from exc
+                _check_claims(page, tutorial.id, index, scene.claims)
                 page.wait_for_timeout(800)
                 marks.append((begin, time.time()))
             page.wait_for_timeout(300)  # let the last frames arrive
@@ -573,6 +590,23 @@ def cut_scenes(
 
 
 # --- assembly ---------------------------------------------------------------------------
+
+
+def screen_hash(clip: Path) -> str:
+    """A 64-bit average hash of the clip's last frame: what the scene ends on.
+
+    Small enough to compare across renders and insensitive to encoder noise, so the
+    change report (report.py) can say which scenes now end on a different screen.
+    """
+    pixels = subprocess.run(  # noqa: S603
+        ["ffmpeg", "-v", "error", "-sseof", "-0.1", "-i", str(clip), "-frames:v", "1",  # noqa: S607
+         "-vf", "scale=8:8:flags=area,format=gray", "-f", "rawvideo", "-"],
+        capture_output=True, check=True,
+    ).stdout  # fmt: skip
+    if len(pixels) < 64:  # noqa: PLR2004 - 8 x 8 grey pixels
+        return ""
+    mean = sum(pixels[:64]) / 64
+    return f"{sum(1 << i for i, v in enumerate(pixels[:64]) if v > mean):016x}"
 
 
 def scene_segment(clip: Path, voice: Narration, target: Path) -> float:
@@ -681,6 +715,7 @@ def build(tutorial: Tutorial, manifest: Manifest, voice: Voice, out_root: Path) 
         segments: list[Path] = []
         captions: list[Cue] = []
         chapters: list[Cue] = []
+        scenes: list[dict[str, str]] = []
         at = 0.0
         for index, (clip, narration, scene) in enumerate(
             zip(clips, narrations, tutorial.scenes, strict=True), 1
@@ -692,6 +727,13 @@ def build(tutorial: Tutorial, manifest: Manifest, voice: Voice, out_root: Path) 
                 Cue(at + LEAD + c.start, at + LEAD + c.end, c.text) for c in narration.cues
             ]
             chapters.append(Cue(at, at + length, scene.title or f"Step {index}"))
+            scenes.append(
+                {
+                    "title": scene.title or f"Step {index}",
+                    "say_sha256": hashlib.sha256(scene.say.encode("utf-8")).hexdigest(),
+                    "screen": screen_hash(clip),
+                }
+            )
             at += length
         encode(segments, out, tutorial.id)
     write_vtt(out / f"{tutorial.id}.en.vtt", captions)
@@ -705,6 +747,7 @@ def build(tutorial: Tutorial, manifest: Manifest, voice: Voice, out_root: Path) 
         "package_version": package_version(),
         "fingerprint": fingerprint(tutorial, manifest),
         "chapters": [{"start": round(c.start, 2), "title": c.text} for c in chapters],
+        "scenes": scenes,
     }
     (out / "meta.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     return out

@@ -9,7 +9,11 @@ its narration says (the rehearsal), and the caption and page markup are well for
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
+import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -39,6 +43,8 @@ check = _load("check")
 build = _load("build")
 hook = _load("mkdocs_tutorials")
 files = _load("files")
+sources = _load("discover")
+report = _load("report")
 
 
 def _write(tmp_path: Path, name: str, text: str) -> Path:
@@ -426,3 +432,187 @@ def test_without_rendered_files_the_commands_are_still_given(
 def test_every_tutorial_offers_its_files() -> None:
     for path in spec.tutorial_paths():
         assert spec.load_tutorial(path).files, path.name
+
+
+# --- wider discovery -----------------------------------------------------------------
+
+
+def test_openapi_yields_each_operation_and_its_query_parameters(tmp_path: Path) -> None:
+    document = {
+        "paths": {
+            "/v1/x": {
+                "parameters": [{"in": "query", "name": "shared"}],
+                "post": {
+                    "parameters": [{"in": "query", "name": "fmt"}, {"in": "header", "name": "h"}]
+                },
+                "get": {},
+            }
+        }
+    }
+    (tmp_path / "openapi.json").write_text(json.dumps(document), encoding="utf-8")
+    assert sources.names({"openapi": "openapi.json"}, tmp_path) == {
+        "POST /v1/x",
+        "POST /v1/x?shared",
+        "POST /v1/x?fmt",
+        "GET /v1/x",
+        "GET /v1/x?shared",
+    }
+
+
+def test_openrpc_and_npm_exports(tmp_path: Path) -> None:
+    (tmp_path / "rpc.json").write_text('{"methods": [{"name": "a"}, {"name": "b.c"}]}', "utf-8")
+    (tmp_path / "package.json").write_text('{"exports": {".": {}, "./http": {}}}', "utf-8")
+    assert sources.names({"openrpc": "rpc.json"}, tmp_path) == {"a", "b.c"}
+    assert sources.names({"npm_exports": "package.json"}, tmp_path) == {".", "./http"}
+
+
+def test_a_file_source_must_stay_in_the_repository(tmp_path: Path) -> None:
+    with pytest.raises(sources.DiscoverError, match="outside the repository"):
+        sources.names({"openrpc": "../x.json"}, tmp_path)
+
+
+def test_help_yields_each_long_option_of_each_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    tool = tmp_path / "tool"
+    tool.write_text(
+        "#!/bin/sh\necho 'usage: tool sub [--help] [--format F] [--max-bytes N] [-o OUT]'\n",
+        encoding="utf-8",
+    )
+    tool.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    assert sources.names({"help": ["tool sub"]}, tmp_path) == {
+        "sub --format",
+        "sub --max-bytes",
+    }
+
+
+def test_python_pick_walks_into_lists() -> None:
+    assert sources._pick({"operations": [{"id": "a"}, {"id": "b"}]}, "operations.id") == [
+        "a",
+        "b",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("source", "reason"),
+    [
+        ("nocolon", "module:attribute"),
+        ({"openapi": "a", "openrpc": "b"}, "exactly one"),
+        ({"help": "pydiggs validate"}, "help lists commands"),
+        ({"openapi": "a.json", "pick": "x"}, "unknown keys"),
+        (["x"], "module:attribute or a mapping"),
+    ],
+)
+def test_a_malformed_source_is_refused(source: object, reason: str) -> None:
+    assert any(reason in problem for problem in sources.problems(source))
+
+
+def test_pydiggs_discovers_options_endpoints_methods_tools_and_entry_points() -> None:
+    labels = {item.partition(":")[0] for item in spec.discover(spec.load_manifest())}
+    assert {"cli", "api", "option", "operation", "http", "sidecar", "mcp", "js"} <= labels
+
+
+# --- narration claims ------------------------------------------------------------------
+
+
+def test_a_quantity_in_the_narration_needs_a_claim(tmp_path: Path) -> None:
+    text = GOOD.replace("This scene shows", "This scene shows two")
+    with pytest.raises(spec.SpecError, match="states a quantity"):
+        spec.load_tutorial(_write(tmp_path, "demo", text))
+    claimed = text.replace("    expect: HELLO\n", "    expect: HELLO\n    claims: ['HEL']\n")
+    assert spec.load_tutorial(_write(tmp_path, "demo", claimed)).scenes[0].claims == ("HEL",)
+
+
+def test_digits_are_names_not_quantities(tmp_path: Path) -> None:
+    text = GOOD.replace("This scene shows", "This DIGGS 3.0 scene, rule 13, shows")
+    assert spec.load_tutorial(_write(tmp_path, "demo", text)).scenes[0].claims == ()
+
+
+def test_a_claim_the_typed_command_satisfies_is_refused(tmp_path: Path) -> None:
+    text = GOOD.replace("    expect: HELLO\n", "    expect: HELLO\n    claims: ['echo']\n")
+    with pytest.raises(spec.SpecError, match="also matches the typed command"):
+        spec.load_tutorial(_write(tmp_path, "demo", text))
+
+
+def test_the_rehearsal_fails_a_claim_the_output_does_not_bear_out(tmp_path: Path) -> None:
+    text = GOOD.replace("    expect: HELLO\n", "    expect: HELLO\n    claims: ['GOODBYE']\n")
+    tutorial = spec.load_tutorial(_write(tmp_path, "demo", text))
+    found = check.rehearse(tutorial)
+    assert len(found) == 1
+    assert "claims 'GOODBYE'" in found[0]
+
+
+# --- the change report -----------------------------------------------------------------
+
+
+def _meta(fingerprint: str = "f", scenes: list[tuple[str, str]] | None = None) -> dict[str, object]:
+    return {
+        "fingerprint": fingerprint,
+        "scenes": [
+            {"title": f"s{i}", "say_sha256": say, "screen": screen}
+            for i, (say, screen) in enumerate(scenes or [("a", "0" * 16)], 1)
+        ],
+    }
+
+
+def test_the_report_names_what_changed_scene_by_scene() -> None:
+    same = _meta(scenes=[("a", "00000000000000ff"), ("b", "0" * 16)])
+    assert report.compare(same, same) == []
+    assert report.compare(same, None) == ["new tutorial (or the published site could not be read)"]
+    noisy = _meta(scenes=[("a", "00000000000000fe"), ("b", "0" * 16)])
+    assert report.compare(noisy, same) == []  # one bit: encoder noise
+    moved = _meta(fingerprint="g", scenes=[("x", "ffffffff000000ff"), ("b", "0" * 16)])
+    assert report.compare(moved, same) == [
+        "spec, voice or engine changed",
+        "scene 1 (s1): narration changed",
+        "scene 1 (s1): now ends on a different screen",
+    ]
+    shorter = _meta(scenes=[("a", "00000000000000ff")])
+    assert report.compare(shorter, same) == ["scenes were removed"]
+
+
+def test_the_report_lists_only_changed_tutorials(tmp_path: Path) -> None:
+    folder = tmp_path / "demo"
+    folder.mkdir()
+    (folder / "meta.json").write_text(json.dumps(_meta()), encoding="utf-8")
+    text = report.report(tmp_path, "")
+    assert "| `demo` | new tutorial" in text
+    assert "0 tutorial(s) unchanged" in text
+
+
+def test_a_screen_hash_is_sixty_four_bits(tmp_path: Path) -> None:
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        pytest.skip("ffmpeg is not installed")
+    clip = tmp_path / "c.mp4"
+    subprocess.run(  # noqa: S603 - a fixed command line
+        [ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=10:duration=1",
+         "-pix_fmt", "yuv420p", str(clip)],
+        check=True,
+    )  # fmt: skip
+    first = build.screen_hash(clip)
+    assert re.fullmatch(r"[0-9a-f]{16}", first)
+    assert build.screen_hash(clip) == first
+
+
+@pytest.mark.parametrize(
+    ("line", "base"),
+    [
+        ("site_url: https://a.github.io/b/\n", "https://a.github.io/b/dev/tutorials/"),
+        (
+            'site_url: !ENV [DOCS_SITE_URL, "https://o.github.io/r/"]\n',
+            "https://o.github.io/r/dev/tutorials/",
+        ),
+        ("site_name: x\n", ""),
+    ],
+)
+def test_the_report_finds_the_published_site(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, line: str, base: str
+) -> None:
+    (tmp_path / "mkdocs.yml").write_text(line, encoding="utf-8")
+    monkeypatch.setattr(report, "ROOT", tmp_path)
+    monkeypatch.delenv("DOCS_SITE_URL", raising=False)
+    assert report._site_base() == base
+    monkeypatch.setenv("DOCS_SITE_URL", "https://env.example/x")
+    assert report._site_base() == "https://env.example/x/dev/tutorials/"

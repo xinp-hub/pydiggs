@@ -15,6 +15,9 @@ scenes:
       PROJ: the project group may hold only one data row, and this file has two.
     run: pydiggs ags4 check received.ags
     expect: 'ags4\.rule-13'
+    claims:
+      - 'not-valid: 1 error'
+      - 'Group PROJ has more than one DATA row; this is row 2'
   - title: A clean file
     say: >-
       Checking a clean file prints valid with no errors. The information line says that no

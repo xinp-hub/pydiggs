@@ -16,50 +16,256 @@ pronounce:               # how the voice says a word; captions keep the written 
 discover:
   cli: pydiggs.cli:_SUBCOMMANDS
   api: pydiggs:__all__
+  # Every long option of every command, from its own --help.
+  option:
+    help: [pydiggs validate, pydiggs convert, pydiggs diff, pydiggs ags4 check,
+           pydiggs serve, pydiggs capabilities]
+  # Every operation pyDIGGS offers on any surface (pydiggs.capabilities()).
+  operation: {python: "pydiggs:capabilities", pick: operations.id}
+  # The HTTP API: each endpoint and each of its query parameters.
+  http: {openapi: src/pydiggs/server/openapi.json}
+  # The stdio sidecar's methods, and the MCP server's tools.
+  sidecar: {openrpc: src/pydiggs/sidecar/openrpc.json}
+  mcp: pydiggs.mcp_server._tools:TOOL_NAMES
+  # @pydiggs/client's entry points.
+  js: {npm_exports: js/package.json}
 features:
-  - id: validate
-    covers: [cli:validate]
-    tutorial: validate
-  - id: python-api
-    covers: [api:validate, api:validate_bytes, api:validator, api:warm_up, api:Report,
-             api:Finding, api:Severity, api:Step, api:read, api:read_bytes, api:Model,
-             api:detect_diggs_version, api:explain_rule, api:rule_catalogue, api:RuleInfo,
-             api:Guidance, api:PydiggsError, api:DocumentError, api:InstanceReadError,
-             api:ResourceError]
-    tutorial: python-api
-  - id: convert
-    covers: [cli:convert]
-    tutorial: convert
-  - id: diff
-    covers: [cli:diff]
-    tutorial: diff
-  - id: ags4-check
-    covers: [cli:ags4]
-    tutorial: ags4-check
-  - id: browser
-    covers: [page:browser]
-    tutorial: browser
-  - id: serve
-    covers: [cli:serve]
-    waiver: >-
-      Serves validation to other programs over stdio, HTTP or MCP; there is nothing to
-      watch, and the HTTP API, sidecar and MCP pages show the requests and replies.
-  - id: capabilities
-    covers: [cli:capabilities, api:capabilities, api:Capabilities, api:Operation,
-             api:OptionSpec, api:capabilities_schema, api:CAPABILITIES_SCHEMA_URL,
-             api:CAPABILITIES_SCHEMA_VERSION]
-    waiver: >-
-      A machine-readable listing for integrators who build on pyDIGGS; the capabilities
-      page documents the document field by field.
-  - id: documents
-    covers: [api:findings_document, api:findings_json, api:findings_schema,
-             api:model_schema, api:FINDINGS_SCHEMA_URL, api:FINDINGS_SCHEMA_VERSION,
-             api:MODEL_SCHEMA_URL, api:MODEL_SCHEMA_VERSION]
-    waiver: >-
-      Schema constants and serialisers for program authors; the findings and reading
-      pages document the JSON contracts, and the validate tutorial shows the output.
-  - id: version-info
-    covers: [api:version_info, api:VersionInfo]
-    waiver: >-
-      Reports the installed version and its bundled reference data; one call, shown on
-      the installation page.
+- id: validate
+  covers:
+  - cli:validate
+  - option:validate --format
+  - option:validate --output
+  - operation:validate
+  tutorial: validate
+- id: python-api
+  covers:
+  - api:validate
+  - api:validate_bytes
+  - api:validator
+  - api:warm_up
+  - api:Report
+  - api:Finding
+  - api:Severity
+  - api:Step
+  - api:read
+  - api:read_bytes
+  - api:Model
+  - api:detect_diggs_version
+  - api:explain_rule
+  - api:rule_catalogue
+  - api:RuleInfo
+  - api:Guidance
+  - api:PydiggsError
+  - api:DocumentError
+  - api:InstanceReadError
+  - api:ResourceError
+  - operation:read
+  - operation:detect
+  tutorial: python-api
+- id: convert
+  covers:
+  - cli:convert
+  - option:convert --to
+  - option:convert --output
+  - option:convert --force
+  - operation:convert.ags4-to-diggs
+  - operation:convert.diggs-to-ags4
+  tutorial: convert
+- id: diff
+  covers:
+  - cli:diff
+  - operation:diff
+  tutorial: diff
+- id: ags4-check
+  covers:
+  - cli:ags4
+  - operation:ags4.check
+  tutorial: ags4-check
+- id: browser
+  covers:
+  - page:browser
+  tutorial: browser
+- id: serve
+  covers:
+  - cli:serve
+  - option:serve --allow-path
+  - option:serve --host
+  - option:serve --http
+  - option:serve --log-format
+  - option:serve --log-level
+  - option:serve --max-bytes
+  - option:serve --max-findings
+  - option:serve --mcp
+  - option:serve --port
+  - option:serve --stdio
+  - option:serve --timeout
+  - option:serve --workers
+  - http:GET /livez
+  - http:GET /readyz
+  - http:GET /v1/capabilities
+  - http:GET /v1/readyz
+  - http:GET /v1/rules
+  - http:GET /v1/rules/{rule_id}
+  - http:GET /v1/rules?step
+  - http:GET /v1/versions
+  - http:POST /v1/ags4/check
+  - http:POST /v1/ags4/check?name
+  - http:POST /v1/convert
+  - http:POST /v1/convert?ags_version
+  - http:POST /v1/convert?diggs_version
+  - http:POST /v1/convert?name
+  - http:POST /v1/convert?to
+  - http:POST /v1/diff
+  - http:POST /v1/diff?abs_tol
+  - http:POST /v1/diff?match
+  - http:POST /v1/diff?max_changes
+  - http:POST /v1/diff?new_name
+  - http:POST /v1/diff?old_name
+  - http:POST /v1/diff?rel_tol
+  - http:POST /v1/diff?show_reformatted
+  - http:POST /v1/diff?show_renamed
+  - http:POST /v1/read
+  - http:POST /v1/read?diggs_version
+  - http:POST /v1/read?name
+  - http:POST /v1/read?select
+  - http:POST /v1/validate
+  - http:POST /v1/validate?checks
+  - http:POST /v1/validate?diggs_version
+  - http:POST /v1/validate?name
+  - sidecar:ags4.check
+  - sidecar:convert
+  - sidecar:diff
+  - sidecar:initialize
+  - sidecar:ping
+  - sidecar:read
+  - sidecar:rules.explain
+  - sidecar:rules.list
+  - sidecar:shutdown
+  - sidecar:validate
+  - sidecar:versions
+  - mcp:explain_rule
+  - mcp:get_feature
+  - mcp:get_results
+  - mcp:list_features
+  - mcp:list_measurements
+  - mcp:list_rules
+  - mcp:supported_versions
+  - mcp:validate_diggs
+  waiver: 'Serves pyDIGGS to other programs over HTTP, the stdio sidecar or MCP: requests and
+    replies, nothing to watch. The HTTP API, sidecar and MCP pages document every endpoint, parameter,
+    method and tool, with examples that run in the test suite.'
+- id: capabilities
+  covers:
+  - cli:capabilities
+  - api:capabilities
+  - api:Capabilities
+  - api:Operation
+  - api:OptionSpec
+  - api:capabilities_schema
+  - api:CAPABILITIES_SCHEMA_URL
+  - api:CAPABILITIES_SCHEMA_VERSION
+  - option:capabilities --json
+  waiver: A machine-readable listing for integrators who build on pyDIGGS; the capabilities page
+    documents the document field by field.
+- id: documents
+  covers:
+  - api:findings_document
+  - api:findings_json
+  - api:findings_schema
+  - api:model_schema
+  - api:FINDINGS_SCHEMA_URL
+  - api:FINDINGS_SCHEMA_VERSION
+  - api:MODEL_SCHEMA_URL
+  - api:MODEL_SCHEMA_VERSION
+  waiver: Schema constants and serialisers for program authors; the findings and reading pages
+    document the JSON contracts, and the validate tutorial shows the output.
+- id: version-info
+  covers:
+  - api:version_info
+  - api:VersionInfo
+  waiver: Reports the installed version and its bundled reference data; one call, shown on the
+    installation page.
+- id: validate-options
+  covers:
+  - option:validate --absolute-paths
+  - option:validate --allow-network
+  - option:validate --base-dir
+  - option:validate --checks
+  - option:validate --dictionary-path
+  - option:validate --diggs-version
+  - option:validate --fail-on
+  - option:validate --local-dictionaries
+  - option:validate --max-bytes
+  - option:validate --max-findings
+  - option:validate --schema-path
+  - option:validate --schematron-path
+  - option:validate --snippets
+  - option:validate --timeout
+  waiver: Reference options of `pydiggs validate` beyond the everyday path the video shows; each
+    is described by `pydiggs validate --help` and on the usage page.
+- id: convert-options
+  covers:
+  - option:convert --ags-version
+  - option:convert --diggs-version
+  - option:convert --fail-on
+  - option:convert --format
+  - option:convert --max-bytes
+  - option:convert --report
+  - option:convert --residual
+  - option:convert --time-budget
+  waiver: Reference options of `pydiggs convert` beyond the everyday path the video shows; each
+    is described by `pydiggs convert --help` and on the convert page.
+- id: diff-options
+  covers:
+  - option:diff --abs-tol
+  - option:diff --format
+  - option:diff --match
+  - option:diff --max-bytes
+  - option:diff --max-changes
+  - option:diff --output
+  - option:diff --rel-tol
+  - option:diff --time-budget
+  - option:diff --verbose
+  waiver: Reference options of `pydiggs diff` beyond the everyday path the video shows; each is
+    described by `pydiggs diff --help` and on the diff page.
+- id: ags4-check-options
+  covers:
+  - option:ags4 check --absolute-paths
+  - option:ags4 check --dictionary
+  - option:ags4 check --fail-on
+  - option:ags4 check --format
+  - option:ags4 check --max-bytes
+  - option:ags4 check --max-findings
+  - option:ags4 check --output
+  - option:ags4 check --time-budget
+  waiver: Reference options of `pydiggs ags4 check` beyond the everyday path the video shows;
+    each is described by `pydiggs ags4 check --help` and on the ags4 page.
+- id: library-operations
+  covers:
+  - operation:ags4.read
+  - operation:ags4.write
+  - operation:export.geodataframe
+  - operation:export.geojson
+  - operation:export.geoparquet
+  - operation:export.gpkg
+  - operation:export.pandas
+  - operation:export.polars
+  - operation:gis.transform
+  - operation:rules.explain
+  - operation:rules.list
+  waiver: Library operations for Python programs (AGS4 reading and writing, exports, GIS transforms,
+    the rule catalogue); the reference and the AGS4, reading and capabilities pages document each
+    with examples that run in the test suite.
+- id: javascript-client
+  covers:
+  - js:.
+  - js:./browser
+  - js:./browser/worker
+  - js:./http
+  - js:./hybrid
+  - js:./node
+  - js:./package.json
+  - js:./schemas/*.json
+  - js:./sw
+  waiver: Entry points of @pydiggs/client for JavaScript programs; the JavaScript and TypeScript
+    page documents each with examples, and its own test suite runs them.
