@@ -557,8 +557,10 @@ node keys included), `/v1/convert` (AGS4 as text or bytes, or DIGGS XML with `to
 multipart, `/v1/diff` (multipart parts `old` and `new`, each up to `maxBodyBytes`),
 `/v1/versions`, `/v1/capabilities`,
 `/v1/rules`, `/v1/rules/{rule_id}` and `/v1/readyz`, with pyDIGGS's own status codes and problem documents, including 504
-`timeout` and 503 `busy` with `Retry-After`. `PydiggsHttpClient`
-and `PydiggsHybrid` work against it unchanged. In a
+`timeout` and 503 `busy` with `Retry-After`. As in pyDIGGS, `busy` comes only after a
+request's own checks, and `/v1/versions`, `/v1/capabilities` and `/v1/rules` do not
+queue behind documents: their first answers are kept for the handler's life.
+`PydiggsHttpClient` and `PydiggsHybrid` work against it unchanged. In a
 Next.js route handler (`app/api/pydiggs/[...path]/route.ts`):
 
 ```ts

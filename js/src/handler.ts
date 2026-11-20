@@ -42,8 +42,15 @@ export interface PydiggsHandlerOptions {
    */
   maxBodyBytes?: number;
   /**
-   * Requests in progress at once, counted from before their body is read until they are
-   * answered, as pyDIGGS admits them; beyond it the answer is 503 `busy`. Default: 8.
+   * Requests with a body (validate, read, convert, ags4/check, diff) in progress at once,
+   * counted from before their body is read until they are answered, as pyDIGGS admits
+   * them. Beyond it, or when the engine already has this many calls waiting, the answer
+   * is 503 `busy`, given after the request's own checks, as in pyDIGGS. Default: 8.
+   *
+   * `/v1/versions`, `/v1/capabilities` and `/v1/rules` are not counted: their first
+   * answers are kept for the handler's life, so later requests are answered at once,
+   * without waiting for the engine. Only while no answer has been kept are they 503
+   * `busy` when the engine is full.
    */
   maxPending?: number;
   /**
@@ -450,8 +457,10 @@ export function createPydiggsHandler(
   let inFlight = 0;
   const busy = (): Response => problem("busy", { headers: { "Retry-After": "1", Connection: "close" } });
 
+  // Taken after the request's own checks, as pyDIGGS's admission is, so a request that
+  // would be refused anyway is refused for its own fault, not 503 `busy`.
   async function admitted(run: () => Promise<Response>): Promise<Response> {
-    if (inFlight >= maxPending) return busy();
+    if (inFlight >= maxPending || engine.pending >= maxPending) return busy();
     inFlight += 1;
     try {
       return await run();
@@ -554,7 +563,6 @@ export function createPydiggsHandler(
       return problem("not-acceptable", { detail: "Accept application/json." });
     }
     if (engine.status === "failed") return problem("not-ready");
-    if (engine.pending >= maxPending) return busy();
     return null;
   }
 
@@ -799,25 +807,47 @@ export function createPydiggsHandler(
     }
   }
 
+  // pyDIGGS answers these routes at once, never 503 `busy`. Here they come from the engine,
+  // whose answers do not change while it runs, so each first answer is kept and later
+  // requests do not wait behind documents. Only answers are kept, never refusals, and a
+  // rule only when it is known: pyDIGGS answers any rule id, so unknown ids would grow it.
+  const kept = new Map<string, unknown>();
   async function info(request: Request, route: string): Promise<Response> {
-    const refused = gate(request);
-    if (refused) return refused;
-    try {
-      if (route === "/v1/versions") return json(await engine.versions({ signal: request.signal }));
-      if (route === "/v1/capabilities") return json(await engine.capabilities({ signal: request.signal }));
-      if (route === "/v1/rules") {
-        const url = new URL(request.url);
-        const unknown = [...new Set(url.searchParams.keys())].filter((key) => key !== "step");
-        if (unknown.length > 0) {
-          return problem("invalid-parameter", {
-            errors: unknown.slice(0, 20).map((parameter) => ({ parameter, problem: "unknown parameter" })),
-          });
-        }
-        const step = url.searchParams.get("step");
-        return json(await engine.listRules({ signal: request.signal, ...(step !== null ? { step: step as RuleStep } : {}) }));
+    if (rejectCrossSite && request.headers.get("Sec-Fetch-Site") === "cross-site") return problem("cross-site");
+    if (!acceptsJson(request.headers.get("Accept"))) return problem("not-acceptable", { detail: "Accept application/json." });
+    let key: string;
+    let call: (signal: AbortSignal) => Promise<unknown>;
+    let keep = (_answer: unknown): boolean => true;
+    if (route === "/v1/versions") {
+      key = "versions";
+      call = (signal) => engine.versions({ signal });
+    } else if (route === "/v1/capabilities") {
+      key = "capabilities";
+      call = (signal) => engine.capabilities({ signal });
+    } else if (route === "/v1/rules") {
+      const url = new URL(request.url);
+      const unknown = [...new Set(url.searchParams.keys())].filter((name) => name !== "step");
+      if (unknown.length > 0) {
+        return problem("invalid-parameter", {
+          errors: unknown.slice(0, 20).map((parameter) => ({ parameter, problem: "unknown parameter" })),
+        });
       }
+      const step = url.searchParams.get("step");
+      key = step === null ? "rules" : `rules?step=${step}`;
+      call = (signal) => engine.listRules({ signal, ...(step !== null ? { step: step as RuleStep } : {}) });
+    } else {
       const id = decodeURIComponent(route.slice("/v1/rules/".length));
-      return json(await engine.explainRule(id, { signal: request.signal }));
+      key = `rule ${id}`;
+      call = (signal) => engine.explainRule(id, { signal });
+      keep = (answer) => (answer as { known?: unknown } | null)?.known === true;
+    }
+    if (kept.has(key)) return json(kept.get(key));
+    if (engine.status === "failed") return problem("not-ready");
+    if (engine.pending >= maxPending) return busy();
+    try {
+      const answer = await call(request.signal);
+      if (keep(answer)) kept.set(key, answer);
+      return json(answer);
     } catch (error) {
       return failure(error);
     }
