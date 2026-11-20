@@ -20,6 +20,9 @@ matching pyDIGGS version number.
   engine runs, and gives it again without asking the engine. Refusals and unknown rules
   are never kept. Until a route has answered once, a full engine still makes it 503
   `busy`.
+- `/v1/versions`, `/v1/capabilities`, `/v1/rules` and `/v1/rules/{rule_id}` always
+  answer JSON, as pyDIGGS does, whatever `Accept` asks for. Before, an `Accept` header
+  without JSON (say a browser's `text/html`) was answered 406 `not-acceptable`.
 
 ## [0.7.0] - 2026-11-19
 
