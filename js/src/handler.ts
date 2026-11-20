@@ -814,7 +814,7 @@ export function createPydiggsHandler(
   const kept = new Map<string, unknown>();
   async function info(request: Request, route: string): Promise<Response> {
     if (rejectCrossSite && request.headers.get("Sec-Fetch-Site") === "cross-site") return problem("cross-site");
-    if (!acceptsJson(request.headers.get("Accept"))) return problem("not-acceptable", { detail: "Accept application/json." });
+    // No Accept check: pyDIGGS always answers these routes in JSON, whatever is asked for.
     let key: string;
     let call: (signal: AbortSignal) => Promise<unknown>;
     let keep = (_answer: unknown): boolean => true;

@@ -637,3 +637,15 @@ test("a refusal from the engine is not kept", async () => {
   await handler(new Request("http://app.test/v1/versions"));
   assert.equal(calls.length, 2, "asked again");
 });
+
+test("versions, capabilities and rules answer JSON whatever Accept asks, as in pyDIGGS", async () => {
+  const handler = createPydiggsHandler(engine().value);
+  const headers = { Accept: "text/html" };
+  for (const path of ["/v1/versions", "/v1/capabilities", "/v1/rules", "/v1/rules/schema.1"]) {
+    const response = await handler(new Request(`http://app.test${path}`, { headers }));
+    assert.equal(response.status, 200, path);
+    assert.match(response.headers.get("Content-Type") ?? "", /^application\/json/, path);
+  }
+  const typo = await handler(new Request("http://app.test/v1/rules?typo=1", { headers }));
+  assert.deepEqual([typo.status, (await typo.json()).code], [422, "invalid-parameter"], "the query is still checked");
+});
