@@ -151,11 +151,16 @@ jobs:
             rm -rf "$RUNNER_TEMP/site/latest"
             echo "::warning title=Release docs were not built::The docs of $TAG do not build, so the site is published with dev only."
           fi
+      # Also the redirect stubs at every page's unversioned address (/http-api/ leads to
+      # latest/http-api/) and the root 404.html, which needs the site's base path.
       - name: Write versions.json and the redirects
         working-directory: dev
         env:
           BUILT: ${{ steps.latest.outputs.built }}
-        run: python3 scripts/docs_site.py assemble --site "$RUNNER_TEMP/site" --latest "$BUILT"
+          BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: >-
+          python3 scripts/docs_site.py assemble --site "$RUNNER_TEMP/site" --latest "$BUILT"
+          --base-url "$BASE_URL/"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9  # v5.0.0
         with:
           path: ${{ runner.temp }}/site
@@ -212,6 +217,9 @@ jobs:
               { echo "schemas/ at the site root"; return; }
             get "$site/versions.json" | jq -e 'any(.[]; .version == "dev")' > /dev/null ||
               { echo "dev in versions.json"; return; }
+            # pyDIGGS emits unversioned addresses (problem types, the SARIF helpUri).
+            get "$site/http-api/" | grep -F 'http-api/" + location.search + location.hash' > /dev/null ||
+              { echo "the redirect at the unversioned http-api/"; return; }
             if [ -n "$BUILT" ]; then
               lists "$BUILT" || { echo "$BUILT as latest in versions.json"; return; }
             fi

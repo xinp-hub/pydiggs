@@ -191,6 +191,12 @@ Four checks keep the documentation true to the code:
 * **Published versions.** The site has two trees: `latest/` is built from the newest
   `vX.Y.Z` tag and `dev/` from `master`, with a notice on every `dev/` page. The history
   page is `CHANGELOG.md` itself, embedded; there is no second copy to keep in step.
+  Unversioned addresses keep working, because pyDIGGS emits them (problem types, the SARIF
+  `helpUri`): `scripts/docs_site.py` writes a redirect stub at `/<page>/` for every page of
+  `latest/` (of `dev/` before the first release) that keeps the `?query` and `#fragment`,
+  and a root `404.html` that sends any other unversioned path to `latest/`. A new page
+  needs nothing extra; one named like a root entry (`dev`, `latest`, `schemas`, a version)
+  gets no stub.
 
 ## Testing
 

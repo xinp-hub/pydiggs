@@ -13,12 +13,20 @@ trees into one site:
 - ``schemas/`` at the root, because every published JSON Schema and every document
   pyDIGGS writes names its schema by a URL there (``$id``, ``$schema``), and those URLs
   must keep resolving. The release's schemas are copied first; a schema only ``dev/``
-  has (one that is not released yet) is added beside them, never over a released one.
+  has (one that is not released yet) is added beside them, never over a released one;
+- a redirect stub at the unversioned address of every page of that tree, so
+  ``<site>/http-api/`` leads to ``latest/http-api/`` (``dev/`` before any release) with
+  its ``?query`` and ``#fragment``. pyDIGGS emits such addresses (RFC 9457 problem types,
+  the SARIF ``helpUri``, the newsletter, old READMEs on PyPI) and they must keep working.
+  A page whose top-level folder is one of the names above is skipped, never overwritten;
+- a root ``404.html``, unless one exists, that sends any other unknown unversioned path to
+  the same path in that tree. It only ever builds a path under the site base, and it does
+  nothing on a path inside a tree, so a page missing from ``latest/`` too cannot loop.
 
 Older releases are not kept: every deploy replaces the whole site.
 
     python scripts/docs_site.py latest-tag
-    python scripts/docs_site.py assemble --site DIR [--latest X.Y.Z]
+    python scripts/docs_site.py assemble --site DIR [--latest X.Y.Z] [--base-url URL]
 
 Standard library only.
 """
@@ -26,6 +34,7 @@ Standard library only.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import shutil
@@ -33,6 +42,7 @@ import subprocess
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from urllib.parse import urlsplit
 
 #: A final release. Pre-releases (v1.0.0rc1) never become ``latest``.
 RELEASE_TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
@@ -48,6 +58,58 @@ _REDIRECT = """\
 <link rel="canonical" href="{target}">
 </head>
 <body><p>Redirecting to <a href="{target}">{target}</a>.</p></body>
+</html>
+"""
+#: The address the site is published at when ``--base-url`` is not given (mkdocs.yml).
+SITE_URL = "https://xinp-hub.github.io/pydiggs/"
+#: Folders of a tree that hold no pages, whatever they contain.
+_NOT_PAGES = frozenset({"assets", "search"})
+#: A site base path: absolute, ending in "/", plain characters only.
+_BASE_PATH = re.compile(r"/(?:[A-Za-z0-9._~-]+/)*")
+#: What the root 404.html accepts after the base: plain segments joined by single slashes,
+#: so no "%", no backslash and no "//". The page's script uses this same pattern.
+SAFE_REST = r"^(?:[A-Za-z0-9._~-]+/)*[A-Za-z0-9._~-]*$"
+# A meta refresh drops the #fragment, so a script carries it over; the meta refresh, the
+# canonical link and the plain link are the fallback without JavaScript. Inline scripts are
+# fine: the site sends no Content-Security-Policy (GitHub Pages sets none, and neither
+# mkdocs.yml nor overrides/ adds one).
+_STUB = """\
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Redirecting</title>
+<meta name="robots" content="noindex">
+<script>location.replace({target_js} + location.search + location.hash);</script>
+<meta http-equiv="refresh" content="0; url={target}">
+<link rel="canonical" href="{target}">
+</head>
+<body><p>This page has moved to <a href="{target}">{target}</a>.</p></body>
+</html>
+"""
+_NOT_FOUND = """\
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Page not found</title>
+<meta name="robots" content="noindex">
+<script>
+(function () {{
+  var base = {base_js}, home = {home_js}, keep = {keep_js};
+  var path = location.pathname;
+  if (path.indexOf(base) !== 0) return;
+  var rest = path.slice(base.length);
+  if (!new RegExp({safe_js}).test(rest)) return;
+  var parts = rest.split("/");
+  if (keep.indexOf(parts[0]) !== -1) return;
+  if (parts.indexOf("..") !== -1 || parts.indexOf(".") !== -1) return;
+  location.replace(base + home + "/" + rest + location.search + location.hash);
+}})();
+</script>
+</head>
+<body><h1>Page not found</h1>
+<p>Go to the <a href="{home_href}">pyDIGGS documentation</a>.</p></body>
 </html>
 """
 
@@ -69,15 +131,20 @@ def versions(latest: str) -> list[dict[str, object]]:
     return entries
 
 
-def assemble(site: Path, latest: str = "") -> None:
+def assemble(site: Path, latest: str = "", base_url: str = SITE_URL) -> None:
     """Write the files that join ``site/dev`` and ``site/latest`` into one site.
 
+    ``base_url`` is where the site is published; the root 404.html, served at any path,
+    needs its absolute path.
+
     Raises:
-        ValueError: ``latest`` is not ``X.Y.Z``, or a tree it needs has not been built.
+        ValueError: ``latest`` is not ``X.Y.Z``, ``base_url`` has an unusual path, or a
+            tree it needs has not been built.
     """
     if latest and not _VERSION.fullmatch(latest):
         msg = f"not a release version: {latest!r}"
         raise ValueError(msg)
+    base_path(base_url)
     trees = ["dev", "latest"] if latest else ["dev"]
     for tree in trees:
         if not (site / tree / "index.html").is_file():
@@ -98,6 +165,95 @@ def assemble(site: Path, latest: str = "") -> None:
         if (site / home / name).is_file():
             shutil.copyfile(site / home / name, site / name)
     _root_schemas(site, trees[::-1])
+    # Both tree names are reserved even before the first release, so a dev-only build
+    # never writes a root latest/ stub or sends a missing /latest/... path into dev/.
+    reserved = {"dev", "latest", *([latest] if latest else []), *_root_names(site)}
+    _page_stubs(site, home, reserved)
+    _not_found(site, home, reserved, base_path(base_url))
+
+
+def base_path(base_url: str) -> str:
+    """Return the path of ``base_url`` ending in ``/``, e.g. ``/pydiggs/``.
+
+    Raises:
+        ValueError: the path has characters other than letters, digits and ``._~-``.
+    """
+    path = urlsplit(base_url).path.rstrip("/") + "/"
+    if not _BASE_PATH.fullmatch(path):
+        msg = f"not a plain site base path: {path!r}"
+        raise ValueError(msg)
+    return path
+
+
+def fallback(path: str, base: str, home: str, keep: Iterable[str]) -> str | None:
+    """Where the root 404.html sends ``path``, or ``None`` to show "not found" instead.
+
+    The same rule as the page's script: a path under ``base`` whose rest is plain, has no
+    ``.`` or ``..`` segment and is not inside a tree or other root folder in ``keep``.
+    The result always starts with ``base + home + "/"``, so it stays on the site.
+    """
+    if not path.startswith(base):
+        return None
+    rest = path[len(base) :]
+    if not re.fullmatch(SAFE_REST, rest):
+        return None
+    parts = rest.split("/")
+    if parts[0] in set(keep) or {".", ".."} & set(parts):
+        return None
+    return f"{base}{home}/{rest}"
+
+
+def _js(value: object) -> str:
+    """``value`` as a JavaScript literal that is safe inside an HTML ``<script>``."""
+    return json.dumps(value).replace("<", "\\u003c")
+
+
+def _root_names(site: Path) -> set[str]:
+    """Every name at the site root once the trees, redirects and copies are written.
+
+    The names this script may write are reserved even when absent this time.
+    """
+    fixed = {"index.html", "versions.json", "llms.txt", "llms-full.txt", "schemas", "404.html"}
+    return {path.name for path in site.iterdir()} | fixed
+
+
+def _page_stubs(site: Path, home: str, reserved: set[str]) -> None:
+    """Write ``site/<page>/index.html`` redirecting to ``<home>/<page>/`` for each page.
+
+    A page is a folder of the home tree holding ``index.html`` (MkDocs directory URLs), at
+    any depth. A page under a reserved top-level name is skipped and reported.
+    """
+    tree = site / home
+    for index in sorted(tree.rglob("index.html")):
+        rel = index.parent.relative_to(tree)
+        if not rel.parts or rel.parts[0] in _NOT_PAGES:
+            continue
+        if rel.parts[0] in reserved:
+            print(f"no redirect for {rel.as_posix()}/: {rel.parts[0]} is taken", file=sys.stderr)
+            continue
+        target = "../" * len(rel.parts) + f"{home}/{rel.as_posix()}/"
+        stub = site / rel / "index.html"
+        stub.parent.mkdir(parents=True, exist_ok=True)
+        stub.write_text(
+            _STUB.format(target=html.escape(target), target_js=_js(target)), encoding="utf-8"
+        )
+
+
+def _not_found(site: Path, home: str, reserved: set[str], base: str) -> None:
+    """Write the root ``404.html`` unless there is one; see ``fallback``."""
+    page = site / "404.html"
+    if page.exists():
+        return
+    page.write_text(
+        _NOT_FOUND.format(
+            base_js=_js(base),
+            home_js=_js(home),
+            keep_js=_js(sorted(reserved | _NOT_PAGES)),
+            safe_js=_js(SAFE_REST),
+            home_href=f"{base}{home}/",
+        ),
+        encoding="utf-8",
+    )
 
 
 def _root_schemas(site: Path, trees: list[str]) -> None:
@@ -129,6 +285,7 @@ def main(argv: list[str] | None = None) -> int:
     build = commands.add_parser("assemble", help="write versions.json and the redirects")
     build.add_argument("--site", type=Path, required=True)
     build.add_argument("--latest", default="", help="the release built into latest/, if any")
+    build.add_argument("--base-url", default=SITE_URL, help="where the site is published")
     args = parser.parse_args(argv)
     if args.command == "latest-tag":
         listed = subprocess.run(
@@ -142,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"version={version}")
         return 0
     try:
-        assemble(args.site, args.latest)
+        assemble(args.site, args.latest, args.base_url)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
