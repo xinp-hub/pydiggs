@@ -182,3 +182,17 @@ def test_the_setting_comes_from_the_environment():
         ServerSettings.from_env({"PYDIGGS_UNKNOWN_QUERY": "warn"})
     with pytest.raises(ValueError, match="unknown_query must be"):
         ServerSettings(unknown_query="warn")  # type: ignore[arg-type]
+
+
+def test_the_ignore_log_names_the_route_template_not_the_url(caplog):
+    from fastapi import FastAPI
+
+    settings = ServerSettings(isolation="thread", unknown_query="ignore")
+    host = FastAPI()
+    with pytest.warns(DeprecationWarning):
+        host.include_router(create_router(settings), prefix="/t/{tenant}")
+    with caplog.at_level(logging.WARNING, logger="pydiggs.server"):
+        response = TestClient(host).get(f"/t/{PROBE}/v1/rules", params={"bogus": "1"})
+    assert response.status_code == 200, response.text
+    assert "on /v1/rules" in caplog.text or "on /t/{tenant}/v1/rules" in caplog.text
+    assert PROBE not in caplog.text  # the client's prefix text is never logged

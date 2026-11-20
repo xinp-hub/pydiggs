@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-19
+
 ### Added
 - **Video tutorials.** The documentation has a
-  [Video tutorials](https://xinp-hub.github.io/pydiggs/dev/tutorials/) page, and the
+  [Video tutorials](https://xinp-hub.github.io/pydiggs/tutorials/) page, and the
   Quickstart, Reading files, AGS4 files, conversion, comparison and Browser pages each
   open with a short narrated video of that feature. Every video has English captions,
   chapters and a full transcript, plays from the docs site itself with no third-party
@@ -1384,7 +1386,8 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.13.1...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/xinp-hub/pydiggs/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/xinp-hub/pydiggs/compare/v1.13.0...v1.13.1
 [1.13.0]: https://github.com/xinp-hub/pydiggs/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/xinp-hub/pydiggs/compare/v1.11.0...v1.12.0

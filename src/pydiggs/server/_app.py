@@ -414,7 +414,8 @@ def _unknown_query(
         _log.warning(
             "ignored %d unknown query parameter(s) on %s (unknown_query='ignore' is deprecated)",
             len(unknown),
-            request.url.path,
+            # The route's template, never the URL: a mount prefix may carry client text.
+            getattr(request.scope.get("route"), "path", "?"),
         )
         return None
     return problem(
