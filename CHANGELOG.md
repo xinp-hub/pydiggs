@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A conformance suite for DIGGS software (preview).** `pydiggs conformance` and
+  `pydiggs.conformance` test how a product reads and writes DIGGS 3, on your own machine,
+  with no account and nothing uploaded. `pydiggs conformance new spt-export` makes a
+  challenge: plain CSV tables generated from a seed, so every challenge has other
+  borings, depths and values. `pydiggs conformance grade` checks the DIGGS file your
+  software exported: it is DIGGS 3, it is valid, the project and location names are
+  carried exactly, and every source value is in the file at its depth. Values are
+  compared in SI units, so any declared unit is accepted, within the precision the source
+  gives. Each missing or different value is named. Import classes (`spt-import`,
+  `cpt-import`) give a DIGGS file and questions to answer from what your software shows,
+  plus a file with one planted defect. This release has classes for standard penetration
+  tests and cone penetration tests, in both directions.
+- **Evidence anyone can re-run.** Grading writes `evidence.json` (a diggs-conformance
+  `1.0-beta.1` document, with a JSON Schema) and `report.html`. The evidence holds no time
+  and no machine detail, so `pydiggs conformance verify` gives it again on any machine. A
+  result is self-tested: it shows that a file passed, not which software wrote it, and it
+  is not a certification by the DIGGS committee or the ASCE Geo-Institute.
+- **A catalogue of the whole standard, and a scorecard.** `pydiggs conformance classes`
+  lists every part of DIGGS 3.0.0, including the parts the suite cannot test yet (piles,
+  laboratory tests, grouting, monitoring, geophysics and more), and
+  `pydiggs conformance scorecard` shows a product against all of them.
+  See [Testing DIGGS support](https://xinp-hub.github.io/pydiggs/latest/conformance/).
+
 ### Fixed
 - **Unversioned documentation addresses work again.** Since the documentation became
   versioned (1.12.0), an address such as `https://xinp-hub.github.io/pydiggs/http-api/`

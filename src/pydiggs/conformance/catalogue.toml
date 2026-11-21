@@ -1,0 +1,208 @@
+# The conformance class catalogue: every part of DIGGS 3.0.0 a product can claim to
+# support, whether or not the suite can test it yet.
+#
+# A family names the DIGGS elements it covers. A family with `scenario` has challenges:
+# the classes `<id>-export` and `<id>-import`. The `embedded` family (core) has no class
+# of its own: it is a stage of every challenge. A family with neither is listed on every
+# scorecard as "not yet testable", so four passing classes can never be read as "supports
+# DIGGS". tests/test_conformance_catalogue.py checks that every element named here exists
+# in DIGGS 3.0.0, that none is in two families, and that every test procedure of the
+# schema is in one.
+
+catalogue_version = "1.0-beta.1"
+diggs_version = "3.0.0"
+
+[[family]]
+id = "core"
+group = "Core"
+title = "Project, locations and references"
+embedded = true
+note = "Graded inside every challenge: the project, each boring or sounding and its depth."
+elements = ["Project", "Borehole", "Sounding", "TrialPit", "DocumentInformation"]
+
+[[family]]
+id = "spt"
+group = "In-situ tests"
+title = "Standard penetration and other driven tests"
+scenario = "spt"
+elements = ["DrivenPenetrationTest"]
+
+[[family]]
+id = "cpt"
+group = "In-situ tests"
+title = "Cone penetration tests"
+scenario = "cpt"
+elements = ["StaticConePenetrationTest"]
+
+[[family]]
+id = "dissipation"
+group = "In-situ tests"
+title = "Pore pressure dissipation tests"
+elements = ["PorePressureDissipationTest"]
+
+[[family]]
+id = "dynamic-probe"
+group = "In-situ tests"
+title = "Dynamic probing"
+elements = ["DynamicProbeTest"]
+
+[[family]]
+id = "in-situ-strength"
+group = "In-situ tests"
+title = "Vane, pressuremeter, dilatometer and penetrometer tests"
+elements = [
+  "InsituVaneTest", "PressuremeterTest", "FlatPlateDilatometerTest",
+  "PocketPenetrometerTest", "InSituPenetrometerTest", "InsituCBRTest",
+]
+
+[[family]]
+id = "in-situ-density"
+group = "In-situ tests"
+title = "In-situ density and resistivity"
+elements = ["InsituDensityTest", "InsituResistivityTest"]
+
+[[family]]
+id = "in-situ-hydraulic"
+group = "In-situ tests"
+title = "Permeability, packer and pumping tests"
+elements = ["InsituPermeabilityTest", "LugeonTest", "PumpingTest"]
+
+[[family]]
+id = "mwd"
+group = "In-situ tests"
+title = "Measurement while drilling"
+elements = ["MeasurementWhileDrilling"]
+
+[[family]]
+id = "wireline"
+group = "In-situ tests"
+title = "Wireline logs"
+elements = ["WirelineLog"]
+
+[[family]]
+id = "lithology"
+group = "Logging and sampling"
+title = "Lithology, stratigraphy and other logged observations"
+elements = [
+  "LithologySystem", "StratigraphySystem", "GeoUnitSystem", "ColorSystem",
+  "ConstituentSystem", "DiscontinuitySystem", "OrientationSystem", "OtherObservationSystem",
+]
+
+[[family]]
+id = "sampling"
+group = "Logging and sampling"
+title = "Samples and sampling activities"
+elements = ["Sample", "SamplingActivity"]
+
+[[family]]
+id = "lab-index"
+group = "Laboratory tests"
+title = "Index and classification tests"
+elements = [
+  "WaterContentTest", "AtterbergLimitsTest", "ParticleSizeTest", "SpecificGravityTest",
+  "LabDensityTest", "RelativeDensityTest", "LinearShrinkageTest", "ShrinkageTest",
+  "LossOnIgnitionTest", "OrganicMatterByWetCombustionTest",
+]
+
+[[family]]
+id = "lab-compaction"
+group = "Laboratory tests"
+title = "Compaction, CBR and frost tests"
+elements = ["LabCompactionTest", "LabCBRTest", "MCVTest", "FrostSusceptibilityTest"]
+
+[[family]]
+id = "lab-strength"
+group = "Laboratory tests"
+title = "Strength tests"
+elements = [
+  "TriaxialTest", "DirectShearTest", "UnconfinedCompressiveStrengthTest", "LabVaneTest",
+  "LabPenetrometerTest", "TensileStrengthTest",
+]
+
+[[family]]
+id = "lab-consolidation"
+group = "Laboratory tests"
+title = "Consolidation, swell and suction tests"
+elements = ["ConsolidationTest", "SwellOrCollapseTest", "SuctionTest"]
+
+[[family]]
+id = "lab-hydraulic"
+group = "Laboratory tests"
+title = "Laboratory permeability, resistivity and velocity"
+elements = ["LabPermeabilityTest", "LabResistivityTest", "LabVelocityTest"]
+
+[[family]]
+id = "lab-chemical"
+group = "Laboratory tests"
+title = "Chemical and environmental tests"
+elements = ["LabChemicalTest", "RedoxTest", "EnvironmentalScreeningTest"]
+
+[[family]]
+id = "rock"
+group = "Laboratory tests"
+title = "Rock tests"
+elements = [
+  "PointLoadTest", "RockPorosityDensityTest", "SchmidtReboundHardnessTest",
+  "ShoreScleroscopeHardnessTest",
+]
+
+[[family]]
+id = "aggregate"
+group = "Materials tests"
+title = "Aggregate and material tests"
+elements = [
+  "AggregateAbrasionValueTest", "AggregateCrushingValueTest", "AggregateElongationIndexTest",
+  "AggregateFlakinessIndexTest", "AggregateImpactValueTest",
+  "AggregatePolishedStoneValueTest", "AggregateSlakeDurabilityTest",
+  "AggregateSoundnessTest", "AggregateTenPercentFinesTest", "AggregateWaterAbsorptionTest",
+  "ChalkCrushingValueTest", "LosAngelesAbrasionTest", "MicroDevalTest",
+  "MaterialGradationTest", "MaterialTest",
+]
+
+[[family]]
+id = "grout-materials"
+group = "Materials tests"
+title = "Grout and drilling-fluid tests"
+elements = [
+  "BleedTest", "FlowConeTest", "MarshFunnelTest", "MudBalanceTest",
+  "PressureFiltrationTest", "SetTimeTest", "SlumpTest", "SyneresisTest", "TiltCupTest",
+  "ViscometerTest", "WashoutTest", "LineLossTest",
+]
+
+[[family]]
+id = "deep-foundations"
+group = "Construction"
+title = "Piles and pile driving records"
+note = "Next: planned for the release after SPT and CPT."
+elements = [
+  "ConcretePile", "SteelHPile", "SteelPipePile", "TimberPile", "PileCap",
+  "PileDrivingActivity", "PileDrivingRecord", "PileDriveHammer", "PDARecord",
+]
+
+[[family]]
+id = "grouting"
+group = "Construction"
+title = "Grouting and soil mixing"
+elements = [
+  "GroutingProgram", "ContinuousGrouting", "LinearGroutingActivity", "GroutStage",
+  "GroutBatch", "JetGroutingMonitor", "GroutTrenchCutoffWall", "DeepSoilMixingTool",
+  "CutterSoilMixingTool",
+]
+
+[[family]]
+id = "monitoring"
+group = "Monitoring"
+title = "Wells, instruments and monitoring"
+elements = ["Well", "WellOpening", "Monitor", "WaterLevelMonitoring", "Station"]
+
+[[family]]
+id = "geophysics"
+group = "Geophysics"
+title = "Geophysical surveys"
+elements = ["GeophysicalFieldSurvey", "GeophysicalProcessing"]
+
+[[family]]
+id = "exposures"
+group = "Logging and sampling"
+title = "Trench walls, transects and other sampling features"
+elements = ["TrenchWall", "Transect", "PlanarSamplingFeature", "VolumetricSamplingFeature"]

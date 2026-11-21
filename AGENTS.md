@@ -48,7 +48,8 @@ gets a line in [CHANGELOG.md](CHANGELOG.md) under "Unreleased", written for user
 ## Non-negotiables
 
 - **Public contracts are versioned.** The Python API, the CLI, and the documents pyDIGGS
-  writes (diggs-findings, diggs-model, diggs-diff, diggs-capabilities, the conversion
+  writes (diggs-findings, diggs-model, diggs-diff, diggs-capabilities, diggs-conformance
+  and its suite version, the conversion
   mapping table, the HTTP and sidecar protocols) each have a version and a schema. Adding
   is a minor change; changing or removing is breaking. Never change one without asking
   the owner.

@@ -76,6 +76,10 @@ features:
   - cli:diff
   - operation:diff
   tutorial: diff
+- id: conformance
+  covers:
+  - cli:conformance
+  tutorial: conformance
 - id: ags4-check
   covers:
   - cli:ags4
