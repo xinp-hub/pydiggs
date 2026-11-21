@@ -61,7 +61,8 @@ Machine-readable findings (JSON, SARIF) for one or many files: pydiggs
 validate --help. Validation for other programs (stdio sidecar, HTTP, MCP):
 pydiggs serve --help. AGS4 files against the AGS4 rules: pydiggs ags4 check
 --help. AGS4 to DIGGS and DIGGS to AGS4: pydiggs convert --help. What changed
-between two DIGGS files: pydiggs diff --help. Installed version: pydiggs
+between two DIGGS files: pydiggs diff --help. Testing how software reads and
+writes DIGGS: pydiggs conformance --help. Installed version: pydiggs
 --version.
 ```
 
@@ -132,6 +133,140 @@ options:
   -h, --help  show this help message and exit
   --json      print a diggs-capabilities 1.0 document
               (pydiggs.capabilities().to_dict())
+```
+
+#### `pydiggs conformance`
+
+```text
+usage: pydiggs conformance [-h] COMMAND ...
+
+Test how software reads and writes DIGGS 3 (preview). Make a challenge, run
+your software on it, and grade the result here: nothing is uploaded, and
+anyone can re-run the result. A result is self-tested: it shows that a file
+passed, not which software wrote it, and it is not a certification by the
+DIGGS committee or the ASCE Geo-Institute.
+
+positional arguments:
+  COMMAND
+    classes   list every part of DIGGS and whether the suite can test it
+    new       make a challenge for one class
+    grade     grade what your software produced
+    verify    re-run a result and confirm its evidence
+    scorecard
+              show a product against every part of DIGGS
+
+options:
+  -h, --help  show this help message and exit
+
+Exit status: 0 passed (or reproduced); 1 failed (or not reproduced); 2 usage
+error, an input that cannot be read, or an output that cannot be written.
+```
+
+#### `pydiggs conformance classes`
+
+```text
+usage: pydiggs conformance classes [-h] [--format {text,json}]
+
+List the conformance classes, and every part of DIGGS 3.0.0 the suite cannot
+test yet.
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}
+```
+
+#### `pydiggs conformance new`
+
+```text
+usage: pydiggs conformance new [-h] --product PRODUCT --product-version
+                               VERSION [-o DIR] [--seed SEED]
+                               CLASS
+
+Make a challenge folder. An export class gives CSV tables to load into your
+software; an import class gives a DIGGS file to open and questions to answer.
+
+positional arguments:
+  CLASS                 a class, such as spt-export
+
+options:
+  -h, --help            show this help message and exit
+  --product PRODUCT     the name of the software under test
+  --product-version VERSION
+                        its exact version
+  -o DIR, --output DIR  the folder to make (default: CLASS)
+  --seed SEED           rebuild the challenge of this seed (default: a fresh
+                        one each time)
+```
+
+#### `pydiggs conformance grade`
+
+```text
+usage: pydiggs conformance grade [-h] [--format {text,json}] [--no-save]
+                                 [--max-bytes N] [--time-budget SECONDS]
+                                 CHALLENGE SUBMISSION
+
+Grade a submission: the DIGGS file your software exported, or the filled
+answers.csv of an import class. Writes evidence.json and report.html into the
+challenge folder unless --no-save is given.
+
+positional arguments:
+  CHALLENGE             the challenge folder
+  SUBMISSION            the DIGGS file, or answers.csv
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  what is printed: text (the default), or the evidence
+                        as JSON
+  --no-save             do not write evidence.json and report.html
+  --max-bytes N         refuse a submission larger than N bytes (default 100
+                        MiB)
+  --time-budget SECONDS
+                        stop reading or validating an export after SECONDS
+
+Exit status: 0 passed (or reproduced); 1 failed (or not reproduced); 2 usage
+error, an input that cannot be read, or an output that cannot be written.
+```
+
+#### `pydiggs conformance verify`
+
+```text
+usage: pydiggs conformance verify [-h] [--max-bytes N] [--time-budget SECONDS]
+                                  EVIDENCE CHALLENGE SUBMISSION
+
+Grade the submission again and compare with the evidence. Anyone who has the
+three files can do this.
+
+positional arguments:
+  EVIDENCE              the evidence.json to check
+  CHALLENGE             the challenge folder
+  SUBMISSION            the graded file
+
+options:
+  -h, --help            show this help message and exit
+  --max-bytes N         refuse a submission larger than N bytes (default 100
+                        MiB)
+  --time-budget SECONDS
+                        stop reading or validating an export after SECONDS
+
+Exit status: 0 passed (or reproduced); 1 failed (or not reproduced); 2 usage
+error, an input that cannot be read, or an output that cannot be written.
+```
+
+#### `pydiggs conformance scorecard`
+
+```text
+usage: pydiggs conformance scorecard [-h] [--format {text,json,markdown}]
+                                     EVIDENCE [EVIDENCE ...]
+
+Build a scorecard from evidence files: what passed, what failed, what was not
+run, and what the suite cannot test yet.
+
+positional arguments:
+  EVIDENCE              evidence.json files
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json,markdown}
 ```
 
 #### `pydiggs convert`

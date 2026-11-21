@@ -168,6 +168,7 @@ nav:
     - AGS4 files: ags4.md
     - AGS4 and DIGGS conversion: convert.md
     - Comparing two files: diff.md
+    - Testing DIGGS support: conformance.md
     - Capabilities: capabilities.md
   - Integrate:
     - integrations.md

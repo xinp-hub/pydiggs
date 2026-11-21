@@ -154,6 +154,50 @@ load `pydiggs.diff`: use `from pydiggs import diff`.
 
 ::: pydiggs.diff.DIFF_SCHEMA_URL
 
+
+## Conformance suite
+
+Preview in pyDIGGS 1.15; see [Testing DIGGS support](conformance.md). `import pydiggs` does
+not load `pydiggs.conformance`: use `from pydiggs import conformance`.
+
+::: pydiggs.conformance.new
+
+::: pydiggs.conformance.load
+
+::: pydiggs.conformance.grade
+
+::: pydiggs.conformance.verify
+
+::: pydiggs.conformance.scorecard
+
+::: pydiggs.conformance.classes
+
+::: pydiggs.conformance.families
+
+::: pydiggs.conformance.class_info
+
+::: pydiggs.conformance.conformance_schema
+
+::: pydiggs.conformance.Challenge
+
+::: pydiggs.conformance.Result
+
+::: pydiggs.conformance.Stage
+
+::: pydiggs.conformance.Item
+
+::: pydiggs.conformance.Verification
+
+::: pydiggs.conformance.Scorecard
+
+::: pydiggs.conformance.ScorecardRow
+
+::: pydiggs.conformance.ClassInfo
+
+::: pydiggs.conformance.Family
+
+::: pydiggs.conformance.SUITE_VERSION
+
 ## Errors
 
 ::: pydiggs.PydiggsError

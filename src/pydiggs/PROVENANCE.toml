@@ -31,6 +31,16 @@ source = "local"
 note = "Element order of DIGGS 3.0.0 for the internal writer: generated from the bundled XSDs by scripts/writer_layout.py (drift-tested)."
 sha256 = "68b1383e102b616bfa5a20c6777ce99a93915cbe8840becff00dd4725a9363d1"
 
+[files."conformance/catalogue.toml"]
+source = "local"
+note = "The conformance class catalogue (pydiggs.conformance): pyDIGGS's own data, checked against the bundled DIGGS 3.0.0 layout by tests/test_conformance_suite.py."
+sha256 = "6aafd6ee56b303b24eb59ee9babfa42d8173515be017371403c2afabbcf0cdb6"
+
+[files."conformance/diggs-conformance-1.0-beta.1.schema.json"]
+source = "local"
+note = "The diggs-conformance 1.0-beta.1 JSON Schema (pydiggs.conformance, preview): pyDIGGS's own output contract, checked against the output by tests/test_conformance_suite.py."
+sha256 = "e8abec06b90a4bf62ff527a9fc35114890c9096f9fdbed5a83d39cc5d9511417"
+
 [files."convert/convert-mapping-1.schema.json"]
 source = "local"
 note = "JSON Schema of the AGS4 to DIGGS mapping table (format 1): pyDIGGS's own contract."

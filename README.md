@@ -58,6 +58,11 @@ off (`git commit -s`) under the
   whatever the `gml:id`s, the element order and the number formatting; a change of unit
   is always reported and nothing is converted
   ([Comparing two files](https://xinp-hub.github.io/pydiggs/latest/diff/)).
+* Test how software reads and writes DIGGS (preview): `pydiggs conformance` makes a
+  seeded challenge, grades the DIGGS file your software exported (or the answers read
+  from an imported file) on your own machine, and writes evidence anyone can re-run.
+  A catalogue of every part of DIGGS 3.0.0 shows what is not testable yet
+  ([Testing DIGGS support](https://xinp-hub.github.io/pydiggs/latest/conformance/)).
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
       JSON (diggs-findings 1.2) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)

@@ -36,6 +36,12 @@ def _diff(argv: list[str]) -> int:
     return diff_cli.main(argv)
 
 
+def _conformance(argv: list[str]) -> int:
+    from pydiggs.conformance import _cli as conformance_cli  # noqa: PLC0415  # loads on demand
+
+    return conformance_cli.main(argv)
+
+
 def _capabilities(argv: list[str]) -> int:
     from pydiggs._capabilities import _cli as capabilities_cli  # noqa: PLC0415
 
@@ -49,6 +55,7 @@ _SUBCOMMANDS = {
     "ags4": _ags4,
     "convert": _convert,
     "diff": _diff,
+    "conformance": _conformance,
     "capabilities": _capabilities,
 }
 
@@ -78,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
             " AGS4 files against the AGS4 rules: pydiggs ags4 check --help."
             " AGS4 to DIGGS and DIGGS to AGS4: pydiggs convert --help."
             " What changed between two DIGGS files: pydiggs diff --help."
+            " Testing how software reads and writes DIGGS: pydiggs conformance --help."
             " Installed version: pydiggs --version."
         ),
     )

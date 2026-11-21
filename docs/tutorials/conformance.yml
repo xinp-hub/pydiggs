@@ -1,0 +1,53 @@
+id: conformance
+title: Test your software's DIGGS export
+summary: Make a challenge, grade the DIGGS file your software exported, and get evidence anyone can re-run.
+kind: terminal
+setup:
+  # The file a vendor's software would export. Here it is written from the same seed.
+  - python -c "from pydiggs import conformance as c; x = c.new('spt-export', product='MyLog', version='4.2.1', seed='demo').reference(); open('my-export.xml', 'wb').write(x); open('broken.xml', 'wb').write(x.replace(b'&amp; Approach', b'and Approach'))"
+files: [my-export.xml, broken.xml]
+scenes:
+  - title: Make a challenge
+    say: >-
+      pydiggs conformance new makes a challenge for one class. Here the class is S P T
+      export. We name the product and its version, which the evidence will record. The
+      seed makes this challenge repeatable. Without it, every challenge is different.
+    run: pydiggs conformance new spt-export --product MyLog --product-version 4.2.1 --seed demo -o challenge
+    expect: 'Challenge spt-export written to challenge'
+    claims: ['Challenge spt-export written to challenge']
+  - title: Look at the source tables
+    say: >-
+      The challenge is a folder of plain tables. This one holds the S P T tests, with the
+      boring, the depth, the N value, the penetration and the hammer efficiency. You load
+      these tables into your software and export one DIGGS file.
+    run: head -4 challenge/spt.csv
+    expect: 'location_id,depth_top,n_value,penetration,hammer_efficiency,remark'
+    claims: ['location_id,depth_top,n_value,penetration,hammer_efficiency,remark']
+  - title: Grade the export
+    say: >-
+      pydiggs conformance grade takes the challenge folder and the exported file. The
+      result is pass. Four stages passed: the file is DIGGS 3, it is valid, the project
+      and locations are there, and every source value is in the file at its depth.
+    run: pydiggs conformance grade challenge my-export.xml
+    expect: 'spt-export: PASS'
+    claims:
+      - 'spt-export: PASS'
+      - 'PASS +The file is a DIGGS 3 document'
+      - 'PASS +Valid DIGGS'
+      - 'PASS +Project, locations and depths'
+      - 'PASS +Every source value, at its depth'
+  - title: See what a failure says
+    say: >-
+      This second file changed the project's name. The result is fail, and the check
+      named project name says the name was not carried exactly.
+    run: pydiggs conformance grade challenge broken.xml --no-save | grep -E 'FAIL|project-name'
+    expect: 'conformance.project-name'
+    claims: ['spt-export: FAIL', 'not carried exactly']
+  - title: Let anyone re-run it
+    say: >-
+      Grading wrote an evidence file into the challenge folder. pydiggs conformance verify
+      grades the file again and compares. It says reproduced, so anyone with these three
+      files gets the same result.
+    run: pydiggs conformance verify challenge/evidence.json challenge my-export.xml
+    expect: 'Reproduced: spt-export pass'
+    claims: ['Reproduced: spt-export pass']

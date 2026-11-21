@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json",
+  "title": "diggs-conformance 1.0-beta.1",
+  "description": "Evidence that one submission passed or failed one class of the pyDIGGS conformance suite. Preview: this beta may change before 1.0. The document holds no time and no machine detail, so the same challenge and submission always give the same document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "format", "schema_version", "suite_version", "tool", "tier", "statement",
+    "class", "product", "challenge", "submission", "verdict", "stages"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "format": { "const": "diggs-conformance" },
+    "schema_version": { "const": "1.0-beta.1" },
+    "suite_version": {
+      "type": "string",
+      "description": "The version of the classes, scenarios, checks and tolerances that graded the submission."
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": { "name": { "const": "pydiggs" }, "version": { "type": "string" } }
+    },
+    "tier": {
+      "enum": ["self-tested"],
+      "description": "self-tested: a local run. It shows that the file passed, not which software wrote it."
+    },
+    "statement": { "type": "string", "description": "What this evidence does and does not show." },
+    "class": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family", "direction", "title", "level", "diggs_version"],
+      "properties": {
+        "id": { "type": "string" },
+        "family": { "type": "string" },
+        "direction": { "enum": ["export", "import"] },
+        "title": { "type": "string" },
+        "level": { "enum": ["core"] },
+        "diggs_version": { "type": "string" }
+      }
+    },
+    "product": {
+      "type": "object",
+      "description": "The software under test, as its vendor declared it when the challenge was made.",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    },
+    "challenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "token", "sha256"],
+      "properties": {
+        "seed": { "type": "string", "pattern": "^[A-Za-z0-9._-]{1,64}$" },
+        "token": { "type": "string", "description": "Derived from the seed; it appears in the project's name." },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "Digest of challenge.json." }
+      }
+    },
+    "submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "sha256", "bytes"],
+      "properties": {
+        "name": { "type": "string", "description": "The file's name, without its folder." },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "verdict": { "enum": ["pass", "fail"], "description": "pass when every required stage passed." },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "required", "status", "passed", "total", "failed", "items", "items_truncated"],
+        "properties": {
+          "id": { "enum": ["readable", "validation", "core", "fidelity", "values", "robustness"] },
+          "title": { "type": "string" },
+          "required": { "type": "boolean", "description": "Whether the stage decides the verdict." },
+          "status": { "enum": ["pass", "fail", "skipped"] },
+          "passed": { "type": "integer", "minimum": 0 },
+          "total": { "type": "integer", "minimum": 0 },
+          "failed": { "type": "integer", "minimum": 0, "description": "How many things failed in all; for the validation stage, the number of validation errors." },
+          "items": {
+            "type": "array",
+            "maxItems": 200,
+            "description": "What failed, at most 200 (items_truncated says whether there were more). File text is kept as it is; escape it before showing it. expected and got are in SI units.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["check", "id", "message"],
+              "properties": {
+                "check": { "type": "string", "description": "A conformance check id, or the rule id of a validation finding." },
+                "id": { "type": "string" },
+                "message": { "type": "string" },
+                "expected": { "type": "string" },
+                "got": { "type": "string" }
+              }
+            }
+          },
+          "items_truncated": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}
