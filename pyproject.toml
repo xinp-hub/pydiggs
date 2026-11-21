@@ -1,4 +1,4 @@
-# FORGE conventions: PEP 621/639/735, hatchling, src/ layout, uv lockfile.
+# Packaging: PEP 621/639/735, hatchling, src/ layout, uv lockfile.
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
@@ -102,7 +102,7 @@ dev = [
 ]
 # Bounded on purpose. MkDocs 2 drops the plugin API these packages are built on, and
 # Material for MkDocs is in maintenance mode: stay on mkdocs 1.x and material 9.x until
-# the move described in FORGE's docs-site skill ("Toolchain status") is made.
+# the documentation site moves to a maintained toolchain.
 docs = [
   "mkdocs>=1.6.1,<2",
   "mkdocs-material>=9.8.1,<10",

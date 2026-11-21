@@ -106,7 +106,7 @@ TIER_B = {"HORN", "HDIA", "CDIA", "BKFL", "WSTG", "WSTD", "LDEN", "SCPG", "SCPT"
 
 
 def test_tiers_a_and_b_are_covered_and_every_group_is_reviewed():
-    """Table 1.0 is signed off whole: every group reviewed (owner review, HG3 of 1.11.0)."""
+    """Table 1.0 is signed off whole: every group reviewed (owner review before the 1.11.0 release)."""
     mapping = load_mapping()
     assert set(mapping.groups) == TIER_A | TIER_B
     assert {group.status for group in mapping.groups.values()} == {"reviewed"}

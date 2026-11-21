@@ -35,7 +35,7 @@ Needs: ffmpeg and ffprobe; VHS (and its ttyd) for terminal tutorials; Chromium f
 browser tutorials (``playwright install chromium``, or an installed Chrome with
 ``TUTORIALS_CHROME_CHANNEL=chrome``), recorded through its DevTools screencast. The
 voice model is downloaded once, checked against pinned SHA-256 digests, into
-``$TUTORIALS_MODEL_DIR`` (default ``~/.cache/forge-tutorials``).
+``$TUTORIALS_MODEL_DIR`` (default ``~/.cache/pydiggs-tutorials``).
 """
 
 from __future__ import annotations
@@ -213,7 +213,7 @@ class Voice:
         from kokoro_onnx import Kokoro  # noqa: PLC0415 - heavy; only the renderer needs it
 
         directory = Path(
-            os.environ.get("TUTORIALS_MODEL_DIR", Path.home() / ".cache" / "forge-tutorials")
+            os.environ.get("TUTORIALS_MODEL_DIR", Path.home() / ".cache" / "pydiggs-tutorials")
         )
         directory.mkdir(parents=True, exist_ok=True)
         for name, digest in MODEL_FILES.items():

@@ -26,8 +26,8 @@ env:
 jobs:
   # GitHub lists every commit author, committer and Co-authored-by identity as a
   # contributor, and removing one later needs a history rewrite (#224, #227).
-  # Local FORGE git hooks strip AI-agent attribution; this is the server-side backstop for
-  # commits that skipped them. The rules live in the repo-policy `attribution` action.
+  # This check refuses AI-agent attribution on the server, whatever a contributor's
+  # local setup does. The rules live in the repo-policy `attribution` action.
   ai-attribution:
     name: no AI contributors
     if: github.event_name == 'pull_request'

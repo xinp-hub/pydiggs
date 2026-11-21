@@ -1,4 +1,4 @@
-# Adopted from FORGE 1.23.0 (templates/pkg). Publishes the documentation site in two versions:
+Publishes the documentation site in two versions:
 #
 #   latest/  the newest release tag vX.Y.Z, built from that tag's own files and uv.lock
 #   dev/     the default branch: unreleased code, and every page says so
@@ -70,7 +70,7 @@ jobs:
           path: release
           fetch-depth: 0
           persist-credentials: false
-      # The video tutorials (docs/tutorials/*.yml; FORGE's docs-video skill). VHS records
+      # The video tutorials (docs/tutorials/*.yml; format in tools/tutorials/README.md). VHS records
       # the terminal with the runner's Chrome, ttyd serves it, ffmpeg encodes. Static
       # binaries, each pinned by sha256, into a directory on PATH: no root, no apt.
       - name: Install the tutorial renderer

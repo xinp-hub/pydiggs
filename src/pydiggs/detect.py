@@ -56,7 +56,7 @@ def detect_diggs_version(
 ) -> str:
     """Detect a DIGGS profile key from an instance path or parsed document.
 
-    Unknown or missing namespaces fall back to ``default`` (3.0.0 per HG1/HG2). An
+    Unknown or missing namespaces fall back to ``default`` (3.0.0). An
     experimental profile (:data:`EXPERIMENTAL_PROFILES`) is never returned unless it is
     passed as ``default``.
     """

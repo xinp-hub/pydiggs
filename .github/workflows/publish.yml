@@ -4,7 +4,7 @@
 # Mirror that publisher on test.pypi.org with environment: testpypi.
 # Add required reviewers on the GitHub `pypi` Environment (optional on `testpypi`).
 #
-# Release path (FORGE): guard → build → TestPyPI → smoke → PyPI → Sigstore + GitHub Release.
+# Release path: guard → build → TestPyPI → smoke → PyPI → Sigstore + GitHub Release.
 # After PyPI, `container` builds the image from the published wheel and pushes it to
 # ghcr.io/xinp-hub/pydiggs (tags X.Y.Z and X.Y, never latest), attested and scanned.
 # `setup-uv` uses enable-cache: false on purpose (cache poisoning ↔ publish path).

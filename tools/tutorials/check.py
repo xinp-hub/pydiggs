@@ -73,7 +73,7 @@ def _coverage(manifest: Manifest, tutorials: set[str]) -> list[str]:
     if missing:
         found.append(
             "to draft a tutorial for a new feature, follow 'Draft a missing tutorial' in "
-            "FORGE's docs-video skill; a waiver states why a video would not help"
+            "tools/tutorials/README.md; a waiver states why a video would not help"
         )
     return found
 

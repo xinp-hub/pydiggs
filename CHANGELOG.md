@@ -1337,7 +1337,7 @@ unit of measure outside its quantity class, and only warned under 1.0.0, now fai
 
 ## [1.0.0] - 2026-08-07
 
-Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1.
+Stable release of the DIGGS 3.0 and packaging work first shipped as 1.0.0a1.
 
 ### Added
 - Everything from [1.0.0a1](#100a1---2026-08-07), now marked stable.
@@ -1347,7 +1347,7 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
 ### Notes
 - Dictionary check 12 (UOM not in quantity class) remains a **WARNING** so official
   diggs-examples with known unit/quantity mismatches still pass `dictionary_check()`.
-- Unknown instance namespaces still default to DIGGS profile **3.0.0** (HG2).
+- Unknown instance namespaces still default to DIGGS profile **3.0.0**.
 
 ## [1.0.0a1] - 2026-08-07
 
@@ -1358,7 +1358,7 @@ Stable release of the DIGGS 3.0 + FORGE packaging train first shipped as 1.0.0a1
   goldens + known_invalid pins), covering schema/dictionary/Schematron/context.
 
 ### Changed
-- Packaging migrated to FORGE standards: `src/` layout, **uv** + hatchling, PEP 621/639/735.
+- Packaging modernised: `src/` layout, **uv** + hatchling, PEP 621/639/735.
 - `requires-python` raised to `>=3.11`.
 - PyPI publish uses Trusted Publishing (OIDC) on `v*` tags; Actions SHA-pinned.
 - DIGGS **2.5.a** auto-detect resolves bundled `Complete.xsd` (there is no `Diggs.xsd` in 2.5.a).

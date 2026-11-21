@@ -1,7 +1,7 @@
 # Which public features have a video tutorial, and why the rest do not.
 # tools/tutorials/check.py fails CI when a CLI subcommand or a name in pydiggs.__all__ is
 # covered by no feature here: a new feature ships with a tutorial, or with a waiver that
-# says why a video would not help. See FORGE's docs-video skill.
+# says why a video would not help. The format is in tools/tutorials/README.md.
 version: 1
 voice: af_heart          # Kokoro-82M voice; changing it re-renders every video
 speed: 1.0

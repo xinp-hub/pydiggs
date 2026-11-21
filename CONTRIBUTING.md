@@ -92,6 +92,9 @@ a video cannot keep saying "two errors" over a screen that shows three. On a pul
 `tutorials.yml` adds a *Tutorial videos to watch* table to the run's summary: the videos
 whose narration changed or whose scenes now end on a different screen.
 
+The format, the narration rules and the steps for drafting a new tutorial are in
+[tools/tutorials/README.md](tools/tutorials/README.md).
+
 To add one: write `docs/tutorials/<id>.yml`, list under `files:` the work files its
 `setup` makes that a viewer needs to follow along (they are offered under the video),
 name it in the manifest, and put `<!-- tutorial: <id> -->` where it belongs in a page.

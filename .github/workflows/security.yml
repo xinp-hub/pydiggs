@@ -1,4 +1,4 @@
-# Supply-chain and code scanning (FORGE security.yml adapted for branch `master`).
+# Supply-chain and code scanning for the default branch `master`.
 name: Security
 
 on:
