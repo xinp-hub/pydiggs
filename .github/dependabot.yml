@@ -89,8 +89,8 @@ updates:
         patterns: ["*"]
 
   # The container image's two bases (Dockerfile), pinned by digest: the uv builder and
-  # the python:3.14-slim-trixie runtime. They must move to the same Python patch release,
-  # so they share one group and one PR.
+  # the python:3.14-slim-trixie runtime. They must stay on the same Python minor, so
+  # they share one group and one PR.
   - package-ecosystem: docker
     directory: /
     schedule:
