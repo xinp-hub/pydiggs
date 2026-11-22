@@ -8,6 +8,16 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-21
+
+### Changed
+
+- Runs pyDIGGS 1.15.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. pyDIGGS 1.15.0 adds the conformance suite for DIGGS software, a preview it
+  offers as the `pydiggs conformance` command and the `pydiggs.conformance` Python
+  module, with no HTTP route, so the client gains no method with it. Everything the
+  client calls works as in 0.8.0.
+
 ## [0.8.0] - 2026-11-20
 
 ### Changed
