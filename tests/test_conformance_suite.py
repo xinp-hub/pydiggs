@@ -550,3 +550,91 @@ def test_scorecard_refuses_malformed_evidence_and_escapes_markdown(
     path.write_text("[" * 100_000)
     assert cli.main(["conformance", "scorecard", str(path)]) == 2
     assert "Traceback" not in capsys.readouterr().err
+
+
+# --- challenge identity (diggs-conformance 1.0-beta.2) ---------------------------------
+
+
+def _as_if_another_release_wrote_the_files(evidence: dict[str, object]) -> dict[str, object]:
+    changed = json.loads(json.dumps(evidence))
+    changed["challenge"]["sha256"] = "0" * 64  # type: ignore[index]
+    return changed
+
+
+def test_the_challenge_id_is_what_defines_the_challenge() -> None:
+    challenge = _challenge_for("spt-export")
+    assert challenge.id == _challenge_for("spt-export").id
+    assert challenge.id != _challenge_for("spt-export", "other").id
+    assert (
+        challenge.id
+        != conformance.new("spt-export", product="Other", version="1.2.3", seed="demo").id
+    )
+    files = dict(challenge.files)
+    files["features.csv"] = b"key\r\nwritten differently\r\n"
+    manifest = json.loads(files["challenge.json"])
+    manifest["files"]["features.csv"] = "0" * 64
+    files["challenge.json"] = json.dumps(manifest).encode()
+    rewritten = conformance.Challenge(
+        challenge.info,
+        challenge.seed,
+        challenge.token,
+        challenge.product_name,
+        challenge.product_version,
+        files,
+    )
+    assert rewritten.id == challenge.id and rewritten.sha256 != challenge.sha256
+
+
+def test_evidence_carries_both_names_of_the_challenge() -> None:
+    challenge = _challenge_for("cpt-export")
+    document = conformance.grade(challenge, challenge.reference()).to_dict()
+    assert document["schema_version"] == "1.0-beta.2"
+    assert document["challenge"]["id"] == challenge.id
+    assert document["challenge"]["sha256"] == challenge.sha256
+    jsonschema.Draft202012Validator(conformance.conformance_schema()).validate(document)
+
+
+def test_verify_matches_the_challenge_by_id_and_notes_a_different_digest() -> None:
+    challenge = _challenge_for("spt-export")
+    xml = challenge.reference()
+    evidence = conformance.grade(challenge, xml).to_dict()
+    outcome = conformance.verify(_as_if_another_release_wrote_the_files(evidence), challenge, xml)
+    assert outcome.ok and outcome.differences == ()
+    assert len(outcome.notes) == 1 and "challenge.sha256" in outcome.notes[0]
+    assert conformance.verify(evidence, challenge, xml).notes == ()
+    forged = _as_if_another_release_wrote_the_files(evidence)
+    forged["challenge"]["id"] = "f" * 64  # type: ignore[index]
+    assert conformance.verify(forged, challenge, xml).differences == ("challenge",)
+
+
+def test_evidence_of_schema_beta_1_is_still_verified_by_its_digest() -> None:
+    challenge = _challenge_for("spt-export")
+    xml = challenge.reference()
+    evidence = conformance.grade(challenge, xml).to_dict()
+    old = json.loads(json.dumps(evidence))
+    old["schema_version"] = "1.0-beta.1"
+    old["$schema"] = old["$schema"].replace("1.0-beta.2", "1.0-beta.1")
+    del old["challenge"]["id"]
+    packaged = ROOT / "src" / "pydiggs" / "conformance" / "diggs-conformance-1.0-beta.1.schema.json"
+    jsonschema.Draft202012Validator(json.loads(packaged.read_text())).validate(old)
+    assert conformance.verify(old, challenge, xml).ok
+    assert conformance.verify(
+        _as_if_another_release_wrote_the_files(old), challenge, xml
+    ).differences == ("challenge",)
+    old["schema_version"] = "0.9"
+    with pytest.raises(DocumentError) as caught:
+        conformance.verify(old, challenge, xml)
+    assert caught.value.kind == "not-evidence"
+
+
+def test_the_command_prints_the_note(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    challenge = _challenge_for("spt-export")
+    folder = challenge.write(tmp_path / "c")
+    submission = tmp_path / "export.xml"
+    submission.write_bytes(challenge.reference())
+    evidence = conformance.grade(challenge, submission).to_dict()
+    path = tmp_path / "evidence.json"
+    path.write_text(json.dumps(_as_if_another_release_wrote_the_files(evidence)))
+    assert cli.main(["conformance", "verify", str(path), str(folder), str(submission)]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("Reproduced: spt-export pass.") and "Note: " in out

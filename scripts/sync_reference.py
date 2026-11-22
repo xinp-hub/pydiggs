@@ -173,6 +173,11 @@ PACKAGE_LOCAL = {
         "The conformance class catalogue (pydiggs.conformance): pyDIGGS's own data, checked "
         "against the bundled DIGGS 3.0.0 layout by tests/test_conformance_suite.py."
     ),
+    "conformance/diggs-conformance-1.0-beta.2.schema.json": (
+        "The diggs-conformance 1.0-beta.2 JSON Schema (pydiggs.conformance, preview; adds "
+        "challenge.id): pyDIGGS's own output contract, checked against the output by "
+        "tests/test_conformance_suite.py."
+    ),
     "conformance/diggs-conformance-1.0-beta.1.schema.json": (
         "The diggs-conformance 1.0-beta.1 JSON Schema (pydiggs.conformance, preview): "
         "pyDIGGS's own output contract, checked against the output by "

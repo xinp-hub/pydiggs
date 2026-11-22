@@ -17,7 +17,7 @@ anyone you give the files to.
     committee or the ASCE Geo-Institute. Every evidence document says so.
 
 - **JSON Schema of the evidence:**
-  [`schemas/preview/diggs-conformance-1.0-beta.1.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json)
+  [`schemas/preview/diggs-conformance-1.0-beta.2.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json)
   (also `pydiggs.conformance.conformance_schema()`).
 - **API reference:** [Conformance suite](reference.md#conformance-suite).
 
@@ -130,6 +130,12 @@ The rules behind the last two stages:
   along the pile's own linear reference from the ground surface. DIGGS 3.0.0 requires a
   pile to refer to a boring and allows one driving activity per pile; the challenge
   includes the test boring for that reason.
+- **A driving record belongs to the pile its activity names.** The
+  `PileDrivingActivity`'s `samplingFeatureRef` is what DIGGS says was driven; the linear
+  reference a record's depths use is only a coordinate frame. A record is read for the
+  activity's pile, and is not read when the activity names no single pile and its
+  reference frame does not identify one either, or when the activity's pile and the
+  frame's pile disagree: guessing would credit one pile's blows to another.
 
 The answer key is built from the tables alone. pyDIGGS's own converter and reader are run
 against it on randomly drawn seeds in every run of pyDIGGS's tests, like any other
@@ -191,21 +197,26 @@ few passing classes are never mistaken for full DIGGS support.
   along the pile's own linear reference, taken as measured from the ground surface, as the
   challenge's tables give it. A file whose pile reference starts at the pile head would
   not match.
-- **Evidence across pyDIGGS releases.** The evidence names its challenge by the digest of
-  `challenge.json`, which lists the digests of the challenge's files. Some of those files
-  are written by pyDIGGS itself (the DIGGS file of an import challenge, the tables of an
-  export challenge), so a later release that writes them differently gives the same seed a
-  different challenge digest, and `verify` with that release reports the challenge as
-  different. Verify with the release the evidence names.
 
 ## Evidence anyone can re-run
 
 `grade` writes `evidence.json`, a
 [diggs-conformance](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json)
-document: the suite and pyDIGGS versions, the class, the seed, the SHA-256 of the challenge
-and of the submission, every stage, and the verdict. It holds no time and no machine
-detail. `verify` compares the verdict, the stages, the counts, and what was expected and
-found; it does not compare the wording of messages or the pyDIGGS release.
+document: the suite and pyDIGGS versions, the class, the challenge, the SHA-256 of the
+submission, every stage, and the verdict. It holds no time and no machine detail.
+
+The challenge has two names. `challenge.id` is its identity: a SHA-256 of what defines it
+(suite version, class, DIGGS version, seed, token and product, as canonical JSON), the
+same in every pyDIGGS release. `challenge.sha256` is the digest of `challenge.json` as
+written, which lists the digests of the challenge's files; some of those files are
+written by pyDIGGS itself (the DIGGS file of an import challenge, the tables of an export
+challenge), so another release may write them, and that digest, differently.
+
+`verify` compares the verdict, the stages, the counts, what was expected and found, and
+the challenge by its `id`. A different `challenge.sha256` is reported as a note, not a
+failure. It does not compare the wording of messages or the pyDIGGS release. Evidence of
+schema 1.0-beta.1 (pyDIGGS 1.15 and 1.16), which has no `id`, is still verified, by the
+digest as before.
 
 To let someone check your result, give them the challenge folder, the file you submitted
 and the evidence. They run:
@@ -214,6 +225,11 @@ and the evidence. They run:
 $ pydiggs conformance verify challenge/evidence.json challenge my-export.xml
 Reproduced: spt-export pass.
 ```
+
+The schema of the evidence is
+[`diggs-conformance-1.0-beta.2`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json);
+[`1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json),
+which pyDIGGS 1.15 and 1.16 wrote, stays published.
 
 ## Scorecard
 
