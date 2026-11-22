@@ -24,7 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The first profile (`1.0-beta.1`) writes boreholes, soundings, trial pits and wells with
   their samples, lithology and tests; other kinds of record are read into tables and
   reported when they cannot yet be written. A total depth that is not positive is
-  reported, not written, since DIGGS requires a positive one.
+  reported, not written, since DIGGS requires a positive one. Nothing is rounded: a value
+  with more digits than a 64-bit number holds is reported. A result table too long to be
+  read back (over 10 MB of text) is reported, not written; split it by hole or by period.
 - **Mapping files instead of SQL views (preview).** `pydiggs.mapping` and `pydiggs map`
   read one TOML file, a `diggs-mapping` 1.0 document, that says where each of your own
   tables and columns goes in the tables profile: a column copied, a constant, a key built

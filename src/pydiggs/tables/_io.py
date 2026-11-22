@@ -26,6 +26,8 @@ _PLAN: Final = "plan.json"
 _MAX_DESCRIPTOR_BYTES: Final = 8 * 1024 * 1024
 #: The column that holds the cells a CSV row has beyond its header.
 _BEYOND_HEADER: Final = "(cells beyond the header)"
+#: Longest CSV cell read (a JSON sub-tree in the extra table can be large).
+_MAX_FIELD_CHARS: Final = 64 * 1024 * 1024
 
 
 def rows_from_cursor(cursor: Any) -> Iterator[dict[str, Any]]:
@@ -59,10 +61,37 @@ def _is_table(name: str) -> bool:
 
 
 def _csv_rows(path: Path) -> Iterator[dict[str, Any]]:
-    with path.open(encoding="utf-8-sig", newline="") as handle:
-        # Cells beyond the header get a column of their own, so they are reported, not lost.
-        for row in csv.DictReader(handle, restkey=_BEYOND_HEADER):
-            yield dict(row)
+    """The rows of one CSV file; a file that is not UTF-8 CSV is a :class:`TablesError`."""
+    reader = None
+    try:
+        with path.open(encoding="utf-8-sig", newline="") as handle:
+            # Cells beyond the header get a column of their own, so they are reported.
+            reader = csv.DictReader(handle, restkey=_BEYOND_HEADER, strict=True)
+            while (row := _next_row(reader)) is not None:
+                yield row
+    except UnicodeDecodeError as exc:
+        raise TablesError(
+            f"{path.name!r:.120} is not UTF-8 text (byte {exc.start}): save it as UTF-8 CSV"
+        ) from exc
+    except csv.Error as exc:
+        line = "" if reader is None else f" at line {reader.line_num}"
+        raise TablesError(f"{path.name!r:.120} is not a readable CSV file{line}: {exc}") from exc
+
+
+def _next_row(reader: csv.DictReader[str]) -> dict[str, Any] | None:
+    """The next row, read with a cell limit of 64 MiB, or None at the end.
+
+    A cell of the extra table can hold a whole DIGGS sub-tree as JSON, far over the csv
+    module's 128 KiB default. That limit is process-wide, so it is raised only while this
+    one row is parsed and put back before the row is returned: other code never sees it.
+    """
+    before = csv.field_size_limit(max(csv.field_size_limit(), _MAX_FIELD_CHARS))
+    try:
+        return dict(next(reader))
+    except StopIteration:
+        return None
+    finally:
+        csv.field_size_limit(before)
 
 
 def _listed(folder: Path) -> dict[str, Path]:
@@ -75,18 +104,32 @@ def _listed(folder: Path) -> dict[str, Path]:
         try:
             described = json.loads(descriptor.read_text(encoding="utf-8"))
             resources = described["resources"]
-            pairs = [(str(r["name"]), str(r["path"])) for r in resources]
-        except (ValueError, KeyError, TypeError) as exc:
-            raise TablesError(f"{_DESCRIPTOR} is not a data package descriptor: {exc}") from exc
-        root = folder.resolve()
+            pairs = [(str(r["name"]), r["path"]) for r in resources]
+        except (ValueError, KeyError, TypeError, RecursionError) as exc:
+            reason = "nested too deeply" if isinstance(exc, RecursionError) else str(exc)
+            raise TablesError(f"{_DESCRIPTOR} is not a data package descriptor: {reason}") from exc
         for name, relative in pairs:
-            path = (folder / relative).resolve()
-            if not path.is_relative_to(root):
-                raise TablesError(f"{_DESCRIPTOR}: the path of {name!r:.80} leaves the folder")
-            found[name] = path
+            if not isinstance(relative, str):  # Data Package v2 allows a list of chunks
+                raise TablesError(
+                    f"{_DESCRIPTOR}: the path of {name!r:.80} must be one file name; a table"
+                    " split over several files is not read"
+                )
+            if name in found:
+                raise TablesError(f"{_DESCRIPTOR}: the table {name!r:.80} is listed twice")
+            found[name] = _inside(folder, folder / relative, name)
     else:
-        found = {path.stem: path for path in sorted(folder.glob("*.csv"))}
+        found = {
+            path.stem: _inside(folder, path, path.stem) for path in sorted(folder.glob("*.csv"))
+        }
     return found
+
+
+def _inside(folder: Path, path: Path, name: str) -> Path:
+    """``path`` resolved, refused when it (or a link it is) leaves ``folder``."""
+    resolved = path.resolve()
+    if not resolved.is_relative_to(folder.resolve()):
+        raise TablesError(f"the file of table {name!r:.80} leaves the folder (a path or a link)")
+    return resolved
 
 
 def read_package(folder: str | os.PathLike[str]) -> dict[str, Iterable[dict[str, Any]]]:

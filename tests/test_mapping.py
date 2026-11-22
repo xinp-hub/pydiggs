@@ -462,9 +462,14 @@ def test_a_unit_with_no_entry_is_left_out_with_its_values_and_never_converted() 
     ]
     assert applied.findings[0].severity is Severity.WARNING
     assert "'fathoms'" in applied.findings[0].message
-    # The length whose unit is unknown is left out; the feature's depth unit is then
-    # for tables.to_model to ask for.
-    assert applied.tables["features"] == [{"key": "B1", "name": "Boring 1"}]
+    # A feature's depth unit is passed on as given, so the tables conversion refuses the
+    # feature instead of reading its depths in metres.
+    assert applied.tables["features"] == [{"key": "B1", "name": "Boring 1", "depth_uom": "fathoms"}]
+    made = tables.to_model(applied.tables)
+    assert [f.path for f in made.findings if f.rule_id == "tables.unknown-unit"] == [
+        "features/1/depth_uom"
+    ]
+    assert made.model.features == ()
     # A depth in an unknown unit is left out too: it is not read in the feature's unit.
     assert applied.tables["samples"][0] == {
         "key": "B1-S1",

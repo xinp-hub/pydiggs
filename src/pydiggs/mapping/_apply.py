@@ -159,7 +159,13 @@ class _Engine:
             if column is not None:
                 from_source = True
             if spec.units:
-                value = self.unit(table.source, index, column or target, str(_text(value)))
+                given = str(_text(value))
+                value = self.unit(table.source, index, column or target, given)
+                if value is None and (table.target, target) == ("features", "depth_uom"):
+                    # Never let a feature fall back to metres: pass the unit on as given, so
+                    # the tables conversion refuses the feature and names it.
+                    made[target] = given
+                    continue
                 if value is None:
                     dropped.update(_governed(table.target, target))
                     continue
@@ -220,6 +226,14 @@ class _Engine:
             if node is not None:
                 for spec in table.params:
                     self.param(table, index, row, node, spec)
+            elif table.params:
+                self.notes.add(
+                    rep.MAPPING_UNKNOWN_TARGET,
+                    table.source,
+                    f"[[tables.params]] of the entry for {rep.shown(table.target)!r} need a key"
+                    " to belong to, and the entry gives none; they were left out ({times}).",
+                    row=index,
+                )
         if table.is_results and len(out) > before:  # describe only columns that hold values
             procedure = table.target[len(RESULTS_PREFIX) :]
             for target, column in table.columns.items():
