@@ -9,9 +9,13 @@
 # Dependencies come from uv.lock (hashes required); the pydiggs wheel goes in with no
 # dependencies of its own. Base images are pinned by multi-arch index digest; Dependabot
 # (docker ecosystem, 14-day cooldown) proposes the bumps. The builder and runtime bases
-# must carry the same Python patch release (3.14.10 here): the venv links to it.
+# must carry the same Python minor, 3.14: the venv links to /usr/local/bin/python3.14,
+# and the runtime stage stops the build with a clear message if that link is broken.
+# Dependabot keeps both on 3.14 (.github/dependabot.yml); moving to a new Python minor
+# changes both FROM lines in one reviewed PR. Versions and dates are not repeated in
+# these comments: the tags and digests below are the record, and Dependabot keeps them.
 
-# ghcr.io/astral-sh/uv 0.13.7 (2026-11-03), Python 3.14.10 on Debian trixie.
+# The uv builder image: uv on Python 3.14, Debian trixie.
 FROM ghcr.io/astral-sh/uv:0.13.9-python3.14-trixie-slim@sha256:da0f1f04404173d7d2fa158112e09624d5a80262efa86c89882b68389dfd44eb AS builder
 
 ENV UV_COMPILE_BYTECODE=1 \
@@ -56,7 +60,7 @@ RUN set -eu; \
     /opt/venv/bin/pydiggs --version
 
 
-# python:3.14-slim-trixie, Python 3.14.10 (index digest published 2026-11-05).
+# The runtime image: Python 3.14 on Debian trixie, the same minor as the builder.
 FROM python:3.14-slim-trixie@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f AS runtime
 
 ARG VERSION=""
@@ -115,7 +119,15 @@ ENV PATH="/opt/venv/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# The venv's interpreter must exist here before anything runs from the venv: when the
+# runtime's Python minor differs from the builder's, its link points at nothing, `python`
+# silently falls back to the base image's, and `pydiggs` fails only as "not found" (#395).
 RUN set -eu; \
+    target="$(readlink -f /opt/venv/bin/python || true)"; \
+    if [ -z "$target" ] || [ ! -x "$target" ]; then \
+        echo "the venv's interpreter ($(readlink /opt/venv/bin/python || echo none)) is not in the runtime image: build both stages on the same Python minor" >&2; \
+        exit 1; \
+    fi; \
     for module in pip setuptools ensurepip; do \
         if python -c "import $module" 2>/dev/null; then \
             echo "$module is importable from the venv" >&2; exit 1; \
