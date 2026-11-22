@@ -101,6 +101,14 @@ updates:
     open-pull-requests-limit: 2
     commit-message:
       prefix: "build"
+    # A new Python minor or major (3.14 -> 3.15) is a deliberate change to both stages,
+    # not a base-image bump: the venv built on the uv image links to its python3.14, so a
+    # python:3.15 runtime cannot run it (#395 did exactly that, and its registry gave no
+    # publication date, so the cooldown did not hold it back). Digest updates and patch
+    # releases of the same minor still come through.
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       container-bases:
         patterns: ["*"]
