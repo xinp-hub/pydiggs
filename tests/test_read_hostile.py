@@ -7,12 +7,15 @@ the 1.6.0 pre-release review.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 import pydiggs
 from pydiggs import crs
-from pydiggs._reader import _read
+from pydiggs._reader import _read, read_with_places
 from pydiggs.errors import DocumentError
 from pydiggs.model import Model
 
@@ -271,3 +274,125 @@ def test_a_decoding_error_names_where_it_is():
     nested["source"] = {**nested["source"], "name": 5}
     with pytest.raises(ValueError, match=r"^\$\.source\.name: expected a string"):
         Model.from_dict(nested)
+
+
+_NS30 = 'xmlns="http://diggsml.org/schemas/3.0" xmlns:gml="http://www.opengis.net/gml/3.2"'
+_TYPES = ("double", "integer", "boolean", "string", "dateTime", None)
+_CELLS = ("", " ", "1", "-2.5e1", "x", "true", "0", "NaN", "2020-01-01", "nil")
+
+
+def _table_doc(types: list[str | None], rows: list[list[str]], ts: str) -> bytes:
+    props = "".join(
+        f"<Property><propertyName>p{i}</propertyName>"
+        + ("" if t is None else f"<typeData>{t}</typeData>")
+        + "</Property>"
+        for i, t in enumerate(types)
+    )
+    body = ts.join(",".join(row) for row in rows)
+    return (
+        f'<Diggs {_NS30}><measurement><Test gml:id="t"><outcome><TestResult><results>'
+        f"<ResultSet><parameters><PropertyParameters><properties>{props}</properties>"
+        f'</PropertyParameters></parameters><dataValues cs="," ts="{ts}">{body}</dataValues>'
+        "</ResultSet></results></TestResult></outcome></Test></measurement></Diggs>"
+    ).encode()
+
+
+def _old_columns(
+    self: Any, props: list[Any], rows: list[list[str]]
+) -> tuple[list[dict[str, Any]], int, list[set[int]]]:
+    """The columns as the reader built them up to 1.16.0: a cell per row per column."""
+    columns, unparsed = [], 0
+    for i, prop in enumerate(props):
+        column, bad = self._column(prop, [r[i].strip() if i < len(r) else "" for r in rows])
+        unparsed += bad
+        columns.append(column)
+    unread = [
+        {n for n, r in enumerate(rows) if i < len(r) and r[i].strip() and c["values"][n] is None}
+        for i, c in enumerate(columns)
+    ]
+    if not self.results:
+        for column in columns:
+            column["values"] = []
+    return columns, unparsed, unread
+
+
+def _old_fill_units(self: Any, value: Any, table: dict[str, Any]) -> None:
+    """``_fill_units`` up to 1.16.0: it walked every cell of every column too."""
+    if isinstance(value, list):
+        for item in value:
+            _old_fill_units(self, item, table)
+        return
+    if not isinstance(value, dict):
+        return
+    if value.keys() >= _read._INTERVAL_KEYS:
+        self._interval_units(value, _read._local_unit(table.get(value["lrs"] or "")))
+        return
+    if value.keys() >= _read._TABLE_KEYS:
+        _read._index_units(value["index"], _read._local_unit(table.get(value["crs"] or "")))
+        return
+    for name, item in value.items():
+        if name not in ("params", "extra") and isinstance(item, dict | list):
+            _old_fill_units(self, item, table)
+
+
+def _everything(data: bytes) -> tuple[str, str, Any]:
+    """What a read gives: with values, without them, and with the content left out."""
+    model, *rest = read_with_places(data)
+    return (
+        pydiggs.read_bytes(data).to_json(),
+        pydiggs.read_bytes(data, results=False).to_json(),
+        (model.to_json(), *rest),
+    )
+
+
+@st.composite
+def _tables(draw: st.DrawFn) -> bytes:
+    types = draw(st.lists(st.sampled_from(_TYPES), max_size=6))
+    ts = draw(st.sampled_from([" ", ";"]))
+    cells = st.sampled_from([c for c in _CELLS if ts != " " or " " not in c])
+    width = st.integers(1, len(types) + 3)  # short, full and long rows
+    rows = draw(st.lists(width.flatmap(lambda n: st.lists(cells, min_size=n, max_size=n))))
+    return _table_doc(types, rows, ts)
+
+
+@settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(_tables())
+def test_short_long_and_null_rows_read_as_before(data):
+    """The model, and what the reader keeps beside it, are those the old reader gave."""
+    new = _everything(data)
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(_read._Reader, "_columns", _old_columns)
+        patch.setattr(_read._Reader, "_fill_units", _old_fill_units)
+        old = _everything(data)
+    assert new == old
+
+
+def test_a_wide_table_is_charged_to_the_time_budget(monkeypatch):
+    """The budget runs out between two columns of one table: the read stops there."""
+    calls: list[int] = []
+    real = _read._Reader._column
+
+    def column(self, prop, cells):
+        calls.append(len(cells))
+        if len(calls) == 3:
+            self.deadline = 0.0  # out of time from here on
+        return real(self, prop, cells)
+
+    monkeypatch.setattr(_read._Reader, "_column", column)
+    model = pydiggs.read_bytes(_table_doc(["double"] * 50, [["1"]] * 10, " "), time_budget=60)
+    assert len(calls) == 3  # not the 47 columns after
+    assert model.complete is False and model.limits_hit == ("time_budget",)
+    assert model.measurements == ()  # the member cut short is not half-read
+    assert model.notes[-1].rule_id == "structure.timeout"
+
+
+def test_result_cells_decode_as_before():
+    """Cells are passed through in one pass only when each would be: ints still widen."""
+    document = json.loads(pydiggs.read_bytes(_table_doc(["double"], [["1"]], " ")).to_json())
+    values = document["measurements"][0]["results"][0]["columns"][0]
+    values["values"] = [1, None, "a", True, 2.5]
+    read = Model.from_dict(document).measurements[0].results[0].columns[0].values
+    assert read == (1.0, None, "a", True, 2.5) and type(read[0]) is float
+    values["values"] = [1.0, {"a": 1}]
+    with pytest.raises(ValueError, match="is not one of"):
+        Model.from_dict(document)

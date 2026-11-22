@@ -15,7 +15,8 @@ from pathlib import Path
 import pytest
 from lxml import etree
 
-from pydiggs import _xml, validate
+from pydiggs import _xml, read_bytes, validate
+from pydiggs._reader import _read
 from pydiggs.dictionary import DictionarySemanticValidator
 from pydiggs.findings import run
 from pydiggs.semantic import ContextValidationResult, _check_datablocks_linear
@@ -943,3 +944,42 @@ def test_geo_checks_many_center_lines_in_one_feature():
 
 def test_geo_checks_many_features():
     assert _ratio(_geo_work(5_000, 2), _geo_work(10_000, 2), "features") <= LINEAR
+
+
+def _wide_table(properties: int, rows: int) -> bytes:
+    """One DIGGS 3.0 result set declaring ``properties`` columns over one-value rows."""
+    props = "".join(
+        f"<Property><propertyName>p{i}</propertyName><typeData>double</typeData></Property>"
+        for i in range(properties)
+    )
+    return (
+        '<Diggs xmlns="http://diggsml.org/schemas/3.0" xmlns:gml="http://www.opengis.net/gml/3.2">'
+        '<measurement><Test gml:id="t"><outcome><TestResult><results><ResultSet>'
+        f"<parameters><PropertyParameters><properties>{props}</properties>"
+        "</PropertyParameters></parameters>"
+        f"<dataValues>{' '.join(str(n) for n in range(rows))}</dataValues>"
+        "</ResultSet></results></TestResult></outcome></Test></measurement></Diggs>"
+    ).encode()
+
+
+def test_reader_short_rows_under_many_properties(monkeypatch):
+    """Twice the declared properties over twice the one-value rows: twice the cells read.
+
+    Each column used to be given a cell for every row, so the reader did properties
+    times rows of work for a file whose size is properties plus rows.
+    """
+    cells: list[int] = []
+    real = _read._Reader._column
+
+    def column(self, prop, values):
+        cells.append(len(values))
+        return real(self, prop, values)
+
+    monkeypatch.setattr(_read._Reader, "_column", column)
+
+    def work(n: int) -> int:
+        cells.clear()
+        assert read_bytes(_wide_table(n, 10 * n), results=True).complete
+        return sum(cells)
+
+    assert _ratio(work(200), work(400), "reader cells over short rows") <= LINEAR
