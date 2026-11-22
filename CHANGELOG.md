@@ -48,6 +48,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **diggs-findings 1.3.** The findings document gains the step `tables`, for what a
   tables conversion left out or assumed. Every 1.0, 1.1 and 1.2 document is a valid 1.3
   document.
+- **Laboratory and pile conformance classes (preview).** `pydiggs conformance` gains
+  `lab-index-export` and `lab-index-import` (natural water content, Atterberg limits with a
+  non-plastic specimen, bulk and dry density, and a particle-size curve per boring) and
+  `deep-foundations-export` and `deep-foundations-import` (steel pipe, steel H or concrete
+  piles with their driving records: lengths, size, capacity, and blows, penetration and
+  stroke at each tip depth, including a pile run and refusal). Pile files follow what DIGGS
+  3.0.0 requires: each pile refers to a test boring, and each has its own driving activity.
+- **Export challenges are DIGGS tables profile packages.** The SPT, CPT and laboratory
+  challenges now hold the same tables `pydiggs tables` reads and writes, with a
+  `datapackage.json` that describes every column and its unit and a `plan.json` with the
+  load order, so `pydiggs tables to-diggs` on a challenge folder is a passing export. The
+  pile challenges stay plain CSV tables with `columns.csv`: the profile has no pile tables
+  yet.
+
+### Changed
+- **Conformance suite 1.0-beta.2.** Challenges of suite 1.0-beta.1 are not graded by this
+  release: make a new one. Grading now also fails a file that writes a value where the
+  source leaves the cell empty (`conformance.value-invented`, for example a density that
+  was not measured, or limits for a non-plastic specimen, written as zero), reads a
+  percentage written as a plain percent number with no unit (a liquid limit of 48), reads
+  the points of a particle-size curve, and accepts a water content reported on a density
+  test.
 
 ## [1.15.0] - 2026-11-21
 

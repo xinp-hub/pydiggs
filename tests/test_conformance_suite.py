@@ -61,15 +61,14 @@ def test_every_test_procedure_of_the_schema_is_in_a_family() -> None:
 
 
 def test_classes_are_the_testable_families_in_both_directions() -> None:
+    testable = [f.id for f in conformance.families() if f.testable]
     assert [c.id for c in conformance.classes()] == [
-        *EXPORTS[:1],
-        IMPORTS[0],
-        EXPORTS[1],
-        IMPORTS[1],
+        f"{family}-{direction}" for family in testable for direction in ("export", "import")
     ]
+    assert testable[:2] == ["spt", "cpt"]
     assert all(c.diggs_version == "3.0.0" and c.level == "core" for c in conformance.classes())
     with pytest.raises(ValueError, match="spt-export"):
-        conformance.class_info("pile-export")
+        conformance.class_info("geophysics-export")
 
 
 # --- challenges -----------------------------------------------------------------------
@@ -105,8 +104,8 @@ def test_write_and_load_round_trip(tmp_path: Path) -> None:
 def test_load_rebuilds_from_the_seed_not_from_edited_tables(tmp_path: Path) -> None:
     challenge = _challenge_for("spt-export")
     folder = challenge.write(tmp_path / "c")
-    (folder / "spt.csv").write_text("location_id\r\nedited\r\n")
-    assert conformance.load(folder).files["spt.csv"] == challenge.files["spt.csv"]
+    (folder / "features.csv").write_text("key\r\nedited\r\n")
+    assert conformance.load(folder).files["features.csv"] == challenge.files["features.csv"]
 
 
 def test_load_refuses_another_suite_and_a_non_manifest(tmp_path: Path) -> None:
@@ -357,9 +356,10 @@ def test_scorecard_shows_every_family() -> None:
     assert (rows["spt"].export, rows["spt"].import_) == ("pass", "not-run")
     assert rows["cpt"].export == "fail"
     assert rows["core"].export == "fail" and rows["core"].import_ == "not-run"
-    assert rows["deep-foundations"].export == "not-testable"
-    assert (card.passed, card.testable) == (1, 4)
-    assert card.untestable == 2 * (len(rows) - 3)
+    assert rows["geophysics"].export == "not-testable"
+    testable = list(conformance.classes())
+    assert (card.passed, card.testable) == (1, len(testable))
+    assert card.untestable == 2 * (len(rows) - 1) - len(testable)
     assert "not yet testable" in card.to_text() and "| Export |" in card.to_markdown()
     assert card.to_dict()["classes_passed"] == 1
     with pytest.raises(ValueError, match="suite"):
@@ -482,7 +482,7 @@ def test_skipped_and_validation_stages_count_what_failed() -> None:
     skipped = [s for s in document["stages"] if s["status"] == "skipped"]
     assert skipped and all(s["failed"] == 0 and not s["items_truncated"] for s in skipped)
     assert "in all" not in conformance.grade(challenge, b"<root/>").to_text()
-    broken = challenge.reference().replace(b'uom="m"', b'uom="furlong"')
+    broken = re.sub(rb'uom="(m|ft|kPa|MPa)"', b'uom="furlong"', challenge.reference())
     validation = conformance.grade(challenge, broken).stage("validation")
     assert validation.failed == len(validation.items) >= 2
 
@@ -496,7 +496,7 @@ def test_a_tampered_manifest_is_refused(tmp_path: Path) -> None:
         {"token": "000000"},
         {"product": {"name": 5, "version": "1"}},
         {"product": "x"},
-        {"class": "pile-export"},
+        {"class": "geophysics-export"},
     ):
         (folder / "challenge.json").write_text(json.dumps({**good, **change}))
         with pytest.raises(DocumentError) as caught:

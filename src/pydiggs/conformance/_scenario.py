@@ -283,7 +283,11 @@ def _interchange(dataset: Dataset) -> bytes:
             [(r[0], kind[r[1]], r[2], r[3], r[4], r[5]) for r in locations.rows],
         ),
     ]
-    if dataset.scenario == "spt":
+    if dataset.scenario == "lab":
+        from pydiggs.conformance import _lab  # noqa: PLC0415  # _lab imports this module
+
+        groups.extend(_group(*group) for group in _lab.groups(dataset, unit))
+    elif dataset.scenario == "spt":
         spt = dataset.table("spt")
         drive_unit = spt.fields[3].unit
         groups.append(
@@ -300,7 +304,7 @@ def _interchange(dataset: Dataset) -> bytes:
                 list(spt.rows),
             )
         )
-    else:
+    else:  # cpt
         groups.append(
             _group(
                 "SCPG",

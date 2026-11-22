@@ -98,6 +98,8 @@ elements = ["Sample", "SamplingActivity"]
 id = "lab-index"
 group = "Laboratory tests"
 title = "Index and classification tests"
+scenario = "lab"
+note = "Graded: water content, Atterberg limits, bulk and dry density, particle-size curve."
 elements = [
   "WaterContentTest", "AtterbergLimitsTest", "ParticleSizeTest", "SpecificGravityTest",
   "LabDensityTest", "RelativeDensityTest", "LinearShrinkageTest", "ShrinkageTest",
@@ -173,7 +175,8 @@ elements = [
 id = "deep-foundations"
 group = "Construction"
 title = "Piles and pile driving records"
-note = "Next: planned for the release after SPT and CPT."
+scenario = "piles"
+note = "Graded: each pile's lengths, size and capacity, and every driving increment (blows, penetration, stroke at the tip depth)."
 elements = [
   "ConcretePile", "SteelHPile", "SteelPipePile", "TimberPile", "PileCap",
   "PileDrivingActivity", "PileDrivingRecord", "PileDriveHammer", "PDARecord",
