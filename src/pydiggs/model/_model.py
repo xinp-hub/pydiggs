@@ -382,6 +382,9 @@ def _primitive(tp: Any) -> Decoder | None:  # noqa: PLR0911 - one return per pri
 
 #: Plain JSON types a union may be made of and still take the fast path.
 _PLAIN: Final = frozenset({bool, int, float, str})
+#: The types each plain-union decoder passes through as they are (``NoneType`` when it
+#: is nullable): an array of only those is decoded as a whole (see :func:`_sequence`).
+_PASSED: Final[dict[Decoder, frozenset[type]]] = {}
 
 
 def _plain_union(options: list[Any], nullable: bool) -> Decoder:
@@ -399,6 +402,7 @@ def _plain_union(options: list[Any], nullable: bool) -> Decoder:
             return float(value)
         raise ValueError(f"{where}: {value!r} is not one of {sorted(t.__name__ for t in accepted)}")
 
+    _PASSED[plain] = accepted | {type(None)} if nullable else accepted
     return plain
 
 
@@ -428,9 +432,12 @@ def _union(tp: Any) -> Decoder:
 
 def _sequence(tp: Any) -> Decoder:
     item = _compile(get_args(tp)[0])
+    passed = _PASSED.get(item)
 
     def sequence(value: Any, where: Where) -> Any:
         _check(isinstance(value, list | tuple), where, "an array")
+        if passed is not None and passed.issuperset(map(type, value)):
+            return tuple(value)  # a table column: each cell as it is, checked in one pass
         return tuple([item(v, where) for v in value])
 
     return sequence

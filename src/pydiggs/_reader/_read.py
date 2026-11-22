@@ -326,6 +326,16 @@ def _column_kind(declared: str, cells: list[str]) -> str:
     return "number" if all(_number(c) is not None for c in cells if c) and any(cells) else "string"
 
 
+def _spread(values: list[Any], rows: list[int], count: int) -> list[Any]:
+    """A column of ``count`` rows: ``values`` in their ``rows`` (ascending), null elsewhere."""
+    if len(rows) == count:
+        return values  # every row has a value for the column
+    column: list[Any] = [None] * count
+    for n, value in zip(rows, values, strict=True):
+        column[n] = value
+    return column
+
+
 def _index_column(name: str, values: Sequence[float | None], uom: str | None) -> dict[str, Any]:
     affine = _converter()._affine(uom) if uom else None
     return {
@@ -1589,13 +1599,7 @@ class _Reader:
                 line=rs.sourceline,
                 xpath=xpath,
             )
-        columns = []
-        unparsed = 0
-        for i, prop in enumerate(props):
-            cells = [r[i].strip() if i < len(r) else "" for r in rows]
-            column, bad = self._column(prop, cells)
-            unparsed += bad
-            columns.append(column)
+        columns, unparsed, unread = self._columns(props, rows)
         if unparsed:
             self.note(
                 rules.VALUE_UNPARSED,
@@ -1603,10 +1607,7 @@ class _Reader:
                 line=rs.sourceline,
                 xpath=xpath,
             )
-        self._took_values(values_el, rows, columns)
-        if not self.results:
-            for column in columns:
-                column["values"] = []
+        self._took_values(values_el, rows, unread)
         holder = rs.getparent()
         holder = None if holder is None else holder.getparent()
         location = None if holder is None else _child(holder, "location")
@@ -1633,29 +1634,64 @@ class _Reader:
             "extent": extent,
         }
 
+    def _columns(
+        self, props: list[etree._Element], rows: list[list[str]]
+    ) -> tuple[list[dict[str, Any]], int, list[set[int]]]:
+        """The columns of a result set, how many values they could not read, and where.
+
+        Each column is given only the values the rows hold for it, with the rows they
+        are in: a short row reaches only its first columns, so the work is that of the
+        values written, not of the declared columns times the rows. A row's missing
+        values are nulls, filled in at once (see :func:`_spread`). The third value has,
+        per column, the rows of the values it read as null (only when the content the
+        model lacks is collected).
+        """
+        width = len(props)
+        at: list[list[int]] = [[] for _ in props]
+        held: list[list[str]] = [[] for _ in props]
+        for n, row in enumerate(rows):
+            for i, raw in enumerate(row[:width]):
+                at[i].append(n)
+                held[i].append(raw.strip())
+        columns = []
+        unparsed = 0
+        unread: list[set[int]] = []
+        for i, prop in enumerate(props):
+            column, bad = self._column(prop, held[i])
+            unparsed += bad
+            parsed = column["values"]
+            if self._masks is not None:
+                read = zip(at[i], held[i], parsed, strict=True)
+                unread.append({n for n, cell, value in read if cell and value is None})
+            column["values"] = _spread(parsed, at[i], len(rows)) if self.results else []
+            columns.append(column)
+            self._tick()  # a table of many columns is work of its own
+        return columns, unparsed, unread
+
     def _took_values(
         self,
         values_el: etree._Element | None,
         rows: list[list[str]],
-        columns: list[dict[str, Any]],
+        unread: list[set[int]],
     ) -> None:
         """Note that the columns hold the values of a result set, and which they do not.
 
         The columns hold every value but those they could not: a value read as null (not
-        a number in a numeric column, not a boolean in a boolean one) and a value beyond
-        the declared columns, empty or not (a separator after the last value is one
-        more). Those stay as they are written, each with its row and column.
+        a number in a numeric column, not a boolean in a boolean one; ``unread`` has
+        their rows, per column) and a value beyond the declared columns, empty or not (a
+        separator after the last value is one more). Those stay as they are written,
+        each with its row and column.
         """
         if values_el is None or self._masks is None:
             return
         self._took(values_el)
         self._spelled.add(values_el)
-        width = len(columns)
+        width = len(unread)
         cells = (
             (n + 1, i + 1, raw.strip())
             for n, row in enumerate(rows)
             for i, raw in enumerate(row)
-            if i >= width or (raw.strip() and columns[i]["values"][n] is None)
+            if i >= width or n in unread[i]
         )
         # A row with fewer values than columns is padded with nulls: how many it has is
         # written down (as column 0), so that one more separator is one more value.
@@ -2045,7 +2081,9 @@ class _Reader:
             _index_units(value["index"], _local_unit(table.get(value["crs"] or "")))
             return
         for name, item in value.items():
-            if name not in ("params", "extra") and isinstance(item, dict | list):
+            # A column's values are cells (numbers, text, booleans, nulls), never an
+            # interval or a table, and there are rows times columns of them: not walked.
+            if name not in ("params", "extra", "values") and isinstance(item, dict | list):
                 self._fill_units(item, table)
 
     def _interval_units(self, interval: dict[str, Any], unit: str | None) -> None:
