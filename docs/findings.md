@@ -246,7 +246,7 @@ ships inside the package (`pydiggs/findings/diggs-findings-1.3.schema.json`) and
 published with this site at
 [`schemas/diggs-findings-1.3.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json).
 
-Version 1.3 (pyDIGGS 1.15.0) only adds to 1.2: the step `tables`, for what a conversion
+Version 1.3 (pyDIGGS 1.16.0) only adds to 1.2: the step `tables`, for what a conversion
 between tables and DIGGS left out or assumed ([Tables](tables.md)).
 Every 1.2 document is a valid 1.3 document. The
 [1.2 schema](https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json) stays packaged and published, unchanged, like 1.1 and 1.0; a consumer that checks

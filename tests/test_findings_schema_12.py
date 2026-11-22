@@ -42,7 +42,7 @@ def _as_1_2(document: dict) -> dict:
 
 
 def _document(report: Report) -> dict:
-    """What a pyDIGGS writes (1.3 since 1.15.0) with the two version fields set to 1.2."""
+    """What a pyDIGGS writes (1.3 since 1.16.0) with the two version fields set to 1.2."""
     return _as_1_2(json.loads(report.to_json()))
 
 
@@ -67,7 +67,7 @@ def test_the_1_1_schema_file_is_byte_identical_and_still_packaged_and_published(
 
 
 def test_1_2_is_a_valid_schema_with_the_published_id():
-    # pyDIGGS writes 1.3 since 1.15.0 (tests/test_findings_schema_13.py); 1.2 stays published.
+    # pyDIGGS writes 1.3 since 1.16.0 (tests/test_findings_schema_13.py); 1.2 stays published.
     jsonschema.Draft202012Validator.check_schema(SCHEMA_1_2)
     assert SCHEMA_1_2["$id"] == URL.format("1.2")
     assert SCHEMA_1_2["title"] == "diggs-findings 1.2"
