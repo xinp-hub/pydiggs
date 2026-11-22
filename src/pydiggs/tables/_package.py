@@ -147,12 +147,14 @@ def unpack(content: bytes, *, max_unpacked_bytes: int) -> dict[str, bytes]:
         infos = archive.infolist()
         if len(infos) > _MAX_ENTRIES:
             raise PackageError("too-large", f"The package has more than {MAX_FILES} files.")
-        kept = [info for info in infos if not _skipped(info.filename)]
-        prefix = _wrapper([info.filename for info in kept])
+        # Names as stored in the archive: on Windows, zipfile rewrites a backslash in
+        # ``filename`` to "/", which would turn a refused name into an accepted folder.
+        kept = [info for info in infos if not _skipped(_stored(info))]
+        prefix = _wrapper([_stored(info) for info in kept])
         files: dict[str, bytes] = {}
         total = 0
         for info in kept:
-            name = info.filename.removeprefix(prefix)
+            name = _stored(info).removeprefix(prefix)
             if (
                 not valid_name(name)
                 or _is_link(info)
@@ -170,6 +172,11 @@ def unpack(content: bytes, *, max_unpacked_bytes: int) -> dict[str, bytes]:
             total, data = _read(archive, info, total, max_unpacked_bytes)
             files[name] = data
     return files
+
+
+def _stored(info: zipfile.ZipInfo) -> str:
+    """An entry's name exactly as the archive stores it, on every platform."""
+    return info.orig_filename
 
 
 def _read(

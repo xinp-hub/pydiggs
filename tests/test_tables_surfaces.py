@@ -489,3 +489,17 @@ def test_a_zip_table_that_is_not_utf8_is_a_tables_error() -> None:
 
     with pytest.raises(tables.TablesError, match="not UTF-8"):
         tables.to_model(tables_from_files({"features.csv": "key\nCaf\xe9\n".encode("cp1252")}))
+
+
+def test_a_backslash_name_is_refused_as_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """zipfile rewrites a backslash to "/" in ``filename`` when os.sep is a backslash."""
+    import os
+    import zipfile
+
+    data = io.BytesIO()
+    with zipfile.ZipFile(data, "w") as archive:
+        archive.writestr("a\\features.csv", b"key\n")
+    monkeypatch.setattr(os, "sep", "\\")  # read as on Windows
+    assert zipfile.ZipFile(io.BytesIO(data.getvalue())).infolist()[0].filename == "a/features.csv"
+    with pytest.raises(_package.PackageError):
+        _package.unpack(data.getvalue(), max_unpacked_bytes=1 << 20)
