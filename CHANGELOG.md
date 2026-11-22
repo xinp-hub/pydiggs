@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-22
+
 ### Added
 - **Your database to DIGGS and back (preview).** `pydiggs.tables` and `pydiggs tables`
   let software that keeps its data in a database write and read DIGGS without touching
