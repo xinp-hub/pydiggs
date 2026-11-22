@@ -182,7 +182,7 @@ def test_detect_diggs_version_profiles():
     assert detect_diggs_version(FIXTURES / "2.5.a" / "AtterbergExample.xml") == "2.5.a"
     assert detect_diggs_version(FIXTURES / "2.6" / "Aeromag.xml") == "2.6"
     assert detect_diggs_version(FIXTURES / "3.0" / "MWDExample.xml") == "3.0.0"
-    # HG2: unknown namespace → 3.0.0
+    # An unknown namespace falls back to 3.0.0.
     assert detect_diggs_version(etree.fromstring(b"<root xmlns='http://example.com'/>")) == "3.0.0"
 
 
