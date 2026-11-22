@@ -8,6 +8,24 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-22
+
+### Changed
+
+- Runs pyDIGGS 1.16.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. Everything the client calls works as in 0.9.0. pyDIGGS 1.16.0 adds, as
+  previews, the DIGGS tables profile (`pydiggs tables`, `pydiggs.tables`), mapping files
+  (`pydiggs map`, `pydiggs.mapping`) and the laboratory and pile conformance classes, all
+  from the command line or Python, with no HTTP route or sidecar method yet, so the
+  client gains no method with them. Its new public writer (`pydiggs.write`) takes a
+  Python model, which no HTTP route or sidecar method takes either.
+- pyDIGGS 1.16.0 is the first release that reports the findings step `"tables"`, which
+  the findings types already accept (diggs-findings 1.3, since 0.9.0). It reports that
+  step only for a tables conversion, which the client does not run yet, so the findings
+  of `validate`, `checkAgs4`, `convert` and `diff` do not carry it. The findings
+  documents the engine returns now name the diggs-findings 1.3 schema (`FINDINGS_SCHEMA_URL`) rather than 1.2, and `listRules`
+  and `explainRule` also know the `tables.*` rules.
+
 ## [0.9.0] - 2026-11-22
 
 ### Changed
