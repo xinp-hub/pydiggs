@@ -131,7 +131,11 @@ def _encrypted(data: bytes) -> bytes:
         pytest.param(
             _raw_zip(("pkg/../../features.csv", b"key\n")), "unsafe-package", id="dot-dot-inside"
         ),
-        pytest.param(_raw_zip(("a\\features.csv", b"key\n")), "unsafe-package", id="backslash"),
+        pytest.param(
+            _raw_zip(("a\\b\\features.csv", b"key\n")), "unsafe-package", id="backslash-nested"
+        ),
+        pytest.param(_raw_zip(("..\\features.csv", b"key\n")), "unsafe-package", id="backslash-up"),
+        pytest.param(_raw_zip(("C:\\features.csv", b"key\n")), "unsafe-package", id="drive-path"),
         pytest.param(_raw_zip(("C:features.csv", b"key\n")), "unsafe-package", id="drive"),
         pytest.param(
             _raw_zip(("features.csv", b"k\n"), ("sub/x.csv", b"k\n")),
@@ -491,15 +495,19 @@ def test_a_zip_table_that_is_not_utf8_is_a_tables_error() -> None:
         tables.to_model(tables_from_files({"features.csv": "key\nCaf\xe9\n".encode("cp1252")}))
 
 
-def test_a_backslash_name_is_refused_as_on_windows(monkeypatch: pytest.MonkeyPatch) -> None:
-    """zipfile rewrites a backslash to "/" in ``filename`` when os.sep is a backslash."""
+@pytest.mark.parametrize("windows", [False, True], ids=["posix", "as-on-windows"])
+def test_a_backslash_is_a_folder_separator_on_every_platform(
+    monkeypatch: pytest.MonkeyPatch, windows: bool
+) -> None:
+    """zipfile rewrites a backslash to "/" when os.sep is a backslash: same answer either way."""
     import os
     import zipfile
 
     data = io.BytesIO()
     with zipfile.ZipFile(data, "w") as archive:
-        archive.writestr("a\\features.csv", b"key\n")
-    monkeypatch.setattr(os, "sep", "\\")  # read as on Windows
-    assert zipfile.ZipFile(io.BytesIO(data.getvalue())).infolist()[0].filename == "a/features.csv"
-    with pytest.raises(_package.PackageError):
-        _package.unpack(data.getvalue(), max_unpacked_bytes=1 << 20)
+        archive.writestr("site\\features.csv", b"key\n")
+    if windows:
+        monkeypatch.setattr(os, "sep", "\\")
+    assert _package.unpack(data.getvalue(), max_unpacked_bytes=1 << 20) == {
+        "features.csv": b"key\n"
+    }

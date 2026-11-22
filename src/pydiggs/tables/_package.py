@@ -5,7 +5,8 @@ The HTTP API and the sidecar take a tables package as a ZIP of its CSV files and
 memory, never extracted to disk, and refused when it has too many entries, unpacks to
 more than allowed (counted while decompressing, not taken from the headers), or holds an
 entry that is not a plain CSV or JSON file at the top of the package (an absolute path,
-``..``, a backslash, a symbolic link, an encrypted entry, a nested folder). A single
+``..``, a drive letter, a symbolic link, an encrypted entry, a nested folder). A
+backslash in a name is a folder separator, as many Windows tools write it. A single
 folder that wraps every entry, as a ZIP of a folder has, is unwrapped; directory entries,
 macOS ``__MACOSX/`` metadata and hidden files (``.DS_Store``) are skipped.
 """
@@ -147,8 +148,7 @@ def unpack(content: bytes, *, max_unpacked_bytes: int) -> dict[str, bytes]:
         infos = archive.infolist()
         if len(infos) > _MAX_ENTRIES:
             raise PackageError("too-large", f"The package has more than {MAX_FILES} files.")
-        # Names as stored in the archive: on Windows, zipfile rewrites a backslash in
-        # ``filename`` to "/", which would turn a refused name into an accepted folder.
+        # One reading of every name on every platform: a backslash is a folder separator.
         kept = [info for info in infos if not _skipped(_stored(info))]
         prefix = _wrapper([_stored(info) for info in kept])
         files: dict[str, bytes] = {}
@@ -175,8 +175,13 @@ def unpack(content: bytes, *, max_unpacked_bytes: int) -> dict[str, bytes]:
 
 
 def _stored(info: zipfile.ZipInfo) -> str:
-    """An entry's name exactly as the archive stores it, on every platform."""
-    return info.orig_filename
+    r"""An entry's name with ``\`` read as ``/``, the same on every platform.
+
+    On Windows, zipfile itself rewrites a backslash to "/", so reading every backslash
+    as a folder separator is the only rule that gives the same answer everywhere.
+    ``..\x.csv``, ``C:\x.csv`` and nested folders are then refused as with "/".
+    """
+    return info.filename.replace("\\", "/")
 
 
 def _read(

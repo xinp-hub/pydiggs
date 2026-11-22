@@ -324,9 +324,10 @@ curl -s -H 'Content-Type: application/xml' --data-binary @site.xml \
   the top of the ZIP; one folder wrapping them all (a ZIP of a folder) is allowed, and
   folder entries, `__MACOSX/` and hidden files (`.DS_Store`) are skipped. Anything else
   refuses the whole package as 422 `invalid-document` with `kind` `unsafe-package`: an
-  absolute path, `..`, a backslash or drive letter, a nested folder, a symbolic link, an
+  absolute path, `..`, a drive letter, a nested folder, a symbolic link, an
   encrypted entry, a name listed twice, another kind of file, or a compression other
-  than stored and deflate.
+  than stored and deflate. A backslash in a name is read as a folder separator, as many
+  Windows tools write it.
 - **Not a ZIP** is 422 `invalid-document` with `kind` `not-zip`; tables that are not
   the profile's (an unknown table, a missing key column, an unusable
   `datapackage.json`) are `kind` `not-tables` (run `pydiggs map check` locally for the

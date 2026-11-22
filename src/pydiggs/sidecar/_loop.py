@@ -164,6 +164,8 @@ class Server:
         self._phase: Phase = "new"
         self._progress = False
         self._running: _Job | None = None
+        #: The executor thread's ident, set when it starts (see :meth:`_settle`).
+        self._executor: int | None = None
         self._queue: deque[_Job] = deque()
         self._done = threading.Event()
         self._exit_code = 0
@@ -236,10 +238,27 @@ class Server:
     def _reply(
         self, request_id: RequestId, result: object = None, *, raw: bytes | None = None
     ) -> None:
+        self._settle(request_id)
         self.send(_protocol.result_frame(request_id, result, raw=raw))
 
     def _error(self, request_id: RequestId | None, error: ProtocolError) -> None:
+        self._settle(request_id)
         self.send(_protocol.error_frame(request_id, error))
+
+    def _settle(self, request_id: RequestId | None) -> None:
+        """Mark the running job finished before the executor writes its final reply.
+
+        A client may reuse an id as soon as it has the reply (JSON-RPC: an id is unique
+        among the requests in flight). Clearing the job only after the reply left a moment
+        in which a new request with that id was refused as a duplicate.
+        """
+        if request_id is None or threading.get_ident() != self._executor:
+            return  # only the executor finishes its own job; the reader never does
+        key = _key(request_id)
+        with self._cv:
+            if self._running is not None and self._running.key == key:
+                self._running = None
+                self._cv.notify_all()
 
     def _progress_note(self, job: _Job, step: str, status: str) -> None:
         if self._progress and not self._done.is_set():
@@ -451,6 +470,7 @@ class Server:
     # --- executor ---------------------------------------------------------------------
 
     def _exec_loop(self) -> None:
+        self._executor = threading.get_ident()
         while True:
             with self._cv:
                 while not self._queue and not self._done.is_set():

@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tables_profile_version` and `capabilities.tables`; a host that asks for 1.3 or older
   sees no change.
 
+### Fixed
+- **The stdio sidecar no longer refuses an id it has just answered.** A host that reused
+  a request id as soon as it had the reply could, now and then, get `invalid-request`
+  ("Duplicate id"): the job was still counted as running for a moment after its reply.
+  It is now finished before its reply is written. Slower machines (often Windows) saw it
+  most.
+
 ## [1.16.0] - 2026-11-22
 
 ### Added
