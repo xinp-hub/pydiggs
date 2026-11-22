@@ -116,7 +116,7 @@ def problem(
         errors: ``(parameter, problem)`` pairs; at most :data:`MAX_ERRORS` are sent.
         correlation_id: Ties a 500 answer to the log line with the real text.
         kind: For ``invalid-document``: why the bytes are not a document of the expected
-            format (DIGGS XML, or AGS4 for a conversion to DIGGS).
+            format (DIGGS XML, AGS4 for a conversion to DIGGS, or a tables package ZIP).
         headers: Extra headers (``Retry-After``, ``Allow``).
 
     Returns:

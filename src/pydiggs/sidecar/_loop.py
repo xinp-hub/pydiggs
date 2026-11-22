@@ -4,8 +4,8 @@ Three threads share one :class:`Server`:
 
 * the **reader** reads bounded lines from stdin, answers cheap methods (``ping``,
   ``versions``, ``rules.*``) at once, and queues ``initialize``, the document methods
-  (``validate``, ``read``, ``convert``, ``ags4.check``, ``diff``) and ``shutdown`` for
-  the executor;
+  (``validate``, ``read``, ``convert``, ``ags4.check``, ``diff``, ``tables.*``) and
+  ``shutdown`` for the executor;
 * the **executor** runs one queued job at a time (validators are compiled per
   thread, so warm-up and validation share this thread);
 * the **main** thread waits for the end (``exit``, EOF, a broken pipe or a signal)
@@ -50,21 +50,43 @@ _DISCARD_CHUNK: Final = 1 << 20
 _WAIT_SECONDS: Final = 0.5
 #: Requests answered without the executor.
 _CHEAP: Final = frozenset({"ping", "versions", "rules.list", "rules.explain"})
-_KNOWN: Final = _CHEAP | {
-    "initialize",
+#: The package methods of protocol 1.4 (``tables.to_diggs``, ``tables.check``,
+#: ``tables.round_trip``), and ``tables.from_diggs``, which takes a DIGGS document.
+_TABLES: Final = frozenset(_protocol.TABLES_METHODS)
+_FROM_DIGGS: Final = "tables.from_diggs"
+_KNOWN: Final = (
+    _CHEAP
+    | _TABLES
+    | {
+        "initialize",
+        "validate",
+        "read",
+        "convert",
+        "ags4.check",
+        "diff",
+        _FROM_DIGGS,
+        "shutdown",
+    }
+)
+#: The requests that take a document: one runs, one waits, both can be cancelled.
+_DOCUMENT: Final = (
     "validate",
     "read",
     "convert",
     "ags4.check",
     "diff",
-    "shutdown",
-}
-#: The requests that take a document: one runs, one waits, both can be cancelled.
-_DOCUMENT: Final = ("validate", "read", "convert", "ags4.check", "diff")
+    *sorted(_TABLES),
+    _FROM_DIGGS,
+)
 #: The protocol minor that added each document method (1.0 has validate).
-_SINCE_MINOR: Final = {"validate": 0, "read": 1, "convert": 2, "ags4.check": 2, "diff": 3}
-
-_DocumentKind = Literal["validate", "read", "convert", "ags4.check", "diff"]
+_SINCE_MINOR: Final = {
+    "validate": 0,
+    "read": 1,
+    "convert": 2,
+    "ags4.check": 2,
+    "diff": 3,
+    **dict.fromkeys((*_TABLES, _FROM_DIGGS), 4),
+}
 
 
 #: What a refused by-path diff file's ``errors`` entry says; fixed texts, never the path.
@@ -86,7 +108,8 @@ Phase = Literal["new", "initializing", "ready", "shutdown"]
 
 @dataclass(eq=False)
 class _Job:
-    kind: Literal["initialize", "validate", "read", "convert", "ags4.check", "diff", "shutdown"]
+    #: ``initialize``, ``shutdown`` or one of :data:`_DOCUMENT`.
+    kind: str
     id: RequestId
     params: Any = None
     cancel: threading.Event = field(default_factory=threading.Event)
@@ -318,12 +341,11 @@ class Server:
         elif phase != "ready":
             raise ProtocolError(ErrorCode.NOT_INITIALIZED)
         elif method in _SINCE_MINOR:
-            # read is protocol 1.1, convert and ags4.check 1.2, diff 1.3: an older
-            # session lacks them
+            # read is protocol 1.1, convert and ags4.check 1.2, diff 1.3, tables.* 1.4:
+            # an older session lacks them
             if self._minor < _SINCE_MINOR[method]:
                 raise ProtocolError(ErrorCode.METHOD_NOT_FOUND)
-            kind: _DocumentKind = method  # type: ignore[assignment]
-            self._submit_document(kind, request_id, params)
+            self._submit_document(method, request_id, params)
         elif method == "shutdown":
             self._shutdown(request_id, params)
         else:
@@ -362,9 +384,7 @@ class Server:
             while self._phase == "initializing" and not self._done.is_set():
                 self._cv.wait()
 
-    def _submit_document(
-        self, kind: _DocumentKind, request_id: RequestId, params: dict[str, Any]
-    ) -> None:
+    def _submit_document(self, kind: str, request_id: RequestId, params: dict[str, Any]) -> None:
         """Queue a validation or a read: at most one running (or about to run) and one waiting.
 
         The duplicate-id and busy checks come first, so a refused request never has
@@ -378,7 +398,7 @@ class Server:
                 raise ProtocolError(ErrorCode.INVALID_REQUEST, "Duplicate id")
             if len(jobs) >= 2:  # noqa: PLR2004  # one running plus one waiting
                 raise ProtocolError(ErrorCode.BUSY)
-        check = getattr(_protocol, _CHECKS[kind])
+        check = getattr(_protocol, _CHECKS.get(kind, "check_tables"))
         checked = check(params, max_bytes=self.options.max_bytes, time_limit=self.options.timeout)
         job = _Job(kind, request_id, checked)
         with self._cv:
@@ -452,17 +472,16 @@ class Server:
         elif job.kind == "initialize":
             self._warm(job)
         else:
+            runners: dict[str, Callable[[_Job], None]] = {
+                "read": self._read,
+                "convert": self._convert,
+                "ags4.check": self._ags4_check,
+                "diff": self._diff,
+                _FROM_DIGGS: self._from_diggs,
+                **dict.fromkeys(_TABLES, self._tables),
+            }
             try:
-                if job.kind == "read":
-                    self._read(job)
-                elif job.kind == "convert":
-                    self._convert(job)
-                elif job.kind == "ags4.check":
-                    self._ags4_check(job)
-                elif job.kind == "diff":
-                    self._diff(job)
-                else:
-                    self._validate(job)
+                runners.get(job.kind, self._validate)(job)
             except ProtocolError as error:
                 if not self._done.is_set():
                     self._error(job.id, error)
@@ -542,6 +561,14 @@ class Server:
                 "path": bool(self.roots),
                 "match": list(_service.DIFF_MATCH),
             }
+        if minor >= 4:  # noqa: PLR2004  # protocol 1.4: the tables.* methods (preview)
+            result.update(_service.tables_info())
+            result["capabilities"]["tables"] = {
+                "content": True,
+                "path": bool(self.roots),
+                "methods": sorted((*_TABLES, _FROM_DIGGS)),
+                "profile_version": result["tables_profile_version"],
+            }
         with self._cv:
             if self._phase == "initializing":
                 self._minor = minor
@@ -571,6 +598,7 @@ class Server:
             | _protocol.ReadParams
             | _protocol.ConvertParams
             | _protocol.Ags4CheckParams
+            | _protocol.TablesFromDiggsParams
         ) = job.params
         self._progress_note(job, step, "started")
         name = params.name
@@ -687,6 +715,83 @@ class Server:
         )
         self._answer(job, _service.diff(request, should_stop=should_stop))
 
+    def _read_folder(self, path: str) -> dict[str, bytes]:
+        """Vet a package folder and read its CSV and JSON files, each opened and verified.
+
+        Every file is held to ``max_path_bytes``, and so are all of them together; a
+        folder with more than :data:`~pydiggs._service.TABLES_MAX_FILES` such files is
+        ``input-too-large``. Other entries (subfolders, other kinds of file, hidden
+        files) are not read, as :func:`pydiggs.tables.read_package` ignores them. A
+        package file that cannot be opened and verified (a symlink, a FIFO) refuses the
+        whole request, as ``path-not-permitted``.
+        """
+        try:
+            _paths.vet_request_path(path)
+            names = _paths.list_verified(path, self.roots, spellings=self._spellings)
+        except _paths.NotPermittedError:
+            raise ProtocolError(ErrorCode.PATH_NOT_PERMITTED) from None
+        limit = self.options.max_path_bytes
+        files: dict[str, bytes] = {}
+        total = 0
+        for name in filter(_service.package_file, names):
+            if len(files) >= _service.TABLES_MAX_FILES:
+                raise ProtocolError(
+                    ErrorCode.INPUT_TOO_LARGE,
+                    f"The folder has more than {_service.TABLES_MAX_FILES} package files.",
+                )
+            data = self._read_path(str(Path(path, name)))
+            total += len(data)
+            if total > limit:
+                raise ProtocolError(ErrorCode.INPUT_TOO_LARGE, extra={"max_path_bytes": limit})
+            files[name] = data
+        return files
+
+    def _stopper(self, job: _Job, step: str) -> Callable[[], bool]:
+        def should_stop() -> bool:
+            stop = job.cancel.is_set() or self._done.is_set()
+            if not stop:
+                self._progress_note(job, step, "running")
+            return stop
+
+        return should_stop
+
+    def _tables(self, job: _Job) -> None:
+        params: _protocol.TablesParams = job.params
+        self._progress_note(job, "tables", "started")
+        operation = _protocol.TABLES_METHODS[job.kind]
+        limit = _protocol.MAX_RESULT_BYTES
+        if params.path is not None:
+            files = self._read_folder(params.path)
+            name = params.name if params.name is not None else _basename(params.path)
+            request = _service.TablesRequest(
+                files=files,
+                name=name,
+                operation=operation,
+                max_bytes=self.options.max_path_bytes,
+                max_result_bytes=limit,
+            )
+        else:
+            request = _service.TablesRequest(
+                content=params.content,
+                name=params.name,
+                operation=operation,
+                max_bytes=self.options.max_bytes,
+                max_result_bytes=limit,
+            )
+        self._answer(job, _service.tables(request, should_stop=self._stopper(job, "tables")))
+
+    def _from_diggs(self, job: _Job) -> None:
+        params: _protocol.TablesFromDiggsParams = job.params
+        content, name, limit, should_stop = self._document(job, "tables")
+        request = _service.TablesFromDiggsRequest(
+            content=content,
+            name=name,
+            max_bytes=limit,
+            time_budget=params.time_budget,
+            max_result_bytes=_protocol.MAX_RESULT_BYTES,
+        )
+        self._answer(job, _service.tables_from_diggs(request, should_stop=should_stop))
+
     def _validate(self, job: _Job) -> None:
         params: _protocol.ValidateParams = job.params
         content, name, limit, should_stop = self._document(job, "validate")
@@ -731,6 +836,7 @@ _CHECKS: Final = {
     "convert": "check_convert",
     "ags4.check": "check_ags4_check",
     "diff": "check_diff",
+    _FROM_DIGGS: "check_tables_from_diggs",
 }
 
 

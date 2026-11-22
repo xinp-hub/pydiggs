@@ -24,6 +24,7 @@ from typing import Final
 __all__ = [
     "NotPermittedError",
     "canonical_roots",
+    "list_verified",
     "open_verified",
     "root_spellings",
     "vet_request_path",
@@ -243,6 +244,57 @@ def open_verified(path: str, roots: tuple[Path, ...], *, spellings: tuple[Path, 
         os.close(fd)
         raise
     return fd
+
+
+def list_verified(
+    path: str, roots: tuple[Path, ...], *, spellings: tuple[Path, ...] = ()
+) -> list[str]:
+    """The names in folder ``path``, after proving the folder itself is inside a root.
+
+    As :func:`open_verified` does for a file: a folder that, as spelled, is not under a
+    root is refused before it is opened; on POSIX it is then opened without following a
+    final symlink, and the descriptor's real path must lie inside a root; its names are
+    listed from that descriptor. Each file in it must still be opened with
+    :func:`open_verified`, which checks it on its own.
+
+    Args:
+        path: A path already passed by :func:`vet_request_path`.
+        roots: From :func:`canonical_roots`.
+        spellings: More accepted spellings of the roots (see :func:`open_verified`).
+
+    Returns:
+        The names of the folder's entries, sorted.
+
+    Raises:
+        NotPermittedError: Missing, not a folder, or outside every root.
+    """
+    if not roots:
+        raise NotPermittedError
+    if not any(_within(Path(path), root) for root in (*roots, *spellings)):
+        raise NotPermittedError
+    if _WINDOWS:  # pragma: no cover - Windows only
+        try:
+            real = os.path.realpath(path, strict=True)
+            if not Path(real).is_dir() or not any(_within(Path(real), r) for r in roots):
+                raise NotPermittedError
+            return sorted(entry.name for entry in Path(real).iterdir())
+        except OSError:
+            raise NotPermittedError from None
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        fd = os.open(path, flags | os.O_CLOEXEC)
+    except (OSError, ValueError):
+        raise NotPermittedError from None
+    try:
+        if not stat.S_ISDIR(os.fstat(fd).st_mode):
+            raise NotPermittedError
+        if not any(_within(Path(_fd_path(fd, path)), root) for root in roots):
+            raise NotPermittedError
+        return sorted(os.listdir(fd))  # noqa: PTH208  # from the verified descriptor, not a path
+    except OSError:
+        raise NotPermittedError from None
+    finally:
+        os.close(fd)
 
 
 def _fd_path(fd: int, given: str) -> str:

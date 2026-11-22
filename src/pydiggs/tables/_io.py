@@ -8,6 +8,7 @@ Data Package v2, one Table Schema per table) and ``plan.json`` (the load order).
 from __future__ import annotations
 
 import csv
+import io
 import json
 import os
 from collections.abc import Iterable, Iterator, Mapping
@@ -62,20 +63,28 @@ def _is_table(name: str) -> bool:
 
 def _csv_rows(path: Path) -> Iterator[dict[str, Any]]:
     """The rows of one CSV file; a file that is not UTF-8 CSV is a :class:`TablesError`."""
-    reader = None
     try:
         with path.open(encoding="utf-8-sig", newline="") as handle:
-            # Cells beyond the header get a column of their own, so they are reported.
-            reader = csv.DictReader(handle, restkey=_BEYOND_HEADER, strict=True)
-            while (row := _next_row(reader)) is not None:
-                yield row
+            yield from _parsed(handle, path.name)
     except UnicodeDecodeError as exc:
-        raise TablesError(
-            f"{path.name!r:.120} is not UTF-8 text (byte {exc.start}): save it as UTF-8 CSV"
-        ) from exc
+        raise _not_utf8(path.name, exc) from exc
+
+
+def _not_utf8(name: str, exc: UnicodeDecodeError) -> TablesError:
+    return TablesError(f"{name!r:.120} is not UTF-8 text (byte {exc.start}): save it as UTF-8 CSV")
+
+
+def _parsed(handle: Any, name: str) -> Iterator[dict[str, Any]]:
+    """The rows of an open CSV text stream, read strictly; bad CSV is a TablesError."""
+    reader = csv.DictReader(handle, restkey=_BEYOND_HEADER, strict=True)
+    try:
+        # Cells beyond the header get a column of their own, so they are reported.
+        while (row := _next_row(reader)) is not None:
+            yield row
     except csv.Error as exc:
-        line = "" if reader is None else f" at line {reader.line_num}"
-        raise TablesError(f"{path.name!r:.120} is not a readable CSV file{line}: {exc}") from exc
+        raise TablesError(
+            f"{name!r:.120} is not a readable CSV file at line {reader.line_num}: {exc}"
+        ) from exc
 
 
 def _next_row(reader: csv.DictReader[str]) -> dict[str, Any] | None:
@@ -94,6 +103,28 @@ def _next_row(reader: csv.DictReader[str]) -> dict[str, Any] | None:
         csv.field_size_limit(before)
 
 
+def _resources(text: str) -> list[tuple[str, str]]:
+    """``(name, path)`` of each resource a descriptor lists, each name once."""
+    try:
+        described = json.loads(text)
+        resources = described["resources"]
+        pairs = [(str(r["name"]), r["path"]) for r in resources]
+    except (ValueError, KeyError, TypeError, RecursionError) as exc:
+        reason = "nested too deeply" if isinstance(exc, RecursionError) else str(exc)
+        raise TablesError(f"{_DESCRIPTOR} is not a data package descriptor: {reason}") from exc
+    seen: set[str] = set()
+    for name, path in pairs:
+        if not isinstance(path, str):  # Data Package v2 allows a list of chunks
+            raise TablesError(
+                f"{_DESCRIPTOR}: the path of {name!r:.80} must be one file name; a table"
+                " split over several files is not read"
+            )
+        if name in seen:
+            raise TablesError(f"{_DESCRIPTOR}: the table {name!r:.80} is listed twice")
+        seen.add(name)
+    return [(name, str(path)) for name, path in pairs]
+
+
 def _listed(folder: Path) -> dict[str, Path]:
     """Table name -> CSV file, from the descriptor when there is one, else from file names."""
     descriptor = folder / _DESCRIPTOR
@@ -101,21 +132,8 @@ def _listed(folder: Path) -> dict[str, Path]:
     if descriptor.is_file():
         if descriptor.stat().st_size > _MAX_DESCRIPTOR_BYTES:
             raise TablesError(f"{_DESCRIPTOR} is larger than {_MAX_DESCRIPTOR_BYTES} bytes")
-        try:
-            described = json.loads(descriptor.read_text(encoding="utf-8"))
-            resources = described["resources"]
-            pairs = [(str(r["name"]), r["path"]) for r in resources]
-        except (ValueError, KeyError, TypeError, RecursionError) as exc:
-            reason = "nested too deeply" if isinstance(exc, RecursionError) else str(exc)
-            raise TablesError(f"{_DESCRIPTOR} is not a data package descriptor: {reason}") from exc
+        pairs = _resources(descriptor.read_text(encoding="utf-8"))
         for name, relative in pairs:
-            if not isinstance(relative, str):  # Data Package v2 allows a list of chunks
-                raise TablesError(
-                    f"{_DESCRIPTOR}: the path of {name!r:.80} must be one file name; a table"
-                    " split over several files is not read"
-                )
-            if name in found:
-                raise TablesError(f"{_DESCRIPTOR}: the table {name!r:.80} is listed twice")
             found[name] = _inside(folder, folder / relative, name)
     else:
         found = {
@@ -197,6 +215,89 @@ def _columns(name: str, rows: list[Mapping[str, Any]]) -> list[str]:
     return list(names)
 
 
+def package_files(tables: TableSet) -> list[tuple[str, bytes]]:
+    """The files :func:`write_package` writes, as ``(name, bytes)``, in the same order.
+
+    Examples:
+        >>> from pydiggs import tables
+        >>> made = tables.to_model({"features": [{"key": "BH-1", "depth_uom": "m"}]})
+        >>> files = package_files(tables.from_model(made.model))
+        >>> [name for name, _ in files][-3:]
+        ['features.csv', 'datapackage.json', 'plan.json']
+    """
+    out: list[tuple[str, bytes]] = []
+    for name, rows in tables.tables.items():
+        columns = _columns(name, list(rows))
+        handle = io.StringIO(newline="")
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(columns)
+        writer.writerows([_cell(row.get(column)) for column in columns] for row in rows)
+        out.append((f"{name}.csv", handle.getvalue().encode("utf-8")))
+    for file_name, body in (
+        (_DESCRIPTOR, tables.descriptor()),
+        (_PLAN, tables.plan.to_dict()),
+    ):
+        text = json.dumps(body, indent=2, ensure_ascii=False) + "\n"
+        out.append((file_name, text.encode("utf-8")))
+    return out
+
+
+def tables_from_files(files: Mapping[str, bytes]) -> dict[str, Iterable[dict[str, Any]]]:
+    r"""The tables of a data package held in memory, as :func:`read_package` reads a folder.
+
+    ``files`` maps a file name (a plain name, no folder) to its bytes. With a
+    ``datapackage.json`` the tables are the resources it lists, each of which must be
+    one of ``files``; without one, every ``<table>.csv``. Each table is decoded and
+    parsed when it is first iterated.
+
+    Raises:
+        TablesError: The descriptor cannot be read, a resource has no file, or a file is
+            not a table of the profile.
+
+    Examples:
+        >>> found = tables_from_files({"features.csv": b"key,depth_uom\nBH-1,m\n"})
+        >>> [list(rows) for rows in found.values()]
+        [[{'key': 'BH-1', 'depth_uom': 'm'}]]
+    """
+    descriptor = files.get(_DESCRIPTOR)
+    if descriptor is not None:
+        if len(descriptor) > _MAX_DESCRIPTOR_BYTES:
+            raise TablesError(f"{_DESCRIPTOR} is larger than {_MAX_DESCRIPTOR_BYTES} bytes")
+        try:
+            pairs = _resources(descriptor.decode("utf-8-sig"))
+        except UnicodeDecodeError as exc:
+            raise _not_utf8(_DESCRIPTOR, exc) from exc
+    else:
+        pairs = [(name[: -len(".csv")], name) for name in sorted(files) if name.endswith(".csv")]
+    out: dict[str, Iterable[dict[str, Any]]] = {}
+    for name, relative in pairs:
+        if not _is_table(name):
+            raise TablesError(
+                f"{name!r:.80} is not a table of the profile ({', '.join(TABLES)}, or"
+                f" {RESULTS_PREFIX}<procedure>)"
+            )
+        data = files.get(relative.removeprefix("./"))
+        if data is None:
+            raise TablesError(f"table {name!r:.80} has no file {relative!r:.120}")
+        out[name] = _InMemory(data, relative)
+    return out
+
+
+class _InMemory:
+    """The rows of one CSV file held as bytes, parsed each time it is iterated."""
+
+    def __init__(self, data: bytes, name: str = "a table of the package") -> None:
+        self._data = data
+        self._name = name
+
+    def __iter__(self) -> Iterator[dict[str, Any]]:
+        try:
+            text = self._data.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise _not_utf8(self._name, exc) from exc
+        yield from _parsed(io.StringIO(text, newline=""), self._name)
+
+
 def write_package(tables: TableSet, folder: str | os.PathLike[str]) -> list[Path]:
     """Write ``tables`` to ``folder``: a CSV per table, ``datapackage.json`` and ``plan.json``.
 
@@ -221,19 +322,8 @@ def write_package(tables: TableSet, folder: str | os.PathLike[str]) -> list[Path
     root = Path(folder)
     root.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    for name, rows in tables.tables.items():
-        path = root / f"{name}.csv"
-        columns = _columns(name, list(rows))
-        with path.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.writer(handle, lineterminator="\n")
-            writer.writerow(columns)
-            writer.writerows([_cell(row.get(column)) for column in columns] for row in rows)
-        written.append(path)
-    for file_name, body in (
-        (_DESCRIPTOR, tables.descriptor()),
-        (_PLAN, tables.plan.to_dict()),
-    ):
+    for file_name, data in package_files(tables):
         path = root / file_name
-        path.write_text(json.dumps(body, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        path.write_bytes(data)
         written.append(path)
     return written
