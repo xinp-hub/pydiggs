@@ -1,5 +1,7 @@
 # Map your database with a mapping file
 
+<!-- tutorial: mapping -->
+
 !!! warning "Preview"
     `pydiggs.mapping`, `pydiggs map` and the `diggs-mapping` 1.0 format are a preview.
     They may change in a minor release.

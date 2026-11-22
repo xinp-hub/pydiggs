@@ -46,7 +46,7 @@ _ABSOLUTE = re.compile(
 
 NARRATION_MIN, NARRATION_MAX = 20, 1200
 #: What a viewer may download to follow a tutorial: plain text files of these kinds only.
-FILE_TYPES = frozenset({".xml", ".ags", ".py", ".json", ".csv", ".txt"})
+FILE_TYPES = frozenset({".xml", ".ags", ".py", ".json", ".csv", ".txt", ".toml"})
 _FILE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 WAIT_MAX_MS = 30_000
 WAIVER_MIN = 15
