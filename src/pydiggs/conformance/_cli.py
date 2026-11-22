@@ -248,8 +248,9 @@ def _verify(args: argparse.Namespace) -> tuple[str, bool, int]:
         time_budget=args.time_budget,
     )
     verdict = "pass" if outcome.result.passed else "fail"
+    notes = "".join(f"Note: {note}.\n" for note in outcome.notes)
     if outcome.ok:
-        return f"Reproduced: {outcome.result.info.id} {verdict}.\n", False, 0
+        return f"Reproduced: {outcome.result.info.id} {verdict}.\n{notes}", False, 0
     parts = ", ".join(outcome.differences)
     body = f"Not reproduced: grading again gives {verdict}, and these parts differ: {parts}.\n"
     return body, False, 1

@@ -35,7 +35,7 @@ Examples:
     >>> challenge.info.title, len(challenge.token)
     ('Standard penetration and other driven tests: export', 6)
     >>> conformance.SUITE_VERSION, conformance.CONFORMANCE_SCHEMA_VERSION
-    ('1.0-beta.2', '1.0-beta.1')
+    ('1.0-beta.2', '1.0-beta.2')
 """
 
 from __future__ import annotations
