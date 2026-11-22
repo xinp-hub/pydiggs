@@ -238,7 +238,7 @@ class Request:
 class Outcome:
     """What a request produced: a document, or an error code with a safe text.
 
-    ``document`` is UTF-8 JSON on one line (a diggs-findings 1.2 document, a SARIF
+    ``document`` is UTF-8 JSON on one line (a diggs-findings 1.3 document, a SARIF
     2.1.0 log when asked for, a diggs-model document from :func:`read`, or a
     conversion result from :func:`convert`). ``detail``
     never contains an absolute path or a value the caller sent, only the reported
@@ -954,7 +954,7 @@ def convert(request: ConvertRequest, *, should_stop: Callable[[], bool] | None =
     AGS4) and ``output_name`` (the output's suggested name), ``diggs_version`` (of the
     DIGGS output, or of the DIGGS input), ``ags_version`` (of the AGS4 output; None for
     DIGGS), ``mapping_version``, ``complete``, ``lossless``, ``report`` (the
-    diggs-findings 1.2 document about the source: the reader's notes and every
+    diggs-findings 1.3 document about the source: the reader's notes and every
     ``convert`` finding), ``validation`` (the diggs-findings document of
     :func:`pydiggs.validate_bytes` on DIGGS output, or of :func:`pydiggs.ags4.check` on
     AGS4 output), ``output_sha256`` and ``output_base64`` (the output, standard
@@ -1144,7 +1144,7 @@ def ags4_check(
         should_stop: Cancellation hook for adapters that can cancel (the sidecar).
 
     Returns:
-        A diggs-findings 1.2 document (or a SARIF log), or an error :class:`Code`.
+        A diggs-findings 1.3 document (or a SARIF log), or an error :class:`Code`.
         Never raises for bad input.
 
     Examples:
@@ -1735,7 +1735,7 @@ def versions() -> dict[str, Any]:
 
     Examples:
         >>> versions()["findings_schema_version"]
-        '1.2'
+        '1.3'
     """
     return version_info().to_dict()
 

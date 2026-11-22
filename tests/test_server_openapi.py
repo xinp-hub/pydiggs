@@ -101,13 +101,13 @@ def test_a_mounted_router_publishes_a_self_contained_document():
     for ref in set(_refs(document)):
         _resolves(document, ref)  # no dangling DiggsFindings* reference
     response = document["paths"]["/v1/validate"]["post"]["responses"]["200"]
-    assert response["content"]["application/json"]["schema"]["title"] == "diggs-findings 1.2"
+    assert response["content"]["application/json"]["schema"]["title"] == "diggs-findings 1.3"
     read = document["paths"]["/v1/read"]["post"]["responses"]["200"]
     assert read["content"]["application/json"]["schema"]["title"] == "diggs-model 1.0"
     convert = document["paths"]["/v1/convert"]["post"]["responses"]["200"]
     result = convert["content"]["application/json"]["schema"]
     assert result["title"] == "ConversionResult"
-    assert result["properties"]["report"]["title"] == "diggs-findings 1.2"
+    assert result["properties"]["report"]["title"] == "diggs-findings 1.3"
     diff = document["paths"]["/v1/diff"]["post"]["responses"]["200"]
     compared = diff["content"]["application/json"]["schema"]
     assert compared["title"] == "diggs-diff 1.0"

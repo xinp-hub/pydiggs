@@ -62,7 +62,8 @@ validate --help. Validation for other programs (stdio sidecar, HTTP, MCP):
 pydiggs serve --help. AGS4 files against the AGS4 rules: pydiggs ags4 check
 --help. AGS4 to DIGGS and DIGGS to AGS4: pydiggs convert --help. What changed
 between two DIGGS files: pydiggs diff --help. Testing how software reads and
-writes DIGGS: pydiggs conformance --help. Installed version: pydiggs
+writes DIGGS: pydiggs conformance --help. Your database tables to DIGGS and
+back: pydiggs tables --help, pydiggs map --help. Installed version: pydiggs
 --version.
 ```
 
@@ -93,7 +94,7 @@ usage: pydiggs ags4 check [-h] [--dictionary FILE]
 
 Check AGS4 files against the AGS4 rules (Rules 1 to 20 of the AGS4
 specification, Edition 4.2) and report the findings as text, JSON (diggs-
-findings 1.2) or SARIF 2.1.0. pyDIGGS bundles no AGS data dictionary: the
+findings 1.3) or SARIF 2.1.0. pyDIGGS bundles no AGS data dictionary: the
 rules that need one (7, 9, 10a, 10b, 10c, 18, and parts of 11c, 13, 14 and
 19b) run for the file's own DICT group, and for standard groups only with
 --dictionary. Not an AGS-approved validator.
@@ -305,7 +306,7 @@ options:
   --residual FILE       also write the AGS4 file of what was not converted
                         here (--to diggs only; not written when everything was
                         converted)
-  --report FILE         also write the findings report (diggs-findings 1.2
+  --report FILE         also write the findings report (diggs-findings 1.3
                         JSON) here
   --format {text,json}  the summary on stdout: text, or JSON (the result
                         without the output bytes)
@@ -375,6 +376,101 @@ differ, or the comparison is incomplete; 2 usage error, an input that cannot
 be read or is not DIGGS, or an output that cannot be written.
 ```
 
+#### `pydiggs map`
+
+```text
+usage: pydiggs map [-h] COMMAND ...
+
+Test and check an export to DIGGS, and start and measure a mapping file
+(preview). FOLDER holds CSV files: tables of the DIGGS tables profile, or with
+--mapping your own tables and the mapping file that shapes them into the
+profile. No value is converted to another unit, and every row or value that
+could not be carried is named.
+
+positional arguments:
+  COMMAND
+    test      write the tables as DIGGS, read the file back, and list what did
+              not return
+    check     check the tables (and the mapping) against the DIGGS
+              vocabularies; no file is written
+    coverage  which source columns a mapping reads, and which it does not
+    init      start a mapping file from the CSV headers of FOLDER
+
+options:
+  -h, --help  show this help message and exit
+```
+
+#### `pydiggs map test`
+
+```text
+usage: pydiggs map test [-h] [--mapping FILE] [--format {text,json}]
+                        [-o OUTPUT] [--force]
+                        FOLDER
+
+positional arguments:
+  FOLDER                the folder of CSV files
+
+options:
+  -h, --help            show this help message and exit
+  --mapping FILE        a diggs-mapping file; FOLDER then holds your own
+                        tables
+  --format {text,json}
+  -o OUTPUT, --output OUTPUT
+                        keep the DIGGS file written, here
+  --force               replace an existing file
+```
+
+#### `pydiggs map check`
+
+```text
+usage: pydiggs map check [-h] [--mapping FILE] [--format {text,json}]
+                         [--fail-on {error,loss}]
+                         FOLDER
+
+positional arguments:
+  FOLDER                the folder of CSV files
+
+options:
+  -h, --help            show this help message and exit
+  --mapping FILE        a diggs-mapping file; FOLDER then holds your own
+                        tables
+  --format {text,json}
+  --fail-on {error,loss}
+                        exit 1 on an error (the default) or on anything left
+                        out or assumed
+```
+
+#### `pydiggs map coverage`
+
+```text
+usage: pydiggs map coverage [-h] --mapping FILE [--format {text,json}] FOLDER
+
+positional arguments:
+  FOLDER                the folder of CSV files
+
+options:
+  -h, --help            show this help message and exit
+  --mapping FILE        a diggs-mapping file; FOLDER then holds your own
+                        tables
+  --format {text,json}
+```
+
+#### `pydiggs map init`
+
+```text
+usage: pydiggs map init [-h] -o OUTPUT [--name NAME] [--force] FOLDER
+
+positional arguments:
+  FOLDER                the folder of your own CSV files
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        the mapping file to write
+  --name NAME           the name of the mapping
+  --force               replace an existing file
+```
+
 #### `pydiggs serve`
 
 ```text
@@ -411,6 +507,83 @@ Exit status: 0 after a clean shutdown; 2 for bad arguments or a missing extra.
 per-request time budget for --stdio, where the host owns hard limits.
 ```
 
+#### `pydiggs tables`
+
+```text
+usage: pydiggs tables [-h] COMMAND ...
+
+Convert between tables of the DIGGS tables profile and DIGGS files (preview).
+Shape your database into the profile's tables with SQL views, export them as
+CSV, and pyDIGGS writes DIGGS 3.0.0; or turn a DIGGS file into tables with a
+load plan. No value is converted to another unit, and every row or value that
+could not be carried is named.
+
+positional arguments:
+  COMMAND
+    schema    print the profile: every table, column and key (a Data Package)
+    to-diggs  a folder of CSV tables to a DIGGS 3.0.0 file
+    from-diggs
+              a DIGGS file to a folder of CSV tables with a load plan
+
+options:
+  -h, --help  show this help message and exit
+```
+
+#### `pydiggs tables schema`
+
+```text
+usage: pydiggs tables schema [-h] [-o OUTPUT] [--force]
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        write the descriptor to this file
+  --force               replace an existing file
+```
+
+#### `pydiggs tables to-diggs`
+
+```text
+usage: pydiggs tables to-diggs [-h] -o OUTPUT [--force] [--format {text,json}]
+                               [--fail-on {error,loss}]
+                               FOLDER
+
+positional arguments:
+  FOLDER                the folder of CSV files
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        the DIGGS file to write
+  --force               replace existing files
+  --format {text,json}
+  --fail-on {error,loss}
+                        exit 1 on an error (the default) or on anything left
+                        out or assumed
+```
+
+#### `pydiggs tables from-diggs`
+
+```text
+usage: pydiggs tables from-diggs [-h] -o OUTPUT [--force]
+                                 [--format {text,json}]
+                                 [--fail-on {error,loss}]
+                                 FILE
+
+positional arguments:
+  FILE                  the DIGGS file
+
+options:
+  -h, --help            show this help message and exit
+  -o OUTPUT, --output OUTPUT
+                        the folder to write
+  --force               replace existing files
+  --format {text,json}
+  --fail-on {error,loss}
+                        exit 1 on an error (the default) or on anything left
+                        out or assumed
+```
+
 #### `pydiggs validate`
 
 ```text
@@ -426,7 +599,7 @@ usage: pydiggs validate [-h] [--format {text,json,sarif}] [--output FILE]
                         PATH [PATH ...]
 
 Validate DIGGS instance files with every native check and report the findings
-as text, JSON (diggs-findings 1.2) or SARIF 2.1.0.
+as text, JSON (diggs-findings 1.3) or SARIF 2.1.0.
 
 positional arguments:
   PATH                  instance files, or directories searched recursively

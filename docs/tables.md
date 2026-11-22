@@ -1,0 +1,222 @@
+# Your database to DIGGS and back
+
+<!-- tutorial: tables -->
+
+!!! warning "Preview"
+    `pydiggs.tables` and the tables profile (`1.0-beta.1`) are a preview. Table and column
+    names may change in a minor release until the profile reaches 1.0. `pydiggs.write` and
+    `pydiggs.write_bytes` are stable.
+
+If your software keeps geotechnical data in a database, you do not need to learn DIGGS XML
+to export or import it. You shape your data into a small set of plain tables, the **DIGGS
+tables profile**, and pyDIGGS does the rest:
+
+- **Export:** your tables → a DIGGS 3.0.0 file that passes every pyDIGGS check.
+- **Import:** a DIGGS file → the same tables, in load order, ready for your own inserts.
+
+pyDIGGS needs no database driver and never connects to your database. It never converts a
+value from one unit to another, and every row or value it could not carry is named in a
+finding, so nothing is lost silently.
+
+## Export in three steps
+
+**1. Shape your schema into profile tables.** SQL views are usually enough. Here a
+vendor's `hole` and `blow` tables become four profile tables:
+
+```sql
+CREATE VIEW features AS
+SELECT id AS key, label AS name, east AS x, north AS y,
+       depth_ft AS total_depth, 'ft' AS depth_uom
+FROM hole;
+
+CREATE VIEW measurements AS
+SELECT hole || '-SPT-' || rowid AS key, hole AS feature,
+       'DrivenPenetrationTest' AS procedure, at_ft AS depth
+FROM blow;
+
+CREATE VIEW "results_DrivenPenetrationTest" AS
+SELECT hole || '-SPT-' || rowid AS measurement, n AS n_value
+FROM blow;
+
+CREATE VIEW params AS
+SELECT hole || '-SPT-' || rowid AS node, 'procedure' AS scope,
+       'penetrationTestType' AS name, 'SPT' AS value
+FROM blow;
+```
+
+The last view states something DIGGS requires of a driven penetration test: which kind it
+is. Anything DIGGS names that has no column of its own goes in `params` this way.
+
+**2. Hand the rows to pyDIGGS.** Rows are dictionaries; they can come from a cursor of any
+DB-API driver (`sqlite3`, `pyodbc`, `psycopg`, `oracledb`), from CSV files, or from your
+own code.
+
+```python
+import sqlite3
+import pydiggs
+from pydiggs import tables
+
+db = sqlite3.connect(":memory:")  # your own database connection goes here
+db.executescript("""
+    CREATE TABLE hole (id TEXT, label TEXT, east REAL, north REAL, depth_ft REAL);
+    INSERT INTO hole VALUES ('B-7', 'Boring 7', 1200.5, 880.25, 40);
+    CREATE TABLE blow (hole TEXT, n INTEGER, at_ft REAL);
+    INSERT INTO blow VALUES ('B-7', 14, 5), ('B-7', 22, 10);
+""")
+queries = {
+    "features": "SELECT id AS key, label AS name, east AS x, north AS y,"
+    " depth_ft AS total_depth, 'ft' AS depth_uom FROM hole",
+    "measurements": "SELECT hole || '-SPT-' || rowid AS key, hole AS feature,"
+    " 'DrivenPenetrationTest' AS procedure, at_ft AS depth FROM blow",
+    "results_DrivenPenetrationTest": "SELECT hole || '-SPT-' || rowid AS measurement,"
+    " n AS n_value FROM blow",
+    "params": "SELECT hole || '-SPT-' || rowid AS node, 'procedure' AS scope,"
+    " 'penetrationTestType' AS name, 'SPT' AS value FROM blow",
+}
+result = tables.to_model(
+    {name: tables.rows_from_cursor(db.execute(sql)) for name, sql in queries.items()}
+)
+pydiggs.write(result.model, "site.xml")
+```
+
+Here the queries are written out; with the views above in your database, each one is
+`SELECT * FROM <view>`.
+
+**3. Read what was left out.** `result.findings` lists every row that could not be
+written and every default pyDIGGS had to assume, each with the table, row and column:
+
+```python
+for finding in result.findings:
+    print(finding.severity, finding.rule_id, finding.path, finding.message)
+```
+
+`result.lossless` is true when there is nothing above the level of a note.
+
+## Import
+
+```python
+loaded = {}
+
+
+def upsert(table, rows, key):  # your own code: insert or update by key
+    loaded[table] = len(rows)
+
+
+received = tables.from_model(pydiggs.read("site.xml"))
+for step in received.plan.steps:  # parents before children
+    upsert(step.table, received.rows(step.table), key=step.identity)
+```
+
+The plan gives the order to load the tables in and, for each one, the columns that
+identify a row, so a second import of a corrected file can update rows instead of adding
+them. pyDIGGS writes no SQL. To see what changed between two versions of a file before
+you merge, compare them with [`pydiggs diff`](diff.md).
+
+`tables.write_package(received, "load/")` writes the same tables as CSV files with a
+`datapackage.json` ([Data Package](https://datapackage.org/) v2, one Table Schema per
+table, with primary and foreign keys) and a `plan.json`. `tables.read_package("load/")`
+reads such a folder back.
+
+!!! note "CSV cells are data"
+    Cells hold the values of the source file as they are. Load them as data; a
+    spreadsheet that runs formulas may treat a cell that starts with `=` as one.
+
+## Check your export
+
+`tables.round_trip` runs the whole loop for you: it writes your tables as DIGGS, validates
+the file, reads it back into tables and compares what came back with what you sent.
+
+```python
+queries_again = {name: tables.rows_from_cursor(db.execute(sql)) for name, sql in queries.items()}
+checked = tables.round_trip(queries_again)
+print(checked.ok)  # False: something was left out, invalid or changed
+for finding in checked.findings:  # what writing left out or assumed
+    print(finding.rule_id, finding.path)
+for difference in checked.differences:  # a value that came back changed
+    print(difference.table, difference.row, difference.column, difference.sent, difference.got)
+```
+
+For this small export the answer is no, and the findings say why: the tables give no
+project, no creation date and no coordinate reference system. Fill those in and it passes.
+
+## The tables
+
+`tables.profile()` returns the full description of every table and column as a Data
+Package descriptor. In short:
+
+| Table | One row per | Key columns |
+|---|---|---|
+| `document` | data set (at most one row) | |
+| `projects` | project | `key` |
+| `features` | borehole, sounding, trial pit, well | `key`; `project`, `parent` |
+| `sampling_activities` | sampling activity | `key`; `feature` |
+| `samples` | sample | `key`; `sampling_activity` or `feature` |
+| `observations` | lithology log of one feature | `key`; `feature` |
+| `layers` | lithology layer | `key`; `observation` or `feature` |
+| `measurements` | test | `key`; `feature`, `sample` |
+| `results_<procedure>` | result row of a test | `measurement`, `row` |
+| `result_columns` | result column (unit, property, type) | `procedure`, `measurement`, `column` |
+| `components` | nested record: casing, water strike, SPT drive set | `key`; `holder`, `parent` |
+| `params` | value with no column of its own | `node`, `scope`, `name` |
+| `remarks` | remark, or name after the first | `node`, `kind`, `seq` |
+| `links` | reference no column holds | `source`, `relation` |
+| `extra` | DIGGS content the profile has no column for (read only) | `node`, `seq` |
+
+A few rules cover most questions:
+
+- **Keys are yours.** `key` is your own stable identifier, as text. It becomes the
+  `gml:id` in the file. A key with characters an XML id cannot hold is adjusted, and
+  `result.keys` lists each key with the id it got. Keys are unique across all tables.
+- **Only `features` is required.** A table you do not have is simply absent. A sample
+  with a `feature`, `top` and `base` gets its sampling activity made for it; a layer with
+  a `feature` gets its lithology log.
+- **Units travel beside values.** A quantity column `x` has a unit column `x_uom`. Every
+  depth along a feature is in that feature's `depth_uom` (`m`, `ft`, `ft[US]`, `cm` or
+  `in`); a depth given in another unit is reported, not converted.
+- **Results are wide.** There is one result table per test type, named
+  `results_<procedure>`, with one column per measured property, named by its key in the
+  [DIGGS property dictionary](https://diggsml.org/def/codes/DIGGS/0.1/properties.xml)
+  (`n_value`, `tip_resistance`). A test's results are placed by `depth` (or `top` and
+  `base`) on its `measurements` row, or by a `position` column on each result row, as a
+  CPT sounding is.
+- **Units of result columns** go in `result_columns`, once per test type, or once per
+  test when tests differ.
+- **Anything else** that DIGGS names goes in `params`, by its DIGGS element name, with
+  its unit or code list when it has one.
+
+## What the first version does not do
+
+- It writes boreholes, soundings, trial pits and wells with their samples, lithology and
+  tests that have one result table. Features that DIGGS gives no centerline (geophysical
+  surveys, stations, trench walls), monitoring time series and tests with several result
+  tables are read into tables but not yet written; a row of such a kind is reported as
+  `tables.incomplete`.
+- Content in the `extra` table is not written back. Keep the original file when you need
+  to pass the same content on.
+- It reads all rows into memory. For very large data sets, write one file per project or
+  per hole.
+- It checks structure, not vocabulary: run [`pydiggs validate`](quickstart.md) on the file
+  you write to check codes, units and properties against the DIGGS dictionaries.
+
+## Rule ids
+
+| Rule | Level | Meaning |
+|---|---|---|
+| `tables.unmapped-column` | warning | A column is not a column of its profile table. |
+| `tables.unknown-unit` | warning | A depth is not in its feature's depth unit, a unit is not one DIGGS names, or a result lacks the unit its property needs. |
+| `tables.orphan-row` | error | A row names a row that was not converted. |
+| `tables.duplicate-key` | error | A row repeats a key. |
+| `tables.key-rewritten` | info | A key is not a valid XML id; the id written differs. |
+| `tables.value-unparsed` | warning | A value is not the number or text DIGGS needs there. |
+| `tables.assumed` | warning | DIGGS needs a value the tables lack; a documented default was written. |
+| `tables.value-reformatted` | info | The same number in another form (12.50 and 12.5). |
+| `tables.incomplete` | error | A row lacks something DIGGS requires, or is of a kind not yet written. |
+| `tables.no-crs` | warning | Coordinates are given without their coordinate reference system. |
+| `tables.extra-not-written` | warning | Rows of `extra` are not written back to DIGGS. |
+| `tables.not-carried` | warning | DIGGS content with no column in the profile. |
+
+## Sensitive data
+
+Use generated or public data when you test your export. If a data set may hold personal
+data or information about critical infrastructure, follow your organisation's rules
+before you copy it anywhere.

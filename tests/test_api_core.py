@@ -75,13 +75,15 @@ NAMES_CAPABILITIES = {
 }
 #: Plain-language rule guidance (RuleInfo.guidance).
 NAMES_GUIDANCE = {"Guidance"}
+#: The public writer and the tables profile's error (the vendor adapter kit).
+NAMES_WRITER = {"ModelWriteError", "TablesError", "write", "write_bytes"}
 
 
 def test_the_public_api_is_1_2_0_plus_twelve_names_plus_the_read_api():
     assert len(NEW_NAMES) == 12
     assert len(NAMES_1_7_0) == 7
     assert set(pydiggs.__all__) == (
-        NAMES_1_2_0 | NEW_NAMES | NAMES_1_7_0 | NAMES_CAPABILITIES | NAMES_GUIDANCE
+        NAMES_1_2_0 | NEW_NAMES | NAMES_1_7_0 | NAMES_CAPABILITIES | NAMES_GUIDANCE | NAMES_WRITER
     )
 
 

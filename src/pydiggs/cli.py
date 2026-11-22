@@ -42,6 +42,18 @@ def _conformance(argv: list[str]) -> int:
     return conformance_cli.main(argv)
 
 
+def _tables(argv: list[str]) -> int:
+    from pydiggs import _tables_cli  # noqa: PLC0415  # loads the tables profile on demand
+
+    return _tables_cli.main(argv)
+
+
+def _map(argv: list[str]) -> int:
+    from pydiggs import _map_cli  # noqa: PLC0415  # loads the mapping tools on demand
+
+    return _map_cli.main(argv)
+
+
 def _capabilities(argv: list[str]) -> int:
     from pydiggs._capabilities import _cli as capabilities_cli  # noqa: PLC0415
 
@@ -56,6 +68,8 @@ _SUBCOMMANDS = {
     "convert": _convert,
     "diff": _diff,
     "conformance": _conformance,
+    "tables": _tables,
+    "map": _map,
     "capabilities": _capabilities,
 }
 
@@ -86,6 +100,7 @@ def main(argv: list[str] | None = None) -> int:
             " AGS4 to DIGGS and DIGGS to AGS4: pydiggs convert --help."
             " What changed between two DIGGS files: pydiggs diff --help."
             " Testing how software reads and writes DIGGS: pydiggs conformance --help."
+            " Your database tables to DIGGS and back: pydiggs tables --help, pydiggs map --help."
             " Installed version: pydiggs --version."
         ),
     )

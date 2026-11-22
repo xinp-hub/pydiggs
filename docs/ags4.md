@@ -112,7 +112,7 @@ Each AGS4 rule has its own rule id: `ags4.rule-1`, `ags4.rule-2`, `ags4.rule-2a`
 A finding's `path` is the place in the file (`GROUP`, `GROUP/row` or
 `GROUP/row/HEADING`, DATA rows counted from 1) and its `line` the line in the file.
 Messages are fixed templates: they name groups and headings, never a value from the file.
-The report is an ordinary diggs-findings 1.2 file entry with `format: "ags4"`, so the same
+The report is an ordinary diggs-findings 1.3 file entry with `format: "ags4"`, so the same
 JSON and SARIF tools read it.
 
 Exit codes of `pydiggs ags4 check` follow `pydiggs validate`: 0 when no finding is at or

@@ -12,7 +12,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pydiggs.findings.model import Finding
 
-__all__ = ["DocumentError", "InstanceReadError", "PydiggsError", "ResourceError"]
+__all__ = [
+    "DocumentError",
+    "InstanceReadError",
+    "MappingError",
+    "ModelWriteError",
+    "PydiggsError",
+    "ResourceError",
+    "TablesError",
+]
 
 
 class PydiggsError(Exception):
@@ -81,3 +89,50 @@ class DocumentError(PydiggsError, ValueError):
         super().__init__(message)
         self.kind = kind
         self.finding = finding
+
+
+class ModelWriteError(PydiggsError, ValueError):
+    """A model holds something :func:`pydiggs.write_bytes` cannot write as DIGGS.
+
+    The message names the node and what is wrong with it. It is also a
+    :class:`ValueError`.
+
+    Examples:
+        >>> issubclass(ModelWriteError, ValueError)
+        True
+    """
+
+
+class TablesError(PydiggsError, ValueError):
+    """The input is not tables of the DIGGS tables profile at all.
+
+    Raised for a table the profile does not have, a table without a column it requires,
+    or a data package that cannot be read. A problem in a row is never an exception: it
+    is a finding of the result. It is also a :class:`ValueError`.
+
+    Examples:
+        >>> from pydiggs import tables
+        >>> try:
+        ...     tables.to_model({"boreholes": []})
+        ... except TablesError as exc:
+        ...     print("not a table of the profile" in str(exc))
+        True
+    """
+
+
+class MappingError(PydiggsError, ValueError):
+    r"""A mapping file is not a ``diggs-mapping`` 1.0 document (**preview**).
+
+    Raised by :func:`pydiggs.mapping.load` for a file that is too large, is not TOML, or
+    has a key, a value or a template the format does not allow; the message names the
+    place. A problem the mapping meets in the data is never an exception: it is a finding.
+    It is also a :class:`ValueError`.
+
+    Examples:
+        >>> from pydiggs import mapping
+        >>> try:
+        ...     mapping.load('mapping_format = "9.0"\n')
+        ... except MappingError as exc:
+        ...     print("mapping_format" in str(exc))
+        True
+    """

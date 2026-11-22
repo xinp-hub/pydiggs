@@ -80,6 +80,21 @@ features:
   covers:
   - cli:conformance
   tutorial: conformance
+- id: tables
+  covers:
+  - cli:tables
+  - api:write
+  - api:write_bytes
+  - api:ModelWriteError
+  - api:TablesError
+  - operation:write
+  tutorial: tables
+- id: mapping
+  covers:
+  - cli:map
+  waiver: The video needs the mapping file itself as a download, and tutorials offer no TOML
+    files yet; until they do, docs/mapping.md shows every step with the worked example, and
+    its examples run in CI.
 - id: ags4-check
   covers:
   - cli:ags4

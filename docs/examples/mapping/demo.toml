@@ -1,0 +1,129 @@
+# A worked example of a diggs-mapping file: a made-up borehole logging database
+# (holes, strata, SPT blows, samples; see the CSV files beside this one) mapped to the
+# DIGGS tables profile. The data are synthetic. Try it:
+#
+#   pydiggs map check docs/examples/mapping --mapping docs/examples/mapping/demo.toml
+#   pydiggs map test  docs/examples/mapping --mapping docs/examples/mapping/demo.toml
+mapping_format = "1.0"
+name = "demo-borehole-log"
+version = "1.0"
+creator = "The pyDIGGS contributors"
+method = "manual"
+licence = "Apache-2.0"
+date = 2026-11-21
+profile_version = "1.0-beta.1"
+
+[source]
+schema = "Demo borehole logging database"
+version = "1"
+
+# A unit as the source writes it = the DIGGS unit. A rename only: no number changes.
+[units]
+metres = "m"
+
+# The source's soil group symbols are USCS group symbols (ASTM D2487), all but one.
+[codes.uscs]
+code_space = "https://diggsml.org/def/codes/DIGGS/0.1/grp-astmD2487.xml"
+[codes.uscs.map]
+GP = "GP"
+CL = "CL"
+SM = "SM"
+TS = { code = "OL", match = "broader" }  # topsoil: organic soil is the nearest group
+
+# The source's sampler letters, as DIGGS sample types.
+[codes.sampler]
+code_space = "https://diggsml.org/def/codes/DIGGS/0.1/sampleType.xml"
+[codes.sampler.map]
+U = { code = "open_tube", match = "exact" }
+D = { code = "small_disturbed", match = "exact" }
+
+# --- the project, and the date of the export -------------------------------------------
+
+[[tables]]
+source = "project"
+target = "document"
+columns = { creation_date = "exported" }
+
+[[tables]]
+source = "project"
+target = "projects"
+columns = { key = "project_no", name = "title" }
+
+# --- holes -----------------------------------------------------------------------------
+
+[[tables]]
+source = "holes"
+target = "features"
+[tables.columns]
+key = "hole_id"
+project = "project_no"
+element = { value = "Borehole" }
+name = "hole_name"
+x = "easting"
+y = "northing"
+crs = "grid"
+total_depth = "final_depth"
+depth_uom = { from = "depth_unit", units = true }
+# A value with no column of its own goes to params, under its DIGGS name.
+[[tables.params]]
+name = "boreholePurpose"
+from = "purpose"
+
+# One lithology log per hole, which says how its layers are classified.
+[[tables]]
+source = "holes"
+target = "observations"
+[tables.columns]
+key = { template = "{hole_id}-LOG" }
+feature = "hole_id"
+[[tables.params]]
+name = "lithologyClassificationType"
+value = "USCS"
+
+# --- strata ----------------------------------------------------------------------------
+
+[[tables]]
+source = "strata"
+target = "layers"
+[tables.columns]
+key = { template = "{hole_id}-L{seq}" }
+observation = { template = "{hole_id}-LOG" }
+feature = "hole_id"
+top = "top_m"
+base = "base_m"
+description = "soil_description"
+classification = { from = "uscs", codes = "uscs" }
+
+# --- SPT: one test per row, and its one result -----------------------------------------
+
+[[tables]]
+source = "spt"
+target = "measurements"
+[tables.columns]
+key = { template = "{hole_id}-SPT-{seq}" }
+feature = "hole_id"
+procedure = { value = "DrivenPenetrationTest" }
+depth = "depth_m"
+[[tables.params]]
+name = "penetrationTestType"
+scope = "procedure"
+value = "SPT"
+
+[[tables]]
+source = "spt"
+target = "results_DrivenPenetrationTest"
+[tables.columns]
+measurement = { template = "{hole_id}-SPT-{seq}" }
+n_value = "blows_n"
+
+# --- samples ---------------------------------------------------------------------------
+
+[[tables]]
+source = "samples"
+target = "samples"
+[tables.columns]
+key = "sample_id"
+feature = "hole_id"
+top = "top_m"
+base = "base_m"
+type = { from = "sampler", codes = "sampler" }

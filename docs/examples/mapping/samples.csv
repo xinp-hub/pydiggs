@@ -1,0 +1,4 @@
+sample_id,hole_id,top_m,base_m,sampler
+BH01-U1,BH01,3.0,3.45,U
+BH01-D2,BH01,7.0,7.3,D
+BH02-U1,BH02,4.0,4.45,U

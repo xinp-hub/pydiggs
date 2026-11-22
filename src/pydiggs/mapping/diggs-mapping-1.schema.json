@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-mapping-1.schema.json",
+  "title": "pyDIGGS mapping file, format 1",
+  "description": "A diggs-mapping document (a TOML file, read as TOML): where the tables and columns of a source schema go in the DIGGS tables profile. It maps to profile tables and columns, never to DIGGS elements. A unit is renamed, never converted; nothing in the file is evaluated. Preview: the format may change in a minor release of pyDIGGS until the tables profile reaches 1.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mapping_format", "name", "version", "method", "profile_version"],
+  "properties": {
+    "mapping_format": {"const": "1.0"},
+    "name": {"$ref": "#/$defs/text"},
+    "version": {"$ref": "#/$defs/text"},
+    "creator": {"$ref": "#/$defs/text"},
+    "method": {
+      "description": "How the mapping was made: by hand, by a person with a tool's help, or by a tool alone.",
+      "enum": ["manual", "assisted", "generated"]
+    },
+    "licence": {"$ref": "#/$defs/text"},
+    "date": {
+      "description": "A TOML date, or the same as text.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "profile_version": {
+      "description": "The version of the DIGGS tables profile the mapping is written for.",
+      "$ref": "#/$defs/text"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {"$ref": "#/$defs/text"},
+        "version": {"$ref": "#/$defs/text"}
+      }
+    },
+    "units": {
+      "description": "A unit as the source writes it = the DIGGS unit. A rename only.",
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/text"},
+      "additionalProperties": {"$ref": "#/$defs/text"}
+    },
+    "codes": {
+      "description": "Named code maps.",
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/code_map"}
+    },
+    "tables": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/table"}
+    }
+  },
+  "$defs": {
+    "text": {"type": "string", "minLength": 1, "maxLength": 500, "pattern": "\\S"},
+    "target_name": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,119}$"},
+    "constant": {"type": ["string", "number", "boolean"]},
+    "template": {
+      "description": "Text with {column} for a source column; {{ and }} are braces. A field is a plain column name: it may not hold . [ ] ! or :",
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 500
+    },
+    "code_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["map"],
+      "properties": {
+        "code_space": {
+          "description": "The code list of the DIGGS codes; written beside each translated code.",
+          "$ref": "#/$defs/text"
+        },
+        "map": {
+          "description": "A source code = the DIGGS code (an exact match), or the code and its match.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {"$ref": "#/$defs/text"},
+          "additionalProperties": {
+            "oneOf": [
+              {"$ref": "#/$defs/text"},
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["code"],
+                "properties": {
+                  "code": {"$ref": "#/$defs/text"},
+                  "match": {
+                    "description": "How well the source code matches the DIGGS code (the SKOS words).",
+                    "enum": ["exact", "close", "broader", "narrower"]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "value_source": {
+      "description": "Exactly one of from, value and template.",
+      "oneOf": [
+        {"required": ["from"], "not": {"anyOf": [{"required": ["value"]}, {"required": ["template"]}]}},
+        {"required": ["value"], "not": {"anyOf": [{"required": ["from"]}, {"required": ["template"]}]}},
+        {"required": ["template"], "not": {"anyOf": [{"required": ["from"]}, {"required": ["value"]}]}}
+      ]
+    },
+    "column": {
+      "description": "A source column name, or where the value comes from.",
+      "oneOf": [
+        {"$ref": "#/$defs/text"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "allOf": [{"$ref": "#/$defs/value_source"}],
+          "properties": {
+            "from": {"description": "A source column.", "$ref": "#/$defs/text"},
+            "value": {"description": "A constant.", "$ref": "#/$defs/constant"},
+            "template": {"$ref": "#/$defs/template"},
+            "units": {
+              "description": "The value is a unit, renamed through the units table.",
+              "type": "boolean"
+            },
+            "codes": {"description": "The name of a code map.", "$ref": "#/$defs/text"},
+            "property": {
+              "description": "For a result column: its key in the DIGGS property dictionary.",
+              "$ref": "#/$defs/text"
+            },
+            "uom": {
+              "description": "For a result column: the DIGGS unit of its values.",
+              "$ref": "#/$defs/text"
+            }
+          }
+        }
+      ]
+    },
+    "param": {
+      "description": "A params row made for each row of the table, under a DIGGS name.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "allOf": [
+        {"$ref": "#/$defs/value_source"},
+        {"not": {"required": ["uom", "uom_from"]}}
+      ],
+      "properties": {
+        "name": {"$ref": "#/$defs/text"},
+        "scope": {"$ref": "#/$defs/text"},
+        "from": {"$ref": "#/$defs/text"},
+        "value": {"$ref": "#/$defs/constant"},
+        "template": {"$ref": "#/$defs/template"},
+        "uom": {"description": "A DIGGS unit.", "$ref": "#/$defs/text"},
+        "uom_from": {
+          "description": "A source column that holds the unit, renamed through the units table.",
+          "$ref": "#/$defs/text"
+        },
+        "codes": {"$ref": "#/$defs/text"}
+      }
+    },
+    "table": {
+      "description": "One source table sent to one table of the profile.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target", "columns"],
+      "properties": {
+        "source": {"$ref": "#/$defs/text"},
+        "target": {
+          "description": "A table of the profile, or results_<procedure>.",
+          "$ref": "#/$defs/target_name"
+        },
+        "columns": {
+          "description": "Target column = where its value comes from.",
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {"$ref": "#/$defs/target_name"},
+          "additionalProperties": {"$ref": "#/$defs/column"}
+        },
+        "params": {"type": "array", "items": {"$ref": "#/$defs/param"}}
+      }
+    }
+  }
+}

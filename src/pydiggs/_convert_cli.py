@@ -110,7 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--report",
         metavar="FILE",
-        help="also write the findings report (diggs-findings 1.2 JSON) here",
+        help="also write the findings report (diggs-findings 1.3 JSON) here",
     )
     parser.add_argument(
         "--format",

@@ -108,7 +108,7 @@ class Operation:
 
     ``inputs`` and ``outputs`` name what the operation reads and gives: a DIGGS version
     (``diggs-2.6``), an AGS4 version (``ags4-4.1.1``), a pyDIGGS document contract
-    (``diggs-findings-1.2``, ``diggs-model-1.0``), a media type (``application/geo+json``)
+    (``diggs-findings-1.3``, ``diggs-model-1.0``), a media type (``application/geo+json``)
     or, for an in-memory result, the Python type (``pandas.DataFrame``). ``needs`` lists
     the pyDIGGS extras the operation needs (empty for the core), and ``available`` says
     whether everything it needs is installed in this interpreter.
@@ -636,6 +636,15 @@ def _catalogue() -> tuple[_Entry, ...]:
         ),
         _Entry(
             Operation(
+                id="write",
+                label="Write what was read or built from tables as a DIGGS 3.0.0 file",
+                stability="stable",
+                inputs=(model,),
+                outputs=("diggs-3.0.0",),
+            )
+        ),
+        _Entry(
+            Operation(
                 id="export.pandas",
                 label="Tables of a read file as a pandas data frame",
                 stability="stable",
@@ -717,7 +726,7 @@ def capabilities() -> Capabilities:
         ['validate', 'read', 'detect', 'rules.list', 'rules.explain']
         >>> validate = caps.operations[0]
         >>> validate.stability, validate.outputs, validate.needs, validate.available
-        ('stable', ('diggs-findings-1.2',), (), True)
+        ('stable', ('diggs-findings-1.3',), (), True)
         >>> validate.options["diggs_version"].choices
         ('2.5.a', '2.6', '3.0.0', '3.1-dev')
     """

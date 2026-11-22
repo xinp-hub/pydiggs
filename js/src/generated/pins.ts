@@ -14,7 +14,7 @@ export const PYDIGGS_WHEEL: { url: string; sha256: string } | null = null;
 /** Largest document the worker accepts, in bytes, unless configured lower. */
 export const DEFAULT_MAX_BYTES: number = 25 * 1024 * 1024;
 /** The diggs-findings schema these types were generated from. */
-export const FINDINGS_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json";
+export const FINDINGS_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json";
 /** The diggs-model schema these types were generated from. */
 export const MODEL_SCHEMA_URL: string = "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json";
 /** The diggs-diff schema these types were generated from. */

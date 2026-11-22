@@ -21,8 +21,16 @@ from ._capabilities import (
 )
 from ._reader import read, read_bytes
 from ._versions import VersionInfo, version_info
+from ._write import write, write_bytes
 from .detect import detect_diggs_version
-from .errors import DocumentError, InstanceReadError, PydiggsError, ResourceError
+from .errors import (
+    DocumentError,
+    InstanceReadError,
+    ModelWriteError,
+    PydiggsError,
+    ResourceError,
+    TablesError,
+)
 from .findings.export import (
     FINDINGS_SCHEMA_URL,
     FINDINGS_SCHEMA_VERSION,
@@ -56,6 +64,7 @@ __all__ = [
     "Guidance",
     "InstanceReadError",
     "Model",
+    "ModelWriteError",
     "Operation",
     "OptionSpec",
     "PydiggsError",
@@ -64,6 +73,7 @@ __all__ = [
     "RuleInfo",
     "Severity",
     "Step",
+    "TablesError",
     "VersionInfo",
     "capabilities",
     "capabilities_schema",
@@ -81,4 +91,6 @@ __all__ = [
     "validator",
     "version_info",
     "warm_up",
+    "write",
+    "write_bytes",
 ]

@@ -1,0 +1,48 @@
+id: tables
+title: Your database tables to DIGGS and back
+summary: Turn a folder of plain tables into a valid DIGGS file, see what was left out, and turn a DIGGS file back into tables with a load plan.
+kind: terminal
+setup:
+  # The tables a vendor's database would export: one borehole and two SPT tests. Synthetic.
+  - cp {repo}/docs/tutorials/data/tables/document.csv {repo}/docs/tutorials/data/tables/projects.csv {repo}/docs/tutorials/data/tables/features.csv {repo}/docs/tutorials/data/tables/measurements.csv {repo}/docs/tutorials/data/tables/results_DrivenPenetrationTest.csv {repo}/docs/tutorials/data/tables/params.csv .
+files: [document.csv, projects.csv, features.csv, measurements.csv, results_DrivenPenetrationTest.csv, params.csv]
+scenes:
+  - title: Start from plain tables
+    say: >-
+      Your software keeps its data in a database. You export it as plain tables, one file
+      per table. This folder holds a borehole, its project, and S P T tests. The
+      measurements table has one row per test, with its borehole and its depth.
+    run: cat measurements.csv
+    expect: '(?m)^SPT-2,BH-1,DrivenPenetrationTest,6\.0\s*$'
+    claims: ['key,feature,procedure,depth']
+  - title: Write a DIGGS file
+    say: >-
+      pydiggs tables to-diggs reads the folder and writes a DIGGS 3.0 file. The summary
+      counts what the file holds: one feature and two measurements. The last line says
+      lossless true, so nothing was left out.
+    run: pydiggs tables to-diggs . -o site.xml
+    expect: '(?m)^lossless: True\s*$'
+    claims: ['(?m)^features: 1$', '(?m)^measurements: 2$', '(?m)^lossless: True$']
+  - title: Check the file
+    say: >-
+      pydiggs validate checks the file that was written against the DIGGS schema, the
+      dictionaries and the business rules. It is valid, with no errors and no warnings.
+    run: pydiggs validate site.xml
+    expect: 'valid: 0 error'
+    claims: ['site\.xml: valid: 0 error\(s\), 0 warning\(s\)']
+  - title: See what a mistake says
+    say: >-
+      Now one test names a borehole that does not exist. The command prints one line per
+      problem, with the rule, the table, the row and the column. The row was left out, and
+      the rest of the file was still written.
+    run: sed 's/BH-1,DrivenPenetrationTest,6.0/BH-9,DrivenPenetrationTest,6.0/' measurements.csv > m.csv && mv m.csv measurements.csv && pydiggs tables to-diggs . -o broken.xml | grep -E 'lossless|measurements/'
+    expect: 'tables\.orphan-row +measurements/2/feature'
+    claims: ['(?m)^lossless: False$', 'tables\.orphan-row +measurements/2/feature']
+  - title: Turn a DIGGS file into tables
+    say: >-
+      pydiggs tables from-diggs goes the other way. It writes the DIGGS file as tables
+      into a new folder, with a description of every table and a load plan that lists the
+      tables in the order to load them.
+    run: pydiggs tables from-diggs site.xml -o load && ls -1 load
+    expect: '(?m)^plan\.json\s*$'
+    claims: ['(?m)^datapackage\.json$', '(?m)^plan\.json$', '(?m)^results_DrivenPenetrationTest\.csv$']

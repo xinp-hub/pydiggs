@@ -71,7 +71,7 @@ new pyDIGGS release reaches the app without hand edits.
 | `id` | a stable identifier: `validate`, `read`, `ags4.check`, `export.gpkg` … |
 | `label` | what the operation does, in plain language |
 | `stability` | `stable` (Semantic Versioning), `preview` (may change in a minor release) or `experimental` (may change or go at any time) |
-| `inputs`, `outputs` | a DIGGS version (`diggs-2.6`), an AGS4 version (`ags4-4.1.1`), a pyDIGGS document (`diggs-findings-1.2`, `diggs-model-1.0`), a media type (`application/geo+json`), or the Python type of an in-memory result (`pandas.DataFrame`) |
+| `inputs`, `outputs` | a DIGGS version (`diggs-2.6`), an AGS4 version (`ags4-4.1.1`), a pyDIGGS document (`diggs-findings-1.3`, `diggs-model-1.0`), a media type (`application/geo+json`), or the Python type of an in-memory result (`pandas.DataFrame`) |
 | `options` | option name (the keyword argument, and the request parameter where a surface takes it) to its `type` (`boolean`, `integer`, `number`, `string`, `string[]` or `file`), `label`, `default` (`null`: not given), `choices` (`null`: any) and `required` |
 | `needs` | the pyDIGGS extras it needs (`pip install 'pydiggs[gis]'`); empty for the core |
 | `available` | whether everything it needs is installed in the interpreter that answered |
@@ -102,6 +102,7 @@ exactly the operations the installed release offers. `needs` is the extra to ins
 | `convert.ags4-to-diggs` | stable |  | Convert an AGS4 file to DIGGS 3.0.0, listing everything not carried over and keeping it in a residual AGS4 file |
 | `convert.diggs-to-ags4` | stable |  | Convert a DIGGS file (or a read one) to an AGS4 file, listing everything not carried over |
 | `diff` | stable |  | Compare two DIGGS files: what was added, removed or changed |
+| `write` | stable |  | Write what was read or built from tables as a DIGGS 3.0.0 file |
 | `export.pandas` | stable | `frames` | Tables of a read file as a pandas data frame |
 | `export.polars` | stable | `polars` | Tables of a read file as a polars data frame |
 | `gis.transform` | stable | `gis` | Add longitude and latitude to every location that has a known CRS |
@@ -118,6 +119,7 @@ Where each is in Python:
 | `validate` | `pydiggs.validate()`, `validate_bytes()` |
 | `read` | `pydiggs.read()`, `read_bytes()` |
 | `detect` | `pydiggs.detect_diggs_version()` |
+| `write` | `pydiggs.write()`, `write_bytes()` |
 | `rules.list` | `pydiggs.rule_catalogue()` |
 | `rules.explain` | `pydiggs.explain_rule()` |
 | `ags4.read` | `pydiggs.ags4.read()`, `read_bytes()` |

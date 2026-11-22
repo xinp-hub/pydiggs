@@ -21,6 +21,7 @@
     "export.geodataframe": "A Python GeoDataFrame; needs the gis extra.",
     "export.gpkg": "Needs the gis extra (pyogrio), which the Pyodide engine does not install.",
     "export.geoparquet": "Needs the gis extra (pyarrow), which the Pyodide engine does not install.",
-    "export.geojson": "Needs the gis extra (pyogrio), which the Pyodide engine does not install."
+    "export.geojson": "Needs the gis extra (pyogrio), which the Pyodide engine does not install.",
+    "write": "Writes a Python model; no HTTP route or sidecar method takes a model yet. The tables profile's HTTP and sidecar methods (a later slice) will offer writing from tables."
   }
 }

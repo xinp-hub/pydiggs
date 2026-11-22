@@ -1,0 +1,3 @@
+hole_id,project_no,hole_name,easting,northing,grid,final_depth,depth_unit,purpose
+BH01,DEMO-001,Borehole 1,451200.0,206500.0,http://www.opengis.net/def/crs/EPSG/0/27700,12.5,metres,geotechnical investigation
+BH02,DEMO-001,Borehole 2,451260.5,206480.0,http://www.opengis.net/def/crs/EPSG/0/27700,9.0,metres,geotechnical investigation

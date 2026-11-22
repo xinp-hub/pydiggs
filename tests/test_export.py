@@ -42,7 +42,7 @@ def reports():
 
 
 def test_constants_are_the_document_constants():
-    assert FINDINGS_SCHEMA_VERSION == _json.SCHEMA_VERSION == "1.2"
+    assert FINDINGS_SCHEMA_VERSION == _json.SCHEMA_VERSION == "1.3"
     assert FINDINGS_SCHEMA_URL == _json.SCHEMA_URL
 
 

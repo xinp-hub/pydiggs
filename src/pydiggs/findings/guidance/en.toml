@@ -634,3 +634,98 @@ fix = "Raise the limit on the number of changes listed, compare smaller files, o
 title = "Comparison timed out"
 meaning = "The comparison did not finish in the time allowed, so the differences found so far are incomplete and the files cannot be called the same."
 fix = "Run it again with a longer time limit or on a faster computer, or compare smaller files."
+
+[rules."tables.unmapped-column"]
+title = "Column not in the profile"
+meaning = "One of your tables has a column that the DIGGS tables profile does not define for that table, so its values were left out of the DIGGS file."
+fix = "Rename the column to the profile's name for it, or put the values in the params table, one row per value under its DIGGS name. The documentation lists every table and column."
+
+[rules."tables.unknown-unit"]
+title = "Unit cannot be written here"
+meaning = "A unit cannot be used where it is: a depth not in its borehole's depth unit, a unit DIGGS 3.0.0 does not name, or a test result that lacks the unit its property needs (or has one it does not take). pyDIGGS never converts a value, so a depth in another unit is left out."
+fix = "Give every depth in its borehole's own depth unit (m, ft, ft[US], cm or in), converting in your own export if needed, and give each measured result the unit its property needs in the result_columns table."
+
+[rules."tables.orphan-row"]
+title = "Row names a missing row"
+meaning = "A row names another row by its key (its borehole, sample, test or holder), but no row with that key was converted, so this row was left out too."
+fix = "Check the key is spelled exactly as in the other table, and that the other row was itself converted: look for an earlier finding about it."
+
+[rules."tables.duplicate-key"]
+title = "Key used twice"
+meaning = "Two rows have the same key. Keys identify records across all tables of a data set, so the second row was left out."
+fix = "Give every row its own key. If your database numbers each table from 1, put the table name in front of the number."
+
+[rules."tables.key-rewritten"]
+title = "Identifier adjusted"
+meaning = "A key holds characters that an identifier in a DIGGS file cannot have (a space, a slash, a leading digit), so the identifier written differs from your key. Nothing was lost; the result lists each key and the identifier it got."
+fix = "Nothing is required. If you need the DIGGS identifiers to equal your keys, use only letters, digits, hyphens, dots and underscores, starting with a letter."
+
+[rules."tables.value-unparsed"]
+title = "Value not readable"
+meaning = "A value is not a number where a number is needed, or is text that a DIGGS result table cannot hold (text there cannot contain a space or a comma). The value was left out."
+fix = "Correct the value in your export, or state the column's type in the result_columns table."
+
+[rules."tables.assumed"]
+title = "Missing value filled in"
+meaning = "DIGGS requires something your tables do not give (a project, a creation date, a location, a depth unit, a classification type), so a documented default was written to keep the file valid."
+fix = "Supply the value in your tables so that the file states what you mean. The message says which table and column."
+
+[rules."tables.value-reformatted"]
+title = "Number shown differently"
+meaning = "A number in the DIGGS file is written with trailing zeros or in another form (12.50); in the tables it is the plain number (12.5). The value is the same."
+fix = "Nothing is required."
+
+[rules."tables.incomplete"]
+title = "Row left out"
+meaning = "A row lacks something DIGGS 3.0.0 requires of that kind of record, or is a kind of record pyDIGGS does not yet write, so it and the rows that depend on it were left out of the DIGGS file."
+fix = "Add what the message names. If the record is of a kind pyDIGGS does not yet write, tell the pyDIGGS maintainers which one you need."
+
+[rules."tables.no-crs"]
+title = "Coordinates without reference system"
+meaning = "A borehole has x and y coordinates but no coordinate reference system, so nobody who receives the file can tell where it is. The coordinates were written as given, and DIGGS validation will warn about them."
+fix = "Fill the crs column with the reference system of the coordinates, such as http://www.opengis.net/def/crs/EPSG/0/4326 for latitude and longitude on WGS 84, or your state plane or national grid EPSG code."
+
+[rules."tables.extra-not-written"]
+title = "Extra content not written"
+meaning = "The extra table holds DIGGS content that the profile has no column for. pyDIGGS keeps it when reading a DIGGS file into tables, but does not write it back to DIGGS."
+fix = "Keep the original DIGGS file alongside your data. If you need this content in the files you write, tell the pyDIGGS maintainers which parts matter to you."
+
+[rules."tables.not-carried"]
+title = "Content outside the profile"
+meaning = "The DIGGS file holds content that the tables profile has no column for. Reading into tables keeps it in the extra table; a reference that DIGGS has no direct place for is left out when writing."
+fix = "Nothing is lost when reading. Keep the original DIGGS file if you need to send the same content on."
+
+[rules."tables.unknown-property"]
+title = "Result column not recognised"
+meaning = "A result column is not named after a property in the DIGGS property dictionary, or its unit setting disagrees with the dictionary: a property that is measured in a unit has none, or a property that is a plain count or text has one."
+fix = "Name the column by the property's key in the DIGGS property dictionary, or give that key in the property column of the result_columns table. Give a unit only when the dictionary says the property has one."
+
+[rules."tables.unknown-code"]
+title = "Code not in list"
+meaning = "A value names a DIGGS code list, but the value is not one of the codes in that list. The file would still be written, and DIGGS validation would then report the code."
+fix = "Use a code from the list named in the message, spelled exactly as the list has it. If your term is not in the list, leave the code list column empty so the value is carried as plain text."
+
+[rules."tables.mapping-unmapped-source"]
+title = "Source column not used"
+meaning = "A table or column of your source data holds values, but the mapping file does not send them anywhere, so they are not in the DIGGS file."
+fix = "Add the column to the mapping file, under the table it belongs to. If the values have no column in the profile, send them to params under their DIGGS name. Leave it out only if you mean to."
+
+[rules."tables.mapping-unmapped-code"]
+title = "Code has no mapping"
+meaning = "A value in your source data is not listed in the code map for its column. It was carried as plain text, without a code list, so a receiver cannot tell which standard term it stands for."
+fix = "Add the value to the code map in the mapping file, with the DIGGS code it corresponds to and how well it matches."
+
+[rules."tables.mapping-code-not-exact"]
+title = "Code mapped approximately"
+meaning = "A source code was translated to a DIGGS code that the mapping file marks as close, broader or narrower, not as exact. The DIGGS file states the DIGGS code, so some of the original meaning may not be carried."
+fix = "Nothing is required. If the difference matters to the people who receive your files, also send the original code in params or in a remark."
+
+[rules."tables.mapping-unknown-unit"]
+title = "Source unit not listed"
+meaning = "A unit in your source data has no entry in the unit table of the mapping file. pyDIGGS cannot tell which DIGGS unit it is and never guesses, so the unit and the values it belongs to were left out."
+fix = "Add the unit text to the units table of the mapping file with the DIGGS unit symbol it stands for. The table renames units only; it never changes a number."
+
+[rules."tables.mapping-unknown-target"]
+title = "Mapping target not found"
+meaning = "The mapping file sends data to a table or column that the DIGGS tables profile does not have, names a test type DIGGS 3.0.0 does not define, or leaves out something every data set needs, such as the key of each borehole."
+fix = "Correct the table or column name in the mapping file; the documentation lists every table and column of the profile. Map a key for the features table and for every table you fill."

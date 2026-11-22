@@ -8,6 +8,13 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Changed
+
+- The findings types follow **diggs-findings 1.3**, which only adds to 1.2: the step
+  `"tables"` (the findings of a tables conversion). `FINDINGS_SCHEMA_URL` is the 1.3 schema,
+  shipped as `@pydiggs/client/schemas/diggs-findings-1.3.schema.json`; the 1.0, 1.1 and 1.2
+  schema files are still shipped unchanged.
+
 ## [0.8.0] - 2026-11-20
 
 ### Changed

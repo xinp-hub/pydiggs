@@ -59,10 +59,11 @@ class Step(StrEnum):
 
     The names follow DIGGSml/validation's steps (``DIGGS Structure``, ``Schema
     Location``, ``CodeType Validation`` ...), plus ``context`` for pydiggs's
-    cross-reference checks. ``ags4`` (reading and checking an AGS4 file) and ``convert``
-    (what a conversion lost) and ``diff`` (what :func:`pydiggs.diff.compare` could not
-    settle) are not validation steps: :func:`pydiggs.validate` never runs them. New steps
-    may be added in a minor release.
+    cross-reference checks. ``ags4`` (reading and checking an AGS4 file), ``convert``
+    (what a conversion lost), ``diff`` (what :func:`pydiggs.diff.compare` could not
+    settle) and ``tables`` (what a :mod:`pydiggs.tables` conversion left out or assumed)
+    are not validation steps: :func:`pydiggs.validate` never runs them. New steps may be
+    added in a minor release.
 
     Examples:
         >>> [s.value for s in Step][:4]
@@ -84,6 +85,7 @@ class Step(StrEnum):
     AGS4 = "ags4"
     CONVERT = "convert"
     DIFF = "diff"
+    TABLES = "tables"
 
     @property
     def order(self) -> int:
@@ -373,7 +375,7 @@ class Report:
         return _json.file_entry(self, absolute_paths=absolute_paths)
 
     def to_document(self, *, absolute_paths: bool = False) -> dict[str, Any]:
-        """Return this report as a whole one-file ``diggs-findings`` 1.2 document.
+        """Return this report as a whole one-file ``diggs-findings`` 1.3 document.
 
         The dict form of :meth:`to_json`: dumping it with :func:`pydiggs.findings_json`'s
         settings gives the same bytes. :meth:`to_dict` is just its ``files[0]`` entry.
@@ -390,7 +392,7 @@ class Report:
             >>> from pydiggs import validate_bytes
             >>> doc = validate_bytes(b"<Diggs/>", name="a.xml").to_document()
             >>> doc["format"], doc["schema_version"], doc["files"][0]["path"]
-            ('diggs-findings', '1.2', 'a.xml')
+            ('diggs-findings', '1.3', 'a.xml')
         """
         from pydiggs.findings import _json  # noqa: PLC0415  # _json imports this module
 
@@ -401,7 +403,7 @@ class Report:
         )
 
     def to_json(self, indent: int | None = 2, *, absolute_paths: bool = False) -> str:
-        """A complete ``diggs-findings`` 1.2 JSON document for this one file.
+        """A complete ``diggs-findings`` 1.3 JSON document for this one file.
 
         The text form of :meth:`to_document`.
         """
