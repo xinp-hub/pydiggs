@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A stable identity for conformance challenges.** Evidence now names its challenge by
+  `challenge.id`, a digest of what defines the challenge (suite version, class, DIGGS
+  version, seed, token and product), the same in every pyDIGGS release; `Challenge.id`
+  gives it in Python. `challenge.sha256` keeps its meaning (the digest of
+  `challenge.json` as written). The evidence document is diggs-conformance 1.0-beta.2;
+  1.0-beta.1 stays published.
+
+### Changed
+- **`pydiggs conformance verify` works across pyDIGGS releases.** It matches the
+  challenge by its `id`, so evidence written by one release verifies with a later one
+  that writes the challenge's files differently; a different file digest is printed as a
+  note. Evidence of 1.0-beta.1 (pyDIGGS 1.15 and 1.16), which has no `id`, is still
+  verified by the digest. The docs state the rule the pile classes already apply: a
+  driving record belongs to the pile its activity names.
+
 ### Fixed
 - **Reading a result table with many declared properties and short rows is fast
   again.** When a `ResultSet` declared many `Property` columns but its rows held only a

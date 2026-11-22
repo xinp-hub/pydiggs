@@ -36,6 +36,11 @@ source = "local"
 note = "The conformance class catalogue (pydiggs.conformance): pyDIGGS's own data, checked against the bundled DIGGS 3.0.0 layout by tests/test_conformance_suite.py."
 sha256 = "43c698828babbeb861a75b1e46c9c15c2ed36f49b1411e410ba7040e159e906e"
 
+[files."conformance/diggs-conformance-1.0-beta.2.schema.json"]
+source = "local"
+note = "The diggs-conformance 1.0-beta.2 JSON Schema (pydiggs.conformance, preview; adds challenge.id): pyDIGGS's own output contract, checked against the output by tests/test_conformance_suite.py."
+sha256 = "d41250ee8eeca78bd6e273c72f5103f3576418d82c9da9f5a75ea17c73f89093"
+
 [files."conformance/diggs-conformance-1.0-beta.1.schema.json"]
 source = "local"
 note = "The diggs-conformance 1.0-beta.1 JSON Schema (pydiggs.conformance, preview): pyDIGGS's own output contract, checked against the output by tests/test_conformance_suite.py."

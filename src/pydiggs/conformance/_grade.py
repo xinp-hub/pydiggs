@@ -37,11 +37,13 @@ __all__ = [
     "verify",
 ]
 
-CONFORMANCE_SCHEMA_VERSION: Final = "1.0-beta.1"
+CONFORMANCE_SCHEMA_VERSION: Final = "1.0-beta.2"
+#: Every evidence schema version this release reads (verify, scorecard).
+READ_SCHEMA_VERSIONS: Final = ("1.0-beta.1", "1.0-beta.2")
 CONFORMANCE_SCHEMA_URL: Final = (
-    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json"
+    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json"
 )
-SCHEMA_RESOURCE: Final = "diggs-conformance-1.0-beta.1.schema.json"
+SCHEMA_RESOURCE: Final = "diggs-conformance-1.0-beta.2.schema.json"
 
 #: What a self-tested result does and does not show; every evidence document carries it.
 STATEMENT: Final = (
@@ -145,6 +147,7 @@ class Result:
     product_version: str
     seed: str
     token: str
+    challenge_id: str
     challenge_sha256: str
     submission_name: str
     submission_sha256: str
@@ -179,7 +182,12 @@ class Result:
             "statement": STATEMENT,
             "class": self.info.to_dict(),
             "product": {"name": self.product_name, "version": self.product_version},
-            "challenge": {"seed": self.seed, "token": self.token, "sha256": self.challenge_sha256},
+            "challenge": {
+                "id": self.challenge_id,
+                "seed": self.seed,
+                "token": self.token,
+                "sha256": self.challenge_sha256,
+            },
             "submission": {
                 "name": self.submission_name,
                 "sha256": self.submission_sha256,
@@ -211,12 +219,14 @@ class Verification:
     """Whether re-grading gave the evidence again.
 
     ``differences`` names the top-level parts of the document that differ; ``result`` is
-    the fresh grading.
+    the fresh grading. ``notes`` says what differs without deciding anything: the digest of
+    the challenge's files, which another pyDIGGS release may write differently.
     """
 
     ok: bool
     differences: tuple[str, ...]
     result: Result
+    notes: tuple[str, ...] = ()
 
 
 def _stage(stage_id: str, outcomes: list[_facts.Outcome], *, required: bool = True) -> Stage:
@@ -458,6 +468,7 @@ def grade(
         product_version=loaded.product_version,
         seed=loaded.seed,
         token=loaded.token,
+        challenge_id=loaded.id,
         challenge_sha256=loaded.sha256,
         submission_name=name,
         submission_sha256=hashlib.sha256(data).hexdigest(),
@@ -478,6 +489,9 @@ def verify(
 
     The verdict, the class, the product, the challenge, the submission's digest and every
     stage are compared: what was checked, the counts, and what was expected and found.
+    The challenge is compared by its stable ``id``; a different digest of its files (which
+    another pyDIGGS release may write differently) is a note, not a difference. Evidence
+    of schema 1.0-beta.1, which has no ``id``, is compared by the digest as before.
     Not compared: ``tool`` (the pyDIGGS release), the submission's file name, and the
     wording of messages, which for a validation error is the XML library's own.
 
@@ -511,13 +525,29 @@ def verify(
             raise DocumentError("not-evidence", f"the evidence is not JSON: {exc}") from exc
     if not isinstance(document, dict) or document.get("format") != "diggs-conformance":
         raise DocumentError("not-evidence", "the evidence is not a diggs-conformance document")
+    if document.get("schema_version") not in READ_SCHEMA_VERSIONS:
+        raise DocumentError(
+            "not-evidence",
+            f"evidence schema {document.get('schema_version')!r} is not one this release reads"
+            f" ({', '.join(READ_SCHEMA_VERSIONS)})",
+        )
     result = grade(challenge, submission, max_bytes=max_bytes, time_budget=time_budget)
-    fresh = _comparable(result.to_dict())
-    given = _comparable(document)
-    differences = tuple(part for part in _COMPARED if fresh.get(part) != given.get(part))
+    fresh = result.to_dict()
+    differences = tuple(
+        part
+        for part in _COMPARED
+        if _comparable(fresh, document).get(part) != _comparable(document, document).get(part)
+    )
     if any(not isinstance(key, str) or key not in _MEMBERS for key in document):
         differences = (*differences, "unknown member")
-    return Verification(ok=not differences, differences=differences, result=result)
+    notes: tuple[str, ...] = ()
+    given = document.get("challenge")
+    if isinstance(given, dict) and "id" in given and given.get("sha256") != result.challenge_sha256:
+        notes = (
+            "the challenge's files are written differently by this pyDIGGS release"
+            " (challenge.sha256 differs); the challenge itself (challenge.id) is the same",
+        )
+    return Verification(ok=not differences, differences=differences, result=result, notes=notes)
 
 
 #: The members of an evidence document, and the ones verify compares. ``tool`` is not
@@ -541,7 +571,6 @@ _MEMBERS: Final = frozenset(
     ]
 )
 _COMPARED: Final = (
-    "schema_version",
     "suite_version",
     "tier",
     "class",
@@ -566,17 +595,24 @@ def _comparable_stage(stage: object) -> object:
     }
 
 
-def _comparable(document: dict[str, Any]) -> dict[str, Any]:
+def _comparable(document: dict[str, Any], evidence: dict[str, Any]) -> dict[str, Any]:
     """``document`` without what may differ between two honest runs.
 
     Messages are left out: a validation message is the XML library's own wording, which
     differs between builds. What was checked, the counts, and what was expected and found
-    are all compared.
+    are all compared. The challenge is compared by its ``id`` when ``evidence`` (the
+    document being verified) has one (diggs-conformance 1.0-beta.2), else by its digest
+    (1.0-beta.1, which has no ``id``).
     """
     out = {part: document.get(part) for part in _COMPARED}
     submission = out["submission"]
     if isinstance(submission, dict):
         out["submission"] = {k: v for k, v in submission.items() if k != "name"}
+    challenge, given = out["challenge"], evidence.get("challenge")
+    if isinstance(challenge, dict):
+        by_id = isinstance(given, dict) and "id" in given
+        dropped = "sha256" if by_id else "id"
+        out["challenge"] = {k: v for k, v in challenge.items() if k != dropped}
     stages = out["stages"]
     if isinstance(stages, list):
         out["stages"] = [_comparable_stage(stage) for stage in stages]

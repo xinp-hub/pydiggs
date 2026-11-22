@@ -31,6 +31,8 @@ __all__ = ["CHALLENGE_FORMAT", "MANIFEST_NAME", "SUITE_VERSION", "Challenge", "l
 #: stage is pyDIGGS's own validator, whose release the evidence records beside it.
 SUITE_VERSION: Final = "1.0-beta.2"
 CHALLENGE_FORMAT: Final = "diggs-conformance-challenge"
+#: The manifest members that define a challenge, and so its :attr:`Challenge.id`.
+IDENTITY_KEYS: Final = ("suite_version", "class", "diggs_version", "seed", "token", "product")
 MANIFEST_NAME: Final = "challenge.json"
 
 _MAX_MANIFEST_BYTES: Final = 64 * 1024
@@ -65,8 +67,33 @@ class Challenge:
 
     @property
     def sha256(self) -> str:
-        """The digest of the manifest: the identity of this challenge."""
+        """The digest of ``challenge.json`` as written, file digests included.
+
+        Some of the challenge's files are written by pyDIGGS itself, so another pyDIGGS
+        release may write them, and this digest, differently for the same challenge. Use
+        :attr:`id` to name the challenge.
+        """
         return hashlib.sha256(self.files[MANIFEST_NAME]).hexdigest()
+
+    @property
+    def id(self) -> str:
+        """The stable identity of this challenge, the same in every pyDIGGS release.
+
+        A SHA-256 of what defines the challenge, as canonical JSON (sorted keys, no
+        spaces): the suite version, the class, the DIGGS version, the seed, the token and
+        the product. It does not depend on how the files are written.
+
+        Examples:
+            >>> from pydiggs import conformance
+            >>> a = conformance.new("spt-export", product="MyLog", version="4.2.1", seed="demo")
+            >>> b = conformance.new("spt-export", product="MyLog", version="4.2.1", seed="demo")
+            >>> a.id == b.id, len(a.id)
+            (True, 64)
+        """
+        manifest = self.manifest
+        identity = {key: manifest[key] for key in IDENTITY_KEYS}
+        text = json.dumps(identity, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     def dataset(self) -> _scenario.Dataset:
         """The source data, rebuilt from the seed."""
