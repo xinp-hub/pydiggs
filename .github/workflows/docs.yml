@@ -1,4 +1,4 @@
-Publishes the documentation site in two versions:
+# Publishes the documentation site in two versions:
 #
 #   latest/  the newest release tag vX.Y.Z, built from that tag's own files and uv.lock
 #   dev/     the default branch: unreleased code, and every page says so

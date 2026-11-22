@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
 SETUP_UV = "astral-sh/setup-uv@"
 ONLY_MANAGED = re.compile(r"^  UV_PYTHON_PREFERENCE: only-managed$", re.MULTILINE)
+#: The top-level keys GitHub Actions accepts in a workflow file.
+WORKFLOW_KEYS = frozenset(
+    {"name", "run-name", "on", "permissions", "env", "defaults", "concurrency", "jobs"}
+)
 TOP_LEVEL_ENV = re.compile(r"^env:\n((?:  .*\n|\n)+)", re.MULTILINE)
 
 pytestmark = pytest.mark.skipif(not WORKFLOWS, reason="not a repository checkout")
@@ -57,3 +61,17 @@ def test_every_workflow_using_setup_uv_uses_only_managed_pythons(path: Path) -> 
 )
 def test_the_check_reads_only_the_workflow_level_env(text: str, expected: bool) -> None:
     assert uses_managed_python_only(text) is expected
+
+
+@pytest.mark.parametrize("path", WORKFLOWS, ids=lambda p: p.name)
+def test_every_workflow_is_a_workflow(path: Path) -> None:
+    # A workflow GitHub cannot read fails at once with no jobs and never runs again, with
+    # nothing in the pull request to say so: #393 dropped the "# " from the first line of
+    # docs.yml (the file became one string) and docs-links.yml (invalid YAML).
+    yaml = pytest.importorskip("yaml")
+    workflow = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert isinstance(workflow, dict), f"{path.name} is not a mapping"
+    # PyYAML reads the key `on` as the boolean True (YAML 1.1).
+    keys = {"on" if key is True else key for key in workflow}
+    assert {"on", "jobs"} <= keys, f"{path.name} has no trigger or no jobs"
+    assert keys <= WORKFLOW_KEYS, f"{path.name}: GitHub refuses the keys {keys - WORKFLOW_KEYS}"
