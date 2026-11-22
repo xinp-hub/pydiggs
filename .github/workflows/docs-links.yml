@@ -1,4 +1,4 @@
-Checks the links that leave the documentation, once a week.
+# Checks the links that leave the documentation, once a week.
 #
 # Links between pages are checked on every build by `mkdocs build --strict`. A link to
 # someone else's site breaks on their schedule, not on a commit here, so it is checked on a
