@@ -72,14 +72,24 @@ LABEL org.opencontainers.image.title="pydiggs" \
       org.opencontainers.image.revision="${REVISION}"
 
 # No package installer in the image: pip, setuptools and ensurepip go from the base
-# Python, and the build fails if any of them can still be imported.
+# Python, and the build fails if any of them can still be imported. Python itself says
+# where each one is, rather than a fixed list of paths: the 2026-11 base image keeps pip
+# somewhere the old list did not name (#395). Each module is removed with its dist-info,
+# at most three times, and only from under /usr/local/; anywhere else stops the build.
 RUN set -eu; \
-    rm -rf /usr/local/lib/python3.14/site-packages/pip \
-           /usr/local/lib/python3.14/site-packages/pip-*.dist-info \
-           /usr/local/lib/python3.14/site-packages/setuptools \
-           /usr/local/lib/python3.14/site-packages/setuptools-*.dist-info \
-           /usr/local/lib/python3.14/ensurepip \
-           /usr/local/bin/pip /usr/local/bin/pip3*; \
+    for module in pip setuptools ensurepip; do \
+        for attempt in 1 2 3; do \
+            location="$(python3 -c "import importlib.util as u, sys; s = u.find_spec(sys.argv[1]); print('' if s is None else (list(s.submodule_search_locations)[0] if s.submodule_search_locations else (s.origin or '')))" "$module")"; \
+            [ -n "$location" ] || break; \
+            case "$location" in \
+                /usr/local/*) ;; \
+                *) echo "$module is at $location, outside /usr/local/" >&2; exit 1 ;; \
+            esac; \
+            echo "removing $module from $location"; \
+            rm -rf "$location" "$(dirname "$location")/$module"-*.dist-info; \
+        done; \
+    done; \
+    rm -f /usr/local/bin/pip /usr/local/bin/pip3*; \
     for module in pip setuptools ensurepip; do \
         if python3 -c "import $module" 2>/dev/null; then \
             echo "$module is still importable" >&2; exit 1; \
