@@ -65,7 +65,7 @@ off (`git commit -s`) under the
   ([Testing DIGGS support](https://xinp-hub.github.io/pydiggs/latest/conformance/)).
 * Flexible validation output:
     * Machine-readable findings with stable rule ids, lines, XPaths and `gml:id`s, as
-      JSON (diggs-findings 1.2) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)
+      JSON (diggs-findings 1.3) or SARIF 2.1.0 (`pydiggs validate`, `validate()`)
     * Write validation errors to log files
     * Print validation errors directly to console
 * Command-line interface (CLI) for easy integration
@@ -154,7 +154,7 @@ validation.schematron_check()
 
 Every check at once, as machine-readable findings:
 ```bash
-# JSON (diggs-findings 1.2); exit 0 = no errors, 1 = errors, 2 = usage/unreadable input
+# JSON (diggs-findings 1.3); exit 0 = no errors, 1 = errors, 2 = usage/unreadable input
 pydiggs validate --format json "path/to/your/diggs_file.xml"
 
 # A whole folder as SARIF 2.1.0 for code-scanning tools

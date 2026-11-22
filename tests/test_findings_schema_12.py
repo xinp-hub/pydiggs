@@ -15,9 +15,8 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-import pydiggs
 from pydiggs import Finding, Report, Step, explain_rule, rule_catalogue, validate_bytes
-from pydiggs.findings import _json, rules, run
+from pydiggs.findings import rules, run
 
 ROOT = Path(__file__).resolve().parent.parent
 URL = "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-{}.schema.json"
@@ -35,6 +34,16 @@ SCHEMA_1_1 = json.loads(_packaged("1.1"))
 SCHEMA_1_2 = json.loads(_packaged("1.2"))
 V11 = jsonschema.Draft202012Validator(SCHEMA_1_1)
 V12 = jsonschema.Draft202012Validator(SCHEMA_1_2)
+
+
+def _as_1_2(document: dict) -> dict:
+    """``document`` with the two fields that name the schema version set back to 1.2."""
+    return {**document, "$schema": URL.format("1.2"), "schema_version": "1.2"}
+
+
+def _document(report: Report) -> dict:
+    """What a pyDIGGS writes (1.3 since 1.15.0) with the two version fields set to 1.2."""
+    return _as_1_2(json.loads(report.to_json()))
 
 
 def _without_text(node):
@@ -57,15 +66,11 @@ def test_the_1_1_schema_file_is_byte_identical_and_still_packaged_and_published(
         assert (ROOT / "js" / "schemas" / name).read_bytes() == _packaged(version)
 
 
-def test_1_2_is_a_valid_schema_with_the_published_id_and_is_what_pydiggs_writes():
+def test_1_2_is_a_valid_schema_with_the_published_id():
+    # pyDIGGS writes 1.3 since 1.15.0 (tests/test_findings_schema_13.py); 1.2 stays published.
     jsonschema.Draft202012Validator.check_schema(SCHEMA_1_2)
-    assert SCHEMA_1_2["$id"] == URL.format("1.2") == pydiggs.FINDINGS_SCHEMA_URL
+    assert SCHEMA_1_2["$id"] == URL.format("1.2")
     assert SCHEMA_1_2["title"] == "diggs-findings 1.2"
-    assert pydiggs.FINDINGS_SCHEMA_VERSION == "1.2"
-    assert pydiggs.findings_schema() == SCHEMA_1_2
-    assert _json.SCHEMA_RESOURCE == "diggs-findings-1.2.schema.json"
-    assert pydiggs.version_info().findings_schema_version == "1.2"
-    assert pydiggs.version_info().findings_schema_url == URL.format("1.2")
 
 
 def test_1_2_differs_from_1_1_by_exactly_the_diff_step_and_the_accepted_urls():
@@ -86,9 +91,9 @@ def test_1_2_differs_from_1_1_by_exactly_the_diff_step_and_the_accepted_urls():
 
 
 def test_the_step_enum_is_the_python_enum_and_diff_is_never_validated():
-    assert SCHEMA_1_2["$defs"]["step"]["enum"] == [s.value for s in Step]
+    assert SCHEMA_1_2["$defs"]["step"]["enum"] == [s.value for s in Step if s is not Step.TABLES]
     assert Step.DIFF.value == "diff"
-    assert [s.value for s in Step][-3:] == ["ags4", "convert", "diff"]
+    assert SCHEMA_1_2["$defs"]["step"]["enum"][-3:] == ["ags4", "convert", "diff"]
     assert Step.DIFF.order > Step.CONVERT.order
     assert Step.DIFF not in run.NATIVE_STEPS
     with pytest.raises(ValueError, match="diff"):
@@ -97,7 +102,7 @@ def test_the_step_enum_is_the_python_enum_and_diff_is_never_validated():
 
 def test_a_1_1_document_is_a_1_2_document():
     report = validate_bytes(b"<Diggs/>", name="a.xml")
-    document = json.loads(report.to_json())
+    document = _document(report)
     V12.validate(document)
     as_1_1 = {**document, "$schema": URL.format("1.1"), "schema_version": "1.1"}
     V11.validate(as_1_1)
@@ -117,7 +122,7 @@ def test_a_report_with_a_diff_finding_validates_against_1_2_only():
         findings=(finding,),
         tool_version="1.12.0",
     )
-    document = json.loads(report.to_json())
+    document = _document(report)
     V12.validate(document)
     assert not V11.is_valid({**document, "$schema": URL.format("1.1"), "schema_version": "1.1"})
     with pytest.raises(ValueError, match="not a valid rule id"):
@@ -142,7 +147,7 @@ def test_1_2_still_refuses_what_it_does_not_define(change):
         findings=(Finding(step="diff", rule_id="diff.limit", severity="warning", message="m"),),
         tool_version="1",
     )
-    document = json.loads(report.to_json())
+    document = _document(report)
     change(document)
     assert not V12.is_valid(document)
 

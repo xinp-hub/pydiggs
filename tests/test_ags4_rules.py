@@ -787,7 +787,7 @@ def test_cli_json_and_sarif(capsys, tmp_path):
     code, out, _ = run_cli(capsys, CLEAN, RULE_10A, "--format", "json")
     assert code == 1
     document = json.loads(out)
-    assert document["schema_version"] == "1.2"
+    assert document["schema_version"] == "1.3"
     assert [f["format"] for f in document["files"]] == ["ags4", "ags4"]
     located = [
         f["location"]

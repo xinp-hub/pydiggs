@@ -1,0 +1,6 @@
+hole_id,seq,top_m,base_m,soil_description,uscs
+BH01,1,0,1.2,MADE GROUND: brown sandy gravel,GP
+BH01,2,1.2,6.5,Soft grey silty CLAY,CL
+BH01,3,6.5,12.5,Dense grey silty SAND,SM
+BH02,1,0,0.8,TOPSOIL,TS
+BH02,2,0.8,9.0,Firm brown sandy CLAY,CL

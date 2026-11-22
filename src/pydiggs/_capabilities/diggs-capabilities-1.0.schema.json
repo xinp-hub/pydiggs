@@ -58,7 +58,7 @@
         "outputs": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "What it gives: a pydiggs document (diggs-findings-1.2, diggs-model-1.0), a media type (application/geo+json), an AGS4 version or an in-memory Python type (pandas.DataFrame)."
+          "description": "What it gives: a pydiggs document (diggs-findings-1.3, diggs-model-1.0), a media type (application/geo+json), an AGS4 version or an in-memory Python type (pandas.DataFrame)."
         },
         "options": {
           "type": "object",

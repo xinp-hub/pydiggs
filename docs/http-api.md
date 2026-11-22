@@ -1,7 +1,7 @@
 # HTTP API
 
 `pydiggs[server]` serves pydiggs over HTTP: upload a DIGGS document, get a
-[diggs-findings 1.2](findings.md) document (or a SARIF 2.1.0 log) back. It is a FastAPI
+[diggs-findings 1.3](findings.md) document (or a SARIF 2.1.0 log) back. It is a FastAPI
 application you can run as is, or a router you mount in your own FastAPI app.
 
 ```bash
@@ -66,10 +66,10 @@ app, a reverse proxy or an API gateway for that.
 
 | method and path | answer |
 |---|---|
-| `POST /v1/validate` | 200 with a diggs-findings 1.2 document, or SARIF 2.1.0 for `Accept: application/sarif+json` |
+| `POST /v1/validate` | 200 with a diggs-findings 1.3 document, or SARIF 2.1.0 for `Accept: application/sarif+json` |
 | `POST /v1/read` | 200 with a diggs-model 1.0 document: what is in the file ([Reading files](model.md)) |
 | `POST /v1/convert` | 200 with a conversion result: an AGS4 file as DIGGS 3.0.0, or a DIGGS document as AGS4 (base64), and every loss ([AGS4 and DIGGS conversion](convert.md)) |
-| `POST /v1/ags4/check` | 200 with a diggs-findings 1.2 document of the AGS4 rules, or SARIF 2.1.0 ([AGS4 files](ags4.md)) |
+| `POST /v1/ags4/check` | 200 with a diggs-findings 1.3 document of the AGS4 rules, or SARIF 2.1.0 ([AGS4 files](ags4.md)) |
 | `POST /v1/diff` | 200 with a diggs-diff 1.0 document: what was added, removed or changed between two DIGGS files ([Comparing two files](diff.md)) |
 | `GET /v1/versions` | pydiggs, findings schema and DIGGS versions, reference-data commits, `api_version: "1"` (off with `versions_enabled=False`) |
 | `GET /v1/capabilities` | a [diggs-capabilities 1.0](capabilities.md) document: what this server's pydiggs can do (off with `versions_enabled=False`) |
@@ -190,7 +190,7 @@ curl -s 'http://127.0.0.1:8000/v1/convert?to=ags4&ags_version=4.1.1' \
 The answer is one JSON object (`application/json`, component `ConversionResult`): the
 output bytes as `output_base64` with `media_type` (`application/xml` for DIGGS,
 `text/plain; charset=utf-8` for AGS4), `output_name` and `output_sha256`; the `report`
-about the source (the reader's notes and `convert` findings, diggs-findings 1.2); the
+about the source (the reader's notes and `convert` findings, diggs-findings 1.3); the
 `validation` of the output (`pydiggs.validate` for DIGGS, `pydiggs.ags4.check` for
 AGS4); `diggs_version`, `ags_version` (null for `to=diggs`), `mapping_version`,
 `complete` and `lossless`; and `residual_base64`, the residual AGS4 file of what an AGS4
@@ -216,7 +216,7 @@ and the residual file in [The residual file](convert.md#the-residual-file).
 ### `POST /v1/ags4/check` {#post-v1ags4check}
 
 Checks one AGS4 file against the AGS4 rules (Rules 1 to 20) and answers with a
-**diggs-findings 1.2** document of step `ags4` (or SARIF 2.1.0 for
+**diggs-findings 1.3** document of step `ags4` (or SARIF 2.1.0 for
 `Accept: application/sarif+json`), the report [`ags4.check`](ags4.md#checking) gives for
 the same bytes. Send the file raw (as for `/v1/convert`) or as multipart with a `file`
 part and, optionally, a **`dictionary`** part: an AGS4 data dictionary, which pyDIGGS does

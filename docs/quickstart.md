@@ -105,7 +105,7 @@ the line it refers to:
 pydiggs validate --format sarif --output pydiggs.sarif data/
 ```
 
-Or write the [diggs-findings 1.2](findings.md) JSON document for your own tooling:
+Or write the [diggs-findings 1.3](findings.md) JSON document for your own tooling:
 
 ```bash
 pydiggs validate --format json BH-01.xml > findings.json

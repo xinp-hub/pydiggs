@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Check AGS4 files against the AGS4 rules (Rules 1 to 20 of the AGS4"
             " specification, Edition 4.2) and report the findings as text, JSON"
-            " (diggs-findings 1.2) or SARIF 2.1.0. pyDIGGS bundles no AGS data dictionary:"
+            " (diggs-findings 1.3) or SARIF 2.1.0. pyDIGGS bundles no AGS data dictionary:"
             " the rules that need one (7, 9, 10a, 10b, 10c, 18, and parts of 11c, 13, 14"
             " and 19b) run for the file's own DICT group, and for standard groups only with"
             " --dictionary. Not an AGS-approved validator."

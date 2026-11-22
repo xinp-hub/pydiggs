@@ -160,6 +160,15 @@ PACKAGE_LOCAL = {
         "The diggs-findings 1.2 JSON Schema (adds the diff step): pyDIGGS's own output "
         "contract, not upstream data."
     ),
+    "findings/diggs-findings-1.3.schema.json": (
+        "The diggs-findings 1.3 JSON Schema (adds the tables step): pyDIGGS's own output "
+        "contract, not upstream data."
+    ),
+    "mapping/diggs-mapping-1.schema.json": (
+        "The diggs-mapping 1.0 JSON Schema (pydiggs.mapping, preview): pyDIGGS's own contract "
+        "for a mapping from a vendor's tables to the DIGGS tables profile, checked against the "
+        "loader by tests/test_mapping.py."
+    ),
     "conformance/catalogue.toml": (
         "The conformance class catalogue (pydiggs.conformance): pyDIGGS's own data, checked "
         "against the bundled DIGGS 3.0.0 layout by tests/test_conformance_suite.py."

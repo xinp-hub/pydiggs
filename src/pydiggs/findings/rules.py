@@ -358,6 +358,28 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     ),
     "diff.limit": "The model diff stopped at a limit, so it is incomplete (model diff note)",
     "diff.timeout": "The model diff did not finish within its time budget, so it is incomplete",
+    # What a tables conversion left out or assumed (pydiggs.tables, both directions).
+    "tables.unmapped-column": "A column is not a column of its profile table; not converted",
+    "tables.unknown-unit": "A unit DIGGS cannot hold there, or one a property needs is missing",
+    "tables.orphan-row": "A row names a row that is not in the tables; not converted",
+    "tables.duplicate-key": "A row repeats a key another row already has; not converted",
+    "tables.key-rewritten": "A key is not a valid XML id, so the gml:id written differs from it",
+    "tables.value-unparsed": "A value does not parse as the number or text DIGGS needs there",
+    "tables.assumed": "DIGGS needs a value the tables lack; a documented default was written",
+    "tables.value-reformatted": "The same number is given in another form (not a loss)",
+    "tables.incomplete": "A row was not converted: it lacks something DIGGS requires",
+    "tables.no-crs": "Coordinates are given without their coordinate reference system",
+    "tables.extra-not-written": "Rows of the extra table are not written back to DIGGS",
+    "tables.not-carried": "DIGGS content with no column in the profile, kept apart or left out",
+    # What a vocabulary check of profile tables finds (pydiggs.tables.check).
+    "tables.unknown-property": "A result column is not a property of the DIGGS dictionary",
+    "tables.unknown-code": "A code is not in the DIGGS code list its code space names",
+    # What applying or checking a mapping file finds (pydiggs.mapping).
+    "tables.mapping-unmapped-source": "A source column has values the mapping does not use",
+    "tables.mapping-unmapped-code": "A source code has no entry in its code map; kept as text",
+    "tables.mapping-code-not-exact": "A code was mapped by a close, broader or narrower match",
+    "tables.mapping-unknown-unit": "A source unit has no entry in the unit table; left out",
+    "tables.mapping-unknown-target": "A mapping names a table or column the profile lacks",
 }
 
 
@@ -560,6 +582,25 @@ _SEVERITIES: Final[dict[str, tuple[Severity, ...]]] = {
     "diff.ambiguous-match": _INFO,
     "diff.limit": _WARNING,
     "diff.timeout": _WARNING,
+    "tables.unmapped-column": _WARNING,
+    "tables.unknown-unit": _WARNING,
+    "tables.orphan-row": _ERROR,
+    "tables.duplicate-key": _ERROR,
+    "tables.key-rewritten": _INFO,
+    "tables.value-unparsed": _WARNING,
+    "tables.assumed": _WARNING,
+    "tables.value-reformatted": _INFO,
+    "tables.incomplete": _ERROR,
+    "tables.no-crs": _WARNING,
+    "tables.extra-not-written": _WARNING,
+    "tables.not-carried": _WARNING,
+    "tables.unknown-property": _WARNING,
+    "tables.unknown-code": _WARNING,
+    "tables.mapping-unmapped-source": _WARNING,
+    "tables.mapping-unmapped-code": _WARNING,
+    "tables.mapping-code-not-exact": _INFO,
+    "tables.mapping-unknown-unit": _WARNING,
+    "tables.mapping-unknown-target": _ERROR,
 }
 #: The steps pydiggs runs (run.NATIVE_STEPS, copied to avoid an import cycle; a test
 #: keeps them equal): only they can be ``incomplete``.

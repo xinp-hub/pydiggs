@@ -48,7 +48,7 @@ function engine(
       case "convert":
         return { to: "diggs", output_name: "site.xml", output_base64: "", report: {} };
       case "ags4":
-        return { format: "diggs-findings", schema_version: "1.2", files: [] };
+        return { format: "diggs-findings", schema_version: "1.3", files: [] };
       case "ags4-sarif":
         return { version: "2.1.0", runs: [] };
       case "capabilities":

@@ -57,6 +57,8 @@ PUBLIC_FUNCTIONS: dict[str, tuple[str, ...]] = {
     "pydiggs.read": ("read",),
     "pydiggs.read_bytes": ("read",),
     "pydiggs.detect_diggs_version": ("detect",),
+    "pydiggs.write": ("write",),
+    "pydiggs.write_bytes": ("write",),
     "pydiggs.rule_catalogue": ("rules.list",),
     "pydiggs.explain_rule": ("rules.explain",),
     "pydiggs.ags4.read": ("ags4.read",),
@@ -91,6 +93,7 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
     "validate": ("pydiggs.validate", "pydiggs.validate_bytes"),
     "read": ("pydiggs.read", "pydiggs.read_bytes"),
     "detect": ("pydiggs.detect_diggs_version",),
+    "write": ("pydiggs.write_bytes",),
     "rules.list": ("pydiggs._service.rules",),  # rule_catalogue() filters nothing
     "rules.explain": ("pydiggs.explain_rule",),
     "ags4.read": ("pydiggs.ags4.read", "pydiggs.ags4.read_bytes"),
@@ -414,6 +417,7 @@ def test_needs_name_real_extras(by_id):
         "convert.ags4-to-diggs",
         "convert.diggs-to-ags4",
         "diff",
+        "write",
     }
 
 

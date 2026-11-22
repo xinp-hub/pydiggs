@@ -45,6 +45,12 @@ DOC_FILES: dict[str, Path] = {
     "path/to/schematron.sch": SCHEMATRON,
     "path/to/rules.sch": SCHEMATRON,
     "path/to/Diggs.xsd": XSD,
+    # docs/mapping.md: the worked example, as a vendor's export folder and their mapping.
+    "demo.toml": ROOT / "docs" / "examples" / "mapping" / "demo.toml",
+    **{
+        f"export/{path.name}": path
+        for path in sorted((ROOT / "docs" / "examples" / "mapping").glob("*.csv"))
+    },
 }
 
 

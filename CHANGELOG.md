@@ -8,6 +8,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Your database to DIGGS and back (preview).** `pydiggs.tables` and `pydiggs tables`
+  let software that keeps its data in a database write and read DIGGS without touching
+  XML. You shape your own schema into a small set of plain tables, the DIGGS tables
+  profile, with SQL views or a CSV export; `pydiggs tables to-diggs FOLDER -o site.xml`
+  writes a DIGGS 3.0.0 file that passes every pyDIGGS check, and `pydiggs tables
+  from-diggs site.xml -o load/` turns a DIGGS file into the same tables, with a load plan
+  that lists them in the order to load and the columns that identify a row. In Python,
+  rows come from dictionaries, CSV folders or any database cursor
+  (`tables.rows_from_cursor`); pyDIGGS needs no database driver and never connects to
+  your database. No value is converted to another unit, and every row or value that could
+  not be carried is named with its table, row and column. `tables.round_trip` writes your
+  tables, validates the file, reads it back and lists each value that came back changed.
+  See [Your database to DIGGS and back](https://xinp-hub.github.io/pydiggs/latest/tables/).
+  The first profile (`1.0-beta.1`) writes boreholes, soundings, trial pits and wells with
+  their samples, lithology and tests; other kinds of record are read into tables and
+  reported when they cannot yet be written. A total depth that is not positive is
+  reported, not written, since DIGGS requires a positive one.
+- **Mapping files instead of SQL views (preview).** `pydiggs.mapping` and `pydiggs map`
+  read one TOML file, a `diggs-mapping` 1.0 document, that says where each of your own
+  tables and columns goes in the tables profile: a column copied, a constant, a key built
+  from columns, a unit renamed (never converted) or a code translated, each code with how
+  well it matches (`exact`, `close`, `broader`, `narrower`). `pydiggs map init export/`
+  starts a mapping from your CSV headers and marks every guess; `pydiggs map check` lints
+  it against the profile and the DIGGS units, properties and bundled code lists, with no
+  DIGGS written; `pydiggs map test` writes DIGGS, validates it, reads it back and exits
+  with 1 when anything was left out or came back changed, so it can run in your CI; and
+  `pydiggs map coverage` shows how much of your schema the mapping reads. Every source
+  value the mapping does not use is named. See
+  [Map your database with a mapping file](https://xinp-hub.github.io/pydiggs/latest/mapping/),
+  with a worked example in `docs/examples/mapping/`. The AGS4 mapping table used by
+  `pydiggs convert` does not change.
+- **Check your tables' vocabulary.** `tables.check(tables)` reports result columns that
+  are not DIGGS properties, a unit a property does not take or a missing one, and codes
+  that are not in a code list pyDIGGS bundles, before anything is written.
+- **A public DIGGS writer.** `pydiggs.write(model, path)` and `pydiggs.write_bytes(model)`
+  write a model as a DIGGS 3.0.0 file, the same bytes every time. A model the writer
+  cannot write is refused with `ModelWriteError`, which names the record.
+- **diggs-findings 1.3.** The findings document gains the step `tables`, for what a
+  tables conversion left out or assumed. Every 1.0, 1.1 and 1.2 document is a valid 1.3
+  document.
 - **A conformance suite for DIGGS software (preview).** `pydiggs conformance` and
   `pydiggs.conformance` test how a product reads and writes DIGGS 3, on your own machine,
   with no account and nothing uploaded. `pydiggs conformance new spt-export` makes a

@@ -36,13 +36,14 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "src" / "pydiggs"
-SCHEMA = PACKAGE / "findings" / "diggs-findings-1.2.schema.json"
+SCHEMA = PACKAGE / "findings" / "diggs-findings-1.3.schema.json"
 #: Path of the schema under the site root; matches the schema's ``$id``.
 PUBLISHED = Path("schemas") / SCHEMA.name
 #: Earlier diggs-findings schemas: documents that name them must keep resolving.
 EARLIER_SCHEMAS = (
     PACKAGE / "findings" / "diggs-findings-1.0.schema.json",
     PACKAGE / "findings" / "diggs-findings-1.1.schema.json",
+    PACKAGE / "findings" / "diggs-findings-1.2.schema.json",
 )
 OPENAPI = PACKAGE / "server" / "openapi.json"
 OPENRPC = PACKAGE / "sidecar" / "openrpc.json"
@@ -52,6 +53,8 @@ CAPABILITIES = PACKAGE / "_capabilities" / "diggs-capabilities-1.0.schema.json"
 MAPPING = PACKAGE / "convert" / "convert-mapping-1.schema.json"
 #: A preview contract: published under schemas/preview/, as its ``$id`` says.
 CONFORMANCE = PACKAGE / "conformance" / "diggs-conformance-1.0-beta.1.schema.json"
+#: A preview contract too: the diggs-mapping format of pydiggs.mapping.
+VENDOR_MAPPING = PACKAGE / "mapping" / "diggs-mapping-1.schema.json"
 #: Every published document: packaged source -> path under the site root.
 DOCUMENTS: dict[Path, Path] = {
     SCHEMA: PUBLISHED,
@@ -62,6 +65,7 @@ DOCUMENTS: dict[Path, Path] = {
     CAPABILITIES: Path("schemas") / CAPABILITIES.name,
     MAPPING: Path("schemas") / MAPPING.name,
     CONFORMANCE: Path("schemas") / "preview" / CONFORMANCE.name,
+    VENDOR_MAPPING: Path("schemas") / "preview" / VENDOR_MAPPING.name,
     **{earlier: Path("schemas") / earlier.name for earlier in EARLIER_SCHEMAS},
 }
 

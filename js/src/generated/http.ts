@@ -26,7 +26,7 @@ export interface Ready {
 export interface RuleInfo {
   id: string;
   pattern: string | null;
-  step: "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context" | "ags4" | "convert" | "diff";
+  step: "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context" | "ags4" | "convert" | "diff" | "tables";
   description: string;
   severities: ("error" | "warning" | "info")[];
   help_uri: string;
@@ -105,7 +105,7 @@ export interface Capabilities {
     stability: "stable" | "preview" | "experimental";
     /** What it reads: a DIGGS version (diggs-2.6), an AGS4 version (ags4-4.1.1), a pydiggs document (diggs-model-1.0) or an in-memory Python type. */
     inputs: string[];
-    /** What it gives: a pydiggs document (diggs-findings-1.2, diggs-model-1.0), a media type (application/geo+json), an AGS4 version or an in-memory Python type (pandas.DataFrame). */
+    /** What it gives: a pydiggs document (diggs-findings-1.3, diggs-model-1.0), a media type (application/geo+json), an AGS4 version or an in-memory Python type (pandas.DataFrame). */
     outputs: string[];
     /** Option name (the keyword argument and request parameter) -> its description. */
     options: {
@@ -136,7 +136,7 @@ export type DiggsVersion = "2.5.a" | "2.6" | "3.0.0" | "3.1-dev";
 export type ValidateCheck = "context" | "deprecation" | "dictionary" | "geometry" | "schema" | "schematron" | "structure";
 
 /** Only the rules of this step. */
-export type RuleStep = "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context" | "ags4" | "convert" | "diff";
+export type RuleStep = "structure" | "schema" | "codeType" | "dictionary" | "schematron" | "geometry" | "crs" | "coordinate" | "deprecation" | "context" | "ags4" | "convert" | "diff" | "tables";
 
 /** DIGGS version of a conversion's output. */
 export type ConvertDiggsVersion = "3.0.0";

@@ -22,12 +22,12 @@ test("the Pyodide pin is the one CI tests pydiggs against", () => {
 
 test("the shipped schemas carry the exported URLs", () => {
   const read = (name: string) => JSON.parse(readFileSync(new URL(`../schemas/${name}`, import.meta.url), "utf8"));
-  assert.equal(read("diggs-findings-1.2.schema.json").$id, FINDINGS_SCHEMA_URL);
-  // The earlier versions stay shipped: 1.0 and 1.1 documents name them, and so do diggs-model 1.0 notes.
-  for (const earlier of ["1.1", "1.0"]) {
+  assert.equal(read("diggs-findings-1.3.schema.json").$id, FINDINGS_SCHEMA_URL);
+  // The earlier versions stay shipped: 1.0, 1.1 and 1.2 documents name them, and so do diggs-model 1.0 notes.
+  for (const earlier of ["1.2", "1.1", "1.0"]) {
     assert.equal(
       read(`diggs-findings-${earlier}.schema.json`).$id,
-      FINDINGS_SCHEMA_URL.replace("diggs-findings-1.2", `diggs-findings-${earlier}`),
+      FINDINGS_SCHEMA_URL.replace("diggs-findings-1.3", `diggs-findings-${earlier}`),
     );
   }
   assert.equal(read("diggs-model-1.0.schema.json").$id, MODEL_SCHEMA_URL);
@@ -64,6 +64,16 @@ test("a document literal fits the generated types", () => {
     location: { line: null, column: null, xpath: null, gml_id: null },
   };
   assert.equal(diffNote.step, "diff");
+  // diggs-findings 1.3: the tables step, for the findings of a tables conversion.
+  const tablesNote: DiggsFindingsFinding = {
+    layer: "native",
+    step: "tables",
+    rule_id: "tables.unmapped-column",
+    severity: "warning",
+    message: "A column is not a column of its profile table, so its values were not converted.",
+    location: { line: null, column: null, xpath: null, gml_id: null },
+  };
+  assert.equal(tablesNote.step, "tables");
   assert.equal(finding.severity, "error");
   assert.equal(depth.si?.uom, "m");
 });

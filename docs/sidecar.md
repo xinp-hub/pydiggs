@@ -142,8 +142,8 @@ Result:
 {
   "protocol_version": "1.3",
   "pydiggs_version": "1.13.0",
-  "findings_schema_version": "1.2",
-  "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json",
+  "findings_schema_version": "1.3",
+  "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json",
   "model_schema_version": "1.0",
   "model_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json",
   "diff_schema_version": "1.0",
@@ -188,7 +188,7 @@ no `diff_schema_*` and no `capabilities.diff`.
 Exactly one of `content_base64` and `path` is required. The encoded length is checked
 against `max_bytes` before decoding.
 
-The result is a complete one-file **diggs-findings 1.2** document, the same as
+The result is a complete one-file **diggs-findings 1.3** document, the same as
 `pydiggs validate --format json` gives for that file apart from `files[].path` (always the
 basename here) and with no `absolute_path`. Validate it against the document's own
 `$schema` and tolerate unknown fields. A malformed or invalid document is a normal result
@@ -248,7 +248,7 @@ protocol 1.2 and answers both with `invalid-params`.
 
 The result is the conversion result that `POST /v1/convert` answers, byte for byte: the
 output bytes as `output_base64` with `media_type`, `output_name` and `output_sha256`, the
-`report` about the source and the `validation` of the output (both diggs-findings 1.2;
+`report` about the source and the `validation` of the output (both diggs-findings 1.3;
 the output's is `pydiggs.ags4.check` for AGS4), `diggs_version`, `ags_version`,
 `mapping_version`, `complete` and `lossless`, and `residual_base64`: the residual AGS4
 file of what an AGS4 to DIGGS conversion did not convert, or null (the fields are in
@@ -268,7 +268,7 @@ targets, the AGS4 versions written and `residual: true`.
 ### `ags4.check` {#ags4check}
 
 Protocol 1.2. Checks one AGS4 file against the AGS4 rules (Rules 1 to 20) and answers
-with the **diggs-findings 1.2** document `ags4.check` gives for the same bytes, line
+with the **diggs-findings 1.3** document `ags4.check` gives for the same bytes, line
 numbers included (see [AGS4 files](ags4.md#checking)).
 
 | param | type | notes |
@@ -436,7 +436,7 @@ files. Plan for about 2 GiB per sidecar process and cap it from the host (see
 → {"jsonrpc":"2.0","id":2,"method":"validate","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml"}}
 → {"jsonrpc":"2.0","id":3,"method":"ping"}
 ← {"jsonrpc":"2.0","id":3,"result":{}}
-← {"jsonrpc":"2.0","id":2,"result":{"$schema":"https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.2.schema.json","format":"diggs-findings",…}}
+← {"jsonrpc":"2.0","id":2,"result":{"$schema":"https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json","format":"diggs-findings",…}}
 → {"jsonrpc":"2.0","id":4,"method":"validate","params":{"path":"relative.xml"}}
 ← {"jsonrpc":"2.0","id":4,"error":{"code":-32005,"message":"The path is not permitted.","data":{"code":"path-not-permitted"}}}
 → {"jsonrpc":"2.0","id":5,"method":"read","params":{"content_base64":"PERpZ2dz…","name":"BH-01.xml","select":{"results":"none"}}}

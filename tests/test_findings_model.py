@@ -53,6 +53,7 @@ def test_step_values_and_order_follow_the_official_pipeline():
         "ags4",  # diggs-findings 1.1
         "convert",  # diggs-findings 1.1
         "diff",  # diggs-findings 1.2
+        "tables",  # diggs-findings 1.3
     ]
     assert [s.order for s in Step] == list(range(len(Step)))
 

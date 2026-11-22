@@ -7,7 +7,7 @@ Starts EXECUTABLE (built from tests/frozen/sidecar_main.py, which runs
 initialize -> validate (FIXTURE as base64 content) -> diff (refused: a 1.3 method) ->
 shutdown -> exit; the second negotiates 1.3 and sends initialize -> diff (FIXTURE
 against itself) -> shutdown -> exit. It checks that every reply is the JSON-RPC result
-or error expected, that validate returns a diggs-findings 1.2 document and diff an
+or error expected, that validate returns a diggs-findings 1.3 document and diff an
 identical diggs-diff 1.0 document, and that each process exits 0. Stdlib only; runs
 the same on Linux, macOS and Windows.
 """
@@ -116,7 +116,7 @@ def validate_then_refuse_diff(
     assert validated is not None  # noqa: S101
     document = validated["result"]
     check(document.get("format") == "diggs-findings", document)
-    check(document.get("schema_version") == "1.2", document)
+    check(document.get("schema_version") == "1.3", document)
     files = document.get("files")
     check(isinstance(files, list) and len(files) == 1, files)
     entry = files[0]
