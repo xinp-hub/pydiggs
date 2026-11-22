@@ -8,12 +8,20 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-22
+
 ### Changed
 
+- Runs pyDIGGS 1.15.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. pyDIGGS 1.15.0 adds the conformance suite for DIGGS software, a preview it
+  offers as the `pydiggs conformance` command and the `pydiggs.conformance` Python
+  module, with no HTTP route, so the client gains no method with it. Everything the
+  client calls works as in 0.8.0.
 - The findings types follow **diggs-findings 1.3**, which only adds to 1.2: the step
   `"tables"` (the findings of a tables conversion). `FINDINGS_SCHEMA_URL` is the 1.3 schema,
   shipped as `@pydiggs/client/schemas/diggs-findings-1.3.schema.json`; the 1.0, 1.1 and 1.2
-  schema files are still shipped unchanged.
+  schema files are still shipped unchanged. pyDIGGS 1.15.0, which this release runs, does
+  not report that step: it comes with the tables conversion in a later pyDIGGS release.
 
 ## [0.8.0] - 2026-11-20
 
