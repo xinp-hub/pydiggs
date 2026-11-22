@@ -212,11 +212,12 @@ def test_negotiation():
     assert _protocol.negotiate("1.1") == "1.1"
     assert _protocol.negotiate("1.2") == "1.2"
     assert _protocol.negotiate("1.3") == "1.3"
-    assert _protocol.negotiate("1.9999") == "1.3"
+    assert _protocol.negotiate("1.4") == "1.4"
+    assert _protocol.negotiate("1.9999") == "1.4"
     for bad in ("0.9", "2.0"):
         error = _problem(lambda v=bad: _protocol.negotiate(v))
         assert error.error.slug == "unsupported-protocol-version"
-        assert error.data()["supported"] == ["1.0", "1.1", "1.2", "1.3"]
+        assert error.data()["supported"] == ["1.0", "1.1", "1.2", "1.3", "1.4"]
 
 
 def test_unknown_params_are_refused_with_safe_names():
@@ -331,6 +332,10 @@ def test_the_committed_openrpc_document_matches_the_code():
         "convert",
         "ags4.check",
         "diff",
+        "tables.to_diggs",
+        "tables.check",
+        "tables.round_trip",
+        "tables.from_diggs",
         "ping",
         "versions",
         "rules.list",

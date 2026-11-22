@@ -13,7 +13,7 @@ a code list that is not bundled with pyDIGGS is not checked, and nothing is said
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from functools import cache
 from types import MappingProxyType
 from typing import Any, Final
@@ -24,6 +24,7 @@ from pydiggs.convert._mapping import measure_facts, property_facts
 from pydiggs.dictionary import _UOM_ALIASES, DictionarySemanticValidator
 from pydiggs.findings.model import Finding
 from pydiggs.tables import _report as rep
+from pydiggs.tables._arrow import Rows, rows_of
 from pydiggs.tables._profile import RESULT_KEYS, RESULT_PLACES, RESULTS_PREFIX
 from pydiggs.tables._to_model import _text, to_model
 
@@ -348,7 +349,7 @@ class _Vocabulary:
                     )
 
 
-def check(tables: Mapping[str, Iterable[Mapping[str, Any]]]) -> tuple[Finding, ...]:
+def check(tables: Mapping[str, Rows]) -> tuple[Finding, ...]:
     """Check profile tables against the DIGGS dictionaries, without writing a file.
 
     The findings are those of :func:`~pydiggs.tables.to_model` (keys used twice,
@@ -413,7 +414,7 @@ def check(tables: Mapping[str, Iterable[Mapping[str, Any]]]) -> tuple[Finding, .
         >>> [(finding.rule_id, finding.path) for finding in found]
         [('tables.unknown-property', 'results_DrivenPenetrationTest/1/blows')]
     """
-    sent = {name: [dict(row) for row in rows] for name, rows in tables.items()}
+    sent = {name: [dict(row) for row in rows_of(rows, name)] for name, rows in tables.items()}
     structure = to_model(sent).findings
     kept = {
         name: [row for row in rows if any(_text(v) for v in row.values())]

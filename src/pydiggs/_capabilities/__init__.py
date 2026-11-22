@@ -277,12 +277,14 @@ def _catalogue() -> tuple[_Entry, ...]:
         NATIVE_STEPS,
     )
     from pydiggs.model import MODEL_SCHEMA_VERSION  # noqa: PLC0415
+    from pydiggs.tables import PROFILE_VERSION as TABLES_PROFILE_VERSION  # noqa: PLC0415
 
     diggs = tuple(f"diggs-{v}" for v in SCHEMA_PATHS)  # oldest first
     ags = tuple(f"ags4-{v}" for v in ags4.AGS_VERSIONS)
     findings = f"diggs-findings-{FINDINGS_SCHEMA_VERSION}"
     model = f"diggs-model-{MODEL_SCHEMA_VERSION}"
     ags4_file = "pydiggs.ags4.File"
+    profile = f"diggs-tables-{TABLES_PROFILE_VERSION}"
 
     diggs_version = OptionSpec(
         type="string",
@@ -641,6 +643,53 @@ def _catalogue() -> tuple[_Entry, ...]:
                 stability="stable",
                 inputs=(model,),
                 outputs=("diggs-3.0.0",),
+            )
+        ),
+        _Entry(
+            Operation(
+                id="tables.to-diggs",
+                label=(
+                    "Write tables of the DIGGS tables profile (your database's export) as a"
+                    " DIGGS 3.0.0 file, naming every row or value not carried"
+                ),
+                stability="preview",
+                inputs=(profile,),
+                outputs=("diggs-3.0.0", findings),
+            )
+        ),
+        _Entry(
+            Operation(
+                id="tables.from-diggs",
+                label=(
+                    "Turn a DIGGS file (or a read one) into tables of the profile, with a load plan"
+                ),
+                stability="preview",
+                inputs=(*diggs, model),
+                outputs=(profile, findings),
+            )
+        ),
+        _Entry(
+            Operation(
+                id="tables.check",
+                label=(
+                    "Check tables of the profile against the DIGGS dictionaries without"
+                    " writing a file"
+                ),
+                stability="preview",
+                inputs=(profile,),
+                outputs=(findings,),
+            )
+        ),
+        _Entry(
+            Operation(
+                id="tables.round-trip",
+                label=(
+                    "Write tables of the profile as DIGGS, validate the file, read it back"
+                    " and list every value that came back changed"
+                ),
+                stability="preview",
+                inputs=(profile,),
+                outputs=("diggs-3.0.0", findings),
             )
         ),
         _Entry(

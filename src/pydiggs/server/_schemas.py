@@ -25,6 +25,7 @@ __all__ = [
     "MAX_CHECKS_CHARS",
     "SARIF_MEDIA_TYPE",
     "XML_MEDIA_TYPES",
+    "ZIP_MEDIA_TYPES",
     "ags4_check_parameters",
     "ags4_check_request_body",
     "ags4_check_responses",
@@ -43,6 +44,11 @@ __all__ = [
     "rule_responses",
     "rules_parameters",
     "rules_responses",
+    "tables_from_diggs_request_body",
+    "tables_from_diggs_responses",
+    "tables_parameters",
+    "tables_request_body",
+    "tables_responses",
     "validate_parameters",
     "validate_request_body",
     "validate_responses",
@@ -54,6 +60,8 @@ SARIF_MEDIA_TYPE: Final = "application/sarif+json"
 XML_MEDIA_TYPES: Final = ("application/xml", "text/xml")
 #: Raw AGS4 bodies: AGS4 has no registered media type, so the generic ones for text.
 AGS4_MEDIA_TYPES: Final = ("application/octet-stream", "text/csv", "text/plain")
+#: Raw package bodies: a ZIP (Windows browsers and .NET's own helpers send the second).
+ZIP_MEDIA_TYPES: Final = (_service.PACKAGE_MEDIA_TYPE, "application/x-zip-compressed")
 #: Longest ``checks`` value, as documented in OpenAPI (``maxLength``).
 MAX_CHECKS_CHARS: Final = 512
 _SCHEMA_FILE: Final = "diggs-findings-1.3.schema.json"
@@ -298,7 +306,8 @@ _PROBLEM: Final[_JsonSchema] = {
             "type": "string",
             "description": (
                 "For invalid-document: why the bytes are not a document of the expected"
-                " format (DIGGS XML, or AGS4 for a conversion to DIGGS)."
+                " format (DIGGS XML, AGS4 for a conversion to DIGGS, or a tables package"
+                " ZIP)."
             ),
             "examples": list(_service.DOCUMENT_KINDS),
         },
@@ -480,9 +489,188 @@ def _conversion(findings: _JsonSchema) -> _JsonSchema:
     }
 
 
+_SHA256: Final[_JsonSchema] = {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+_PROFILE_VERSION: Final[_JsonSchema] = {
+    "type": "string",
+    "description": "The version of the DIGGS tables profile (a preview: 1.0-beta.1).",
+}
+
+
+def _output(media: str, what: str) -> dict[str, _JsonSchema]:
+    return {
+        "output_sha256": _SHA256,
+        "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": media,
+            "description": f"{what}, standard base64 (RFC 4648, padded).",
+        },
+    }
+
+
+def _tables_to_diggs(findings: _JsonSchema) -> _JsonSchema:
+    """The result of ``POST /v1/tables/to-diggs``."""
+    return {
+        "title": "TablesToDiggsResult",
+        "description": (
+            "A package of DIGGS tables profile tables written as DIGGS 3.0.0: the file as"
+            " base64, with every row or value that could not be carried in the report. The"
+            " bytes are what pydiggs.write_bytes(pydiggs.tables.to_model(...).model) gives."
+        ),
+        "type": "object",
+        "required": [
+            "profile_version",
+            "diggs_version",
+            "media_type",
+            "output_name",
+            "lossless",
+            "counts",
+            "report",
+            "output_sha256",
+            "output_base64",
+        ],
+        "properties": {
+            "profile_version": _PROFILE_VERSION,
+            "diggs_version": {"const": _service.CONVERT_DIGGS_VERSIONS[0]},
+            "media_type": {"const": _service.DIGGS_MEDIA_TYPE},
+            "output_name": {"type": "string", "description": "The package's name, .xml."},
+            "lossless": {
+                "type": "boolean",
+                "description": "True when no tables finding of severity warning or error.",
+            },
+            "counts": {
+                "type": "object",
+                "required": ["features", "samples", "layers", "measurements"],
+                "additionalProperties": {"type": "integer", "minimum": 0},
+                "description": "What the file holds.",
+            },
+            "report": findings,
+            **_output(_service.DIGGS_MEDIA_TYPE, "The DIGGS file"),
+        },
+    }
+
+
+def _tables_round_trip(findings: _JsonSchema) -> _JsonSchema:
+    """The result of ``POST /v1/tables/round-trip``."""
+    cell = {"description": "A cell: text, a number, a boolean or null."}
+    return {
+        "title": "TablesRoundTripResult",
+        "description": (
+            "pydiggs.tables.round_trip: the package written as DIGGS, validated, read back"
+            " and compared, value by value, with what was sent."
+        ),
+        "type": "object",
+        "required": [
+            "profile_version",
+            "ok",
+            "report",
+            "validation",
+            "differences",
+            "output_sha256",
+            "output_base64",
+        ],
+        "properties": {
+            "profile_version": _PROFILE_VERSION,
+            "ok": {
+                "type": "boolean",
+                "description": "Nothing left out, no validation error, nothing changed.",
+            },
+            "report": findings,
+            "validation": findings,
+            "differences": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["table", "row", "column", "sent", "got"],
+                    "properties": {
+                        "table": {"type": "string"},
+                        "row": {"type": "string"},
+                        "column": {"type": "string"},
+                        "sent": cell,
+                        "got": cell,
+                    },
+                },
+            },
+            **_output(_service.DIGGS_MEDIA_TYPE, "The DIGGS file written"),
+        },
+    }
+
+
+def _tables_from_diggs(findings: _JsonSchema) -> _JsonSchema:
+    """The result of ``POST /v1/tables/from-diggs``."""
+    return {
+        "title": "TablesFromDiggsResult",
+        "description": (
+            "One DIGGS file as tables of the profile: a ZIP of a CSV file per table,"
+            " datapackage.json and plan.json (the files pydiggs.tables.write_package writes,"
+            " byte for byte), with the load plan and the findings."
+        ),
+        "type": "object",
+        "required": [
+            "profile_version",
+            "diggs_version",
+            "complete",
+            "lossless",
+            "plan",
+            "report",
+            "media_type",
+            "output_name",
+            "output_sha256",
+            "output_base64",
+        ],
+        "properties": {
+            "profile_version": _PROFILE_VERSION,
+            "diggs_version": {"type": ["string", "null"], "description": "Of the source."},
+            "complete": {
+                "type": "boolean",
+                "description": "False when a size or time limit stopped the reading.",
+            },
+            "lossless": {
+                "type": "boolean",
+                "description": "True when every value of the file has a place in the tables.",
+            },
+            "plan": {
+                "type": "object",
+                "description": "What plan.json holds: the tables in load order.",
+                "required": ["profile_version", "source_sha256", "steps"],
+                "properties": {
+                    "profile_version": {"type": "string"},
+                    "source_sha256": {"type": ["string", "null"]},
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["table", "identity", "depends_on", "rows"],
+                            "properties": {
+                                "table": {"type": "string"},
+                                "identity": {"type": "array", "items": {"type": "string"}},
+                                "depends_on": {"type": "array", "items": {"type": "string"}},
+                                "rows": {"type": "integer", "minimum": 0},
+                            },
+                        },
+                    },
+                },
+            },
+            "report": findings,
+            "media_type": {"const": _service.PACKAGE_MEDIA_TYPE},
+            "output_name": {"type": "string", "description": "The source's name, .zip."},
+            **_output(_service.PACKAGE_MEDIA_TYPE, "The package ZIP"),
+        },
+    }
+
+
+#: The result schemas that hold a diggs-findings document, by component name.
+_WITH_FINDINGS: Final = {
+    "TablesToDiggsResult": _tables_to_diggs,
+    "TablesRoundTripResult": _tables_round_trip,
+    "TablesFromDiggsResult": _tables_from_diggs,
+}
+
+
 def _named() -> dict[str, _JsonSchema]:
     """Component name -> the self-contained schema the routes carry inline."""
     return {
+        **{name: build(_findings_inline()) for name, build in _WITH_FINDINGS.items()},
         "ConversionResult": _conversion(_findings_inline()),
         "DiggsFindingsDocument": _findings_inline(),
         "DiggsModelDocument": _model_inline(),
@@ -504,6 +692,7 @@ def components() -> dict[str, _JsonSchema]:
         ['Capabilities', 'ConversionResult', 'DiggsDiffChange']
     """
     inlined = (
+        *_WITH_FINDINGS,
         "ConversionResult",
         "DiggsDiffDocument",
         "DiggsFindingsDocument",
@@ -511,6 +700,8 @@ def components() -> dict[str, _JsonSchema]:
     )
     out = {k: copy.deepcopy(v) for k, v in _named().items() if k not in inlined}
     out["ConversionResult"] = _conversion({"$ref": _COMPONENTS + "DiggsFindingsDocument"})
+    for name, build in _WITH_FINDINGS.items():
+        out[name] = build({"$ref": _COMPONENTS + "DiggsFindingsDocument"})
     out.update(_findings_components())
     out.update(_model_components())
     out.update(_diff_components())
@@ -1041,6 +1232,109 @@ def diff_responses() -> dict[int | str, dict[str, Any]]:
                 " timeout under process isolation (create_app's default)."
             ),
             "content": {FINDINGS_MEDIA_TYPE: {"schema": _diff_inline()}},
+        },
+        **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
+    }
+
+
+# --- tables: the DIGGS tables profile (preview) -------------------------------------------
+
+
+def tables_parameters() -> list[dict[str, Any]]:
+    """The query parameters of ``POST /v1/tables/*``."""
+    return [
+        _query(
+            "name",
+            _name_schema(),
+            "Name to report the package (or the DIGGS file) as; reduced to a basename.",
+        )
+    ]
+
+
+_PACKAGE_TEXT: Final = (
+    "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the"
+    " top of the ZIP (one folder wrapping them all is allowed). Read in memory, never"
+    " extracted; at most 256 files, unpacking to at most 4 times the server's"
+    " max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a"
+    " folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+)
+
+
+def tables_request_body() -> dict[str, Any]:
+    """The request body of ``POST /v1/tables/to-diggs``, ``/check`` and ``/round-trip``."""
+    raw = {"schema": {"type": "string", "format": "binary", "description": _PACKAGE_TEXT}}
+    form = {
+        "schema": {
+            "type": "object",
+            "required": ["file"],
+            "additionalProperties": False,
+            "properties": {
+                "file": {"type": "string", "format": "binary", "description": _PACKAGE_TEXT},
+                "name": _name_schema(),
+            },
+        },
+        "encoding": {"file": {"contentType": ", ".join((*ZIP_MEDIA_TYPES, "*/*"))}},
+    }
+    return {
+        "required": True,
+        "content": {**dict.fromkeys(ZIP_MEDIA_TYPES, raw), "multipart/form-data": form},
+    }
+
+
+def tables_responses(operation: str) -> dict[int | str, dict[str, Any]]:
+    """The responses of ``POST /v1/tables/<operation>`` (to-diggs, check or round-trip)."""
+    schema: _JsonSchema
+    if operation == "check":
+        text = (
+            "A diggs-findings 1.3 document of step tables: pydiggs.tables.check on the"
+            " package. Problems in rows are findings, not errors."
+        )
+        schema = _findings_inline()
+    elif operation == "round-trip":
+        text = (
+            "The round trip: the DIGGS written, its validation, and every value that did"
+            " not come back the same. A failed round trip (ok: false) is a 200."
+        )
+        schema = _tables_round_trip(_findings_inline())
+    else:
+        text = (
+            "The DIGGS 3.0.0 file (base64) with the findings. Rows left out and values"
+            " assumed are 200s; the report names each."
+        )
+        schema = _tables_to_diggs(_findings_inline())
+    return {
+        200: {"description": text, "content": {FINDINGS_MEDIA_TYPE: {"schema": schema}}},
+        **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
+    }
+
+
+def tables_from_diggs_request_body() -> dict[str, Any]:
+    """The request body of ``POST /v1/tables/from-diggs``: raw XML or one multipart file."""
+    raw = {"schema": {"type": "string", "format": "binary"}}
+    form = {
+        "schema": {
+            "type": "object",
+            "required": ["file"],
+            "additionalProperties": False,
+            "properties": {"file": {"type": "string", "format": "binary"}, "name": _name_schema()},
+        },
+        "encoding": {"file": {"contentType": "application/xml, text/xml, */*"}},
+    }
+    return {
+        "required": True,
+        "content": {**dict.fromkeys(XML_MEDIA_TYPES, raw), "multipart/form-data": form},
+    }
+
+
+def tables_from_diggs_responses() -> dict[int | str, dict[str, Any]]:
+    """The responses of ``POST /v1/tables/from-diggs``."""
+    return {
+        200: {
+            "description": (
+                "The tables as a package ZIP (base64), with the load plan and the findings."
+                " Content with no place in the tables is a 200; the report names it."
+            ),
+            "content": {FINDINGS_MEDIA_TYPE: {"schema": _tables_from_diggs(_findings_inline())}},
         },
         **error_responses(400, 403, 406, 408, 413, 415, 422, 500, 503, 504),
     }

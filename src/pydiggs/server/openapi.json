@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "pydiggs HTTP API",
-    "summary": "Validate, read and compare DIGGS documents (XSD, dictionaries, Schematron); check AGS4 files, and convert AGS4 to DIGGS and DIGGS to AGS4.",
+    "summary": "Validate, read and compare DIGGS documents (XSD, dictionaries, Schematron); check AGS4 files, convert AGS4 to DIGGS and DIGGS to AGS4, and convert tables of the DIGGS tables profile to DIGGS and back.",
     "version": "1"
   },
   "paths": {
@@ -1208,6 +1208,743 @@
                   "contentType": "application/xml, text/xml, */*"
                 },
                 "new": {
+                  "contentType": "application/xml, text/xml, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tables/to-diggs": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Write a package of DIGGS tables profile tables as DIGGS 3.0.0 (preview)",
+        "operationId": "tablesToDiggs",
+        "responses": {
+          "200": {
+            "description": "The DIGGS 3.0.0 file (base64) with the findings. Rows left out and values assumed are 200s; the report names each.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TablesToDiggsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows none of the media types this operation sends",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Name to report the package (or the DIGGS file) as; reduced to a basename."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+              }
+            },
+            "application/x-zip-compressed": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/zip, application/x-zip-compressed, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tables/check": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Check a package of profile tables against the DIGGS dictionaries (preview)",
+        "operationId": "tablesCheck",
+        "responses": {
+          "200": {
+            "description": "A diggs-findings 1.3 document of step tables: pydiggs.tables.check on the package. Problems in rows are findings, not errors.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiggsFindingsDocument"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows none of the media types this operation sends",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Name to report the package (or the DIGGS file) as; reduced to a basename."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+              }
+            },
+            "application/x-zip-compressed": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/zip, application/x-zip-compressed, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tables/round-trip": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Write a package of profile tables as DIGGS, read it back and compare (preview)",
+        "operationId": "tablesRoundTrip",
+        "responses": {
+          "200": {
+            "description": "The round trip: the DIGGS written, its validation, and every value that did not come back the same. A failed round trip (ok: false) is a 200.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TablesRoundTripResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows none of the media types this operation sends",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Name to report the package (or the DIGGS file) as; reduced to a basename."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/zip": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+              }
+            },
+            "application/x-zip-compressed": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A ZIP of the package: one CSV file per table and, optionally, datapackage.json, at the top of the ZIP (one folder wrapping them all is allowed). Read in memory, never extracted; at most 256 files, unpacking to at most 4 times the server's max_body_bytes; an entry that is not a plain CSV or JSON file (a path with .. or a folder, an absolute path, a symbolic link, an encrypted entry) refuses the package."
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
+                  "contentType": "application/zip, application/x-zip-compressed, */*"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tables/from-diggs": {
+      "post": {
+        "tags": [
+          "pydiggs"
+        ],
+        "summary": "Turn one DIGGS document into tables of the profile, as a package (preview)",
+        "operationId": "tablesFromDiggs",
+        "responses": {
+          "200": {
+            "description": "The tables as a package ZIP (base64), with the load plan and the findings. Content with no place in the tables is a 200; the report names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TablesFromDiggsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or malformed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cross-site request refused",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Accept allows none of the media types this operation sends",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "The body did not arrive within the body timeout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body larger than the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported media type, or compressed input",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameter, unreadable input, not a document of the expected format (reading, converting, comparing), or a result over the limit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error (fixed text and a correlation id)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy (see Retry-After) or not ready",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "The request passed the hard time limit (process isolation)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "description": "Name to report the package (or the DIGGS file) as; reduced to a basename."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "name": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                }
+              },
+              "encoding": {
+                "file": {
                   "contentType": "application/xml, text/xml, */*"
                 }
               }
@@ -4272,14 +5009,17 @@
           },
           "kind": {
             "type": "string",
-            "description": "For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, or AGS4 for a conversion to DIGGS).",
+            "description": "For invalid-document: why the bytes are not a document of the expected format (DIGGS XML, AGS4 for a conversion to DIGGS, or a tables package ZIP).",
             "examples": [
               "malformed",
               "not-diggs",
               "unsafe-entity",
               "namespace-too-long",
               "not-ags4",
-              "unsupported-version"
+              "unsupported-version",
+              "not-zip",
+              "unsafe-package",
+              "not-tables"
             ]
           }
         }
@@ -4402,6 +5142,250 @@
           },
           "runs": {
             "type": "array"
+          }
+        }
+      },
+      "TablesFromDiggsResult": {
+        "title": "TablesFromDiggsResult",
+        "description": "One DIGGS file as tables of the profile: a ZIP of a CSV file per table, datapackage.json and plan.json (the files pydiggs.tables.write_package writes, byte for byte), with the load plan and the findings.",
+        "type": "object",
+        "required": [
+          "profile_version",
+          "diggs_version",
+          "complete",
+          "lossless",
+          "plan",
+          "report",
+          "media_type",
+          "output_name",
+          "output_sha256",
+          "output_base64"
+        ],
+        "properties": {
+          "profile_version": {
+            "type": "string",
+            "description": "The version of the DIGGS tables profile (a preview: 1.0-beta.1)."
+          },
+          "diggs_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Of the source."
+          },
+          "complete": {
+            "type": "boolean",
+            "description": "False when a size or time limit stopped the reading."
+          },
+          "lossless": {
+            "type": "boolean",
+            "description": "True when every value of the file has a place in the tables."
+          },
+          "plan": {
+            "type": "object",
+            "description": "What plan.json holds: the tables in load order.",
+            "required": [
+              "profile_version",
+              "source_sha256",
+              "steps"
+            ],
+            "properties": {
+              "profile_version": {
+                "type": "string"
+              },
+              "source_sha256": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "table",
+                    "identity",
+                    "depends_on",
+                    "rows"
+                  ],
+                  "properties": {
+                    "table": {
+                      "type": "string"
+                    },
+                    "identity": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "depends_on": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "rows": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "report": {
+            "$ref": "#/components/schemas/DiggsFindingsDocument"
+          },
+          "media_type": {
+            "const": "application/zip"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "The source's name, .zip."
+          },
+          "output_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": "application/zip",
+            "description": "The package ZIP, standard base64 (RFC 4648, padded)."
+          }
+        }
+      },
+      "TablesRoundTripResult": {
+        "title": "TablesRoundTripResult",
+        "description": "pydiggs.tables.round_trip: the package written as DIGGS, validated, read back and compared, value by value, with what was sent.",
+        "type": "object",
+        "required": [
+          "profile_version",
+          "ok",
+          "report",
+          "validation",
+          "differences",
+          "output_sha256",
+          "output_base64"
+        ],
+        "properties": {
+          "profile_version": {
+            "type": "string",
+            "description": "The version of the DIGGS tables profile (a preview: 1.0-beta.1)."
+          },
+          "ok": {
+            "type": "boolean",
+            "description": "Nothing left out, no validation error, nothing changed."
+          },
+          "report": {
+            "$ref": "#/components/schemas/DiggsFindingsDocument"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/DiggsFindingsDocument"
+          },
+          "differences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "table",
+                "row",
+                "column",
+                "sent",
+                "got"
+              ],
+              "properties": {
+                "table": {
+                  "type": "string"
+                },
+                "row": {
+                  "type": "string"
+                },
+                "column": {
+                  "type": "string"
+                },
+                "sent": {
+                  "description": "A cell: text, a number, a boolean or null."
+                },
+                "got": {
+                  "description": "A cell: text, a number, a boolean or null."
+                }
+              }
+            }
+          },
+          "output_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": "application/xml",
+            "description": "The DIGGS file written, standard base64 (RFC 4648, padded)."
+          }
+        }
+      },
+      "TablesToDiggsResult": {
+        "title": "TablesToDiggsResult",
+        "description": "A package of DIGGS tables profile tables written as DIGGS 3.0.0: the file as base64, with every row or value that could not be carried in the report. The bytes are what pydiggs.write_bytes(pydiggs.tables.to_model(...).model) gives.",
+        "type": "object",
+        "required": [
+          "profile_version",
+          "diggs_version",
+          "media_type",
+          "output_name",
+          "lossless",
+          "counts",
+          "report",
+          "output_sha256",
+          "output_base64"
+        ],
+        "properties": {
+          "profile_version": {
+            "type": "string",
+            "description": "The version of the DIGGS tables profile (a preview: 1.0-beta.1)."
+          },
+          "diggs_version": {
+            "const": "3.0.0"
+          },
+          "media_type": {
+            "const": "application/xml"
+          },
+          "output_name": {
+            "type": "string",
+            "description": "The package's name, .xml."
+          },
+          "lossless": {
+            "type": "boolean",
+            "description": "True when no tables finding of severity warning or error."
+          },
+          "counts": {
+            "type": "object",
+            "required": [
+              "features",
+              "samples",
+              "layers",
+              "measurements"
+            ],
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "What the file holds."
+          },
+          "report": {
+            "$ref": "#/components/schemas/DiggsFindingsDocument"
+          },
+          "output_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": "application/xml",
+            "description": "The DIGGS file, standard base64 (RFC 4648, padded)."
           }
         }
       },
