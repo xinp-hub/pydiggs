@@ -88,10 +88,14 @@ features:
   - api:ModelWriteError
   - api:TablesError
   - operation:write
+  - operation:tables.to-diggs
+  - operation:tables.from-diggs
   tutorial: tables
 - id: mapping
   covers:
   - cli:map
+  - operation:tables.check
+  - operation:tables.round-trip
   tutorial: mapping
 - id: ags4-check
   covers:
@@ -145,6 +149,14 @@ features:
   - http:POST /v1/read?diggs_version
   - http:POST /v1/read?name
   - http:POST /v1/read?select
+  - http:POST /v1/tables/check
+  - http:POST /v1/tables/check?name
+  - http:POST /v1/tables/from-diggs
+  - http:POST /v1/tables/from-diggs?name
+  - http:POST /v1/tables/round-trip
+  - http:POST /v1/tables/round-trip?name
+  - http:POST /v1/tables/to-diggs
+  - http:POST /v1/tables/to-diggs?name
   - http:POST /v1/validate
   - http:POST /v1/validate?checks
   - http:POST /v1/validate?diggs_version
@@ -158,6 +170,10 @@ features:
   - sidecar:rules.explain
   - sidecar:rules.list
   - sidecar:shutdown
+  - sidecar:tables.check
+  - sidecar:tables.from_diggs
+  - sidecar:tables.round_trip
+  - sidecar:tables.to_diggs
   - sidecar:validate
   - sidecar:versions
   - mcp:explain_rule
@@ -170,7 +186,9 @@ features:
   - mcp:validate_diggs
   waiver: 'Serves pyDIGGS to other programs over HTTP, the stdio sidecar or MCP: requests and
     replies, nothing to watch. The HTTP API, sidecar and MCP pages document every endpoint, parameter,
-    method and tool, with examples that run in the test suite.'
+    method and tool, with examples that run in the test suite; the tables endpoints and methods
+    (preview) are in docs/http-api.md#post-v1tables and docs/sidecar.md#tables, with a .NET example
+    in docs/tables.md.'
 - id: capabilities
   covers:
   - cli:capabilities

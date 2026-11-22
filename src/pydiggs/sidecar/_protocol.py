@@ -29,6 +29,7 @@ from pydiggs._service import (
     DIFF_MATCH,
     DIFF_SIDES,
     MAX_NAME_INPUT_CHARS,
+    TABLES_OPERATIONS,
     Code,
 )
 
@@ -48,6 +49,8 @@ __all__ = [
     "check_initialize",
     "check_read",
     "check_rules_list",
+    "check_tables",
+    "check_tables_from_diggs",
     "check_validate",
     "error_frame",
     "max_line_bytes",
@@ -60,11 +63,15 @@ __all__ = [
 ]
 
 #: The protocol version this build speaks best.
-PROTOCOL_VERSION: Final = "1.3"
+PROTOCOL_VERSION: Final = "1.4"
 #: Every protocol version this build can answer, oldest first. 1.1 adds ``read``; 1.2
-#: adds ``convert`` and ``ags4.check``; 1.3 adds ``diff``.
-SUPPORTED_VERSIONS: Final = ("1.0", "1.1", "1.2", "1.3")
-#: Largest ``read``, ``convert`` or ``diff`` result sent; a larger one is ``result-too-large``.
+#: adds ``convert`` and ``ags4.check``; 1.3 adds ``diff``; 1.4 adds the ``tables.*``
+#: methods (preview).
+SUPPORTED_VERSIONS: Final = ("1.0", "1.1", "1.2", "1.3", "1.4")
+#: The ``tables.*`` method that runs each :data:`~pydiggs._service.TABLES_OPERATIONS` entry.
+TABLES_METHODS: Final = {f"tables.{op.replace('-', '_')}": op for op in TABLES_OPERATIONS}
+#: Largest ``read``, ``convert``, ``diff`` or ``tables.*`` result sent; a larger one is
+#: ``result-too-large``.
 MAX_RESULT_BYTES: Final = 256 * 2**20
 
 #: Longest string id accepted on a request.
@@ -499,12 +506,12 @@ def negotiate(requested: str) -> str:
 
     Examples:
         >>> negotiate("1.0"), negotiate("1.2"), negotiate("1.7")
-        ('1.0', '1.2', '1.3')
+        ('1.0', '1.2', '1.4')
         >>> try:
         ...     negotiate("2.0")
         ... except ProtocolError as error:
         ...     print(error.data())
-        {'code': 'unsupported-protocol-version', 'supported': ['1.0', '1.1', '1.2', '1.3']}
+        {'code': 'unsupported-protocol-version', 'supported': ['1.0', '1.1', '1.2', '1.3', '1.4']}
     """
     major, minor = (int(p) for p in requested.split("."))
     candidates = [
@@ -815,6 +822,80 @@ def check_diff(params: dict[str, Any], *, max_bytes: int, time_limit: float) -> 
     return DiffParams(contents, paths, names, options, budget)
 
 
+@dataclass(frozen=True, slots=True)
+class TablesParams:
+    """``tables.to_diggs``, ``tables.check`` and ``tables.round_trip`` parameters, checked.
+
+    ``content`` is the package ZIP, decoded; ``path`` a folder to vet; exactly one is set.
+    """
+
+    content: bytes | None
+    path: str | None
+    name: str | None
+
+
+def check_tables(params: dict[str, Any], *, max_bytes: int, time_limit: float) -> TablesParams:
+    """Check a ``tables.*`` package method's parameters (protocol 1.4) and decode the ZIP.
+
+    The package is ``package_base64`` (a ZIP of the CSV files and ``datapackage.json``,
+    held to ``max_bytes``) or ``path`` (an absolute folder, under an ``--allow-path``
+    root). There is no ``time_budget_s``: building from tables cannot be interrupted, so
+    ``time_limit`` is not used.
+
+    Raises:
+        ProtocolError: ``invalid-params`` or ``input-too-large``.
+
+    Examples:
+        >>> p = check_tables({"path": "/data/site", "name": "site"}, max_bytes=100, time_limit=60)
+        >>> p.content, p.path, p.name
+        (None, '/data/site', 'site')
+    """
+    del time_limit
+    _only(params, frozenset({"package_base64", "path", "name"}))
+    if ("package_base64" in params) == ("path" in params):
+        raise _bad("package_base64", "give exactly one of package_base64 and path")
+    name = _optional_str(params, "name", MAX_NAME_INPUT_CHARS)
+    if "path" in params:
+        path = params["path"]
+        if not isinstance(path, str) or not path or len(path) > MAX_PATH_CHARS:
+            raise _bad("path", f"must be a string of at most {MAX_PATH_CHARS} characters")
+        return TablesParams(None, path, name)
+    content = _decode_base64(params["package_base64"], "package_base64", max_bytes)
+    return TablesParams(content, None, name)
+
+
+@dataclass(frozen=True, slots=True)
+class TablesFromDiggsParams:
+    """``tables.from_diggs`` parameters, checked: decoded content or a path to vet."""
+
+    content: bytes | None
+    path: str | None
+    name: str | None
+    time_budget: float
+
+
+def check_tables_from_diggs(
+    params: dict[str, Any], *, max_bytes: int, time_limit: float
+) -> TablesFromDiggsParams:
+    """Check ``tables.from_diggs`` parameters (protocol 1.4), as :func:`check_read` does.
+
+    Raises:
+        ProtocolError: ``invalid-params`` or ``input-too-large``.
+
+    Examples:
+        >>> p = check_tables_from_diggs(
+        ...     {"content_base64": "PERpZ2dzLz4="}, max_bytes=100, time_limit=60
+        ... )
+        >>> p.content, p.time_budget
+        (b'<Diggs/>', 60)
+    """
+    _only(params, frozenset({"content_base64", "path", "name", "time_budget_s"}))
+    content, path, name, _version, budget = _check_document(
+        params, max_bytes=max_bytes, time_limit=time_limit
+    )
+    return TablesFromDiggsParams(content, path, name, budget)
+
+
 def _time_budget(params: dict[str, Any], time_limit: float) -> float:
     """``time_budget_s``: at most the launch ``--timeout``, which is also the default."""
     if "time_budget_s" not in params:
@@ -916,7 +997,7 @@ def _method(
 def openrpc_document(
     findings_schema_url: str, model_schema_url: str, diff_schema_url: str
 ) -> dict[str, Any]:
-    """The OpenRPC 1.3 description of protocol 1.3, committed as ``openrpc.json``.
+    """The OpenRPC 1.3 description of protocol 1.4, committed as ``openrpc.json``.
 
     Notifications (``exit``, ``$/cancelRequest``, ``$/progress``) are described in
     ``x-notifications``, since OpenRPC has no notification object.
@@ -928,7 +1009,7 @@ def openrpc_document(
         ...     "https://example.invalid/d.json",
         ... )
         >>> doc["info"]["version"], [m["name"] for m in doc["methods"]][:6]
-        ('1.3', ['initialize', 'validate', 'read', 'convert', 'ags4.check', 'diff'])
+        ('1.4', ['initialize', 'validate', 'read', 'convert', 'ags4.check', 'diff'])
     """
     rule = {"$ref": "#/components/schemas/RuleInfo"}
     common = [ErrorCode.INVALID_REQUEST, ErrorCode.NOT_INITIALIZED, ErrorCode.SHUTTING_DOWN]
@@ -979,6 +1060,7 @@ def openrpc_document(
             "model_schema_url": _STR,
             "diff_schema_version": _STR,
             "diff_schema_url": _STR,
+            "tables_profile_version": _STR,
             "diggs_versions": {"type": "array", "items": _STR},
             "reference_data": {"type": "object", "additionalProperties": _STR},
             "capabilities": {"$ref": "#/components/schemas/ServerCapabilities"},
@@ -1188,6 +1270,7 @@ def openrpc_document(
                 ErrorCode.RESULT_TOO_LARGE,
             ],
         ),
+        *_tables_methods(findings_schema_url, common, document_errors),
         _method("ping", "Liveness check.", [], _EMPTY, common),
         _method(
             "versions",
@@ -1302,6 +1385,7 @@ def openrpc_document(
                         },
                     },
                 },
+                **_tables_schemas(findings_schema_url),
                 "ServerCapabilities": {
                     "type": "object",
                     "properties": {
@@ -1350,6 +1434,16 @@ def openrpc_document(
                                 "match": {"type": "array", "items": _STR},
                             },
                         },
+                        "tables": {
+                            "type": "object",
+                            "description": "Protocol 1.4+ (the tables.* methods, a preview).",
+                            "properties": {
+                                "content": {"type": "boolean"},
+                                "path": {"type": "boolean"},
+                                "methods": {"type": "array", "items": _STR},
+                                "profile_version": _STR,
+                            },
+                        },
                         "cancel": {"type": "boolean"},
                         "progress": {"type": "boolean"},
                         "rules": {"type": "boolean"},
@@ -1375,4 +1469,166 @@ def openrpc_document(
                 ],
             },
         ],
+    }
+
+
+def _tables_methods(
+    findings_schema_url: str, common: list[ErrorCode], document_errors: list[ErrorCode]
+) -> list[dict[str, Any]]:
+    """The protocol 1.4 ``tables.*`` methods, for :func:`openrpc_document`."""
+    package = [
+        _param(
+            "package_base64",
+            {"type": "string", "contentEncoding": "base64", "contentMediaType": "application/zip"},
+            summary=(
+                "The package: a ZIP of the CSV files and datapackage.json, standard base64."
+                " Flat: the files at the top (one wrapping folder is allowed)."
+            ),
+        ),
+        _param(
+            "path",
+            {"type": "string", "maxLength": MAX_PATH_CHARS},
+            summary=(
+                "Instead: an absolute folder under an --allow-path root; its CSV and JSON"
+                " files are read, each opened and verified as path is for validate."
+            ),
+        ),
+        _param(
+            "name",
+            {"type": "string", "maxLength": MAX_NAME_INPUT_CHARS},
+            summary="The name to report (default tables.zip, or the folder's name).",
+        ),
+    ]
+    errors = [*common, *document_errors, ErrorCode.INVALID_DOCUMENT, ErrorCode.RESULT_TOO_LARGE]
+    return [
+        _method(
+            "tables.to_diggs",
+            "Write a package of DIGGS tables profile tables as a DIGGS 3.0.0 file (protocol"
+            " 1.4, preview), with every row or value that could not be carried reported.",
+            package,
+            {"$ref": "#/components/schemas/TablesToDiggsResult"},
+            errors,
+        ),
+        _method(
+            "tables.check",
+            "Check a package of profile tables against the DIGGS dictionaries without"
+            " writing a file (protocol 1.4, preview): pydiggs.tables.check.",
+            package,
+            {"$ref": findings_schema_url},
+            errors,
+        ),
+        _method(
+            "tables.round_trip",
+            "Write a package of profile tables as DIGGS, validate it, read it back and"
+            " compare (protocol 1.4, preview): pydiggs.tables.round_trip.",
+            package,
+            {"$ref": "#/components/schemas/TablesRoundTripResult"},
+            errors,
+        ),
+        _method(
+            "tables.from_diggs",
+            "Turn one DIGGS document into tables of the profile (protocol 1.4, preview):"
+            " a ZIP of a CSV file per table, datapackage.json and plan.json, as base64.",
+            [
+                _param("content_base64", {"type": "string", "contentEncoding": "base64"}),
+                _param("path", {"type": "string", "maxLength": MAX_PATH_CHARS}),
+                _param("name", {"type": "string", "maxLength": MAX_NAME_INPUT_CHARS}),
+                _param("time_budget_s", {"type": "number", "exclusiveMinimum": 0}),
+            ],
+            {"$ref": "#/components/schemas/TablesFromDiggsResult"},
+            errors,
+        ),
+    ]
+
+
+def _tables_schemas(findings_schema_url: str) -> dict[str, Any]:
+    """The result schemas of the ``tables.*`` methods, for :func:`openrpc_document`."""
+    findings = {"$ref": findings_schema_url}
+    output = {
+        "output_sha256": _STR,
+        "output_base64": {"type": "string", "contentEncoding": "base64"},
+    }
+    return {
+        "TablesToDiggsResult": {
+            "type": "object",
+            "description": "As POST /v1/tables/to-diggs answers: the DIGGS file as base64.",
+            "required": [
+                "profile_version",
+                "diggs_version",
+                "media_type",
+                "output_name",
+                "lossless",
+                "counts",
+                "report",
+                "output_sha256",
+                "output_base64",
+            ],
+            "properties": {
+                "profile_version": _STR,
+                "diggs_version": _STR,
+                "media_type": _STR,
+                "output_name": _STR,
+                "lossless": {"type": "boolean"},
+                "counts": {"type": "object", "additionalProperties": {"type": "integer"}},
+                "report": findings,
+                **output,
+            },
+        },
+        "TablesRoundTripResult": {
+            "type": "object",
+            "description": "As POST /v1/tables/round-trip answers.",
+            "required": [
+                "profile_version",
+                "ok",
+                "report",
+                "validation",
+                "differences",
+                "output_sha256",
+                "output_base64",
+            ],
+            "properties": {
+                "profile_version": _STR,
+                "ok": {"type": "boolean"},
+                "report": findings,
+                "validation": findings,
+                "differences": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["table", "row", "column", "sent", "got"],
+                        "properties": {"table": _STR, "row": _STR, "column": _STR},
+                    },
+                },
+                **output,
+            },
+        },
+        "TablesFromDiggsResult": {
+            "type": "object",
+            "description": (
+                "As POST /v1/tables/from-diggs answers: the package as a ZIP, in base64."
+            ),
+            "required": [
+                "profile_version",
+                "diggs_version",
+                "complete",
+                "lossless",
+                "plan",
+                "report",
+                "media_type",
+                "output_name",
+                "output_sha256",
+                "output_base64",
+            ],
+            "properties": {
+                "profile_version": _STR,
+                "diggs_version": {"type": ["string", "null"]},
+                "complete": {"type": "boolean"},
+                "lossless": {"type": "boolean"},
+                "plan": {"type": "object"},
+                "report": findings,
+                "media_type": {"const": "application/zip"},
+                "output_name": _STR,
+                **output,
+            },
+        },
     }

@@ -10,7 +10,12 @@
     "convert.diggs-to-ags4": { "methods": ["convert"], "hybrid": true },
     "diff": { "methods": ["diff"], "hybrid": true }
   },
-  "planned": {},
+  "planned": {
+    "tables.to-diggs": { "methods": ["tablesToDiggs"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." },
+    "tables.from-diggs": { "methods": ["tablesFromDiggs"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." },
+    "tables.check": { "methods": ["checkTables"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." },
+    "tables.round-trip": { "methods": ["tablesRoundTrip"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." }
+  },
   "not_offered": {
     "detect": "No HTTP route; validate and read detect the DIGGS version themselves and report it.",
     "ags4.read": "Returns Python AGS4 tables; in JavaScript, convert an AGS4 file to DIGGS and read that.",
@@ -22,6 +27,6 @@
     "export.gpkg": "Needs the gis extra (pyogrio), which the Pyodide engine does not install.",
     "export.geoparquet": "Needs the gis extra (pyarrow), which the Pyodide engine does not install.",
     "export.geojson": "Needs the gis extra (pyogrio), which the Pyodide engine does not install.",
-    "write": "Writes a Python model; no HTTP route or sidecar method takes a model yet. The tables profile's HTTP and sidecar methods (a later slice) will offer writing from tables."
+    "write": "Writes a Python model; no HTTP route or sidecar method takes a model. Writing DIGGS from tables is tables.to-diggs."
   }
 }

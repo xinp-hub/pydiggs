@@ -22,6 +22,7 @@ import pydiggs
 from pydiggs import _capabilities, _service, ags4, frames, gis
 from pydiggs import convert as convert_module
 from pydiggs import diff as diff_module
+from pydiggs import tables as tables_module
 from pydiggs._capabilities import (
     CAPABILITIES_SCHEMA_URL,
     OPTION_TYPES,
@@ -43,7 +44,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # --- what every public operation and surface maps to ------------------------------------
 #
 # Each public function (pydiggs, pydiggs.ags4, pydiggs.convert, pydiggs.diff,
-# pydiggs.frames and pydiggs.gis), HTTP route,
+# pydiggs.frames, pydiggs.gis and pydiggs.tables), HTTP route,
 # MCP tool, sidecar method and CLI command is listed here with the operation it is, or
 # in a META set with the reason it is not one. A new name anywhere fails a test below
 # until it is listed, so a new operation cannot ship without a capabilities entry.
@@ -75,6 +76,14 @@ PUBLIC_FUNCTIONS: dict[str, tuple[str, ...]] = {
     "pydiggs.gis.transform": ("gis.transform",),
     "pydiggs.gis.to_geodataframe": ("export.geodataframe",),
     "pydiggs.gis.write": ("export.gpkg", "export.geoparquet", "export.geojson"),
+    "pydiggs.tables.to_model": ("tables.to-diggs",),
+    "pydiggs.tables.from_model": ("tables.from-diggs",),
+    "pydiggs.tables.write_package": ("tables.from-diggs",),  # from_model's tables as files
+    "pydiggs.tables.check": ("tables.check",),
+    "pydiggs.tables.round_trip": ("tables.round-trip",),
+    # Where the tables come from, for each operation that takes them.
+    "pydiggs.tables.read_package": ("tables.to-diggs", "tables.check", "tables.round-trip"),
+    "pydiggs.tables.rows_from_cursor": ("tables.to-diggs", "tables.check", "tables.round-trip"),
 }
 #: Public callables that describe pydiggs rather than act on data.
 META_FUNCTIONS = {
@@ -87,6 +96,7 @@ META_FUNCTIONS = {
     "pydiggs.validator": "the legacy one-check-at-a-time class; validate covers its checks",
     "pydiggs.convert.mapping_info": "describes the mapping table, converts nothing",
     "pydiggs.diff.diff_schema": "a contract's schema",
+    "pydiggs.tables.profile": "a contract's schema (the profile as a Data Package)",
 }
 #: The function whose signature each operation's options must match.
 SIGNATURES: dict[str, tuple[str, ...]] = {
@@ -110,6 +120,10 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
     "export.gpkg": ("pydiggs.gis.write",),
     "export.geoparquet": ("pydiggs.gis.write",),
     "export.geojson": ("pydiggs.gis.write",),
+    "tables.to-diggs": ("pydiggs.tables.to_model",),
+    "tables.from-diggs": ("pydiggs.tables.from_model",),
+    "tables.check": ("pydiggs.tables.check",),
+    "tables.round-trip": ("pydiggs.tables.round_trip",),
 }
 #: HTTP route -> operation(s), or None for a route that describes the server.
 HTTP_ROUTES: dict[str, str | tuple[str, ...] | None] = {
@@ -118,6 +132,10 @@ HTTP_ROUTES: dict[str, str | tuple[str, ...] | None] = {
     "/v1/convert": ("convert.ags4-to-diggs", "convert.diggs-to-ags4"),  # by ``to``
     "/v1/ags4/check": "ags4.check",
     "/v1/diff": "diff",
+    "/v1/tables/to-diggs": "tables.to-diggs",
+    "/v1/tables/from-diggs": "tables.from-diggs",
+    "/v1/tables/check": "tables.check",
+    "/v1/tables/round-trip": "tables.round-trip",
     "/v1/rules": "rules.list",
     "/v1/rules/{rule_id}": "rules.explain",
     "/v1/versions": None,
@@ -143,6 +161,10 @@ SIDECAR_METHODS: dict[str, str | tuple[str, ...] | None] = {
     "convert": ("convert.ags4-to-diggs", "convert.diggs-to-ags4"),  # by ``to``
     "ags4.check": "ags4.check",
     "diff": "diff",
+    "tables.to_diggs": "tables.to-diggs",
+    "tables.from_diggs": "tables.from-diggs",
+    "tables.check": "tables.check",
+    "tables.round_trip": "tables.round-trip",
     "ping": None,
     "versions": None,
     "rules.list": "rules.list",
@@ -173,6 +195,7 @@ def _resolve(dotted: str):
         "pydiggs._service": _service,
         "pydiggs.convert": convert_module,
         "pydiggs.diff": diff_module,
+        "pydiggs.tables": tables_module,
     }[module]
     return getattr(owner, name)
 
@@ -280,6 +303,7 @@ def _public_functions() -> set[str]:
         ("pydiggs.gis", gis),
         ("pydiggs.convert", convert_module),
         ("pydiggs.diff", diff_module),
+        ("pydiggs.tables", tables_module),
     ):
         for name in module.__all__:
             obj = getattr(module, name)
@@ -380,6 +404,11 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
     assert compare.options["new"].type == "file" and compare.options["new"].required
     for name in ("show_reformatted", "show_renamed"):
         assert (compare.options[name].type, compare.options[name].default) == ("boolean", False)
+    profile = f"diggs-tables-{tables_module.PROFILE_VERSION}"
+    assert by_id["tables.to-diggs"].inputs == (profile,)
+    assert by_id["tables.to-diggs"].outputs == ("diggs-3.0.0", findings)
+    assert by_id["tables.from-diggs"].inputs == (*_CORE_INPUTS, model)
+    assert by_id["tables.from-diggs"].outputs == (profile, findings)
     # One file export per gis.write driver.
     exports = {i for i in by_id if i in _capabilities._DRIVER_OF}
     assert set(_capabilities._DRIVER_OF.values()) == set(gis.DRIVERS.values())
@@ -388,7 +417,16 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
 
 def test_stability_matches_what_the_docs_promise(by_id):
     preview = {i for i, op in by_id.items() if op.stability == "preview"}
-    assert preview == {"ags4.read", "ags4.write", "ags4.check"}
+    assert preview == {
+        "ags4.read",
+        "ags4.write",
+        "ags4.check",
+        # pydiggs.tables and the tables profile are a preview until the profile is 1.0.
+        "tables.to-diggs",
+        "tables.from-diggs",
+        "tables.check",
+        "tables.round-trip",
+    }
     # pydiggs.convert is stable from 1.11, both ways.
     assert by_id["convert.ags4-to-diggs"].stability == "stable"
     assert by_id["convert.diggs-to-ags4"].stability == "stable"
@@ -418,6 +456,10 @@ def test_needs_name_real_extras(by_id):
         "convert.diggs-to-ags4",
         "diff",
         "write",
+        "tables.to-diggs",
+        "tables.from-diggs",
+        "tables.check",
+        "tables.round-trip",
     }
 
 

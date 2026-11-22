@@ -38,7 +38,15 @@ from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from pydiggs import _service
-from pydiggs._service import Ags4CheckRequest, ConvertRequest, DiffRequest, Outcome, ReadRequest
+from pydiggs._service import (
+    Ags4CheckRequest,
+    ConvertRequest,
+    DiffRequest,
+    Outcome,
+    ReadRequest,
+    TablesFromDiggsRequest,
+    TablesRequest,
+)
 from pydiggs._service import Request as ValidationRequest
 from pydiggs.server import _schemas
 from pydiggs.server._problems import (
@@ -74,6 +82,7 @@ _READ_FIELDS: Final = frozenset({"name", "diggs_version", "select"})
 _CONVERT_FIELDS: Final = frozenset({"name", "to", "diggs_version", "ags_version"})
 _CHECK_FIELDS: Final = frozenset({"name"})
 _RULES_FIELDS: Final = frozenset({"step"})
+_TABLES_FIELDS: Final = frozenset({"name"})
 _DIFF_FIELDS: Final = frozenset(
     {
         "old_name",
@@ -493,7 +502,34 @@ def _check_parameters(
     return Ags4CheckRequest(content=content, name=names[-1] if names else filename, format=fmt)
 
 
-_Job: TypeAlias = ValidationRequest | ReadRequest | ConvertRequest | Ags4CheckRequest | DiffRequest
+def _tables_parameters(operation: str) -> _Build:
+    """The service request of ``POST /v1/tables/<operation>``: a package ZIP and its name."""
+
+    def build(content: bytes, params: dict[str, list[str]], filename: str | None) -> TablesRequest:
+        names = params.get("name", [])
+        return TablesRequest(
+            content=content, name=names[-1] if names else filename, operation=operation
+        )
+
+    return build
+
+
+def _from_diggs_parameters(
+    content: bytes, params: dict[str, list[str]], filename: str | None
+) -> TablesFromDiggsRequest:
+    names = params.get("name", [])
+    return TablesFromDiggsRequest(content=content, name=names[-1] if names else filename)
+
+
+_Job: TypeAlias = (
+    ValidationRequest
+    | ReadRequest
+    | ConvertRequest
+    | Ags4CheckRequest
+    | DiffRequest
+    | TablesRequest
+    | TablesFromDiggsRequest
+)
 _Build: TypeAlias = Callable[[bytes, dict[str, list[str]], str | None], _Job]
 _Reader: TypeAlias = Callable[[], Awaitable["_Job | Response"]]
 
@@ -570,7 +606,7 @@ async def _read_input(
     except _TooLargeError:
         return _too_large()
     job = dataclasses.replace(build(content, params, filename), max_bytes=settings.max_body_bytes)
-    if isinstance(job, ReadRequest | ConvertRequest):
+    if isinstance(job, ReadRequest | ConvertRequest | TablesRequest | TablesFromDiggsRequest):
         limit = RESULT_FACTOR * settings.max_body_bytes
         job = dataclasses.replace(job, max_result_bytes=limit)
     if isinstance(job, Ags4CheckRequest) and "dictionary" in attachments:
@@ -827,6 +863,8 @@ _RUNNERS: Final[dict[type, tuple[str, str]]] = {
     ConvertRequest: ("convert", "convert_in_pool"),
     Ags4CheckRequest: ("ags4_check", "ags4_check_in_pool"),
     DiffRequest: ("diff", "diff_in_pool"),
+    TablesRequest: ("tables", "tables_in_pool"),
+    TablesFromDiggsRequest: ("tables_from_diggs", "tables_from_diggs_in_pool"),
 }
 
 
@@ -899,7 +937,8 @@ async def _admitted(
             )
         if isinstance(job, Response):
             return job
-        if state.isolation == "thread":
+        if state.isolation == "thread" and not isinstance(job, TablesRequest):
+            # A package has no time budget: building from tables cannot be interrupted.
             job = dataclasses.replace(job, time_budget=settings.timeout_s)
         return await state.run(job)
     finally:
@@ -1042,6 +1081,105 @@ def _add_diff_route(router: APIRouter, state: _State) -> None:
     )
 
 
+#: ``POST /v1/tables/<operation>``: the summary and operation id of each package route.
+_TABLES_ROUTES: Final = {
+    "to-diggs": (
+        "Write a package of DIGGS tables profile tables as DIGGS 3.0.0 (preview)",
+        "tablesToDiggs",
+    ),
+    "check": (
+        "Check a package of profile tables against the DIGGS dictionaries (preview)",
+        "tablesCheck",
+    ),
+    "round-trip": (
+        "Write a package of profile tables as DIGGS, read it back and compare (preview)",
+        "tablesRoundTrip",
+    ),
+}
+
+
+def _add_tables_routes(router: APIRouter, state: _State) -> None:
+    """``POST /v1/tables/to-diggs``, ``/check``, ``/round-trip`` and ``/from-diggs``."""
+    settings = state.settings
+
+    async def answer(outcome: Outcome | Response) -> Response:
+        if isinstance(outcome, Response):
+            return outcome
+        if not outcome.ok or outcome.document is None:
+            return from_outcome(outcome)
+        return Response(
+            outcome.document, media_type=_schemas.FINDINGS_MEDIA_TYPE, headers={"Vary": "Accept"}
+        )
+
+    def package_route(operation: str) -> _Endpoint:
+        build = _tables_parameters(operation)
+
+        async def endpoint(request: Request) -> Response:
+            checked = _precheck(
+                request,
+                settings,
+                sarif=False,
+                json_text="Accept application/json.",
+                raw_media=_schemas.ZIP_MEDIA_TYPES,
+                allowed=_TABLES_FIELDS,
+            )
+            if isinstance(checked, Response):
+                return checked
+            return await answer(
+                await _admitted(
+                    state, request, multipart=checked[1], fields=_TABLES_FIELDS, build=build
+                )
+            )
+
+        return endpoint
+
+    async def from_diggs(request: Request) -> Response:
+        checked = _precheck(
+            request,
+            settings,
+            sarif=False,
+            json_text="Accept application/json (the tables as a package ZIP, in base64).",
+            allowed=_TABLES_FIELDS,
+        )
+        if isinstance(checked, Response):
+            return checked
+        return await answer(
+            await _admitted(
+                state,
+                request,
+                multipart=checked[1],
+                fields=_TABLES_FIELDS,
+                build=_from_diggs_parameters,
+            )
+        )
+
+    for operation, (summary, operation_id) in _TABLES_ROUTES.items():
+        router.add_api_route(
+            f"/tables/{operation}",
+            _guarded(state, package_route(operation)),
+            methods=["POST"],
+            summary=summary,
+            operation_id=operation_id,
+            responses=_schemas.tables_responses(operation),
+            openapi_extra={
+                "parameters": _schemas.tables_parameters(),
+                "requestBody": _schemas.tables_request_body(),
+            },
+        )
+    router.add_api_route(
+        "/tables/from-diggs",
+        _guarded(state, from_diggs),
+        methods=["POST"],
+        summary="Turn one DIGGS document into tables of the profile, as a package (preview)",
+        operation_id="tablesFromDiggs",
+        responses=_schemas.tables_from_diggs_responses(),
+        openapi_extra={
+            "parameters": _schemas.tables_parameters(),
+            "requestBody": _schemas.tables_from_diggs_request_body(),
+        },
+    )
+
+
 def _build_router(state: _State) -> APIRouter:
     settings = state.settings
 
@@ -1144,6 +1282,7 @@ def _build_router(state: _State) -> APIRouter:
     )
     _add_ags4_routes(router, state)
     _add_diff_route(router, state)
+    _add_tables_routes(router, state)
     if settings.versions_enabled:
         router.add_api_route(
             "/versions",
@@ -1213,7 +1352,8 @@ def create_router(settings: ServerSettings | None = None) -> APIRouter:
 
     Returns:
         The router: ``POST /v1/validate``, ``POST /v1/read``, ``POST /v1/convert``,
-        ``POST /v1/ags4/check``, ``POST /v1/diff``, ``GET /v1/versions`` and
+        ``POST /v1/ags4/check``, ``POST /v1/diff``, ``POST /v1/tables/to-diggs``,
+        ``/check``, ``/round-trip`` and ``/from-diggs`` (preview), ``GET /v1/versions`` and
         ``GET /v1/capabilities`` (if ``versions_enabled``),
         ``GET /v1/rules``, ``GET /v1/rules/{rule_id}`` and ``GET /v1/readyz``.
 
@@ -1298,7 +1438,8 @@ def create_app(settings: ServerSettings | None = None) -> FastAPI:
         version="1",
         summary=(
             "Validate, read and compare DIGGS documents (XSD, dictionaries, Schematron);"
-            " check AGS4 files, and convert AGS4 to DIGGS and DIGGS to AGS4."
+            " check AGS4 files, convert AGS4 to DIGGS and DIGGS to AGS4, and convert"
+            " tables of the DIGGS tables profile to DIGGS and back."
         ),
         docs_url="/docs" if docs else None,
         redoc_url="/redoc" if docs else None,

@@ -8,7 +8,7 @@ were written but read back differently are differences.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any, Final
@@ -18,6 +18,7 @@ from pydiggs._write import write_bytes
 from pydiggs.convert._values import parse_number
 from pydiggs.findings.model import Finding, Report
 from pydiggs.findings.run import validate_bytes
+from pydiggs.tables._arrow import Rows, rows_of
 from pydiggs.tables._from_model import from_model
 from pydiggs.tables._profile import RESULT_KEYS, RESULTS_PREFIX, TABLES
 from pydiggs.tables._to_model import _text, to_model
@@ -197,7 +198,7 @@ def _by_place(rows: Sequence[Row]) -> dict[tuple[Decimal, ...], Row]:
     return out
 
 
-def round_trip(tables: Mapping[str, Iterable[Mapping[str, Any]]]) -> RoundTrip:
+def round_trip(tables: Mapping[str, Rows]) -> RoundTrip:
     """Write ``tables`` as DIGGS, read the file back, and compare it with what was sent.
 
     Every non-empty value of ``document``, of the tables whose rows have a ``key``, of
@@ -226,7 +227,7 @@ def round_trip(tables: Mapping[str, Iterable[Mapping[str, Any]]]) -> RoundTrip:
         >>> checked.ok, checked.differences
         (True, ())
     """
-    sent = {name: [dict(row) for row in rows] for name, rows in tables.items()}
+    sent = {name: [dict(row) for row in rows_of(rows, name)] for name, rows in tables.items()}
     result = to_model(sent)
     diggs = write_bytes(result.model)
     back = from_model(read_bytes(diggs))
