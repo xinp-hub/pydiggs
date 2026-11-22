@@ -5,7 +5,7 @@ Shared by ``check.py`` (the gate), ``build.py`` (the renderer) and ``mkdocs_tuto
 
 A tutorial is a YAML file in ``docs/tutorials/<id>.yml``. Its narration is the single
 source for the voice-over, the captions and the transcript, so the three never disagree.
-See FORGE's ``docs-video`` skill for the format and the narration style.
+See ``tools/tutorials/README.md`` for the format and the narration style.
 """
 
 from __future__ import annotations

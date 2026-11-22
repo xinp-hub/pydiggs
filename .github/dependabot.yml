@@ -7,7 +7,7 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    # Wait the FORGE-standard 14 days before proposing a new release. A compromised
+    # Wait 14 days before proposing a new release. A compromised
     # version is usually yanked within days — that is the window where a mechanical bump
     # is most dangerous.
     cooldown:
@@ -21,7 +21,7 @@ updates:
 
   # The Pyodide the browser smoke tests against (tests/pyodide). A bump must move
   # pyodide-facts.json and the browser example with it, so it gets its own PR and the
-  # FORGE-standard 14-day cooldown.
+  # same 14-day cooldown.
   - package-ecosystem: npm
     directory: /tests/pyodide
     schedule:
@@ -38,7 +38,7 @@ updates:
 
   # The build tools of the npm package (js/). It has no runtime dependencies, so these
   # are development tools only; they still build what is published, so they wait out
-  # the FORGE-standard 14-day cooldown.
+  # the same 14-day cooldown.
   - package-ecosystem: npm
     directory: /js
     schedule:

@@ -75,7 +75,7 @@ gets a line in [CHANGELOG.md](CHANGELOG.md) under "Unreleased", written for user
   endpoint, sidecar method, MCP tool or JS entry point needs a video tutorial
   (`docs/tutorials/<id>.yml`, see CONTRIBUTING.md) or a waiver with a reason in
   `docs/tutorials/manifest.yml`; `tests/test_tutorials.py` enforces it. Draft a missing one
-  as FORGE's docs-video skill describes ("Draft a missing tutorial"); the owner reviews it.
+  as [tools/tutorials/README.md](tools/tutorials/README.md) describes ("Draft a missing tutorial"); the owner reviews it.
   Narration says what is on screen, and a quantity it states is a `claims:` entry. Demo
   data is written for the purpose: never project or client data.
 - **No secrets.** Publishing uses PyPI Trusted Publishing. If you think you need a token,

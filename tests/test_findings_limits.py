@@ -1,4 +1,4 @@
-"""HG1 amendment: findings cap and instance size limit for validate()."""
+"""Findings cap and instance size limit for validate()."""
 
 from __future__ import annotations
 

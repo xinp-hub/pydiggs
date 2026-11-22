@@ -18,7 +18,7 @@ Then judge what a policy cannot:
 3. **Security.** Untrusted input reaching XML parsing, file paths, subprocesses, `eval`,
    deserialisation or network calls; secrets in code or logs.
 4. **Public behaviour.** A change in what a public function returns or raises, even with
-   the same signature, is a breaking change and needs a human (HG2). Say so as a blocker.
+   the same signature, is a breaking change and needs the maintainer's decision. Say so as a blocker.
 5. **Maintainability.** Code that duplicates something that already exists, or that the
    next reader cannot follow. These are minor, never blocking on their own.
 
