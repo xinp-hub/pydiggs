@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.15.0] - 2026-11-21
-
 ### Added
 - **Your database to DIGGS and back (preview).** `pydiggs.tables` and `pydiggs tables`
   let software that keeps its data in a database write and read DIGGS without touching
@@ -50,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **diggs-findings 1.3.** The findings document gains the step `tables`, for what a
   tables conversion left out or assumed. Every 1.0, 1.1 and 1.2 document is a valid 1.3
   document.
+
+## [1.15.0] - 2026-11-21
+
+### Added
 - **A conformance suite for DIGGS software (preview).** `pydiggs conformance` and
   `pydiggs.conformance` test how a product reads and writes DIGGS 3, on your own machine,
   with no account and nothing uploaded. `pydiggs conformance new spt-export` makes a
