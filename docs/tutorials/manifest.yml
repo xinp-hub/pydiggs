@@ -92,9 +92,7 @@ features:
 - id: mapping
   covers:
   - cli:map
-  waiver: The video needs the mapping file itself as a download, and tutorials offer no TOML
-    files yet; until they do, docs/mapping.md shows every step with the worked example, and
-    its examples run in CI.
+  tutorial: mapping
 - id: ags4-check
   covers:
   - cli:ags4

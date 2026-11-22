@@ -1,0 +1,40 @@
+id: mapping
+title: Map your own tables to DIGGS with a mapping file
+summary: Check a mapping file against your exported tables, then prove the whole round trip loses nothing.
+kind: terminal
+setup:
+  # A made-up borehole logging database, exported as CSV, and its mapping file. Synthetic.
+  - cp {repo}/docs/examples/mapping/holes.csv {repo}/docs/examples/mapping/project.csv {repo}/docs/examples/mapping/samples.csv {repo}/docs/examples/mapping/spt.csv {repo}/docs/examples/mapping/strata.csv {repo}/docs/examples/mapping/demo.toml .
+files: [holes.csv, project.csv, samples.csv, spt.csv, strata.csv, demo.toml]
+scenes:
+  - title: Your tables, as they are
+    say: >-
+      The work folder holds tables exported from a borehole logging database, in its own
+      column names. The S P T table has the hole, a sequence number, the depth in metres
+      and the blow count.
+    run: head -3 spt.csv
+    expect: '(?m)^BH01,1,2\.0,7\s*$'
+    claims: ['(?m)^hole_id,seq,depth_m,blows_n$']
+  - title: Check the mapping
+    say: >-
+      The mapping file says where each of these columns goes in DIGGS. pydiggs map check
+      reads it with the tables. It lists the rows each table gives. One note says a
+      topsoil code was written as the nearest DIGGS group, a broader match.
+    run: pydiggs map check . --mapping demo.toml
+    expect: 'tables\.mapping-code-not-exact'
+    claims: ['(?m)^rows: .*features 2', 'a broader match']
+  - title: Test the round trip
+    say: >-
+      pydiggs map test writes a DIGGS file, validates it, reads it back and compares every
+      value with the tables it came from. The first line says ok true: nothing was lost,
+      the file is valid, and nothing came back changed.
+    run: pydiggs map test . --mapping demo.toml -o site.xml
+    expect: '(?m)^ok: True\s*$'
+    claims: ['(?m)^ok: True$', '(?m)^output: site\.xml$']
+  - title: See how much is mapped
+    say: >-
+      pydiggs map coverage shows how much of your schema the mapping reads. Here it reads
+      every source column, one hundred percent.
+    run: pydiggs map coverage . --mapping demo.toml
+    expect: '(?m)^source columns read: 100\.0%\s*$'
+    claims: ['(?m)^source columns read: 100\.0%$']
