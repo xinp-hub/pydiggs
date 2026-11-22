@@ -22,13 +22,28 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cache
+from typing import Final
 
 from pydiggs.conformance._rng import Rng
 from pydiggs.conformance._scenario import Dataset
-from pydiggs.model import Measurement, Model, Quantity, ResultTable
+from pydiggs.model import Measurement, Model, Procedure, Quantity, ResultTable
 from pydiggs.model._values import Column
 
-__all__ = ["Fact", "Observed", "Outcome", "Question", "facts", "match", "observe", "questions"]
+__all__ = [
+    "GRADING_KEY",
+    "Fact",
+    "Observed",
+    "Outcome",
+    "Question",
+    "core_facts",
+    "core_questions",
+    "defect_question",
+    "facts",
+    "match",
+    "observe",
+    "questions",
+    "value_fact",
+]
 
 #: Source unit -> factor to its SI unit. Exact by definition (the international foot and inch).
 SI_FACTOR = {
@@ -40,6 +55,8 @@ SI_FACTOR = {
     "MPa": 1e6,
     "kPa": 1e3,
     "%": 0.01,
+    "Mg/m3": 1000.0,
+    "kg/m3": 1.0,
 }
 
 _PROCEDURE = {"spt": "DrivenPenetrationTest", "cpt": "StaticConePenetrationTest"}
@@ -100,7 +117,18 @@ class Question:
 
 
 #: Source unit -> the SI unit its values are compared in.
-SI_UNIT = {"": "", "m": "m", "ft": "m", "mm": "m", "in": "m", "MPa": "Pa", "kPa": "Pa", "%": "Euc"}
+SI_UNIT = {
+    "": "",
+    "m": "m",
+    "ft": "m",
+    "mm": "m",
+    "in": "m",
+    "MPa": "Pa",
+    "kPa": "Pa",
+    "%": "Euc",
+    "Mg/m3": "kg/m3",
+    "kg/m3": "kg/m3",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,8 +161,11 @@ def _number(text: str, unit: str) -> tuple[float, float]:
     return float(Decimal(text)) * factor, _half_last_place(text, factor)
 
 
-def facts(dataset: Dataset) -> tuple[Fact, ...]:
-    """The answer key of ``dataset``: core facts first, then one per source value."""
+def core_facts(dataset: Dataset) -> list[Fact]:
+    """The core facts every scenario with a ``locations`` table shares.
+
+    The project's name, each location by name, and each location's total depth.
+    """
     out: list[Fact] = []
     project = dataset.table("project").rows[0][1]
     out.append(
@@ -172,6 +203,47 @@ def facts(dataset: Dataset) -> tuple[Fact, ...]:
                 si_unit=SI_UNIT[depth_unit],
             )
         )
+    return out
+
+
+def value_fact(
+    scenario: str,
+    where: tuple[str, str, str],
+    column: str,
+    text: str,
+    unit: str,
+    *,
+    procedure: str,
+    key: str,
+    exact: bool = False,
+) -> Fact:
+    """A fidelity fact: ``column`` = ``text`` ``unit`` on a location at a depth.
+
+    ``where`` is (location, depth as written, depth unit). ``exact`` is for counts.
+    """
+    location, depth_text, depth_unit = where
+    depth, depth_tol = _number(depth_text, depth_unit)
+    value, tol = _number(text, unit)
+    shown_unit = f" {unit}" if unit else ""
+    return Fact(
+        id=f"{scenario}/{location}/{depth_text}/{column}",
+        group="fidelity",
+        kind="value",
+        shown=f"{column} {text}{shown_unit} at {depth_text} {depth_unit} in {location!r}",
+        feature=location,
+        procedure=procedure,
+        key=key,
+        depth=depth,
+        depth_tol=depth_tol,
+        value=value,
+        tol=0.0 if exact else tol,
+        si_unit=SI_UNIT[unit],
+    )
+
+
+def facts(dataset: Dataset) -> tuple[Fact, ...]:
+    """The answer key of an SPT or CPT ``dataset``: core facts, then one per value."""
+    out = core_facts(dataset)
     procedure = _PROCEDURE[dataset.scenario]
     if dataset.scenario == "spt":
         table = dataset.table("spt")
@@ -190,30 +262,20 @@ def facts(dataset: Dataset) -> tuple[Fact, ...]:
     names = [f.name for f in table.fields]
     for row in table.rows:
         record = dict(zip(names, row, strict=True))
-        depth_text = record[depth_field]
-        depth, depth_tol = _number(depth_text, units[depth_field])
-        where = f"at {depth_text} {units[depth_field]} in {record['location_id']!r}"
-        for column, key in columns:
-            value, tol = _number(record[column], units[column])
-            if column == "n_value":
-                tol = 0.0  # a blow count is exact
-            unit = f" {units[column]}" if units[column] else ""
-            out.append(
-                Fact(
-                    id=f"{dataset.scenario}/{record['location_id']}/{depth_text}/{column}",
-                    group="fidelity",
-                    kind="value",
-                    shown=f"{column} {record[column]}{unit} {where}",
-                    feature=record["location_id"],
-                    procedure=procedure,
-                    key=key,
-                    depth=depth,
-                    depth_tol=depth_tol,
-                    value=value,
-                    tol=tol,
-                    si_unit=SI_UNIT[units[column]],
-                )
+        where = (record["location_id"], record[depth_field], units[depth_field])
+        out.extend(
+            value_fact(
+                dataset.scenario,
+                where,
+                column,
+                record[column],
+                units[column],
+                procedure=procedure,
+                key=key,
+                exact=column == "n_value",
             )
+            for column, key in columns
+        )
     return tuple(out)
 
 
@@ -325,13 +387,43 @@ def _measurement_readings(
             factor, offset, unit = how
             key = column.key or column.name
             for depth, cell in zip(depths, column.values, strict=False):
-                value = _number_of(cell)
+                # A flag reads as 1 or 0; a boolean anywhere else is not a number.
+                if isinstance(cell, bool):
+                    value = float(cell) if key in FLAG_KEYS else None
+                else:
+                    value = _number_of(cell)
                 if value is not None and depth is not None:
                     out.append((key, depth, value * factor + offset, unit))
     for param, held in procedure.params.items():
         found = _param_si(held)
         if found is not None:
             out.extend(("@" + param, depth, found[0], found[1]) for depth in row_depths)
+    out.extend(_grading(procedure))
+    return out
+
+
+#: Result properties that are flags (true or false), read as 1 or 0.
+FLAG_KEYS: Final = frozenset({"non_plastic"})
+
+#: The key a grading curve's points are read under. Their "depth" is the particle size,
+#: in metres: a curve is percent passing against size, and the scenarios give one curve
+#: per location.
+GRADING_KEY: Final = "grading:percent_passing"
+
+
+def _grading(procedure: Procedure) -> list[tuple[str, float, float, str]]:
+    """The points of a particle-size curve: (key, size in metres, passing, unit)."""
+    out = []
+    # Gradings sit inside a sieve analysis, which sits in the procedure: walk the nested
+    # records without recursion, so a deep (untrusted) tree cannot exhaust the stack.
+    stack = list(procedure.components)
+    while stack:
+        component = stack.pop()
+        stack.extend(component.components)
+        size = _param_si(component.params.get("particleSize"))
+        passing = _param_si(component.params.get("percentPassing"))
+        if size is not None and passing is not None and size[1] == "m":
+            out.append((GRADING_KEY, size[0], passing[0], passing[1]))
     return out
 
 
@@ -381,7 +473,11 @@ def _among(fact: Fact, values: list[tuple[float, str]]) -> Outcome:
     if not values:
         return _outcome(fact, "missing", "conformance.fact-missing")
     for value, unit in values:
-        if unit != fact.si_unit or not _close(value, fact.value, fact.tol):
+        given, given_unit = value, unit
+        if fact.si_unit == "Euc" and unit == "":
+            # A percentage DIGGS writes as a plain number (liquid_limit 48) is a percent.
+            given, given_unit = value / 100, "Euc"
+        if given_unit != fact.si_unit or not _close(given, fact.value, fact.tol):
             return _outcome(fact, "differs", "conformance.value-differs", _fmt(value, unit))
     return _outcome(fact, "found")
 
@@ -416,10 +512,39 @@ def match(fact: Fact, seen: Observed) -> Outcome:
         totals = [seen.totals.get(key) for key in keys]
         return _among(fact, [(total, "m") for total in totals if total is not None])
     here: list[tuple[float, str]] = []
-    for key in keys:
-        found = seen.readings.get((key, fact.procedure, fact.key), [])
-        here.extend(_at_depth(found, fact.depth, fact.depth_tol))
+    # A fact may name several procedures it can be reported under ("A|B"): a water
+    # content belongs on a water content test or on a density test.
+    for procedure in fact.procedure.split("|"):
+        for key in keys:
+            found = seen.readings.get((key, procedure, fact.key), [])
+            here.extend(_at_depth(found, fact.depth, fact.depth_tol))
+    return _judge(fact, here)
+
+
+def _judge(fact: Fact, here: list[tuple[float, str]]) -> Outcome:
+    """``fact`` against the readings found where it belongs, by the fact's kind."""
+    if fact.kind == "absent":
+        return _absent(fact, here)
+    if fact.kind == "not-flagged":
+        # A flag the source does not raise: absent, or every reading false (0).
+        return _absent(fact, [h for h in here if h[0] != 0])
     return _among(fact, here)
+
+
+def _absent(fact: Fact, here: list[tuple[float, str]]) -> Outcome:
+    """A value the source leaves empty: a file that invents one (a zero) is wrong."""
+    if not here:
+        return _outcome(fact, "found")
+    value, unit = here[0]
+    return Outcome(
+        fact.id,
+        fact.group,
+        "differs",
+        fact.shown,
+        "conformance.value-invented",
+        "no value",
+        _fmt(value, unit),
+    )
 
 
 def _convert(text: str, unit: str, asked: str) -> tuple[str, float]:
@@ -442,38 +567,7 @@ def questions(dataset: Dataset, seed: str) -> tuple[Question, ...]:
     names = locations.column("location_id")
     depth_unit = locations.fields[5].unit
     other_length = "m" if depth_unit == "ft" else "ft"
-    out = [
-        Question(
-            "core.project-name",
-            "core",
-            "text",
-            "What is the project's name?",
-            "",
-            dataset.table("project").rows[0][1],
-        ),
-        Question(
-            "core.locations",
-            "core",
-            "count",
-            "How many borings or soundings does the file hold?",
-            "",
-            str(len(names)),
-        ),
-    ]
-    chosen = rng.choice(names)
-    total = dict(zip(names, locations.column("total_depth"), strict=True))[chosen]
-    expected, tol = _convert(total, depth_unit, other_length)
-    out.append(
-        Question(
-            "core.total-depth",
-            "core",
-            "number",
-            f"What is the total depth of {chosen}?",
-            other_length,
-            expected,
-            tol,
-        )
-    )
+    out = core_questions(dataset, rng)
     if dataset.scenario == "spt":
         table = dataset.table("spt")
         fields = [f.name for f in table.fields]
@@ -609,15 +703,59 @@ def questions(dataset: Dataset, seed: str) -> tuple[Question, ...]:
                 tol,
             )
         )
+    out.append(defect_question(rng))
+    return tuple(out)
+
+
+def defect_question(rng: Rng) -> Question:
+    """The last question of every import challenge: which defect ``defective.xml`` has."""
     choices = ", ".join((*DEFECTS, "none"))
+    return Question(
+        "robustness.defect",
+        "robustness",
+        "choice",
+        f"defective.xml has one planted defect. Which does your software report? ({choices})",
+        "",
+        rng.choice(DEFECTS),
+    )
+
+
+def core_questions(dataset: Dataset, rng: Rng) -> list[Question]:
+    """The core questions of an import challenge whose dataset has a ``locations`` table."""
+    locations = dataset.table("locations")
+    names = locations.column("location_id")
+    depth_unit = locations.fields[5].unit
+    other_length = "m" if depth_unit == "ft" else "ft"
+    out = [
+        Question(
+            "core.project-name",
+            "core",
+            "text",
+            "What is the project's name?",
+            "",
+            dataset.table("project").rows[0][1],
+        ),
+        Question(
+            "core.locations",
+            "core",
+            "count",
+            "How many borings or soundings does the file hold?",
+            "",
+            str(len(names)),
+        ),
+    ]
+    chosen = rng.choice(names)
+    total = dict(zip(names, locations.column("total_depth"), strict=True))[chosen]
+    expected, tol = _convert(total, depth_unit, other_length)
     out.append(
         Question(
-            "robustness.defect",
-            "robustness",
-            "choice",
-            f"defective.xml has one planted defect. Which does your software report? ({choices})",
-            "",
-            rng.choice(DEFECTS),
+            "core.total-depth",
+            "core",
+            "number",
+            f"What is the total depth of {chosen}?",
+            other_length,
+            expected,
+            tol,
         )
     )
-    return tuple(out)
+    return out

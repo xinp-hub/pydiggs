@@ -90,8 +90,8 @@ def families() -> tuple[Family, ...]:
     Examples:
         >>> from pydiggs import conformance
         >>> [f.id for f in conformance.families() if f.testable]
-        ['spt', 'cpt']
-        >>> next(f for f in conformance.families() if f.id == "deep-foundations").testable
+        ['spt', 'cpt', 'lab-index', 'deep-foundations']
+        >>> next(f for f in conformance.families() if f.id == "geophysics").testable
         False
     """
     return _load()[1]
@@ -102,8 +102,10 @@ def classes() -> tuple[ClassInfo, ...]:
 
     Examples:
         >>> from pydiggs import conformance
-        >>> [c.id for c in conformance.classes()]
-        ['spt-export', 'spt-import', 'cpt-export', 'cpt-import']
+        >>> [c.id for c in conformance.classes()][::2]
+        ['spt-export', 'cpt-export', 'lab-index-export', 'deep-foundations-export']
+        >>> sorted({c.direction for c in conformance.classes()})
+        ['export', 'import']
     """
     diggs_version, found = _load()
     return tuple(
