@@ -2,7 +2,7 @@
   "openrpc": "1.3.2",
   "info": {
     "title": "pydiggs stdio sidecar",
-    "version": "1.3",
+    "version": "1.4",
     "description": "JSON-RPC 2.0 over NDJSON on stdin/stdout (pydiggs serve --stdio). The -32000..-32099 error band is pydiggs-defined; switch on error.data.code."
   },
   "methods": [
@@ -98,6 +98,9 @@
               "type": "string"
             },
             "diff_schema_url": {
+              "type": "string"
+            },
+            "tables_profile_version": {
               "type": "string"
             },
             "diggs_versions": {
@@ -780,6 +783,350 @@
       ]
     },
     {
+      "name": "tables.to_diggs",
+      "summary": "Write a package of DIGGS tables profile tables as a DIGGS 3.0.0 file (protocol 1.4, preview), with every row or value that could not be carried reported.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "package_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": "application/zip"
+          },
+          "required": false,
+          "summary": "The package: a ZIP of the CSV files and datapackage.json, standard base64. Flat: the files at the top (one wrapping folder is allowed)."
+        },
+        {
+          "name": "path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false,
+          "summary": "Instead: an absolute folder under an --allow-path root; its CSV and JSON files are read, each opened and verified as path is for validate."
+        },
+        {
+          "name": "name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false,
+          "summary": "The name to report (default tables.zip, or the folder's name)."
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/TablesToDiggsResult"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/busy"
+        },
+        {
+          "$ref": "#/components/errors/input-too-large"
+        },
+        {
+          "$ref": "#/components/errors/compressed-input"
+        },
+        {
+          "$ref": "#/components/errors/path-not-permitted"
+        },
+        {
+          "$ref": "#/components/errors/input-unreadable"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/cancelled"
+        },
+        {
+          "$ref": "#/components/errors/internal"
+        },
+        {
+          "$ref": "#/components/errors/invalid-document"
+        },
+        {
+          "$ref": "#/components/errors/result-too-large"
+        }
+      ]
+    },
+    {
+      "name": "tables.check",
+      "summary": "Check a package of profile tables against the DIGGS dictionaries without writing a file (protocol 1.4, preview): pydiggs.tables.check.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "package_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": "application/zip"
+          },
+          "required": false,
+          "summary": "The package: a ZIP of the CSV files and datapackage.json, standard base64. Flat: the files at the top (one wrapping folder is allowed)."
+        },
+        {
+          "name": "path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false,
+          "summary": "Instead: an absolute folder under an --allow-path root; its CSV and JSON files are read, each opened and verified as path is for validate."
+        },
+        {
+          "name": "name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false,
+          "summary": "The name to report (default tables.zip, or the folder's name)."
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/busy"
+        },
+        {
+          "$ref": "#/components/errors/input-too-large"
+        },
+        {
+          "$ref": "#/components/errors/compressed-input"
+        },
+        {
+          "$ref": "#/components/errors/path-not-permitted"
+        },
+        {
+          "$ref": "#/components/errors/input-unreadable"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/cancelled"
+        },
+        {
+          "$ref": "#/components/errors/internal"
+        },
+        {
+          "$ref": "#/components/errors/invalid-document"
+        },
+        {
+          "$ref": "#/components/errors/result-too-large"
+        }
+      ]
+    },
+    {
+      "name": "tables.round_trip",
+      "summary": "Write a package of profile tables as DIGGS, validate it, read it back and compare (protocol 1.4, preview): pydiggs.tables.round_trip.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "package_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64",
+            "contentMediaType": "application/zip"
+          },
+          "required": false,
+          "summary": "The package: a ZIP of the CSV files and datapackage.json, standard base64. Flat: the files at the top (one wrapping folder is allowed)."
+        },
+        {
+          "name": "path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false,
+          "summary": "Instead: an absolute folder under an --allow-path root; its CSV and JSON files are read, each opened and verified as path is for validate."
+        },
+        {
+          "name": "name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false,
+          "summary": "The name to report (default tables.zip, or the folder's name)."
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/TablesRoundTripResult"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/busy"
+        },
+        {
+          "$ref": "#/components/errors/input-too-large"
+        },
+        {
+          "$ref": "#/components/errors/compressed-input"
+        },
+        {
+          "$ref": "#/components/errors/path-not-permitted"
+        },
+        {
+          "$ref": "#/components/errors/input-unreadable"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/cancelled"
+        },
+        {
+          "$ref": "#/components/errors/internal"
+        },
+        {
+          "$ref": "#/components/errors/invalid-document"
+        },
+        {
+          "$ref": "#/components/errors/result-too-large"
+        }
+      ]
+    },
+    {
+      "name": "tables.from_diggs",
+      "summary": "Turn one DIGGS document into tables of the profile (protocol 1.4, preview): a ZIP of a CSV file per table, datapackage.json and plan.json, as base64.",
+      "paramStructure": "by-name",
+      "params": [
+        {
+          "name": "content_base64",
+          "schema": {
+            "type": "string",
+            "contentEncoding": "base64"
+          },
+          "required": false
+        },
+        {
+          "name": "path",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "name",
+          "schema": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "required": false
+        },
+        {
+          "name": "time_budget_s",
+          "schema": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "required": false
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/TablesFromDiggsResult"
+        }
+      },
+      "errors": [
+        {
+          "$ref": "#/components/errors/invalid-request"
+        },
+        {
+          "$ref": "#/components/errors/not-initialized"
+        },
+        {
+          "$ref": "#/components/errors/shutting-down"
+        },
+        {
+          "$ref": "#/components/errors/invalid-params"
+        },
+        {
+          "$ref": "#/components/errors/busy"
+        },
+        {
+          "$ref": "#/components/errors/input-too-large"
+        },
+        {
+          "$ref": "#/components/errors/compressed-input"
+        },
+        {
+          "$ref": "#/components/errors/path-not-permitted"
+        },
+        {
+          "$ref": "#/components/errors/input-unreadable"
+        },
+        {
+          "$ref": "#/components/errors/resource-error"
+        },
+        {
+          "$ref": "#/components/errors/cancelled"
+        },
+        {
+          "$ref": "#/components/errors/internal"
+        },
+        {
+          "$ref": "#/components/errors/invalid-document"
+        },
+        {
+          "$ref": "#/components/errors/result-too-large"
+        }
+      ]
+    },
+    {
       "name": "ping",
       "summary": "Liveness check.",
       "paramStructure": "by-name",
@@ -1200,6 +1547,164 @@
           }
         }
       },
+      "TablesToDiggsResult": {
+        "type": "object",
+        "description": "As POST /v1/tables/to-diggs answers: the DIGGS file as base64.",
+        "required": [
+          "profile_version",
+          "diggs_version",
+          "media_type",
+          "output_name",
+          "lossless",
+          "counts",
+          "report",
+          "output_sha256",
+          "output_base64"
+        ],
+        "properties": {
+          "profile_version": {
+            "type": "string"
+          },
+          "diggs_version": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "output_name": {
+            "type": "string"
+          },
+          "lossless": {
+            "type": "boolean"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "report": {
+            "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json"
+          },
+          "output_sha256": {
+            "type": "string"
+          },
+          "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64"
+          }
+        }
+      },
+      "TablesRoundTripResult": {
+        "type": "object",
+        "description": "As POST /v1/tables/round-trip answers.",
+        "required": [
+          "profile_version",
+          "ok",
+          "report",
+          "validation",
+          "differences",
+          "output_sha256",
+          "output_base64"
+        ],
+        "properties": {
+          "profile_version": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "report": {
+            "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json"
+          },
+          "validation": {
+            "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json"
+          },
+          "differences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "table",
+                "row",
+                "column",
+                "sent",
+                "got"
+              ],
+              "properties": {
+                "table": {
+                  "type": "string"
+                },
+                "row": {
+                  "type": "string"
+                },
+                "column": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "output_sha256": {
+            "type": "string"
+          },
+          "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64"
+          }
+        }
+      },
+      "TablesFromDiggsResult": {
+        "type": "object",
+        "description": "As POST /v1/tables/from-diggs answers: the package as a ZIP, in base64.",
+        "required": [
+          "profile_version",
+          "diggs_version",
+          "complete",
+          "lossless",
+          "plan",
+          "report",
+          "media_type",
+          "output_name",
+          "output_sha256",
+          "output_base64"
+        ],
+        "properties": {
+          "profile_version": {
+            "type": "string"
+          },
+          "diggs_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "lossless": {
+            "type": "boolean"
+          },
+          "plan": {
+            "type": "object"
+          },
+          "report": {
+            "$ref": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json"
+          },
+          "media_type": {
+            "const": "application/zip"
+          },
+          "output_name": {
+            "type": "string"
+          },
+          "output_sha256": {
+            "type": "string"
+          },
+          "output_base64": {
+            "type": "string",
+            "contentEncoding": "base64"
+          }
+        }
+      },
       "ServerCapabilities": {
         "type": "object",
         "properties": {
@@ -1286,6 +1791,27 @@
                 "items": {
                   "type": "string"
                 }
+              }
+            }
+          },
+          "tables": {
+            "type": "object",
+            "description": "Protocol 1.4+ (the tables.* methods, a preview).",
+            "properties": {
+              "content": {
+                "type": "boolean"
+              },
+              "path": {
+                "type": "boolean"
+              },
+              "methods": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "profile_version": {
+                "type": "string"
               }
             }
           },

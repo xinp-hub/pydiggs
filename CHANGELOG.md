@@ -7,7 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **The tables profile from .NET, Java or any language (preview).** Software that is not
+  written in Python can now export to DIGGS and import from it with no Python code of its
+  own. Over HTTP, `POST /v1/tables/to-diggs` takes your CSV tables as a ZIP and answers
+  with the DIGGS 3.0.0 file and every row or value not carried; `POST /v1/tables/check`
+  and `POST /v1/tables/round-trip` check the tables and prove the round trip; and
+  `POST /v1/tables/from-diggs` turns a DIGGS file into the tables, as a ZIP with
+  `datapackage.json` and the load plan. The stdio sidecar offers the same as
+  `tables.to_diggs`, `tables.check`, `tables.round_trip` and `tables.from_diggs`
+  (protocol 1.4), taking the folder of CSV files by path when started with
+  `--allow-path`. Every answer is the same, byte for byte, as the Python functions give
+  for the same files. A ZIP you send is read in memory and never extracted: it may hold
+  at most 256 files, unpack to at most four times the size limit, and hold only plain CSV
+  and JSON files, or it is refused. See
+  [From .NET, Java or any language](https://xinp-hub.github.io/pydiggs/latest/tables/#from-net-java-or-any-language).
+  `pydiggs.capabilities()` lists the four new operations (`tables.to-diggs`,
+  `tables.from-diggs`, `tables.check`, `tables.round-trip`). `@pydiggs/client` will
+  offer them in a later release; until then call the HTTP API directly.
+- **Tables from Arrow (preview).** A table given to `tables.to_model`, `tables.check` or
+  `tables.round_trip` may be any object that exports an Arrow stream: a pyarrow table, a
+  polars or pandas data frame, a DuckDB or ADBC result. It is read one record batch at a
+  time through pyarrow, which the `gis` extra installs; without pyarrow you get a
+  `TablesError` that says what to install.
+
+### Changed
+- **Sidecar protocol 1.4.** A host that asks for 1.4 gets the `tables.*` methods,
+  `tables_profile_version` and `capabilities.tables`; a host that asks for 1.3 or older
+  sees no change.
+
 ### Fixed
+- **The stdio sidecar no longer refuses an id it has just answered.** A host that reused
+  a request id as soon as it had the reply could, now and then, get `invalid-request`
+  ("Duplicate id"): the job was still counted as running for a moment after its reply.
+  It is now finished before its reply is written. Slower machines (often Windows) saw it
+  most.
 - **Reading a result table with many declared properties and short rows is fast
   again.** When a `ResultSet` declared many `Property` columns but its rows held only a
   few values each, `pydiggs.read` and `read_bytes` (and so `validate`, `convert`, `diff`,

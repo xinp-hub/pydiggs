@@ -82,6 +82,12 @@ pydiggs.write(result.model, "site.xml")
 Here the queries are written out; with the views above in your database, each one is
 `SELECT * FROM <view>`.
 
+A table can also be anything that exports an Arrow stream: a pyarrow table, a polars or
+pandas data frame, a DuckDB or ADBC result. pyDIGGS reads it one record batch at a time
+through pyarrow, which the `gis` extra installs (`pip install 'pydiggs[gis]'`); without
+pyarrow such a table is a `TablesError` that says so. Dates and times become ISO 8601
+text.
+
 **3. Read what was left out.** `result.findings` lists every row that could not be
 written and every default pyDIGGS had to assume, each with the table, row and column:
 
@@ -139,6 +145,54 @@ for difference in checked.differences:  # a value that came back changed
 For this small export the answer is no, and the findings say why: the tables give no
 project, no creation date and no coordinate reference system. Fill those in and it passes.
 
+## From .NET, Java or any language
+
+You do not need to write Python to use the profile. Write the tables as CSV files in one
+folder (one `<table>.csv` per table, as above), and let pyDIGGS run beside your program,
+either as the [stdio sidecar](sidecar.md#tables) or as the
+[HTTP API](http-api.md#post-v1tables). Both are a preview, like the profile.
+
+**The sidecar** (`pydiggs serve --stdio --allow-path C:\Exports`) takes the folder by
+path, one JSON request per line, and answers with the DIGGS file in base64:
+
+```json
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocol_version":"1.4"}}
+{"jsonrpc":"2.0","id":2,"method":"tables.to_diggs","params":{"path":"C:\\Exports\\site"}}
+```
+
+```csharp
+// The answer to id 2: write the file, then show the findings to your user.
+var result = JsonDocument.Parse(line).RootElement.GetProperty("result");
+File.WriteAllBytes(@"C:\Exports\site.xml",
+    Convert.FromBase64String(result.GetProperty("output_base64").GetString()!));
+var findings = result.GetProperty("report").GetProperty("files")[0].GetProperty("findings");
+```
+
+`tables.check` and `tables.round_trip` take the same folder; `tables.from_diggs` takes a
+DIGGS file (`content_base64` or `path`) and answers with the tables as a ZIP in
+`output_base64`, ready for `ZipFile.ExtractToDirectory`, with the load plan beside it.
+Without `--allow-path`, send the folder as a ZIP in `package_base64` instead.
+
+**The HTTP API** (`pydiggs serve --http`) takes the folder as a ZIP:
+
+```bash
+curl -s -H 'Content-Type: application/zip' --data-binary @site.zip \
+  'http://127.0.0.1:8000/v1/tables/to-diggs?name=site.zip' > result.json
+```
+
+```csharp
+using var http = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:8000") };
+var body = new ByteArrayContent(File.ReadAllBytes("site.zip"));
+body.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+var answer = await http.PostAsync("/v1/tables/to-diggs?name=site.zip", body);
+var result = JsonDocument.Parse(await answer.Content.ReadAsStringAsync()).RootElement;
+```
+
+The answer is the same as the sidecar's, byte for byte, and the DIGGS file is the one
+`pydiggs.write_bytes(tables.to_model(...).model)` writes from the same CSV files. A ZIP
+pyDIGGS receives is read in memory, never extracted, and refused if it holds anything
+but plain CSV and JSON files (see [the limits](http-api.md#post-v1tables)).
+
 ## The tables
 
 `tables.profile()` returns the full description of every table and column as a Data
@@ -193,7 +247,8 @@ A few rules cover most questions:
   `tables.incomplete`.
 - Content in the `extra` table is not written back. Keep the original file when you need
   to pass the same content on.
-- It reads all rows into memory: a project of a million result rows (200 CPT soundings
+- It reads all rows into memory (an Arrow stream is read batch by batch, but the rows
+  are then held): a project of a million result rows (200 CPT soundings
   of 5,000 rows) takes about 20 seconds and under 1 GB. For larger data sets, write one
   file per project or per hole.
 - One result table can hold up to 10 MB of text, about half a million rows of three

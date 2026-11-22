@@ -6,8 +6,11 @@ documents through :func:`validate` (in the calling thread) or :func:`validate_in
 through :func:`read` or :func:`read_in_pool`, check AGS4 files through
 :func:`ags4_check` or :func:`ags4_check_in_pool`, convert AGS4 to DIGGS and DIGGS to
 AGS4 through :func:`convert` or :func:`convert_in_pool`, compare two DIGGS files
-through :func:`diff` or :func:`diff_in_pool`, and answer rule and version questions
-through :func:`rules`, :func:`explain` and :func:`versions`. They never call
+through :func:`diff` or :func:`diff_in_pool`, write, check and round-trip packages of
+the DIGGS tables profile through :func:`tables` or :func:`tables_in_pool` and turn DIGGS
+into one through :func:`tables_from_diggs` or :func:`tables_from_diggs_in_pool`, and
+answer rule and version questions through :func:`rules`, :func:`explain` and
+:func:`versions`. They never call
 :func:`pydiggs.validate`, :func:`pydiggs.validate_bytes`, :func:`pydiggs.read`,
 :func:`pydiggs.read_bytes`, :func:`pydiggs.ags4.check`, :mod:`pydiggs.convert`,
 :mod:`pydiggs.diff` or the legacy validator themselves (a test enforces this), so every
@@ -58,7 +61,7 @@ from pydiggs._versions import version_info
 from pydiggs.detect import SCHEMA_PATHS
 from pydiggs.errors import DocumentError, InstanceReadError, ResourceError
 from pydiggs.findings import _json, run
-from pydiggs.findings.model import Report, Step
+from pydiggs.findings.model import Report, Step, StepStatus
 from pydiggs.findings.rules import MAX_RULE_ID_CHARS, explain_rule, rule_catalogue
 
 if TYPE_CHECKING:
@@ -80,6 +83,10 @@ __all__ = [
     "DOCUMENT_KINDS",
     "MAX_NAME_INPUT_CHARS",
     "MAX_SELECT_KEYS",
+    "PACKAGE_MEDIA_TYPE",
+    "TABLES_MAX_FILES",
+    "TABLES_OPERATIONS",
+    "TABLES_UNPACK_FACTOR",
     "Ags4CheckRequest",
     "Code",
     "ConvertRequest",
@@ -87,6 +94,8 @@ __all__ = [
     "Outcome",
     "ReadRequest",
     "Request",
+    "TablesFromDiggsRequest",
+    "TablesRequest",
     "ags4_check",
     "ags4_check_in_pool",
     "capabilities",
@@ -100,11 +109,17 @@ __all__ = [
     "make_pool",
     "model_info",
     "model_schema",
+    "package_file",
     "parameter_errors",
     "read",
     "read_fd",
     "read_in_pool",
     "rules",
+    "tables",
+    "tables_from_diggs",
+    "tables_from_diggs_in_pool",
+    "tables_in_pool",
+    "tables_info",
     "validate",
     "validate_in_pool",
     "versions",
@@ -122,8 +137,10 @@ MAX_SECONDS: Final = 86_400
 #: The extra CPU seconds a pooled job may use past its timeout before the kernel stops it.
 _CPU_SLACK: Final = 5.0
 #: Why a read or a conversion may answer ``invalid-document`` (``Outcome.kind``; an
-#: open set). The last two are an AGS4 to DIGGS conversion's: the source is not AGS4,
-#: or is AGS 3; the others are those of DIGGS input (a read, or DIGGS to AGS4).
+#: open set). ``not-ags4`` and ``unsupported-version`` are an AGS4 to DIGGS
+#: conversion's: the source is not AGS4, or is AGS 3; the last three are a tables
+#: package's: not a ZIP, an entry refused, not tables of the profile; the others are
+#: those of DIGGS input (a read, or DIGGS to AGS4).
 DOCUMENT_KINDS: Final = (
     "malformed",
     "not-diggs",
@@ -131,6 +148,9 @@ DOCUMENT_KINDS: Final = (
     "namespace-too-long",
     "not-ags4",
     "unsupported-version",
+    "not-zip",
+    "unsafe-package",
+    "not-tables",
 )
 #: Most node keys a read request's ``select.results`` list may name.
 MAX_SELECT_KEYS: Final = 1000
@@ -180,6 +200,16 @@ _DOCUMENT_TEXT: Final = {
     "namespace-too-long": "The document declares a namespace URI longer than accepted.",
     "not-ags4": "The bytes are not an AGS4 file.",
     "unsupported-version": "The file is AGS 3 or older; convert it to AGS4 first.",
+    "not-zip": "The package is not a ZIP file.",
+    "unsafe-package": (
+        "The package holds an entry that is not a plain CSV or JSON file at its top level"
+        " (or one that is linked, encrypted or listed twice)."
+    ),
+    "not-tables": (
+        "The package is not tables of the DIGGS tables profile: a table the profile does"
+        " not have, a table without a column it requires, or a datapackage.json that cannot"
+        " be used. Run pydiggs map check on it for the details."
+    ),
 }
 
 _GENERIC: Final = {
@@ -906,16 +936,18 @@ def parameter_errors(request: object) -> tuple[tuple[str, str], ...]:
         >>> parameter_errors(ConvertRequest(content=b"", to="ags4", ags_version="4.0"))
         (('ags_version', 'expected one of 4.2, 4.1.1'),)
     """
-    if isinstance(request, Request):
-        return _parameter_errors(request)
-    if isinstance(request, ReadRequest):
-        return _read_parameter_errors(request)
-    if isinstance(request, ConvertRequest):
-        return _convert_parameter_errors(request)
-    if isinstance(request, Ags4CheckRequest):
-        return _ags4_check_parameter_errors(request)
-    if isinstance(request, DiffRequest):
-        return _diff_parameter_errors(request)
+    checks: tuple[tuple[type, Callable[[Any], tuple[tuple[str, str], ...]]], ...] = (
+        (Request, _parameter_errors),
+        (ReadRequest, _read_parameter_errors),
+        (ConvertRequest, _convert_parameter_errors),
+        (Ags4CheckRequest, _ags4_check_parameter_errors),
+        (DiffRequest, _diff_parameter_errors),
+        (TablesRequest, _tables_parameter_errors),
+        (TablesFromDiggsRequest, lambda r: tuple(_name_errors(r.name))),
+    )
+    for kind, check in checks:
+        if isinstance(request, kind):
+            return check(request)
     raise TypeError(f"not a service request: {type(request).__name__}")
 
 
@@ -1484,6 +1516,426 @@ def _diff_failure(exc: Exception, side: str, shown: str) -> Outcome:
     return outcome
 
 
+# --- tables: the DIGGS tables profile (preview) -----------------------------------------
+
+#: What :func:`tables` does with a package (``operation``): write it as a DIGGS file,
+#: check it against the DIGGS dictionaries, or write it and read it back.
+TABLES_OPERATIONS: Final = ("to-diggs", "check", "round-trip")
+#: Most files a package may hold (``pydiggs.tables._package.MAX_FILES``; a test holds
+#: them equal). Kept here so that importing the service does not load the profile.
+TABLES_MAX_FILES: Final = 256
+#: A package ZIP may unpack to at most this many times its size limit (all files together).
+TABLES_UNPACK_FACTOR: Final = 4
+#: The media type of a package (a ZIP of its CSV files and ``datapackage.json``).
+PACKAGE_MEDIA_TYPE: Final = "application/zip"
+#: The name reported for a package sent without one, and for its output.
+_TABLES_INPUT_NAME: Final = "tables.zip"
+#: Fixed texts for a package that cannot be used, by ``Outcome.kind``.
+_PACKAGE_TEXT: Final = _DOCUMENT_TEXT
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TablesRequest:
+    """Tables of the DIGGS tables profile to write, check or round-trip; one package.
+
+    The package is ``content``, a ZIP of its CSV files and ``datapackage.json`` (held to
+    ``max_bytes``, unpacked in memory to at most ``max_unpacked_bytes``, by default
+    :data:`TABLES_UNPACK_FACTOR` times ``max_bytes``), or ``files``, the files already
+    read by the adapter (the sidecar's folder path), file name to bytes. Exactly one is
+    given. ``operation`` (one of :data:`TABLES_OPERATIONS`) and ``name`` may come from
+    the caller; :func:`tables` checks them. There is no time budget: building a model
+    from tables cannot be interrupted, and is bounded by the size limits (the HTTP
+    server's worker timeout still applies).
+
+    Examples:
+        >>> TablesRequest(content=b"PK").operation
+        'to-diggs'
+        >>> TablesRequest(content=b"PK", files={})
+        Traceback (most recent call last):
+        ...
+        ValueError: give exactly one of content and files
+    """
+
+    content: bytes | None = None
+    files: Mapping[str, bytes] | None = None
+    operation: object = "to-diggs"
+    name: str | None = None
+    max_bytes: int = 25 * 2**20
+    max_unpacked_bytes: int | None = None
+    max_result_bytes: int | None = 256 * 2**20
+
+    def __post_init__(self) -> None:
+        if (self.content is None) == (self.files is None):
+            raise ValueError("give exactly one of content and files")
+        if self.content is not None and not isinstance(self.content, bytes):
+            raise TypeError(f"content must be bytes, not {type(self.content).__name__}")
+        if self.files is not None and not all(
+            isinstance(k, str) and isinstance(v, bytes) for k, v in self.files.items()
+        ):
+            raise TypeError("files must map str to bytes")
+        _check_limits(b"", self.max_bytes, None)
+        for limit in ("max_unpacked_bytes", "max_result_bytes"):
+            value = getattr(self, limit)
+            if value is not None and (type(value) is not int or value < 1):
+                raise ValueError(f"{limit} must be a positive int or None, got {value!r}")
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class TablesFromDiggsRequest:
+    """One DIGGS file to turn into tables of the profile, answered as a package ZIP.
+
+    ``name`` may come from the caller; :func:`tables_from_diggs` checks it.
+    ``time_budget`` covers reading the file, as for :func:`read`.
+
+    Examples:
+        >>> TablesFromDiggsRequest(content=b"<Diggs/>").max_bytes
+        26214400
+    """
+
+    content: bytes
+    name: str | None = None
+    max_bytes: int = 25 * 2**20
+    time_budget: float | None = None
+    max_result_bytes: int | None = 256 * 2**20
+
+    def __post_init__(self) -> None:
+        _check_limits(self.content, self.max_bytes, self.time_budget)
+        limit = self.max_result_bytes
+        if limit is not None and (type(limit) is not int or limit < 1):
+            raise ValueError(f"max_result_bytes must be a positive int or None, got {limit!r}")
+
+
+def _tables_parameter_errors(request: TablesRequest) -> tuple[tuple[str, str], ...]:
+    """Check the caller-supplied parameters; fixed texts that never echo the value."""
+    errors = _name_errors(request.name)
+    operation = request.operation
+    if not isinstance(operation, str) or operation not in TABLES_OPERATIONS:
+        errors.append(("operation", f"expected one of {', '.join(TABLES_OPERATIONS)}"))
+    return tuple(errors)
+
+
+def _tables_report(
+    findings: Sequence[Any],
+    *,
+    shown: str,
+    sha256: str,
+    diggs_version: str | None = None,
+    complete: bool = True,
+) -> dict[str, Any]:
+    """A diggs-findings document of step ``tables`` about ``shown``."""
+    from pydiggs.findings.model import Severity  # noqa: PLC0415
+
+    failed = any(f.severity is Severity.ERROR for f in findings)
+    status: StepStatus = "incomplete" if not complete else ("failed" if failed else "passed")
+    report = Report(
+        path=shown,
+        sha256=sha256,
+        diggs_version=diggs_version,
+        steps={Step.TABLES: status},
+        findings=tuple(findings),
+        tool_version=pydiggs.__version__,
+    )
+    return _scrubbed(report).to_document()
+
+
+def _json_value(value: object) -> object:
+    """A cell for a JSON result: as it is, a non-finite number or another type as text."""
+    if value is None or isinstance(value, str | bool | int):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else repr(value)
+    return str(value)
+
+
+def _body(result: Mapping[str, Any]) -> bytes:
+    return json.dumps(result, ensure_ascii=False, allow_nan=False).encode(
+        "utf-8", "backslashreplace"
+    )
+
+
+def _tables_too_large(shown: str) -> Outcome:
+    return Outcome(
+        code=Code.RESULT_TOO_LARGE, detail=f"The result for {shown} is larger than allowed."
+    )
+
+
+def tables(request: TablesRequest, *, should_stop: Callable[[], bool] | None = None) -> Outcome:
+    r"""Write, check or round-trip a package of profile tables, in the calling thread.
+
+    The package (a ZIP, or files the adapter read) is read as
+    :func:`pydiggs.tables.read_package` reads a folder: the resources of its
+    ``datapackage.json``, or every ``<table>.csv``. Then, by ``request.operation``:
+
+    - ``"to-diggs"``: :func:`pydiggs.tables.to_model` and :func:`pydiggs.write_bytes`.
+      The document is one line of JSON: ``profile_version``, ``diggs_version``
+      (``3.0.0``), ``media_type`` (``application/xml``), ``output_name``, ``lossless``,
+      ``counts`` (features, samples, layers, measurements), ``report`` (a diggs-findings
+      1.3 document of step ``tables``), ``output_sha256`` and ``output_base64``: the
+      same bytes as ``pydiggs.write_bytes(tables.to_model(...).model)``.
+    - ``"check"``: the diggs-findings 1.3 document of :func:`pydiggs.tables.check`.
+    - ``"round-trip"``: :func:`pydiggs.tables.round_trip`: ``profile_version``, ``ok``,
+      ``report`` (what writing left out or assumed), ``validation`` (of the DIGGS
+      written), ``differences`` (``table``, ``row``, ``column``, ``sent``, ``got``),
+      ``output_sha256`` and ``output_base64``.
+
+    Each report is about the package, named ``name`` (default ``tables.zip``), with the
+    sha256 of its file list (each file's name and sha256, in name order), so the same
+    files give the same report whether they came as a ZIP or as a folder.
+    ``should_stop`` is checked before and after: building cannot be interrupted.
+
+    Args:
+        request: The package and its parameters.
+        should_stop: Cancellation hook for adapters that can cancel (the sidecar).
+
+    Returns:
+        The document, or an error :class:`Code`: ``invalid-parameter``,
+        ``input-too-large`` (the ZIP, its files or what they unpack to),
+        ``input-unreadable`` (a file is not UTF-8 CSV), ``invalid-document`` (``kind``
+        ``not-zip``, ``unsafe-package`` or ``not-tables``), ``result-too-large``,
+        ``resource-error``, ``internal`` or ``cancelled``. Never raises for bad input.
+
+    Examples:
+        >>> from pydiggs.tables import _package
+        >>> package = _package.pack([("features.csv", b"key,depth_uom\nBH-1,m\n")])
+        >>> result = json.loads(tables(TablesRequest(content=package)).document)
+        >>> (
+        ...     result["output_name"],
+        ...     result["counts"]["features"],
+        ...     result["report"]["files"][0]["path"],
+        ... )
+        ('tables.xml', 1, 'tables.zip')
+        >>> bad = tables(TablesRequest(content=b"not a zip"))
+        >>> bad.code, bad.kind
+        (<Code.INVALID_DOCUMENT: 'invalid-document'>, 'not-zip')
+    """
+    errors = _tables_parameter_errors(request)
+    if errors:
+        return Outcome(code=Code.INVALID_PARAMETER, detail="invalid parameters", errors=errors)
+    shown = _ags4_name(request.name, _TABLES_INPUT_NAME)
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    try:
+        outcome = _tables_outcome(request, shown)
+    except Exception as exc:  # fail closed: no traceback or path reaches the caller
+        return _tables_failure(exc, shown)
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    return outcome
+
+
+def _package_files(request: TablesRequest, shown: str) -> Mapping[str, bytes] | Outcome:
+    """The package's files: unpacked from the ZIP within the limits, or as the adapter read them."""
+    from pydiggs.tables import _package  # noqa: PLC0415  # loads on first use
+
+    if request.files is not None:
+        files = request.files
+    else:
+        content = request.content
+        assert content is not None  # noqa: S101  # exactly one is set
+        if len(content) > request.max_bytes:
+            return Outcome(code=Code.INPUT_TOO_LARGE, detail=f"{shown} is larger than allowed")
+        limit = request.max_unpacked_bytes or TABLES_UNPACK_FACTOR * request.max_bytes
+        files = _package.unpack(content, max_unpacked_bytes=limit)
+    if len(files) > TABLES_MAX_FILES:
+        return Outcome(
+            code=Code.INPUT_TOO_LARGE,
+            detail=f"{shown} has more than {TABLES_MAX_FILES} files.",
+        )
+    if not all(_package.valid_name(n) for n in files):
+        kind = "unsafe-package"
+        return Outcome(code=Code.INVALID_DOCUMENT, detail=_PACKAGE_TEXT[kind], kind=kind)
+    return files
+
+
+def _tables_outcome(request: TablesRequest, shown: str) -> Outcome:
+    """:func:`tables` after its parameter checks; package and tables errors propagate."""
+    from pydiggs import tables as profile  # noqa: PLC0415  # loads on first use
+    from pydiggs.tables import _io, _package  # noqa: PLC0415
+
+    files = _package_files(request, shown)
+    if isinstance(files, Outcome):
+        return files
+    sha256 = _package.digest(files)
+    found = _io.tables_from_files(files)
+    stem = shown.rsplit(".", 1)[0] or "tables"
+    limit = request.max_result_bytes
+    if request.operation == "check":
+        report = _tables_report(profile.check(found), shown=shown, sha256=sha256)
+        return Outcome(
+            document=_json.dumps(report, indent=None).encode("utf-8", "backslashreplace")
+        )
+    if request.operation == "round-trip":
+        checked = profile.round_trip(found)
+        output = checked.diggs
+        if limit is not None and _encoded_size(output) > limit:
+            return _tables_too_large(shown)
+        result: dict[str, Any] = {
+            "profile_version": profile.PROFILE_VERSION,
+            "ok": checked.ok,
+            "report": _tables_report(checked.findings, shown=shown, sha256=sha256),
+            "validation": _scrubbed(
+                dataclasses.replace(checked.validation, path=f"{stem}.xml")
+            ).to_document(),
+            "differences": [
+                {
+                    "table": d.table,
+                    "row": d.row,
+                    "column": d.column,
+                    "sent": _json_value(d.sent),
+                    "got": _json_value(d.got),
+                }
+                for d in checked.differences
+            ],
+            "output_sha256": hashlib.sha256(output).hexdigest(),
+            "output_base64": base64.b64encode(output).decode("ascii"),
+        }
+    else:
+        built = profile.to_model(found)
+        output = pydiggs.write_bytes(built.model)
+        if limit is not None and _encoded_size(output) > limit:
+            return _tables_too_large(shown)
+        model = built.model
+        result = {
+            "profile_version": profile.PROFILE_VERSION,
+            "diggs_version": CONVERT_DIGGS_VERSIONS[0],
+            "media_type": DIGGS_MEDIA_TYPE,
+            "output_name": f"{stem}.xml",
+            "lossless": built.lossless,
+            "counts": {
+                "features": len(model.features),
+                "samples": len(model.samples),
+                "layers": sum(len(observation.layers) for observation in model.observations),
+                "measurements": len(model.measurements),
+            },
+            "report": _tables_report(built.findings, shown=shown, sha256=sha256),
+            "output_sha256": hashlib.sha256(output).hexdigest(),
+            "output_base64": base64.b64encode(output).decode("ascii"),
+        }
+    body = _body(result)
+    if limit is not None and len(body) > limit:
+        return _tables_too_large(shown)
+    return Outcome(document=body)
+
+
+def _tables_failure(exc: Exception, shown: str) -> Outcome:
+    """The outcome for what a tables request raised: the package, its tables, or internal."""
+    import csv  # noqa: PLC0415  # only to recognise its error
+
+    from pydiggs.errors import TablesError  # noqa: PLC0415
+    from pydiggs.tables._package import PackageError  # noqa: PLC0415
+
+    if isinstance(exc, PackageError):
+        if exc.kind == "too-large":
+            return Outcome(code=Code.INPUT_TOO_LARGE, detail=str(exc))
+        return Outcome(code=Code.INVALID_DOCUMENT, detail=_PACKAGE_TEXT[exc.kind], kind=exc.kind)
+    if isinstance(exc, TablesError) and isinstance(exc.__cause__, UnicodeDecodeError | csv.Error):
+        exc = exc.__cause__  # a file that is not UTF-8 CSV: unreadable, not "not tables"
+    elif isinstance(exc, TablesError):
+        return Outcome(
+            code=Code.INVALID_DOCUMENT, detail=_PACKAGE_TEXT["not-tables"], kind="not-tables"
+        )
+    if isinstance(exc, UnicodeDecodeError | csv.Error):
+        return Outcome(
+            code=Code.INPUT_UNREADABLE,
+            detail=f"A file of {shown} could not be read as UTF-8 CSV or JSON text.",
+        )
+    return _read_failure(exc, shown)
+
+
+def tables_from_diggs(
+    request: TablesFromDiggsRequest, *, should_stop: Callable[[], bool] | None = None
+) -> Outcome:
+    """Turn one DIGGS file into tables of the profile, answered as a package ZIP.
+
+    The file is read as :func:`read` reads it, then :func:`pydiggs.tables.from_model`
+    makes the tables. The document is one line of JSON: ``profile_version``,
+    ``diggs_version`` (of the source), ``complete``, ``lossless``, ``plan`` (what
+    ``plan.json`` holds: the tables in load order, with their identity columns),
+    ``report`` (a diggs-findings 1.3 document about the source: the reader's notes and
+    every ``tables`` finding), ``media_type`` (``application/zip``), ``output_name``,
+    ``output_sha256`` and ``output_base64``: a ZIP of the files
+    :func:`pydiggs.tables.write_package` writes (a CSV per table, ``datapackage.json``,
+    ``plan.json``), byte for byte, with fixed timestamps.
+
+    Args:
+        request: The DIGGS file and its parameters.
+        should_stop: Cancellation hook, checked while reading and after.
+
+    Returns:
+        The document, or an error :class:`Code`: the ones :func:`read` answers. Never
+        raises for bad input.
+
+    Examples:
+        >>> from pathlib import Path
+        >>> data = Path("tests/fixtures/official/3.0/Aeromag.xml").read_bytes()
+        >>> result = json.loads(tables_from_diggs(TablesFromDiggsRequest(content=data)).document)
+        >>> result["output_name"], result["media_type"], result["plan"]["steps"][0]["table"]
+        ('input.zip', 'application/zip', 'document')
+    """
+    errors = tuple(_name_errors(request.name))
+    if errors:
+        return Outcome(code=Code.INVALID_PARAMETER, detail="invalid parameters", errors=errors)
+    shown = _ags4_name(request.name, _DIGGS_INPUT_NAME)
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    try:
+        outcome = _from_diggs_outcome(request, shown, should_stop)
+    except Exception as exc:  # fail closed: no traceback or path reaches the caller
+        return _read_failure(exc, shown)
+    if should_stop is not None and should_stop():
+        return _CANCELLED
+    return outcome
+
+
+def _from_diggs_outcome(
+    request: TablesFromDiggsRequest, shown: str, should_stop: Callable[[], bool] | None
+) -> Outcome:
+    """:func:`tables_from_diggs` after its parameter checks; reader errors propagate."""
+    from pydiggs import tables as profile  # noqa: PLC0415  # loads on first use
+    from pydiggs.tables import _io, _package  # noqa: PLC0415
+
+    if len(request.content) > request.max_bytes:
+        return Outcome(code=Code.INPUT_TOO_LARGE, detail=f"{shown} is larger than allowed")
+    model = _reader.read_stoppable(
+        request.content,
+        name=shown,
+        diggs_version=None,
+        results=True,
+        max_bytes=request.max_bytes,
+        time_budget=request.time_budget,
+        should_stop=should_stop,
+    )
+    found = profile.from_model(model)
+    output = _package.pack(_io.package_files(found))
+    limit = request.max_result_bytes
+    if limit is not None and _encoded_size(output) > limit:
+        return _tables_too_large(shown)
+    findings = (*model.notes, *found.findings)
+    report = _tables_report(
+        findings,
+        shown=shown,
+        sha256=hashlib.sha256(request.content).hexdigest(),
+        diggs_version=model.source.diggs_version,
+        complete=model.complete,
+    )
+    result = {
+        "profile_version": profile.PROFILE_VERSION,
+        "diggs_version": model.source.diggs_version,
+        "complete": model.complete,
+        "lossless": all(f.severity.rank == 0 for f in found.findings),
+        "plan": found.plan.to_dict(),
+        "report": report,
+        "media_type": PACKAGE_MEDIA_TYPE,
+        "output_name": f"{shown.rsplit('.', 1)[0] or 'input'}.zip",
+        "output_sha256": hashlib.sha256(output).hexdigest(),
+        "output_base64": base64.b64encode(output).decode("ascii"),
+    }
+    body = _body(result)
+    if limit is not None and len(body) > limit:
+        return _tables_too_large(shown)
+    return Outcome(document=body)
+
+
 # --- process isolation ------------------------------------------------------------------
 
 
@@ -1535,20 +1987,28 @@ def make_pool(workers: int, *, timeout: float, memory_mb: int | None = 2048) -> 
     )
 
 
-_AnyRequest = Request | ReadRequest | ConvertRequest | Ags4CheckRequest | DiffRequest
+_AnyRequest = (
+    Request
+    | ReadRequest
+    | ConvertRequest
+    | Ags4CheckRequest
+    | DiffRequest
+    | TablesRequest
+    | TablesFromDiggsRequest
+)
 
 
 def _run(request: _AnyRequest) -> Outcome:
     """Answer any request in the calling thread."""
-    if isinstance(request, ReadRequest):
-        return read(request)
-    if isinstance(request, ConvertRequest):
-        return convert(request)
-    if isinstance(request, Ags4CheckRequest):
-        return ags4_check(request)
-    if isinstance(request, DiffRequest):
-        return diff(request)
-    return validate(request)
+    answers: dict[type, Callable[..., Outcome]] = {
+        ReadRequest: read,
+        ConvertRequest: convert,
+        Ags4CheckRequest: ags4_check,
+        DiffRequest: diff,
+        TablesRequest: tables,
+        TablesFromDiggsRequest: tables_from_diggs,
+    }
+    return answers.get(type(request), validate)(request)
 
 
 def _pooled(request: _AnyRequest) -> bytes:
@@ -1673,6 +2133,41 @@ def diff_in_pool(pool: WorkerPool, request: DiffRequest, *, timeout: float) -> O
     return _in_pool(pool, request, timeout=timeout, what="Comparison")
 
 
+def tables_in_pool(pool: WorkerPool, request: TablesRequest, *, timeout: float) -> Outcome:
+    """Write, check or round-trip a package in a worker process, killed after ``timeout`` s.
+
+    As :func:`validate_in_pool`, for :func:`tables`: the hard timeout is the only time
+    limit a package has.
+
+    Args:
+        pool: From :func:`make_pool`.
+        request: The package and its parameters.
+        timeout: Hard limit in seconds.
+
+    Returns:
+        As for :func:`tables`, plus ``timeout``.
+    """
+    return _in_pool(pool, request, timeout=timeout, what="The tables request")
+
+
+def tables_from_diggs_in_pool(
+    pool: WorkerPool, request: TablesFromDiggsRequest, *, timeout: float
+) -> Outcome:
+    """Turn a DIGGS file into tables in a worker process, killed after ``timeout`` seconds.
+
+    As :func:`validate_in_pool`, for :func:`tables_from_diggs`.
+
+    Args:
+        pool: From :func:`make_pool`.
+        request: The DIGGS file and its parameters.
+        timeout: Hard limit in seconds.
+
+    Returns:
+        As for :func:`tables_from_diggs`, plus ``timeout``.
+    """
+    return _in_pool(pool, request, timeout=timeout, what="Reading into tables")
+
+
 def _in_pool(pool: WorkerPool, request: _AnyRequest, *, timeout: float, what: str) -> Outcome:
     from pydiggs._pool import JobFailedError, JobTimeoutError, PoolError  # noqa: PLC0415
 
@@ -1738,6 +2233,33 @@ def versions() -> dict[str, Any]:
         '1.3'
     """
     return version_info().to_dict()
+
+
+def tables_info() -> dict[str, str]:
+    """The version of the DIGGS tables profile the ``tables`` operations read and write.
+
+    Examples:
+        >>> tables_info()["tables_profile_version"]
+        '1.0-beta.1'
+    """
+    from pydiggs.tables import PROFILE_VERSION  # noqa: PLC0415  # loads the profile
+
+    return {"tables_profile_version": PROFILE_VERSION}
+
+
+def package_file(name: str) -> bool:
+    """Whether a file named ``name`` belongs in a tables package (a plain CSV or JSON name).
+
+    The sidecar reads only such files from a package folder; the same rule refuses any
+    other entry of a package ZIP.
+
+    Examples:
+        >>> package_file("features.csv"), package_file(".DS_Store"), package_file("a.txt")
+        (True, False, False)
+    """
+    from pydiggs.tables._package import valid_name  # noqa: PLC0415
+
+    return valid_name(name)
 
 
 def capabilities() -> dict[str, Any]:

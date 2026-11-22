@@ -4,8 +4,8 @@
 application can start and talk to over its standard input and output. It suits desktop
 and native applications in any language (Rust, C#, Java, Swift, C++, TypeScript on Node or
 Electron, and so on) that cannot embed CPython. This page is the normative specification
-of protocol version **1.3** (1.0 plus the `read` method in 1.1, `convert` and
-`ags4.check` in 1.2, and `diff` in 1.3). [Host guidance](sidecar-hosts.md) covers supervision,
+of protocol version **1.4** (1.0 plus the `read` method in 1.1, `convert` and
+`ags4.check` in 1.2, `diff` in 1.3, and the `tables.*` methods, a preview, in 1.4). [Host guidance](sidecar-hosts.md) covers supervision,
 packaging and example clients.
 
 The sidecar is part of the core package: it needs no extra and uses only the Python
@@ -92,7 +92,7 @@ content or absolute paths, and client strings are escaped.
 
 `initialize.params.protocol_version` is `"MAJOR.MINOR"`. The major must equal the
 sidecar's (`1`), otherwise the answer is `unsupported-protocol-version` with
-`data.supported`, e.g. `["1.0", "1.1", "1.2", "1.3"]`. The sidecar answers the highest minor it supports that
+`data.supported`, e.g. `["1.0", "1.1", "1.2", "1.3", "1.4"]`. The sidecar answers the highest minor it supports that
 does not exceed the requested one. Minor versions only add: hosts must ignore unknown
 result fields; new methods are advertised in `capabilities`. The sidecar refuses unknown
 parameters with `-32602` (except unknown keys inside `capabilities`, which it ignores).
@@ -131,7 +131,7 @@ ends it with status 1. `exit` is honoured at any time and abandons any running w
 
 | param | type | notes |
 |---|---|---|
-| `protocol_version` | string, required | `"1.3"` (or `"1.2"`: no 1.3 members, and `diff` is `method-not-found`; or `"1.1"`: no 1.2 members either, and `convert` and `ags4.check` are `method-not-found` too; or `"1.0"`: no 1.1 members either, and `read` is `method-not-found` too) |
+| `protocol_version` | string, required | `"1.4"` (or `"1.3"`: no 1.4 members, and the `tables.*` methods are `method-not-found`; or `"1.2"`: no 1.3 members either, and `diff` is `method-not-found` too; or `"1.1"`: no 1.2 members either, and `convert` and `ags4.check` are `method-not-found` too; or `"1.0"`: no 1.1 members either, and `read` is `method-not-found` too) |
 | `client_info` | object | `{name ≤ 128 chars, version ≤ 64 chars}`, logged at `info` |
 | `capabilities` | object | `{progress: bool}` asks for `$/progress` notifications |
 | `diggs_versions` | string[] | DIGGS versions to warm up (default: every released bundled version, not the experimental `3.1-dev`) |
@@ -140,7 +140,7 @@ Result:
 
 ```json
 {
-  "protocol_version": "1.3",
+  "protocol_version": "1.4",
   "pydiggs_version": "1.13.0",
   "findings_schema_version": "1.3",
   "findings_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-findings-1.3.schema.json",
@@ -148,6 +148,7 @@ Result:
   "model_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-model-1.0.schema.json",
   "diff_schema_version": "1.0",
   "diff_schema_url": "https://xinp-hub.github.io/pydiggs/schemas/diggs-diff-1.0.schema.json",
+  "tables_profile_version": "1.0-beta.1",
   "diggs_versions": ["2.5.a", "2.6", "3.0.0", "3.1-dev"],
   "reference_data": {"def": "…", "schema-dev": "…", "schemas": "…"},
   "capabilities": {
@@ -156,6 +157,7 @@ Result:
     "convert": {"content": true, "path": false, "to": ["diggs", "ags4"], "ags_versions": ["4.2", "4.1.1"], "residual": true},
     "ags4_check": {"content": true, "path": false, "dictionary": true},
     "diff": {"content": true, "path": false, "match": ["auto", "gml-id", "natural", "gml_id"]},
+    "tables": {"content": true, "path": false, "methods": ["tables.check", "tables.from_diggs", "tables.round_trip", "tables.to_diggs"], "profile_version": "1.0-beta.1"},
     "cancel": true, "progress": false, "rules": true, "ping": true
   },
   "limits": {
@@ -172,7 +174,8 @@ sizing buffers for `validate`, not a guarantee; `max_result_bytes` is the hard l
 `read` result. A host that negotiates `"1.0"` gets the 1.0 answer: no `model_schema_*`,
 no `capabilities.read` and no `max_result_bytes`; one that negotiates `"1.1"` gets no
 `capabilities.convert` and no `capabilities.ags4_check`; one that negotiates `"1.2"` gets
-no `diff_schema_*` and no `capabilities.diff`.
+no `diff_schema_*` and no `capabilities.diff`; one that negotiates `"1.3"` gets no
+`tables_profile_version` and no `capabilities.tables`.
 
 ### `validate`
 
@@ -330,6 +333,66 @@ answers. Validate it against its own `$schema` and tolerate unknown fields.
   A queued one can be cancelled; a running one is checked for cancellation only when it
   ends. `$/progress` reports `step: "diff"`.
 
+### `tables.to_diggs`, `tables.check`, `tables.round_trip`, `tables.from_diggs` {#tables}
+
+Protocol 1.4, **preview** (as [`pydiggs.tables`](tables.md) and the tables profile
+`1.0-beta.1`: they may change in a minor release until the profile reaches 1.0). They
+let a host on .NET, Java or any other language export its database to DIGGS, and import
+DIGGS into it, with no Python code: the host writes the profile's CSV files, the
+sidecar does the rest. A session that negotiated 1.3 or older gets `method-not-found`.
+
+The first three take a **package**: the profile's CSV files (one per table) and,
+optionally, `datapackage.json`.
+
+| param | type | notes |
+|---|---|---|
+| `package_base64` | string | the package as a ZIP, standard base64; held to `max_bytes`, and so within `max_line_bytes` |
+| `path` | string | instead: an absolute **folder** under an `--allow-path` root (vetted as `path` is for `validate`) |
+| `name` | string ≤ 4096 | the name to report (default `tables.zip`, or the folder's name) |
+
+Exactly one of `package_base64` and `path`. Large packages go by path: a request line is
+bounded by `max_line_bytes`. There is no `time_budget_s`: building a file from tables
+cannot be interrupted, and is bounded by the size limits.
+
+- **By path**, the folder is opened without following a final symlink and its real path
+  must lie inside a root, as for a file; then each of its `.csv` and `.json` files is
+  opened and verified on its own. Other entries (subfolders, other kinds of file,
+  hidden files) are not read, as `tables.read_package` ignores them. A package file
+  that is a symlink, or not a regular file, refuses the request (`path-not-permitted`).
+  Each file is held to `max_path_bytes`, and so are all of them together; more than 256
+  package files is `input-too-large`.
+- **Inline**, the ZIP is read in memory, never extracted to disk: at most 256 files,
+  unpacking to at most four times `max_bytes` (counted while decompressing), each a
+  plain `.csv` or `.json` name at the top of the ZIP (one wrapping folder is allowed;
+  folder entries, `__MACOSX/` and hidden files are skipped). Any other entry (`..`, an
+  absolute path, a nested folder, a symbolic link, an encrypted entry, a name listed
+  twice, another kind of file) refuses the package: `invalid-document` with `kind`
+  `unsafe-package`. Bytes that are not a ZIP are `kind` `not-zip`; more than the limits
+  allow is `input-too-large`.
+- Tables that are not the profile's (an unknown table, a missing key column, an
+  unusable `datapackage.json`) are `invalid-document` with `kind` `not-tables`; a CSV
+  that is not UTF-8 is `input-unreadable`. Texts are fixed and never name your files:
+  run `pydiggs map check` on the package for the details.
+
+| method | result |
+|---|---|
+| `tables.to_diggs` | as `POST /v1/tables/to-diggs`: `output_base64` (the DIGGS 3.0.0 file, the bytes `pydiggs.write_bytes(tables.to_model(...).model)` gives), `output_sha256`, `output_name`, `media_type`, `counts`, `lossless`, `profile_version` and the `report` (diggs-findings 1.3, step `tables`) |
+| `tables.check` | the diggs-findings 1.3 document of `tables.check` |
+| `tables.round_trip` | as `POST /v1/tables/round-trip`: `ok`, `report`, `validation`, `differences` (`table`, `row`, `column`, `sent`, `got`) and the DIGGS file |
+
+`tables.from_diggs` takes **one DIGGS document**, with `content_base64`, `path`, `name`
+and `time_budget_s` as for `read`, and answers as `POST /v1/tables/from-diggs`:
+`output_base64` is a ZIP of the files `tables.write_package` writes (a CSV per table,
+`datapackage.json`, `plan.json`), byte for byte, with the `plan`, `diggs_version`,
+`complete`, `lossless` and the `report`. The sidecar writes no file: the host unpacks the
+ZIP where it wants it.
+
+The same package gives the same answer by path, inline and over HTTP: the report names
+the package by `name` and the sha256 of its file list (each file's name and sha256),
+not of the container. The methods share the queue with the other document methods; a
+queued one can be cancelled, a running one is checked when it ends. `$/progress`
+reports `step: "tables"`.
+
 ### `ping`, `versions`
 
 `ping` takes no parameters and returns `{}`. `versions` returns the same fields as
@@ -360,7 +423,7 @@ Other notifications, `$/`-prefixed or not, are ignored. `$/progress`
 reports `step: "queue", status: "waiting"` when a validation or a read waits behind
 another, `step: "validate", status: "started"` when a validation starts and
 `status: "running"` at each step boundary (`step: "read"` for a read, `step: "diff"`
-for a comparison). Treat it as a liveness signal; hosts must ignore step and status values they do
+for a comparison, `step: "tables"` for the `tables.*` methods). Treat it as a liveness signal; hosts must ignore step and status values they do
 not know (later minors may name the individual checks).
 
 ## Errors
@@ -379,15 +442,15 @@ it with LSP or MCP meanings.
 | -32000 | `busy` | one validation, read, conversion or check running and one waiting | |
 | -32001 | `not-initialized` | request before `initialize` completed | |
 | -32002 | `shutting-down` | request after `shutdown`, or dropped by it | |
-| -32003 | `input-too-large` | document over `max_bytes` / `max_path_bytes` | `max_bytes` (content mode) |
+| -32003 | `input-too-large` | document over `max_bytes` / `max_path_bytes`; a package with more than 256 files or unpacking to more than allowed | `max_bytes` (content mode) |
 | -32004 | `compressed-input` | gzip-compressed document | |
 | -32005 | `path-not-permitted` | path mode off, refused path form, outside every root, missing, or not a regular file (all identical) | |
 | -32006 | `input-unreadable` | the permitted file could not be read | |
 | -32007 | `resource-error` | the bundled reference data could not be loaded | `correlation_id` |
 | -32008 | `cancelled` | cancelled by `$/cancelRequest` | |
 | -32009 | `unsupported-protocol-version` | major version mismatch | `supported` |
-| -32010 | `invalid-document` | `read`, `diff` and `convert` to AGS4: the bytes are not a DIGGS document; `convert` to DIGGS: not AGS4 | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long`; for `convert` to DIGGS `not-ags4` or `unsupported-version`; for `diff`, `errors` names the file (`old` or `new`) |
-| -32011 | `result-too-large` | `read`, `convert`, `diff`: the result is over `max_result_bytes` (for `read`, ask for fewer tables with `select`; for `diff`, list fewer changes with `max_changes`) | `max_result_bytes` |
+| -32010 | `invalid-document` | `read`, `diff`, `convert` to AGS4 and `tables.from_diggs`: the bytes are not a DIGGS document; `convert` to DIGGS: not AGS4; `tables.*` packages: not a ZIP, an entry refused, not the profile's tables | `kind`: `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long`; for `convert` to DIGGS `not-ags4` or `unsupported-version`; for a package `not-zip`, `unsafe-package` or `not-tables`; for `diff`, `errors` names the file (`old` or `new`) |
+| -32011 | `result-too-large` | `read`, `convert`, `diff`, `tables.*`: the result is over `max_result_bytes` (for `read`, ask for fewer tables with `select`; for `diff`, list fewer changes with `max_changes`) | `max_result_bytes` |
 
 Errors for unparseable lines carry `"id": null`. A broken notification gets no answer.
 Messages never echo request values; at most they name the reported basename.

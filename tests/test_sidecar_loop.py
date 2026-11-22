@@ -267,7 +267,7 @@ def test_initialize_errors_and_retry(session):
     assert reply["error"]["code"] == -32009
     assert reply["error"]["data"] == {
         "code": "unsupported-protocol-version",
-        "supported": ["1.0", "1.1", "1.2", "1.3"],
+        "supported": ["1.0", "1.1", "1.2", "1.3", "1.4"],
     }
     assert _slug(s.call("initialize", {})) == "invalid-params"
     assert s.initialize()["protocol_version"] == "1.0"  # a failed initialize can be retried
@@ -963,3 +963,22 @@ def test_serve_stdio_is_the_entry_point(monkeypatch):
 
     monkeypatch.setattr(_loop, "serve", lambda options: 42)
     assert pydiggs.sidecar.serve_stdio(ServeOptions()) == 42
+
+
+def test_a_job_is_finished_before_its_reply_so_its_id_can_be_reused_at_once(session):
+    """A client may reuse an id as soon as it has the reply (JSON-RPC)."""
+    s = session()
+    s.initialize()
+    running_at_reply: list[object] = []
+    real = s.server.send
+
+    def spy(frame: bytes) -> None:
+        if b'"result"' in frame and b'"id":7' in frame.replace(b" ", b""):
+            running_at_reply.append(s.server._running)
+        real(frame)
+
+    s.server.send = spy  # type: ignore[method-assign]
+    for _ in range(3):
+        reply = s.call("validate", {"content_base64": _content()}, id=7)
+        assert "result" in reply, reply
+    assert running_at_reply == [None, None, None]

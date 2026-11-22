@@ -103,6 +103,10 @@ exactly the operations the installed release offers. `needs` is the extra to ins
 | `convert.diggs-to-ags4` | stable |  | Convert a DIGGS file (or a read one) to an AGS4 file, listing everything not carried over |
 | `diff` | stable |  | Compare two DIGGS files: what was added, removed or changed |
 | `write` | stable |  | Write what was read or built from tables as a DIGGS 3.0.0 file |
+| `tables.to-diggs` | preview |  | Write tables of the DIGGS tables profile (your database's export) as a DIGGS 3.0.0 file, naming every row or value not carried |
+| `tables.from-diggs` | preview |  | Turn a DIGGS file (or a read one) into tables of the profile, with a load plan |
+| `tables.check` | preview |  | Check tables of the profile against the DIGGS dictionaries without writing a file |
+| `tables.round-trip` | preview |  | Write tables of the profile as DIGGS, validate the file, read it back and list every value that came back changed |
 | `export.pandas` | stable | `frames` | Tables of a read file as a pandas data frame |
 | `export.polars` | stable | `polars` | Tables of a read file as a polars data frame |
 | `gis.transform` | stable | `gis` | Add longitude and latitude to every location that has a known CRS |
@@ -128,6 +132,10 @@ Where each is in Python:
 | `convert.ags4-to-diggs` | `pydiggs.convert.ags4_to_diggs()` |
 | `convert.diggs-to-ags4` | `pydiggs.convert.diggs_to_ags4()`, `model_to_ags4()` |
 | `diff` | `pydiggs.diff.compare()` |
+| `tables.to-diggs` | `pydiggs.tables.to_model()` (rows from `read_package()` or `rows_from_cursor()`), then `pydiggs.write_bytes()` |
+| `tables.from-diggs` | `pydiggs.tables.from_model()`, `write_package()` |
+| `tables.check` | `pydiggs.tables.check()` |
+| `tables.round-trip` | `pydiggs.tables.round_trip()` |
 | `export.pandas` | `pydiggs.frames.to_pandas()` |
 | `export.polars` | `pydiggs.frames.to_polars()` |
 | `gis.transform` | `pydiggs.gis.transform()` |
@@ -139,7 +147,10 @@ The AGS4 reading, writing and checking operations are a preview; conversion
 sidecar's `convert` are either conversion operation, chosen by their `to` parameter.
 `diff` ([Comparing two files](diff.md), from pyDIGGS 1.12, stable from 1.13) is offered in Python, as
 `pydiggs diff`, and from 1.13 as `POST /v1/diff` and the sidecar's `diff` (protocol 1.3);
-the MCP server does not offer it yet. The
+the MCP server does not offer it yet. The four `tables.*` operations
+([Your database to DIGGS and back](tables.md)) are a preview, offered in Python, as
+`pydiggs tables` and `pydiggs map`, as `POST /v1/tables/*` and as the sidecar's
+`tables.*` methods (protocol 1.4); not by the MCP server. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).
 

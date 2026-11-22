@@ -71,6 +71,10 @@ app, a reverse proxy or an API gateway for that.
 | `POST /v1/convert` | 200 with a conversion result: an AGS4 file as DIGGS 3.0.0, or a DIGGS document as AGS4 (base64), and every loss ([AGS4 and DIGGS conversion](convert.md)) |
 | `POST /v1/ags4/check` | 200 with a diggs-findings 1.3 document of the AGS4 rules, or SARIF 2.1.0 ([AGS4 files](ags4.md)) |
 | `POST /v1/diff` | 200 with a diggs-diff 1.0 document: what was added, removed or changed between two DIGGS files ([Comparing two files](diff.md)) |
+| `POST /v1/tables/to-diggs` | 200 with a package of [tables profile](tables.md) tables (a ZIP) written as DIGGS 3.0.0 (base64), and every row or value not carried (preview) |
+| `POST /v1/tables/check` | 200 with a diggs-findings 1.3 document: the package checked against the DIGGS dictionaries (preview) |
+| `POST /v1/tables/round-trip` | 200 with the package written as DIGGS, validated, read back and compared (preview) |
+| `POST /v1/tables/from-diggs` | 200 with a DIGGS document as tables of the profile: a package ZIP (base64) and its load plan (preview) |
 | `GET /v1/versions` | pydiggs, findings schema and DIGGS versions, reference-data commits, `api_version: "1"` (off with `versions_enabled=False`) |
 | `GET /v1/capabilities` | a [diggs-capabilities 1.0](capabilities.md) document: what this server's pydiggs can do (off with `versions_enabled=False`) |
 | `GET /v1/rules?step=` | every rule id pydiggs can emit (open families as patterns) |
@@ -281,6 +285,65 @@ curl -s -F old=@BH-01-v1.xml -F new=@BH-01-v2.xml -F max_changes=100 \
 - The two files are compared in memory; nothing is written to disk. Every string in the
   document (names, keys, values) comes from the files: escape it before you render it.
 
+### `POST /v1/tables/*` {#post-v1tables}
+
+!!! warning "Preview"
+    These four endpoints, like [`pydiggs.tables`](tables.md) and the tables profile
+    (`1.0-beta.1`), are a preview: they may change in a minor release until the profile
+    reaches 1.0.
+
+They put the [DIGGS tables profile](tables.md) within reach of any language. A package
+is a **ZIP** of the profile's CSV files (one per table) and, optionally,
+`datapackage.json`, exactly what `pydiggs tables from-diggs` writes and
+`tables.read_package` reads. Send it raw (`Content-Type: application/zip`, or
+`application/x-zip-compressed`) or as multipart with one `file` part. The only parameter
+is `name`, the name to report (default `tables.zip`; the part's file name for a form).
+
+| endpoint | answers with |
+|---|---|
+| `POST /v1/tables/to-diggs` | `TablesToDiggsResult`: `output_base64` (the DIGGS 3.0.0 file, the same bytes as `pydiggs.write_bytes(tables.to_model(...).model)`), `output_sha256`, `output_name`, `media_type`, `counts` (features, samples, layers, measurements), `lossless`, `profile_version`, and the `report` (diggs-findings 1.3, step `tables`) naming every row or value left out or assumed |
+| `POST /v1/tables/check` | a diggs-findings 1.3 document: what [`tables.check`](tables.md#check-your-export) finds |
+| `POST /v1/tables/round-trip` | `TablesRoundTripResult`: `ok`, the `report` of writing, the `validation` of the DIGGS written, every value that came back changed (`differences`: `table`, `row`, `column`, `sent`, `got`), and the DIGGS file |
+| `POST /v1/tables/from-diggs` | `TablesFromDiggsResult`: the body is one DIGGS document (raw XML or a `file` part, as for `/v1/read`); the answer holds `output_base64`, a ZIP of the files `tables.write_package` writes (a CSV per table, `datapackage.json`, `plan.json`) byte for byte, with the `plan`, `diggs_version`, `complete`, `lossless` and the `report` |
+
+```bash
+cd my-export && zip -q ../site.zip *.csv && cd ..
+curl -s 'http://127.0.0.1:8000/v1/tables/to-diggs?name=site.zip' \
+  -H 'Content-Type: application/zip' --data-binary @site.zip > result.json
+jq -r .output_base64 result.json | base64 --decode > site.xml
+jq '.report.files[0].findings[] | {rule_id, path, message}' result.json
+
+curl -s -H 'Content-Type: application/xml' --data-binary @site.xml \
+  http://127.0.0.1:8000/v1/tables/from-diggs | jq -r .output_base64 | base64 --decode > back.zip
+```
+
+- **The ZIP is untrusted.** It is read in memory and never extracted to disk. It may
+  hold at most 256 files, which together may unpack to at most four times
+  `max_body_bytes` (counted while decompressing, not taken from the ZIP's headers;
+  more is 413 `input-too-large`). Every file must be a plain `.csv` or `.json` name at
+  the top of the ZIP; one folder wrapping them all (a ZIP of a folder) is allowed, and
+  folder entries, `__MACOSX/` and hidden files (`.DS_Store`) are skipped. Anything else
+  refuses the whole package as 422 `invalid-document` with `kind` `unsafe-package`: an
+  absolute path, `..`, a drive letter, a nested folder, a symbolic link, an
+  encrypted entry, a name listed twice, another kind of file, or a compression other
+  than stored and deflate. A backslash in a name is read as a folder separator, as many
+  Windows tools write it.
+- **Not a ZIP** is 422 `invalid-document` with `kind` `not-zip`; tables that are not
+  the profile's (an unknown table, a missing key column, an unusable
+  `datapackage.json`) are `kind` `not-tables` (run `pydiggs map check` locally for the
+  details); a CSV that is not UTF-8 is 422 `input-unreadable`. The texts are fixed: they
+  never name a file of yours.
+- **Losses are not errors.** Rows left out, values assumed, a failed round trip
+  (`ok: false`) and content with no place in the tables are 200s; the reports say what
+  happened.
+- **Limits** are those of `/v1/read`: the body (the ZIP, or the DIGGS file) up to
+  `max_body_bytes`, one admission slot, one job in one worker under `timeout_s`, and a
+  result of at most four times `max_body_bytes` (else 422 `result-too-large`). Building
+  from tables has no time budget of its own; with thread isolation nothing stops it but
+  the size limits, with process isolation (the default) the worker's `timeout_s` does
+  (504 `timeout`). `/v1/tables/from-diggs` reads under the time budget as `/v1/read`
+  does (`complete: false`).
+
 ## Limits and admission
 
 Checks run in this order, before the body is read where possible:
@@ -405,14 +468,14 @@ pairs); 500 answers add a `correlation_id` that matches the server's log line.
 | 403 | <span id="problem-cross-site"></span>`cross-site` | cross-site request |
 | 404 | <span id="problem-not-found"></span>`not-found` | unknown path (app only) |
 | 405 | <span id="problem-method-not-allowed"></span>`method-not-allowed` | wrong method; see `Allow` (app only) |
-| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF (`/v1/read`, `/v1/convert`, `/v1/diff`: not JSON) |
+| 406 | <span id="problem-not-acceptable"></span>`not-acceptable` | `Accept` allows neither JSON nor SARIF (`/v1/read`, `/v1/convert`, `/v1/diff`, `/v1/tables/*`: not JSON) |
 | 408 | <span id="problem-request-timeout"></span>`request-timeout` | the body did not arrive within `body_timeout_s` |
-| 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes` |
+| 413 | <span id="problem-input-too-large"></span>`input-too-large` | body or file above `max_body_bytes`; a package ZIP with more than 256 files, or unpacking to more than four times `max_body_bytes` |
 | 415 | <span id="problem-compressed-input"></span>`compressed-input` | gzip document, or `Content-Encoding` other than `identity` |
-| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (`/v1/diff`: not multipart; `to=ags4` takes `application/xml` or `text/xml`; AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart) |
+| 415 | <span id="problem-unsupported-media-type"></span>`unsupported-media-type` | neither XML nor multipart (`/v1/diff`: not multipart; `to=ags4` takes `application/xml` or `text/xml`; AGS4 operations: neither `application/octet-stream`, `text/csv`, `text/plain` nor multipart; `/v1/tables/to-diggs`, `/check` and `/round-trip`: neither `application/zip`, `application/x-zip-compressed` nor multipart) |
 | 422 | <span id="problem-invalid-parameter"></span>`invalid-parameter` | bad `ags_version`, `checks`, `diggs_version`, `name`, `select`, `step`, `to`, rule id, a `/v1/diff` option, an unusable AGS4 `dictionary`, or a query parameter the endpoint does not take |
-| 422 | <span id="problem-invalid-document"></span>`invalid-document` | Titled "Invalid document". `/v1/read`, `/v1/convert?to=ags4` and `/v1/diff`: the bytes are not a DIGGS document (`/v1/diff` names the file in `errors`); `/v1/convert` to DIGGS: not AGS4 (`not-ags4`) or AGS 3 (`unsupported-version`); `kind` says why |
-| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read`, `/v1/convert`, `/v1/diff`: the result is larger than four times `max_body_bytes` (for `/v1/read`, ask for fewer tables with `select`; for `/v1/diff`, list fewer changes with `max_changes`) |
+| 422 | <span id="problem-invalid-document"></span>`invalid-document` | Titled "Invalid document". `/v1/read`, `/v1/convert?to=ags4`, `/v1/diff` and `/v1/tables/from-diggs`: the bytes are not a DIGGS document (`/v1/diff` names the file in `errors`); `/v1/convert` to DIGGS: not AGS4 (`not-ags4`) or AGS 3 (`unsupported-version`); `/v1/tables/*`: not a ZIP (`not-zip`), an entry refused (`unsafe-package`) or not tables of the profile (`not-tables`); `kind` says why |
+| 422 | <span id="problem-result-too-large"></span>`result-too-large` | `/v1/read`, `/v1/convert`, `/v1/diff`, `/v1/tables/*`: the result is larger than four times `max_body_bytes` (for `/v1/read`, ask for fewer tables with `select`; for `/v1/diff`, list fewer changes with `max_changes`) |
 | 422 | <span id="problem-input-unreadable"></span>`input-unreadable` | the document could not be read |
 | 500 | <span id="problem-resource-error"></span>`resource-error` | bundled reference data could not be loaded |
 | 500 | <span id="problem-internal"></span>`internal` | anything else |

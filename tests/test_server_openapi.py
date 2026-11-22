@@ -11,6 +11,7 @@ import schemathesis
 from fastapi import FastAPI
 from hypothesis import HealthCheck, settings
 from schemathesis.specs.openapi.checks import negative_data_rejection, positive_data_acceptance
+from schemathesis.transport.serialization import serialize_binary
 
 import pydiggs
 from pydiggs import findings_schema
@@ -58,6 +59,10 @@ def test_the_document_is_openapi_3_1_with_every_reference_resolving():
         "/v1/convert",
         "/v1/ags4/check",
         "/v1/diff",
+        "/v1/tables/to-diggs",
+        "/v1/tables/check",
+        "/v1/tables/round-trip",
+        "/v1/tables/from-diggs",
         "/v1/versions",
         "/v1/capabilities",
         "/v1/rules",
@@ -159,6 +164,13 @@ _SCHEMA = schemathesis.openapi.from_dict(json.loads(COMMITTED.read_text("utf-8")
 _SCHEMA.app = _APP
 
 
+@schemathesis.serializer("application/zip", "application/x-zip-compressed")
+def _zip_body(ctx, value) -> bytes:
+    """A raw package body (``/v1/tables/*``) goes out as its bytes, as a binary one does."""
+    del ctx
+    return serialize_binary(value)
+
+
 #: The file parts of the operations' multipart bodies.
 _FILE_PARTS = ("file", "dictionary", "old", "new")
 
@@ -186,8 +198,18 @@ def test_the_api_conforms_to_its_openapi_document(case):
     # /v1/read answers 422 invalid-document for bytes that are not a DIGGS document
     # (/v1/validate reports the same as findings); OpenAPI cannot say "a DIGGS file".
     # Likewise /v1/convert for bytes that are not AGS4, and /v1/ags4/check for a
-    # dictionary part that is not an AGS4 dictionary, and /v1/diff for either file.
-    unparseable = ("/v1/read", "/v1/convert", "/v1/ags4/check", "/v1/diff")
+    # dictionary part that is not an AGS4 dictionary, and /v1/diff for either file;
+    # and /v1/tables/* for bytes that are not a package ZIP (or, from-diggs, not DIGGS).
+    unparseable = (
+        "/v1/read",
+        "/v1/convert",
+        "/v1/ags4/check",
+        "/v1/diff",
+        "/v1/tables/to-diggs",
+        "/v1/tables/check",
+        "/v1/tables/round-trip",
+        "/v1/tables/from-diggs",
+    )
     if case.operation.path in unparseable and positive_data_acceptance not in excluded:
         excluded.append(positive_data_acceptance)
     # Multipart fields are text on the wire: a "negative" null, boolean or number value

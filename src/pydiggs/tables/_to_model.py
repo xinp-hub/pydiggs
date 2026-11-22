@@ -53,6 +53,7 @@ from pydiggs.model import (
     TimeSpan,
 )
 from pydiggs.tables import _report as rep
+from pydiggs.tables._arrow import Rows, rows_of
 from pydiggs.tables._profile import RESULT_KEYS, RESULT_PLACES, RESULTS_PREFIX, TABLES
 
 __all__ = ["TablesResult", "to_model"]
@@ -186,7 +187,7 @@ class _Test:
 class _Builder:
     """One conversion: the tables, the nodes made so far and the notes."""
 
-    def __init__(self, tables: Mapping[str, Iterable[Row]]) -> None:
+    def __init__(self, tables: Mapping[str, Rows]) -> None:
         self.layout: Layout = load_layout("3.0.0")
         self.notes = rep.Notes()
         self.ids = IdMaker()
@@ -200,7 +201,7 @@ class _Builder:
                 )
             kept = [
                 (position, self.xml_safe(name, position, row))
-                for position, row in enumerate(rows)
+                for position, row in enumerate(rows_of(rows, name))
                 if any(_text(value) for value in row.values())
             ]
             self.tables[name] = [row for _position, row in kept]
@@ -1518,14 +1519,18 @@ def _recolumn(column: Column, values: tuple[Any, ...]) -> Column:
     return dataclasses.replace(column, values=values)
 
 
-def to_model(tables: Mapping[str, Iterable[Mapping[str, Any]]]) -> TablesResult:
+def to_model(tables: Mapping[str, Rows]) -> TablesResult:
     """Build a model from profile tables.
 
     ``tables`` maps a table name of the profile to its rows, each row a mapping of
     column name to value. A value is a string, a number, a boolean or None; an empty
     string and a NaN are missing values. Rows may come from anywhere: dictionaries,
     :func:`csv.DictReader`, a database cursor through
-    :func:`~pydiggs.tables.rows_from_cursor`.
+    :func:`~pydiggs.tables.rows_from_cursor`. A table may also be any object that exports
+    an Arrow stream (``__arrow_c_stream__``): a pyarrow table, a polars or pandas data
+    frame, a DuckDB or ADBC result. It is read one record batch at a time through
+    pyarrow, an optional dependency that the ``gis`` extra installs; dates and times
+    become ISO 8601 text.
 
     Args:
         tables: The tables. A table that is absent is empty.
@@ -1535,7 +1540,8 @@ def to_model(tables: Mapping[str, Iterable[Mapping[str, Any]]]) -> TablesResult:
         and value that was left out or assumed.
 
     Raises:
-        TablesError: A table is not one of the profile, or lacks a required column.
+        TablesError: A table is not one of the profile, or lacks a required column; or
+            a table is an Arrow stream and pyarrow is not installed.
 
     Examples:
         >>> result = to_model(
