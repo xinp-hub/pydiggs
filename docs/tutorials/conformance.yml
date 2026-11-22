@@ -17,12 +17,13 @@ scenes:
     claims: ['Challenge spt-export written to challenge']
   - title: Look at the source tables
     say: >-
-      The challenge is a folder of plain tables. This one holds the S P T tests, with the
-      boring, the depth, the N value, the penetration and the hammer efficiency. You load
-      these tables into your software and export one DIGGS file.
-    run: head -4 challenge/spt.csv
-    expect: 'location_id,depth_top,n_value,penetration,hammer_efficiency,remark'
-    claims: ['location_id,depth_top,n_value,penetration,hammer_efficiency,remark']
+      The challenge is a DIGGS tables profile package. This table holds the S P T results,
+      one row per test, with the N value. A data package file describes every table and
+      column, with its unit. You load these tables into your software and export one
+      DIGGS file.
+    run: head -4 challenge/results_DrivenPenetrationTest.csv
+    expect: 'measurement,row,n_value'
+    claims: ['measurement,row,n_value']
   - title: Grade the export
     say: >-
       pydiggs conformance grade takes the challenge folder and the exported file. The

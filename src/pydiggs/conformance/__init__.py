@@ -32,10 +32,10 @@ says so in its ``statement``.
 Examples:
     >>> from pydiggs import conformance
     >>> challenge = conformance.new("spt-export", product="MyLog", version="4.2.1", seed="demo")
-    >>> challenge.info.title, challenge.token
-    ('Standard penetration and other driven tests: export', '3C4B0C')
+    >>> challenge.info.title, len(challenge.token)
+    ('Standard penetration and other driven tests: export', 6)
     >>> conformance.SUITE_VERSION, conformance.CONFORMANCE_SCHEMA_VERSION
-    ('1.0-beta.1', '1.0-beta.1')
+    ('1.0-beta.2', '1.0-beta.1')
 """
 
 from __future__ import annotations

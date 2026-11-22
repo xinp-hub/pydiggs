@@ -34,7 +34,7 @@ sha256 = "68b1383e102b616bfa5a20c6777ce99a93915cbe8840becff00dd4725a9363d1"
 [files."conformance/catalogue.toml"]
 source = "local"
 note = "The conformance class catalogue (pydiggs.conformance): pyDIGGS's own data, checked against the bundled DIGGS 3.0.0 layout by tests/test_conformance_suite.py."
-sha256 = "6aafd6ee56b303b24eb59ee9babfa42d8173515be017371403c2afabbcf0cdb6"
+sha256 = "43c698828babbeb861a75b1e46c9c15c2ed36f49b1411e410ba7040e159e906e"
 
 [files."conformance/diggs-conformance-1.0-beta.1.schema.json"]
 source = "local"

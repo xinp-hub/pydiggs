@@ -6,9 +6,9 @@ anyone you give the files to.
 
 <!-- tutorial: conformance -->
 
-!!! info "Preview in pyDIGGS 1.15"
+!!! info "Preview (since pyDIGGS 1.15)"
     The classes, the checks and the evidence document may still change before they are
-    frozen. The suite has its own version (`1.0-beta.1`), which changes whenever a file
+    frozen. The suite has its own version (`1.0-beta.2`), which changes whenever a file
     could be graded differently. A challenge is graded by the suite version that made it.
 
 !!! warning "What a result means"
@@ -33,10 +33,17 @@ Read challenge/README.md, then:
   pydiggs conformance grade challenge <your DIGGS file>
 ```
 
-The folder holds plain CSV tables (`project.csv`, `locations.csv`, `spt.csv`), a
-`columns.csv` that gives the unit and meaning of every column, and a `README.md`. The data
-is synthetic and is generated for this challenge from its seed, so your next challenge has
-other borings, depths and values.
+The folder is a [DIGGS tables profile](tables.md) package: one CSV file per table
+(`projects.csv`, `features.csv`, `measurements.csv`, `results_DrivenPenetrationTest.csv`,
+`params.csv` …), a `datapackage.json` that describes every table and column with its unit,
+a `plan.json` with the load order, and a `README.md`. These are the same tables
+`pydiggs tables` reads and writes, so a challenge is also a worked example of the profile.
+The data is synthetic and is generated for this challenge from its seed, so your next
+challenge has other borings, depths and values.
+
+The pile classes are the exception: the profile has no pile tables yet, so their challenge
+is plain CSV tables (`piles.csv`, `driving.csv`, `hammer.csv` …) with a `columns.csv` that
+gives the unit and meaning of every column.
 
 **2. Load the tables into your software and export one DIGGS 3.0.0 file**, the way a user
 of your software would.
@@ -47,7 +54,7 @@ of your software would.
 $ pydiggs conformance grade challenge my-export.xml
 spt-export: PASS
   product     MyLog 4.2.1 (as declared)
-  suite       1.0-beta.1, DIGGS 3.0.0, self-tested
+  suite       1.0-beta.2, DIGGS 3.0.0, self-tested
   challenge   seed 5f0c2a9d41b7e386, token 9D21F4
   submission  my-export.xml, sha256 1c0e6f1d2a7b4c55…
 
@@ -81,7 +88,7 @@ for a fail, and 2 when a file cannot be read.
 | --- | --- |
 | The file is a DIGGS 3 document | It parses, and it is DIGGS 3. |
 | Valid DIGGS | No error from [`pydiggs validate`](usage.md): schema, dictionaries, Schematron business rules and the cross-reference checks. Warnings do not fail it. |
-| Project, locations and depths | The project's name and every location name are in the file exactly as the tables write them, and each location has its total depth. |
+| Project, locations and depths | The project's name and every location name (borings, soundings, piles) are in the file exactly as the tables write them, and each boring or sounding has its total depth. |
 | Every source value, at its depth | Each value of the test tables is in the file: on the right location, under the right test procedure and property, at the right depth. |
 
 The rules behind the last two stages:
@@ -99,12 +106,30 @@ The rules behind the last two stages:
   with the source.
 - **A unit must be one DIGGS can convert.** A value whose unit is not a unit of the right
   kind (a length for a depth, a pressure for a cone resistance) is not read as that value.
+- **An empty cell stays empty.** Where the tables leave a value empty (a density that was
+  not measured, the stroke of a blow-less pile run), the file must not hold one: an export
+  that writes a zero there fails with `conformance.value-invented`.
+- **Percentages.** A percentage may be written in percent (`uom="%"`) or as the plain
+  percent number with no unit, as DIGGS writes the liquid limit: `48`, not `0.48`. (Where
+  the DIGGS property requires a unit, validation already fails a value without one.)
 - **Where values are looked up.** Results are found by the DIGGS property (for example
   `n_value`, `tip_resistance`, `sleeve_friction`, `pore_pressure_u2`) on a test whose
   procedure is the class's (`DrivenPenetrationTest`, `StaticConePenetrationTest`); SPT
   drive parameters are `totalPenetration` and `hammerEfficiency` of the procedure, and
   apply to every depth their test has a result at. One test per drive, or one test with
   a row per drive, both read the same. Blow counts are exact.
+- **Laboratory tests** are looked up at the specimen depth, under `WaterContentTest` (a
+  water content on the `LabDensityTest` also counts), `AtterbergLimitsTest`,
+  `LabDensityTest` and `ParticleSizeTest`. The non-plastic specimen must carry the
+  `non_plastic` flag and no limits; every other specimen must not be flagged. A grading
+  curve is looked up point by point: the percent passing at each sieve size, from the
+  `Grading` records of the boring's particle-size test.
+- **Piles** are features named as `piles.csv` names them (`SteelPipePile`, `SteelHPile`,
+  `ConcretePile`), with their lengths, size and capacity. Each driving increment is looked
+  up in the pile's `PileDrivingRecord` at the pile tip depth the record's location gives,
+  along the pile's own linear reference from the ground surface. DIGGS 3.0.0 requires a
+  pile to refer to a boring and allows one driving activity per pile; the challenge
+  includes the test boring for that reason.
 
 The answer key is built from the tables alone. pyDIGGS's own converter and reader are run
 against it on randomly drawn seeds in every run of pyDIGGS's tests, like any other
@@ -142,14 +167,36 @@ stage is **advisory**: it is reported and recorded, and it does not decide the v
 $ pydiggs conformance classes
 ```
 
-A class is one part of DIGGS in one direction, such as `spt-export` or `cpt-import`. This
-release has scenario challenges for standard penetration tests and cone penetration tests.
+A class is one part of DIGGS in one direction, such as `spt-export` or `cpt-import`. These
+parts of DIGGS have scenario challenges, each in both directions:
+
+| Class family | What its challenge holds |
+| --- | --- |
+| `spt` | Standard penetration tests in three borings: refusals, weight-of-hammer tests, feet or metres |
+| `cpt` | Piezocone soundings: qc in MPa beside fs and u2 in kPa, negative pore pressures, a gap where a rod was added |
+| `lab-index` | Water content, Atterberg limits (one specimen non-plastic), bulk and dry density on undisturbed samples, a particle-size curve per boring |
+| `deep-foundations` | Steel pipe, steel H or concrete piles with their driving records: a pile run of zero or one blow, refusal at the end |
 
 The catalogue behind the classes covers the whole of DIGGS 3.0.0: every test procedure of
 the schema, piles and driving records, grouting, monitoring, geophysics and the rest. A part
 with no challenge yet is listed as **not yet testable**, here and on every scorecard, so a
-few passing classes are never mistaken for full DIGGS support. Piles and driving records,
-and laboratory index tests, are planned next.
+few passing classes are never mistaken for full DIGGS support.
+
+## Known limits of this version
+
+- **One grading curve per boring.** Curve points are matched by boring and sieve size, not
+  by specimen depth (the challenges have one particle-size test per boring), so a curve
+  attached to the wrong sample of the right boring is not caught.
+- **Pile depths from the ground surface.** Driving increments are matched at the depth
+  along the pile's own linear reference, taken as measured from the ground surface, as the
+  challenge's tables give it. A file whose pile reference starts at the pile head would
+  not match.
+- **Evidence across pyDIGGS releases.** The evidence names its challenge by the digest of
+  `challenge.json`, which lists the digests of the challenge's files. Some of those files
+  are written by pyDIGGS itself (the DIGGS file of an import challenge, the tables of an
+  export challenge), so a later release that writes them differently gives the same seed a
+  different challenge digest, and `verify` with that release reports the challenge as
+  different. Verify with the release the evidence names.
 
 ## Evidence anyone can re-run
 
@@ -212,6 +259,7 @@ fails with `conformance.incomplete`.
 | `conformance.project-name` | The project's name is not carried exactly. |
 | `conformance.fact-missing` | A location, a depth or a value of the source is not in the file. |
 | `conformance.value-differs` | The file gives another value where the source value belongs. |
+| `conformance.value-invented` | The file gives a value where the source leaves the cell empty. |
 | `conformance.answer-missing` | A question of an import challenge has no answer. |
 | `conformance.answer-differs` | An answer differs from what the file holds. |
 

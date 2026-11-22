@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Final
 
 from pydiggs import __version__
-from pydiggs.conformance import _facts
+from pydiggs.conformance import _facts, _registry
 from pydiggs.conformance._catalogue import ClassInfo
 from pydiggs.conformance._challenge import SUITE_VERSION, Challenge, load
 from pydiggs.errors import DocumentError, InstanceReadError
@@ -66,6 +66,7 @@ _WHY: Final = {
     "conformance.fact-missing": "not in the file",
     "conformance.value-differs": "the file gives another value",
     "conformance.project-name": "not carried exactly",
+    "conformance.value-invented": "the file gives a value the source leaves empty",
     "conformance.answer-missing": "no answer",
     "conformance.answer-differs": "the answer differs",
 }
@@ -268,7 +269,7 @@ def _grade_export(
 ) -> tuple[Stage, ...]:
     from pydiggs import read_bytes, validate_bytes  # noqa: PLC0415  # lxml loads on demand
 
-    key = _facts.facts(challenge.dataset())
+    key = _registry.facts(challenge.dataset())
     core = [f for f in key if f.group == "core"]
     fidelity = [f for f in key if f.group == "fidelity"]
     try:
@@ -311,7 +312,7 @@ def _grade_export(
         ),
         len(errors),
     )
-    seen = _facts.observe(model)
+    seen = _registry.observe(challenge.info.scenario, model)
     return (
         Stage(
             "readable",
@@ -398,7 +399,7 @@ def _judge(question: _facts.Question, answer: str | None) -> _facts.Outcome:
 def _grade_import(challenge: Challenge, data: bytes) -> tuple[Stage, ...]:
     from pydiggs.conformance._challenge import _stream  # noqa: PLC0415  # same module family
 
-    asked = _facts.questions(challenge.dataset(), _stream(challenge.info, challenge.seed))
+    asked = _registry.questions(challenge.dataset(), _stream(challenge.info, challenge.seed))
     given = _answers(data)
     judged = [_judge(q, given.get(q.id)) for q in asked]
     return (

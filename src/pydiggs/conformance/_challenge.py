@@ -20,7 +20,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Final
 
-from pydiggs.conformance import _facts, _scenario
+from pydiggs.conformance import _registry, _scenario
 from pydiggs.conformance._catalogue import ClassInfo, class_info
 from pydiggs.errors import DocumentError, ResourceError
 
@@ -29,7 +29,7 @@ __all__ = ["CHALLENGE_FORMAT", "MANIFEST_NAME", "SUITE_VERSION", "Challenge", "l
 #: The version of the suite: the classes, the scenarios, the facts, the questions and the
 #: tolerances. It changes whenever those could grade a file differently. The validation
 #: stage is pyDIGGS's own validator, whose release the evidence records beside it.
-SUITE_VERSION: Final = "1.0-beta.1"
+SUITE_VERSION: Final = "1.0-beta.2"
 CHALLENGE_FORMAT: Final = "diggs-conformance-challenge"
 MANIFEST_NAME: Final = "challenge.json"
 
@@ -70,7 +70,7 @@ class Challenge:
 
     def dataset(self) -> _scenario.Dataset:
         """The source data, rebuilt from the seed."""
-        return _scenario.build(self.info.scenario, _stream(self.info, self.seed), self.token)
+        return _registry.build(self.info.scenario, _stream(self.info, self.seed), self.token)
 
     def reference(self) -> bytes:
         """The challenge's data as a DIGGS 3.0.0 file, written by pyDIGGS's own converter.
@@ -79,7 +79,7 @@ class Challenge:
         compare with what your software writes. For an import class it is
         ``challenge.xml``.
         """
-        return _scenario.reference_xml(self.dataset())
+        return _registry.reference_xml(self.dataset())
 
     def write(self, directory: str | os.PathLike[str]) -> Path:
         """Write the files into ``directory`` (created if needed) and return it.
@@ -109,6 +109,28 @@ def _stream(info: ClassInfo, seed: str) -> str:
 def _token(info: ClassInfo, seed: str) -> str:
     digest = hashlib.sha256(_stream(info, seed).encode("utf-8")).hexdigest()
     return digest[:6].upper()
+
+
+#: Scenarios whose export challenge is a DIGGS tables profile package (pydiggs.tables).
+#: The pile scenario is not: the profile has no pile tables yet.
+PROFILE_SCENARIOS: Final = frozenset({"spt", "cpt", "lab"})
+
+
+def _profile_package(reference: bytes) -> dict[str, bytes]:
+    """The export challenge's tables, as a DIGGS tables profile package.
+
+    The tables are what :func:`pydiggs.tables.from_model` gives for the reference file, so
+    they are exactly what a vendor's own profile export holds: CSV files, a
+    ``datapackage.json`` that describes every table, column and unit, and ``plan.json``,
+    the load order. The answer key is still built from the scenario's tables alone.
+    """
+    import tempfile  # noqa: PLC0415  # only an export challenge needs a scratch folder
+
+    from pydiggs import read_bytes, tables  # noqa: PLC0415  # the kit loads on demand
+
+    with tempfile.TemporaryDirectory() as scratch:
+        written = tables.write_package(tables.from_model(read_bytes(reference)), scratch)
+        return {path.name: path.read_bytes() for path in written}
 
 
 def _csv(header: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> bytes:
@@ -155,7 +177,29 @@ def _readme(info: ClassInfo, token: str, dataset: _scenario.Dataset, product: st
         "The data is synthetic. It was generated for this challenge and for no other.",
         "",
     ]
-    if info.direction == "export":
+    if info.direction == "export" and info.scenario in PROFILE_SCENARIOS:
+        lines += [
+            "## What to do",
+            "",
+            "1. Load the tables into your software, as a user would enter the data. They are",
+            "   a DIGGS tables profile package: `datapackage.json` describes every table and",
+            "   column, with its unit; `plan.json` gives the load order.",
+            "   The profile: https://xinp-hub.github.io/pydiggs/tables/",
+            f"2. Export one DIGGS {info.diggs_version} file from your software.",
+            "3. Grade it: `pydiggs conformance grade <this folder> <your file>`.",
+            "",
+            "## What is graded",
+            "",
+            "- The file is valid DIGGS: schema, dictionaries and business rules.",
+            "- The project's name and every location name (borings, soundings, piles) are",
+            "  carried exactly as written.",
+            "- Every value of the tables is in the file, at its depth, within the precision",
+            "  the table gives. You may export in any unit, as long as the file states it.",
+            "- Where the file gives a source value more than once, every one must agree.",
+            "- A value the tables leave empty is not in the file as a zero.",
+            "",
+        ]
+    elif info.direction == "export":
         lines += [
             "## What to do",
             "",
@@ -167,7 +211,8 @@ def _readme(info: ClassInfo, token: str, dataset: _scenario.Dataset, product: st
             "## What is graded",
             "",
             "- The file is valid DIGGS: schema, dictionaries and business rules.",
-            "- The project's name and every location name are carried exactly as written.",
+            "- The project's name and every location name (borings, soundings, piles) are",
+            "  carried exactly as written.",
             "- Every value of the tables is in the file, at its depth, within the precision",
             "  the table gives. You may export in any unit, as long as the file states it.",
             "- Where the file gives a source value more than once, every one must agree.",
@@ -234,7 +279,7 @@ def new(
         >>> from pydiggs import conformance
         >>> challenge = conformance.new("cpt-export", product="MyLog", version="4.2.1", seed="demo")
         >>> sorted(challenge.files)[:5]
-        ['README.md', 'challenge.json', 'columns.csv', 'cpt_data.csv', 'cpt_tests.csv']
+        ['README.md', 'challenge.json', 'datapackage.json', 'document.csv', 'features.csv']
         >>> challenge.token == conformance.new(
         ...     "cpt-export", product="X", version="1", seed="demo"
         ... ).token
@@ -247,17 +292,19 @@ def new(
     if not isinstance(chosen, str) or not _SEED.fullmatch(chosen):
         raise ValueError("seed must be 1 to 64 letters, digits, '.', '_' or '-'")
     token = _token(info, chosen)
-    dataset = _scenario.build(info.scenario, _stream(info, chosen), token)
+    dataset = _registry.build(info.scenario, _stream(info, chosen), token)
     files: dict[str, bytes] = {
         "README.md": _readme(info, token, dataset, f"{product_name} {product_version}")
     }
-    if info.direction == "export":
+    if info.direction == "export" and info.scenario in PROFILE_SCENARIOS:
+        files.update(_profile_package(_registry.reference_xml(dataset)))
+    elif info.direction == "export":
         for table in dataset.tables:
             files[f"{table.name}.csv"] = _csv(tuple(f.name for f in table.fields), table.rows)
         files["columns.csv"] = _columns_csv(dataset)
     else:
-        asked = _facts.questions(dataset, _stream(info, chosen))
-        reference = _scenario.reference_xml(dataset)
+        asked = _registry.questions(dataset, _stream(info, chosen))
+        reference = _registry.reference_xml(dataset)
         files["challenge.xml"] = reference
         files["defective.xml"] = _defective(reference, asked[-1].expected)
         files["answers.csv"] = _csv(
