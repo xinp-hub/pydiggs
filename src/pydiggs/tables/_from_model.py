@@ -42,6 +42,7 @@ from pydiggs.tables._profile import (
     results_schema,
     results_table_name,
 )
+from pydiggs.tables._to_model import exact
 
 __all__ = ["LoadPlan", "LoadStep", "TableSet", "from_model"]
 
@@ -178,14 +179,24 @@ class _Flattener:
             return None
         if quantity.value is None:
             return quantity.text
-        if _written(quantity.value) != quantity.text:
+        if _written(quantity.value) == quantity.text:
+            return quantity.value
+        if not exact(quantity.text, quantity.value):
             self.notes.add(
-                rep.REFORMATTED,
+                rep.NOT_CARRIED,
                 table,
-                f"Numbers of {table} are given as numbers, so a form such as trailing zeros"
-                " is not kept; the values are the same ({times}).",
+                f"Numbers of {table} have more digits than a 64-bit number holds, so they are"
+                " given as written, as text ({times}).",
                 row=len(self.tables.get(table, ())),
             )
+            return quantity.text
+        self.notes.add(
+            rep.REFORMATTED,
+            table,
+            f"Numbers of {table} are given as numbers, so a form such as trailing zeros"
+            " is not kept; the values are the same ({times}).",
+            row=len(self.tables.get(table, ())),
+        )
         return quantity.value
 
     # --- what every node has --------------------------------------------------------

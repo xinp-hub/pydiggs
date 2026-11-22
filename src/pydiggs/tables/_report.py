@@ -62,6 +62,7 @@ _SHOWN: Final = 60
 def shown(value: object, limit: int = _SHOWN) -> str:
     """``value`` for a message: its text, cut short, with no control characters."""
     text = "".join(ch if ch.isprintable() else "?" for ch in str(value))
+    text = text.replace("{times}", "{ times }")  # a value is never taken for the count
     return text if len(text) <= limit else f"{text[: limit - 1]}…"
 
 
@@ -70,6 +71,9 @@ class Notes:
 
     def __init__(self) -> None:
         self._issues: dict[tuple[str, str, str, str], list[int | None]] = {}
+        #: Table -> the position in the input of each row kept (blank rows are not kept),
+        #: so a finding names the row as the input numbers it.
+        self.positions: dict[str, list[int]] = {}
 
     def add(
         self,
@@ -86,6 +90,9 @@ class Notes:
         ``message`` may hold ``{times}``, the number of rows the issue was met on. An
         issue with no ``row`` is counted only when ``count`` is set.
         """
+        kept = self.positions.get(table)
+        if row is not None and kept is not None and 0 <= row < len(kept):
+            row = kept[row]
         met = self._issues.setdefault((rule, table, column, message), [])
         if row is not None or count or not met:
             met.append(row)

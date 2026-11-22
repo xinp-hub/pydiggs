@@ -2,8 +2,9 @@
 
 The model is built the way the AGS4 converter builds one: each feature gets a linear
 referencing system for its depths, each node its ``project`` link, each sample a sampling
-activity. A value is carried as given: a number keeps the text it was written with, a
-unit is never converted. A row that cannot be written is left out and named by a finding.
+activity. A value is carried as given: a quantity keeps the text it was written with, a
+result value is a number, and one that a 64-bit float cannot hold exactly is reported, not
+rounded; a unit is never converted. A row that cannot be written is left out and named by a finding.
 """
 
 from __future__ import annotations
@@ -13,9 +14,11 @@ import math
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from pydiggs._writer import write_model
+from pydiggs._writer._emit import NOT_XML
 from pydiggs._writer._layout import Layout, load_layout
 from pydiggs.convert._mapping import PROPERTIES_URL
 from pydiggs.convert._to_model import CLASSIFICATION_DEFAULT, PROJECT_DEFAULT, components_of
@@ -109,6 +112,26 @@ def _text(value: object) -> str | None:
     return text or None
 
 
+def exact(text: str, value: float) -> bool:
+    """True when ``value`` is the number ``text`` writes, exactly (1.50 is 1.5; 0.1 is 0.1).
+
+    A float is exact for a text when the text's shortest round trip through the float
+    gives the same decimal number: ``Decimal("0.1") == Decimal(repr(0.1))``.
+
+    Examples:
+        >>> (
+        ...     exact("12.50", 12.5),
+        ...     exact("0.1", 0.1),
+        ...     exact("12345678901234567", 1.2345678901234568e16),
+        ... )
+        (True, True, False)
+    """
+    try:
+        return Decimal(text.strip()) == Decimal(repr(value))
+    except InvalidOperation:
+        return False
+
+
 def _written(value: float) -> str:
     """A number as text: an integer without a decimal point, else its shortest form."""
     if value.is_integer() and abs(value) < 1e15:  # noqa: PLR2004 - exact as an integer
@@ -175,7 +198,13 @@ class _Builder:
                     f"{rep.shown(name)!r} is not a table of the profile ({known}, or"
                     f" {RESULTS_PREFIX}<procedure>)"
                 )
-            self.tables[name] = [row for row in rows if any(_text(v) for v in row.values())]
+            kept = [
+                (position, self.xml_safe(name, position, row))
+                for position, row in enumerate(rows)
+                if any(_text(value) for value in row.values())
+            ]
+            self.tables[name] = [row for _position, row in kept]
+            self.notes.positions[name] = [position for position, _row in kept]
         self._check_columns()
         #: Key as given in the tables -> key of the node in the model.
         self.keys: dict[str, str] = {}
@@ -196,6 +225,22 @@ class _Builder:
         self.claimed: set[str] = set()
 
     # --- cells ----------------------------------------------------------------------
+
+    def xml_safe(self, table: str, position: int, row: Row) -> Row:
+        """``row`` without the cells that hold a character XML cannot hold, each named."""
+        bad = [c for c, v in row.items() if isinstance(v, str) and NOT_XML.search(v)]
+        if not bad:
+            return row
+        for column in bad:
+            self.notes.add(
+                rep.UNPARSED,
+                table,
+                f"Values of {rep.shown(column)} in {table} hold a character a DIGGS file cannot"
+                " hold (a control character); not converted ({times}).",
+                row=position,
+                column=rep.shown(column),
+            )
+        return {c: (None if c in bad else v) for c, v in row.items()}
 
     def _check_columns(self) -> None:
         for name, rows in self.tables.items():
@@ -222,20 +267,24 @@ class _Builder:
                 )
 
     def number(self, table: str, index: int, row: Row, column: str) -> tuple[float, str] | None:
-        """The number in ``column`` and the text it is written with, or None."""
+        """The number in ``column`` and the text it is written with, or None.
+
+        A number that a 64-bit float cannot hold exactly (more than about 17 significant
+        digits, or out of range) is reported and left out, never rounded silently.
+        """
         value = row.get(column)
         if isinstance(value, float) and math.isnan(value):
             return None  # how pandas writes a missing cell
-        if isinstance(value, int | float) and not isinstance(value, bool):
-            if math.isfinite(value):
-                return float(value), _written(float(value))
+        if isinstance(value, bool):
             text: str | None = str(value)
+        elif isinstance(value, int | float | Decimal):
+            text = str(value)
         else:
             text = _text(value)
             if text is None:
                 return None
-        found = None if isinstance(value, bool | int | float) else parse_number(str(text))
-        if found is None:
+        found = None if isinstance(value, bool) else parse_number(str(text))
+        if found is None or not math.isfinite(found):
             self.notes.add(
                 rep.UNPARSED,
                 table,
@@ -244,7 +293,17 @@ class _Builder:
                 column=column,
             )
             return None
-        return found, str(text)
+        if not exact(str(text), found):
+            self.notes.add(
+                rep.UNPARSED,
+                table,
+                f"Values of {column} in {table} have more digits than a number in DIGGS can"
+                " hold exactly; not converted, so that nothing is rounded ({times}).",
+                row=index,
+                column=column,
+            )
+            return None
+        return found, str(text) if isinstance(value, str) else _written(found)
 
     def quantity(
         self, table: str, index: int, row: Row, column: str, uom_column: str
@@ -1082,8 +1141,19 @@ class _Builder:
             if (column := self.column(test.procedure, test.given, name, ordered, facts)) is not None
         ]
         if len(columns) == 1 and any(v is None for v in columns[0].values):
-            # A one-column table cannot hold an empty row: such rows have nothing to carry.
+            # A one-column table cannot hold an empty row: name each one that is left out.
             keep = [i for i, v in enumerate(columns[0].values) if v is not None]
+            for i, value in enumerate(columns[0].values):
+                if value is None and places:
+                    table, at, _row = ordered[i]
+                    self.notes.add(
+                        rep.NOT_CARRIED,
+                        table,
+                        f"Rows of {table} with a depth but no value: a result table with one"
+                        " column cannot hold an empty row, so the row and its depth were left"
+                        " out ({times}).",
+                        row=at,
+                    )
             ordered = [ordered[i] for i in keep]
             only = columns[0]
             columns = [_recolumn(only, tuple(only.values[i] for i in keep))]

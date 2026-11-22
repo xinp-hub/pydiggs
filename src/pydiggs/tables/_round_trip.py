@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from pydiggs._reader import read_bytes
@@ -67,14 +68,16 @@ class RoundTrip:
 
 
 def _same(sent: Any, got: Any) -> bool:
-    """True when two cells hold the same value: the same number, or the same text."""
+    """True when two cells hold the same value: the same text, or exactly the same number."""
     a, b = _text(sent), _text(got)
     if a == b:
         return True
     if a is None or b is None:
         return False
-    x, y = parse_number(a), parse_number(b)
-    return x is not None and x == y
+    try:
+        return Decimal(a) == Decimal(b)
+    except InvalidOperation:
+        return False
 
 
 class _Comparison:
@@ -141,17 +144,57 @@ class _Comparison:
             if made is None:
                 continue
             got_rows = returned.get(made, [])
+            by_place = _by_place(got_rows)
             for number, (_order, _at, row) in enumerate(sorted(rows, key=lambda r: r[:2])):
                 label = f"{owner} row {number}"
-                if number >= len(got_rows):
-                    values = [v for c, v in row.items() if c not in RESULT_KEYS]
+                # A row with a depth is matched by its depth, so one row left out (and named
+                # by a finding) does not shift every row after it.
+                place = _place(row)
+                got_row = (
+                    by_place.get(place)
+                    if place is not None and by_place
+                    else (got_rows[number] if number < len(got_rows) else None)
+                )
+                if got_row is None:
+                    # A row with only its place holds no result; the conversion names it.
+                    values = [
+                        v for c, v in row.items() if c not in RESULT_KEYS and c not in _PLACES
+                    ]
                     if any(_text(v) is not None for v in values):
                         self.found.append(Difference(name, label, _MISSING, owner, None))
                     continue
                 for column, value in row.items():
                     if column not in RESULT_KEYS and column != "depth_uom":
-                        got = got_rows[number].get(column)
+                        got = got_row.get(column)
                         self.cell(name, label, column, value, got, ref=False)
+
+
+#: The columns that say where a result row is.
+_PLACES: Final = ("position", "top", "base")
+
+
+def _place(row: Row) -> tuple[Decimal, ...] | None:
+    """Where a result row is (its position, or its top and base), as exact numbers."""
+    found = []
+    for column in ("position", "top", "base"):
+        text = _text(row.get(column))
+        if text is not None:
+            try:
+                found.append(Decimal(text))
+            except InvalidOperation:
+                return None
+    return tuple(found) or None
+
+
+def _by_place(rows: Sequence[Row]) -> dict[tuple[Decimal, ...], Row]:
+    """Rows by their place, when every row has a distinct one; else empty."""
+    out: dict[tuple[Decimal, ...], Row] = {}
+    for row in rows:
+        place = _place(row)
+        if place is None or place in out:
+            return {}
+        out[place] = row
+    return out
 
 
 def round_trip(tables: Mapping[str, Iterable[Mapping[str, Any]]]) -> RoundTrip:

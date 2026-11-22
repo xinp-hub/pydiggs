@@ -193,8 +193,16 @@ A few rules cover most questions:
   `tables.incomplete`.
 - Content in the `extra` table is not written back. Keep the original file when you need
   to pass the same content on.
-- It reads all rows into memory. For very large data sets, write one file per project or
-  per hole.
+- It reads all rows into memory: a project of a million result rows (200 CPT soundings
+  of 5,000 rows) takes about 20 seconds and under 1 GB. For larger data sets, write one
+  file per project or per hole.
+- One result table can hold up to 10 MB of text, about half a million rows of three
+  columns. A longer table is not written, and `tables.incomplete` says so: XML readers
+  with safe settings, pyDIGGS among them, refuse a longer text, so the file could not be
+  read back. Split such a series by hole or by period.
+- A result value is a 64-bit number. A value with more digits than one holds exactly
+  (about 17) is reported and left out, never rounded. `12.50` and `12.5` are the same
+  number.
 - It checks structure, not vocabulary: run [`pydiggs validate`](quickstart.md) on the file
   you write to check codes, units and properties against the DIGGS dictionaries.
 

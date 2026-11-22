@@ -18,6 +18,7 @@ is dropped silently.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Callable, Collection, Iterator, Sequence
 from functools import cache, partial
 from typing import Final
@@ -111,6 +112,28 @@ def _written(tag: str) -> str:
     return f"gml:{local}" if namespace == "http://www.opengis.net/gml/3.2" else local
 
 
+#: A character XML 1.0 cannot hold (a control character, a lone surrogate, U+FFFE/F).
+NOT_XML: Final = re.compile("[^\t\n\r\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]")
+
+
+#: Longest text the writer puts in one element. XML parsers with safe settings (libxml2
+#: without ``huge_tree``, which pyDIGGS never sets) refuse a longer text node, so a file
+#: holding one could not be read back, by pyDIGGS or by most other software.
+MAX_TEXT_BYTES: Final = 10_000_000
+
+
+def _bounded(text: str, count: int, where: str) -> str:
+    """``text`` when it fits in one readable text node; else a refusal that says why."""
+    size = len(text.encode("utf-8"))
+    if size > MAX_TEXT_BYTES:
+        raise ValueError(
+            f"{where}: {count} values make {size:,} bytes of text in one element, over the"
+            f" {MAX_TEXT_BYTES:,} a DIGGS file can hold and still be read back; split the"
+            " data, by hole or by period"
+        )
+    return text
+
+
 def _checked(value: str, where: str) -> str:
     """``value`` when reading it back returns it unchanged (the reader strips text)."""
     if not isinstance(value, str) or not value or value != value.strip():
@@ -118,6 +141,8 @@ def _checked(value: str, where: str) -> str:
             f"{where}: text {value!r:.80} is empty or has surrounding white space, which"
             " reading back would not return"
         )
+    if NOT_XML.search(value):
+        raise ValueError(f"{where}: text {value!r:.80} holds a character XML cannot hold")
     return value
 
 
@@ -444,7 +469,8 @@ class _Emitter:
         if uom_labels:
             obj.set("uomLabels", " ".join(uom_labels))
         child = "pos" if element == "PointLocation" else "posList"
-        etree.SubElement(obj, self._child(lay, child, where)).text = " ".join(tokens)
+        text = _bounded(" ".join(tokens), len(tokens), where)
+        etree.SubElement(obj, self._child(lay, child, where)).text = text
 
     def _point(self, position: Position, base: str, where: str, prop: etree._Element) -> None:
         self._geometry(
@@ -1056,7 +1082,7 @@ class _Emitter:
             el.set("cs", _CS)
             el.set("ts", _TS)
             if table.row_count:
-                el.text = _TS.join(self._rows(table, where))
+                el.text = _bounded(_TS.join(self._rows(table, where)), table.row_count, where)
 
         parts = [
             (self._child(result_set, "parameters", where), holder),
