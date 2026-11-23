@@ -18,6 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file, including short rows, rows longer than the declared columns and null values.
   Such a table is now also charged to the read's `time_budget` column by column, so a
   read given a budget stops with its usual `structure.timeout` note instead of running on.
+- **A crafted result table can no longer make reading run out of memory.** The model
+  gives every column of a result table one cell per row, so a row shorter than the
+  declared properties is padded with nulls. A file of a few megabytes declaring 20,000
+  `Property` columns over 1,000,000 one-value rows asked `pydiggs.read` and `read_bytes`
+  (and `convert`, `diff`, the HTTP server and the sidecar) for 20 billion empty cells,
+  hundreds of gigabytes, and the `time_budget` could not stop it in time (none is set by
+  default). Reading now counts those empty cells before making them, across the whole
+  file, and stops at 4,000,000 or one per byte of the file, whichever is more, like its
+  other work limits: `complete` is false, `limits_hit` names `padded_cells`, and a
+  `structure.read-limit` note says where it stopped. No real file comes close: the
+  official DIGGS examples, the conformance corpus and the conformance challenges need at
+  most 1,683 empty cells, about 2,000 times fewer than the limit. Reading with
+  `results=False` makes no empty cells and is not limited by it.
 
 ## [1.16.0] - 2026-11-22
 

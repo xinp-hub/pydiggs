@@ -7,6 +7,8 @@ the 1.6.0 pre-release review.
 from __future__ import annotations
 
 import json
+import time
+import tracemalloc
 from typing import Any
 
 import pytest
@@ -254,6 +256,10 @@ def test_real_files_are_far_below_the_limits():
     assert _read.LIMIT_BASE >= 20 * 5_000  # the largest corpus file has about 5,000 of each
     assert _read.LIMIT_BYTES_PER_ITEM <= 1_000 / 5  # and over 1,000 bytes for each
     assert _read.MAX_EXTRA_DEPTH >= 5 * 11  # and nests them about 11 deep
+    # The most empty cells a real file needs is 1,683 (6.5 MB), and at most 0.00053 per
+    # byte of the file (the official, conformance and challenge files).
+    assert _read.PADDED_CELLS_BASE >= 1_000 * 1_683
+    assert _read.PADDED_CELLS_PER_BYTE >= 1_000 * 0.00053
 
 
 def test_the_document_grows_with_the_input_not_faster():
@@ -346,13 +352,19 @@ def _everything(data: bytes) -> tuple[str, str, Any]:
 
 
 @st.composite
-def _tables(draw: st.DrawFn) -> bytes:
+def _tables_and_rows(draw: st.DrawFn) -> tuple[list[str | None], list[list[str]], bytes]:
     types = draw(st.lists(st.sampled_from(_TYPES), max_size=6))
     ts = draw(st.sampled_from([" ", ";"]))
     cells = st.sampled_from([c for c in _CELLS if ts != " " or " " not in c])
     width = st.integers(1, len(types) + 3)  # short, full and long rows
     rows = draw(st.lists(width.flatmap(lambda n: st.lists(cells, min_size=n, max_size=n))))
-    return _table_doc(types, rows, ts)
+    body = ts.join(",".join(row) for row in rows).strip()
+    tuples = body.split() if ts == " " else [t.strip() for t in body.split(ts) if t.strip()]
+    return types, [t.split(",") for t in tuples], _table_doc(types, rows, ts)  # rows as read
+
+
+def _tables() -> st.SearchStrategy[bytes]:
+    return _tables_and_rows().map(lambda table: table[2])
 
 
 @settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.too_slow])
@@ -396,3 +408,84 @@ def test_result_cells_decode_as_before():
     values["values"] = [1.0, {"a": 1}]
     with pytest.raises(ValueError, match="is not one of"):
         Model.from_dict(document)
+
+
+def _padded(types: list[str | None], rows: list[list[str]]) -> int:
+    """The null cells a table of these rows needs under ``types``."""
+    return len(types) * len(rows) - sum(min(len(r), len(types)) for r in rows)
+
+
+def test_short_rows_past_the_padded_cell_bound_stop_the_read():
+    """20,000 properties over 100,000 one-value rows: 2x10^9 null cells from 1.8 MB."""
+    data = _table_doc(["double"] * 20_000, [["1"]] * 100_000, " ")
+    assert _padded(["double"] * 20_000, [["1"]] * 100_000) > 1_000 * len(data)
+    tracemalloc.start()
+    try:
+        started = time.perf_counter()
+        model = pydiggs.read_bytes(data)
+        took = time.perf_counter() - started
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert took < 5  # about 0.3 s here; allocating the cells would take hundreds of GB
+    assert peak < 200 * 2**20  # about 20 MB
+    assert model.complete is False and model.limits_hit == ("padded_cells",)
+    assert model.measurements == ()  # the member cut short is not half-read
+    notes = [n for n in model.notes if n.rule_id == "structure.read-limit"]
+    assert len(notes) == 1 and notes[0].severity == pydiggs.Severity.ERROR
+    assert "empty" in notes[0].message
+    assert Model.from_json(model.to_json()) == model
+    # Without the values no cell is made, and the read is whole.
+    assert pydiggs.read_bytes(data, results=False).complete
+
+
+def test_validate_reports_no_read_limit_for_padded_cells():
+    """Like the other read limits, it is the reader's: validate does not read a model."""
+    data = _table_doc(["double"] * 20_000, [["1"]] * 100_000, " ")
+    report = pydiggs.validate_bytes(data)
+    assert "structure.read-limit" not in {f.rule_id for f in report.findings}
+
+
+def test_the_padded_cell_bound_is_inclusive_and_counts_every_table(monkeypatch):
+    rows = [["1"]] * 5  # 9 nulls a row under 10 properties: 45 per table
+    monkeypatch.setattr(_read, "PADDED_CELLS_PER_BYTE", 0)
+    monkeypatch.setattr(_read, "PADDED_CELLS_BASE", 45)
+    assert pydiggs.read_bytes(_table_doc(["double"] * 10, rows, " ")).complete  # just under
+    monkeypatch.setattr(_read, "PADDED_CELLS_BASE", 44)
+    model = pydiggs.read_bytes(_table_doc(["double"] * 10, rows, " "))
+    assert model.complete is False and model.limits_hit == ("padded_cells",)
+    # Two tables of 45 in two members: the first is read, the second stops the read.
+    monkeypatch.setattr(_read, "PADDED_CELLS_BASE", 60)
+    one = _table_doc(["double"] * 10, rows, " ").decode()
+    test = one[one.index("<measurement>") : one.index("</Diggs>")]
+    two = one.replace("</Diggs>", test.replace('gml:id="t"', 'gml:id="u"') + "</Diggs>")
+    model = pydiggs.read_bytes(two.encode())
+    assert model.limits_hit == ("padded_cells",)
+    assert [m.key for m in model.measurements] == ["t"]
+
+
+def test_the_padded_cell_bound_grows_with_the_file(monkeypatch):
+    monkeypatch.setattr(_read, "PADDED_CELLS_BASE", 0)
+    data = _table_doc(["double"] * 200, [["1"]] * 200, " ")  # 39,800 nulls in 16 kB
+    assert not pydiggs.read_bytes(data).complete
+    padded = data.replace(b"</Diggs>", b"<!--" + b" " * 40_000 + b"--></Diggs>")
+    assert pydiggs.read_bytes(padded).complete  # the same table in a file large enough
+
+
+@settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.too_slow])
+@given(_tables_and_rows(), st.integers(0, 40))
+def test_tables_under_the_padded_cell_bound_read_as_before(table, bound):
+    """Under the bound the output is the old reader's; over it the read stops there."""
+    types, rows, data = table
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(_read, "PADDED_CELLS_BASE", bound)
+        patch.setattr(_read, "PADDED_CELLS_PER_BYTE", 0)
+        new = _everything(data)
+        patch.setattr(_read._Reader, "_columns", _old_columns)
+        patch.setattr(_read._Reader, "_fill_units", _old_fill_units)
+        old = _everything(data)
+    if _padded(types, rows) <= bound:
+        assert new == old
+    else:
+        assert Model.from_json(new[0]).limits_hit == ("padded_cells",)
+        assert new[1] == old[1]  # results=False makes no null cell, and counts none

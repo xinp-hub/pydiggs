@@ -41,7 +41,7 @@ fix = "Ask the supplier for a fresh export from their software; the file may be 
 
 [rules."structure.read-limit"]
 title = "File only partly read"
-meaning = "Reading stopped at a safety limit because the file holds far more objects, or far deeper nesting, than a file of its size should. What was read is incomplete."
+meaning = "Reading stopped at a safety limit because the file holds far more objects, far deeper nesting, or far more empty cells in its result tables, than a file of its size should. What was read is incomplete."
 fix = "Check the file is a genuine export and not damaged. If it is genuine, split the project into smaller files or ask the pyDIGGS maintainers about the limit."
 
 [rules."structure.duplicate-gml-id"]

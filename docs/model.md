@@ -67,10 +67,13 @@ time_budget=None)`:
 - **Work limits.** Reading also stops, with `complete=False` and the limit's name in
   `limits_hit`, when a file has more objects (`nodes`), or more elements the model has
   no typed field for (`extra_elements`), than 100,000 plus one for every 200 bytes of
-  the file, or nests such elements more than 64 deep (`extra_depth`). Real files have a
-  few thousand of each, over 1,000 bytes apiece and about 10 deep; the limits keep a
-  small hostile file from producing a huge model. The member being read at that point
-  and the ones after it are left out.
+  the file, or nests such elements more than 64 deep (`extra_depth`), and when result
+  rows shorter than the properties declared would need more empty (null) cells than
+  4,000,000 or one per byte of the file, whichever is more (`padded_cells`; not counted
+  with `results=False`, which makes none). Real files have a few thousand objects and
+  untyped elements, over 1,000 bytes apiece, about 10 deep, and at most a few thousand
+  empty cells; the limits keep a small hostile file from producing a huge model. The
+  member being read at that point and the ones after it are left out.
 - **Errors:** `InstanceReadError` when the file cannot be read (as for `validate`);
   `DocumentError` (a `ValueError`) when the bytes are not a DIGGS document at all, with
   `kind` `malformed`, `not-diggs`, `unsafe-entity` or `namespace-too-long` and the
@@ -168,7 +171,7 @@ A diggs-model document is one JSON object:
 | --- | --- |
 | `schema_version` | `1.0` (pyDIGGS 1.7 and later; 1.6.0 wrote `1.0-beta.2`) |
 | `tool`, `source` | pyDIGGS version; file name, sha256, size, DIGGS version and namespace |
-| `complete`, `limits_hit` | `false` and the limit's name (`time_budget`, `nodes`, `extra_elements`, `extra_depth`; an open list) when a limit stopped reading |
+| `complete`, `limits_hit` | `false` and the limit's name (`time_budget`, `nodes`, `extra_elements`, `extra_depth`, `padded_cells`; an open list) when a limit stopped reading |
 | `document`, `projects`, `associates` | Document information, projects, business associates |
 | `features` | Sampling features: boreholes, soundings, wells and every other kind |
 | `sampling_activities`, `samples` | Sampling activities and samples |

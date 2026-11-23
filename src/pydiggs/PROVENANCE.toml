@@ -539,7 +539,7 @@ sha256 = "aab8cf21e132dfb6ccd90ea4253387113707a32eb4eb3164fe3867ec605468b8"
 [files."findings/guidance/en.toml"]
 source = "local"
 note = "Plain-language rule guidance in English (RuleInfo.guidance): pyDIGGS's own content, kept complete by tests/test_rule_guidance.py."
-sha256 = "9c1fad1743ac7d3c6aa0567defd874d707bb36c7621da10ca4f0452f531d86b7"
+sha256 = "528ba2e1427505dc44409dccdcb1deed05c1c5fde3d953b2d8c3ad1bf01007cd"
 
 [files."findings/diggs-findings-1.2.schema.json"]
 source = "local"
