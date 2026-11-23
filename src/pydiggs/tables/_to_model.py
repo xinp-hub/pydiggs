@@ -10,6 +10,7 @@ rounded; a unit is never converted. A row that cannot be written is left out and
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import math
 import re
 from collections.abc import Iterable, Mapping
@@ -18,7 +19,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Final
 
 from pydiggs._writer import write_model
-from pydiggs._writer._emit import NOT_XML
+from pydiggs._writer._emit import NOT_XML, OUTCOME
 from pydiggs._writer._layout import Layout, load_layout
 from pydiggs.convert._mapping import PROPERTIES_URL
 from pydiggs.convert._to_model import CLASSIFICATION_DEFAULT, PROJECT_DEFAULT, components_of
@@ -54,7 +55,13 @@ from pydiggs.model import (
 )
 from pydiggs.tables import _report as rep
 from pydiggs.tables._arrow import Rows, rows_of
-from pydiggs.tables._profile import RESULT_KEYS, RESULT_PLACES, RESULTS_PREFIX, TABLES
+from pydiggs.tables._profile import (
+    RESULT_KEYS,
+    RESULT_PLACES,
+    RESULT_TIMES,
+    RESULTS_PREFIX,
+    TABLES,
+)
 
 __all__ = ["TablesResult", "to_model"]
 
@@ -182,6 +189,7 @@ class _Test:
     feature: str
     lrs: str
     unit: str
+    element: str
 
 
 class _Builder:
@@ -224,6 +232,8 @@ class _Builder:
         self.origin: dict[str, str] = {}
         #: Keys (as given) of the rows that became nodes.
         self.claimed: set[str] = set()
+        #: The ``result_columns`` rows by (procedure, measurement, column).
+        self.facts: dict[tuple[str, str, str], Row] = {}
 
     # --- cells ----------------------------------------------------------------------
 
@@ -1041,12 +1051,21 @@ class _Builder:
                 f"a DIGGS procedure element ({rep.shown(procedure)!r} is not one)",
             )
             return None
+        element = _text(row.get("element")) or "Test"
+        if element not in OUTCOME:
+            self.need(
+                "measurements",
+                index,
+                f"an element this writer writes, {', '.join(OUTCOME)}"
+                f" ({rep.shown(element)!r} is not one)",
+            )
+            return None
         lrs, unit = self.lrs[feature]
         given = _text(row.get("key")) or ""
-        return _Test(index, row, procedure, given, feature, lrs, unit)
+        return _Test(index, row, procedure, given, feature, lrs, unit, element)
 
     def measurements(self) -> list[Measurement]:
-        facts = self.column_facts()
+        facts = self.facts = self.column_facts()
         results = self.result_rows()
         out: list[Measurement] = []
         for index, row in enumerate(self.tables.get("measurements", ())):
@@ -1059,9 +1078,9 @@ class _Builder:
             own = results.pop(test.given, [])
             wrong = [r for r in own if r[0] != f"{RESULTS_PREFIX}{test.procedure}"]
             self.orphan_results(wrong, "a test whose procedure is not that of the table")
-            table = self.result_table(test, [r for r in own if r not in wrong], facts)
-            key = None if table is None else self.make_key("measurements", index, row)
-            if key is None or table is None:
+            tables = self.result_tables(test, [r for r in own if r not in wrong], facts)
+            key = None if tables is None else self.make_key("measurements", index, row)
+            if key is None or tables is None:
                 continue
             self.claim(test.given)
             self.lrs[key] = self.lrs[test.feature]
@@ -1070,8 +1089,8 @@ class _Builder:
                 _node(
                     Measurement,
                     key,
-                    "Test",
-                    "test",
+                    test.element,
+                    _kind(test.element),
                     **self.header(test.given, row),
                     feature=test.feature,
                     samples=() if sample is None else (sample,),
@@ -1081,7 +1100,7 @@ class _Builder:
                         params=dict(self.params.get((test.given, "procedure"), {})),
                         components=tuple(self.pending.pop(test.given, ())),
                     ),
-                    results=(table,),
+                    results=tuple(tables),
                 )
             )
             self.link(key, "project", self.project_of[test.feature])
@@ -1092,30 +1111,143 @@ class _Builder:
             self.orphan_results(left, "a measurement that no converted row of measurements has")
         return out
 
-    def placed(self, test: _Test, ordered: list[_Entry]) -> tuple[list[str], list[_Entry]] | None:
-        """How the result rows are placed, and the rows that have that place."""
-        places = [p for p in RESULT_PLACES if any(_text(r[2].get(p)) is not None for r in ordered)]
-        if places and not all(self.depth_unit(r[0], r[1], r[2], test.unit) for r in ordered):
-            return None
-        if places not in ([], ["position"], ["top", "base"]):
+    def result_tables(
+        self, test: _Test, own: list[_Entry], facts: Mapping[tuple[str, str, str], Row]
+    ) -> list[ResultTable] | None:
+        """The result tables of ``test``, by their ``result`` number (0 when empty).
+
+        Table 0 is the test's outcome; tables 1 on are held, in order, by the result
+        objects of its procedure (``components`` rows such as a ``TemporalResult``).
+        A test with no result rows has one table with no rows, when ``result_columns``
+        names its columns for this test.
+        """
+        numbered: dict[int, list[_Entry]] = {}
+        for entry in own:
+            number = self.result_number(entry)
+            if number is not None:
+                numbered.setdefault(number, []).append(entry)
+        if not numbered:
+            empty = self.empty_table(test, facts)
+            if empty is None:
+                self.need("measurements", test.index, "a result value")
+                return None
+            return [empty]
+        if sorted(numbered) != list(range(max(numbered) + 1)):
             self.need(
                 "measurements",
                 test.index,
-                "result rows placed by a position, or by a top and a base",
+                "result tables numbered 0, 1, 2 … without a gap (in `result`)",
+            )
+            return None
+        tables = []
+        for number in sorted(numbered):
+            table = self.result_table(test, number, numbered[number], facts)
+            if table is None:
+                return None
+            tables.append(table)
+        return tables
+
+    def result_number(self, entry: _Entry) -> int | None:
+        """The ``result`` a result row is in: 0 when empty; None (noted) when not a number."""
+        name, at, row = entry
+        if _text(row.get("result")) is None:
+            return 0
+        found = self.number(name, at, row, "result")
+        if found is None:
+            return None
+        if not found[0].is_integer() or found[0] < 0:
+            self.notes.add(
+                rep.UNPARSED,
+                name,
+                f"Values of result in {name} are not whole numbers from 0; not converted"
+                " ({times}).",
+                row=at,
+                column="result",
+            )
+            return None
+        return int(found[0])
+
+    def empty_table(
+        self, test: _Test, facts: Mapping[tuple[str, str, str], Row]
+    ) -> ResultTable | None:
+        """A table with no rows: the columns ``result_columns`` names for this test only."""
+        columns = []
+        for (procedure, measurement, name), fact in facts.items():
+            if measurement != test.given or procedure not in ("", test.procedure):
+                continue
+            if name in RESULT_KEYS or name in RESULT_PLACES or name in RESULT_TIMES:
+                continue
+            column = self.described(name, fact)
+            if column is not None:
+                columns.append(column)
+        if not columns:
+            return None
+        where = self.where(test, 0, ([], []), [])
+        return None if where is None else dataclasses.replace(where, columns=tuple(columns))
+
+    def placed(
+        self, test: _Test, ordered: list[_Entry]
+    ) -> tuple[tuple[list[str], list[str]], list[_Entry]] | None:
+        """How the result rows are placed (by depth, or by time), and the rows that are."""
+        places = [p for p in RESULT_PLACES if any(_text(r[2].get(p)) is not None for r in ordered)]
+        times = [t for t in RESULT_TIMES if any(_text(r[2].get(t)) is not None for r in ordered)]
+        if places and not all(self.depth_unit(r[0], r[1], r[2], test.unit) for r in ordered):
+            return None
+        if (
+            places not in ([], ["position"], ["top", "base"])
+            or len(times) > 1
+            or (places and times)
+        ):
+            self.need(
+                "measurements",
+                test.index,
+                "result rows placed one way: by a position, by a top and a base, by a time or"
+                " by an elapsed time",
             )
             return None
         kept = []
         for entry in ordered:
-            if all(self.number(entry[0], entry[1], entry[2], p) is not None for p in places):
+            if all(
+                self.number(entry[0], entry[1], entry[2], p) is not None for p in places
+            ) and all(self.when(entry, t) is not None for t in times):
                 kept.append(entry)
-            else:
+            elif places:
                 self.need(entry[0], entry[1], "a depth on every row of a test placed by depth")
-        return places, kept
+            else:
+                self.need(entry[0], entry[1], "a time on every row of a test placed by time")
+        return (places, times), kept
+
+    def when(self, entry: _Entry, column: str) -> float | str | None:
+        """A row's ``time`` (text, as reported) or ``elapsed_time`` (a number)."""
+        table, at, row = entry
+        if column == "elapsed_time":
+            found = self.number(table, at, row, column)
+            return None if found is None else found[0]
+        value = row.get(column)
+        if isinstance(value, datetime.date):
+            value = value.isoformat()
+        text = _text(value)
+        if text is not None and len(text.split()) == 1:
+            return text
+        if text is not None:
+            self.notes.add(
+                rep.UNPARSED,
+                table,
+                f"Values of time in {table} hold a space, which a list of times in DIGGS"
+                " cannot; not converted ({times}).",
+                row=at,
+                column=column,
+            )
+        return None
 
     def result_table(
-        self, test: _Test, own: list[_Entry], facts: Mapping[tuple[str, str, str], Row]
+        self,
+        test: _Test,
+        number: int,
+        own: list[_Entry],
+        facts: Mapping[tuple[str, str, str], Row],
     ) -> ResultTable | None:
-        """The one result table of ``test``: its columns, and where it was measured."""
+        """Result table ``number`` of ``test``: its columns, and where or when it was measured."""
         ordered = sorted(
             own,
             key=lambda r: (
@@ -1129,7 +1261,10 @@ class _Builder:
                 dict.fromkeys(
                     c
                     for c, v in result.items()
-                    if c not in RESULT_KEYS and c not in RESULT_PLACES and _text(v) is not None
+                    if c not in RESULT_KEYS
+                    and c not in RESULT_PLACES
+                    and c not in RESULT_TIMES
+                    and _text(v) is not None
                 )
             )
         found = self.placed(test, ordered)
@@ -1145,14 +1280,14 @@ class _Builder:
             # A one-column table cannot hold an empty row: name each one that is left out.
             keep = [i for i, v in enumerate(columns[0].values) if v is not None]
             for i, value in enumerate(columns[0].values):
-                if value is None and places:
+                if value is None and (places[0] or places[1]):
                     table, at, _row = ordered[i]
                     self.notes.add(
                         rep.NOT_CARRIED,
                         table,
-                        f"Rows of {table} with a depth but no value: a result table with one"
-                        " column cannot hold an empty row, so the row and its depth were left"
-                        " out ({times}).",
+                        f"Rows of {table} with a depth or a time but no value: a result table"
+                        " with one column cannot hold an empty row, so the row and its place"
+                        " were left out ({times}).",
                         row=at,
                     )
             ordered = [ordered[i] for i in keep]
@@ -1161,14 +1296,27 @@ class _Builder:
         if not columns or not ordered:
             self.need("measurements", test.index, "a result value")
             return None
-        where = self.where(test, places, ordered)
+        where = self.where(test, number, places, ordered)
         if where is None:
             return None
         return dataclasses.replace(where, columns=tuple(columns), row_count=len(ordered))
 
-    def where(self, test: _Test, places: list[str], ordered: list[_Entry]) -> ResultTable | None:
-        """An empty table that says where ``test`` was measured: per row, or once for all."""
+    def where(
+        self,
+        test: _Test,
+        number: int,
+        placed: tuple[list[str], list[str]],
+        ordered: list[_Entry],
+    ) -> ResultTable | None:
+        """An empty table that says where (or when) ``test`` was measured: per row, or once.
+
+        Only the first table (the outcome) takes the test's own ``depth`` or ``top`` and
+        ``base``; a table placed by time takes none.
+        """
         lrs = test.lrs
+        places, times = placed
+        if times:
+            return self.timed(test, number, times[0], ordered)
         if places == ["top", "base"] and len(ordered) == 1:
             entry = ordered[0]  # one row reads back as the table's own extent
             extent = self.interval(entry[0], entry[1], entry[2], test.feature, both=True)
@@ -1190,6 +1338,11 @@ class _Builder:
             )
             shape = "point" if places == ["position"] else "interval"
             return ResultTable(domain=Domain(shape=shape, index=index_columns, crs=lrs))
+        return ResultTable() if number else self.own_place(test, ordered)
+
+    def own_place(self, test: _Test, ordered: list[_Entry]) -> ResultTable | None:
+        """An empty table at the test's own ``depth``, or ``top`` and ``base``."""
+        lrs = test.lrs
         depth = self.number("measurements", test.index, test.row, "depth")
         if depth is not None:
             if not self.depth_unit("measurements", test.index, test.row, test.unit):
@@ -1197,14 +1350,47 @@ class _Builder:
             place = Position(coordinates=(depth[0],), dim=1, crs=lrs)
             return ResultTable(domain=Domain(shape="point"), location=place)
         extent = self.interval("measurements", test.index, test.row, test.feature, both=True)
-        if extent is None:
-            self.need(
+        if extent is not None:
+            return ResultTable(domain=Domain(shape="interval", crs=lrs), extent=extent)
+        if OUTCOME[test.element] != "TestResult" and not ordered:
+            return ResultTable()  # an empty list of times
+        self.need(
+            "measurements",
+            test.index,
+            "a depth, a top and a base, or a depth on each result row"
+            if OUTCOME[test.element] == "TestResult"
+            else "a time or an elapsed_time on each result row",
+        )
+        return None
+
+    def timed(self, test: _Test, number: int, name: str, ordered: list[_Entry]) -> ResultTable:
+        """A table placed by time: the times as its index; the test's own depth is not kept."""
+        given = [c for c in ("depth", "top", "base") if _text(test.row.get(c)) is not None]
+        if given and not number:
+            self.notes.add(
+                rep.NOT_CARRIED,
                 "measurements",
-                test.index,
-                "a depth, a top and a base, or a depth on each result row",
+                "Rows of measurements with a depth whose results are placed by time: DIGGS"
+                " places such results by time only, so the depth was not converted ({times}).",
+                row=test.index,
+                column=given[0],
             )
-            return None
-        return ResultTable(domain=Domain(shape="interval", crs=lrs), extent=extent)
+        facts = self.facts
+        fact = (
+            facts.get(("", test.given, name))
+            or facts.get((test.procedure, test.given, name))
+            or facts.get((test.procedure, "", name))
+            or {}
+        )
+        uom = _text(fact.get("uom")) if name == "elapsed_time" else None
+        index = Column(
+            name=name,
+            key=name,
+            uom=uom,
+            type="number" if name == "elapsed_time" else "datetime",
+            values=tuple(self.when(entry, name) for entry in ordered),
+        )
+        return ResultTable(domain=Domain(shape="temporal", index=(index,)))
 
     def column(
         self,
@@ -1215,7 +1401,16 @@ class _Builder:
         facts: Mapping[tuple[str, str, str], Row],
     ) -> Column | None:
         fact = facts.get(("", given, name)) or facts.get((procedure, given, name))
-        fact = fact or facts.get((procedure, "", name)) or {}
+        described = self.described(name, fact or facts.get((procedure, "", name)) or {})
+        if described is None:
+            return None
+        values = tuple(self.cell(table, at, row, name, described.type) for table, at, row in rows)
+        if all(value is None for value in values):
+            return None
+        return _recolumn(described, values)
+
+    def described(self, name: str, fact: Row) -> Column | None:
+        """Column ``name`` with no values, as its ``result_columns`` row describes it."""
         kind = _text(fact.get("type")) or "number"
         if kind not in _COLUMN_TYPES:
             self.notes.add(
@@ -1225,9 +1420,6 @@ class _Builder:
                 f" {', '.join(_COLUMN_TYPES)}; its values were not converted.",
             )
             return None
-        values = tuple(self.cell(table, at, row, name, kind) for table, at, row in rows)
-        if all(value is None for value in values):
-            return None
         key = _text(fact.get("property")) or name
         return Column(
             name=_text(fact.get("name")) or name,
@@ -1236,7 +1428,6 @@ class _Builder:
             uom=_text(fact.get("uom")),
             type=kind,
             null_value=_text(fact.get("null_value")),
-            values=values,
         )
 
     def cell(
@@ -1564,5 +1755,31 @@ def to_model(tables: Mapping[str, Rows]) -> TablesResult:
         ('BH-1', 1)
         >>> sorted({finding.rule_id for finding in result.findings})
         ['tables.assumed', 'tables.no-crs']
+
+        Rows placed by time: a drilling log, by the seconds since the start.
+
+        >>> log = to_model(
+        ...     {
+        ...         "features": [{"key": "BH-1", "x": 1.0, "y": 2.0, "depth_uom": "m"}],
+        ...         "measurements": [
+        ...             {
+        ...                 "key": "MWD-1",
+        ...                 "feature": "BH-1",
+        ...                 "element": "MeasurementWhileDrilling",
+        ...                 "procedure": "MWDProcedure",
+        ...             }
+        ...         ],
+        ...         "result_columns": [
+        ...             {"procedure": "MWDProcedure", "column": "elapsed_time", "uom": "s"}
+        ...         ],
+        ...         "results_MWDProcedure": [
+        ...             {"measurement": "MWD-1", "elapsed_time": 0, "depth": 0.0},
+        ...             {"measurement": "MWD-1", "elapsed_time": 2.5, "depth": 0.04},
+        ...         ],
+        ...     }
+        ... )
+        >>> (drilled,) = log.model.measurements
+        >>> drilled.element, drilled.results[0].domain.index[0].values
+        ('MeasurementWhileDrilling', (0.0, 2.5))
     """
     return _Builder(tables).run()

@@ -20,7 +20,13 @@ from pydiggs.findings.model import Finding, Report
 from pydiggs.findings.run import validate_bytes
 from pydiggs.tables._arrow import Rows, rows_of
 from pydiggs.tables._from_model import from_model
-from pydiggs.tables._profile import RESULT_KEYS, RESULTS_PREFIX, TABLES
+from pydiggs.tables._profile import (
+    RESULT_KEYS,
+    RESULT_PLACES,
+    RESULT_TIMES,
+    RESULTS_PREFIX,
+    TABLES,
+)
 from pydiggs.tables._to_model import _text, to_model
 
 __all__ = ["Difference", "RoundTrip", "round_trip"]
@@ -130,24 +136,26 @@ class _Comparison:
                 self.cell("params", label, column, row.get(column), got.get(column), ref=False)
 
     def results(self, name: str, sent: Sequence[Row], back: Sequence[Row]) -> None:
-        """Compare a result table test by test, each test's rows in their order."""
-        returned: dict[str, list[Row]] = {}
+        """Compare a result table test by test and table by table, rows in their order."""
+        returned: dict[tuple[str, int], list[Row]] = {}
         for row in back:
-            returned.setdefault(str(row.get("measurement")), []).append(row)
-        grouped: dict[str, list[tuple[float, int, Row]]] = {}
+            returned.setdefault((str(row.get("measurement")), _result(row)), []).append(row)
+        grouped: dict[tuple[str, int], list[tuple[float, int, Row]]] = {}
         for at, row in enumerate(sent):
             owner = _text(row.get("measurement"))
             if owner is not None:
                 order = parse_number(_text(row.get("row")) or "")
-                grouped.setdefault(owner, []).append((order or 0.0, at, row))
-        for owner, rows in grouped.items():
+                grouped.setdefault((owner, _result(row)), []).append((order or 0.0, at, row))
+        for (owner, result), rows in grouped.items():
             made = self.keys.get(owner)
             if made is None:
                 continue
-            got_rows = returned.get(made, [])
+            got_rows = returned.get((made, result), [])
             by_place = _by_place(got_rows)
             for number, (_order, _at, row) in enumerate(sorted(rows, key=lambda r: r[:2])):
-                label = f"{owner} row {number}"
+                label = (
+                    f"{owner} result {result} row {number}" if result else f"{owner} row {number}"
+                )
                 # A row with a depth is matched by its depth, so one row left out (and named
                 # by a finding) does not shift every row after it.
                 place = _place(row)
@@ -170,16 +178,24 @@ class _Comparison:
                         self.cell(name, label, column, value, got, ref=False)
 
 
-#: The columns that say where a result row is.
-_PLACES: Final = ("position", "top", "base")
+#: The columns that say where or when a result row is.
+_PLACES: Final = (*RESULT_PLACES, *RESULT_TIMES)
 
 
-def _place(row: Row) -> tuple[Decimal, ...] | None:
-    """Where a result row is (its position, or its top and base), as exact numbers."""
-    found = []
-    for column in ("position", "top", "base"):
+def _result(row: Row) -> int:
+    """The number of the result table a row is in (0 when empty or not a number)."""
+    found = parse_number(_text(row.get("result")) or "")
+    return int(found) if found is not None and found.is_integer() else 0
+
+
+def _place(row: Row) -> tuple[Decimal | str, ...] | None:
+    """Where or when a result row is: exact numbers, and a time as its text."""
+    found: list[Decimal | str] = []
+    for column in _PLACES:
         text = _text(row.get(column))
-        if text is not None:
+        if text is not None and column == "time":
+            found.append(text)
+        elif text is not None:
             try:
                 found.append(Decimal(text))
             except InvalidOperation:
@@ -187,9 +203,9 @@ def _place(row: Row) -> tuple[Decimal, ...] | None:
     return tuple(found) or None
 
 
-def _by_place(rows: Sequence[Row]) -> dict[tuple[Decimal, ...], Row]:
+def _by_place(rows: Sequence[Row]) -> dict[tuple[Decimal | str, ...], Row]:
     """Rows by their place, when every row has a distinct one; else empty."""
-    out: dict[tuple[Decimal, ...], Row] = {}
+    out: dict[tuple[Decimal | str, ...], Row] = {}
     for row in rows:
         place = _place(row)
         if place is None or place in out:

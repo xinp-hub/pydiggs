@@ -19,9 +19,14 @@ def write_bytes(model: Model) -> bytes:
     returns the model's nodes, values and links.
 
     It writes what :func:`pydiggs.tables.to_model` and the AGS4 converter build: typed
-    fields, ``params``, components, links, and tests with one result table. It does not
-    write ``extra`` content, top-level business associates, or a measurement that is not
-    a ``Test`` with one result table, so a model read from an arbitrary DIGGS file is
+    fields, ``params``, components, links, and measurements (a ``Test``, a ``Monitor`` or a
+    ``MeasurementWhileDrilling``) with their result tables: the first in the measurement's
+    outcome, placed by depth or by time (a ``time`` or ``elapsed_time`` index), and each
+    other one in the next result object of its procedure. A result table too long for one
+    element (over 10 MB of text) is written in parts: part ``n`` (from 2) is a
+    measurement of its own, with the gml:id of the first and ``.part<n>``, which
+    :func:`pydiggs.tables.from_model` joins back. It does not write ``extra`` content or
+    top-level business associates, so a model read from an arbitrary DIGGS file is
     usually refused; send such a model through :func:`pydiggs.tables.from_model` and
     :func:`pydiggs.tables.to_model`, which report what they leave out.
 

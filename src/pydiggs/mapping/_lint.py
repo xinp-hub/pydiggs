@@ -24,18 +24,29 @@ from pydiggs.tables._check import (
     unit_known,
     unit_problem,
 )
-from pydiggs.tables._profile import RESULT_KEYS, RESULT_PLACES, RESULTS_PREFIX, TABLES
+from pydiggs.tables._profile import (
+    RESULT_KEYS,
+    RESULT_PLACES,
+    RESULT_TIMES,
+    RESULTS_PREFIX,
+    TABLES,
+)
 from pydiggs.tables._to_model import _DEPTH_UNITS
 
 __all__ = ["check"]
 
 #: Columns of a result table that are not results.
-_NOT_RESULTS: Final = frozenset({*RESULT_KEYS, *RESULT_PLACES, "depth_uom"})
+_NOT_RESULTS: Final = frozenset({*RESULT_KEYS, *RESULT_PLACES, *RESULT_TIMES, "depth_uom"})
 #: Columns that hold a length's unit.
 _LENGTH_UNITS: Final = frozenset({"total_depth_uom", "recovery_uom"})
 #: Constant columns that must name a DIGGS 3.0.0 element.
 _ELEMENTS: Final = frozenset(
-    {("features", "element"), ("observations", "element"), ("measurements", "procedure")}
+    {
+        ("features", "element"),
+        ("observations", "element"),
+        ("measurements", "element"),
+        ("measurements", "procedure"),
+    }
 )
 
 

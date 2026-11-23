@@ -14,6 +14,7 @@ from typing import Any, Final
 __all__ = [
     "PROFILE_VERSION",
     "RESULTS_PREFIX",
+    "RESULT_TIMES",
     "TABLES",
     "Field",
     "Table",
@@ -216,10 +217,15 @@ _TABLES: Final = (
     ),
     Table(
         "measurements",
-        "One row per test.",
+        "One row per test, monitoring series or drilling log.",
         (
             _key("Your stable identifier of the test. It becomes its gml:id."),
             Field("feature", description="Key of its feature.", references="features"),
+            Field(
+                "element",
+                description="The DIGGS element: Test, Monitor (a monitoring series) or"
+                " MeasurementWhileDrilling (Test when empty).",
+            ),
             Field(
                 "procedure",
                 description="The DIGGS procedure element: DrivenPenetrationTest,"
@@ -346,10 +352,13 @@ _TABLES: Final = (
 #: per procedure type in the data, named ``results_<procedure>``.
 TABLES: Final[dict[str, Table]] = {table.name: table for table in _TABLES}
 
-#: The columns every result table starts with.
-RESULT_KEYS: Final = ("measurement", "row")
+#: The columns every result table starts with: its primary key.
+RESULT_KEYS: Final = ("measurement", "result", "row")
 #: Where a row is, when the test gives every row its own place.
 RESULT_PLACES: Final = ("position", "top", "base")
+#: When a row is, when the test gives every row its own time: the time as reported, or
+#: the time elapsed since the start (its unit in ``result_columns``).
+RESULT_TIMES: Final = ("time", "elapsed_time")
 
 
 def results_table_name(procedure: str) -> str:
@@ -405,7 +414,14 @@ def results_schema(columns: dict[str, dict[str, Any]]) -> dict[str, Any]:
             "description": "Key of the test.",
             "constraints": {"required": True},
         },
-        {"name": "row", "type": "integer", "description": "The row's number within the test."},
+        {
+            "name": "result",
+            "type": "integer",
+            "description": "Which result table of the test the row is in: 0, the test's"
+            " outcome, when empty; 1 on, the tables its procedure holds, such as a"
+            " dissipation time series.",
+        },
+        {"name": "row", "type": "integer", "description": "The row's number within the table."},
     ]
     fields.extend({"name": name, **facts} for name, facts in columns.items())
     return {

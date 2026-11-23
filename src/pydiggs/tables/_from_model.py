@@ -7,11 +7,13 @@ dropped; what went to ``extra`` is counted in a finding.
 
 from __future__ import annotations
 
+import dataclasses
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Final
 
+from pydiggs._writer._emit import PART_SUFFIX
 from pydiggs.convert._from_model import _helper
 from pydiggs.convert._mapping import PROPERTIES_URL
 from pydiggs.findings.model import Finding
@@ -36,6 +38,7 @@ from pydiggs.tables._profile import (
     PROFILE_VERSION,
     RESULT_KEYS,
     RESULT_PLACES,
+    RESULT_TIMES,
     RESULTS_PREFIX,
     TABLES,
     profile,
@@ -169,6 +172,8 @@ class _Flattener:
             self.out_links.setdefault(link.source, []).append(link)
         #: (source, relation, target) of every link a typed column holds.
         self.implied: set[tuple[str, str, str | None]] = set()
+        #: Keys of the tests whose result table has no rows.
+        self.empty: set[str] = set()
 
     def add(self, table: str, row: Row) -> None:
         self.tables.setdefault(table, []).append(row)
@@ -518,6 +523,7 @@ class _Flattener:
         out: Row = {
             "key": measurement.key,
             "feature": measurement.feature,
+            "element": measurement.element,
             "procedure": None if procedure is None else procedure.type,
             "name": row["name"],
             "description": row["description"],
@@ -528,8 +534,6 @@ class _Flattener:
             "base": None,
             "depth_uom": None,
         }
-        if measurement.element != "Test":
-            self.keep(measurement.key, "element", measurement.element)
         if procedure is not None:
             self.params(measurement.key, procedure.params, "procedure")
             for component in procedure.components:
@@ -537,72 +541,120 @@ class _Flattener:
             for extra in procedure.extra:
                 self.keep(measurement.key, f"procedure/{extra.qname}", extra)
         for number, table in enumerate(measurement.results):
-            if number or procedure is None:
+            if procedure is None:
                 self.keep(measurement.key, f"results[{number}]", table)
                 continue
-            out.update(self.results(measurement.key, procedure.type, table, lrs))
+            place = self.results(measurement.key, procedure.type, number, table, lrs)
+            if not number:
+                out.update(place)
         self.add("measurements", out)
 
-    def place(self, key: str, table: ResultTable, lrs: str | None) -> Row:
-        """The one depth or interval the whole table was measured at, as columns."""
+    def place(self, key: str, number: int, table: ResultTable, lrs: str | None) -> Row:
+        """The one depth or interval the whole table was measured at, as columns.
+
+        Only the first table (the test's outcome) has its place in columns; another
+        table's is kept in ``extra``.
+        """
         place: Row = {}
         location = table.location
         if location is not None:
-            if location.dim == 1 and location.crs == lrs and lrs is not None:
+            if not number and location.dim == 1 and location.crs == lrs and lrs is not None:
                 ref = self.model.crs.get(lrs)
                 place = {
                     "depth": location.coordinates[0],
                     "depth_uom": None if ref is None else ref.unit,
                 }
             else:
-                self.keep(key, "results[0]/location", location)
+                self.keep(key, f"results[{number}]/location", location)
         if table.extent is not None:
-            place = self.interval(table.extent, lrs, key, "results[0]/extent", "measurements")
+            path = f"results[{number}]/extent"
+            if number:
+                self.keep(key, path, table.extent)
+            else:
+                place = self.interval(table.extent, lrs, key, path, "measurements")
         return place
 
-    def results(self, key: str, procedure: str, table: ResultTable, lrs: str | None) -> Row:
-        """Write the rows of ``table``; give the test's own ``depth`` or ``top`` and ``base``."""
-        place = self.place(key, table, lrs)
-        index = table.domain.index
-        names = [column.name for column in index]
-        indexed = names in (["position"], ["top", "base"]) and table.domain.crs in (None, lrs)
-        if index and not indexed:
-            self.keep(key, "results[0]/index", {"domain": table.domain})
+    def results(
+        self, key: str, procedure: str, number: int, table: ResultTable, lrs: str | None
+    ) -> Row:
+        """Write the rows of result table ``number`` of a test; give the table's own place.
+
+        A row index gives each row its ``position`` (or ``top`` and ``base``) or its
+        ``time`` (or ``elapsed_time``, whose unit goes in ``result_columns``). A table with
+        no rows still gives each of its columns a ``result_columns`` row, so that its
+        columns come back.
+        """
+        place = self.place(key, number, table, lrs)
         name = results_table_name(procedure)
         known = self.result_columns.setdefault(name, {})
-        cells: dict[str, tuple[Any, ...]] = {}
-        if indexed:
-            for column in index:
-                cells[column.name] = column.values
-                known.setdefault(column.name, {"type": "number"})
-            unit = next((c.uom for c in index if c.uom), None)
-            if unit is not None:
-                place = {**place, "depth_uom": unit}
+        cells = self.index(key, procedure, number, table, lrs=lrs, known=known)
+        unit = next((c.uom for c in table.domain.index if c.uom), None)
+        if unit is not None and not number and ("position" in cells or "top" in cells):
+            place = {**place, "depth_uom": unit}
+        empty = table.row_count == 0
+        if empty:
+            self.empty.add(key)
         for column in table.columns:
             label = column.key or column.name
-            while label in cells or label in RESULT_KEYS or label in RESULT_PLACES:
+            while (
+                label in cells
+                or label in RESULT_KEYS
+                or label in RESULT_PLACES
+                or label in RESULT_TIMES
+            ):
                 label += "_value"
             cells[label] = column.values
-            self.column_facts(procedure, key, label, column)
+            self.column_facts(procedure, key, label, column, force=empty)
             facts: dict[str, Any] = {"type": _schema_type(column.type)}
             if column.uom is not None:
                 facts["unit"] = column.uom
             if column.key is not None:
                 facts["property"] = column.key
             known.setdefault(label, facts)
-        for number in range(table.row_count):
+        for row in range(table.row_count):
             self.add(
                 name,
                 {
                     "measurement": key,
-                    "row": number,
-                    **{label: values[number] for label, values in cells.items()},
+                    "result": number,
+                    "row": row,
+                    **{label: values[row] for label, values in cells.items()},
                 },
             )
         return place
 
-    def column_facts(self, procedure: str, key: str, label: str, column: Column) -> None:
-        """A ``result_columns`` row for what the column's name alone does not say."""
+    def index(
+        self,
+        key: str,
+        procedure: str,
+        number: int,
+        table: ResultTable,
+        *,
+        lrs: str | None,
+        known: dict[str, dict[str, Any]],
+    ) -> dict[str, tuple[Any, ...]]:
+        """The index columns of a table that gives each row its own place or time."""
+        index = table.domain.index
+        names = [column.name for column in index]
+        placed = names in (["position"], ["top", "base"]) and table.domain.crs in (None, lrs)
+        timed = names in ([name] for name in RESULT_TIMES)
+        if index and not placed and not timed:
+            self.keep(key, f"results[{number}]/index", {"domain": table.domain})
+            return {}
+        for column in index:
+            known.setdefault(column.name, {"type": "string" if column.name == "time" else "number"})
+            if column.name == "elapsed_time":
+                self.column_facts(procedure, key, column.name, column)
+        return {column.name: column.values for column in index}
+
+    def column_facts(
+        self, procedure: str, key: str, label: str, column: Column, *, force: bool = False
+    ) -> None:
+        """A ``result_columns`` row for what the column's name alone does not say.
+
+        ``force`` gives the row even when the name says it all: a table with no rows
+        has no other place to name its columns.
+        """
         prop = column.key
         default_definition = None if prop is None else f"{PROPERTIES_URL}#{prop}"
         facts: Row = {
@@ -616,7 +668,7 @@ class _Flattener:
             "type": None if column.type == "number" else column.type,
             "null_value": column.null_value,
         }
-        if any(facts[name] is not None for name in facts if name not in _FACT_KEYS):
+        if force or any(facts[name] is not None for name in facts if name not in _FACT_KEYS):
             self.add("result_columns", facts)
 
     # --- the set --------------------------------------------------------------------
@@ -631,8 +683,12 @@ class _Flattener:
             if measurement.procedure is not None:
                 tests.setdefault(measurement.procedure.type, set()).add(measurement.key)
         groups: dict[tuple[str, str], list[Row]] = {}
+        # The columns of a test with no result rows stay its own: a row for its procedure
+        # would give it the columns of every other test of that procedure.
+        own = [row for row in rows if row["measurement"] in self.empty]
         for row in rows:
-            groups.setdefault((row["procedure"], row["column"]), []).append(row)
+            if row["measurement"] not in self.empty:
+                groups.setdefault((row["procedure"], row["column"]), []).append(row)
         having = self.users()
         merged: list[Row] = []
         for (procedure, column), group in groups.items():
@@ -642,7 +698,7 @@ class _Flattener:
                 merged.append({**group[0], "measurement": None})
             else:
                 merged.extend(group)
-        self.tables["result_columns"] = merged
+        self.tables["result_columns"] = merged + own
 
     def users(self) -> dict[tuple[str, str], set[str]]:
         """(procedure, column) -> the tests that have a value in that result column."""
@@ -726,6 +782,99 @@ def _depends(name: str, present: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(t for t in found if t in present))
 
 
+def _rejoined(model: Model) -> Model:
+    """``model`` with each measurement the writer wrote in parts made one again.
+
+    The writer writes a result table too long for one element as consecutive
+    measurements: the first is the test itself, and part ``n`` (from 2) has the test's
+    key with ``.part`` and ``n``, the same element, feature, sample and references, no
+    name, parameter or procedure, and a result table of the same columns and place. Such
+    parts are joined back into the test's first result table, rows in order.
+    """
+    measurements = model.measurements
+    links: dict[str, list[tuple[str, str | None, str]]] = {}
+    for link in model.links:
+        links.setdefault(link.source, []).append((link.relation, link.target, link.href))
+    out: list[Measurement] = []
+    parts: set[str] = set()
+    at = 0
+    while at < len(measurements):
+        head = measurements[at]
+        tables = list(head.results[:1])
+        nxt = at + 1
+        while (
+            tables
+            and nxt < len(measurements)
+            and _continues(head, measurements[nxt], nxt - at + 1, links)
+        ):
+            tables.append(measurements[nxt].results[0])
+            parts.add(measurements[nxt].key)
+            nxt += 1
+        if len(tables) > 1:
+            head = dataclasses.replace(head, results=(_joined(tables), *head.results[1:]))
+        out.append(head)
+        at = nxt
+    if not parts:
+        return model
+    return dataclasses.replace(
+        model,
+        measurements=tuple(out),
+        links=tuple(link for link in model.links if link.source not in parts),
+    )
+
+
+def _continues(
+    head: Measurement,
+    part: Measurement,
+    number: int,
+    links: Mapping[str, list[tuple[str, str | None, str]]],
+) -> bool:
+    """True when ``part`` is part ``number`` of the first result table of ``head``."""
+    return (
+        part.key == f"{head.key}{PART_SUFFIX}{number}"
+        and (part.element, part.feature, part.samples, part.specimen)
+        == (head.element, head.feature, head.samples, head.specimen)
+        and part.procedure is None
+        and part.result_time is None
+        and not (part.params or part.names or part.remarks or part.description or part.extra)
+        and len(part.results) == 1
+        and sorted(links.get(part.key, ()), key=repr) == sorted(links.get(head.key, ()), key=repr)
+        and _shape(part.results[0]) == _shape(head.results[0])
+    )
+
+
+def _shape(table: ResultTable) -> tuple[Any, ...]:
+    """What a result table is, but for its rows: its columns, index and place."""
+    return (
+        tuple(dataclasses.replace(c, values=()) for c in table.columns),
+        dataclasses.replace(
+            table.domain, index=tuple(dataclasses.replace(c, values=()) for c in table.domain.index)
+        ),
+        table.location,
+        table.extent,
+    )
+
+
+def _joined(tables: list[ResultTable]) -> ResultTable:
+    """One result table of the rows of ``tables`` (of one shape), in order."""
+    first = tables[0]
+
+    def joined(pick: Callable[[ResultTable], tuple[Column, ...]]) -> tuple[Column, ...]:
+        return tuple(
+            dataclasses.replace(
+                column, values=tuple(v for table in tables for v in pick(table)[i].values)
+            )
+            for i, column in enumerate(pick(first))
+        )
+
+    return dataclasses.replace(
+        first,
+        domain=dataclasses.replace(first.domain, index=joined(lambda t: t.domain.index)),
+        columns=joined(lambda t: t.columns),
+        row_count=sum(table.row_count for table in tables),
+    )
+
+
 def from_model(model: Model) -> TableSet:
     """The tables of ``model``: every value in a typed column, in ``params`` or in ``extra``.
 
@@ -751,4 +900,4 @@ def from_model(model: Model) -> TableSet:
         >>> back.rows("features")[0]["depth_uom"]
         'ft'
     """
-    return _Flattener(model).run()
+    return _Flattener(_rejoined(model)).run()

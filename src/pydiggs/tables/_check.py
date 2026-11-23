@@ -20,12 +20,13 @@ from typing import Any, Final
 
 from pydiggs import _xml
 from pydiggs._bundled import _DEFAULT_DICTIONARY
+from pydiggs._writer._emit import TIME_UNITS
 from pydiggs.convert._mapping import measure_facts, property_facts
 from pydiggs.dictionary import _UOM_ALIASES, DictionarySemanticValidator
 from pydiggs.findings.model import Finding
 from pydiggs.tables import _report as rep
 from pydiggs.tables._arrow import Rows, rows_of
-from pydiggs.tables._profile import RESULT_KEYS, RESULT_PLACES, RESULTS_PREFIX
+from pydiggs.tables._profile import RESULT_KEYS, RESULT_PLACES, RESULT_TIMES, RESULTS_PREFIX
 from pydiggs.tables._to_model import _text, to_model
 
 __all__ = [
@@ -45,7 +46,7 @@ _COMBINED: Final = MappingProxyType(
     {"force or mass per volume": ("force per volume", "mass per volume")}
 )
 #: Columns of a result table that are not results.
-_NOT_RESULTS: Final = frozenset({*RESULT_KEYS, *RESULT_PLACES, "depth_uom"})
+_NOT_RESULTS: Final = frozenset({*RESULT_KEYS, *RESULT_PLACES, *RESULT_TIMES, "depth_uom"})
 #: Columns that hold a length, with the column that holds its unit.
 _LENGTHS: Final = (
     ("features", "total_depth_uom"),
@@ -259,9 +260,24 @@ class _Vocabulary:
                 continue  # to_model names the row
             procedure = "" if _text(row.get("measurement")) else _text(row.get("procedure")) or ""
             described.add((procedure, column))
+            if column in _NOT_RESULTS:
+                self.index_unit(index, column, _text(row.get("uom")))
+                continue
             key = _text(row.get("property")) or column
             self.property("result_columns", index, "property", key, _text(row.get("uom")))
         return described
+
+    def index_unit(self, index: int, column: str, uom: str | None) -> None:
+        """An ``elapsed_time`` needs a unit DIGGS names for a list of elapsed times."""
+        if column == "elapsed_time" and uom not in TIME_UNITS:
+            self.notes.add(
+                rep.UNKNOWN_UNIT,
+                "result_columns",
+                f"elapsed_time in {rep.shown(str(uom))!r}: DIGGS lists elapsed times in"
+                f" {', '.join(TIME_UNITS)} only; the tests that use it are not written.",
+                row=index,
+                column="uom",
+            )
 
     def property(self, table: str, index: int, column: str, key: str, uom: str | None) -> None:
         problem = property_problem(key, uom)
