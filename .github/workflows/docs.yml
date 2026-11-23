@@ -1,6 +1,7 @@
 # Publishes the documentation site in two versions:
 #
-#   latest/  the newest release tag vX.Y.Z, built from that tag's own files and uv.lock
+#   latest/  the newest release tag vX.Y.Z that PyPI lists, built from that tag's own files
+#            and uv.lock
 #   dev/     the default branch: unreleased code, and every page says so
 #
 # The site root redirects to latest/ (to dev/ until the first release), and versions.json
@@ -10,14 +11,22 @@
 # deployed with OIDC, so there is no gh-pages branch and no `contents: write` (which is why
 # this is not `mike deploy`). scripts/docs_site.py holds the assembly logic.
 #
-# Setup (once): Settings > Pages > Source "GitHub Actions"; and let the `github-pages`
-# environment deploy from tags `v*` as well as the default branch.
+# Nothing deploys from a tag. GitHub Pages reported the deployment of the v1.17.0 tag
+# (2026-11-23) as a success and active, yet went on serving the previous deployment from
+# master (as in GitHub community discussion 145042). So a finished Release run starts this
+# workflow on the default branch (workflow_run), and latest/ is the newest tag PyPI lists,
+# never a release that is tagged but not yet approved for PyPI.
+#
+# Setup (once): Settings > Pages > Source "GitHub Actions"; the `github-pages` environment
+# deploys from the default branch only.
 name: Deploy Documentation
 
 on:
   push:
     branches: [master]
-    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -44,7 +53,7 @@ jobs:
       newest: ${{ steps.tag.outputs.version }}
       built: ${{ steps.latest.outputs.built }}
     steps:
-      # Always the default branch, whatever triggered the run: a tag push or a manual run
+      # Always the default branch, whatever triggered the run: a Release run or a manual run
       # from another branch must not publish that ref as `dev`.
       - name: Check out the default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -61,7 +70,7 @@ jobs:
       - name: Find the newest release tag
         id: tag
         working-directory: dev
-        run: python3 scripts/docs_site.py latest-tag >> "$GITHUB_OUTPUT"
+        run: python3 scripts/docs_site.py latest-tag --pypi pydiggs >> "$GITHUB_OUTPUT"
       - name: Check out the newest release
         if: steps.tag.outputs.tag != ''
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -134,7 +143,7 @@ jobs:
           uv run --group docs mkdocs build --strict --site-dir "$RUNNER_TEMP/site/dev"
       # A tag from before this workflow may not build. That must not take the site down:
       # publish dev alone and say so. A new release that does not build is caught by the
-      # `verify` job, which expects the version that was just tagged.
+      # `verify` job, which expects the newest release PyPI lists.
       - name: Build latest from the release tag
         id: latest
         if: steps.tag.outputs.tag != ''
@@ -198,7 +207,7 @@ jobs:
       - name: The site serves what was just published
         env:
           SITE: ${{ needs.deploy.outputs.page_url }}
-          RELEASED: ${{ github.ref_type == 'tag' && needs.build.outputs.newest || '' }}
+          RELEASED: ${{ github.event_name == 'workflow_run' && needs.build.outputs.newest || '' }}
           BUILT: ${{ needs.build.outputs.built }}
         run: |
           set -euo pipefail

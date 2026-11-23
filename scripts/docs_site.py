@@ -5,6 +5,10 @@
 release tag into ``<site>/latest/``. This script picks that tag and writes what ties the two
 trees into one site:
 
+``latest-tag --pypi PROJECT`` considers only the tags whose version PyPI lists with at least
+one file that is not yanked, so ``latest/`` never describes a release no one can install
+yet (1.17.0 was tagged at 17:15 and approved for PyPI at 22:45 on 2026-11-23).
+
 - ``versions.json`` in the format mike writes, which Material's version switcher reads;
 - ``<version>/index.html``, a redirect to ``latest/``, because the switcher links to a
   version by its number;
@@ -25,7 +29,7 @@ trees into one site:
 
 Older releases are not kept: every deploy replaces the whole site.
 
-    python scripts/docs_site.py latest-tag
+    python scripts/docs_site.py latest-tag [--pypi PROJECT]
     python scripts/docs_site.py assemble --site DIR [--latest X.Y.Z] [--base-url URL]
 
 Standard library only.
@@ -40,7 +44,9 @@ import re
 import shutil
 import subprocess
 import sys
-from collections.abc import Iterable
+import time
+import urllib.request
+from collections.abc import Collection, Iterable
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -114,12 +120,51 @@ _NOT_FOUND = """\
 """
 
 
-def newest_release(tags: Iterable[str]) -> str:
-    """Return the highest ``vX.Y.Z`` tag as ``X.Y.Z``, or ``""`` when there is none."""
+def newest_release(tags: Iterable[str], published: Collection[str] | None = None) -> str:
+    """Return the highest ``vX.Y.Z`` tag as ``X.Y.Z``, or ``""`` when there is none.
+
+    With ``published``, only a tag whose ``X.Y.Z`` is in it counts.
+    """
     found = [m for m in map(RELEASE_TAG.fullmatch, (tag.strip() for tag in tags)) if m]
+    if published is not None:
+        found = [m for m in found if ".".join(m.groups()) in published]
     if not found:
         return ""
     return ".".join(max((m.groups() for m in found), key=lambda parts: tuple(map(int, parts))))
+
+
+def pypi_releases(project: str, document: bytes | None = None) -> set[str]:
+    """Return the versions PyPI lists for ``project`` with a file that is not yanked.
+
+    ``document`` is PyPI's JSON for the project; it is fetched when not given.
+    """
+    if document is None:
+        document = _fetch(f"https://pypi.org/pypi/{project}/json")
+    releases = json.loads(document).get("releases", {})
+    return {
+        version
+        for version, files in releases.items()
+        if any(not file.get("yanked", False) for file in files)
+    }
+
+
+def _fetch(url: str, attempts: int = 3) -> bytes:
+    """Read ``url``, trying ``attempts`` times.
+
+    The last error propagates, so the docs build fails rather than publish a ``latest/``
+    it could not check.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310 - https URL built here
+                body: bytes = response.read()
+                return body
+        except OSError:
+            if attempt == attempts:
+                raise
+            time.sleep(10)
+    msg = "attempts must be at least 1"
+    raise ValueError(msg)
 
 
 def versions(latest: str) -> list[dict[str, object]]:
@@ -281,7 +326,12 @@ def main(argv: list[str] | None = None) -> int:
     """Run one subcommand; see the module docstring."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("latest-tag", help="print tag= and version= for $GITHUB_OUTPUT")
+    latest_tag = commands.add_parser(
+        "latest-tag", help="print tag= and version= for $GITHUB_OUTPUT"
+    )
+    latest_tag.add_argument(
+        "--pypi", metavar="PROJECT", help="only tags whose version PyPI lists for PROJECT"
+    )
     build = commands.add_parser("assemble", help="write versions.json and the redirects")
     build.add_argument("--site", type=Path, required=True)
     build.add_argument("--latest", default="", help="the release built into latest/, if any")
@@ -294,7 +344,8 @@ def main(argv: list[str] | None = None) -> int:
             text=True,
             check=True,
         )
-        version = newest_release(listed.stdout.splitlines())
+        published = pypi_releases(args.pypi) if args.pypi else None
+        version = newest_release(listed.stdout.splitlines(), published)
         print(f"tag={'v' + version if version else ''}")
         print(f"version={version}")
         return 0
