@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-23
+
 ### Added
 - **Time series and several result tables (preview).** The tables profile and
   `pydiggs.write` now carry monitoring series such as a piezometer's water levels (result
