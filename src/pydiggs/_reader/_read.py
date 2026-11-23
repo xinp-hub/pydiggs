@@ -137,6 +137,18 @@ _CAMEL: Final = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 #: bytes of JSON. The limits stop that file and scale with honest large ones.
 LIMIT_BASE: Final = 100_000
 LIMIT_BYTES_PER_ITEM: Final = 200
+#: How many empty cells the result tables of one read may be given: a row shorter than
+#: the declared properties is padded with a null per missing value, so a few bytes of
+#: ``Property`` elements over a few bytes of one-value rows ask for columns times rows
+#: cells (20,000 properties over 1,000,000 rows: 2x10^10 cells from a few MB). At most
+#: the larger of ``PADDED_CELLS_BASE`` and ``PADDED_CELLS_PER_BYTE`` per byte of input.
+#: Over the vendored official files, the conformance corpus and the conformance
+#: challenge references the most is 1,683 (the 6.5 MB Inspector file) and the highest
+#: ratio 0.00053 per byte (221 in a 420 kB CPT example): the bound is over 1,900 times
+#: both. A null costs 8 bytes in memory and about 5 in JSON, about what a value written
+#: in the file costs, so the padding grows no faster than the file.
+PADDED_CELLS_BASE: Final = 4_000_000
+PADDED_CELLS_PER_BYTE: Final = 1
 #: Deepest nesting kept in ``extra`` (real files reach about 11).
 MAX_EXTRA_DEPTH: Final = 64
 #: How many ``extra`` elements pass between checks of the time budget and cancellation.
@@ -151,6 +163,10 @@ _LIMIT_TEXT: Final = {
         "more elements have no typed field in the model than a file of its size may have"
     ),
     "extra_depth": f"elements with no typed field are nested more than {MAX_EXTRA_DEPTH} deep",
+    "padded_cells": (
+        "result rows leave more cells empty, under the properties declared, than a file"
+        " of its size may"
+    ),
 }
 
 
@@ -409,6 +425,9 @@ def _attr_name(el: etree._Element, name: str) -> str:
 
 class _Reader:
     """One read: the streaming pass, the per-member mappers and the final resolution."""
+
+    #: The null cells short rows of result tables have been padded with so far.
+    padded_cells: int = 0
 
     def __init__(
         self,
@@ -1645,8 +1664,17 @@ class _Reader:
         values are nulls, filled in at once (see :func:`_spread`). The third value has,
         per column, the rows of the values it read as null (only when the content the
         model lacks is collected).
+
+        Those nulls are counted across the read, before any is made: past the bound
+        (see :data:`PADDED_CELLS_BASE`) the read stops (``padded_cells``). Without the
+        values (``results=False``) none is made, and none is counted.
         """
         width = len(props)
+        if self.results:
+            written = sum(min(len(row), width) for row in rows)
+            self.padded_cells += width * len(rows) - written
+            if self.padded_cells > max(PADDED_CELLS_BASE, PADDED_CELLS_PER_BYTE * len(self.data)):
+                raise _LimitError("padded_cells")
         at: list[list[int]] = [[] for _ in props]
         held: list[list[str]] = [[] for _ in props]
         for n, row in enumerate(rows):

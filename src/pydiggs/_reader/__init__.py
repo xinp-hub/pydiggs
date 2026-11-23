@@ -77,8 +77,10 @@ def read(
             returned with ``complete=False`` and a ``structure.timeout`` note. Reading
             also stops, the same way with a ``structure.read-limit`` note, at a work
             limit: more objects, or more elements the model has no typed field for,
-            than 100,000 plus one per 200 bytes of the file, or such elements nested
-            more than 64 deep (real files have a few thousand, about 10 deep).
+            than 100,000 plus one per 200 bytes of the file, such elements nested
+            more than 64 deep (real files have a few thousand, about 10 deep), or,
+            with ``results``, short result rows needing more null cells than
+            4,000,000 or one per byte of the file, whichever is more.
 
     Raises:
         InstanceReadError: The file is missing, unreadable, too large, compressed or
