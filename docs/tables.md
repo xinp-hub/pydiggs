@@ -207,8 +207,8 @@ Package descriptor. In short:
 | `samples` | sample | `key`; `sampling_activity` or `feature` |
 | `observations` | lithology log of one feature | `key`; `feature` |
 | `layers` | lithology layer | `key`; `observation` or `feature` |
-| `measurements` | test | `key`; `feature`, `sample` |
-| `results_<procedure>` | result row of a test | `measurement`, `row` |
+| `measurements` | test, monitoring series or drilling log | `key`; `feature`, `sample` |
+| `results_<procedure>` | result row of a test | `measurement`, `result`, `row` |
 | `result_columns` | result column (unit, property, type) | `procedure`, `measurement`, `column` |
 | `components` | nested record: casing, water strike, SPT drive set | `key`; `holder`, `parent` |
 | `params` | value with no column of its own | `node`, `scope`, `name` |
@@ -235,26 +235,103 @@ A few rules cover most questions:
   CPT sounding is.
 - **Units of result columns** go in `result_columns`, once per test type, or once per
   test when tests differ.
+- **A test with no result rows** (a triaxial test reported without values, say) is
+  written with an empty result table when `result_columns` names its columns for that
+  test: rows with its key in `measurement`.
 - **Anything else** that DIGGS names goes in `params`, by its DIGGS element name, with
   its unit or code list when it has one.
 
+## Time series
+
+A piezometer or logger series, a drilling log and a dissipation test are tests whose rows
+are placed by time rather than by depth. Give each row one of two columns:
+
+- `time`: the time of the reading, ISO 8601, written and read back exactly as you give it
+  (`2024-11-05T13:00:01`, `2019-08-16T09:17:00-08:00`). A time holds no space.
+- `elapsed_time`: the time since the start, a number, with its unit in `result_columns`
+  like any other column: `s`, `min`, `h`, `d`, `month` or `year`.
+
+`measurements.element` says what the row is: `Test` (when empty), `Monitor` for a
+monitoring series, or `MeasurementWhileDrilling` for a drilling log. A `Monitor` names
+where it measures with a `links` row whose `relation` is `monitorLocation`, as DIGGS
+requires; a `WaterLevelMonitoring` procedure also needs its reference point, a
+`components` row whose `role` is `referencePoints`.
+
+```python
+series = {
+    "document": [{"creation_date": "2026-11-22"}],
+    "projects": [{"key": "P1", "name": "Riverside"}],
+    "features": [
+        {
+            "key": "PZ-1",
+            "project": "P1",
+            "x": 1,
+            "y": 2,
+            "crs": "http://www.opengis.net/def/crs/EPSG/0/27700",
+            "depth_uom": "m",
+        }
+    ],
+    "measurements": [
+        {
+            "key": "WL-1",
+            "feature": "PZ-1",
+            "element": "Monitor",
+            "procedure": "WaterLevelMonitoring",
+        }
+    ],
+    "components": [
+        {
+            "key": "RP-1",
+            "holder": "WL-1",
+            "role": "referencePoints",
+            "element": "ReferencePoint",
+            "start": "2024-11-01",
+        }
+    ],
+    "links": [
+        {"source": "WL-1", "relation": "monitorLocation", "target": "PZ-1"},
+        {"source": "RP-1", "relation": "rpLocation", "target": "PZ-1"},
+    ],
+    "result_columns": [{"procedure": "WaterLevelMonitoring", "column": "water_depth", "uom": "m"}],
+    "results_WaterLevelMonitoring": [
+        {"measurement": "WL-1", "row": 0, "time": "2024-11-05T12:30:01", "water_depth": 3.12},
+        {"measurement": "WL-1", "row": 1, "time": "2024-11-05T13:00:01", "water_depth": 3.10},
+    ],
+}
+checked = tables.round_trip(series)
+assert checked.ok, checked.findings
+```
+
+**Several result tables.** A test can have more than one result table: a pore pressure
+dissipation test has its summary (`u50`, `t50`) at one depth and the dissipation series
+itself, by `elapsed_time`. The `result` column says which table a row is in: `0` (or
+empty) for the test's own result, `1`, `2` … for the tables its procedure holds. DIGGS
+3.0.0 gives a test one result of its own, so each further table needs its holder in the
+procedure: a `components` row with the test as `holder`, such as
+`role` `dissipationTimeSeries` and `element` `TemporalResult`. The `measurements` row's
+`depth`, `top` and `base` place result `0` only.
+
 ## What the first version does not do
 
-- It writes boreholes, soundings, trial pits and wells with their samples, lithology and
-  tests that have one result table. Features that DIGGS gives no centerline (geophysical
-  surveys, stations, trench walls), monitoring time series and tests with several result
-  tables are read into tables but not yet written; a row of such a kind is reported as
-  `tables.incomplete`.
+- It writes boreholes, soundings, trial pits and wells with their samples, lithology,
+  tests, monitoring series and drilling logs. Features that DIGGS gives no centerline
+  (geophysical surveys, stations, trench walls), the opening of a well, samples taken at
+  a point and specimens are read into tables but not yet written; a row of such a kind is
+  reported as `tables.incomplete`.
 - Content in the `extra` table is not written back. Keep the original file when you need
   to pass the same content on.
 - It reads all rows into memory (an Arrow stream is read batch by batch, but the rows
   are then held): a project of a million result rows (200 CPT soundings
   of 5,000 rows) takes about 20 seconds and under 1 GB. For larger data sets, write one
   file per project or per hole.
-- One result table can hold up to 10 MB of text, about half a million rows of three
-  columns. A longer table is not written, and `tables.incomplete` says so: XML readers
-  with safe settings, pyDIGGS among them, refuse a longer text, so the file could not be
-  read back. Split such a series by hole or by period.
+- One element of a DIGGS file holds up to 10 MB of text: XML readers with safe settings,
+  pyDIGGS among them, refuse a longer text. A longer result table (a year of one-minute
+  logger readings, about half a million rows) is written in parts, each under the limit:
+  DIGGS gives a test one result, so part 2 on are measurements of their own, with the
+  test's key and `.part2`, `.part3` …, the same element and references, and the next
+  rows. `tables.from_model` joins them back into the one test, rows in order, so nothing
+  changes for your tables. Only a single row longer than 10 MB is refused. A result table
+  held by a procedure (a dissipation series) is not split.
 - A result value is a 64-bit number. A value with more digits than one holds exactly
   (about 17) is reported and left out, never rounded. `12.50` and `12.5` are the same
   number.

@@ -49,8 +49,9 @@ def test_an_official_example_goes_to_csv_and_back_through_the_command(
     folder = tmp_path / "out"
     source = OFFICIAL / "Piezometer_Example.xml"
     assert _tables_cli.main(["from-diggs", str(source), "-o", str(folder)]) == 0
-    longest = max(len(line) for line in (folder / "extra.csv").read_text("utf-8").splitlines())
-    assert longest > 131_072  # over the csv module's default field limit
+    # The monitoring series is a result table now, a row per reading, not one JSON cell.
+    series = (folder / "results_WaterLevelMonitoring.csv").read_text("utf-8").splitlines()
+    assert len(series) == 1 + 22_804
     code = _tables_cli.main(["to-diggs", str(folder), "-o", str(tmp_path / "x.xml")])
     assert code in (0, 1), capsys.readouterr().err  # findings, never a crash
     assert pydiggs.validate(tmp_path / "x.xml").verdict.startswith("valid")
@@ -239,33 +240,25 @@ def test_a_value_spelled_like_the_count_marker_is_shown_as_given() -> None:
 # --- the size guard: nothing is written that cannot be read back ---------------------------
 
 
-def test_the_writer_refuses_a_text_too_long_to_read_back(
+def test_the_writer_writes_a_text_too_long_to_read_back_in_parts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     model = tables.to_model(spt(*range(1, 30))).model  # written under the real limit
     monkeypatch.setattr(_emit, "MAX_TEXT_BYTES", 40)
-    with pytest.raises(ModelWriteError, match="over the 40 a DIGGS file can hold"):
-        pydiggs.write_bytes(model)
+    back = pydiggs.read_bytes(pydiggs.write_bytes(model))
+    assert len(back.measurements) > 1
+    assert back.measurements[1].key == "T.part2"
+    joined = tables.from_model(back).rows("results_DrivenPenetrationTest")
+    assert [row["n_value"] for row in joined] == list(range(1, 30))
 
 
-def test_to_model_names_the_test_too_long_and_writes_the_rest(
+def test_to_model_writes_a_test_too_long_in_parts_and_names_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(_emit, "MAX_TEXT_BYTES", 40)
-    data = spt(*range(1, 30))
-    data["features"].append(borehole(key="BH-2", name="BH-2"))
-    data["measurements"].append(
-        {"key": "U", "feature": "BH-2", "procedure": "DrivenPenetrationTest", "depth": 3}
-    )
-    data["params"].append(
-        {"node": "U", "scope": "procedure", "name": "penetrationTestType", "value": "SPT"}
-    )
-    data["results_DrivenPenetrationTest"].append({"measurement": "U", "n_value": 12})
-    made = tables.to_model(data)
-    (refused,) = [f for f in made.findings if f.rule_id == "tables.incomplete"]
-    assert "split the data, by hole or by period" in refused.message
-    assert [m.key for m in made.model.measurements] == ["U"]  # the rest is written
-    pydiggs.write_bytes(made.model)
+    made = tables.to_model(spt(*range(1, 30)))
+    assert "tables.incomplete" not in {f.rule_id for f in made.findings}
+    assert [m.key for m in made.model.measurements] == ["T"]  # one test, written in parts
 
 
 def test_a_text_just_under_the_limit_is_written_and_reads_back() -> None:

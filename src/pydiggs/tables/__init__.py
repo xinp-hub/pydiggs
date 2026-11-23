@@ -37,7 +37,7 @@ Examples:
     >>> xml = pydiggs.write_bytes(result.model)
     >>> back = tables.from_model(pydiggs.read_bytes(xml))
     >>> back.rows("results_DrivenPenetrationTest")
-    [{'measurement': 'SPT-1', 'row': 0, 'n_value': 21.0}]
+    [{'measurement': 'SPT-1', 'result': 0, 'row': 0, 'n_value': 21.0}]
 """
 
 from __future__ import annotations

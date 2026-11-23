@@ -17,8 +17,11 @@ is dropped silently.
 
 from __future__ import annotations
 
+import dataclasses
+import itertools
 import math
 import re
+from collections import deque
 from collections.abc import Callable, Collection, Iterator, Sequence
 from functools import cache, partial
 from typing import Final
@@ -118,8 +121,29 @@ NOT_XML: Final = re.compile("[^\t\n\r\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ff
 
 #: Longest text the writer puts in one element. XML parsers with safe settings (libxml2
 #: without ``huge_tree``, which pyDIGGS never sets) refuse a longer text node, so a file
-#: holding one could not be read back, by pyDIGGS or by most other software.
+#: holding one could not be read back, by pyDIGGS or by most other software. A result
+#: table whose text would be longer is written in parts (see :meth:`_Emitter._split`).
 MAX_TEXT_BYTES: Final = 10_000_000
+#: A measurement's result table written in parts: part ``n`` (from 2) is a measurement
+#: of its own, with the ``gml:id`` of the first and this suffix and ``n``.
+PART_SUFFIX: Final = ".part"
+#: Measurement element -> the result object its ``outcome`` holds (DIGGS 3.0.0 allows one).
+OUTCOME: Final = {
+    "Test": "TestResult",
+    "Monitor": "TemporalResult",
+    "MeasurementWhileDrilling": "MWDResult",
+}
+#: The names of a time index: a time per row, or the time elapsed since the start.
+TIME_INDEX: Final = ("time", "elapsed_time")
+#: Unit of an ``elapsed_time`` index -> the ``unit`` of a ``TimeIntervalList`` (as the reader).
+TIME_UNITS: Final = {
+    "s": "second",
+    "min": "minute",
+    "h": "hour",
+    "d": "day",
+    "month": "month",
+    "year": "year",
+}
 
 
 def _bounded(text: str, count: int, where: str) -> str:
@@ -128,8 +152,7 @@ def _bounded(text: str, count: int, where: str) -> str:
     if size > MAX_TEXT_BYTES:
         raise ValueError(
             f"{where}: {count} values make {size:,} bytes of text in one element, over the"
-            f" {MAX_TEXT_BYTES:,} a DIGGS file can hold and still be read back; split the"
-            " data, by hole or by period"
+            f" {MAX_TEXT_BYTES:,} a DIGGS file can hold and still be read back"
         )
     return text
 
@@ -234,6 +257,14 @@ class _Emitter:
         self.produced: dict[str, list[str]] = {}
         #: A feature's lrs -> the unit reading back gives bare depths along it.
         self.lrs_unit: dict[str, str | None] = {}
+        #: Measurement key -> its first result table in parts, and the ids of parts 2 on.
+        self.parts: dict[str, list[ResultTable]] = {}
+        self.part_ids: dict[str, list[str]] = {}
+        #: The text of each row of a result table (by ``id``), made once when it is split.
+        self.row_texts: dict[int, list[str]] = {}
+        #: The result tables the procedure of the measurement being written holds, in the
+        #: order its result objects are written (None outside a measurement).
+        self.held: deque[ResultTable] | None = None
         #: Prefix -> the namespaces the model's ``extra`` elements give it in their source.
         self.source_prefixes: dict[str, set[str]] = {}
         for node in model.nodes():
@@ -673,9 +704,21 @@ class _Emitter:
                 )
             suffix = tag.rpartition("}")[2]
             parts.append((tag, partial(fill, value, f"{base}.{suffix}", where)))  # type: ignore[arg-type]
+        if _holds_results(lay):
+            parts.extend(self._coverage_parts(lay, self._held(component, where), base, where))
         parts.extend(self._component_part(lay, child, where) for child in component.components)
         parts.extend(self._extra_part(lay, extra, base, where) for extra in component.extra)
         self._node(component, parts, where, prop)
+
+    def _held(self, component: Component, where: str) -> ResultTable:
+        """The result table a result object in a measurement's procedure holds: the next."""
+        if not self.held:
+            raise ValueError(
+                f"{where}: a {component.element} holds a result table, and the measurement"
+                " has none left for it (its result tables after the first are held, in order,"
+                " by the result objects of its procedure)"
+            )
+        return self.held.popleft()
 
     def _extra_part(self, lay: ElementLayout, extra: ExtraNode, base: str, where: str) -> Part:
         """An ``extra`` element of a component, written as given (it must be a child of it)."""
@@ -966,22 +1009,78 @@ class _Emitter:
             )
 
     def _measurement(self, node: Measurement, prop: etree._Element) -> None:
+        """A measurement: its first result table in its outcome, the others in its procedure.
+
+        DIGGS 3.0.0 gives a measurement one outcome. Its other result tables are held, in
+        order, by the result objects of its procedure (a ``TemporalResult`` in a
+        ``dissipationTimeSeries``, say), as the official examples have them.
+        """
         lay, where, base = self.layout.element(node.element), _where(node), self._base(node)
-        if len(node.results) != 1 or node.element != "Test":
-            raise ValueError(
-                f"{where}: this writer writes a Test with exactly one result table"
-                f" (got {node.element} with {len(node.results)})"
-            )
         parts = self._header(node, lay, where)
         if node.result_time is not None:
             tag = self._child(lay, "resultTime", where)
             parts.append((tag, partial(self._time, node.result_time, f"{base}.resultTime", where)))
+        first = self.parts[node.key][0]
         tag = self._child(lay, "outcome", where)
-        parts.append((tag, partial(self._outcome, node.results[0], base, where)))
+        parts.append((tag, partial(self._coverage, OUTCOME[node.element], first, base, where)))
         if node.procedure is not None:
             tag = self._child(lay, "procedure", where)
             parts.append((tag, partial(self._procedure, node.procedure, base, where)))
+        self.held = deque(node.results[1:])
         self._node(node, parts, where, prop)
+        left, self.held = self.held, None
+        if left:
+            raise ValueError(
+                f"{where}: {len(node.results)} result tables, and its procedure has a result"
+                f" object for {len(node.results) - 1 - len(left)} of the"
+                f" {len(node.results) - 1} after the first (DIGGS 3.0.0 gives a measurement"
+                " one outcome)"
+            )
+
+    def _continuation(self, node: Measurement, number: int, prop: etree._Element) -> None:
+        """Part ``number`` (from 2) of a measurement's first result table, as a measurement.
+
+        It is the same element, with the same references (project, feature, sample …),
+        and only the rows of its part in its outcome: no name, parameter or procedure.
+        """
+        lay, where = self.layout.element(node.element), f"{_where(node)} part {number}"
+        gml_id = self.part_ids[node.key][number - 2]
+        parts: list[Part] = []
+        for link in self.links.get(node.key, ()):
+            holder = lay.by_local.get(f"{link.relation}Ref") or lay.by_local.get(link.relation)
+            if holder is None:
+                raise ValueError(
+                    f"{where}: {lay.name} has no child element for link {link.relation!r}"
+                )
+            parts.append((holder, partial(self._link, link, where)))
+        table = self.parts[node.key][number - 1]
+        tag = self._child(lay, "outcome", where)
+        parts.append((tag, partial(self._coverage, OUTCOME[node.element], table, gml_id, where)))
+        obj = etree.SubElement(prop, lay.tag)
+        obj.set(self.gml_id, gml_id)
+        self._fill(obj, lay, parts, where)
+
+    def _plan_parts(self) -> None:
+        """Split each measurement's first result table, and claim the ids of its parts."""
+        for node in self.model.measurements:
+            where = _where(node)
+            if node.element not in OUTCOME:
+                raise ValueError(
+                    f"{where}: this writer writes a {', a '.join(OUTCOME)}, not a {node.element}"
+                )
+            if not node.results:
+                raise ValueError(
+                    f"{where}: DIGGS {self.layout.diggs_version} requires a measurement to have"
+                    " an outcome, so it needs a result table (it may have no rows)"
+                )
+            parts = self._split(node.results[0], f"{where} results")
+            self.parts[node.key] = parts
+            base = self._base(node)
+            self.part_ids[node.key] = []
+            for number in range(2, len(parts) + 1):
+                made = f"{base}{PART_SUFFIX}{number}"
+                self.ids.claim(made, f"{where} part {number}")
+                self.part_ids[node.key].append(made)
 
     def _procedure(self, procedure: Procedure, base: str, where: str, prop: etree._Element) -> None:
         lay = self.layout.element(procedure.type)
@@ -994,30 +1093,170 @@ class _Emitter:
 
     # --- result tables --------------------------------------------------------------
 
-    def _outcome(self, table: ResultTable, base: str, where: str, prop: etree._Element) -> None:
-        """``<outcome><TestResult><location/><results><ResultSet>…``."""
+    def _coverage(
+        self, name: str, table: ResultTable, base: str, where: str, prop: etree._Element
+    ) -> None:
+        """``<outcome><TestResult><location/><results><ResultSet>…`` (or another result)."""
+        lay = self.layout.element(name)
+        parts = self._coverage_parts(lay, table, base, where)
+        self._object(name, f"{base}.outcome", parts, where, prop)
+
+    def _coverage_parts(
+        self, lay: ElementLayout, table: ResultTable, base: str, where: str
+    ) -> list[Part]:
+        """The parts of a result object: where (or when) its rows are, then its result set.
+
+        A time index (``time`` or ``elapsed_time``) is written as the ``timeDomain``; any
+        other place as the ``location``. A result object with a time domain and a table
+        with no rows gets an empty list of times.
+        """
         where = f"{where} results"
-        if not table.columns:
-            raise ValueError(f"{where}: a result table needs at least one column")
-        for column in (*table.domain.index, *table.columns):
-            if len(column.values) != table.row_count:
-                raise ValueError(
-                    f"{where}: column {column.name!r:.80} has {len(column.values)} values"
-                    f" for {table.row_count} rows"
-                )
-        lay = self.layout.element("TestResult")
+        _check_table(table, where)
         parts: list[Part] = []
-        location = self._table_location(table, f"{base}.location", where)
-        if location is None:
-            raise ValueError(
-                f"{where}: a DIGGS test result needs a location: a row index, a location"
-                " or an extent"
+        index = table.domain.index
+        timed = [column.name for column in index] in ([name] for name in TIME_INDEX)
+        location = None if timed else self._table_location(table, f"{base}.location", where)
+        if timed:
+            if table.location is not None or table.extent is not None:
+                raise ValueError(f"{where}: give a time index or a place, not both")
+            tag = self._time_domain_tag(lay, where)
+            parts.append((tag, partial(self._time_domain, index[0], where)))
+        elif location is not None:
+            if "location" not in lay.by_local:
+                raise ValueError(
+                    f"{where}: a DIGGS {lay.name} has no location; its rows need a time index"
+                    f" ({' or '.join(TIME_INDEX)})"
+                )
+            parts.append((self._child(lay, "location", where), location))
+        elif "timeDomain" in lay.by_local and table.row_count == 0:
+            parts.append(
+                (self._child(lay, "timeDomain", where), partial(self._time_domain, None, where))
             )
-        parts.append((self._child(lay, "location", where), location))
+        elif "location" in lay.by_local:
+            raise ValueError(
+                f"{where}: a DIGGS {lay.name} needs a location: a row index, a location or an"
+                " extent"
+                + (
+                    f", or a time index ({' or '.join(TIME_INDEX)})"
+                    if "timeDomain" in lay.by_local
+                    else ""
+                )
+            )
+        else:
+            raise ValueError(
+                f"{where}: a DIGGS {lay.name} needs a time index ({' or '.join(TIME_INDEX)})"
+                " on every row"
+            )
         parts.append(
             (self._child(lay, "results", where), partial(self._results, table, base, where))
         )
-        self._object("TestResult", f"{base}.outcome", parts, where, prop)
+        return parts
+
+    def _time_domain_tag(self, lay: ElementLayout, where: str) -> str:
+        if "timeDomain" not in lay.by_local:
+            raise ValueError(
+                f"{where}: a DIGGS {lay.name} has no time domain, so its rows cannot be"
+                f" indexed by {' or '.join(TIME_INDEX)}"
+            )
+        return self._child(lay, "timeDomain", where)
+
+    def _time_domain(self, index: Column | None, where: str, prop: etree._Element) -> None:
+        """The time domain: a ``TimePositionList`` or a ``TimeIntervalList``.
+
+        ``time`` is written as the times as reported, ``elapsed_time`` as the numbers of
+        a ``TimeIntervalList`` whose ``unit`` is the column's.
+
+        Reading back gives the same column: ``time`` holds each time as its text,
+        ``elapsed_time`` each number with the unit the list names.
+        """
+        if index is not None and index.name == "elapsed_time":
+            unit = TIME_UNITS.get(index.uom or "")
+            if unit is None:
+                raise ValueError(
+                    f"{where}: elapsed_time in {index.uom!r:.40}; DIGGS writes elapsed times"
+                    f" in {', '.join(TIME_UNITS)}"
+                )
+            name, child = "TimeIntervalList", "timeIntervalList"
+            tokens = [_number(value, where) for value in index.values]
+        else:
+            name, child = "TimePositionList", "timePositionList"
+            values = () if index is None else index.values
+            tokens = []
+            for value in values:
+                if not isinstance(value, str):
+                    raise ValueError(f"{where}: time {value!r:.80} is not text as reported")
+                tokens.append(_token(value, f"{where} time"))
+        lay = self.layout.element(name)
+        obj = etree.SubElement(prop, lay.tag)
+        if name == "TimeIntervalList":
+            obj.set("unit", unit)
+        text = _bounded(" ".join(tokens), len(tokens), where)
+        holder = etree.SubElement(obj, self._child(lay, child, where))
+        if text:
+            holder.text = text
+
+    def _split(self, table: ResultTable, where: str) -> list[ResultTable]:
+        """``table`` in consecutive parts whose every text fits in one element.
+
+        Each text of the table (its ``dataValues``, the ``posList`` of a row index, the
+        list of its times) grows by row; a part ends before the row that would take one
+        of them over :data:`MAX_TEXT_BYTES`. The rows keep their order and every part has
+        the table's columns, units and place. Almost every table is one part.
+
+        Raises:
+            ValueError: One row alone is longer than the limit, or a part of a table
+                placed by top and base would have one row (it would read back as an extent).
+        """
+        _check_table(table, where)
+        texts = list(self._rows(table, where)) if table.row_count else []
+        streams = [[len(text.encode("utf-8")) + 1 for text in texts]]
+        for column in table.domain.index:
+            if column.name == "time":
+                sizes = [len(str(value).encode("utf-8")) + 1 for value in column.values]
+            else:
+                sizes = [len(_number(value, where)) + 1 for value in column.values]
+            streams.append(sizes)
+        if len(table.domain.index) > 1:  # one posList: all axes of a row together
+            streams = [streams[0], [sum(axes) for axes in zip(*streams[1:], strict=True)]]
+        bounds = [0]
+        totals = [0] * len(streams)
+        for row in range(table.row_count):
+            sizes = [stream[row] for stream in streams]
+            if any(size - 1 > MAX_TEXT_BYTES for size in sizes):
+                raise ValueError(
+                    f"{where}: row {row + 1} alone makes {max(sizes) - 1:,} bytes of text in one"
+                    f" element, over the {MAX_TEXT_BYTES:,} a DIGGS file can hold and still be"
+                    " read back"
+                )
+            if row > bounds[-1] and any(
+                total + size - 1 > MAX_TEXT_BYTES for total, size in zip(totals, sizes, strict=True)
+            ):
+                bounds.append(row)
+                totals = [0] * len(streams)
+            totals = [total + size for total, size in zip(totals, sizes, strict=True)]
+        bounds.append(table.row_count)
+        if len(bounds) == 2:  # noqa: PLR2004 - one part: the table as it is
+            self.row_texts[id(table)] = texts
+            return [table]
+        paired = [column.name for column in table.domain.index] == ["top", "base"]
+        if paired and bounds[-1] - bounds[-2] == 1:
+            bounds[-2] -= 1  # a lone top and base would read back as the table's extent
+            if bounds[-2] - bounds[-3] < 2:  # noqa: PLR2004
+                raise ValueError(f"{where}: its rows cannot be split in parts of two rows or more")
+        parts = []
+        for start, end in itertools.pairwise(bounds):
+            part = dataclasses.replace(
+                table,
+                domain=dataclasses.replace(
+                    table.domain,
+                    index=tuple(_sliced(column, start, end) for column in table.domain.index),
+                ),
+                columns=tuple(_sliced(column, start, end) for column in table.columns),
+                row_count=end - start,
+            )
+            self.row_texts[id(part)] = texts[start:end]
+            parts.append(part)
+        return parts
 
     def _table_location(self, table: ResultTable, base: str, where: str) -> Fill | None:
         """Where the table was measured: one place per row, one point or one interval."""
@@ -1082,7 +1321,10 @@ class _Emitter:
             el.set("cs", _CS)
             el.set("ts", _TS)
             if table.row_count:
-                el.text = _bounded(_TS.join(self._rows(table, where)), table.row_count, where)
+                texts = self.row_texts.pop(id(table), None)
+                if texts is None:
+                    texts = list(self._rows(table, where))
+                el.text = _bounded(_TS.join(texts), table.row_count, where)
 
         parts = [
             (self._child(result_set, "parameters", where), holder),
@@ -1173,10 +1415,44 @@ class _Emitter:
         ]
         members += [("sample", partial(self._sample, n)) for n in model.samples]
         members += [("observation", partial(self._observation, n)) for n in model.observations]
-        members += [("measurement", partial(self._measurement, n)) for n in model.measurements]
+        self._plan_parts()
+        for node in model.measurements:
+            members.append(("measurement", partial(self._measurement, node)))
+            members += [
+                ("measurement", partial(self._continuation, node, number))
+                for number in range(2, len(self.parts[node.key]) + 1)
+            ]
         parts = [(self._child(lay, name, "Diggs"), fill) for name, fill in members]
         self._fill(root, lay, parts, "Diggs")
         return root
+
+
+def _holds_results(lay: ElementLayout) -> bool:
+    """True for a result object: a result set, and where or when its rows are."""
+    has = lay.by_local
+    return (
+        "results" in has and ("timeDomain" in has or "location" in has) and "domainSet" not in has
+    )
+
+
+def _check_table(table: ResultTable, where: str) -> None:
+    """Refuse a table with no column, or a column without one value per row."""
+    if not table.columns:
+        raise ValueError(f"{where}: a result table needs at least one column")
+    for column in (*table.domain.index, *table.columns):
+        if len(column.values) != table.row_count:
+            raise ValueError(
+                f"{where}: column {column.name!r:.80} has {len(column.values)} values"
+                f" for {table.row_count} rows"
+            )
+        if column.type not in _TYPE_DATA:
+            raise ValueError(
+                f"{where} column {column.name!r:.80}: unknown column type {column.type!r:.80}"
+            )
+
+
+def _sliced(column: Column, start: int, end: int) -> Column:
+    return dataclasses.replace(column, values=column.values[start:end])
 
 
 def _uom_labels(units: Sequence[str | None], implied: str | None, where: str) -> list[str]:

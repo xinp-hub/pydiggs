@@ -695,13 +695,21 @@ _REFUSED: dict[str, tuple[Callable[[Model], Model], str]] = {
         lambda m: _swap(m, replace(m.projects[0], element="DocumentInformation")),
         "has no child element 'name'",
     ),
-    "not a Test": (
-        lambda m: _swap(m, replace(m.measurements[0], element="Monitor")),
-        "a Test with exactly one result table",
+    "not a measurement the writer writes": (
+        lambda m: _swap(m, replace(m.measurements[0], element="GeophysicalFieldSurvey")),
+        "this writer writes a Test, a Monitor, a MeasurementWhileDrilling, not a Geophysical",
     ),
-    "two tables": (
+    "a monitor with no monitor location": (
+        lambda m: _swap(m, replace(m.measurements[0], element="Monitor", result_time=None)),
+        "requires Monitor to have monitorLocation",
+    ),
+    "no result table": (
+        lambda m: _swap(m, replace(m.measurements[0], results=())),
+        "requires a measurement to have an outcome",
+    ),
+    "two tables, no result object for the second": (
         lambda m: _swap(m, replace(m.measurements[0], results=m.measurements[0].results * 2)),
-        "a Test with exactly one result table",
+        "2 result tables, and its procedure has a result object for 0 of the 1",
     ),
     "table without a place": (lambda m: _table(m, extent=None), "needs a location"),
     "table with two places": (
@@ -780,7 +788,7 @@ _REFUSED: dict[str, tuple[Callable[[Model], Model], str]] = {
                 shape="temporal", index=(_column("elapsed_time", (1.0,), name="elapsed_time"),)
             ),
         ),
-        "no location for a row index of \\['elapsed_time'\\]",
+        "a DIGGS TestResult has no time domain",
     ),
     "typed reference without a link": (
         lambda m: _drop_link(m, "SA1", "samplingFeature"),

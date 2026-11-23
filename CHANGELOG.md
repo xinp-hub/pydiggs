@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Time series and several result tables (preview).** The tables profile and
+  `pydiggs.write` now carry monitoring series such as a piezometer's water levels (result
+  rows placed by `time`, carried as reported; `measurements.element` = `Monitor`), drilling
+  logs (`MeasurementWhileDrilling`, rows by `elapsed_time` with its unit), tests with
+  several result tables, such as a dissipation test's summary and its series (numbered by
+  the new `result` column), and tests reported with no result rows. Reading fills the
+  same columns, so this content no longer lands in the `extra` table. The official MWD,
+  pore pressure dissipation and triaxial examples now go from DIGGS to tables and back
+  whole.
 - **The tables profile from .NET, Java or any language (preview).** Software that is not
   written in Python can now export to DIGGS and import from it with no Python code of its
   own. Over HTTP, `POST /v1/tables/to-diggs` takes your CSV tables as a ZIP and answers
@@ -38,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   1.0-beta.1 stays published.
 
 ### Changed
+- **A result series too long for one element is written in parts.** A series over 10 MB
+  of text (such as a year of one-minute readings), which earlier was reported and not
+  written, is now written as consecutive tests of the same feature, each under the limit
+  every XML reader with safe settings accepts; `tables.from_model` joins the parts back
+  into one test. Other software shows one test per part. Only a single row over 10 MB is
+  refused.
 - **Sidecar protocol 1.4.** A host that asks for 1.4 gets the `tables.*` methods,
   `tables_profile_version` and `capabilities.tables`; a host that asks for 1.3 or older
   sees no change.

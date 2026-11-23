@@ -307,7 +307,7 @@ def test_the_load_plan_puts_parents_first() -> None:
     by_table = {step.table: step for step in back.plan.steps}
     assert by_table["features"].identity == ("key",)
     assert by_table["features"].depends_on == ("projects",)
-    assert by_table["results_DrivenPenetrationTest"].identity == ("measurement", "row")
+    assert by_table["results_DrivenPenetrationTest"].identity == ("measurement", "result", "row")
     assert by_table["results_DrivenPenetrationTest"].rows == 1
     assert json.dumps(back.plan.to_dict())  # plain JSON
 
@@ -345,8 +345,8 @@ def test_the_official_borehole_example_keeps_every_record_that_has_data() -> Non
     assert len(back.samples) == len(source.samples)
     layers = sum(len(o.layers) for o in source.observations)
     assert sum(len(o.layers) for o in back.observations) == layers
-    with_rows = [m for m in source.measurements if m.results and m.results[0].row_count]
-    assert len(back.measurements) == len(with_rows)
+    # Every test comes back, the triaxial tests with no result rows too.
+    assert len(back.measurements) == len(source.measurements)
 
 
 def test_content_outside_the_profile_is_kept_as_json() -> None:
@@ -392,7 +392,7 @@ def test_csv_package_round_trip(tmp_path: Path) -> None:
     cone = next(r for r in described["resources"] if r["name"].endswith("ConePenetrationTest"))
     fields = {field["name"]: field for field in cone["schema"]["fields"]}
     assert fields["tip_resistance"]["unit"] == "MPa"
-    assert cone["schema"]["primaryKey"] == ["measurement", "row"]
+    assert cone["schema"]["primaryKey"] == ["measurement", "result", "row"]
 
 
 def test_csv_files_without_a_descriptor_are_read_by_name(tmp_path: Path) -> None:
