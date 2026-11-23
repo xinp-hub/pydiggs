@@ -22,8 +22,8 @@ scenes:
       column, with its unit. You load these tables into your software and export one
       DIGGS file.
     run: head -4 challenge/results_DrivenPenetrationTest.csv
-    expect: 'measurement,row,n_value'
-    claims: ['measurement,row,n_value']
+    expect: '(?m)^measurement,result,row,n_value\s*$'
+    claims: ['(?m)^measurement,result,row,n_value$']
   - title: Grade the export
     say: >-
       pydiggs conformance grade takes the challenge folder and the exported file. The
