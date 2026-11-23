@@ -69,16 +69,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ("Duplicate id"): the job was still counted as running for a moment after its reply.
   It is now finished before its reply is written. Slower machines (often Windows) saw it
   most.
-- **Reading a result table with many declared properties and short rows is fast
-  again.** When a `ResultSet` declared many `Property` columns but its rows held only a
-  few values each, `pydiggs.read` and `read_bytes` (and so `validate`, `convert`, `diff`,
-  the conformance grader, the HTTP server and the sidecar) did work for every declared
-  column of every row, so a file of a few hundred kilobytes could take seconds: 1,000
-  properties over 40,000 one-value rows took about 11 seconds and now takes about 1, and
-  with `results=False` about 0.2. The read model is unchanged, byte for byte, for every
-  file, including short rows, rows longer than the declared columns and null values.
-  Such a table is now also charged to the read's `time_budget` column by column, so a
-  read given a budget stops with its usual `structure.timeout` note instead of running on.
+- **Reading a result table with many declared properties and short rows is fast again.**
+  When a `ResultSet` declared many `Property` columns but its rows held only a few
+  values each, `pydiggs.read` and `read_bytes` (and so `convert`, `diff`, the
+  conformance grader, and reading through the HTTP server and the sidecar; `validate`
+  does not use the reader) did work for every declared column of every row, so a file of
+  a few hundred kilobytes could take seconds: 1,000 properties over 40,000 one-value
+  rows took about 11 seconds and now takes about 1, and with `results=False` about 0.2.
+  The read model is unchanged, byte for byte, for every file, including short rows, rows
+  longer than the declared columns and null values. Such a table is now also charged to
+  the read's `time_budget` column by column, so a read given a budget stops with its
+  usual `structure.timeout` note instead of running on.
 - **A crafted result table can no longer make reading run out of memory.** The model
   gives every column of a result table one cell per row, so a row shorter than the
   declared properties is padded with nulls. A file of a few megabytes declaring 20,000
