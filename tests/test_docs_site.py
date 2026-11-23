@@ -295,3 +295,43 @@ def test_every_address_pydiggs_emits_resolves_in_the_assembled_site(tmp_path: Pa
                 assert _resolves(tmp_path, tmp_path / rel).is_file(), url
         else:
             assert (tmp_path / rel).is_file(), url
+
+
+_PYPI = json.dumps(
+    {
+        "releases": {
+            "1.16.0": [{"yanked": False}],
+            "1.15.0": [{"yanked": True}, {"yanked": False}],
+            "1.14.0": [{"yanked": True}],
+            "1.13.0": [],
+        }
+    }
+).encode()
+
+
+def test_latest_is_the_newest_tag_pypi_lists() -> None:
+    # 1.17.0 was tagged at 17:15 and approved for PyPI at 22:45 on 2026-11-23; the docs run
+    # of the tag published latest/ = 1.17.0 for a release no one could install yet.
+    published = docs_site.pypi_releases("pydiggs", _PYPI)
+    assert published == {"1.16.0", "1.15.0"}
+    tags = ["v1.17.0", "v1.16.0", "v1.15.0", "v1.14.0", "v1.13.0", "js-v0.10.0"]
+    assert docs_site.newest_release(tags, published) == "1.16.0"
+    assert docs_site.newest_release(tags) == "1.17.0"
+    assert docs_site.newest_release(["v1.14.0", "v1.13.0"], published) == ""
+
+
+def test_the_docs_are_published_from_the_default_branch_after_a_release() -> None:
+    # GitHub Pages reported the deployment from the v1.17.0 tag as a success and active,
+    # yet kept serving the previous deployment from master (community discussion 145042).
+    # So nothing deploys from a tag: a finished Release run starts the docs on master.
+    yaml = pytest.importorskip("yaml")
+    text = (ROOT / ".github" / "workflows" / "docs.yml").read_text(encoding="utf-8")
+    workflow = yaml.safe_load(text)
+    on = workflow[True]
+    assert "tags" not in on["push"]
+    assert on["workflow_run"] == {"workflows": ["Release"], "types": ["completed"]}
+    assert "docs_site.py latest-tag --pypi pydiggs" in text
+    release = (ROOT / ".github" / "workflows" / "publish.yml").read_text(encoding="utf-8")
+    assert re.search(r"(?m)^name: Release$", release)
+    env = workflow["jobs"]["verify"]["steps"][0]["env"]["RELEASED"]
+    assert "workflow_run" in env and "ref_type" not in env
