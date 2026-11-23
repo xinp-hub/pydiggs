@@ -192,7 +192,7 @@ jobs:
     name: verify the live site
     needs: [build, deploy]
     runs-on: ubuntu-26.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     permissions: {}
     steps:
       - name: The site serves what was just published
@@ -208,6 +208,13 @@ jobs:
             get "$site/versions.json" |
               jq -e --arg v "$1" 'any(.[]; .version == $v and (.aliases | index("latest") != null))' > /dev/null
           }
+          # GitHub Pages serves through a CDN that caches a page under its path: the ?run=
+          # query does not bypass it (#408: 1.16.0 was deployed at 17:05 and live, yet
+          # versions.json read as the old one for the whole 15 minutes). So what decides is
+          # what a stale cache cannot fake: pages that did not exist before this deployment.
+          # Pages whose content only changes (versions.json, latest/) are checked as well,
+          # but a stale copy of them is a warning, not a failure.
+          #
           # Prints what is not live yet; prints nothing when everything is.
           # grep reads the whole page (no -q): with pipefail, grep -q stopping early can
           # fail the pipeline on a page larger than the pipe buffer although it matched.
@@ -220,6 +227,15 @@ jobs:
             # pyDIGGS emits unversioned addresses (problem types, the SARIF helpUri).
             get "$site/http-api/" | grep -F 'http-api/" + location.search + location.hash' > /dev/null ||
               { echo "the redirect at the unversioned http-api/"; return; }
+            # A release's own address (1.16.0/, a stub that leads to latest/) first exists in
+            # the deployment that publishes it, so no cache can hold an older copy of it.
+            if [ -n "$RELEASED" ]; then
+              get "$site/$RELEASED/" | grep -F 'url=../latest/' > /dev/null ||
+                { echo "the $RELEASED/ page this deployment adds"; return; }
+            fi
+          }
+          # The same, for pages a CDN may serve stale for a while after a release.
+          stale() {
             if [ -n "$BUILT" ]; then
               lists "$BUILT" || { echo "$BUILT as latest in versions.json"; return; }
             fi
@@ -233,12 +249,23 @@ jobs:
           waiting=""
           for attempt in $(seq 1 60); do
             waiting="$(missing)"
+            [ -z "$waiting" ] && break
+            echo "Attempt $attempt: waiting for $waiting."
+            sleep 15
+          done
+          if [ -n "$waiting" ]; then
+            echo "::error title=The live docs are not what was published::After 15 minutes $site still does not serve $waiting."
+            exit 1
+          fi
+          # The deployment is live. Give the CDN up to 10 more minutes (its usual lifetime
+          # for a cached page) before reporting a stale copy.
+          for attempt in $(seq 1 40); do
+            waiting="$(stale)"
             if [ -z "$waiting" ]; then
               echo "Verified $site (dev${BUILT:+, latest = $BUILT})."
               exit 0
             fi
-            echo "Attempt $attempt: waiting for $waiting."
+            echo "Live; the CDN still serves an older copy ($waiting), attempt $attempt."
             sleep 15
           done
-          echo "::error title=The live docs are not what was published::After 15 minutes $site still does not serve $waiting."
-          exit 1
+          echo "::warning title=The CDN still serves an older copy::$site is live with this deployment, but after 10 more minutes still serves an older copy of $waiting. It refreshes on its own."

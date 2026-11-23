@@ -75,3 +75,19 @@ def test_every_workflow_is_a_workflow(path: Path) -> None:
     keys = {"on" if key is True else key for key in workflow}
     assert {"on", "jobs"} <= keys, f"{path.name} has no trigger or no jobs"
     assert keys <= WORKFLOW_KEYS, f"{path.name}: GitHub refuses the keys {keys - WORKFLOW_KEYS}"
+
+
+def test_the_docs_check_trusts_only_what_a_cdn_cannot_serve_stale() -> None:
+    # GitHub Pages' CDN served the old versions.json for the whole 15 minutes after the
+    # 1.16.0 deployment went live, so the release run failed although nothing was wrong.
+    # What decides now is a page that first exists in the release's own deployment; a
+    # stale copy of a page that only changes is a warning.
+    text = (ROOT / ".github" / "workflows" / "docs.yml").read_text(encoding="utf-8")
+    step = text[text.index("name: The site serves what was just published") :]
+    decides = step[step.index("missing() {") : step.index("stale() {")]
+    warns = step[step.index("stale() {") :]
+    assert '"$site/$RELEASED/"' in decides and "url=../latest/" in decides
+    assert "lists " not in decides and "package-version" not in decides
+    assert "lists " in warns and "package-version" in warns
+    assert "::warning title=The CDN still serves an older copy::" in warns
+    assert "::error" not in warns[warns.index("for attempt in $(seq 1 40)") :]
