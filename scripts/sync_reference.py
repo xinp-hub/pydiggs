@@ -183,6 +183,16 @@ PACKAGE_LOCAL = {
         "pyDIGGS's own output contract, checked against the output by "
         "tests/test_conformance_suite.py."
     ),
+    "conformance/diggs-conformance-acceptance-1.0-beta.1.schema.json": (
+        "The diggs-conformance-acceptance 1.0-beta.1 JSON Schema (pydiggs conformance "
+        "accept, preview): pyDIGGS's own output contract, checked against the output by "
+        "tests/test_conformance_accept.py."
+    ),
+    "conformance/diggs-conformance-matrix-1.0-beta.1.schema.json": (
+        "The diggs-conformance-matrix 1.0-beta.1 JSON Schema (pydiggs conformance matrix, "
+        "preview): pyDIGGS's own output contract, checked against the output by "
+        "tests/test_conformance_matrix.py."
+    ),
     "diff/diggs-diff-1.0.schema.json": (
         "The diggs-diff 1.0 JSON Schema (pydiggs.diff): pyDIGGS's own output contract, "
         "checked against the output by tests/diff."

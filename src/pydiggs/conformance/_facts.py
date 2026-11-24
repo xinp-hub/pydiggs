@@ -19,6 +19,7 @@ from __future__ import annotations
 import math
 from bisect import bisect_left
 from collections import defaultdict
+from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cache
@@ -354,6 +355,51 @@ def _column_si(column: Column) -> tuple[float, float, str] | None:
     return None if column.uom else (1.0, 0.0, "")
 
 
+def _null(column: Column) -> float | None:
+    """The number ``column`` marks a missing value with (its ``nullValue``), if any."""
+    if column.null_value is None:
+        return None
+    try:
+        number = float(column.null_value)
+    except ValueError:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _cell_number(column: Column, cell: object, null: float | None) -> float | None:
+    """The number a cell of ``column`` reports, or None when it reports none.
+
+    ``null`` is :func:`_null` of the column. An empty cell, text, and a cell that equals
+    the column's declared ``nullValue`` report nothing: DIGGS 3.0.0 lets a property name
+    the value "to be interpreted as null" in its data values. A boolean is a number
+    (1 or 0) only in a flag column (:data:`FLAG_KEYS`).
+    """
+    if isinstance(cell, bool):
+        return float(cell) if (column.key or column.name) in FLAG_KEYS else None
+    number = _number_of(cell)
+    return None if number is None or number == null else number
+
+
+def _filled(column: Column) -> Iterator[bool]:
+    """For each cell of ``column``: whether it holds a value.
+
+    An empty cell does not, and neither does one equal to the column's declared
+    ``nullValue``, as text or as a number (``-999`` and ``-999.0`` are the same mark).
+    """
+    text, null = column.null_value, _null(column)
+    for cell in column.values:
+        if cell is None or cell == "":
+            yield False
+        elif text is None:
+            yield True
+        elif isinstance(cell, str):
+            yield cell.strip() != text.strip()
+        elif isinstance(cell, bool):
+            yield True
+        else:
+            yield _number_of(cell) is None or _number_of(cell) != null
+
+
 def _param_si(held: object) -> tuple[float, str] | None:
     if not isinstance(held, Quantity):
         return None
@@ -365,12 +411,14 @@ def _param_si(held: object) -> tuple[float, str] | None:
 
 
 def _measurement_readings(
-    model: Model, measurement: Measurement
+    model: Model, measurement: Measurement, placing: _Placing, nulls: bool
 ) -> list[tuple[str, float, float, str]]:
     """Every numeric result and procedure parameter: (key, depth, SI value, SI unit).
 
     A procedure parameter applies to every depth the measurement has a row at, so one
-    test per drive and one test with a row per drive read the same.
+    test per drive and one test with a row per drive read the same; ``placing`` bounds
+    how many readings that makes. With ``nulls``, a cell that is its column's declared
+    ``nullValue`` is not a reading (see :func:`observe`).
     """
     procedure = measurement.procedure
     if procedure is None:
@@ -386,20 +434,54 @@ def _measurement_readings(
                 continue
             factor, offset, unit = how
             key = column.key or column.name
+            null = _null(column) if nulls else None
             for depth, cell in zip(depths, column.values, strict=False):
                 # A flag reads as 1 or 0; a boolean anywhere else is not a number.
-                if isinstance(cell, bool):
-                    value = float(cell) if key in FLAG_KEYS else None
-                else:
-                    value = _number_of(cell)
+                value = _cell_number(column, cell, null)
                 if value is not None and depth is not None:
                     out.append((key, depth, value * factor + offset, unit))
+    params = []
     for param, held in procedure.params.items():
         found = _param_si(held)
         if found is not None:
-            out.extend(("@" + param, depth, found[0], found[1]) for depth in row_depths)
+            params.append(("@" + param, found[0], found[1]))
+    out.extend(placing.spread(params, row_depths))
     out.extend(_grading(procedure))
     return out
+
+
+#: A test's own values (procedure parameters, the torques of a vane test) are placed at
+#: each depth the test has a row at. The first value of a test is always placed (one
+#: reading per row); at most this many more readings are made that way in one
+#: observation. A correct submission needs a few thousand; a file with thousands of such
+#: values on a test with thousands of rows is not read past the limit, so the work a
+#: file can cause stays linear in its size.
+MAX_PLACED: Final = 1_000_000
+
+
+class _Placing:
+    """Places a test's own values at its depths, within :data:`MAX_PLACED` readings."""
+
+    def __init__(self) -> None:
+        self.left = MAX_PLACED
+
+    def spread(
+        self, values: Iterable[tuple[str, float, str]], depths: Collection[float]
+    ) -> Iterator[tuple[str, float, float, str]]:
+        """Each distinct (key, SI value, SI unit) of ``values`` at each of ``depths``.
+
+        The first is always placed. A later one that would take the observation past
+        the limit, and every value after it, is not: its facts show as missing, as for
+        any content not read.
+        """
+        for index, (key, value, unit) in enumerate(dict.fromkeys(values)):
+            if index:
+                if len(depths) > self.left:
+                    self.left = 0
+                    return
+                self.left -= len(depths)
+            for depth in depths:
+                yield key, depth, value, unit
 
 
 #: Result properties that are flags (true or false), read as 1 or 0.
@@ -427,8 +509,16 @@ def _grading(procedure: Procedure) -> list[tuple[str, float, float, str]]:
     return out
 
 
-def observe(model: Model) -> Observed:
-    """Read from ``model`` everything the answer keys of this suite look up."""
+def observe(model: Model, *, nulls: bool = False) -> Observed:
+    """Read from ``model`` everything the answer keys of this suite look up.
+
+    With ``nulls``, a result cell equal to the ``nullValue`` its column declares is a
+    missing value, as DIGGS 3.0.0 defines it, and is not read. The scenarios added after
+    pyDIGGS 1.17 pass it. The SPT, CPT and laboratory scenarios do not: suite 1.0-beta.2
+    was released reading such a cell as a value, and a file is graded the same way for
+    as long as the suite version is the same. Honouring ``nullValue`` there is a change
+    of suite version.
+    """
     project_names = frozenset(name for project in model.projects for name in project.names)
     named: dict[str, list[str]] = defaultdict(list)
     totals: dict[str, float | None] = {}
@@ -437,12 +527,13 @@ def observe(model: Model) -> Observed:
         for name in dict.fromkeys(feature.names):
             named[name].append(feature.key)
     readings: dict[tuple[str, str, str], list[tuple[float, float, str]]] = defaultdict(list)
+    placing = _Placing()
     for measurement in model.measurements:
         feature_key = _feature_key(model, measurement)
         if feature_key is None or measurement.procedure is None:
             continue
         procedure = measurement.procedure.type
-        for key, depth, value, unit in _measurement_readings(model, measurement):
+        for key, depth, value, unit in _measurement_readings(model, measurement, placing, nulls):
             readings[(feature_key, procedure, key)].append((depth, value, unit))
     for found in readings.values():
         found.sort()

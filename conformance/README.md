@@ -9,6 +9,10 @@ pipeline) can be compared against the same files and the same expected outcomes.
 | `corpus.toml` | External files: source repository, pinned commit, licence, path, sha256, size; `[profiles]`: files also checked under another DIGGS profile | Hand, in review |
 | `expected.toml` | For every corpus file: verdict, error and warning counts, distinct error and warning rule ids | `scripts/conformance.py record` only |
 | `model.toml` | For every corpus file: what a reader must produce (top-level members, procedures, links by relation, result tables, rows and cells), or the error it must raise | `scripts/conformance.py record --model` only |
+| `xslt-validator.toml` | The DIGGSml XSLT validator's files, pinned like `corpus.toml`, and the URLs answered locally while it runs | Hand, in review |
+| `xslt-expected.toml` | For every corpus file: the XSLT validator's verdict, counts and error kinds | `scripts/agreement.py record` only |
+| `intended.toml` | Why pyDIGGS's verdict and the validator's differ, for every file where they do | Hand, in review |
+| `xslt-requirements.txt` | SaxonC-HE, hash-pinned, for a throwaway environment (never a pyDIGGS dependency) | Hand |
 
 The corpus also includes the vendored DIGGSml examples in `tests/fixtures/official/`
 (provenance in its `PROVENANCE.toml`, kept current by `scripts/sync_reference.py`).
@@ -73,6 +77,17 @@ the same for 2.5.a, 2.6 and 3.x:
 The pyDIGGS read API (`diggs-model`, from 1.6.0) is tested against these numbers, and
 any other reader can be. It has no `@profile` rows: what a file contains does not depend
 on the profile it is validated with.
+
+## Agreement with the DIGGSml XSLT validator
+
+`scripts/agreement.py` runs the DIGGS project's XSLT validator on every corpus file,
+offline, and compares its verdict with `expected.toml`; every difference needs a reason
+in `intended.toml`. See its docstring for the commands, and the docs page
+[Agreement with the DIGGS validator](../docs/conformance-agreement.md) for the method
+and the results. `python scripts/agreement.py check` checks the explanations against the
+records without the validator; CI's `agreement` workflow runs the validator itself.
+After `record` changes `expected.toml`, run `agreement.py check` too: a new difference
+needs a reason.
 
 ## Adding a file
 

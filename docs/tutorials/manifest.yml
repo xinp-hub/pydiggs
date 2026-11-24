@@ -19,7 +19,8 @@ discover:
   # Every long option of every command, from its own --help.
   option:
     help: [pydiggs validate, pydiggs convert, pydiggs diff, pydiggs ags4 check,
-           pydiggs serve, pydiggs capabilities]
+           pydiggs serve, pydiggs capabilities, pydiggs conformance accept,
+           pydiggs conformance matrix]
   # Every operation pyDIGGS offers on any surface (pydiggs.capabilities()).
   operation: {python: "pydiggs:capabilities", pick: operations.id}
   # The HTTP API: each endpoint and each of its query parameters.
@@ -80,6 +81,21 @@ features:
   covers:
   - cli:conformance
   tutorial: conformance
+- id: conformance-accept-matrix
+  covers:
+  - option:conformance accept --class
+  - option:conformance accept --format
+  - option:conformance accept --report
+  - option:conformance accept --max-bytes
+  - option:conformance accept --time-budget
+  - option:conformance matrix --format
+  - option:conformance matrix --max-bytes
+  - option:conformance matrix --time-budget
+  waiver: 'Preview. `accept` is one command on a delivered file whose whole output is a list of
+    requirements, and `matrix` means nothing until a second vendor has evidence: a video would show a
+    table of "not run". docs/conformance.md shows both commands with their output, every requirement
+    and its DIGGS source; the conformance tutorial covers the suite. Revisit when a second vendor''s
+    evidence exists.'
 - id: tables
   covers:
   - cli:tables

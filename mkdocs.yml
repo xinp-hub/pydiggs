@@ -169,6 +169,8 @@ nav:
     - AGS4 and DIGGS conversion: convert.md
     - Comparing two files: diff.md
     - Testing DIGGS support: conformance.md
+    - Signing conformance evidence: conformance-signing.md
+    - Agreement with the DIGGS validator: conformance-agreement.md
     - Your database to DIGGS: tables.md
     - Mapping files: mapping.md
     - Capabilities: capabilities.md

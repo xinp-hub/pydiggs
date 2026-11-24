@@ -34,7 +34,7 @@ sha256 = "68b1383e102b616bfa5a20c6777ce99a93915cbe8840becff00dd4725a9363d1"
 [files."conformance/catalogue.toml"]
 source = "local"
 note = "The conformance class catalogue (pydiggs.conformance): pyDIGGS's own data, checked against the bundled DIGGS 3.0.0 layout by tests/test_conformance_suite.py."
-sha256 = "43c698828babbeb861a75b1e46c9c15c2ed36f49b1411e410ba7040e159e906e"
+sha256 = "6b86b38222d6abbb66ec489aa42b2893f0fcbb1571ab156a101a2061118961b1"
 
 [files."conformance/diggs-conformance-1.0-beta.2.schema.json"]
 source = "local"
@@ -45,6 +45,16 @@ sha256 = "d41250ee8eeca78bd6e273c72f5103f3576418d82c9da9f5a75ea17c73f89093"
 source = "local"
 note = "The diggs-conformance 1.0-beta.1 JSON Schema (pydiggs.conformance, preview): pyDIGGS's own output contract, checked against the output by tests/test_conformance_suite.py."
 sha256 = "e8abec06b90a4bf62ff527a9fc35114890c9096f9fdbed5a83d39cc5d9511417"
+
+[files."conformance/diggs-conformance-acceptance-1.0-beta.1.schema.json"]
+source = "local"
+note = "The diggs-conformance-acceptance 1.0-beta.1 JSON Schema (pydiggs conformance accept, preview): pyDIGGS's own output contract, checked against the output by tests/test_conformance_accept.py."
+sha256 = "6cc20ac224991b6dbc6efecbb97b033aea386c479fab19bd3124913fd0fca93c"
+
+[files."conformance/diggs-conformance-matrix-1.0-beta.1.schema.json"]
+source = "local"
+note = "The diggs-conformance-matrix 1.0-beta.1 JSON Schema (pydiggs conformance matrix, preview): pyDIGGS's own output contract, checked against the output by tests/test_conformance_matrix.py."
+sha256 = "57427a30a0dd361c06987286ff37f89136ca717399e99cf014d72a6546244373"
 
 [files."convert/convert-mapping-1.schema.json"]
 source = "local"

@@ -476,6 +476,48 @@ def test_observing_a_file_is_linear_in_names_times_rows() -> None:
     assert sum(len(found) for found in seen.readings.values()) < 1000
 
 
+def _long_cpt_test(xml: str, rows: int, params: int) -> bytes:
+    """``xml`` with a first sounding of ``rows`` rows and ``params`` extra procedure parameters."""
+    depths = " ".join(f"{i / 100:.2f}" for i in range(1, rows + 1))
+    test = xml.index("<measurement>")
+    start = xml.index("<gml:posList>", test) + len("<gml:posList>")
+    xml = xml[:start] + depths + xml[xml.index("</gml:posList>", start) :]
+    start = xml.index(">", xml.index("<dataValues", test)) + 1
+    cells = " ".join("1,1,1" for _ in range(rows))
+    xml = xml[:start] + cells + xml[xml.index("</dataValues>", start) :]
+    extra = "".join(f'<extra{i} uom="m">{i}</extra{i}>' for i in range(params))
+    changed, count = re.subn(
+        r"<StaticConePenetrationTest ([^>]*)/>",
+        rf"<StaticConePenetrationTest \1>{extra}</StaticConePenetrationTest>",
+        xml,
+        count=1,
+    )
+    assert count == 1
+    return changed.encode()
+
+
+def test_observing_a_test_is_linear_in_its_rows_and_parameters(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Found in review: every procedure parameter is placed at every depth its test has
+    # a row at, so n parameters on n rows made n * n readings from a file of size n.
+    xml = _challenge_for("cpt-export").reference().decode()
+
+    def placed(rows: int, params: int) -> int:
+        seen = _facts.observe(pydiggs.read_bytes(_long_cpt_test(xml, rows, params)))
+        return sum(len(f) for where, f in seen.readings.items() if where[2].startswith("@extra"))
+
+    assert placed(50, 7) == 350  # under the limit, every parameter at every depth
+    monkeypatch.setattr(_facts, "MAX_PLACED", 10_000)
+    work = [placed(n, n) for n in (300, 600)]
+    # Twice the rows and twice the parameters: the first parameter at every depth and
+    # no more readings than the limit after it, not four times as many (90,000 and
+    # 360,000 without it).
+    assert max(work) <= 600 + 10_000
+    assert work[1] <= 2 * work[0]
+    assert placed(20_000, 1) == 20_000  # one parameter is placed on a test of any length
+
+
 def test_skipped_and_validation_stages_count_what_failed() -> None:
     challenge = _challenge_for("cpt-export")
     document = conformance.grade(challenge, b"<root/>").to_dict()

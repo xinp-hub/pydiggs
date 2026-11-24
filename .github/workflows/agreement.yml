@@ -1,0 +1,87 @@
+# Cross-implementation agreement (docs/conformance-agreement.md). Runs the DIGGSml XSLT
+# validator, pinned in conformance/xslt-validator.toml, on the conformance corpus, and
+# fails when its outcome differs from conformance/xslt-expected.toml or when a file where
+# its verdict and pyDIGGS's differ is not explained in conformance/intended.toml. The test
+# suite checks the explanations against the records on every pull request; this job checks
+# the records against the validator itself. Actions pinned via scripts/pin_actions.py.
+name: Agreement
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "conformance/**"
+      - "scripts/agreement.py"
+      - "scripts/conformance.py"
+      - "src/pydiggs/PROVENANCE.toml"
+      - "src/pydiggs/schemas/**"
+      - "src/pydiggs/dictionaries/**"
+      - "src/pydiggs/deprecation/**"
+      - "tests/fixtures/official/**"
+      - ".github/workflows/agreement.yml"
+  push:
+    branches: [master]
+    paths:
+      - "conformance/**"
+      - "scripts/agreement.py"
+      - "scripts/conformance.py"
+      - "src/pydiggs/PROVENANCE.toml"
+      - "src/pydiggs/schemas/**"
+      - "src/pydiggs/dictionaries/**"
+      - "src/pydiggs/deprecation/**"
+      - "tests/fixtures/official/**"
+      - ".github/workflows/agreement.yml"
+  schedule:
+    # Weekly, so a runner image or wheel change that breaks the job is seen before a
+    # pull request needs it.
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agreement-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# uv uses only its own python-build-standalone interpreters (tests/test_workflows.py).
+env:
+  UV_PYTHON_PREFERENCE: only-managed
+  FORCE_COLOR: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  agreement:
+    name: agreement with the DIGGSml XSLT validator
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: conformance/xslt-requirements.txt
+          python-version: "3.12"
+      # The run is offline: an XML catalog answers every URL from a pinned local copy and
+      # sends any other to a file that does not exist. This makes the units API the
+      # validator would call unreachable at the network level too (pyDIGGS's comparison
+      # is independent of Geosetta: conformance/intended.toml, docs/conformance-agreement.md).
+      - name: Block the Geosetta API (a second guard)
+        # Both address families: with the IPv4 line alone the name still resolves over IPv6.
+        run: |
+          echo "0.0.0.0 diggs.geosetta.org" | sudo tee -a /etc/hosts
+          echo ":: diggs.geosetta.org" | sudo tee -a /etc/hosts
+      - name: Fetch the corpus and the validator (pinned commit, size and sha256 checked)
+        run: |
+          uv run --isolated --no-project python scripts/conformance.py fetch
+          uv run --isolated --no-project python scripts/agreement.py fetch
+      # SaxonC-HE in a throwaway environment, from wheels pinned by hash (uv run --with
+      # does not check hashes; uv pip sync --require-hashes does). Never a pyDIGGS dependency.
+      - name: Install SaxonC-HE (hash-pinned, outside the project)
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/xslt"
+          uv pip sync --require-hashes --python "$RUNNER_TEMP/xslt" conformance/xslt-requirements.txt
+      - name: Run the validator; compare with the record and check every disagreement
+        run: '"$RUNNER_TEMP/xslt/bin/python" scripts/agreement.py check --run'

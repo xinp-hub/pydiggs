@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-acceptance-1.0-beta.1.schema.json",
+  "title": "diggs-conformance-acceptance 1.0-beta.1",
+  "description": "The result of an owner's acceptance check of one delivered DIGGS file (pydiggs conformance accept): whether the file, named by its SHA-256, meets the published requirements of one family. Preview: this beta may change before 1.0. The document holds no time and no machine detail. File text (names, messages) is kept as it is; escape it before showing it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "format",
+    "schema_version",
+    "suite_version",
+    "tool",
+    "statement",
+    "family",
+    "file",
+    "verdict",
+    "requirements",
+    "not_shown"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "diggs-conformance-acceptance"
+    },
+    "schema_version": {
+      "const": "1.0-beta.1"
+    },
+    "suite_version": {
+      "type": "string",
+      "description": "The version of the conformance suite whose requirements were checked."
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "pydiggs"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "statement": {
+      "type": "string",
+      "description": "What this check does and does not show."
+    },
+    "family": {
+      "type": "object",
+      "description": "The family the file was checked as, such as spt.",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "diggs_version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "diggs_version": {
+          "type": "string",
+          "description": "The DIGGS version the requirements are taken from."
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sha256",
+        "bytes",
+        "diggs_version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The file's name, without its folder."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diggs_version": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The DIGGS version the file declares; null when it is not a DIGGS document."
+        }
+      }
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "description": "pass when every requirement passed."
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text",
+          "source",
+          "status",
+          "passed",
+          "total",
+          "failed",
+          "items",
+          "items_truncated"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^accept\\.[a-z0-9-]+$"
+          },
+          "text": {
+            "type": "string",
+            "description": "What must hold."
+          },
+          "source": {
+            "type": "string",
+            "description": "The part of DIGGS or of its dictionaries the requirement comes from."
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "skipped"
+            ],
+            "description": "skipped: the file could not be read, or not to its end, so the requirement was not looked at."
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "How many things failed in all."
+          },
+          "items": {
+            "type": "array",
+            "maxItems": 200,
+            "description": "What failed, at most 200 (items_truncated says whether there were more).",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "message"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Where: a test, an activity, a line, or the file."
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "items_truncated": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "not_shown": {
+      "type": "array",
+      "description": "What the check does not show, item by item.",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

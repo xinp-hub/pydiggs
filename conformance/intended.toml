@@ -1,0 +1,199 @@
+# Why pyDIGGS and the DIGGSml XSLT validator give different verdicts on a corpus file.
+#
+# scripts/agreement.py compares pyDIGGS's verdict (conformance/expected.toml) with the
+# validator's (conformance/xslt-expected.toml) for every corpus file. Where they differ,
+# the file must be listed under [files] with the reasons that explain it, and the
+# reasons must cover every error that makes the difference: each XSLT error kind (an
+# `xslt` reason's `kinds`, regular expressions) or each pyDIGGS error rule (a `pydiggs`
+# reason's `rules`, shell patterns). `python scripts/agreement.py check` fails on a
+# disagreement not listed, an error not covered, a file listed that now agrees, and a
+# reason that no file cites. The docs page (docs/conformance-agreement.md) shows it all.
+#
+# Edited by hand, in review. A reason says what each side does and why pyDIGGS differs;
+# "pyDIGGS is right" is not a reason.
+
+[reasons.crs-offline]
+title = "CRS definitions are not fetched in the job"
+side = "xslt"
+kinds = ['^CRS Validation: The resource at "…" could not be accessed\.$']
+why = """
+The validator's CRS step downloads the definition of every `srsName` from the OGC
+register (`www.opengis.net/def/crs/...`) and reports an error when it cannot. The
+agreement job runs offline, so that download fails and every EPSG `srsName` becomes an
+error. pyDIGGS checks the same names against the EPSG subset it bundles and reports a
+name it does not recognise as a warning (`geometry.crs-unresolvable`). This is a
+difference of the job, not of the rules: run online, the validator would accept most of
+these names.
+"""
+
+[reasons.crs-not-allowed]
+title = "srsName forms the validator does not accept"
+side = "xslt"
+kinds = ['^CRS Validation: The srsName reference: "…" is either malformed or is not on the white list']
+why = """
+The validator accepts an `srsName` only as a URL on its allow-list (`opengis.net/def`,
+`diggsml.org`, `epsg.org/api`) or as `#id` for a reference system in the file, and
+reports anything else as an error. The older DIGGS examples use DIGGS CRS URNs
+(`urn:diggs:def:crs:DIGGS:0.1:26911_5703`) and name a linear reference system in the
+file by its id without the `#` (`srsName="B-001-0-12-lsr"`). pyDIGGS recognises both, as
+the DIGGS File Inspector does, and warns only about a name it cannot resolve
+(`geometry.crs-unresolvable`).
+"""
+
+[reasons.crs-local-id-missing]
+title = "srsName points to an id that is not in the file"
+side = "xslt"
+kinds = ['^CRS Validation: No element with id="…" found in the document\.$']
+why = """
+An `srsName="#id"` names a linear reference system that should be in the same file. When
+no element has that `gml:id`, the validator reports an error; pyDIGGS reports a warning
+(`geometry.crs-unresolvable`), because the file is schema-valid and the rest of it can
+still be read.
+"""
+
+[reasons.codetype-without-codespace]
+title = "Code values without a DIGGS code list (codeType step)"
+side = "xslt"
+kinds = ['^CodeType Validation: <[^>]+> should reference a DIGGS Standard code list dictionary']
+why = """
+For elements that have a DIGGS standard code list (`rolePerformed`, `abundanceCode`,
+`boreholeType`, `propertyClass` ...), the validator's codeType step reports an error when
+the value carries no `codeSpace` pointing at that list. pyDIGGS does not run this step
+yet (the `codeType` step is reserved in diggs-findings): a value without a `codeSpace`
+is valid by the schema, and pyDIGGS checks a `codeSpace` only where there is one
+(the `dictionary` step).
+"""
+
+[reasons.coordinate-poslist-short]
+title = "A posList with fewer than two positions"
+side = "xslt"
+kinds = ['^Coordinate Validation: The <posList> element contains # coordinate values but requires a minimum of']
+why = """
+The validator's coordinate step requires a `gml:posList` to hold at least two positions
+(`2 × srsDimension` values). Some older examples give a one-value `posList` on a
+one-dimensional linear reference (a single depth). pyDIGGS has no coordinate step yet,
+and the schema accepts the list.
+"""
+
+[reasons.geometry-srs-warning]
+title = "A geometry object without srsName and srsDimension"
+side = "xslt"
+kinds = ['^Geometry Validation: Geometry object <\w+> is missing required srsName and srsDimension attributes']
+why = """
+Both implement the same rule, from the validator's geometry module: a geometry object
+needs `srsName` and `srsDimension` on itself or on an ancestor. When neither has them,
+the validator reports an error and pyDIGGS a warning (`geometry.srs-attributes`), a
+choice documented in [Findings](findings.md): the coordinates are still there, and the
+reference system is often given once on the object's `gml:pos` or `gml:posList`.
+"""
+
+# The files where the verdicts differ, and why. Every error that makes the difference is
+# covered by one of the reasons cited.
+
+[files."inspector/SeismicConeExample.xml"]
+reasons = ["crs-offline"]
+
+[files."official/2.5.a/AtterbergExample.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace"]
+
+[files."official/2.5.a/LithoGrading.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.5.a/ODOT_600304_20180702.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace", "coordinate-poslist-short"]
+
+[files."official/2.5.a/ODOT_600339_20180702.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace", "coordinate-poslist-short", "geometry-srs-warning"]
+
+[files."official/2.5.a/ODOT_Example_2_20180702.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace", "coordinate-poslist-short"]
+
+[files."official/2.5.a/PorePressureDissipation.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.5.a/StrengthExample.xml"]
+reasons = ["geometry-srs-warning"]
+
+[files."official/2.5.a/cptExample.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.5.a/water_content.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.6/Aeromag.xml"]
+reasons = ["crs-offline", "codetype-without-codespace", "geometry-srs-warning"]
+
+[files."official/2.6/CPT_and_PorePressureDissipation.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace", "geometry-srs-warning"]
+
+[files."official/2.6/CompactionGroutingExample.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace", "geometry-srs-warning"]
+
+[files."official/2.6/DeepSoilMixingExample-Shortened.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.6/DocumentationExample.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace"]
+
+[files."official/2.6/FieldSurveyExample.xml"]
+reasons = ["crs-offline", "crs-local-id-missing"]
+
+[files."official/2.6/JetGroutingExample.xml"]
+reasons = ["crs-not-allowed"]
+
+[files."official/2.6/LabCompaction.xml"]
+reasons = ["crs-local-id-missing", "codetype-without-codespace"]
+
+[files."official/2.6/LithoGrading-from25.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.6/LugeonTestExample.xml"]
+reasons = ["crs-offline", "codetype-without-codespace"]
+
+[files."official/2.6/ODOT_600304_20180702-from25.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace", "coordinate-poslist-short"]
+
+[files."official/2.6/ODOT_600339_20180702-from25.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace", "coordinate-poslist-short", "geometry-srs-warning"]
+
+[files."official/2.6/ODOT_Example_2_20180702-from25.xml"]
+reasons = ["crs-not-allowed", "crs-local-id-missing", "codetype-without-codespace", "coordinate-poslist-short"]
+
+[files."official/2.6/PermeationGroutingExample.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace", "geometry-srs-warning"]
+
+[files."official/2.6/PorePressureDissipation.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace", "geometry-srs-warning"]
+
+[files."official/2.6/PorePressureDissipationOnly.xml"]
+reasons = ["crs-local-id-missing", "codetype-without-codespace", "geometry-srs-warning"]
+
+[files."official/2.6/RockGroutingExample.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.6/StrengthExample-from25.xml"]
+reasons = ["geometry-srs-warning"]
+
+[files."official/2.6/cptExample-from25.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/2.6/water_content-from25.xml"]
+reasons = ["crs-not-allowed", "codetype-without-codespace"]
+
+[files."official/3.0/Aeromag.xml"]
+reasons = ["crs-offline", "codetype-without-codespace"]
+
+[files."official/3.0/Borehole-CPT_Example_Annotated.xml"]
+reasons = ["crs-offline"]
+
+[files."official/3.0/GeophysicalFieldSurveyExamples.xml"]
+reasons = ["crs-offline", "crs-local-id-missing"]
+
+[files."official/3.0/MWDExample.xml"]
+reasons = ["crs-offline"]
+
+[files."official/3.0/Piezometer_Example.xml"]
+reasons = ["crs-offline", "crs-local-id-missing"]
+
+[files."official/3.0/TrenchWallExample.xml"]
+reasons = ["crs-offline"]
