@@ -77,3 +77,23 @@ test("a document literal fits the generated types", () => {
   assert.equal(finding.severity, "error");
   assert.equal(depth.si?.uom, "m");
 });
+
+// scripts/emitter.mjs is plain JavaScript with no declarations, so it is loaded untyped.
+interface SchemaEmitter {
+  type(schema: unknown, where: string): string;
+}
+const emitterModule = new URL("../scripts/emitter.mjs", import.meta.url).href;
+
+test("a required name with no schema takes the additionalProperties schema, and only a schema", async () => {
+  const { Emitter } = (await import(emitterModule)) as { Emitter: new (resolveRef: (ref: string) => string) => SchemaEmitter };
+  const emitter = new Emitter((ref) => ref);
+  const counts = { type: "object", required: ["features"], additionalProperties: { type: "integer", minimum: 0 } };
+  assert.equal(emitter.type(counts, "counts"), "{\n  features: number;\n  [key: string]: number;\n}");
+  // With no schema to take, the name is a mistake in the contract and stops the generator.
+  for (const additionalProperties of [undefined, true, false]) {
+    const schema = { type: "object", required: ["features"], properties: { samples: { type: "integer" } }, additionalProperties };
+    if (additionalProperties === undefined) delete schema.additionalProperties;
+    assert.throws(() => emitter.type(schema, "counts"), /counts: required property "features" is not declared/);
+  }
+  assert.throws(() => emitter.type({ type: "object", oneOf: [] }, "x"), /unsupported JSON Schema keyword "oneOf"/);
+});

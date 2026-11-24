@@ -16,6 +16,9 @@ import type {
   DocumentBytes,
   RuleInfo,
   SarifLog,
+  TablesFromDiggsResult,
+  TablesRoundTripResult,
+  TablesToDiggsResult,
   Versions,
   WorkerAgs4CheckOptions,
   WorkerCallOptions,
@@ -24,6 +27,7 @@ import type {
   WorkerReadOptions,
   WorkerRulesOptions,
   WorkerStatus,
+  WorkerTablesOptions,
   WorkerValidateOptions,
 } from "./worker-client.ts";
 
@@ -44,6 +48,11 @@ export interface PoolEngine {
   capabilities(options?: WorkerCallOptions): Promise<Capabilities>;
   /** Optional, so that an engine of your own written before it still is one. */
   diff?(oldInput: DocumentBytes, newInput: DocumentBytes, options?: WorkerDiffOptions): Promise<DiggsDiffDocument>;
+  /** The tables profile (preview); optional for the same reason. */
+  tablesToDiggs?(input: DocumentBytes, options?: WorkerTablesOptions): Promise<TablesToDiggsResult>;
+  checkTables?(input: DocumentBytes, options?: WorkerTablesOptions): Promise<DiggsFindingsDocument>;
+  tablesRoundTrip?(input: DocumentBytes, options?: WorkerTablesOptions): Promise<TablesRoundTripResult>;
+  tablesFromDiggs?(input: DocumentBytes, options?: WorkerTablesOptions): Promise<TablesFromDiggsResult>;
   terminate(): void;
 }
 
@@ -146,6 +155,26 @@ export class PydiggsPool<E extends PoolEngine = PoolEngine> {
     return engine.diff(oldInput, newInput, options);
   }
 
+  /** Writes a package of profile tables as DIGGS on the least busy engine (preview). */
+  tablesToDiggs(input: DocumentBytes, options?: WorkerTablesOptions): Promise<TablesToDiggsResult> {
+    return this.#tables("tablesToDiggs", (engine) => engine.tablesToDiggs?.(input, options));
+  }
+
+  /** Checks a package of profile tables on the least busy engine (preview). */
+  checkTables(input: DocumentBytes, options?: WorkerTablesOptions): Promise<DiggsFindingsDocument> {
+    return this.#tables("checkTables", (engine) => engine.checkTables?.(input, options));
+  }
+
+  /** Round-trips a package of profile tables on the least busy engine (preview). */
+  tablesRoundTrip(input: DocumentBytes, options?: WorkerTablesOptions): Promise<TablesRoundTripResult> {
+    return this.#tables("tablesRoundTrip", (engine) => engine.tablesRoundTrip?.(input, options));
+  }
+
+  /** Turns a DIGGS file into profile tables on the least busy engine (preview). */
+  tablesFromDiggs(input: DocumentBytes, options?: WorkerTablesOptions): Promise<TablesFromDiggsResult> {
+    return this.#tables("tablesFromDiggs", (engine) => engine.tablesFromDiggs?.(input, options));
+  }
+
   /** What pydiggs can do, from the least busy engine. */
   capabilities(options?: WorkerCallOptions): Promise<Capabilities> {
     return this.#pick().capabilities(options);
@@ -154,6 +183,12 @@ export class PydiggsPool<E extends PoolEngine = PoolEngine> {
   /** Stops every engine. */
   terminate(): void {
     for (const engine of this.engines) engine.terminate();
+  }
+
+  // An engine of your own may lack the tables methods, as it may lack diff.
+  #tables<T>(method: string, run: (engine: E) => Promise<T> | undefined): Promise<T> {
+    const answer = run(this.#pick());
+    return answer ?? Promise.reject(new PydiggsError(`this pool's engines have no ${method}`));
   }
 
   // Ready engines before loading or idle ones (a loading engine may be restarting after

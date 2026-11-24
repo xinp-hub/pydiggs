@@ -7,6 +7,8 @@
 //   - an AGS4 fixture converts to the same DIGGS bytes as on CPython, that DIGGS converts
 //     back to the same AGS4 bytes (4.2 and 4.1.1), and the service layer's conversion
 //     results carry exactly those bytes (and the same residual file);
+//   - an official DIGGS 3.0 example becomes the same tables package as on CPython, and
+//     that package the same DIGGS file (the tables profile, through the service layer);
 //   - the core path (import, warm_up, validation) executed no import of rich,
 //     multiprocessing, fastapi, mcp or subprocess, and started no thread;
 //   - the bundled UoM dictionary is on the Emscripten filesystem and in use;
@@ -57,6 +59,10 @@ FS.writeFile("/smoke/cases.py", readFileSync(join(here, "cases.py")));
 for (const name of readdirSync(join(here, "fixtures"))) {
   FS.writeFile(`/smoke/fixtures/${name}`, readFileSync(join(here, "fixtures", name)));
 }
+// The official DIGGS 3.0 example of the tables cases (cases.TABLES_FIXTURE).
+const TABLES_FIXTURE = "Borehole-CPT_Example_Annotated.xml";
+FS.mkdirTree("/smoke/official");
+FS.writeFile(`/smoke/official/${TABLES_FIXTURE}`, readFileSync(join(here, "..", "fixtures", "official", "3.0", TABLES_FIXTURE)));
 
 const micropip = pyodide.pyimport("micropip");
 await micropip.install.callKwargs(`emfs:/smoke/${wheelName}`, { deps: false });
@@ -74,7 +80,7 @@ console.log(`pydiggs ${wheelMatch[1]} installed with deps=False and warmed up ($
 const out = JSON.parse(
   pyodide.runPython(`
 import json
-results = cases.run("/smoke/fixtures")
+results = cases.run("/smoke/fixtures", "/smoke/official")
 refused = None
 try:
     import pydiggs

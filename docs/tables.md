@@ -193,6 +193,10 @@ The answer is the same as the sidecar's, byte for byte, and the DIGGS file is th
 pyDIGGS receives is read in memory, never extracted, and refused if it holds anything
 but plain CSV and JSON files (see [the limits](http-api.md#post-v1tables)).
 
+**From JavaScript or TypeScript**, [`@pydiggs/client`](javascript.md) 0.11 or later has
+the four operations as typed methods (`tablesToDiggs`, `checkTables`, `tablesRoundTrip`,
+`tablesFromDiggs`), against this HTTP API or with pyDIGGS running in the browser.
+
 ## The tables
 
 `tables.profile()` returns the full description of every table and column as a Data

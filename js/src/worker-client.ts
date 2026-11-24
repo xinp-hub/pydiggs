@@ -16,6 +16,9 @@ import type {
   RuleInfo,
   RuleStep,
   SarifLog,
+  TablesFromDiggsResult,
+  TablesRoundTripResult,
+  TablesToDiggsResult,
   ValidateCheck,
   Versions,
 } from "./generated/http.ts";
@@ -42,6 +45,9 @@ export type {
   RuleInfo,
   RuleStep,
   SarifLog,
+  TablesFromDiggsResult,
+  TablesRoundTripResult,
+  TablesToDiggsResult,
   ValidateCheck,
   Versions,
 } from "./generated/http.ts";
@@ -158,6 +164,22 @@ export function diffParameters(options: DiffCompareOptions): RequestParameters {
   if (options.showReformatted !== undefined) parameters.show_reformatted = options.showReformatted;
   if (options.showRenamed !== undefined) parameters.show_renamed = options.showRenamed;
   return parameters;
+}
+
+export interface WorkerTablesOptions extends WorkerCallOptions {
+  /**
+   * Name to report the package (or, for `tablesFromDiggs`, the DIGGS file) as; the
+   * output is named after it. Default: the `File`'s own name, else pyDIGGS's own
+   * (`tables.zip` for a package, `input.xml` for a DIGGS file).
+   */
+  name?: string;
+  /**
+   * The largest answer pyDIGGS may build, in bytes; a larger one is refused as
+   * `result-too-large`. A positive whole number; anything else (`0`, `Infinity`, a
+   * fraction) is refused as `invalid-parameter`. Default: pyDIGGS's, 256 MiB.
+   * `checkTables` answers with findings, which pyDIGGS does not hold to it.
+   */
+  maxResultBytes?: number;
 }
 
 export interface WorkerRulesOptions extends WorkerCallOptions {
@@ -393,6 +415,47 @@ export class WorkerClient {
     }) as Promise<DiggsDiffDocument>;
   }
 
+  /**
+   * Writes a package of DIGGS tables profile tables as DIGGS 3.0.0, as
+   * `/v1/tables/to-diggs` does (preview). The package is a ZIP of one CSV file per table
+   * and, optionally, `datapackage.json`. `conversionOutput(result)` gives the DIGGS file,
+   * checked against its sha256; `report` names every row or value not carried. A ZIP
+   * that is not a package of the profile is an error with `problem.code`
+   * "invalid-document". Needs pyDIGGS 1.17 or later.
+   */
+  tablesToDiggs(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<TablesToDiggsResult> {
+    return this.#tables("to-diggs", input, options) as Promise<TablesToDiggsResult>;
+  }
+
+  /**
+   * Checks a package of profile tables against the DIGGS dictionaries, as
+   * `/v1/tables/check` does (preview): a diggs-findings document of step `tables`.
+   * Problems in rows are findings, not errors. Needs pyDIGGS 1.17 or later.
+   */
+  checkTables(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<DiggsFindingsDocument> {
+    return this.#tables("check", input, options) as Promise<DiggsFindingsDocument>;
+  }
+
+  /**
+   * Writes a package as DIGGS, validates it, reads it back and compares it, value by
+   * value, with what was sent, as `/v1/tables/round-trip` does (preview). A failed round
+   * trip is a result with `ok: false`, not an error. Needs pyDIGGS 1.17 or later.
+   */
+  tablesRoundTrip(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<TablesRoundTripResult> {
+    return this.#tables("round-trip", input, options) as Promise<TablesRoundTripResult>;
+  }
+
+  /**
+   * Turns one DIGGS file into tables of the profile, as `/v1/tables/from-diggs` does
+   * (preview): `conversionOutput(result)` gives the package ZIP (a CSV file per table,
+   * `datapackage.json` and `plan.json`), and `plan` the tables in load order. Bytes that
+   * are not a DIGGS document are an error with `problem.code` "invalid-document". Needs
+   * pyDIGGS 1.17 or later.
+   */
+  async tablesFromDiggs(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<TablesFromDiggsResult> {
+    return (await this.#document("tables-from-diggs", input, options, this.#resultLimit(options))) as TablesFromDiggsResult;
+  }
+
   /** What this pydiggs can do, as `/v1/capabilities` gives it. */
   capabilities(options: WorkerCallOptions = {}): Promise<Capabilities> {
     return this.#send("capabilities", undefined, undefined, {}, options.signal) as Promise<Capabilities>;
@@ -430,6 +493,25 @@ export class WorkerClient {
     void this.#worker.terminate();
   }
 
+  async #tables(operation: "to-diggs" | "check" | "round-trip", input: DocumentBytes, options: WorkerTablesOptions): Promise<unknown> {
+    return this.#document("tables", input, options, { operation, ...this.#resultLimit(options) });
+  }
+
+  // Checked here, in pyDIGGS's words: JSON has no Infinity, so one sent on would reach
+  // pyDIGGS as null, which there means no limit at all.
+  #resultLimit(options: WorkerTablesOptions): RequestParameters {
+    const limit = options.maxResultBytes;
+    if (limit === undefined) return {};
+    if (!Number.isSafeInteger(limit) || limit < 1) {
+      throw this.#makeError("invalid parameters", {
+        code: "invalid-parameter",
+        detail: "invalid parameters",
+        errors: [{ parameter: "max_result_bytes", problem: "must be a positive integer" }],
+      });
+    }
+    return { max_result_bytes: limit };
+  }
+
   async #document(
     type: RequestKind,
     input: DocumentBytes,
@@ -442,8 +524,9 @@ export class WorkerClient {
     this.#checkSize(input);
     const data = await copyBytes(input);
     const extra = dictionary === undefined ? undefined : await copyBytes(dictionary);
-    const ags4 = type === "convert" || type === "ags4-check";
-    const name = ags4 ? givenName(input, options.name) : documentName(input, options.name);
+    // AGS4 files and tables leave the default name to pyDIGGS.
+    const ownDefault = type === "convert" || type === "ags4-check" || type === "tables" || type === "tables-from-diggs";
+    const name = ownDefault ? givenName(input, options.name) : documentName(input, options.name);
     return this.#send(type, name, data, parameters, options.signal, extra);
   }
 
@@ -654,6 +737,35 @@ export class SupervisedWorker {
    */
   diff(oldInput: DocumentBytes, newInput: DocumentBytes, options: WorkerDiffOptions = {}): Promise<DiggsDiffDocument> {
     return this.#run(options.signal, (client) => client.diff(oldInput, newInput, options));
+  }
+
+  /**
+   * Writes a package of DIGGS tables profile tables (a ZIP of CSV files) as DIGGS 3.0.0
+   * (`/v1/tables/to-diggs`, preview). `conversionOutput(result)` gives the DIGGS file.
+   */
+  tablesToDiggs(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<TablesToDiggsResult> {
+    return this.#run(options.signal, (client) => client.tablesToDiggs(input, options));
+  }
+
+  /** Checks a package of profile tables (`/v1/tables/check`, preview): a findings document. */
+  checkTables(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<DiggsFindingsDocument> {
+    return this.#run(options.signal, (client) => client.checkTables(input, options));
+  }
+
+  /**
+   * Writes a package as DIGGS, reads it back and compares (`/v1/tables/round-trip`,
+   * preview). A failed round trip is `ok: false`, not an error.
+   */
+  tablesRoundTrip(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<TablesRoundTripResult> {
+    return this.#run(options.signal, (client) => client.tablesRoundTrip(input, options));
+  }
+
+  /**
+   * Turns one DIGGS file into tables of the profile (`/v1/tables/from-diggs`, preview).
+   * `conversionOutput(result)` gives the package ZIP.
+   */
+  tablesFromDiggs(input: DocumentBytes, options: WorkerTablesOptions = {}): Promise<TablesFromDiggsResult> {
+    return this.#run(options.signal, (client) => client.tablesFromDiggs(input, options));
   }
 
   /** What this pydiggs can do: its operations, their options and extras. */

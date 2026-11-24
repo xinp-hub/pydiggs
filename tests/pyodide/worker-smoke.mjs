@@ -16,6 +16,9 @@
 //   - AGS4: convert, back to AGS4 in 4.2 and 4.1.1, and a check with and without a data
 //     dictionary (also as SARIF), equal CPython's service layer; each output and the
 //     residual decode to the converter's bytes; capabilities lists the same core operations;
+//   - the tables profile: an official DIGGS 3.0 example becomes the package CPython's
+//     service layer makes, and that package becomes the DIGGS file pyDIGGS's Python API
+//     writes, each output checked against its sha256; a file that is not a ZIP is refused;
 //   - writing SIGINT to the interrupt buffer stops a long validation with "cancelled",
 //     and the same worker answers the next request.
 // Only the Web Worker shell (js/src/browser-worker.ts: the integrity-checked fetch of
@@ -141,6 +144,17 @@ service.push([
   `ags4-sarif:${CHECKED}`,
   send({ type: "ags4-check", name: CHECKED, data: fixture(CHECKED), dictionary: fixture(DICTIONARY), parameters: { format: "sarif" } }),
 ]);
+// pyDIGGS 1.17: an official example to tables, and CPython's package of it back to DIGGS.
+const TABLES_XML = "Borehole-CPT_Example_Annotated.xml";
+const TABLES_ZIP = TABLES_XML.replace(/\.xml$/, ".zip");
+const official = arrayBuffer(readFileSync(join(here, "..", "fixtures", "official", "3.0", TABLES_XML)));
+service.push([`service-tables-from-diggs:${TABLES_XML}`, send({ type: "tables-from-diggs", name: TABLES_XML, data: official })]);
+const goldenPackage = Buffer.from(JSON.parse(goldens[`service-tables-from-diggs:${TABLES_XML}`]).output_base64, "base64");
+service.push([
+  `service-tables-to-diggs:${TABLES_ZIP}`,
+  send({ type: "tables", name: TABLES_ZIP, data: arrayBuffer(goldenPackage), parameters: { operation: "to-diggs" } }),
+]);
+const notZip = send({ type: "tables", data: arrayBuffer(Buffer.from("not a zip")), parameters: { operation: "check" } });
 const capabilitiesId = send({ type: "capabilities" });
 const notAgs4 = send({ type: "convert", name: "x.ags", data: fixture(FIXTURES[0]), parameters: { to: "diggs" } });
 const badChecks = send({ type: "validate", name: "a.xml", data: fixture(FIXTURES[0]), parameters: { checks: ["nope"] } });
@@ -210,6 +224,21 @@ for (const version of AGS_VERSIONS) {
   assert.equal(text, goldens[`to-ags4:${version}:${AGS4}`]);
   console.log(`ok  ${AGS4_XML} to AGS4 ${version}: ${back.output_name}, identical to the converter's AGS4 file`);
 }
+// The tables profile: each output decodes to bytes that match its sha256, which is
+// CPython's; the package is CPython's, and the DIGGS file is the one the Python API writes.
+const fromDiggs = answers.get(service.find(([golden]) => golden.startsWith("service-tables-from-diggs:"))[1]).document;
+const packageBytes = await conversionOutput(fromDiggs);
+assert.equal(fromDiggs.output_sha256, JSON.parse(goldens[`service-tables-from-diggs:${TABLES_XML}`]).output_sha256);
+assert.ok(Buffer.from(packageBytes).equals(goldenPackage), "the package differs from CPython's");
+console.log(`ok  tables from ${TABLES_XML}: ${fromDiggs.output_name}, ${packageBytes.byteLength} bytes, identical to CPython's package`);
+const toDiggs = answers.get(service.find(([golden]) => golden.startsWith("service-tables-to-diggs:"))[1]).document;
+assert.equal(toDiggs.output_sha256, JSON.parse(goldens[`service-tables-to-diggs:${TABLES_ZIP}`]).output_sha256);
+assert.equal(new TextDecoder().decode(await conversionOutput(toDiggs)), goldens[`tables-to-diggs:${TABLES_ZIP}`]);
+console.log(`ok  tables ${TABLES_ZIP} to DIGGS: ${toDiggs.output_name}, identical to the DIGGS file pydiggs.write_bytes writes`);
+const refusedZip = answers.get(notZip);
+assert.equal(refusedZip.type, "error");
+assert.deepEqual([refusedZip.problem.code, refusedZip.problem.kind], ["invalid-document", "not-zip"]);
+console.log("ok  a tables package that is not a ZIP: invalid-document, not-zip");
 // Capabilities: the core operations (extras differ between CPython and Pyodide).
 const capabilities = answers.get(capabilitiesId);
 assert.equal(capabilities.type, "result", capabilities.message);

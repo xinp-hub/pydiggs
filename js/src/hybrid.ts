@@ -22,6 +22,9 @@ import type {
   DiggsVersion,
   PydiggsHttpClient,
   SarifLog,
+  TablesFromDiggsResult,
+  TablesRoundTripResult,
+  TablesToDiggsResult,
   ValidateCheck,
 } from "./http.ts";
 
@@ -53,10 +56,24 @@ export interface HybridResult<T> {
 
 /**
  * What runs pydiggs in the tab: a `PydiggsBrowser` or a `PydiggsPool`. An engine of
- * your own without `convert`, `checkAgs4` or `diff` sends those requests to the server.
+ * your own without `convert`, `checkAgs4`, `diff` or a tables method sends those
+ * requests to the server.
  */
 export type HybridBrowser = Pick<PoolEngine, "status" | "ready" | "validate" | "read"> &
-  Partial<Pick<PoolEngine, "validateSarif" | "convert" | "checkAgs4" | "checkAgs4Sarif" | "diff">>;
+  Partial<
+    Pick<
+      PoolEngine,
+      | "validateSarif"
+      | "convert"
+      | "checkAgs4"
+      | "checkAgs4Sarif"
+      | "diff"
+      | "tablesToDiggs"
+      | "checkTables"
+      | "tablesRoundTrip"
+      | "tablesFromDiggs"
+    >
+  >;
 
 /** The options of `diff`: the comparison's, a name for each file, and `signal`. */
 export type HybridDiffOptions = DiffOptions;
@@ -84,6 +101,16 @@ export interface HybridAgs4CheckOptions {
   signal?: AbortSignal;
   /** An AGS4 data dictionary to check against. */
   dictionary?: BrowserDocumentInput;
+}
+
+export interface HybridTablesOptions {
+  /**
+   * Name to report the package (or, for `tablesFromDiggs`, the DIGGS file) as. Default:
+   * the `File`'s own name, else pyDIGGS's own (`tables.zip`, or `input.xml`).
+   */
+  name?: string;
+  /** Stops waiting for the answer. */
+  signal?: AbortSignal;
 }
 
 export interface PydiggsHybridOptions {
@@ -312,7 +339,70 @@ export class PydiggsHybrid {
     );
   }
 
-  // An AGS4 file keeps the name given, or a File's own; with neither, pyDIGGS names it.
+  /**
+   * Writes a package of DIGGS tables profile tables (a ZIP of CSV files) as DIGGS 3.0.0
+   * where it can run (preview). `conversionOutput(document)` gives the DIGGS file. The
+   * browser's worker and the server both need pyDIGGS 1.17 or later.
+   */
+  tablesToDiggs(input: BrowserDocumentInput, options: HybridTablesOptions = {}): Promise<HybridResult<TablesToDiggsResult>> {
+    const request = this.#ags4Request(input, options);
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.tablesToDiggs!(input, request),
+      () => this.#server!.tablesToDiggs(input, request),
+      browser?.tablesToDiggs === undefined,
+    );
+  }
+
+  /** Checks a package of profile tables where it can run (preview): a findings document. */
+  checkTables(input: BrowserDocumentInput, options: HybridTablesOptions = {}): Promise<HybridResult<DiggsFindingsDocument>> {
+    const request = this.#ags4Request(input, options);
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.checkTables!(input, request),
+      () => this.#server!.checkTables(input, request),
+      browser?.checkTables === undefined,
+    );
+  }
+
+  /**
+   * Writes a package as DIGGS, reads it back and compares where it can run (preview). A
+   * failed round trip is `ok: false`, not an error.
+   */
+  tablesRoundTrip(input: BrowserDocumentInput, options: HybridTablesOptions = {}): Promise<HybridResult<TablesRoundTripResult>> {
+    const request = this.#ags4Request(input, options);
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.tablesRoundTrip!(input, request),
+      () => this.#server!.tablesRoundTrip(input, request),
+      browser?.tablesRoundTrip === undefined,
+    );
+  }
+
+  /**
+   * Turns one DIGGS file into tables of the profile where it can run (preview).
+   * `conversionOutput(document)` gives the package ZIP.
+   */
+  tablesFromDiggs(input: BrowserDocumentInput, options: HybridTablesOptions = {}): Promise<HybridResult<TablesFromDiggsResult>> {
+    const request = this.#ags4Request(input, options);
+    const browser = this.#browser;
+    return this.#run(
+      input,
+      options.signal,
+      () => browser!.tablesFromDiggs!(input, request),
+      () => this.#server!.tablesFromDiggs(input, request),
+      browser?.tablesFromDiggs === undefined,
+    );
+  }
+
+  // An AGS4 file or a tables package keeps the name given, or a File's own; with
+  // neither, pyDIGGS names it.
   #ags4Request(input: BrowserDocumentInput, options: { name?: string; signal?: AbortSignal }) {
     const name =
       options.name ?? ("name" in input && typeof input.name === "string" && input.name !== "" ? input.name : undefined);

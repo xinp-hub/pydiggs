@@ -48,7 +48,9 @@ export type RequestKind =
   | "convert"
   | "ags4-check"
   | "diff"
-  | "capabilities";
+  | "capabilities"
+  | "tables"
+  | "tables-from-diggs";
 
 /** The request's parameters, in the HTTP API's own names. */
 export interface RequestParameters {
@@ -76,8 +78,10 @@ export interface RequestParameters {
   show_reformatted?: boolean;
   /** diff: also list records whose gml:id changed. */
   show_renamed?: boolean;
-  /** diff: the largest answer pyDIGGS may build, in bytes. */
+  /** diff, tables, tables-from-diggs: the largest answer pyDIGGS may build, in bytes. */
   max_result_bytes?: number;
+  /** tables: what to do with the package, as `POST /v1/tables/<operation>`. */
+  operation?: "to-diggs" | "check" | "round-trip";
   /** rules: only this step's rules. */
   step?: string;
   /** explain: the rule id. */
@@ -88,9 +92,12 @@ export interface RequestParameters {
 export interface RequestMessage {
   id: number;
   type: RequestKind;
-  /** validate, read: the file name to report; diff: the old file's. */
+  /** validate, read: the file name to report; diff: the old file's; tables: the package's. */
   name?: string;
-  /** validate, read, convert, ags4-check: the document; diff: the old file. */
+  /**
+   * validate, read, convert, ags4-check, tables-from-diggs: the document; diff: the old
+   * file; tables: the package, a ZIP.
+   */
   data?: ArrayBuffer;
   /** diff: the new file's name to report. */
   newName?: string;

@@ -1,10 +1,17 @@
 // The file a conversion produced, from its result document: DIGGS XML (to "diggs") or an
 // AGS4 file (to "ags4"). A conversion result (`convert` on any engine, or POST
 // /v1/convert) carries the output as base64 with its sha256, so the bytes can be checked
-// wherever they arrive.
+// wherever they arrive. The tables results (`tablesToDiggs`, `tablesRoundTrip`,
+// `tablesFromDiggs`, or POST /v1/tables/*) carry theirs the same way.
 
 import { PydiggsError } from "./errors.ts";
 import type { ConversionResult } from "./generated/http.ts";
+
+/**
+ * A result that carries a file as base64 with its sha256: a `ConversionResult`, a
+ * `TablesToDiggsResult`, a `TablesRoundTripResult` or a `TablesFromDiggsResult`.
+ */
+export type ResultWithOutput = Pick<ConversionResult, "output_base64" | "output_sha256">;
 
 type FromBase64 = { fromBase64?: (text: string) => Uint8Array };
 
@@ -24,11 +31,13 @@ const hex = (buffer: ArrayBuffer): string =>
 /**
  * The output of a conversion as bytes (DIGGS XML, or an AGS4 file for `to: "ags4"`),
  * checked against the result's `output_sha256`. Save it as `result.output_name`, or wrap
- * it in a `Blob` with `result.media_type` to offer it for download.
+ * it in a `Blob` with `result.media_type` to offer it for download. It reads a tables
+ * result the same way: the DIGGS file of `tablesToDiggs` and `tablesRoundTrip`, the
+ * package ZIP of `tablesFromDiggs`.
  *
  * Throws a `PydiggsError` if the bytes do not match their sha256.
  */
-export async function conversionOutput(result: ConversionResult): Promise<Uint8Array<ArrayBuffer>> {
+export async function conversionOutput(result: ResultWithOutput): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = decode(result.output_base64);
   const copy = new Uint8Array(bytes.byteLength);
   copy.set(bytes);

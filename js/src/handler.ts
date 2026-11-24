@@ -1,6 +1,6 @@
 // Serves pyDIGGS's HTTP API (`/v1/validate`, `/v1/read`, `/v1/convert`, `/v1/ags4/check`,
-// `/v1/diff`, `/v1/versions`, `/v1/capabilities`, `/v1/rules`, `/v1/rules/{rule_id}`, `/v1/readyz`)
-// from a JavaScript
+// `/v1/diff`, `/v1/tables/*`, `/v1/versions`, `/v1/capabilities`, `/v1/rules`,
+// `/v1/rules/{rule_id}`, `/v1/readyz`) from a JavaScript
 // server, as a standard Fetch handler: `(request: Request) => Promise<Response>`. That is
 // the signature of Next.js route handlers, Hono, Bun.serve, Deno.serve and Remix
 // actions, and Express or Fastify adapt to it in a line. Behind it, PydiggsNode runs
@@ -31,7 +31,7 @@ export type PydiggsEngine = Pick<
   | "checkAgs4Sarif"
   | "capabilities"
 > &
-  Partial<Pick<PoolEngine, "diff">>;
+  Partial<Pick<PoolEngine, "diff" | "tablesToDiggs" | "checkTables" | "tablesRoundTrip" | "tablesFromDiggs">>;
 
 export interface PydiggsHandlerOptions {
   /** Path the API is mounted under, without `/v1`, e.g. "/api/pydiggs". Default: "". */
@@ -42,7 +42,7 @@ export interface PydiggsHandlerOptions {
    */
   maxBodyBytes?: number;
   /**
-   * Requests with a body (validate, read, convert, ags4/check, diff) in progress at once,
+   * Requests with a body (validate, read, convert, ags4/check, diff, tables) in progress at once,
    * counted from before their body is read until they are answered, as pyDIGGS admits
    * them. Beyond it, or when the engine already has this many calls waiting, the answer
    * is 503 `busy`, given after the request's own checks, as in pyDIGGS. Default: 8.
@@ -274,11 +274,15 @@ const VALIDATE_FIELDS = new Set(Object.keys(VALIDATE_CHECKS));
 const READ_FIELDS = new Set(Object.keys(READ_CHECKS));
 
 // What each kind of body may be sent as, raw: DIGGS as XML; AGS4, which has no registered
-// media type, as generic text or bytes. Either may also come as multipart/form-data.
+// media type, as generic text or bytes; a tables package as a ZIP (Windows browsers and
+// .NET's own helpers send the second type). Any may also come as multipart/form-data.
 const RAW_TYPES = {
   diggs: new Set(["application/xml", "text/xml"]),
   ags4: new Set(["application/octet-stream", "text/csv", "text/plain"]),
+  zip: new Set(["application/zip", "application/x-zip-compressed"]),
 };
+// pyDIGGS's text for a package sent as another media type.
+const ZIP_MEDIA_TEXT = "Send application/zip, application/x-zip-compressed or multipart/form-data.";
 const CONVERT_TARGETS = every<ConvertTarget>()("diggs", "ags4");
 const CONVERT_CHECKS: Record<string, ParameterCheck> = {
   name: nameCheck,
@@ -289,6 +293,17 @@ const CONVERT_CHECKS: Record<string, ParameterCheck> = {
 const AGS4_CHECK_CHECKS: Record<string, ParameterCheck> = { name: nameCheck };
 const CONVERT_FIELDS = new Set(Object.keys(CONVERT_CHECKS));
 const AGS4_CHECK_FIELDS = new Set(Object.keys(AGS4_CHECK_CHECKS));
+// `/v1/tables/<operation>`: a package ZIP (or, for from-diggs, a DIGGS file) and its name.
+const TABLES_CHECKS: Record<string, ParameterCheck> = { name: nameCheck };
+const TABLES_FIELDS = new Set(Object.keys(TABLES_CHECKS));
+const TABLES_METHODS = {
+  "/v1/tables/to-diggs": "tablesToDiggs",
+  "/v1/tables/check": "checkTables",
+  "/v1/tables/round-trip": "tablesRoundTrip",
+  "/v1/tables/from-diggs": "tablesFromDiggs",
+} as const;
+type TablesRoute = keyof typeof TABLES_METHODS;
+const isTablesRoute = (route: string | null): route is TablesRoute => route !== null && Object.hasOwn(TABLES_METHODS, route);
 const DIFF_FILES = ["old", "new"] as const;
 const DIFF_FIELDS = new Set([
   "old_name",
@@ -370,7 +385,10 @@ interface Parsed {
   data: Uint8Array;
   /** The reported name, reduced to its base name; `input.xml` when none was given. */
   name: string;
-  /** The base name given, if any (AGS4 requests leave the default to pyDIGGS). */
+  /**
+   * The base name given, if any (AGS4 and tables requests leave the default to pyDIGGS).
+   * A name with no base ("", "folder/", "." or "..") is no name, as in pyDIGGS.
+   */
   givenName: string | undefined;
   /** An AGS4 check's `dictionary` part. */
   dictionary?: Uint8Array;
@@ -413,8 +431,10 @@ function resultsOf(values: string[]): "all" | "none" | string[] | null {
 
 /**
  * Returns a Fetch handler serving `/v1/validate`, `/v1/read`, `/v1/convert`,
- * `/v1/ags4/check`, `/v1/diff`, `/v1/versions`, `/v1/capabilities`, `/v1/rules`,
- * `/v1/rules/{rule_id}` and `/v1/readyz` from `engine`.
+ * `/v1/ags4/check`, `/v1/diff`, `/v1/tables/to-diggs`, `/v1/tables/check`,
+ * `/v1/tables/round-trip`, `/v1/tables/from-diggs`, `/v1/versions`, `/v1/capabilities`,
+ * `/v1/rules`, `/v1/rules/{rule_id}` and `/v1/readyz` from `engine`. An engine without
+ * `diff` or a tables method answers 404 on that route.
  */
 export function createPydiggsHandler(
   engine: PydiggsEngine,
@@ -435,7 +455,7 @@ export function createPydiggsHandler(
 
   // What pyDIGGS checks before it admits a request and reads its body, in its order: the
   // media type, then the encoding, then the declared length.
-  function preflight(request: Request, allowed: Set<string>, kind: "diggs" | "ags4" = "diggs"): Preflight | Response {
+  function preflight(request: Request, allowed: Set<string>, kind: keyof typeof RAW_TYPES = "diggs"): Preflight | Response {
     const url = new URL(request.url);
     const unsupported = [...new Set(url.searchParams.keys())].filter((key) => !allowed.has(key));
     if (unsupported.length > 0) {
@@ -444,7 +464,9 @@ export function createPydiggsHandler(
       });
     }
     const multipart = mediaType(request) === "multipart/form-data";
-    if (!multipart && !RAW_TYPES[kind].has(mediaType(request))) return problem("unsupported-media-type");
+    if (!multipart && !RAW_TYPES[kind].has(mediaType(request))) {
+      return problem("unsupported-media-type", kind === "zip" ? { detail: ZIP_MEDIA_TEXT } : {});
+    }
     if (compressed(request)) return problem("compressed-input");
     const limit = maxBody + (multipart ? MULTIPART_SLACK : 0);
     const length = Number(request.headers.get("Content-Length") ?? "NaN");
@@ -534,7 +556,9 @@ export function createPydiggsHandler(
     if (name !== null && chars(name) > MAX_NAME_CHARS) {
       return problem("invalid-parameter", { errors: [{ parameter: "name", problem: NAME_PROBLEM }] });
     }
-    const parsed: Parsed = { data, name: baseName(name), givenName: name === null ? undefined : baseName(name), params };
+    const base = (name ?? "").split(/[\\/]/).pop() ?? "";
+    const givenName = base === "" || base === "." || base === ".." ? undefined : base;
+    const parsed: Parsed = { data, name: baseName(name), givenName, params };
     if (dictionary !== undefined) parsed.dictionary = dictionary;
     return parsed;
   }
@@ -557,10 +581,10 @@ export function createPydiggsHandler(
     return engine.status === "failed" ? problem("not-ready") : problem("internal");
   }
 
-  function gate(request: Request, json = true): Response | null {
+  function gate(request: Request, json = true, jsonText = "Accept application/json."): Response | null {
     if (rejectCrossSite && request.headers.get("Sec-Fetch-Site") === "cross-site") return problem("cross-site");
     if (json && !acceptsJson(request.headers.get("Accept"))) {
-      return problem("not-acceptable", { detail: "Accept application/json." });
+      return problem("not-acceptable", { detail: jsonText });
     }
     if (engine.status === "failed") return problem("not-ready");
     return null;
@@ -807,6 +831,50 @@ export function createPydiggsHandler(
     }
   }
 
+  // `/v1/tables/<operation>`: a package ZIP (to-diggs, check, round-trip) or a DIGGS file
+  // (from-diggs), checked and admitted as pyDIGGS does, its answer held to four times
+  // maxBodyBytes as pyDIGGS's endpoint holds it (the findings of a check are not held).
+  async function tables(request: Request, route: TablesRoute): Promise<Response> {
+    const fromDiggs = route === "/v1/tables/from-diggs";
+    const refused = gate(
+      request,
+      true,
+      fromDiggs ? "Accept application/json (the tables as a package ZIP, in base64)." : "Accept application/json.",
+    );
+    if (refused) return refused;
+    const run = engine[TABLES_METHODS[route]];
+    if (run === undefined) return problem("not-found");
+    const pre = preflight(request, TABLES_FIELDS, fromDiggs ? "diggs" : "zip");
+    if (pre instanceof Response) return pre;
+    // pyDIGGS holds every tables answer to its limit but the findings of a check.
+    return admitted(() => tablesAdmitted(request, pre, run.bind(engine), route !== "/v1/tables/check"));
+  }
+
+  async function tablesAdmitted(
+    request: Request,
+    pre: Preflight,
+    run: (input: Uint8Array, options: { name?: string; maxResultBytes?: number; signal: AbortSignal }) => Promise<unknown>,
+    limited: boolean,
+  ): Promise<Response> {
+    const parsed = await parse(request, pre, TABLES_CHECKS);
+    if (parsed instanceof Response) return parsed;
+    try {
+      const result = await run(parsed.data, {
+        ...(parsed.givenName !== undefined ? { name: parsed.givenName } : {}),
+        ...(limited ? { maxResultBytes: 4 * maxBody } : {}),
+        signal: request.signal,
+      });
+      const body = new TextEncoder().encode(JSON.stringify(result));
+      if (limited && body.byteLength > 4 * maxBody) return problem("result-too-large");
+      return new Response(body as BodyInit, {
+        status: 200,
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-store", Vary: "Accept" },
+      });
+    } catch (error) {
+      return failure(error);
+    }
+  }
+
   // pyDIGGS answers these routes at once, never 503 `busy`. Here they come from the engine,
   // whose answers do not change while it runs, so each first answer is kept and later
   // requests do not wait behind documents. Only answers are kept, never refusals, and a
@@ -864,6 +932,10 @@ export function createPydiggsHandler(
       if (route === "/v1/diff") {
         if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });
         return await diff(request);
+      }
+      if (isTablesRoute(route)) {
+        if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });
+        return await tables(request, route);
       }
       if (route === "/v1/convert" || route === "/v1/ags4/check") {
         if (request.method !== "POST") return problem("method-not-allowed", { headers: { Allow: "POST" } });

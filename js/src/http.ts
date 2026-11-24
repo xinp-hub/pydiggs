@@ -20,6 +20,9 @@ import type {
   RuleInfo,
   RuleStep,
   SarifLog,
+  TablesFromDiggsResult,
+  TablesRoundTripResult,
+  TablesToDiggsResult,
   ValidateCheck,
   Versions,
 } from "./generated/http.ts";
@@ -38,11 +41,14 @@ export type {
   RuleInfo,
   RuleStep,
   SarifLog,
+  TablesFromDiggsResult,
+  TablesRoundTripResult,
+  TablesToDiggsResult,
   ValidateCheck,
   Versions,
 } from "./generated/http.ts";
 export type { DiggsDiffDocument } from "./generated/diff.ts";
-export { conversionOutput, conversionResidual } from "./convert.ts";
+export { conversionOutput, conversionResidual, type ResultWithOutput } from "./convert.ts";
 export { PydiggsError } from "./errors.ts";
 
 /** The `code` of a problem answer; switch on it. */
@@ -53,6 +59,9 @@ export type ProblemCode = Problem["code"];
  * that declares another encoding.
  */
 export type DocumentInput = Blob | ArrayBuffer | ArrayBufferView | string;
+
+/** A package of tables to send: a ZIP, as bytes. A ZIP is never text, so no string. */
+export type PackageInput = Blob | ArrayBuffer | ArrayBufferView;
 
 /** Extra request headers, or a function that returns them for each request. */
 export type HeadersSource = HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
@@ -143,6 +152,15 @@ export interface DiffOptions extends RequestOptions {
   showReformatted?: boolean;
   /** Also list records whose gml:id changed (never a difference). Default: false. */
   showRenamed?: boolean;
+}
+
+export interface TablesOptions extends RequestOptions {
+  /**
+   * Name to report the package (or, for `tablesFromDiggs`, the DIGGS file) as; the server
+   * reduces it to a base name, and the output is named after it. Default: `tables.zip`
+   * for a package, `input.xml` for a DIGGS file.
+   */
+  name?: string;
 }
 
 export interface ListRulesOptions extends RequestOptions {
@@ -337,6 +355,71 @@ export class PydiggsHttpClient {
     return body as unknown as DiggsDiffDocument;
   }
 
+  /**
+   * Writes a package of DIGGS tables profile tables as DIGGS 3.0.0 (`POST
+   * /v1/tables/to-diggs`, pyDIGGS 1.17 or later; preview). The package is a ZIP of one
+   * CSV file per table and, optionally, `datapackage.json`, sent as `application/zip`.
+   * `conversionOutput(result)` gives the DIGGS file, checked against its sha256; rows left
+   * out and values assumed are named in `report`, not errors. A ZIP that is not a usable
+   * package is a `PydiggsHttpError` with code `invalid-document` and a `kind`
+   * (`not-zip`, `unsafe-package` or `not-tables`).
+   */
+  async tablesToDiggs(pkg: PackageInput, options: TablesOptions = {}): Promise<TablesToDiggsResult> {
+    const body = await this.#json(this.#tablesCall("to-diggs", pkg, options));
+    if (!isRecord(body) || typeof body["output_base64"] !== "string" || !isRecord(body["report"]) || !isRecord(body["counts"])) {
+      throw new PydiggsHttpError("The answer is not a tables to DIGGS result.", 200);
+    }
+    return body as unknown as TablesToDiggsResult;
+  }
+
+  /**
+   * Checks a package of profile tables against the DIGGS dictionaries (`POST
+   * /v1/tables/check`, pyDIGGS 1.17 or later; preview): a diggs-findings document of step
+   * `tables`. Problems in rows are findings, not errors.
+   */
+  async checkTables(pkg: PackageInput, options: TablesOptions = {}): Promise<DiggsFindingsDocument> {
+    const body = await this.#json(this.#tablesCall("check", pkg, options));
+    if (!isRecord(body) || body["format"] !== "diggs-findings" || !Array.isArray(body["files"])) {
+      throw new PydiggsHttpError("The answer is not a diggs-findings document.", 200);
+    }
+    return body as unknown as DiggsFindingsDocument;
+  }
+
+  /**
+   * Writes a package as DIGGS, validates it, reads it back and compares it, value by
+   * value, with what was sent (`POST /v1/tables/round-trip`, pyDIGGS 1.17 or later;
+   * preview). A failed round trip is a result with `ok: false`, not an error.
+   */
+  async tablesRoundTrip(pkg: PackageInput, options: TablesOptions = {}): Promise<TablesRoundTripResult> {
+    const body = await this.#json(this.#tablesCall("round-trip", pkg, options));
+    if (!isRecord(body) || typeof body["ok"] !== "boolean" || !Array.isArray(body["differences"])) {
+      throw new PydiggsHttpError("The answer is not a tables round-trip result.", 200);
+    }
+    return body as unknown as TablesRoundTripResult;
+  }
+
+  /**
+   * Turns one DIGGS file into tables of the profile (`POST /v1/tables/from-diggs`,
+   * pyDIGGS 1.17 or later; preview). `conversionOutput(result)` gives the package ZIP (a
+   * CSV file per table, `datapackage.json` and `plan.json`); `plan` lists the tables in
+   * load order. Bytes that are not a DIGGS document are a `PydiggsHttpError` with code
+   * `invalid-document`.
+   */
+  async tablesFromDiggs(document: DocumentInput, options: TablesOptions = {}): Promise<TablesFromDiggsResult> {
+    const body = await this.#json({
+      method: "POST",
+      path: "/v1/tables/from-diggs",
+      query: { name: options.name },
+      body: document as BodyInit,
+      contentType: "application/xml",
+      signal: options.signal,
+    });
+    if (!isRecord(body) || typeof body["output_base64"] !== "string" || !isRecord(body["plan"])) {
+      throw new PydiggsHttpError("The answer is not a tables from DIGGS result.", 200);
+    }
+    return body as unknown as TablesFromDiggsResult;
+  }
+
   /** What the server's pydiggs can do: its operations, their options and extras. */
   async capabilities(options: RequestOptions = {}): Promise<Capabilities> {
     const body = await this.#json({ method: "GET", path: "/v1/capabilities", signal: options.signal });
@@ -403,6 +486,17 @@ export class PydiggsHttpClient {
       accept,
       body: document as BodyInit,
       contentType: "application/xml",
+      signal: options.signal,
+    };
+  }
+
+  #tablesCall(operation: "to-diggs" | "check" | "round-trip", pkg: PackageInput, options: TablesOptions): Call {
+    return {
+      method: "POST",
+      path: `/v1/tables/${operation}`,
+      query: { name: options.name },
+      body: pkg as BodyInit,
+      contentType: "application/zip",
       signal: options.signal,
     };
   }

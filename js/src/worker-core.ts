@@ -117,6 +117,19 @@ def run(kind, data, name, max_bytes, parameters, dictionary=None, new_data=None,
                 old=data.to_bytes(), new=new_data.to_bytes(), old_name=name or None,
                 new_name=new_name or None, max_bytes=max_bytes,
                 **{k: p[k] for k in _DIFF_OPTIONS if k in p})))
+        if kind == "tables":
+            if not hasattr(_svc, "tables"):
+                return _too_old("the tables profile", "1.17.0")
+            return _outcome(_svc.tables(_svc.TablesRequest(
+                content=data.to_bytes(), name=name or None,
+                operation=p.get("operation", "to-diggs"), max_bytes=max_bytes,
+                **{k: p[k] for k in ("max_result_bytes",) if k in p})))
+        if kind == "tables-from-diggs":
+            if not hasattr(_svc, "tables_from_diggs"):
+                return _too_old("the tables profile", "1.17.0")
+            return _outcome(_svc.tables_from_diggs(_svc.TablesFromDiggsRequest(
+                content=data.to_bytes(), name=name or None, max_bytes=max_bytes,
+                **{k: p[k] for k in ("max_result_bytes",) if k in p})))
         if kind == "capabilities":
             if not hasattr(_svc, "capabilities"):
                 return _too_old("capabilities")
@@ -233,8 +246,23 @@ async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Load
   return loaded;
 }
 
-const NEEDS_DOCUMENT = new Set(["validate", "read", "convert", "ags4-check", "diff"]);
-const KINDS = new Set(["validate", "read", "rules", "explain", "versions", "convert", "ags4-check", "diff", "capabilities"]);
+const NEEDS_DOCUMENT = new Set(["validate", "read", "convert", "ags4-check", "diff", "tables", "tables-from-diggs"]);
+const KINDS = new Set([
+  "validate",
+  "read",
+  "rules",
+  "explain",
+  "versions",
+  "convert",
+  "ags4-check",
+  "diff",
+  "capabilities",
+  "tables",
+  "tables-from-diggs",
+]);
+// Kinds whose unnamed input pyDIGGS names itself: input.ags for AGS4, tables.zip for a
+// package, input.xml for the DIGGS file a package is made from.
+const OWN_DEFAULT_NAME = new Set(["convert", "ags4-check", "tables", "tables-from-diggs"]);
 
 function answer(loaded: Loaded, request: RequestMessage): ReplyMessage {
   const { id, type } = request;
@@ -244,9 +272,9 @@ function answer(loaded: Loaded, request: RequestMessage): ReplyMessage {
     const problem: ServiceProblem = { code: "input-too-large", detail: `larger than ${loaded.maxBytes} bytes` };
     return { id, type: "error", message: `the document is larger than ${loaded.maxBytes} bytes`, problem };
   }
-  // An AGS4 file without a name gets pyDIGGS's own default for AGS4; a DIGGS one, input.xml.
-  const ags4 = type === "convert" || type === "ags4-check";
-  const name = typeof request.name === "string" && request.name !== "" ? request.name : ags4 ? "" : "input.xml";
+  // An AGS4 file or a package without a name gets pyDIGGS's own default; a DIGGS one, input.xml.
+  const ownDefault = OWN_DEFAULT_NAME.has(type);
+  const name = typeof request.name === "string" && request.name !== "" ? request.name : ownDefault ? "" : "input.xml";
   const bytes = request.data ? new Uint8Array(request.data) : undefined;
   const dictionary = request.dictionary instanceof ArrayBuffer ? new Uint8Array(request.dictionary) : undefined;
   const parameters = request.parameters ? JSON.stringify(request.parameters) : "";

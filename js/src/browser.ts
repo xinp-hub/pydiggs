@@ -35,6 +35,9 @@ export type {
   RuleStep,
   SarifLog,
   ServiceProblem,
+  TablesFromDiggsResult,
+  TablesRoundTripResult,
+  TablesToDiggsResult,
   ValidateCheck,
   Versions,
   WorkerCallOptions,
@@ -44,11 +47,12 @@ export type {
   WorkerConvertOptions,
   WorkerDiffOptions,
   WorkerRulesOptions,
+  WorkerTablesOptions,
   WorkerValidateOptions,
 } from "./worker-client.ts";
 export { canInterrupt, DEFAULT_INTERRUPT_GRACE_MS, PydiggsWorkerError } from "./worker-client.ts";
 export { PydiggsError } from "./errors.ts";
-export { conversionOutput, conversionResidual } from "./convert.ts";
+export { conversionOutput, conversionResidual, type ResultWithOutput } from "./convert.ts";
 export { defaultPoolSize, type PoolEngine, PydiggsPool, type PydiggsPoolOptions } from "./pool.ts";
 export { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYODIDE_SRI, PYODIDE_VERSION } from "./generated/pins.ts";
 
