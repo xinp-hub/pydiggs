@@ -8,6 +8,11 @@ Preview in pyDIGGS 1.15. Five commands::
     pydiggs conformance verify challenge/evidence.json challenge my-export.xml
     pydiggs conformance scorecard */evidence.json
 
+and two in preview since pyDIGGS 1.18::
+
+    pydiggs conformance accept delivered.xml --class spt
+    pydiggs conformance matrix evidence-folder
+
 Exit codes follow ``pydiggs validate`` and ``pydiggs diff``: 0 the submission passed (or
 the evidence was reproduced, or the listing was written); 1 it failed (or was not
 reproduced); 2 a usage error, an input that cannot be read, or an output that cannot be
@@ -137,6 +142,60 @@ def build_parser() -> argparse.ArgumentParser:
     )
     card.add_argument("evidence", metavar="EVIDENCE", nargs="+", help="evidence.json files")
     card.add_argument("--format", choices=["text", "json", "markdown"], default="text")
+
+    accept = commands.add_parser(
+        "accept",
+        help="check a delivered DIGGS file against what its family must hold",
+        description=(
+            "Check one delivered DIGGS file: it is valid DIGGS 3, and it holds what the"
+            " published requirements of the family ask (each from DIGGS 3.0.0 or its"
+            " dictionaries). The report names the file by its SHA-256. It does not compare"
+            " values with the field or laboratory records."
+        ),
+        epilog=(
+            "Exit status: 0 every requirement met; 1 one or more not met (a file that is"
+            " not DIGGS included); 2 usage error, a file that cannot be read, or an output"
+            " that cannot be written."
+        ),
+    )
+    accept.add_argument("file", metavar="FILE", help="the delivered DIGGS file")
+    accept.add_argument(
+        "--class",
+        dest="family",
+        required=True,
+        metavar="FAMILY",
+        choices=[f.id for f in conformance.acceptance_families()],
+        help="what the file is delivered as: "
+        + ", ".join(f.id for f in conformance.acceptance_families()),
+    )
+    accept.add_argument(
+        "--format",
+        choices=["text", "json", "html"],
+        default="text",
+        help="what is printed: text (the default), the result as JSON, or the HTML report",
+    )
+    accept.add_argument(
+        "--report", metavar="PATH", default=None, help="also write the HTML report to PATH"
+    )
+    _limits(accept)
+
+    grid = commands.add_parser(
+        "matrix",
+        help="lay out verified evidence of several products, class by class",
+        description=(
+            "Build the round-trip matrix from every evidence.json under DIR. Each must sit in"
+            " its challenge folder with the file it graded beside it; it is verified first,"
+            " and evidence that does not verify is listed and not counted."
+        ),
+        epilog=(
+            "Exit status: 0 every evidence document verified; 1 one or more did not (the"
+            " matrix is still written, without them); 2 usage error, no evidence found, or"
+            " an output that cannot be written."
+        ),
+    )
+    grid.add_argument("folder", metavar="DIR", help="a folder of challenge folders")
+    grid.add_argument("--format", choices=["text", "json", "markdown", "html"], default="text")
+    _limits(grid)
     return parser
 
 
@@ -279,6 +338,45 @@ def _scorecard(args: argparse.Namespace) -> tuple[str, bool, int]:
     return "\n".join(_safe_lines(c.to_text()) for c in cards), False, 0
 
 
+def _accept(args: argparse.Namespace) -> tuple[str, bool, int]:
+    result = conformance.accept(
+        args.file, args.family, max_bytes=args.max_bytes, time_budget=args.time_budget
+    )
+    if args.report:
+        try:
+            with _open_output(args.report) as stream:
+                stream.write(result.to_html())
+        except (OSError, ValueError) as exc:  # ValueError: a name that cannot be encoded
+            why = getattr(exc, "strerror", None) or exc
+            raise _UsageError(f"cannot write the report: {why}") from None
+    code = 0 if result.accepted else 1
+    if args.format == "json":
+        return result.to_json() + "\n", True, code
+    if args.format == "html":
+        return result.to_html(), False, code
+    saved = f"\n  Report: {_safe(args.report)}\n" if args.report else ""
+    return result.to_text() + saved, False, code
+
+
+def _matrix(args: argparse.Namespace) -> tuple[str, bool, int]:
+    try:
+        found = conformance.matrix(
+            args.folder, max_bytes=args.max_bytes, time_budget=args.time_budget
+        )
+    except ValueError as exc:
+        raise _UsageError(str(exc)) from None
+    if not found.entries:
+        raise _UsageError(f"no evidence.json under {args.folder}")
+    code = 1 if found.unverified else 0
+    if args.format == "json":
+        return found.to_json() + "\n", True, code
+    if args.format == "html":
+        return found.to_html(), False, code
+    if args.format == "markdown":
+        return found.to_markdown(), False, code
+    return found.to_text(), False, code
+
+
 def _safe_lines(text: str) -> str:
     return "\n".join(_safe(line) for line in text.split("\n"))
 
@@ -289,6 +387,8 @@ _COMMANDS: Final = {
     "grade": _grade,
     "verify": _verify,
     "scorecard": _scorecard,
+    "accept": _accept,
+    "matrix": _matrix,
 }
 
 

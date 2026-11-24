@@ -12,6 +12,10 @@
 ``docs/history.md`` is the root CHANGELOG.md, embedded here (one history, not two); its
 links to ``docs/...`` are rewritten to work from inside ``docs/``.
 
+``docs/conformance-agreement.md`` gets its tables (every corpus file, pyDIGGS's verdict and
+the DIGGSml XSLT validator's, and why they differ) from the committed records, through
+``scripts/agreement.py``, so the page can never disagree with them.
+
 It writes ``llms.txt`` (an index of every page) and ``llms-full.txt`` (their text) for
 language-model readers.
 
@@ -28,8 +32,10 @@ never drift from the one in the wheel (``tests/test_docs_schema.py``).
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import shutil
+import sys
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -55,6 +61,11 @@ MAPPING = PACKAGE / "convert" / "convert-mapping-1.schema.json"
 CONFORMANCE = PACKAGE / "conformance" / "diggs-conformance-1.0-beta.2.schema.json"
 #: The earlier evidence schema: documents that name it must keep resolving.
 CONFORMANCE_EARLIER = PACKAGE / "conformance" / "diggs-conformance-1.0-beta.1.schema.json"
+#: Preview contracts: what `pydiggs conformance accept` and `matrix` write.
+CONFORMANCE_ACCEPTANCE = (
+    PACKAGE / "conformance" / "diggs-conformance-acceptance-1.0-beta.1.schema.json"
+)
+CONFORMANCE_MATRIX = PACKAGE / "conformance" / "diggs-conformance-matrix-1.0-beta.1.schema.json"
 #: A preview contract too: the diggs-mapping format of pydiggs.mapping.
 VENDOR_MAPPING = PACKAGE / "mapping" / "diggs-mapping-1.schema.json"
 #: Every published document: packaged source -> path under the site root.
@@ -68,6 +79,8 @@ DOCUMENTS: dict[Path, Path] = {
     MAPPING: Path("schemas") / MAPPING.name,
     CONFORMANCE: Path("schemas") / "preview" / CONFORMANCE.name,
     CONFORMANCE_EARLIER: Path("schemas") / "preview" / CONFORMANCE_EARLIER.name,
+    CONFORMANCE_ACCEPTANCE: Path("schemas") / "preview" / CONFORMANCE_ACCEPTANCE.name,
+    CONFORMANCE_MATRIX: Path("schemas") / "preview" / CONFORMANCE_MATRIX.name,
     VENDOR_MAPPING: Path("schemas") / "preview" / VENDOR_MAPPING.name,
     **{earlier: Path("schemas") / earlier.name for earlier in EARLIER_SCHEMAS},
 }
@@ -165,10 +178,31 @@ def embed_changelog(markdown: str) -> str:
     return markdown.replace(CHANGELOG_MARKER, changelog_links(changelog))
 
 
+#: The line of docs/conformance-agreement.md that the agreement tables replace.
+AGREEMENT_MARKER = "<!-- pydiggs:agreement -->"
+
+
+def agreement_tables() -> str:
+    """Return the agreement page's tables, rendered by ``scripts/agreement.py``."""
+    name = "agreement"
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / "agreement.py")
+    if spec is None or spec.loader is None:  # pragma: no cover - the file is in the repo
+        raise ImportError(name)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # dataclasses resolve annotations through sys.modules
+    try:
+        spec.loader.exec_module(module)
+        return str(module.page_from_records())
+    finally:
+        del sys.modules[name]
+
+
 def on_page_markdown(markdown: str, *, config: Any, page: Any = None, **_: Any) -> str:
-    """Fix the embedded changelog's links, and replace the newsletter placeholder."""
+    """Fix the embedded changelog's links, fill the agreement page, replace the newsletter."""
     if page is not None and page.file.src_uri == "history.md":
         markdown = embed_changelog(markdown)
+    if AGREEMENT_MARKER in markdown:
+        markdown = markdown.replace(AGREEMENT_MARKER, agreement_tables())
     if page is not None:
         # Kept as written, before the sign-up form's HTML goes in: llms-full.txt is text.
         _PAGES[page.file.src_uri] = LlmsPage(str(page.title or ""), page.url, markdown)

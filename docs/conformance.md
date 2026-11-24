@@ -110,7 +110,9 @@ The rules behind the last two stages:
   kind (a length for a depth, a pressure for a cone resistance) is not read as that value.
 - **An empty cell stays empty.** Where the tables leave a value empty (a density that was
   not measured, the stroke of a blow-less pile run), the file must not hold one: an export
-  that writes a zero there fails with `conformance.value-invented`.
+  that writes a zero there fails with `conformance.value-invented`. In the `mwd`,
+  `dissipation` and `in-situ-strength` classes a cell that holds the `nullValue` its
+  property declares is empty too ([not yet in the others](#known-limits-of-this-version)).
 - **Percentages.** A percentage may be written in percent (`uom="%"`) or as the plain
   percent number with no unit, as DIGGS writes the liquid limit: `48`, not `0.48`. (Where
   the DIGGS property requires a unit, validation already fails a value without one.)
@@ -138,6 +140,27 @@ The rules behind the last two stages:
   activity's pile, and is not read when the activity names no single pile and its
   reference frame does not identify one either, or when the activity's pile and the
   frame's pile disagree: guessing would credit one pile's blows to another.
+- **Pore pressure dissipation tests** are `Test`s whose procedure is a
+  `PorePressureDissipationTest`. The test's own result (`pore_pressure_equil` for u0,
+  `u50`, `t50`) is looked up at the test depth. The series is the procedure's
+  `dissipationTimeSeries`: a `TemporalResult` whose rows are placed by elapsed time (a
+  `TimeIntervalList` in any time unit DIGGS names), and each reading (`pore_pressure_u1`,
+  `pore_pressure_u2`) is looked up point by point at its elapsed time. A series belongs
+  to the test it is in; a sounding's tests are matched in depth order. Values are carried
+  as reported: a t50 the source leaves empty (the test was stopped before half the excess
+  pore pressure dissipated) must stay empty, not be worked out from the series.
+- **Vane and dilatometer tests.** A field vane test is a `Test` at its depth with an
+  `InsituVaneTest` procedure: the peak strength is `shear_strength_undrained`, the
+  maximum torques are `maximumMeasuredTorque` of its `intactVaneTest` and
+  `remoldedVaneTest` measurement data, and the vane's size is `vaneDiameter` and
+  `vaneHeight`. DIGGS 3.0.0 has no property for a remoulded vane strength; the suite
+  looks for it as `shear_strength_undrained_residual` (the dictionary's strength after
+  large shear displacement), and the challenge's `results_InsituVaneTest` table carries
+  it in that column, named `remoulded_strength`. A vane test with no remoulded reading
+  has no `remoldedVaneTest` and no remoulded strength. A dilatometer sounding's readings
+  are `a_pressure`, `b_pressure` and `c_pressure` at their depths under
+  `FlatPlateDilatometerTest`, with the membrane calibrations `deltaA` and `deltaB` of the
+  procedure.
 
 The answer key is built from the tables alone. pyDIGGS's own converter and reader are run
 against it on randomly drawn seeds in every run of pyDIGGS's tests, like any other
@@ -146,6 +169,29 @@ or to compare with your own file.
 
 The validation stage is pyDIGGS's validator of the release you run, and the evidence
 records that release beside the suite version.
+
+### Measurement while drilling
+
+The `mwd` challenge is a [tables profile](tables.md) package like SPT and CPT: one
+`MeasurementWhileDrilling` per boring in `measurements.csv`, and its readings in
+`results_MWDProcedure.csv`, placed by `elapsed_time`, with the bit's `depth` and the
+channels as columns coded in the DIGGS MWD dictionary (`mwd_properties.xml`):
+`penetration_rate`, `crowd_downward_thrust` (thrust), `torque`, `rotation_shaft` (rotation
+speed) and `fluid_injection_pressure` (flushing pressure).
+
+- **Where values are looked up.** Each value is found by its MWD property on a
+  `MeasurementWhileDrilling` (procedure `MWDProcedure`) of the boring, at the depth of its
+  row. A row's depth is its `depth` column (`mwd_properties.xml#depth`); a log with no
+  such column is placed by its result's location instead. The elapsed time of each
+  reading is graded too: the `timeDomain` of the result, or a `time` column.
+- **Rotation speed** may be in rpm, rev/s or any angular velocity unit (rad/s).
+- **No reading is invented.** A flushing pressure the tables leave empty must be absent,
+  or a value the column's `nullValue` marks as missing; a zero fails. Where recording
+  paused (the depth jumps several steps), a reading at a depth of the pause is invented
+  too, whether it gives a time, a penetration rate or any other channel: resampling a
+  log to a regular depth step fails.
+- **A zero is a value.** The first reading of each log, at the collar, has a penetration
+  rate and a rotation speed of 0; they must be in the file.
 
 ## Test your import
 
@@ -184,6 +230,9 @@ parts of DIGGS have scenario challenges, each in both directions:
 | `cpt` | Piezocone soundings: qc in MPa beside fs and u2 in kPa, negative pore pressures, a gap where a rod was added |
 | `lab-index` | Water content, Atterberg limits (one specimen non-plastic), bulk and dry density on undisturbed samples, a particle-size curve per boring |
 | `deep-foundations` | Steel pipe, steel H or concrete piles with their driving records: a pile run of zero or one blow, refusal at the end |
+| `mwd` | Measurement while drilling: one drilling log per boring, with penetration rate, thrust, torque, rotation speed and flushing pressure; a pause for a rod change, readings with no flushing pressure, units such as m/h, bar and rpm |
+| `dissipation` | Dissipation tests in two piezocone soundings: u0, u50 and t50, and the u1 and u2 series by elapsed time in seconds or minutes; one test stopped before t50, one reading with no u2 |
+| `in-situ-strength` | Field vane tests (peak and remoulded torque and strength, vane size; one test with no remoulded reading) and a flat plate dilatometer sounding (A, B and C readings, C at a few depths only), in SI or US units |
 
 The catalogue behind the classes covers the whole of DIGGS 3.0.0: every test procedure of
 the schema, piles and driving records, grouting, monitoring, geophysics and the rest. A part
@@ -199,6 +248,38 @@ few passing classes are never mistaken for full DIGGS support.
   along the pile's own linear reference, taken as measured from the ground surface, as the
   challenge's tables give it. A file whose pile reference starts at the pile head would
   not match.
+- **MWD depths come from the `depth` column.** A drilling log is matched by the depth each
+  reading gives, not by its time. A log with times and no depths (a `timeDomain` and no
+  `depth` column) **fails** the fidelity stage: none of its readings can be placed, so
+  every source value is reported as `conformance.fact-missing`. Only the five channels of the
+  challenge are graded; other channels a rig logs are allowed and not checked.
+- **MWD readings below the last one.** A reading invented in the rod-change pause is
+  caught, whichever cells it fills. A reading added below a log's last reading is not:
+  the tables say nothing of those depths. (A total depth that moved with it is caught.)
+- **`nullValue` in the classes of suite 1.0-beta.2.** DIGGS lets a property declare a
+  `nullValue`, the text that marks a missing value in its data. The `mwd`, `dissipation`
+  and `in-situ-strength` classes read a cell with that mark as empty, and so does
+  `accept`. The `spt`, `cpt`, `lab-index` and `deep-foundations` classes do not yet: an
+  empty source cell written as, say, `-999` with `<nullValue>-999</nullValue>` fails with
+  `conformance.value-invented`, as it has since pyDIGGS 1.17. Leave the cell empty in
+  those classes. Reading the mark there changes how a file is graded, so it comes with
+  the next suite version.
+- **Very many parameters on a very long test.** A procedure parameter (and a vane torque)
+  applies at every depth its test has a row at. The first of a test always does; past
+  that, one file is read up to a million such placements, and a file with more has the
+  rest reported as missing. A challenge needs a few thousand.
+- **Dissipation series by rank, by elapsed time.** A series has no depth of its own in
+  DIGGS, so it is matched to the source test of the same rank by depth in the sounding. A
+  file that leaves out one test of a sounding, or gives a test's result and its series in
+  two `Test`s, has the series of its deeper tests compared with the wrong ones. Only an
+  elapsed-time series is read: a series placed by clock time (`TimePositionList`) is not.
+- **Remoulded vane strength.** DIGGS 3.0.0 has no property for it, so the suite's choice,
+  `shear_strength_undrained_residual`, is a convention, not the standard's. An export that
+  writes it under another property fails that value.
+- **Not graded in `in-situ-strength`.** Pressuremeter, pocket and in-situ penetrometer and
+  in-situ CBR tests are in the family but not yet in its challenge; a pass covers vane and
+  dilatometer tests only. Vane torque increments (the torque-rotation curve) and the
+  dilatometer's derived indices are not graded.
 
 ## Evidence anyone can re-run
 
@@ -233,6 +314,11 @@ The schema of the evidence is
 [`1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json),
 which pyDIGGS 1.15 and 1.16 wrote, stays published.
 
+To show that a result came from your own build, sign the evidence in your CI: see
+[Signing conformance evidence](conformance-signing.md). How pyDIGGS's own verdicts compare
+with the DIGGS project's XSLT validator on the public corpus is on
+[Agreement with the DIGGS validator](conformance-agreement.md).
+
 ## In your browser
 
 [The conformance page](conformance/try/index.html) offers `new`, `grade` and `verify` on a
@@ -257,6 +343,100 @@ $ pydiggs conformance scorecard */evidence.json --format markdown
 A scorecard shows one product against every part of the catalogue: pass, fail, not run, or
 not yet testable. The Markdown form is made for a README or a product page.
 
+## Check a delivered file (owner acceptance)
+
+!!! info "Preview (since pyDIGGS 1.18)"
+    The requirements, their ids and the JSON document may still change.
+
+A conformance class tests software against a challenge whose content the suite knows. An
+owner who receives a DIGGS file from a consultant or a laboratory has no such key.
+`accept` checks what can be checked of any file: it is valid DIGGS 3, and it holds what
+DIGGS defines for the kind of data it is delivered as.
+
+```console
+$ pydiggs conformance accept B-030.xml --class spt --report acceptance.html
+spt: ACCEPTED
+  file     B-030.xml, 26500 bytes
+  sha256   5ffc8827f8457258b1e9de5343cea7db91e1e973bdc933da6ec20d9ae7772ba4
+  checked  Standard penetration and other driven tests requirements, suite 1.0-beta.2, DIGGS 3.0.0
+
+  PASS     accept.diggs-3   (1/1) The file is a DIGGS 3 document, read to its end within the reader's limits.
+  PASS     accept.valid     (1/1) The file has no validation error: XML Schema, dictionaries, Schematron business rules and cross-references (warnings are allowed).
+  PASS     accept.present   (1/1) The file holds at least one test of standard penetration and other driven tests: a measurement whose procedure is DrivenPenetrationTest.
+  PASS     accept.located   (15/15) Every such test names the sampling feature (borehole, sounding) it was made in, directly or through the sample it was made on, and that feature is in the file.
+  PASS     accept.result    (15/15) Every such test reports at least one value of a property that the DIGGS properties dictionary defines for its procedure. A cell that is empty, or is the nullValue its property declares, is not a value.
+  PASS     accept.position  (15/15) Every such result value is placed along its feature: a depth or position in a length unit DIGGS can convert.
+  ...
+```
+
+`--class` is one of `spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`, `lab-index`
+and `deep-foundations`. `--format json`
+prints the result as a
+[`diggs-conformance-acceptance-1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-acceptance-1.0-beta.1.schema.json)
+document (preview; also `conformance.conformance_schema("acceptance")`), `--format html` prints the one-page report, and `--report PATH` also writes
+it. The report names the file by its SHA-256, so it cannot be passed off for another
+file. The exit status is 0 when every requirement is met, 1 when one is not (a file that
+is not DIGGS included), and 2 when the file cannot be read or the report cannot be
+written. The file is untrusted, with the same limits as `grade` (`--max-bytes`,
+`--time-budget`); a file cut short by a limit fails `accept.diggs-3`, and what the family
+asks of its content (`accept.present` and the requirements after it) is then `skipped`:
+nothing true can be said of a file that was read in part.
+
+### The requirements
+
+Every requirement comes from DIGGS 3.0.0 or its dictionaries; none is an engineering
+judgement. `pydiggs.conformance.requirements(family)` lists them with their source.
+
+| Id | What must hold | From |
+| --- | --- | --- |
+| `accept.diggs-3` | The file is a DIGGS 3 document, read to its end. | DIGGS 3.0.0 root element and namespace |
+| `accept.valid` | No validation error (warnings allowed). | DIGGS 3.0.0 XML Schema, the DIGGS dictionaries, the DIGGS Schematron rules |
+| `accept.present` | At least one test of the family: a measurement whose procedure is one of the family's elements (`DrivenPenetrationTest` for `spt`; `StaticConePenetrationTest` for `cpt`; `PorePressureDissipationTest` for `dissipation`; `InsituVaneTest`, `FlatPlateDilatometerTest` or another of the family's procedures for `in-situ-strength`; the ten laboratory index procedures). For piles: at least one pile and one `PileDrivingRecord`. For `mwd`: at least one `MeasurementWhileDrilling` log. | The family's DIGGS 3.0.0 elements ([classes](#classes-and-what-cannot-be-tested-yet)) |
+| `accept.located` | Every such test names the borehole or sounding it was made in, directly or through its sample, and that feature is in the file. For `mwd`: every drilling log names its borehole or sounding. For piles: every driving record's `PileDrivingActivity` names one pile of the file, and its tip locations are on no other pile. | `samplingFeatureRef` and `sampleRef` of a measurement; `samplingFeatureRef` of a construction activity (exactly one) |
+| `accept.result` | Every such test reports at least one value of a property the DIGGS dictionary defines for its procedure (for SPT: `n_value`, `n60`, `n1_60` or `relative_density`). For piles: every driving record has a value of a pile-driving property at a pile tip depth. For `mwd`: every log has a value of a drilling channel, a property `mwd_properties.xml` defines other than `depth` and `time`. A cell that is empty, or is the `nullValue` its property declares, is not a value. | `outcome` of a test (required); the `Occurrence` entries of `properties.xml`, `pil_properties.xml` and `mwd_properties.xml`; `nullValue` of a `Property` |
+| `accept.position` | Every such result value is placed along its feature, in a length unit DIGGS can convert. (Not for piles: `accept.result` asks for the tip depth. Not for `mwd`: DIGGS lets a drilling log be placed by depth or by time.) | `outcome`: "the associated locations that the measurement results relate to" |
+
+!!! warning "What an acceptance check does not show"
+    It does not compare any value with the field or laboratory records, so a wrong blow
+    count passes. It does not show that every test of the job was delivered, makes no
+    engineering judgement, does not show which software wrote the file, and is not a
+    certification. The report and the JSON say so.
+
+## Round-trip matrix
+
+!!! info "Preview (since pyDIGGS 1.18)"
+    The matrix needs evidence from at least two vendors to mean anything. Its format is
+    fixed now so that vendors can publish evidence in the layout it reads.
+
+```console
+$ pydiggs conformance matrix evidence/
+$ pydiggs conformance matrix evidence/ --format html > matrix.html
+```
+
+`matrix` reads every `evidence.json` under the folder. Each must sit in its challenge
+folder, where `grade` writes it, with the file it graded beside it under the name the
+evidence gives (`answers.csv` for an import class). Every document is **verified first**:
+grading the challenge and the file again must give it back. Evidence that does not verify
+(edited, of another suite version, its file missing) is listed with the reason and
+**never counted**. Links are not followed: an `evidence.json` that is a link is listed as
+"a link, not read".
+
+The matrix shows each product (as its vendor declared it) against every class: pass, fail
+or not run. A class passes when any verified evidence of it passed. It then lists the
+round trips: every pair of a product that passed a family's export class and one that
+passed its import class. Formats: text, `json` (a
+[`diggs-conformance-matrix-1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json)
+document, preview; also `conformance.conformance_schema("matrix")`), `markdown` and `html`; every value from a file is escaped in the
+text, Markdown and HTML. The exit status is 0 when every evidence document verified, 1
+when one did not (the matrix is still written, without it), and 2 when the folder holds
+no evidence or cannot be read.
+
+!!! warning "Every round trip says `not-tested-together`"
+    Today each product passes its class against the suite's own challenge, so the matrix
+    can say "A's export passed" and "B's import passed", never "B read A's export". That
+    needs an import challenge made from A's file, which no challenge or evidence records
+    yet. The cell's values `read` and `not-read` are reserved for that evidence.
+
 ## In Python
 
 ```python
@@ -274,6 +454,24 @@ result.passed  # the verdict
 result.stage("fidelity").items  # what failed, each with expected and got
 evidence = result.to_dict()  # the diggs-conformance document
 conformance.verify(evidence, "challenge", "my-export.xml").ok
+```
+
+The acceptance check and the matrix:
+
+```python
+from pydiggs import conformance
+
+challenge = conformance.new("cpt-export", product="MyLog", version="4.2.1", seed="demo")
+result = conformance.accept(challenge.reference(), "cpt")
+assert result.accepted
+print(result.file_sha256, [r.id for r in conformance.requirements("cpt")])
+```
+
+<!-- skip: next "needs a folder of challenge folders with their evidence" -->
+```python
+grid = conformance.matrix("evidence")
+grid.unverified  # what did not verify, with the reason
+grid.cell(("MyLog", "4.2.1"), "spt-export")  # pass, fail or not-run
 ```
 
 The submission is untrusted input: its size is limited (`max_bytes`, 100 MiB by default),

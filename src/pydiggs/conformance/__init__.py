@@ -23,6 +23,10 @@ A vendor runs it on their own machine, with no account and nothing uploaded:
 test yet, and :func:`scorecard` shows a product against all of them, so a few passing
 classes are never mistaken for full DIGGS support.
 
+Two more preview tools: :func:`accept` checks one delivered file against the published
+requirements of a family (:func:`requirements`), for the owner who receives it, and
+:func:`matrix` lays verified evidence of several products out class by class.
+
 A result is *self-tested*: it shows that a file passed, not which software wrote it, and
 it is not a certification by the DIGGS committee or the ASCE Geo-Institute. The evidence
 says so in its ``statement``.
@@ -44,6 +48,17 @@ import json
 from importlib import resources
 from typing import Any
 
+from pydiggs.conformance._accept import (
+    ACCEPTANCE_SCHEMA_RESOURCE,
+    ACCEPTANCE_SCHEMA_URL,
+    ACCEPTANCE_SCHEMA_VERSION,
+    ACCEPTANCE_STATEMENT,
+    Acceptance,
+    Outcome,
+    accept,
+    acceptance_families,
+    requirements,
+)
 from pydiggs.conformance._catalogue import ClassInfo, Family, class_info, classes, families
 from pydiggs.conformance._challenge import SUITE_VERSION, Challenge, load, new
 from pydiggs.conformance._facts import DEFECTS
@@ -59,42 +74,87 @@ from pydiggs.conformance._grade import (
     grade,
     verify,
 )
+from pydiggs.conformance._matrix import (
+    MATRIX_SCHEMA_RESOURCE,
+    MATRIX_SCHEMA_URL,
+    MATRIX_SCHEMA_VERSION,
+    Entry,
+    Matrix,
+    RoundTrip,
+    matrix,
+)
 from pydiggs.conformance._report import Scorecard, ScorecardRow, scorecard
+from pydiggs.conformance._requirements import Requirement
 
 __all__ = [
+    "ACCEPTANCE_SCHEMA_URL",
+    "ACCEPTANCE_SCHEMA_VERSION",
+    "ACCEPTANCE_STATEMENT",
     "CONFORMANCE_SCHEMA_URL",
     "CONFORMANCE_SCHEMA_VERSION",
     "DEFECTS",
+    "MATRIX_SCHEMA_URL",
+    "MATRIX_SCHEMA_VERSION",
     "STATEMENT",
     "SUITE_VERSION",
+    "Acceptance",
     "Challenge",
     "ClassInfo",
+    "Entry",
     "Family",
     "Item",
+    "Matrix",
+    "Outcome",
+    "Requirement",
     "Result",
+    "RoundTrip",
     "Scorecard",
     "ScorecardRow",
     "Stage",
     "Verification",
+    "accept",
+    "acceptance_families",
     "class_info",
     "classes",
     "conformance_schema",
     "families",
     "grade",
     "load",
+    "matrix",
     "new",
+    "requirements",
     "scorecard",
     "verify",
 ]
 
 
-def conformance_schema() -> dict[str, Any]:
-    """The packaged diggs-conformance JSON Schema, as a fresh dict.
+_SCHEMAS = {
+    "evidence": SCHEMA_RESOURCE,
+    "acceptance": ACCEPTANCE_SCHEMA_RESOURCE,
+    "matrix": MATRIX_SCHEMA_RESOURCE,
+}
+
+
+def conformance_schema(document: str = "evidence") -> dict[str, Any]:
+    """A packaged JSON Schema of the suite, as a fresh dict.
+
+    Args:
+        document: ``evidence`` (diggs-conformance, the default), ``acceptance``
+            (diggs-conformance-acceptance, what :func:`accept` writes) or ``matrix``
+            (diggs-conformance-matrix, what :func:`matrix` writes).
+
+    Raises:
+        ValueError: ``document`` is none of these.
 
     Examples:
         >>> from pydiggs import conformance
         >>> conformance.conformance_schema()["$id"] == conformance.CONFORMANCE_SCHEMA_URL
         True
+        >>> conformance.conformance_schema("matrix")["$id"] == conformance.MATRIX_SCHEMA_URL
+        True
     """
-    text = resources.files("pydiggs.conformance").joinpath(SCHEMA_RESOURCE).read_text("utf-8")
+    if document not in _SCHEMAS:
+        raise ValueError(f"no conformance schema {document!r}; they are: {', '.join(_SCHEMAS)}")
+    resource = _SCHEMAS[document]
+    text = resources.files("pydiggs.conformance").joinpath(resource).read_text("utf-8")
     return dict(json.loads(text))

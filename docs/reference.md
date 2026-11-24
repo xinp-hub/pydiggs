@@ -176,6 +176,14 @@ not load `pydiggs.conformance`: use `from pydiggs import conformance`.
 
 ::: pydiggs.conformance.class_info
 
+::: pydiggs.conformance.accept
+
+::: pydiggs.conformance.requirements
+
+::: pydiggs.conformance.acceptance_families
+
+::: pydiggs.conformance.matrix
+
 ::: pydiggs.conformance.conformance_schema
 
 ::: pydiggs.conformance.Challenge
@@ -191,6 +199,18 @@ not load `pydiggs.conformance`: use `from pydiggs import conformance`.
 ::: pydiggs.conformance.Scorecard
 
 ::: pydiggs.conformance.ScorecardRow
+
+::: pydiggs.conformance.Acceptance
+
+::: pydiggs.conformance.Outcome
+
+::: pydiggs.conformance.Requirement
+
+::: pydiggs.conformance.Matrix
+
+::: pydiggs.conformance.Entry
+
+::: pydiggs.conformance.RoundTrip
 
 ::: pydiggs.conformance.ClassInfo
 

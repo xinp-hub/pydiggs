@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json",
+  "title": "diggs-conformance-matrix 1.0-beta.1",
+  "description": "The round-trip matrix (pydiggs conformance matrix): products against conformance classes, from evidence documents that were each verified by grading again, and the pairs of products that passed a family's export and its import. Preview: this beta may change before 1.0. File text (paths, product names, reasons) is kept as it is; escape it before showing it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "format",
+    "schema_version",
+    "suite_version",
+    "tier",
+    "classes",
+    "products",
+    "round_trips",
+    "round_trip_note",
+    "evidence"
+  ],
+  "$defs": {
+    "product": {
+      "type": "object",
+      "description": "A product as its vendor declared it.",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "diggs-conformance-matrix"
+    },
+    "schema_version": {
+      "const": "1.0-beta.1"
+    },
+    "suite_version": {
+      "type": "string"
+    },
+    "tier": {
+      "enum": [
+        "self-tested"
+      ]
+    },
+    "classes": {
+      "type": "array",
+      "description": "Every class of the suite, in catalogue order.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "products": {
+      "type": "array",
+      "description": "Every product with verified evidence.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version",
+          "classes"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "classes": {
+            "type": "object",
+            "description": "Class id -> pass (any verified evidence passed), fail (verified evidence, none passed) or not-run.",
+            "additionalProperties": {
+              "enum": [
+                "pass",
+                "fail",
+                "not-run"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "round_trips": {
+      "type": "array",
+      "description": "Each pair of a product that passed a family's export class and one that passed its import class.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "export",
+          "import",
+          "status"
+        ],
+        "properties": {
+          "family": {
+            "type": "string"
+          },
+          "export": {
+            "$ref": "#/$defs/product"
+          },
+          "import": {
+            "$ref": "#/$defs/product"
+          },
+          "status": {
+            "enum": [
+              "read",
+              "not-read",
+              "not-tested-together"
+            ],
+            "description": "read and not-read are reserved for evidence of an import challenge made from the exporter's file, which no evidence records yet; until then every pair is not-tested-together."
+          }
+        }
+      }
+    },
+    "round_trip_note": {
+      "type": "string"
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Every evidence document found, verified or not; only verified ones count.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "verified",
+          "reason",
+          "product",
+          "class",
+          "verdict"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The document's path under the matrix folder, with / separators."
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "description": "reproduced, or why the document does not count."
+          },
+          "product": {
+            "$ref": "#/$defs/product"
+          },
+          "class": {
+            "type": "string",
+            "description": "The class the document states; empty when it is not readable as evidence."
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "fail",
+              ""
+            ],
+            "description": "The verdict the document states; empty when it is not readable as evidence."
+          }
+        }
+      }
+    }
+  }
+}

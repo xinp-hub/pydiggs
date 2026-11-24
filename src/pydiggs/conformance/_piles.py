@@ -852,10 +852,10 @@ def _tip_depths(model: Model, record: ExtraNode) -> list[float] | None:
     return [n * factor for n in numbers if n is not None]
 
 
-def _columns(result: ExtraNode, budget: _Budget) -> list[tuple[str, str | None]]:
-    """(dictionary key, unit) of each declared property, in document order."""
+def _columns(result: ExtraNode, budget: _Budget) -> list[tuple[str, str | None, float | None]]:
+    """(dictionary key, unit, ``nullValue`` as a number) of each declared property, in order."""
     properties = _path(result, "parameters", "PropertyParameters", "properties")
-    out: list[tuple[str, str | None]] = []
+    out: list[tuple[str, str | None, float | None]] = []
     for prop in () if properties is None else properties.children:
         if not budget.spend():
             break
@@ -866,7 +866,9 @@ def _columns(result: ExtraNode, budget: _Budget) -> list[tuple[str, str | None]]
         key = code_space.partition("#")[2] or (
             "" if pclass is None else (pclass.text or "").strip()
         )
-        out.append((key, (uom.text or "").strip() or None if uom is not None else None))
+        marked = _child(prop, "nullValue")
+        null = None if marked is None else _float((marked.text or "").strip())
+        out.append((key, (uom.text or "").strip() or None if uom is not None else None, null))
     return out
 
 
@@ -884,12 +886,15 @@ def _rows(values: ExtraNode | None) -> list[list[str]]:
 
 
 def _record_readings(
-    model: Model, record: ExtraNode, budget: _Budget
+    model: Model, record: ExtraNode, budget: _Budget, *, nulls: bool = False
 ) -> list[tuple[str, float, float, str]]:
     """Every numeric value of a driving record: (key, tip depth m, SI value, SI unit).
 
     Only the cells a row holds are looked at, each charged to ``budget``: the work is
-    linear in the size of the file, however many properties are declared.
+    linear in the size of the file, however many properties are declared. With
+    ``nulls``, a cell equal to its property's declared ``nullValue`` is not a value; the
+    acceptance check passes it. Grading does not: suite 1.0-beta.2 was released reading
+    such a cell as a value (see :func:`pydiggs.conformance._facts.observe`).
     """
     depths = _tip_depths(model, record)
     result = _path(record, "pileDrivingRecordResults")
@@ -904,11 +909,13 @@ def _record_readings(
     columns = _columns(result, budget)
     out: list[tuple[str, float, float, str]] = []
     for depth, row in zip(depths, rows, strict=True):
-        for (key, uom), cell in zip(columns, row, strict=False):
+        for (key, uom, null), cell in zip(columns, row, strict=False):
             if not budget.spend():
                 return out
             number = _float(cell)
-            found = None if number is None else _to_si(number, uom)
+            if number is None or (nulls and number == null):
+                continue
+            found = _to_si(number, uom)
             if found is not None:
                 out.append((key, depth, found[0], found[1]))
     return out

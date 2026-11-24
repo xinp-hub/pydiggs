@@ -1,0 +1,177 @@
+# The DIGGSml XSLT validator, pinned for the cross-implementation agreement job.
+#
+# scripts/agreement.py runs it on every conformance corpus file and compares its verdict
+# with pyDIGGS's (conformance/expected.toml); conformance/intended.toml says why they
+# differ where they do. Same format as corpus.toml: each file is pinned by commit, size
+# and sha256 (after CRLF -> LF normalisation) and fetched by
+# `python scripts/agreement.py fetch` into .cache/agreement/. The files are never
+# committed and never packaged: DIGGSml/validation states no licence.
+#
+# To move to a newer validator: change `commit`, update every sha256 and size (the
+# GitHub API lists them: /repos/DIGGSml/validation/git/trees/<commit>?recursive=1 gives
+# each blob's size; hash the fetched files), then `record` and review the diff of
+# conformance/xslt-expected.toml and the agreement page.
+
+[validator]
+stylesheet = "validation/diggs-validation.xsl"
+processor = "SaxonC-HE 12.7 (saxonche 12.7.0, conformance/xslt-requirements.txt): the Saxon release DIGGSml/validation ships (lib/saxon-he-12.7.jar)"
+
+[sources.validation]
+repo = "https://github.com/DIGGSml/validation"
+commit = "68debbe74125b8dee7640c76e0b9b3f7ea698f94"
+license = "None stated (LicenseRef-DIGGS-Unstated); fetched, never committed"
+note = "The DIGGS project's semantic validator: the development repository, newest commit on main (2026-11-19). Its copy deployed under diggsml.org/def/validation (DIGGSml/def docs/validation) has not been updated since August 2026."
+
+[sources.def]
+repo = "https://github.com/DIGGSml/def"
+commit = "2d76ba6c7affc94183659e21e4e2e90da5c84f2d"
+license = "MIT (stated in the README; see src/pydiggs/dictionaries/NOTICE)"
+note = "The commit pyDIGGS bundles its dictionaries from (src/pydiggs/PROVENANCE.toml); only what pyDIGGS does not bundle is listed here"
+
+# URLs the validator reads, answered locally (scripts/agreement.py mirror_map). The DIGGS
+# schemas and dictionaries pyDIGGS bundles are added from src/pydiggs/PROVENANCE.toml at
+# the addresses diggsml.org publishes them. Every other URL is unreachable during a run.
+[mirror]
+# The validator loads its Schematron rules and SchXslt pipeline from its deployment when
+# the relative path it tries first does not resolve; serve them from the pinned commit.
+"https://diggsml.org/def/validation/modules/" = "cache:validation/modules/"
+"https://diggsml.org/def/validation/definedCodeTypes.xml" = "cache:def/validation/definedCodeTypes.xml"
+# The deprecation module reads the schema-dev registry first; pyDIGGS's bundled registry
+# (DIGGSml/schemas, PROVENANCE.toml) stands in for it, so both sides read the same one.
+"https://diggsml.org/schema-dev/deprecated/DeprecationRegistry.xml" = "package:deprecation/DeprecationRegistry.xml"
+# Three corpus files name a schema on a GitHub branch instead of diggsml.org. The schema
+# step only checks that the schema is there, is a DIGGS schema and has the file's
+# namespace; it is answered with the pinned copy pyDIGGS bundles for that release.
+"https://raw.githubusercontent.com/DIGGSml/diggs-schema/2.5.a/" = "package:schemas/diggs-schema-2.5.a/"
+"https://raw.githubusercontent.com/DIGGSml/schema-dev/refs/heads/3.0/" = "package:schemas/diggs-schema-3.0.0/"
+"https://raw.githubusercontent.com/DIGGSml/schema-dev/refs/heads/3.1-dev/" = "package:schemas/diggs-schema-3.1-dev/"
+
+[files."def/validation/definedCodeTypes.xml"]
+path = "docs/validation/definedCodeTypes.xml"
+sha256 = "7fddc77c0943b1df092f0af69d47aae153d2c9a070909bd6a86dfc40c4d37d62"
+size = 3395
+
+[files."validation/diggs-validation.xsl"]
+path = "diggs-validation.xsl"
+sha256 = "c71533a62c816784b1168ab4932fc204f8592508f11a9c146dcf3a484e553cf0"
+size = 6573
+
+[files."validation/modules/codeType-validation.xsl"]
+path = "modules/codeType-validation.xsl"
+sha256 = "948b14688ee772bfc5486131f3c586e04a816812e38f068d5163b9cf180f9919"
+size = 7736
+
+[files."validation/modules/coordinate-validation.xsl"]
+path = "modules/coordinate-validation.xsl"
+sha256 = "2a14574143ba3f24692f14bff9fb8a66e73be3d0ea5ee8a9e0e4a8c9aac798e4"
+size = 6939
+
+[files."validation/modules/crs-validation.xsl"]
+path = "modules/crs-validation.xsl"
+sha256 = "6da3ca1459e672dbdfbcd10b3f4a2e610f2937bf2491c802f937de4e26de6d21"
+size = 4041
+
+[files."validation/modules/deprecation-validation.xsl"]
+path = "modules/deprecation-validation.xsl"
+sha256 = "ae25171e78f38ca3dadfc2c7f69b9315a50af33c2fd5790327d53de9f5bf0c6d"
+size = 7161
+
+[files."validation/modules/dictionary-validation.xsl"]
+path = "modules/dictionary-validation.xsl"
+sha256 = "62bddaa2baec396ca1b9bd6713d8e73e514c924e2602f40661bab9ad5a3f6fc5"
+size = 62265
+
+[files."validation/modules/diggs-check.xsl"]
+path = "modules/diggs-check.xsl"
+sha256 = "f2b82c0c9c00b03ca43dd772c0ad505c842764cab3917222d3d371b095ba4d97"
+size = 3280
+
+[files."validation/modules/diggs-functions.xsl"]
+path = "modules/diggs-functions.xsl"
+sha256 = "ac53e3bfba972313a412907c809de9ce4970680b8e88241341f5a6f09c8fa2f9"
+size = 50433
+
+[files."validation/modules/diggs_schematron_rules.sch"]
+path = "modules/diggs_schematron_rules.sch"
+sha256 = "2d1701a6fe15778872d499184c671c8fdbe0fce3a0b94693b1451e88d22f7409"
+size = 10886
+
+[files."validation/modules/geometry-validation.xsl"]
+path = "modules/geometry-validation.xsl"
+sha256 = "65358a9688e930f08eb257de420d883d038bf0a7978f44742f5033f6509e3e64"
+size = 5871
+
+[files."validation/modules/schema-check.xsl"]
+path = "modules/schema-check.xsl"
+sha256 = "9de854a45dc0f851a191822928c5a4b1e258563c244bce3d3709ac445380fb4f"
+size = 13128
+
+[files."validation/modules/schematron-validation.xsl"]
+path = "modules/schematron-validation.xsl"
+sha256 = "8bd7c13b91f152b0ea473a07ac7aac592e4a5db563d6cf87491145e51bcf5ab4"
+size = 7665
+
+[files."validation/modules/schxslt_2.0/compile/api-2.0.xsl"]
+path = "modules/schxslt_2.0/compile/api-2.0.xsl"
+sha256 = "d4df046564af3ba3d9f10976e29cbea1a6c45c746e3e53efcea8377c42c3c8e9"
+size = 4701
+
+[files."validation/modules/schxslt_2.0/compile/compile-2.0.xsl"]
+path = "modules/schxslt_2.0/compile/compile-2.0.xsl"
+sha256 = "5f24b8b28be50d650542c5113185ed55983beeaad061eddc4b966ca354751a57"
+size = 17868
+
+[files."validation/modules/schxslt_2.0/compile/functions.xsl"]
+path = "modules/schxslt_2.0/compile/functions.xsl"
+sha256 = "e7d96717677ac768a72edda3b9f45e67c40476525247906271c42b652cf3b397"
+size = 3635
+
+[files."validation/modules/schxslt_2.0/compile/templates.xsl"]
+path = "modules/schxslt_2.0/compile/templates.xsl"
+sha256 = "afd07c44eeb70b8e9daf0feb1319ca655468f06543437c8ecf0e5a232b3038c8"
+size = 5643
+
+[files."validation/modules/schxslt_2.0/compile-for-svrl.xsl"]
+path = "modules/schxslt_2.0/compile-for-svrl.xsl"
+sha256 = "9f64f1ea1164094f1b6dd20d67b40af8b124f3a3579fa2dec07c64359cc108b3"
+size = 663
+
+[files."validation/modules/schxslt_2.0/expand.xsl"]
+path = "modules/schxslt_2.0/expand.xsl"
+sha256 = "97bc8bee61b23592fe4937f261b47cb0e3725c25516084a9788d33e102cbba79"
+size = 7490
+
+[files."validation/modules/schxslt_2.0/include.xsl"]
+path = "modules/schxslt_2.0/include.xsl"
+sha256 = "ab6f9359c7a1a17a589568d91bab766f53fc98064beb8cc976e6e3319afb2b24"
+size = 3201
+
+[files."validation/modules/schxslt_2.0/pipeline-for-svrl.xsl"]
+path = "modules/schxslt_2.0/pipeline-for-svrl.xsl"
+sha256 = "64a535e6d0f0baa809f987d27d9e5b825d420e9ebda7344ef53edf136cdd42fa"
+size = 183
+
+[files."validation/modules/schxslt_2.0/pipeline.xsl"]
+path = "modules/schxslt_2.0/pipeline.xsl"
+sha256 = "d0189741f5e6119b76b6914413e1a7c92427efef6f2ecb9b2c34e833c533ec1f"
+size = 945
+
+[files."validation/modules/schxslt_2.0/svrl.xsl"]
+path = "modules/schxslt_2.0/svrl.xsl"
+sha256 = "d2d8ea16cdbb6b0d0efd6d39955459ebcdf511000c24dda38220961f1d7e2611"
+size = 9797
+
+[files."validation/modules/schxslt_2.0/util/normalize-svrl.xsl"]
+path = "modules/schxslt_2.0/util/normalize-svrl.xsl"
+sha256 = "37a75ed72e61a820a29e583e483ac9f32bb9d0615513f27f944ac9b2b1e5ed68"
+size = 1573
+
+[files."validation/modules/schxslt_2.0/version.xsl"]
+path = "modules/schxslt_2.0/version.xsl"
+sha256 = "405b624fad86d226377a32884ad5cda771d697b7e3f15443f0601c12bfe0018e"
+size = 1435
+
+[files."validation/whiteList.xml"]
+path = "whiteList.xml"
+sha256 = "49398ade51a904f69c1320a9af84b1ea8b2b1deab3026e2ad274128f68b902c3"
+size = 2960

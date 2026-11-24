@@ -155,6 +155,8 @@ positional arguments:
     verify    re-run a result and confirm its evidence
     scorecard
               show a product against every part of DIGGS
+    accept    check a delivered DIGGS file against what its family must hold
+    matrix    lay out verified evidence of several products, class by class
 
 options:
   -h, --help  show this help message and exit
@@ -268,6 +270,67 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --format {text,json,markdown}
+```
+
+#### `pydiggs conformance accept`
+
+```text
+usage: pydiggs conformance accept [-h] --class FAMILY
+                                  [--format {text,json,html}] [--report PATH]
+                                  [--max-bytes N] [--time-budget SECONDS]
+                                  FILE
+
+Check one delivered DIGGS file: it is valid DIGGS 3, and it holds what the
+published requirements of the family ask (each from DIGGS 3.0.0 or its
+dictionaries). The report names the file by its SHA-256. It does not compare
+values with the field or laboratory records.
+
+positional arguments:
+  FILE                  the delivered DIGGS file
+
+options:
+  -h, --help            show this help message and exit
+  --class FAMILY        what the file is delivered as: spt, cpt, dissipation,
+                        in-situ-strength, mwd, lab-index, deep-foundations
+  --format {text,json,html}
+                        what is printed: text (the default), the result as
+                        JSON, or the HTML report
+  --report PATH         also write the HTML report to PATH
+  --max-bytes N         refuse a submission larger than N bytes (default 100
+                        MiB)
+  --time-budget SECONDS
+                        stop reading or validating an export after SECONDS
+
+Exit status: 0 every requirement met; 1 one or more not met (a file that is
+not DIGGS included); 2 usage error, a file that cannot be read, or an output
+that cannot be written.
+```
+
+#### `pydiggs conformance matrix`
+
+```text
+usage: pydiggs conformance matrix [-h] [--format {text,json,markdown,html}]
+                                  [--max-bytes N] [--time-budget SECONDS]
+                                  DIR
+
+Build the round-trip matrix from every evidence.json under DIR. Each must sit
+in its challenge folder with the file it graded beside it; it is verified
+first, and evidence that does not verify is listed and not counted.
+
+positional arguments:
+  DIR                   a folder of challenge folders
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json,markdown,html}
+  --max-bytes N         refuse a submission larger than N bytes (default 100
+                        MiB)
+  --time-budget SECONDS
+                        stop reading or validating an export after SECONDS
+
+Exit status: 0 every evidence document verified; 1 one or more did not (the
+matrix is still written, without them); 2 usage error, no evidence found, or
+an output that cannot be written.
 ```
 
 #### `pydiggs convert`

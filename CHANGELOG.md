@@ -7,6 +7,92 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Conformance classes for measurement while drilling (preview).** `pydiggs conformance`
+  has two new classes, `mwd-export` and `mwd-import`, for drilling logs
+  (`MeasurementWhileDrilling`). A challenge holds two or three borings, each with one log
+  recorded by the rig: elapsed time, depth, penetration rate, thrust, torque, rotation
+  speed and flushing pressure, in metric or US units. The export challenge is a DIGGS tables
+  profile package, like SPT, CPT and the laboratory tests. Values are looked up by their
+  DIGGS MWD property at the depth of their reading. A flushing pressure the tables leave
+  empty must stay empty (a `nullValue` counts as empty), the collar reading's zero
+  penetration rate and rotation speed must be in the file, and no reading may be added
+  where recording paused for a rod change, whichever cells it fills. Rotation speed may
+  be given in rpm or any angular velocity unit. The suite version stays `1.0-beta.2`: the existing classes are
+  graded as before. See
+  [Measurement while drilling](https://xinp-hub.github.io/pydiggs/latest/conformance/#measurement-while-drilling).
+- **Conformance classes for dissipation, vane and dilatometer tests (preview).** Four new
+  classes: `dissipation-export` and `dissipation-import` (pore pressure dissipation tests
+  in piezocone soundings: u0, u50 and t50 at the test depth, and the u1 and u2 series
+  graded point by point at each elapsed time, in seconds or minutes), and
+  `in-situ-strength-export` and `in-situ-strength-import` (field vane tests with their peak
+  and remoulded torque and strength and the vane's size, and a flat plate dilatometer
+  sounding with its A, B and C readings and membrane calibrations). Their export
+  challenges are DIGGS tables profile packages, like SPT, CPT and the laboratory classes.
+  Values are graded as reported: a t50 the source leaves empty, a reading the logger lost
+  and a remoulded test that was not made must stay empty in the file (a `nullValue`
+  counts as empty). DIGGS 3.0.0 has no
+  property for a remoulded vane strength, so the suite looks for it as
+  `shear_strength_undrained_residual`. Pressuremeter, penetrometer and in-situ CBR tests
+  are in the catalogue but not yet graded. See
+  [the conformance suite](https://xinp-hub.github.io/pydiggs/latest/conformance/).
+- **Check a delivered DIGGS file (preview).** `pydiggs conformance accept FILE --class spt`
+  (and `pydiggs.conformance.accept`) is the owner's check of one file received from a
+  consultant or a laboratory: the file is valid DIGGS 3, and it holds what DIGGS defines
+  for the kind of data it is delivered as (any family with a class: `spt`, `cpt`, `lab-index`,
+  `deep-foundations`, `mwd`, `dissipation`, `in-situ-strength`). Each requirement is published with an id (`accept.present`,
+  `accept.located`, `accept.result`, `accept.position` …) and the part of DIGGS 3.0.0 or
+  of its dictionaries it comes from; `conformance.requirements(family)` lists them. The
+  one-page HTML report (`--report`, `--format html`) names the file by its SHA-256 and says
+  what the check does not show: it compares no value with the field or laboratory records
+  and makes no engineering judgement. `--format json` gives the result as a
+  `diggs-conformance-acceptance` 1.0-beta.1 document, with its JSON Schema published at
+  `schemas/preview/diggs-conformance-acceptance-1.0-beta.1.schema.json`. Exit status 0 when every requirement is met, 1
+  when one is not, 2 when the file cannot be read.
+- **Round-trip matrix (preview).** `pydiggs conformance matrix DIR` (and
+  `pydiggs.conformance.matrix`) lays out the evidence of several products class by class,
+  and lists each pair of a product that passed a family's export and one that passed its
+  import. Every `evidence.json` is graded again first; evidence that does not verify
+  (edited, of another suite version, or without the file it graded beside it) is listed
+  with the reason and never counted. Text, Markdown, HTML and JSON (a `diggs-conformance-matrix` 1.0-beta.1
+  document, schema at `schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json`). Each pair says
+  `not-tested-together`: no evidence yet records an import challenge made from another
+  product's export, so the matrix never claims that one product read another's file.
+- `pydiggs.conformance.conformance_schema()` takes the document it describes:
+  `"evidence"` (the default, as before), `"acceptance"` or `"matrix"`.
+- **The conformance suite in your browser (preview).** A page in the documentation runs
+  the same three steps as `pydiggs conformance new`, `grade` and `verify` in the visitor's
+  own tab: pick a class, download the challenge as a ZIP, choose your DIGGS export or the
+  filled `answers.csv`, and see the grading, with `evidence.json` and `report.html` to
+  download; a third tab grades a file again and confirms its evidence. pyDIGGS runs on
+  Pyodide in a Web Worker, so the page stays responsive, and the files you choose are
+  never uploaded: once pyDIGGS has loaded, the page makes no request at all. It loads
+  Pyodide from jsDelivr and the pyDIGGS 1.17.0 wheel from PyPI, each pinned and checked
+  against its hash. A challenge made on the page is the folder `pydiggs conformance new`
+  writes, and its evidence is the document `grade` writes, so the command line verifies
+  a result from the page and the page verifies one from the command line. Results are
+  self-tested, as everywhere. See
+  [In your browser](https://xinp-hub.github.io/pydiggs/latest/conformance/#in-your-browser).
+- **Agreement with the DIGGS validator.** A new docs page,
+  [Agreement with the DIGGS validator](https://xinp-hub.github.io/pydiggs/latest/conformance-agreement/), compares pyDIGGS's
+  verdict on every file of the public conformance corpus with the DIGGS project's own
+  XSLT validator ([DIGGSml/validation](https://github.com/DIGGSml/validation), pinned by
+  commit and run with SaxonC-HE 12.7). It lists every file where the two differ and why:
+  today 36 of 44 files, all of them files that pyDIGGS passes and the validator fails, for
+  six documented reasons (code values without a DIGGS code list, CRS forms the validator
+  does not accept, CRS definitions that the offline run cannot fetch, and others). The
+  validator runs offline, from pinned copies of the DIGGS schemas and dictionaries, and
+  calls no outside service. A difference that nobody has explained fails the checks.
+- **Signing conformance evidence.** A new page,
+  [Signing conformance evidence](https://xinp-hub.github.io/pydiggs/latest/conformance-signing/), gives a GitHub Actions
+  workflow that runs `pydiggs conformance new` and `grade` in your own CI and signs
+  `evidence.json`, the challenge and your export with GitHub artifact attestations
+  (Sigstore). It also shows how anyone checks the result with `gh attestation verify` and
+  `pydiggs conformance verify`, what a signature proves and what it does not, and the same
+  steps with `cosign` for other CI systems. pyDIGGS itself still writes the evidence
+  unsigned and gains no signing dependency.
+
 ## [1.17.0] - 2026-11-23
 
 ### Added

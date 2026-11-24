@@ -1,0 +1,22 @@
+# SaxonC-HE for scripts/agreement.py, never a dependency of pyDIGGS. Use it in a throwaway
+# environment, with every hash checked (uv run --with ignores hashes):
+#   uv venv --python 3.12 .cache/agreement/venv
+#   uv pip sync --require-hashes --python .cache/agreement/venv conformance/xslt-requirements.txt
+# 12.7.0 is the Saxon release DIGGSml/validation ships (lib/saxon-he-12.7.jar). Wheels for
+# CPython 3.11 to 3.13 (there are none for 3.14); hashes from PyPI, one per wheel.
+saxonche==12.7.0 \
+    --hash=sha256:373c86dea41fed4455158e40ced27e0988caf5cf5c0529fc341dee446f580c37 \
+    --hash=sha256:62d1315a2bf71d187da54d45046dbf37c6b84940aae63a700dc877287cfd9771 \
+    --hash=sha256:45abcb429647fd32758a3f572a0dbbcc6ec5d38d36868796b1f83a6e168630d6 \
+    --hash=sha256:262c284f772cad3a18dc06b0d55d4032849083c00049fe24c1e7e67a0c625bff \
+    --hash=sha256:36444ebf37f825f92c7844d0adb7c98c950b60072dbd305771c0df473c469003 \
+    --hash=sha256:e8d255498a49055a950ee999a84dee003e74dc4338f25806b1e274fb63f2a4ba \
+    --hash=sha256:285a09e39f0bae143b304da55254d18cc5206fd8ef938822cec5947be299adb5 \
+    --hash=sha256:e861dc5eee567a28aafe0a1054585f3e8e9d1bdc9fe72dbddd756e34462c4251 \
+    --hash=sha256:fa55ba65344534652498ee6a1de86f32c2a40d273ec48eb996e62be45b9594c2 \
+    --hash=sha256:b2729d254cf023b08aea5bd693c052b2e67dc8112ec009429ccae6eec0114002 \
+    --hash=sha256:5244ed00c59528539a7635ae7321f3b5b1b9866660621e7a0bc7036c31a79e4e \
+    --hash=sha256:d6cf1c7d2ead0241e6305b8a2c63098bd9e1060960b9ba687bd9daf12ebc1e9d \
+    --hash=sha256:12dc57c1ea8df7565d0e304f59edb7ea30cec808305259e7e866c633ef151400 \
+    --hash=sha256:b0493b4360ce2d0a2b0d4a493f0027650dd183bd504e837d3848c084a30e59be \
+    --hash=sha256:679a21212cc7a9027783121253c7039ae335c21cbc851dddff9f57778abbfc4d

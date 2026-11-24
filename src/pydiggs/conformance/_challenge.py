@@ -140,7 +140,9 @@ def _token(info: ClassInfo, seed: str) -> str:
 
 #: Scenarios whose export challenge is a DIGGS tables profile package (pydiggs.tables).
 #: The pile scenario is not: the profile has no pile tables yet.
-PROFILE_SCENARIOS: Final = frozenset({"spt", "cpt", "lab"})
+PROFILE_SCENARIOS: Final = frozenset(
+    {"spt", "cpt", "lab", "mwd", "dissipation", "in-situ-strength"}
+)
 
 
 def _profile_package(reference: bytes) -> dict[str, bytes]:

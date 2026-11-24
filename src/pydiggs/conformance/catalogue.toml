@@ -38,6 +38,8 @@ elements = ["StaticConePenetrationTest"]
 id = "dissipation"
 group = "In-situ tests"
 title = "Pore pressure dissipation tests"
+scenario = "dissipation"
+note = "Graded: each test's u0, u50 and t50 at its depth, and its series (u1, u2) point by point at each elapsed time."
 elements = ["PorePressureDissipationTest"]
 
 [[family]]
@@ -50,6 +52,8 @@ elements = ["DynamicProbeTest"]
 id = "in-situ-strength"
 group = "In-situ tests"
 title = "Vane, pressuremeter, dilatometer and penetrometer tests"
+scenario = "in-situ-strength"
+note = "Graded: field vane tests (peak and remoulded strength and torque, vane size) and flat plate dilatometer readings (A, B, C, calibrations). Pressuremeter, penetrometer and in-situ CBR tests are not graded yet."
 elements = [
   "InsituVaneTest", "PressuremeterTest", "FlatPlateDilatometerTest",
   "PocketPenetrometerTest", "InSituPenetrometerTest", "InsituCBRTest",
@@ -71,6 +75,8 @@ elements = ["InsituPermeabilityTest", "LugeonTest", "PumpingTest"]
 id = "mwd"
 group = "In-situ tests"
 title = "Measurement while drilling"
+scenario = "mwd"
+note = "Graded: every reading of each drilling log (elapsed time, penetration rate, thrust, torque, rotation speed, flushing pressure) at its depth."
 elements = ["MeasurementWhileDrilling"]
 
 [[family]]
