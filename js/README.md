@@ -69,6 +69,9 @@ console.log(model.features.map((feature) => feature.name));
   verdict. Only a request that produced no document throws.
 - **Comparing two files** (pyDIGGS 1.13 or later) is `diff`; see
   [Comparing two files](#comparing-two-files).
+- **Your database to DIGGS and back** (pyDIGGS 1.17 or later, preview) is
+  `tablesToDiggs`, `checkTables`, `tablesRoundTrip` and `tablesFromDiggs`; see
+  [The tables profile](#the-tables-profile-preview).
 - **Errors** are `PydiggsHttpError` with `status`, the problem's `code` (switch on it),
   the whole `problem` document and `retryAfterSeconds`. A busy server answers 503
   `busy` with a retry time.
@@ -235,6 +238,62 @@ if (result.identical) {
 - The browser and Node engines run the pinned pyDIGGS; with a release before 1.13 `diff`
   is refused with `code: "internal"` ("too old for diff"). `PoolEngine.diff` is optional,
   so an engine of your own written before it still is one.
+
+## The tables profile (preview)
+
+pyDIGGS's [tables profile](https://xinp-hub.github.io/pydiggs/tables/) turns a database
+export, one CSV file per table, into a DIGGS 3.0.0 file, and a DIGGS file back into those
+tables. Four methods run it, each as pyDIGGS's HTTP API does (`POST /v1/tables/*`). The
+package goes as a ZIP of the CSV files and, optionally, `datapackage.json`, given as
+bytes (a `Blob` or `File`, an `ArrayBuffer` or a typed array; never a string):
+
+| Method | Sends | Resolves with |
+|---|---|---|
+| `tablesToDiggs(zip)` | the package | `TablesToDiggsResult`: the DIGGS file (base64), `counts`, `lossless`, and a `report` naming every row or value not carried |
+| `checkTables(zip)` | the package | a diggs-findings document of step `tables`: the rows checked against the DIGGS dictionaries, nothing written |
+| `tablesRoundTrip(zip)` | the package | `TablesRoundTripResult`: the DIGGS written, its `validation`, and every value that did not come back the same (`differences`, `ok`) |
+| `tablesFromDiggs(xml)` | a DIGGS file | `TablesFromDiggsResult`: the tables as a package ZIP (base64), with the load `plan` and a `report` of what has no place in them |
+
+```ts
+import { conversionOutput, PydiggsBrowser } from "@pydiggs/client/browser";
+
+const pydiggs = new PydiggsBrowser();
+const result = await pydiggs.tablesToDiggs(zipFile);     // a File from <input type="file">
+const xml = await conversionOutput(result);              // the DIGGS file, sha256-checked
+for (const finding of result.report.files[0]?.findings ?? []) {
+  const row = list.appendChild(document.createElement("li"));
+  row.textContent = `${finding.severity}: ${finding.message}`;
+}
+
+const back = await pydiggs.tablesFromDiggs(xmlFile);
+const zip = await conversionOutput(back);                // the package ZIP, ready to save
+```
+
+- **They are on every client:** `PydiggsHttpClient`, `PydiggsBrowser`, `PydiggsNode`,
+  `PydiggsPool`, `PydiggsHybrid` and the handler `createPydiggsHandler` serves. In the
+  tab the export never leaves the device. They need pyDIGGS 1.17 or later; an engine
+  running an older pyDIGGS refuses them with `code: "internal"` ("too old for the tables
+  profile"). The `PoolEngine` methods are optional, as `diff` is. `PydiggsHybrid` sends
+  a request to the server when its `browser` is an engine of your own without that
+  method. A `PydiggsPool` always has the methods, so a pool of such engines is asked
+  and rejects with a `PydiggsError` ("this pool's engines have no tablesToDiggs"), in
+  `PydiggsHybrid` too; `diff` behaves the same way.
+- **Rows left out are not an error.** What could not be carried is in `report` (and
+  `lossless` is false); a failed round trip resolves with `ok: false`.
+- **A ZIP that is not a usable package** is an error with `problem.code`
+  `invalid-document` and a `kind`: `not-zip`, `unsafe-package` (an entry that is not a
+  plain CSV or JSON file: a path with `..`, a link, an encrypted entry) or `not-tables`.
+  pyDIGGS reads the ZIP in memory and never extracts it; it may hold at most 256 files
+  and unpack to at most four times the size limit (`maxBytes` in the tab, the server's
+  `max_body_bytes`).
+- **`name`** reports the package (default `tables.zip`) or the DIGGS file (default
+  `input.xml`), and names the output after it. The engines also take `maxResultBytes`,
+  a positive whole number of bytes: an answer that would be larger is refused as
+  `result-too-large`, and any other value (`0`, `Infinity`, a fraction) as
+  `invalid-parameter` before anything runs. The findings of `checkTables` are not held
+  to it, as in pyDIGGS.
+- **Every string in a result comes from the files:** write it with `textContent`.
+- The profile is a preview: its tables and columns may change in a minor pyDIGGS release.
 
 ## Hybrid
 
@@ -555,6 +614,9 @@ functions), not in edge functions. Four things decide whether it runs well there
 node keys included), `/v1/convert` (AGS4 as text or bytes, or DIGGS XML with `to=ags4` and
 `ags_version`) and `/v1/ags4/check` (with an optional `dictionary` part), each also as
 multipart, `/v1/diff` (multipart parts `old` and `new`, each up to `maxBodyBytes`),
+`/v1/tables/to-diggs`, `/v1/tables/check` and `/v1/tables/round-trip` (a package ZIP as
+`application/zip`, or multipart) and `/v1/tables/from-diggs` (DIGGS XML, or multipart;
+these answers but a check's are held to four times `maxBodyBytes`, as pyDIGGS holds them),
 `/v1/versions`, `/v1/capabilities`,
 `/v1/rules`, `/v1/rules/{rule_id}` and `/v1/readyz`, with pyDIGGS's own status codes and problem documents, including 504
 `timeout` and 503 `busy` with `Retry-After`. As in pyDIGGS, `busy` comes only after a
@@ -628,7 +690,7 @@ in the model encoder). That is the next thing to speed up in pyDIGGS itself.
 
 | This package | Works with |
 |---|---|
-| types, `/http` | any pyDIGGS server that speaks HTTP API `/v1` with diggs-findings 1.x; `read` needs pyDIGGS 1.7.0 or later, `diff` 1.13.0 or later |
+| types, `/http` | any pyDIGGS server that speaks HTTP API `/v1` with diggs-findings 1.x; `read` needs pyDIGGS 1.7.0 or later, `diff` 1.13.0 or later, the tables methods 1.17.0 or later |
 | `/browser` | the pinned `PYODIDE_VERSION` and `PYDIGGS_VERSION`, both exported |
 
 ## Development

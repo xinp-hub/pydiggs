@@ -74,11 +74,18 @@ function start(loadPyodide?: (init: InitMessage) => Promise<PyodideLike>, fetch?
 const settle = () => new Promise((resolve) => setTimeout(resolve, 60));
 const bytes = (n: number) => new ArrayBuffer(n);
 
+// Waits for what a test is about instead of for a fixed time, which a loaded machine
+// overruns: until `done()`, for five seconds at most.
+async function until(done: () => boolean): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (!done() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 5));
+}
+
 test("init unpacks the pinned wheel, without micropip, and reports ready", async () => {
   const { log, replies, handle } = start();
   fetched.length = 0;
   handle({ type: "init", maxBytes: 1000 });
-  await settle();
+  await until(() => replies.length > 0);
   assert.deepEqual(fetched, [PIN.url]);
   assert.deepEqual(log, ["loadPackage lxml", `unpackArchive ${WHEEL.byteLength} wheel`, "runPython"]);
   assert.deepEqual(replies, [

@@ -8,6 +8,47 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-23
+
+### Added
+
+- **The DIGGS tables profile (preview)**, pyDIGGS 1.17.0's `POST /v1/tables/*` routes,
+  as four methods: `tablesToDiggs(zip)` writes a package of CSV tables (a ZIP, with
+  `datapackage.json` if you have one) as DIGGS 3.0.0; `checkTables(zip)` checks the
+  tables against the DIGGS dictionaries and resolves with a findings document;
+  `tablesRoundTrip(zip)` writes, validates, reads back and compares; and
+  `tablesFromDiggs(xml)` turns a DIGGS file into the tables as a ZIP, with its load plan.
+  They are on every client: `PydiggsHttpClient`, `PydiggsBrowser`, `PydiggsNode`,
+  `PydiggsPool` and `PydiggsHybrid`, and `createPydiggsHandler` serves the four routes.
+  In the browser engine the export never leaves the device. The results are typed
+  (`TablesToDiggsResult`, `TablesRoundTripResult`, `TablesFromDiggsResult`, generated
+  from pyDIGGS's OpenAPI document), and `conversionOutput(result)` now also gives a
+  tables result's file (the DIGGS file, or the package ZIP), checked against its
+  sha256. They need pyDIGGS 1.17.0 or later on the server; an engine running an older
+  pyDIGGS refuses them with `code: "internal"`. The `PoolEngine` methods are optional,
+  as `diff` is, so an engine of your own written before them still is one.
+  `PydiggsHybrid` sends a request to the server when its `browser` is such an engine;
+  a `PydiggsPool` of such engines rejects it with a `PydiggsError`, as it does `diff`.
+  A package is bytes (`Blob`, `ArrayBuffer` or a typed array), never a string. The
+  engines' `maxResultBytes` must be a positive whole number; any other value is refused
+  as `invalid-parameter`.
+
+### Fixed
+
+- `createPydiggsHandler`: a `name` with no base name (`?name=`, `?name=folder/`, `.`,
+  `..`, or a multipart file part with an empty filename) on `/v1/convert` and
+  `/v1/ags4/check` reached pyDIGGS as `input.xml`. It is now no name, as on pyDIGGS's
+  own server, so pyDIGGS reports an AGS4 file under its default, `input.ags`.
+
+### Changed
+
+- Runs pyDIGGS 1.17.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. Everything the client called before works as in 0.10.0. The tables profile of
+  1.17.0 carries time series and tests with several result tables, so the new methods
+  do too. Its other news (tables from Arrow, a stable identity for conformance
+  challenges, sidecar protocol 1.4) is for Python, the command line or the sidecar, so
+  the client gains no other method with it.
+
 ## [0.10.0] - 2026-11-22
 
 ### Changed

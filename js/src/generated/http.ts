@@ -129,6 +129,82 @@ export interface Capabilities {
   }[];
 }
 
+/** A package of DIGGS tables profile tables written as DIGGS 3.0.0: the file as base64, with every row or value that could not be carried in the report. The bytes are what pydiggs.write_bytes(pydiggs.tables.to_model(...).model) gives. */
+export interface TablesToDiggsResult {
+  /** The version of the DIGGS tables profile (a preview: 1.0-beta.1). */
+  profile_version: string;
+  diggs_version: "3.0.0";
+  media_type: "application/xml";
+  /** The package's name, .xml. */
+  output_name: string;
+  /** True when no tables finding of severity warning or error. */
+  lossless: boolean;
+  /** What the file holds. */
+  counts: {
+    features: number;
+    samples: number;
+    layers: number;
+    measurements: number;
+    [key: string]: number;
+  };
+  report: DiggsFindingsDocument;
+  output_sha256: string;
+  /** The DIGGS file, standard base64 (RFC 4648, padded). */
+  output_base64: string;
+}
+
+/** pydiggs.tables.round_trip: the package written as DIGGS, validated, read back and compared, value by value, with what was sent. */
+export interface TablesRoundTripResult {
+  /** The version of the DIGGS tables profile (a preview: 1.0-beta.1). */
+  profile_version: string;
+  /** Nothing left out, no validation error, nothing changed. */
+  ok: boolean;
+  report: DiggsFindingsDocument;
+  validation: DiggsFindingsDocument;
+  differences: {
+    table: string;
+    row: string;
+    column: string;
+    /** A cell: text, a number, a boolean or null. */
+    sent: unknown;
+    /** A cell: text, a number, a boolean or null. */
+    got: unknown;
+  }[];
+  output_sha256: string;
+  /** The DIGGS file written, standard base64 (RFC 4648, padded). */
+  output_base64: string;
+}
+
+/** One DIGGS file as tables of the profile: a ZIP of a CSV file per table, datapackage.json and plan.json (the files pydiggs.tables.write_package writes, byte for byte), with the load plan and the findings. */
+export interface TablesFromDiggsResult {
+  /** The version of the DIGGS tables profile (a preview: 1.0-beta.1). */
+  profile_version: string;
+  /** Of the source. */
+  diggs_version: string | null;
+  /** False when a size or time limit stopped the reading. */
+  complete: boolean;
+  /** True when every value of the file has a place in the tables. */
+  lossless: boolean;
+  /** What plan.json holds: the tables in load order. */
+  plan: {
+    profile_version: string;
+    source_sha256: string | null;
+    steps: {
+      table: string;
+      identity: string[];
+      depends_on: string[];
+      rows: number;
+    }[];
+  };
+  report: DiggsFindingsDocument;
+  media_type: "application/zip";
+  /** The source's name, .zip. */
+  output_name: string;
+  output_sha256: string;
+  /** The package ZIP, standard base64 (RFC 4648, padded). */
+  output_base64: string;
+}
+
 /** DIGGS version (default: detected). */
 export type DiggsVersion = "2.5.a" | "2.6" | "3.0.0" | "3.1-dev";
 

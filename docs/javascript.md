@@ -58,6 +58,14 @@ identical or not. It is on the browser, Node, pool and hybrid clients too, with 
 options (`match`, `relTol`, `absTol`, `maxChanges`, `showReformatted`, `showRenamed`,
 `oldName`, `newName`).
 
+The [tables profile](tables.md) (pyDIGGS 1.17 or later, a preview) is four methods, one
+per `POST /v1/tables/*` route: `tablesToDiggs(zip)` writes a ZIP of your CSV tables (bytes) as
+DIGGS 3.0.0, `checkTables(zip)` checks them, `tablesRoundTrip(zip)` writes, reads back and
+compares, and `tablesFromDiggs(xml)` turns a DIGGS file into the tables as a ZIP.
+`conversionOutput(result)` gives the DIGGS file or the ZIP, checked against its sha256.
+They are on the browser, Node, pool and hybrid clients too, so an export can become
+DIGGS without leaving the user's device.
+
 ## In the browser
 
 ```ts
@@ -149,7 +157,7 @@ For apps whose server is JavaScript (Next.js, Express, Fastify, Hono, a serverle
 function on the Node runtime), `PydiggsNode` runs pyDIGGS in a worker thread on Pyodide
 from npm, and `createPydiggsHandler` serves the same `/v1` API as `pydiggs serve --http`
 (validate with `checks`, `diggs_version` and SARIF, read with `select`, convert both ways, AGS4
-check, versions, capabilities and rules), answered by the same service layer:
+check, diff, the tables routes, versions, capabilities and rules), answered by the same service layer:
 
 ```ts
 import { createPydiggsHandler, PydiggsNode } from "@pydiggs/client/node";
@@ -178,7 +186,8 @@ The schemas ship in the package too, as `@pydiggs/client/schemas/*.json`.
 
 The package has its own version number. What it works with is stated by contract: any
 pyDIGGS server that speaks HTTP API `/v1`, and diggs-findings 1.x and diggs-model 1.x
-documents; `read` needs pyDIGGS 1.7.0 or later, `diff` 1.13.0 or later. The browser entry pins one Pyodide and
+documents; `read` needs pyDIGGS 1.7.0 or later, `diff` 1.13.0 or later, the tables methods
+1.17.0 or later. The browser entry pins one Pyodide and
 one pyDIGGS release, exported as `PYODIDE_VERSION` and `PYDIGGS_VERSION`.
 
 The package's own [README](https://github.com/xinp-hub/pydiggs/tree/master/js#readme) has

@@ -37,6 +37,10 @@ SELECT_KEYS = ("ATTERBERG_B-01_4.0",)
 # An AGS4 check against a data dictionary (pyDIGGS 1.10 and later), as
 # tests/test_server_convert.py pairs them; ags4_cases covers checks without one.
 AGS4_CHECK = ("c2_user_group.ags", "c2_dictionary.ags")
+# The tables profile (pyDIGGS 1.17): an official DIGGS 3.0 example turned into tables, and
+# that package written back as DIGGS. It is read from tests/fixtures/official/3.0, not
+# copied here.
+TABLES_FIXTURE = "Borehole-CPT_Example_Annotated.xml"
 # The browser example's limit (brief D8).
 MAX_BYTES = 25 * 1024 * 1024
 # Never imported on the core path: rich (Pyodide installs pydiggs with deps=False),
@@ -80,8 +84,11 @@ def watch_imports() -> None:
     builtins.__import__ = hook
 
 
-def run(fixture_dir: str) -> dict[str, str]:
+def run(fixture_dir: str, official_dir: str | None = None) -> dict[str, str]:
     """Validate and read every fixture.
+
+    ``official_dir`` holds :data:`TABLES_FIXTURE`; by default it is the repository's
+    ``tests/fixtures/official/3.0``, found from ``fixture_dir`` (``tests/pyodide/fixtures``).
 
     Returns each ``report.to_json()``, the combined findings document, and each
     fixture's diggs-model document (``read:<name>``: ``read_bytes(...).to_json()``, one
@@ -89,7 +96,8 @@ def run(fixture_dir: str) -> dict[str, str]:
     that @pydiggs/client's worker and the HTTP API use: SARIF (``sarif:<name>``), a
     subset of steps (``checks:<name>``), one node's tables (``select:<name>``), and the
     versions, rule list and one rule (``versions``, ``rules:schema``, ``explain``), the core
-    operations of ``capabilities()``, and two model comparisons (:func:`diff_cases`).
+    operations of ``capabilities()``, two model comparisons (:func:`diff_cases`), and the
+    tables profile both ways (:func:`tables_cases`).
     """
     import pydiggs  # lazily: see the module docstring
 
@@ -110,7 +118,46 @@ def run(fixture_dir: str) -> dict[str, str]:
     out.update(service_cases(fixture_dir))
     out.update(out_ags4)
     out.update(diff_cases(fixture_dir))
+    if official_dir is None:
+        official_dir = str(Path(fixture_dir).resolve().parents[1] / "fixtures" / "official" / "3.0")
+    out.update(tables_cases(official_dir))
     return out
+
+
+def tables_cases(official_dir: str) -> dict[str, str]:
+    """The tables profile through the service layer (pyDIGGS 1.17), both ways.
+
+    ``service-tables-from-diggs:<name>`` is the document the HTTP API and the sidecar send
+    for :data:`TABLES_FIXTURE` (the tables as a package ZIP, in base64), and
+    ``service-tables-to-diggs:<zip>`` the one they send for that package (the DIGGS file,
+    in base64). ``tables-to-diggs:<zip>`` is the DIGGS file the Python API writes from the
+    same package, which the service's bytes must equal.
+    """
+    import base64
+
+    import pydiggs
+    from pydiggs import _service as svc  # lazily: see the module docstring
+    from pydiggs import tables
+    from pydiggs.tables import _io, _package
+
+    name = TABLES_FIXTURE
+    zip_name = name.rsplit(".", 1)[0] + ".zip"
+    data = Path(official_dir, name).read_bytes()
+    made = svc.tables_from_diggs(
+        svc.TablesFromDiggsRequest(content=data, name=name, max_bytes=MAX_BYTES)
+    )
+    assert made.ok and made.document is not None, made
+    package = base64.b64decode(json.loads(made.document)["output_base64"])
+    written = svc.tables(svc.TablesRequest(content=package, name=zip_name, max_bytes=MAX_BYTES))
+    assert written.ok and written.document is not None, written
+    found = _io.tables_from_files(_package.unpack(package, max_unpacked_bytes=4 * MAX_BYTES))
+    xml = pydiggs.write_bytes(tables.to_model(found).model)
+    assert base64.b64decode(json.loads(written.document)["output_base64"]) == xml
+    return {
+        f"service-tables-from-diggs:{name}": made.document.decode("utf-8"),
+        f"service-tables-to-diggs:{zip_name}": written.document.decode("utf-8"),
+        f"tables-to-diggs:{zip_name}": xml.decode("utf-8"),
+    }
 
 
 def diff_cases(fixture_dir: str) -> dict[str, str]:

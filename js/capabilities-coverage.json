@@ -8,14 +8,13 @@
     "ags4.check": { "methods": ["checkAgs4", "checkAgs4Sarif"], "hybrid": true },
     "convert.ags4-to-diggs": { "methods": ["convert"], "hybrid": true },
     "convert.diggs-to-ags4": { "methods": ["convert"], "hybrid": true },
-    "diff": { "methods": ["diff"], "hybrid": true }
+    "diff": { "methods": ["diff"], "hybrid": true },
+    "tables.to-diggs": { "methods": ["tablesToDiggs"], "hybrid": true },
+    "tables.from-diggs": { "methods": ["tablesFromDiggs"], "hybrid": true },
+    "tables.check": { "methods": ["checkTables"], "hybrid": true },
+    "tables.round-trip": { "methods": ["tablesRoundTrip"], "hybrid": true }
   },
-  "planned": {
-    "tables.to-diggs": { "methods": ["tablesToDiggs"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." },
-    "tables.from-diggs": { "methods": ["tablesFromDiggs"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." },
-    "tables.check": { "methods": ["checkTables"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." },
-    "tables.round-trip": { "methods": ["tablesRoundTrip"], "why": "The HTTP API (POST /v1/tables/*) and the sidecar (tables.* methods, protocol 1.4) offer it since this release; the client methods come in a later release, on every engine at once (HTTP, the Pyodide worker, the pool and the hybrid client) with createPydiggsHandler routes, generated result types and tests, as convert and diff came. Until then, call the HTTP API or the sidecar directly." }
-  },
+  "planned": {},
   "not_offered": {
     "detect": "No HTTP route; validate and read detect the DIGGS version themselves and report it.",
     "ags4.read": "Returns Python AGS4 tables; in JavaScript, convert an AGS4 file to DIGGS and read that.",

@@ -316,6 +316,18 @@ test("convert takes AGS4 as text or bytes, checks `to`, and names nothing unless
   ]);
 });
 
+test("a name with no base is no name on the AGS4 routes, so pyDIGGS names the file", async () => {
+  // pyDIGGS reads "", "folder/", "." and ".." as no name and reports input.ags, not input.xml.
+  const { value, calls } = engine();
+  const handle = createPydiggsHandler(value);
+  for (const name of ["", "folder/", "dir%5C", ".", "a/.."]) {
+    assert.equal((await handle(ags4(`/v1/convert?name=${name}`))).status, 200);
+    assert.equal((await handle(ags4(`/v1/ags4/check?name=${name}`))).status, 200);
+  }
+  assert.equal(calls.length, 10);
+  for (const call of calls) assert.ok(!("name" in call), JSON.stringify(call));
+});
+
 test("convert with to=ags4 takes DIGGS XML, raw or multipart, and passes ags_version on", async () => {
   const { value, calls } = engine();
   const handle = createPydiggsHandler(value);
