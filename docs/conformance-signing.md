@@ -44,7 +44,7 @@ jobs:
       id-token: write      # the OIDC token Sigstore issues the signing certificate for
       attestations: write  # store the attestation with this repository
     env:
-      PYDIGGS: "1.17.0"    # the pyDIGGS release that grades; evidence verifies with it
+      PYDIGGS: "1.18.0"    # the pyDIGGS release that grades; evidence verifies with it
       PRODUCT: "MyLog"
       PRODUCT_VERSION: "4.2.1"
     steps:
