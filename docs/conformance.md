@@ -20,6 +20,8 @@ anyone you give the files to.
   [`schemas/preview/diggs-conformance-1.0-beta.2.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json)
   (also `pydiggs.conformance.conformance_schema()`).
 - **API reference:** [Conformance suite](reference.md#conformance-suite).
+- **In your browser:** [the same three steps on a web page](conformance/try/index.html),
+  run by pyDIGGS inside the tab, with nothing uploaded ([below](#in-your-browser)).
 
 ## Test your export in three steps
 
@@ -230,6 +232,20 @@ The schema of the evidence is
 [`diggs-conformance-1.0-beta.2`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json);
 [`1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json),
 which pyDIGGS 1.15 and 1.16 wrote, stays published.
+
+## In your browser
+
+[The conformance page](conformance/try/index.html) offers `new`, `grade` and `verify` on a
+web page, for a reviewer or vendor who would rather not install Python. pyDIGGS runs in the
+tab on [Pyodide](browser.md), in a Web Worker: the files you choose are read there and never
+uploaded, and once pyDIGGS has loaded the page makes no request at all. It loads Pyodide
+from jsDelivr and the pyDIGGS wheel from PyPI, each pinned by version and checked against
+its hash, so the page runs a released pyDIGGS, which it names, and may lag a release
+behind this documentation.
+
+It is the same suite: a challenge made on the page is the folder `pydiggs conformance new`
+writes (as a ZIP), its evidence is the document `grade` writes for the same files, and
+each side verifies the other's. A result is self-tested there too.
 
 ## Scorecard
 

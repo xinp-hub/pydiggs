@@ -13,6 +13,9 @@
 #   in a client component, built by Turbopack and by webpack and from `next dev`, and
 #   PydiggsNode behind a route handler on the Node runtime.
 # - runtimes: the Node smoke (tests/pyodide/node-smoke.mjs) under Bun and Deno.
+# - conformance-page: the in-browser conformance page (docs/conformance/try/) as the
+#   docs site serves it, with the pinned Pyodide and pyDIGGS release, in Chromium,
+#   Firefox and WebKit; it also checks that no request leaves the tab once files are in.
 #
 # Every answer is compared with CPython's. These jobs download Pyodide, browsers and
 # Next.js, so they run when js/ changes, weekly, and on demand, and are not required.
@@ -22,6 +25,7 @@ on:
   pull_request:
     branches: [master]
     paths:
+      - "docs/conformance/try/**"
       - "js/**"
       - "tests/pyodide/fixtures/**"
       - "tests/pyodide/cases.py"
@@ -30,6 +34,7 @@ on:
   push:
     branches: [master]
     paths:
+      - "docs/conformance/try/**"
       - "js/**"
       - "tests/pyodide/fixtures/**"
       - "tests/pyodide/cases.py"
@@ -256,3 +261,35 @@ jobs:
             bun) bun tests/pyodide/node-smoke.mjs --wheel "$wheel" --goldens "$RUNNER_TEMP/out/goldens.json" ;;
             deno) deno run --allow-all tests/pyodide/node-smoke.mjs --wheel "$wheel" --goldens "$RUNNER_TEMP/out/goldens.json" ;;
           esac
+
+  conformance-page:
+    name: Conformance page (Chromium, Firefox, WebKit)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: js/e2e
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: js/e2e/package-lock.json
+      - name: Install the test app's dependencies
+        run: npm ci --ignore-scripts
+      - name: Install the browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run
+        run: npx playwright test -c playwright.conformance.config.ts
+      - name: Keep the report and traces of a failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: playwright-conformance-page
+          path: |
+            js/e2e/playwright-report
+            js/e2e/test-results
+          retention-days: 7

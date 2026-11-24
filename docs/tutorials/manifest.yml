@@ -304,3 +304,10 @@ features:
   - js:./sw
   waiver: Entry points of @pydiggs/client for JavaScript programs; the JavaScript and TypeScript
     page documents each with examples, and its own test suite runs them.
+- id: conformance-browser
+  covers:
+  - page:conformance/try
+  waiver: The in-browser conformance page runs the same three steps the conformance tutorial
+    shows (make a challenge, grade, verify), with the same files and the same evidence; the page
+    states each step on screen, and js/e2e/conformance drives it in three browsers. A second
+    video would repeat the first one in a browser window.

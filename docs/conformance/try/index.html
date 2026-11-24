@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- The page itself loads only its own files and connects nowhere. The worker
+       (worker.mjs) fetches Pyodide and the pinned pyDIGGS wheel, before any file is
+       chosen; see the note on the page. -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Conformance suite in your browser · pyDIGGS</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the suite</a>
+  <header class="top">
+    <p class="brand"><a href="../">pyDIGGS · Testing DIGGS support</a></p>
+  </header>
+
+  <main id="main">
+    <h1>DIGGS conformance suite, in your browser</h1>
+
+    <section class="notice" aria-labelledby="notice-title">
+      <h2 id="notice-title">Self-tested, and nothing leaves your browser</h2>
+      <p>
+        The same three steps as <code>pydiggs conformance new</code>, <code>grade</code> and
+        <code>verify</code>, run by pyDIGGS inside this tab (on Pyodide, Python compiled to
+        WebAssembly). The files you choose are read here and are never uploaded: there is
+        no server behind this page. To start, the page downloads Pyodide from jsDelivr and
+        pyDIGGS <span data-pydiggs-version>1.17.0</span> from PyPI, each checked against a
+        pinned hash; after that it makes no request at all.
+      </p>
+      <p>
+        A result is <strong>self-tested</strong>. It shows that a file passed a published
+        test. It does not show which software wrote the file, and it is <strong>not a
+        certification</strong> by the DIGGS committee or the ASCE Geo-Institute. The
+        evidence says so in its own words.
+      </p>
+      <p>Prefer the command line? <a href="../#test-your-export-in-three-steps">The same suite as <code>pydiggs conformance</code></a>; a challenge made here grades there, and back.</p>
+    </section>
+
+    <p id="engine" class="engine" role="status" aria-live="polite" data-state="loading">
+      Loading pyDIGGS in this tab…
+    </p>
+
+    <div class="tabs">
+      <div role="tablist" aria-label="Conformance steps">
+        <button type="button" role="tab" id="tab-make" aria-controls="panel-make" aria-selected="true">1. Make a challenge</button>
+        <button type="button" role="tab" id="tab-grade" aria-controls="panel-grade" aria-selected="false" tabindex="-1">2. Grade</button>
+        <button type="button" role="tab" id="tab-verify" aria-controls="panel-verify" aria-selected="false" tabindex="-1">3. Verify evidence</button>
+      </div>
+
+      <section role="tabpanel" id="panel-make" aria-labelledby="tab-make" tabindex="0">
+        <form id="make-form" novalidate>
+          <p>Choose a class and name the software under test, with its exact version. The
+            evidence records them as you declare them.</p>
+          <div class="field">
+            <label for="make-class">Class</label>
+            <select id="make-class" name="class" required disabled>
+              <option value="">Loading the classes…</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="make-product">Product</label>
+            <input id="make-product" name="product" type="text" required maxlength="200" autocomplete="off" aria-describedby="make-product-hint">
+            <p class="hint" id="make-product-hint">For example: MyLog</p>
+          </div>
+          <div class="field">
+            <label for="make-version">Product version</label>
+            <input id="make-version" name="version" type="text" required maxlength="200" autocomplete="off" aria-describedby="make-version-hint">
+            <p class="hint" id="make-version-hint">The exact version, for example: 4.2.1</p>
+          </div>
+          <div class="field">
+            <label for="make-seed">Seed (optional)</label>
+            <input id="make-seed" name="seed" type="text" maxlength="64" pattern="[A-Za-z0-9._\-]{1,64}" autocomplete="off" aria-describedby="make-seed-hint">
+            <p class="hint" id="make-seed-hint">Leave empty for a fresh challenge. Give a seed to make the same challenge again.</p>
+          </div>
+          <button type="submit" class="primary" disabled>Make the challenge</button>
+        </form>
+
+        <div id="make-result" class="result" hidden>
+          <h2 id="make-result-title" tabindex="-1">Challenge ready</h2>
+          <dl class="facts">
+            <dt>Class</dt><dd data-field="class"></dd>
+            <dt>Seed</dt><dd data-field="seed"></dd>
+            <dt>Token</dt><dd data-field="token"></dd>
+            <dt>Folder</dt><dd data-field="folder"></dd>
+          </dl>
+          <p class="actions">
+            <button type="button" id="make-download" class="primary">Download the challenge (ZIP)</button>
+            <button type="button" id="make-reference" hidden>Download pyDIGGS's own export (to try the page)</button>
+          </p>
+          <p data-field="next"></p>
+          <details>
+            <summary>README.md of the challenge</summary>
+            <pre id="make-readme"></pre>
+          </details>
+        </div>
+      </section>
+
+      <section role="tabpanel" id="panel-grade" aria-labelledby="tab-grade" tabindex="0" hidden>
+        <form id="grade-form" novalidate>
+          <p>For an export class, choose the DIGGS file your software exported. For an
+            import class, choose the filled <code>answers.csv</code>.</p>
+          <div class="field">
+            <label for="grade-challenge">Challenge: <code>challenge.json</code> or the challenge ZIP</label>
+            <input id="grade-challenge" name="challenge" type="file" accept=".json,.zip,application/json,application/zip" aria-describedby="grade-challenge-hint">
+            <p class="hint" id="grade-challenge-hint" data-made-hint>Needed unless you made the challenge on this page, in step 1.</p>
+          </div>
+          <div class="field">
+            <label for="grade-submission">Your DIGGS export, or the filled answers.csv</label>
+            <input id="grade-submission" name="submission" type="file" required accept=".xml,.csv,.json,.diggs">
+          </div>
+          <button type="submit" class="primary" disabled>Grade</button>
+        </form>
+
+        <div id="grade-result" class="result" hidden>
+          <h2 id="grade-result-title" tabindex="-1"></h2>
+          <dl class="facts">
+            <dt>Product</dt><dd data-field="product"></dd>
+            <dt>Suite</dt><dd data-field="suite"></dd>
+            <dt>Challenge</dt><dd data-field="challenge"></dd>
+            <dt>Submission</dt><dd data-field="submission"></dd>
+          </dl>
+          <table class="stages">
+            <caption>Stages</caption>
+            <thead><tr><th scope="col">Stage</th><th scope="col">Result</th><th scope="col">Passed</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div id="grade-items"></div>
+          <p class="statement" data-field="statement"></p>
+          <p class="actions">
+            <button type="button" id="grade-evidence" class="primary">Download evidence.json</button>
+            <button type="button" id="grade-report">Download report.html</button>
+          </p>
+        </div>
+      </section>
+
+      <section role="tabpanel" id="panel-verify" aria-labelledby="tab-verify" tabindex="0" hidden>
+        <form id="verify-form" novalidate>
+          <p>Anyone who has the three files can grade the submission again and confirm the
+            evidence. Nothing is uploaded here either.</p>
+          <div class="field">
+            <label for="verify-evidence">Evidence: <code>evidence.json</code></label>
+            <input id="verify-evidence" name="evidence" type="file" required accept=".json,application/json">
+          </div>
+          <div class="field">
+            <label for="verify-challenge">Challenge: <code>challenge.json</code> or the challenge ZIP</label>
+            <input id="verify-challenge" name="challenge" type="file" accept=".json,.zip,application/json,application/zip" aria-describedby="verify-challenge-hint">
+            <p class="hint" id="verify-challenge-hint" data-made-hint>Needed unless you made the challenge on this page, in step 1.</p>
+          </div>
+          <div class="field">
+            <label for="verify-submission">The graded file</label>
+            <input id="verify-submission" name="submission" type="file" required accept=".xml,.csv,.json,.diggs">
+          </div>
+          <button type="submit" class="primary" disabled>Verify</button>
+        </form>
+
+        <div id="verify-result" class="result" hidden>
+          <h2 id="verify-result-title" tabindex="-1"></h2>
+          <p data-field="detail"></p>
+          <ul data-field="notes"></ul>
+        </div>
+      </section>
+    </div>
+
+    <p id="problem" class="problem" role="alert" hidden></p>
+
+    <footer class="versions">
+      <p id="versions">Pinned: Pyodide 314.0.7, pyDIGGS 1.17.0.</p>
+    </footer>
+  </main>
+</body>
+</html>
