@@ -1,0 +1,82 @@
+{
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json",
+  "format": "diggs-conformance",
+  "schema_version": "1.0-beta.2",
+  "suite_version": "1.0-beta.2",
+  "tool": {
+    "name": "pydiggs",
+    "version": "1.17.0"
+  },
+  "tier": "self-tested",
+  "statement": "Self-tested. This records that the submitted file passed or failed the named class of the pyDIGGS conformance suite. It does not show which software produced the file, and it is not a certification by the DIGGS committee or the ASCE Geo-Institute.",
+  "class": {
+    "id": "deep-foundations-export",
+    "family": "deep-foundations",
+    "direction": "export",
+    "title": "Piles and pile driving records: export",
+    "level": "core",
+    "diggs_version": "3.0.0"
+  },
+  "product": {
+    "name": "Demo",
+    "version": "1"
+  },
+  "challenge": {
+    "id": "096fbca7155cb645594c486d4a340397b1f053d08c47a458218d0cd5110eda4a",
+    "seed": "demo",
+    "token": "524DE4",
+    "sha256": "aa2d56ad5e30b9e03793308f2661e14d1ba5f2c18d5c97e54230e35009af996c"
+  },
+  "submission": {
+    "name": "submission",
+    "sha256": "ffefb2443dc40c0734b14bcd7223092054c3baec322f952dbba816a13c5bfdd7",
+    "bytes": 11766
+  },
+  "verdict": "pass",
+  "stages": [
+    {
+      "id": "readable",
+      "title": "The file is a DIGGS 3 document",
+      "required": true,
+      "status": "pass",
+      "passed": 1,
+      "total": 1,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "validation",
+      "title": "Valid DIGGS: schema, dictionaries and business rules",
+      "required": true,
+      "status": "pass",
+      "passed": 1,
+      "total": 1,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "core",
+      "title": "Project, locations and depths",
+      "required": true,
+      "status": "pass",
+      "passed": 5,
+      "total": 5,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "fidelity",
+      "title": "Every source value, at its depth",
+      "required": true,
+      "status": "pass",
+      "passed": 142,
+      "total": 142,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    }
+  ]
+}

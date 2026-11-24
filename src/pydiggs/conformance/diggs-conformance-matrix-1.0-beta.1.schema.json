@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json",
   "title": "diggs-conformance-matrix 1.0-beta.1",
-  "description": "The round-trip matrix (pydiggs conformance matrix): products against conformance classes, from evidence documents that were each verified by grading again, and the pairs of products that passed a family's export and its import. Preview: this beta may change before 1.0. File text (paths, product names, reasons) is kept as it is; escape it before showing it.",
+  "description": "The round-trip matrix (pydiggs conformance matrix): products against conformance classes, from evidence documents that were each verified by grading again, and the pairs of products of each family with whether one was tested on the other's export. Preview: this beta may change before 1.0. File text (paths, product names, reasons) is kept as it is; escape it before showing it.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -95,7 +95,7 @@
     },
     "round_trips": {
       "type": "array",
-      "description": "Each pair of a product that passed a family's export class and one that passed its import class.",
+      "description": "Each pair of a product that passed a family's export class and one that passed its import class, and each pair for which the folder holds verified evidence of an import challenge made from the exporter's file together with the exporter's own passing export evidence.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -121,13 +121,49 @@
               "not-read",
               "not-tested-together"
             ],
-            "description": "read and not-read are reserved for evidence of an import challenge made from the exporter's file, which no evidence records yet; until then every pair is not-tested-together."
+            "description": "read: the folder holds, each verified, the exporter's passing export evidence and evidence of an import challenge made from that very document and file (same family, seed, evidence digest and export digest), and the answers passed. not-read: the same, and none of the answers given passed. not-tested-together: no such pair of documents in the folder; both products passed their class separately, against the suite's own challenge. A read cell means the export was correct, was the file in the importer's challenge, and the answers are right for it; it does not show which software opened the file, nor that the answers were taken from that file rather than from another copy of the same data."
+          },
+          "export_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "On a read or not-read cell: SHA-256 of the exported file that was read."
+          },
+          "evidence": {
+            "type": "string",
+            "description": "On a read or not-read cell: the path, under the matrix folder, of the import evidence that decides it."
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "read",
+                    "not-read"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "export_sha256",
+                "evidence"
+              ]
+            },
+            "else": {
+              "properties": {
+                "export_sha256": false,
+                "evidence": false
+              }
+            }
+          }
+        ]
       }
     },
     "round_trip_note": {
-      "type": "string"
+      "type": "string",
+      "description": "What the round-trip cells of this document mean."
     },
     "evidence": {
       "type": "array",
@@ -141,7 +177,8 @@
           "reason",
           "product",
           "class",
-          "verdict"
+          "verdict",
+          "sha256"
         ],
         "properties": {
           "path": {
@@ -153,7 +190,7 @@
           },
           "reason": {
             "type": "string",
-            "description": "reproduced, or why the document does not count."
+            "description": "reproduced, or why the document does not count. Verified evidence of an import challenge made from another product's export says here when the export evidence it was made from is not in the folder, so that it decides no round-trip cell."
           },
           "product": {
             "$ref": "#/$defs/product"
@@ -169,6 +206,61 @@
               ""
             ],
             "description": "The verdict the document states; empty when it is not readable as evidence."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64})?$",
+            "description": "SHA-256 of the evidence document as found; empty when it was not read."
+          },
+          "source_export": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "product",
+              "export_sha256",
+              "evidence_sha256",
+              "suite_version"
+            ],
+            "properties": {
+              "product": {
+                "type": "object",
+                "description": "The exporting product, as its own evidence declares it.",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              },
+              "export_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+                "description": "SHA-256 of the exported DIGGS file, which is the challenge.xml the importing product read; the submission.sha256 of the exporter's evidence."
+              },
+              "evidence_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+                "description": "SHA-256 of the exporter's evidence document, as the file was given when the challenge was made. That evidence passed the export class of the same family and was verified then."
+              },
+              "suite_version": {
+                "type": "string",
+                "description": "The suite version that graded the export; the same as this document's.",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "description": "Only on evidence of an import challenge made from another product's export: the source_export the document states, which is the importing party's own statement. Such evidence decides a round-trip cell, and no class, and only together with the exporter's own evidence in the folder."
           }
         }
       }

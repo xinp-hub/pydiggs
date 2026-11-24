@@ -509,15 +509,15 @@ def _grading(procedure: Procedure) -> list[tuple[str, float, float, str]]:
     return out
 
 
-def observe(model: Model, *, nulls: bool = False) -> Observed:
+def observe(model: Model, *, nulls: bool = True) -> Observed:
     """Read from ``model`` everything the answer keys of this suite look up.
 
-    With ``nulls``, a result cell equal to the ``nullValue`` its column declares is a
-    missing value, as DIGGS 3.0.0 defines it, and is not read. The scenarios added after
-    pyDIGGS 1.17 pass it. The SPT, CPT and laboratory scenarios do not: suite 1.0-beta.2
-    was released reading such a cell as a value, and a file is graded the same way for
-    as long as the suite version is the same. Honouring ``nullValue`` there is a change
-    of suite version.
+    With ``nulls`` (the default), a result cell equal to the ``nullValue`` its column
+    declares is a missing value, as DIGGS 3.0.0 defines it, and is not read. Every class
+    reads a file that way since suite 1.0-beta.3. Suite 1.0-beta.2 read such a cell as a
+    value in the SPT, CPT and laboratory scenarios, and a file is graded the same way for
+    as long as the suite version is the same: a challenge of that suite is graded with
+    ``nulls=False``.
     """
     project_names = frozenset(name for project in model.projects for name in project.names)
     named: dict[str, list[str]] = defaultdict(list)

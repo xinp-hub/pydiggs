@@ -106,7 +106,7 @@ evidence itself as the predicate. Add this step after the grade step:
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6  # v4.2.2
         with:
           subject-path: export.xml
-          predicate-type: https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json
+          predicate-type: https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.3.schema.json
           predicate-path: challenge/evidence.json
 ```
 

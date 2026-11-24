@@ -27,6 +27,12 @@ Two more preview tools: :func:`accept` checks one delivered file against the pub
 requirements of a family (:func:`requirements`), for the owner who receives it, and
 :func:`matrix` lays verified evidence of several products out class by class.
 
+Two products are tested together with a *pairwise* import challenge:
+``new("spt-import", ..., from_export=evidence)`` hands the importing product another
+product's graded export instead of the suite's own file. Its evidence names that export
+by digest (:class:`SourceExport`), and :func:`matrix`, given that evidence beside the
+exporter's own, says ``read`` or ``not-read`` for the pair.
+
 A result is *self-tested*: it shows that a file passed, not which software wrote it, and
 it is not a certification by the DIGGS committee or the ASCE Geo-Institute. The evidence
 says so in its ``statement``.
@@ -39,7 +45,7 @@ Examples:
     >>> challenge.info.title, len(challenge.token)
     ('Standard penetration and other driven tests: export', 6)
     >>> conformance.SUITE_VERSION, conformance.CONFORMANCE_SCHEMA_VERSION
-    ('1.0-beta.2', '1.0-beta.2')
+    ('1.0-beta.3', '1.0-beta.3')
 """
 
 from __future__ import annotations
@@ -60,7 +66,14 @@ from pydiggs.conformance._accept import (
     requirements,
 )
 from pydiggs.conformance._catalogue import ClassInfo, Family, class_info, classes, families
-from pydiggs.conformance._challenge import SUITE_VERSION, Challenge, load, new
+from pydiggs.conformance._challenge import (
+    GRADED_SUITES,
+    SUITE_VERSION,
+    Challenge,
+    SourceExport,
+    load,
+    new,
+)
 from pydiggs.conformance._facts import DEFECTS
 from pydiggs.conformance._grade import (
     CONFORMANCE_SCHEMA_URL,
@@ -93,6 +106,7 @@ __all__ = [
     "CONFORMANCE_SCHEMA_URL",
     "CONFORMANCE_SCHEMA_VERSION",
     "DEFECTS",
+    "GRADED_SUITES",
     "MATRIX_SCHEMA_URL",
     "MATRIX_SCHEMA_VERSION",
     "STATEMENT",
@@ -110,6 +124,7 @@ __all__ = [
     "RoundTrip",
     "Scorecard",
     "ScorecardRow",
+    "SourceExport",
     "Stage",
     "Verification",
     "accept",

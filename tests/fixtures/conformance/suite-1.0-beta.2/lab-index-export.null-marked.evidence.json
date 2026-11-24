@@ -1,0 +1,90 @@
+{
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json",
+  "format": "diggs-conformance",
+  "schema_version": "1.0-beta.2",
+  "suite_version": "1.0-beta.2",
+  "tool": {
+    "name": "pydiggs",
+    "version": "1.17.0"
+  },
+  "tier": "self-tested",
+  "statement": "Self-tested. This records that the submitted file passed or failed the named class of the pyDIGGS conformance suite. It does not show which software produced the file, and it is not a certification by the DIGGS committee or the ASCE Geo-Institute.",
+  "class": {
+    "id": "lab-index-export",
+    "family": "lab-index",
+    "direction": "export",
+    "title": "Index and classification tests: export",
+    "level": "core",
+    "diggs_version": "3.0.0"
+  },
+  "product": {
+    "name": "Demo",
+    "version": "1"
+  },
+  "challenge": {
+    "id": "4bbb5e0d29395260b9e277a778dd04af9b171372c681da7527f877edc2f6183e",
+    "seed": "demo",
+    "token": "2C428F",
+    "sha256": "76795ca78bcd1aa4ab089fc9f57621a8e88fc6b1e669cbb64e4cae2590b51992"
+  },
+  "submission": {
+    "name": "submission",
+    "sha256": "a5fac83542c8766a62007d93a5e0c5770b9c41a7c20036c42cf7ec1cf2999c8f",
+    "bytes": 39203
+  },
+  "verdict": "fail",
+  "stages": [
+    {
+      "id": "readable",
+      "title": "The file is a DIGGS 3 document",
+      "required": true,
+      "status": "pass",
+      "passed": 1,
+      "total": 1,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "validation",
+      "title": "Valid DIGGS: schema, dictionaries and business rules",
+      "required": true,
+      "status": "pass",
+      "passed": 1,
+      "total": 1,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "core",
+      "title": "Project, locations and depths",
+      "required": true,
+      "status": "pass",
+      "passed": 5,
+      "total": 5,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "fidelity",
+      "title": "Every source value, at its depth",
+      "required": true,
+      "status": "fail",
+      "passed": 56,
+      "total": 57,
+      "failed": 1,
+      "items": [
+        {
+          "check": "conformance.value-invented",
+          "id": "lab/B-048/1.67/liquid_limit",
+          "message": "no liquid_limit at 1.67 m in 'B-048' (the source says non-plastic): the file gives a value the source leaves empty",
+          "expected": "no value",
+          "got": "-999"
+        }
+      ],
+      "items_truncated": false
+    }
+  ]
+}

@@ -13,6 +13,11 @@ and two in preview since pyDIGGS 1.18::
     pydiggs conformance accept delivered.xml --class spt
     pydiggs conformance matrix evidence-folder
 
+To test two products together, ``new`` makes an import challenge from another product's
+graded export::
+
+    pydiggs conformance new spt-import --product V --product-version 7 --from-export EVIDENCE
+
 Exit codes follow ``pydiggs validate`` and ``pydiggs diff``: 0 the submission passed (or
 the evidence was reproduced, or the listing was written); 1 it failed (or was not
 reproduced); 2 a usage error, an input that cannot be read, or an output that cannot be
@@ -29,7 +34,7 @@ from pathlib import Path
 from typing import Final
 
 from pydiggs import _stdout, conformance
-from pydiggs.errors import PydiggsError
+from pydiggs.errors import InstanceReadError, PydiggsError
 from pydiggs.findings._cli import _open_output, _safe
 from pydiggs.findings.run import DEFAULT_MAX_BYTES
 
@@ -79,6 +84,13 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Make a challenge folder. An export class gives CSV tables to load into your"
             " software; an import class gives a DIGGS file to open and questions to answer."
+            " With --from-export, the DIGGS file of an import challenge is another product's"
+            " export, which must have passed the export class of the same family: its"
+            " evidence is verified first, and the challenge records the file by its SHA-256."
+        ),
+        epilog=(
+            "Exit status: 0 the challenge was written; 2 usage error, a folder that cannot be"
+            " written, or evidence or an export that cannot be read or is refused."
         ),
     )
     new.add_argument("class_id", metavar="CLASS", help="a class, such as spt-export")
@@ -93,6 +105,38 @@ def build_parser() -> argparse.ArgumentParser:
         "--seed",
         default=None,
         help="rebuild the challenge of this seed (default: a fresh one each time)",
+    )
+    new.add_argument(
+        "--from-export",
+        metavar="EVIDENCE",
+        default=None,
+        help=(
+            "for an import class: make the challenge from another product's export; EVIDENCE"
+            " is the evidence.json of its passing export result"
+        ),
+    )
+    new.add_argument(
+        "--export",
+        metavar="FILE",
+        default=None,
+        help=(
+            "with --from-export: the DIGGS file that evidence graded (default: the file the"
+            " evidence names, beside it)"
+        ),
+    )
+    new.add_argument(
+        "--max-bytes",
+        type=int,
+        default=DEFAULT_MAX_BYTES,
+        metavar="N",
+        help="with --from-export: refuse an export larger than N bytes (default 100 MiB)",
+    )
+    new.add_argument(
+        "--time-budget",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="with --from-export: stop reading or validating the export after SECONDS",
     )
 
     grade = commands.add_parser(
@@ -247,12 +291,26 @@ def _classes(args: argparse.Namespace) -> tuple[str, bool, int]:
 
 
 def _new(args: argparse.Namespace) -> tuple[str, bool, int]:
+    if args.export is not None and args.from_export is None:
+        raise _UsageError("--export is the file of --from-export; give the evidence too")
     try:
         challenge = conformance.new(
-            args.class_id, product=args.product, version=args.product_version, seed=args.seed
+            args.class_id,
+            product=args.product,
+            version=args.product_version,
+            seed=args.seed,
+            from_export=args.from_export,
+            export=args.export,
+            max_bytes=args.max_bytes,
+            time_budget=args.time_budget,
         )
+    except InstanceReadError as exc:
+        raise _UsageError(str(exc)) from None
+    except ValueError as exc:  # a DocumentError too: evidence or an export that is refused
+        raise _UsageError(str(exc)) from None
+    try:
         folder = challenge.write(args.output or args.class_id)
-    except (ValueError, FileExistsError) as exc:
+    except FileExistsError as exc:
         raise _UsageError(str(exc)) from None
     except OSError as exc:
         raise _UsageError(f"cannot write the challenge: {exc.strerror or exc}") from None
@@ -260,6 +318,15 @@ def _new(args: argparse.Namespace) -> tuple[str, bool, int]:
     lines = [
         f"Challenge {challenge.info.id} written to {_safe(str(folder))}"
         f" (seed {challenge.seed}, token {challenge.token}).",
+    ]
+    source = challenge.source_export
+    if source is not None:
+        lines += [
+            f"Its challenge.xml is the export of {_safe(source.product_name)}"
+            f" {_safe(source.product_version)} (as declared), verified here:",
+            f"  sha256 {source.export_sha256}",
+        ]
+    lines += [
         f"Read {_safe(str(folder / 'README.md'))}, then:",
         f"  {_PROG} grade {_safe(str(folder))} {submission}",
     ]

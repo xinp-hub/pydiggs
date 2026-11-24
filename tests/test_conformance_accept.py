@@ -5,6 +5,7 @@ from __future__ import annotations
 import doctest
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import jsonschema
@@ -26,7 +27,10 @@ FAMILIES = {
     "deep-foundations": "deep-foundations-export",
 }
 FIRST_TEST = 'gml:id="ISPT-1">'
-FIRST_FEATURE = '<samplingFeatureRef xlink:href="#B-030"/>'
+#: In the first SPT test: its reference to the boring, and its one result value. The
+#: names and numbers are the seed's, and change with the suite version, so they are found.
+FEATURE_REF = re.compile(r'<samplingFeatureRef xlink:href="#B-\d+"/>')
+DATA_VALUES = re.compile(r'<dataValues cs="," ts=" ">\d+</dataValues>')
 
 
 @pytest.fixture(scope="module")
@@ -36,11 +40,15 @@ def spt() -> str:
     )
 
 
-def _first_test(xml: str, old: str, new: str) -> bytes:
+def _first_test(xml: str, old: str | re.Pattern[str], new: str) -> bytes:
     """``xml`` with ``old`` replaced by ``new`` inside the first SPT test only."""
     start = xml.index(FIRST_TEST)
     end = xml.index("</Test>", start)
     block = xml[start:end]
+    if isinstance(old, re.Pattern):
+        found = old.search(block)
+        assert found is not None
+        old = found.group(0)
     assert old in block
     return (xml[:start] + block.replace(old, new, 1) + xml[end:]).encode()
 
@@ -152,7 +160,7 @@ def test_a_file_of_another_family_fails_present(spt: str) -> None:
 
 
 def test_a_test_on_no_feature_fails_located(spt: str) -> None:
-    result = conformance.accept(_first_test(spt, FIRST_FEATURE, ""), "spt")
+    result = conformance.accept(_first_test(spt, FEATURE_REF, ""), "spt")
     located = result.outcome("accept.located")
     assert located.status == "fail"
     assert (located.failed, located.total - located.passed) == (1, 1)
@@ -160,9 +168,7 @@ def test_a_test_on_no_feature_fails_located(spt: str) -> None:
 
 
 def test_a_test_with_no_dictionary_property_fails_result(spt: str) -> None:
-    data = _first_test(
-        spt, '<dataValues cs="," ts=" ">7</dataValues>', '<dataValues cs="," ts=" "></dataValues>'
-    )
+    data = _first_test(spt, DATA_VALUES, '<dataValues cs="," ts=" "></dataValues>')
     result = conformance.accept(data, "spt")
     assert result.outcome("accept.result").status == "fail"
     assert result.outcome("accept.result").items[0][0] == "ISPT-1"
@@ -282,7 +288,7 @@ HOSTILE = "<script>alert(1)</script>"
 @pytest.fixture(scope="module")
 def hostile(spt: str) -> conformance.Acceptance:
     # A test named with markup, on no feature: its name is shown in the failures.
-    named = _first_test(spt, FIRST_FEATURE, "").decode()
+    named = _first_test(spt, FEATURE_REF, "").decode()
     escaped = HOSTILE.replace("<", "&lt;").replace(">", "&gt;")
     data = named.replace(FIRST_TEST, FIRST_TEST + f"<gml:name>{escaped}</gml:name>", 1)
     result = conformance.accept(data.encode(), "spt")
@@ -302,7 +308,7 @@ def test_the_html_report_escapes_file_text_and_names_the_digest(
 
 
 def test_the_text_report_spells_out_control_characters(spt: str) -> None:
-    named = _first_test(spt, FIRST_FEATURE, "").decode()
+    named = _first_test(spt, FEATURE_REF, "").decode()
     data = named.replace(FIRST_TEST, FIRST_TEST + "<gml:name>a&#x1b;[31mb</gml:name>", 1)
     text = conformance.accept(data.encode(), "spt").to_text()
     assert "\x1b" not in text
@@ -331,7 +337,7 @@ def test_cli_exit_codes_and_outputs(
     good = tmp_path / "good.xml"
     good.write_text(spt, encoding="utf-8")
     bad = tmp_path / "bad.xml"
-    bad.write_bytes(_first_test(spt, FIRST_FEATURE, ""))
+    bad.write_bytes(_first_test(spt, FEATURE_REF, ""))
     report = tmp_path / "report.html"
     accept = ["conformance", "accept"]
     assert cli.main([*accept, str(good), "--class", "spt", "--report", str(report)]) == 0

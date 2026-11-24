@@ -630,7 +630,7 @@ def test_the_challenge_id_is_what_defines_the_challenge() -> None:
 def test_evidence_carries_both_names_of_the_challenge() -> None:
     challenge = _challenge_for("cpt-export")
     document = conformance.grade(challenge, challenge.reference()).to_dict()
-    assert document["schema_version"] == "1.0-beta.2"
+    assert document["schema_version"] == conformance.CONFORMANCE_SCHEMA_VERSION
     assert document["challenge"]["id"] == challenge.id
     assert document["challenge"]["sha256"] == challenge.sha256
     jsonschema.Draft202012Validator(conformance.conformance_schema()).validate(document)
@@ -655,7 +655,7 @@ def test_evidence_of_schema_beta_1_is_still_verified_by_its_digest() -> None:
     evidence = conformance.grade(challenge, xml).to_dict()
     old = json.loads(json.dumps(evidence))
     old["schema_version"] = "1.0-beta.1"
-    old["$schema"] = old["$schema"].replace("1.0-beta.2", "1.0-beta.1")
+    old["$schema"] = old["$schema"].replace(conformance.CONFORMANCE_SCHEMA_VERSION, "1.0-beta.1")
     del old["challenge"]["id"]
     packaged = ROOT / "src" / "pydiggs" / "conformance" / "diggs-conformance-1.0-beta.1.schema.json"
     jsonschema.Draft202012Validator(json.loads(packaged.read_text())).validate(old)
