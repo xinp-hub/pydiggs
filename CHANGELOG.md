@@ -19,8 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   empty must stay empty (a `nullValue` counts as empty), the collar reading's zero
   penetration rate and rotation speed must be in the file, and no reading may be added
   where recording paused for a rod change, whichever cells it fills. Rotation speed may
-  be given in rpm or any angular velocity unit. The suite version stays `1.0-beta.2`: the existing classes are
-  graded as before. See
+  be given in rpm or any angular velocity unit. See
   [Measurement while drilling](https://xinp-hub.github.io/pydiggs/latest/conformance/#measurement-while-drilling).
 - **Conformance classes for dissipation, vane and dilatometer tests (preview).** Four new
   classes: `dissipation-export` and `dissipation-import` (pore pressure dissipation tests
@@ -56,11 +55,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   import. Every `evidence.json` is graded again first; evidence that does not verify
   (edited, of another suite version, or without the file it graded beside it) is listed
   with the reason and never counted. Text, Markdown, HTML and JSON (a `diggs-conformance-matrix` 1.0-beta.1
-  document, schema at `schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json`). Each pair says
-  `not-tested-together`: no evidence yet records an import challenge made from another
-  product's export, so the matrix never claims that one product read another's file.
+  document, schema at `schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json`). A pair says
+  `not-tested-together` unless the folder holds the two documents of a pairwise test
+  (next two entries).
+- **Test two products together: pairwise import challenges (preview).**
+  `pydiggs conformance new <family>-import --from-export EVIDENCE [--export FILE]` (in
+  Python, `conformance.new(..., from_export=..., export=...)`) makes an import challenge
+  whose DIGGS file is another product's graded export, byte for byte, instead of the
+  suite's own file. `EVIDENCE` is the `evidence.json` of that product's passing
+  `<family>-export` result; the export is found beside it, or named with `--export`. The
+  challenge takes the seed of that export challenge, so its questions and expected
+  answers are those of the suite's ordinary import challenge of that seed. Both files
+  come from another party and are checked: the export is graded again first, and the
+  challenge is refused (exit status 2, nothing written) when the evidence does not
+  verify, is for another family or an import class, did not pass, was graded under
+  another suite version, when the file is not the one the evidence graded (by SHA-256),
+  or when either file is a link, unreadable or too large. The challenge and the evidence
+  graded from it record the source as `source_export`: the exporting product's name and
+  version, the SHA-256 of the exported file and of the exporter's evidence, and the suite
+  version. Digests, never paths. Afterwards, every `grade`, `verify` and `matrix` reads
+  the challenge's `challenge.xml` again: it must have the recorded SHA-256 and pass the
+  export class for the challenge's seed, so a challenge cannot name a file that is not a
+  correct export of its data. `verify` reports a `source_export` that was edited, removed
+  or added in the evidence alone; the challenge's identity covers it, but that identity
+  is a plain hash, so a challenge and evidence rewritten together are caught only by
+  those file checks and by the matrix, which asks for the exporter's own evidence. The
+  evidence document is `diggs-conformance` 1.0-beta.3, which adds only that optional
+  member; evidence without it means what it did, and the 1.0-beta.1 and 1.0-beta.2
+  schemas stay published and are still verified. `conformance.SourceExport` is the
+  record in Python. See
+  [Test two products together](https://xinp-hub.github.io/pydiggs/latest/conformance/#test-two-products-together).
+- **The round-trip matrix says `read` and `not-read` (preview).** A pair's cell is
+  `read` when the folder holds, each verified, the exporter's passing export evidence and
+  evidence of a pairwise import challenge made from that very document and file (same
+  family and seed, both digests), and the answers passed; `not-read` when none of the
+  answers given passed; `not-tested-together` otherwise, which includes pairwise evidence
+  whose exporter's evidence is not in the folder (its entry says so). Each `read` or
+  `not-read` cell cites the SHA-256 of the export (`export_sha256`) and the import
+  evidence that decides it. `read` means the export was correct, was the file in the
+  importer's challenge, and the answers given are right for it. It cannot show which
+  software opened the file, or that the answers came from that file and not from another
+  copy of the same data: a signature from the importer's CI adds that
+  ([Signing conformance evidence](https://xinp-hub.github.io/pydiggs/latest/conformance-signing/)).
+  Pairwise evidence decides its cell only: it does not count as the importer's
+  `<family>-import` class on the matrix or on a scorecard.
 - `pydiggs.conformance.conformance_schema()` takes the document it describes:
   `"evidence"` (the default, as before), `"acceptance"` or `"matrix"`.
+- `pydiggs.conformance.GRADED_SUITES` lists the suite versions a release grades, and
+  `Challenge.suite_version` and `Result.suite_version` say which one made a challenge and
+  graded a submission.
 - **The conformance suite in your browser (preview).** A page in the documentation runs
   the same three steps as `pydiggs conformance new`, `grade` and `verify` in the visitor's
   own tab: pick a class, download the challenge as a ZIP, choose your DIGGS export or the
@@ -92,6 +135,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pydiggs conformance verify`, what a signature proves and what it does not, and the same
   steps with `cosign` for other CI systems. pyDIGGS itself still writes the evidence
   unsigned and gains no signing dependency.
+
+### Changed
+
+- **Conformance suite 1.0-beta.3: a declared `nullValue` is an empty cell in every
+  class.** DIGGS lets a property declare the text that marks a missing value in its data
+  (`<nullValue>-999</nullValue>`). The `mwd`, `dissipation` and `in-situ-strength` classes
+  already read a cell with that mark as empty. The `spt`, `cpt`, `lab-index` and
+  `deep-foundations` classes now do too. What grades differently, in those four classes
+  only: an export that writes the declared mark where the source has no value (a liquid
+  limit of a non-plastic specimen, the stroke of a blow-less pile run, an unused second
+  column of a result table) used to fail with `conformance.value-invented` or
+  `conformance.value-differs`, and now passes. The same number with no `nullValue`
+  declared is still a value, and still fails. One kind of file that passed now fails:
+  a file that declares as `nullValue` a number it also reports as a real value (a
+  `nullValue` of 0 on a column with a real zero). DIGGS says that cell is missing, so
+  the value is reported as `conformance.fact-missing`.
+  A new suite version draws new data, so a seed gives other borings and values than it
+  did under 1.0-beta.2, and new challenges are of suite 1.0-beta.3.
+- **Challenges and evidence of suite 1.0-beta.2 keep working.** This release grades both
+  suites, each by its own rules: `grade` and `verify` on a 1.0-beta.2 challenge folder
+  give what pyDIGGS 1.16 and 1.17 gave, and the evidence says `1.0-beta.2`. A scorecard
+  and a matrix are of the current suite only, and refuse or list 1.0-beta.2 evidence
+  without counting it; grade against a new challenge to be counted there. See
+  [Versions](https://xinp-hub.github.io/pydiggs/latest/conformance/#versions).
 
 ## [1.17.0] - 2026-11-23
 

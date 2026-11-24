@@ -19,8 +19,8 @@ discover:
   # Every long option of every command, from its own --help.
   option:
     help: [pydiggs validate, pydiggs convert, pydiggs diff, pydiggs ags4 check,
-           pydiggs serve, pydiggs capabilities, pydiggs conformance accept,
-           pydiggs conformance matrix]
+           pydiggs serve, pydiggs capabilities, pydiggs conformance new,
+           pydiggs conformance accept, pydiggs conformance matrix]
   # Every operation pyDIGGS offers on any surface (pydiggs.capabilities()).
   operation: {python: "pydiggs:capabilities", pick: operations.id}
   # The HTTP API: each endpoint and each of its query parameters.
@@ -80,7 +80,22 @@ features:
 - id: conformance
   covers:
   - cli:conformance
+  - option:conformance new --product
+  - option:conformance new --product-version
+  - option:conformance new --seed
+  - option:conformance new --output
   tutorial: conformance
+- id: conformance-from-export
+  covers:
+  - option:conformance new --from-export
+  - option:conformance new --export
+  - option:conformance new --max-bytes
+  - option:conformance new --time-budget
+  waiver: 'Preview. A pairwise import challenge needs two products: one that exported a file and one
+    that reads it. A video with pyDIGGS playing both would show the suite reading its own file, which
+    is what the conformance tutorial already shows. docs/conformance.md (Test two products together)
+    gives every command of the exchange with its output, what is refused and why, and what `read`
+    does and does not prove. Revisit when two vendors have run it.'
 - id: conformance-accept-matrix
   covers:
   - option:conformance accept --class

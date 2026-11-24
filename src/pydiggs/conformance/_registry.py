@@ -81,13 +81,19 @@ def questions(dataset: Dataset, stream: str) -> tuple[Question, ...]:
     return _facts.questions(dataset, stream)
 
 
-def observe(scenario: str, model: Model) -> Observed:
-    """What the answer key of ``scenario`` is looked up in."""
+def observe(scenario: str, model: Model, *, nulls: bool = True) -> Observed:
+    """What the answer key of ``scenario`` is looked up in.
+
+    ``nulls`` says whether a cell that holds its property's declared ``nullValue`` is
+    empty. It is, since suite 1.0-beta.3. Suite 1.0-beta.2 read it as a value in the
+    SPT, CPT, laboratory and pile scenarios, and a challenge of that suite is still
+    graded that way; the scenarios added after it have always read it as empty.
+    """
     if scenario == _piles.SCENARIO:
-        return _piles.observe(model)
+        return _piles.observe(model, nulls=nulls)
     if scenario in _OWN:
         return _OWN[scenario].observe(model)
-    return _facts.observe(model)
+    return _facts.observe(model, nulls=nulls)
 
 
 def reference_xml(dataset: Dataset) -> bytes:

@@ -183,10 +183,15 @@ options:
 ```text
 usage: pydiggs conformance new [-h] --product PRODUCT --product-version
                                VERSION [-o DIR] [--seed SEED]
+                               [--from-export EVIDENCE] [--export FILE]
+                               [--max-bytes N] [--time-budget SECONDS]
                                CLASS
 
 Make a challenge folder. An export class gives CSV tables to load into your
 software; an import class gives a DIGGS file to open and questions to answer.
+With --from-export, the DIGGS file of an import challenge is another product's
+export, which must have passed the export class of the same family: its
+evidence is verified first, and the challenge records the file by its SHA-256.
 
 positional arguments:
   CLASS                 a class, such as spt-export
@@ -199,6 +204,21 @@ options:
   -o DIR, --output DIR  the folder to make (default: CLASS)
   --seed SEED           rebuild the challenge of this seed (default: a fresh
                         one each time)
+  --from-export EVIDENCE
+                        for an import class: make the challenge from another
+                        product's export; EVIDENCE is the evidence.json of its
+                        passing export result
+  --export FILE         with --from-export: the DIGGS file that evidence
+                        graded (default: the file the evidence names, beside
+                        it)
+  --max-bytes N         with --from-export: refuse an export larger than N
+                        bytes (default 100 MiB)
+  --time-budget SECONDS
+                        with --from-export: stop reading or validating the
+                        export after SECONDS
+
+Exit status: 0 the challenge was written; 2 usage error, a folder that cannot
+be written, or evidence or an export that cannot be read or is refused.
 ```
 
 #### `pydiggs conformance grade`

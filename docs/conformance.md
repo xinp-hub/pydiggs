@@ -8,8 +8,9 @@ anyone you give the files to.
 
 !!! info "Preview (since pyDIGGS 1.15)"
     The classes, the checks and the evidence document may still change before they are
-    frozen. The suite has its own version (`1.0-beta.2`), which changes whenever a file
-    could be graded differently. A challenge is graded by the suite version that made it.
+    frozen. The suite has its own version (`1.0-beta.3`), which changes whenever a file
+    could be graded differently. A challenge is graded by the suite version that made it
+    ([versions](#versions)).
 
 !!! warning "What a result means"
     A result is **self-tested**. It shows that a file passed a published test. It does not
@@ -17,7 +18,7 @@ anyone you give the files to.
     committee or the ASCE Geo-Institute. Every evidence document says so.
 
 - **JSON Schema of the evidence:**
-  [`schemas/preview/diggs-conformance-1.0-beta.2.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json)
+  [`schemas/preview/diggs-conformance-1.0-beta.3.schema.json`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.3.schema.json)
   (also `pydiggs.conformance.conformance_schema()`).
 - **API reference:** [Conformance suite](reference.md#conformance-suite).
 - **In your browser:** [the same three steps on a web page](conformance/try/index.html),
@@ -56,7 +57,7 @@ of your software would.
 $ pydiggs conformance grade challenge my-export.xml
 spt-export: PASS
   product     MyLog 4.2.1 (as declared)
-  suite       1.0-beta.2, DIGGS 3.0.0, self-tested
+  suite       1.0-beta.3, DIGGS 3.0.0, self-tested
   challenge   seed 5f0c2a9d41b7e386, token 9D21F4
   submission  my-export.xml, sha256 1c0e6f1d2a7b4c55…
 
@@ -110,9 +111,12 @@ The rules behind the last two stages:
   kind (a length for a depth, a pressure for a cone resistance) is not read as that value.
 - **An empty cell stays empty.** Where the tables leave a value empty (a density that was
   not measured, the stroke of a blow-less pile run), the file must not hold one: an export
-  that writes a zero there fails with `conformance.value-invented`. In the `mwd`,
-  `dissipation` and `in-situ-strength` classes a cell that holds the `nullValue` its
-  property declares is empty too ([not yet in the others](#known-limits-of-this-version)).
+  that writes a zero there fails with `conformance.value-invented`. A cell that holds
+  the `nullValue` its property declares is empty too, in every class: DIGGS lets a
+  property name the text that marks a missing value in its data, such as
+  `<nullValue>-999</nullValue>`. The same number with no `nullValue` declared is a
+  value, and fails. (Suite 1.0-beta.2 read the mark as a value in the `spt`, `cpt`,
+  `lab-index` and `deep-foundations` classes; see [versions](#versions).)
 - **Percentages.** A percentage may be written in percent (`uom="%"`) or as the plain
   percent number with no unit, as DIGGS writes the liquid limit: `48`, not `0.48`. (Where
   the DIGGS property requires a unit, validation already fails a value without one.)
@@ -215,6 +219,158 @@ that resolves to nothing, a property that is not in the DIGGS dictionary, or an 
 unit). The last question asks which defect your software reports. At the `core` level this
 stage is **advisory**: it is reported and recorded, and it does not decide the verdict.
 
+## Test two products together
+
+!!! info "Preview (since pyDIGGS 1.18)"
+    Pairwise import challenges, the `source_export` of their evidence and the `read` and
+    `not-read` cells of the matrix may still change.
+
+Passing `spt-export` shows that product A writes a correct file, and passing `spt-import`
+shows that product B reads the suite's own file. Neither is a test of B on **the file A
+wrote**. A *pairwise* import challenge is: it is an import challenge whose DIGGS file is
+A's graded export instead of the suite's. What its result shows, and what no self-run
+test can show, is [spelled out below](#what-read-means-and-what-it-does-not).
+
+**1. The exporting vendor** passes the export class as usual, and gives the other party
+two files: the DIGGS file their software exported, and the `evidence.json` that `grade`
+wrote for it. (Nothing else of the challenge folder is needed.)
+
+```console
+$ pydiggs conformance new spt-export --product "LogA" --product-version 2.0 -o a-spt-export
+$ pydiggs conformance grade a-spt-export a-spt-export/export.xml
+spt-export: PASS
+```
+
+**2. The importing vendor** (or an owner who has both products) makes the import
+challenge from those two files. The export is looked for beside the evidence, under the
+name the evidence gives; `--export FILE` names it when it is somewhere else.
+
+```console
+$ pydiggs conformance new spt-import --product "Viewer" --product-version 7 \
+    --from-export a-spt-export/evidence.json -o b-spt-import
+Challenge spt-import written to b-spt-import (seed 5f0c2a9d41b7e386, token 9D21F4).
+Its challenge.xml is the export of LogA 2.0 (as declared), verified here:
+  sha256 519e60ede733289510fad9d2aa0ccc8aa7e26a11dc91164ca0bbb52888e4fbc8
+Read b-spt-import/README.md, then:
+  pydiggs conformance grade b-spt-import answers.csv
+```
+
+`challenge.xml` in that folder is A's file, byte for byte. The seed is the one A's export
+challenge had, so the questions, and the answers the suite expects, are exactly those of
+the suite's ordinary import challenge of that seed: they come from the seed's data, not
+from the bytes of `challenge.xml`. They are right for A's file because A's file passed
+the export class, which checks every source value at its depth.
+
+**3. Open `challenge.xml` in the importing product, fill `answers.csv`, and grade**, as
+for any import class.
+
+```console
+$ pydiggs conformance grade b-spt-import b-spt-import/answers.csv
+spt-import: PASS
+  product     Viewer 7 (as declared)
+  suite       1.0-beta.3, DIGGS 3.0.0, self-tested
+  challenge   seed 5f0c2a9d41b7e386, token 9D21F4
+  file given  exported by LogA 2.0 (as declared), sha256 519e60ede7332895…
+  submission  answers.csv, sha256 51f84aa598539cde…
+```
+
+The evidence of that run carries a `source_export` member, copied from the challenge:
+
+```json
+"source_export": {
+  "product": {"name": "LogA", "version": "2.0"},
+  "export_sha256": "519e60ede733289510fad9d2aa0ccc8aa7e26a11dc91164ca0bbb52888e4fbc8",
+  "evidence_sha256": "d60e14b16f0881234c899be91f1a96db1b6b94c339762866b6d87c3a50b928e4",
+  "suite_version": "1.0-beta.3"
+}
+```
+
+It names the source by **digest, never by path**: the exporting product's name and
+version as its evidence states them, the SHA-256 of the exported file, the SHA-256 of the
+exporter's `evidence.json` as it was given, and the suite version that graded the export.
+Evidence without `source_export` means what it always has: the file in the challenge
+was the suite's own.
+
+### What is checked before the challenge is made
+
+The evidence and the export come from another party, so `new --from-export` checks
+both. It exits with status 2 and a message, and writes nothing, when:
+
+- the evidence is not a diggs-conformance document, or is for another family, or for an
+  import class;
+- the export did not pass: the suite's answers are right only for a correct export;
+- the export file is not the one the evidence graded (its SHA-256 differs);
+- **the evidence does not verify**: the export is graded again here, against the
+  challenge the evidence names (class, product and seed are all a challenge is made of),
+  and that must give the evidence back. Calling a failed export a pass, or renaming the
+  product, is caught here;
+- the export was graded under another suite version;
+- either file is a link, is not a plain file, cannot be read, or is too large
+  (`--max-bytes`, 100 MiB by default; `--time-budget` limits reading and validating the
+  export). A link is never followed, and no path inside the evidence is used: only a
+  plain file name, beside the evidence.
+
+### What is checked afterwards, and what is not
+
+`challenge.json` is a file in the importing party's own folder, and anyone can write
+one by hand. So what it says of its source is checked again, by three different parties
+to the result:
+
+- **Every time the challenge is loaded** (`grade`, `verify`, `matrix`): `challenge.xml`
+  must have the SHA-256 the challenge records, and it is graded again as an export of
+  this challenge's seed and must pass. A challenge that names a file which is not a
+  correct export of the data its questions are about is refused, whatever it claims:
+  another product's export of other data, the wrong family, or a file that is not DIGGS.
+  The size and time limits of the command apply to that file (`--max-bytes`,
+  `--time-budget`); a challenge made with a larger `--max-bytes` is graded with it too.
+- **`verify`** compares `source_export` in the evidence with the challenge, and the
+  challenge's identity (`challenge.id`) covers it. Editing `source_export` in the
+  evidence, removing it, or adding one to the evidence of an ordinary import challenge
+  is reported (`source_export` differs). Editing it in `challenge.json` and in the
+  evidence alike is reported too (`challenge` differs), unless the identity is worked
+  out again as well, which anyone can do: the identity is a plain hash, not a signature.
+- **`matrix`** is what checks the exporter's name and the `evidence_sha256`: it claims a
+  cell only when the exporter's own passing export evidence is in the folder, verified,
+  of the same family and seed, and is the very document, for the very file, that
+  `source_export` names. Nothing short of that is detected by `verify` alone: a
+  hand-written challenge whose file really is a correct export of its seed, and which
+  names an exporter that never ran the suite, loads and verifies. It decides no cell.
+
+To let someone verify the result, give them the whole challenge folder, with
+`challenge.xml`.
+
+### What `read` means, and what it does not
+
+The [matrix](#round-trip-matrix) says `read` for the pair when the folder holds both
+halves, each verified. It means three things, each graded again by whoever runs
+`matrix`:
+
+- **A's export was correct**: the file, named by its SHA-256, passed the export class;
+- **that file was the one handed to B**: B's challenge holds it as `challenge.xml`, and
+  names A's evidence by its digest;
+- **the answers given for B are right for it**: counts, names, and values in the units
+  asked for, which are often not the units of the file.
+
+It does not show:
+
+- **which software opened the file.** Like every result of this suite it is self-tested:
+  it records answers, not how they were produced;
+- **that the answers were taken from that file.** The expected answers depend on the
+  seed, not on the bytes of `challenge.xml`: they are the same as for the suite's own
+  import challenge of that seed. Answers worked out from any other copy of the same data
+  (the suite's own file, the source tables) are graded the same. The suite cannot tell
+  the difference; a signature from B's own CI, over a run that opens the file in B's
+  product, is what adds that: see [Signing conformance evidence](conformance-signing.md);
+- that B reads **every** file A can write. One export of one seed was used: one set of
+  borings, in the units and layout A chose that time. Run several seeds for more;
+- anything about values the questions do not ask for. A question set samples the file; it
+  is not the point-by-point check an export gets;
+- that B reports defects in A's files: `defective.xml` is the suite's own file.
+
+`not-read` means such evidence exists and none of it passed. It does not say which side
+is at fault: A's file passed the export class, so it is valid DIGGS that holds the data,
+and B gave answers that differ. Read the failed items in B's report.
+
 ## Classes, and what cannot be tested yet
 
 ```console
@@ -256,14 +412,15 @@ few passing classes are never mistaken for full DIGGS support.
 - **MWD readings below the last one.** A reading invented in the rod-change pause is
   caught, whichever cells it fills. A reading added below a log's last reading is not:
   the tables say nothing of those depths. (A total depth that moved with it is caught.)
-- **`nullValue` in the classes of suite 1.0-beta.2.** DIGGS lets a property declare a
-  `nullValue`, the text that marks a missing value in its data. The `mwd`, `dissipation`
-  and `in-situ-strength` classes read a cell with that mark as empty, and so does
-  `accept`. The `spt`, `cpt`, `lab-index` and `deep-foundations` classes do not yet: an
-  empty source cell written as, say, `-999` with `<nullValue>-999</nullValue>` fails with
-  `conformance.value-invented`, as it has since pyDIGGS 1.17. Leave the cell empty in
-  those classes. Reading the mark there changes how a file is graded, so it comes with
-  the next suite version.
+- **A pairwise challenge keeps the suite's own defective file.** In an import challenge
+  made from another product's export, `challenge.xml` is that product's file, and
+  `defective.xml` is still the suite's own file with one planted defect: a defect is
+  planted where the layout of the file is known. That question is advisory, as in every
+  import challenge.
+- **A pairwise challenge needs an export of the same suite version.** The questions are
+  drawn from the suite's data for a seed, and each suite version draws its own. An export
+  graded under suite 1.0-beta.2 cannot be the source of a 1.0-beta.3 import challenge:
+  grade the exporting product against a new challenge first.
 - **Very many parameters on a very long test.** A procedure parameter (and a vane torque)
   applies at every depth its test has a row at. The first of a test always does; past
   that, one file is read up to a million such placements, and a file with more has the
@@ -284,12 +441,13 @@ few passing classes are never mistaken for full DIGGS support.
 ## Evidence anyone can re-run
 
 `grade` writes `evidence.json`, a
-[diggs-conformance](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json)
+[diggs-conformance](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.3.schema.json)
 document: the suite and pyDIGGS versions, the class, the challenge, the SHA-256 of the
 submission, every stage, and the verdict. It holds no time and no machine detail.
 
 The challenge has two names. `challenge.id` is its identity: a SHA-256 of what defines it
-(suite version, class, DIGGS version, seed, token and product, as canonical JSON), the
+(suite version, class, DIGGS version, seed, token and product, as canonical JSON; and the
+`source_export` of a [pairwise challenge](#test-two-products-together)), the
 same in every pyDIGGS release. `challenge.sha256` is the digest of `challenge.json` as
 written, which lists the digests of the challenge's files; some of those files are
 written by pyDIGGS itself (the DIGGS file of an import challenge, the tables of an export
@@ -310,9 +468,46 @@ Reproduced: spt-export pass.
 ```
 
 The schema of the evidence is
-[`diggs-conformance-1.0-beta.2`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json);
-[`1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json),
-which pyDIGGS 1.15 and 1.16 wrote, stays published.
+[`diggs-conformance-1.0-beta.3`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.3.schema.json).
+The earlier ones stay published, and `verify` still reads evidence written to them:
+[`1.0-beta.2`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json)
+(pyDIGGS 1.17) and
+[`1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.1.schema.json)
+(pyDIGGS 1.15 and 1.16).
+
+### Versions
+
+Two things have a version, and they change for different reasons.
+
+The **suite version** is the classes, the data a seed gives, the questions and the
+grading rules. It changes whenever a file could be graded differently, and each suite
+version draws its own data, so a seed gives other borings and values in another suite.
+
+| Suite | pyDIGGS | What changed in how a file is graded |
+| --- | --- | --- |
+| `1.0-beta.1` | 1.15 | The first suite: `spt` and `cpt`. |
+| `1.0-beta.2` | 1.16, 1.17 | A value where the source leaves the cell empty fails (`conformance.value-invented`); a percentage may be a plain percent number; `lab-index` and `deep-foundations` were added. The `mwd`, `dissipation` and `in-situ-strength` classes joined this suite later, reading a declared `nullValue` as empty from the start. |
+| `1.0-beta.3` | 1.18 | A cell that holds the `nullValue` its property declares is empty in `spt`, `cpt`, `lab-index` and `deep-foundations` too: a correct export that marks an unmeasured value that way failed in those classes before, and passes now. A file that declares as `nullValue` a number it also reports as a real value (a `nullValue` of 0 on a column with a real zero) passed before and fails now: that cell is missing, as DIGGS defines it. |
+
+**What an older suite version on evidence means.** Evidence states the suite that graded
+it (`suite_version`), and it stays true of that suite: the file passed, or failed, by
+the rules that suite had. This release grades challenges of suite `1.0-beta.2` and
+`1.0-beta.3` (`conformance.GRADED_SUITES`), each by its own rules, so `grade` and
+`verify` on a `1.0-beta.2` challenge folder give what pyDIGGS 1.16 and 1.17 gave, and its evidence
+still verifies. A `1.0-beta.1` challenge is refused with a message that says so: install
+the release that has that suite, or make a new challenge. New challenges are always of
+the current suite. A [scorecard](#scorecard) and a [matrix](#round-trip-matrix) are each
+of one suite version, the current one: they refuse or list evidence of another suite and
+do not count it, because a pass under different rules is not the same statement. To be
+counted there, grade the product against a new challenge.
+
+The **evidence schema version** is the shape of `evidence.json`.
+
+| Evidence schema | pyDIGGS | What changed in the document |
+| --- | --- | --- |
+| `1.0-beta.1` | 1.15, 1.16 | The first document. |
+| `1.0-beta.2` | 1.17 | Adds `challenge.id`. |
+| `1.0-beta.3` | 1.18 | Adds the optional `source_export`, which only evidence of a pairwise import challenge has. A document without it means what a `1.0-beta.2` document means. |
 
 To show that a result came from your own build, sign the evidence in your CI: see
 [Signing conformance evidence](conformance-signing.md). How pyDIGGS's own verdicts compare
@@ -333,6 +528,12 @@ It is the same suite: a challenge made on the page is the folder `pydiggs confor
 writes (as a ZIP), its evidence is the document `grade` writes for the same files, and
 each side verifies the other's. A result is self-tested there too.
 
+The page names the pyDIGGS release it runs. While that is pyDIGGS 1.17, its challenges
+are of suite 1.0-beta.2: the command line of this release still grades and verifies them
+([versions](#versions)). A challenge of suite 1.0-beta.3, and a
+[pairwise](#test-two-products-together) one, is graded on the command line until the page
+runs a release that has them.
+
 ## Scorecard
 
 ```console
@@ -342,6 +543,11 @@ $ pydiggs conformance scorecard */evidence.json --format markdown
 
 A scorecard shows one product against every part of the catalogue: pass, fail, not run, or
 not yet testable. The Markdown form is made for a README or a product page.
+
+A scorecard is of the current suite version: evidence of another suite is refused
+([versions](#versions)). Evidence of a [pairwise import challenge](#test-two-products-together)
+is left out: it is a test of one product on another's file, which is a cell of the
+[matrix](#round-trip-matrix), not a class.
 
 ## Check a delivered file (owner acceptance)
 
@@ -358,7 +564,7 @@ $ pydiggs conformance accept B-030.xml --class spt --report acceptance.html
 spt: ACCEPTED
   file     B-030.xml, 26500 bytes
   sha256   5ffc8827f8457258b1e9de5343cea7db91e1e973bdc933da6ec20d9ae7772ba4
-  checked  Standard penetration and other driven tests requirements, suite 1.0-beta.2, DIGGS 3.0.0
+  checked  Standard penetration and other driven tests requirements, suite 1.0-beta.3, DIGGS 3.0.0
 
   PASS     accept.diggs-3   (1/1) The file is a DIGGS 3 document, read to its end within the reader's limits.
   PASS     accept.valid     (1/1) The file has no validation error: XML Schema, dictionaries, Schematron business rules and cross-references (warnings are allowed).
@@ -422,20 +628,51 @@ grading the challenge and the file again must give it back. Evidence that does n
 "a link, not read".
 
 The matrix shows each product (as its vendor declared it) against every class: pass, fail
-or not run. A class passes when any verified evidence of it passed. It then lists the
-round trips: every pair of a product that passed a family's export class and one that
-passed its import class. Formats: text, `json` (a
+or not run. A class passes when any verified evidence of it passed. Formats: text, `json` (a
 [`diggs-conformance-matrix-1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json)
 document, preview; also `conformance.conformance_schema("matrix")`), `markdown` and `html`; every value from a file is escaped in the
 text, Markdown and HTML. The exit status is 0 when every evidence document verified, 1
 when one did not (the matrix is still written, without it), and 2 when the folder holds
 no evidence or cannot be read.
 
-!!! warning "Every round trip says `not-tested-together`"
-    Today each product passes its class against the suite's own challenge, so the matrix
-    can say "A's export passed" and "B's import passed", never "B read A's export". That
-    needs an import challenge made from A's file, which no challenge or evidence records
-    yet. The cell's values `read` and `not-read` are reserved for that evidence.
+It then lists the round trips, one cell for each exporting and importing product of a
+family:
+
+| Cell | When |
+| --- | --- |
+| `read` | The folder holds A's passing export evidence and evidence of a [pairwise import challenge](#test-two-products-together) made from that very file, both verified, and B's answers passed. |
+| `not-read` | The same, and none of the answers given for B passed. |
+| `not-tested-together` | No such pair of documents in the folder. Both products passed their class separately, against the suite's own challenge: "A's export passed" and "B's import passed". |
+
+```text
+Round trips (export by A, import by B):
+  spt: LogA 2.0 -> Viewer 7: read (export sha256 519e60ede733289510fad9d2aa0ccc8aa7e26a11dc91164ca0bbb52888e4fbc8)
+```
+
+A `read` or `not-read` cell **cites the export file by its SHA-256** (`export_sha256` in
+the JSON) and the import evidence that decides it (`evidence`, its path under the
+folder), so anyone can check which file it was.
+
+A cell is claimed only when **the exporter's own evidence is in the folder** beside the
+pairwise evidence. What pairwise evidence says of its source is the importing party's
+statement; the exporter's evidence is what confirms it. That evidence must:
+
+- have verified and passed, in the export class of the same family;
+- be for the product name and version `source_export` states, and for the same seed;
+- be the very `evidence.json` the challenge was made from (`evidence_sha256`), for the
+  very file (`export_sha256`).
+
+Otherwise the pair is not claimed, and the pairwise evidence is listed with the note
+that it "decides no round-trip cell". That happens when the exporter's folder is not
+there, when its evidence does not verify, and when the exporter has graded again since
+with another file: keep the exporter's challenge folder as it was when the import
+challenge was made, or make the import challenge again. See
+[what `read` means](#what-read-means-and-what-it-does-not).
+
+Pairwise evidence decides its cell only. It does not count as the importer's
+`<family>-import` class, on the matrix or on a [scorecard](#scorecard): a class is passed
+against the suite's own file. The pairwise challenge folder must still hold the export as
+`challenge.xml`; without it the evidence is listed as not verified.
 
 ## In Python
 
@@ -472,7 +709,29 @@ print(result.file_sha256, [r.id for r in conformance.requirements("cpt")])
 grid = conformance.matrix("evidence")
 grid.unverified  # what did not verify, with the reason
 grid.cell(("MyLog", "4.2.1"), "spt-export")  # pass, fail or not-run
+[(r.exporter, r.importer, r.status, r.export_sha256) for r in grid.round_trips()]
 ```
+
+A pairwise import challenge, from another product's evidence and export (paths, or the
+bytes of each):
+
+```python
+from pydiggs import conformance
+
+theirs = conformance.new("cpt-export", product="LogA", version="2.0", seed="demo")
+exported = theirs.reference()  # stands for the file LogA exported
+evidence = conformance.grade(theirs, exported).to_json().encode()
+
+pair = conformance.new(
+    "cpt-import", product="Viewer", version="7", from_export=evidence, export=exported
+)
+assert pair.files["challenge.xml"] == exported
+assert pair.source_export.product_name == "LogA"
+print(pair.source_export.export_sha256)  # what the evidence and the matrix will cite
+```
+
+`conformance.grade` on its answers gives a `Result` whose `source_export` is the same
+record, and whose evidence carries it.
 
 The submission is untrusted input: its size is limited (`max_bytes`, 100 MiB by default),
 the time spent reading and validating it can be limited (`time_budget`), and the text,

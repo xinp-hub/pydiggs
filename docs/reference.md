@@ -188,6 +188,8 @@ not load `pydiggs.conformance`: use `from pydiggs import conformance`.
 
 ::: pydiggs.conformance.Challenge
 
+::: pydiggs.conformance.SourceExport
+
 ::: pydiggs.conformance.Result
 
 ::: pydiggs.conformance.Stage
@@ -217,6 +219,8 @@ not load `pydiggs.conformance`: use `from pydiggs import conformance`.
 ::: pydiggs.conformance.Family
 
 ::: pydiggs.conformance.SUITE_VERSION
+
+::: pydiggs.conformance.GRADED_SUITES
 
 ## Errors
 

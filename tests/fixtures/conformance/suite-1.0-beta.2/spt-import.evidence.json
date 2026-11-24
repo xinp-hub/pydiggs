@@ -1,0 +1,71 @@
+{
+  "$schema": "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json",
+  "format": "diggs-conformance",
+  "schema_version": "1.0-beta.2",
+  "suite_version": "1.0-beta.2",
+  "tool": {
+    "name": "pydiggs",
+    "version": "1.17.0"
+  },
+  "tier": "self-tested",
+  "statement": "Self-tested. This records that the submitted file passed or failed the named class of the pyDIGGS conformance suite. It does not show which software produced the file, and it is not a certification by the DIGGS committee or the ASCE Geo-Institute.",
+  "class": {
+    "id": "spt-import",
+    "family": "spt",
+    "direction": "import",
+    "title": "Standard penetration and other driven tests: import",
+    "level": "core",
+    "diggs_version": "3.0.0"
+  },
+  "product": {
+    "name": "Demo",
+    "version": "1"
+  },
+  "challenge": {
+    "id": "b67ce184b269aa923c6a47f37c767bd9956b73d08c38e917b4879424559c48c4",
+    "seed": "demo",
+    "token": "69BA63",
+    "sha256": "9c64f514c47cc33a9800279c048df864f10becd902e4643190b0c3956664f6bb"
+  },
+  "submission": {
+    "name": "submission",
+    "sha256": "46673478e76c0d444a72f0c16511c594c3a67a21251ddf3a551e2af27f0f41bf",
+    "bytes": 297
+  },
+  "verdict": "pass",
+  "stages": [
+    {
+      "id": "core",
+      "title": "Project, locations and depths",
+      "required": true,
+      "status": "pass",
+      "passed": 3,
+      "total": 3,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "values",
+      "title": "Values read from the file",
+      "required": true,
+      "status": "pass",
+      "passed": 6,
+      "total": 6,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    },
+    {
+      "id": "robustness",
+      "title": "The planted defect is reported",
+      "required": false,
+      "status": "pass",
+      "passed": 1,
+      "total": 1,
+      "failed": 0,
+      "items": [],
+      "items_truncated": false
+    }
+  ]
+}

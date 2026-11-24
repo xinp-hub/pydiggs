@@ -886,15 +886,15 @@ def _rows(values: ExtraNode | None) -> list[list[str]]:
 
 
 def _record_readings(
-    model: Model, record: ExtraNode, budget: _Budget, *, nulls: bool = False
+    model: Model, record: ExtraNode, budget: _Budget, *, nulls: bool = True
 ) -> list[tuple[str, float, float, str]]:
     """Every numeric value of a driving record: (key, tip depth m, SI value, SI unit).
 
     Only the cells a row holds are looked at, each charged to ``budget``: the work is
     linear in the size of the file, however many properties are declared. With
-    ``nulls``, a cell equal to its property's declared ``nullValue`` is not a value; the
-    acceptance check passes it. Grading does not: suite 1.0-beta.2 was released reading
-    such a cell as a value (see :func:`pydiggs.conformance._facts.observe`).
+    ``nulls`` (the default), a cell equal to its property's declared ``nullValue`` is not
+    a value. Only a challenge of suite 1.0-beta.2, which was released reading such a cell
+    as a value, is graded without it (see :func:`pydiggs.conformance._facts.observe`).
     """
     depths = _tip_depths(model, record)
     result = _path(record, "pileDrivingRecordResults")
@@ -961,7 +961,7 @@ def _owners(
     return lrs_owners, {source: list(targets) for source, targets in named.items()}
 
 
-def observe(model: Model) -> Observed:
+def observe(model: Model, *, nulls: bool = True) -> Observed:
     """What a DIGGS file holds of piles and driving records, for :func:`_facts.match`.
 
     Everything the generic observation reads (project names, features by name, total
@@ -982,7 +982,7 @@ def observe(model: Model) -> Observed:
         >>> all(_facts.match(f, seen).status == "found" for f in facts(data))
         True
     """
-    seen = _facts.observe(model)
+    seen = _facts.observe(model, nulls=nulls)
     readings: dict[tuple[str, str, str], list[tuple[float, float, str]]] = defaultdict(list)
     for where, found in seen.readings.items():
         readings[where].extend(found)
@@ -999,7 +999,7 @@ def observe(model: Model) -> Observed:
             pile_key = _pile_of(node, refs.get(other.key, []), lrs_owners)
             if pile_key is None:
                 continue
-            for key, depth, value, unit in _record_readings(model, node, budget):
+            for key, depth, value, unit in _record_readings(model, node, budget, nulls=nulls):
                 readings[(pile_key, RECORD, key)].append((depth, value, unit))
     # When the budget runs out the rest is not read, so its facts show as missing:
     # Observed has no field to say so, and a file that large fails grading either way.

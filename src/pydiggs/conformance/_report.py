@@ -39,8 +39,16 @@ def text(result: Result) -> str:
     lines = [
         f"{result.info.id}: {verdict}",
         f"  product     {_safe(result.product_name)} {_safe(result.product_version)} (as declared)",
-        f"  suite       {SUITE_VERSION}, DIGGS {result.info.diggs_version}, self-tested",
+        f"  suite       {result.suite_version}, DIGGS {result.info.diggs_version}, self-tested",
         f"  challenge   seed {result.seed}, token {result.token}",
+    ]
+    source = result.source_export
+    if source is not None:
+        lines.append(
+            f"  file given  exported by {_safe(source.product_name)}"
+            f" {_safe(source.product_version)} (as declared), sha256 {source.export_sha256[:16]}…"
+        )
+    lines += [
         f"  submission  {_safe(result.submission_name)}, sha256 {result.submission_sha256[:16]}…",
         "",
     ]
@@ -98,17 +106,28 @@ def html(result: Result) -> str:
         else ""
     )
     product = escape(f"{result.product_name} {result.product_version}")
+    source = result.source_export
+    read = (
+        ""
+        if source is None
+        else (
+            " The challenge's file was exported by "
+            f"{escape(f'{source.product_name} {source.product_version}')} (as declared):"
+            f" sha256 <code>{escape(source.export_sha256)}</code>, its evidence sha256"
+            f" <code>{escape(source.evidence_sha256)}</code>."
+        )
+    )
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f"<title>{escape(result.info.id)} conformance result</title><style>{_STYLE}</style></head>"
         f"<body><main><h1>{escape(result.info.title)}</h1>"
         f'<p><span class="v {verdict}">{verdict.upper()}</span> {product} (as declared)</p>'
-        f'<p class="note">pyDIGGS conformance suite {escape(SUITE_VERSION)}, DIGGS '
+        f'<p class="note">pyDIGGS conformance suite {escape(result.suite_version)}, DIGGS '
         f"{escape(result.info.diggs_version)}, class <code>{escape(result.info.id)}</code>."
         f" Challenge seed <code>{escape(result.seed)}</code>, token <code>{escape(result.token)}"
         f"</code>. Submission <code>{escape(result.submission_name)}</code>, sha256 <code>"
-        f"{escape(result.submission_sha256)}</code>.</p>"
+        f"{escape(result.submission_sha256)}</code>.{read}</p>"
         f"<table><tr><th>Result</th><th>Stage</th><th>Passed</th></tr>{''.join(rows)}</table>"
         f"{failures}"
         '<p class="note">Self-tested. This records that the submitted file passed or failed'
@@ -230,7 +249,12 @@ def scorecard(documents: Iterable[Mapping[str, Any]]) -> tuple[Scorecard, ...]:
     Every family of the catalogue is a row, so what was not tested, and what cannot be
     tested yet, is as visible as what passed. When two documents are for the same
     product, version and class, the later one in ``documents`` counts. Documents of
-    another suite version are refused.
+    another suite version are refused: a scorecard is of one suite version, this one.
+
+    Evidence of an import challenge made from another product's export (it has a
+    ``source_export``) is left out: it is a test of one product on another's file, which
+    is a cell of :func:`pydiggs.conformance.matrix`, not a class of the suite passed
+    against the suite's own file.
 
     Raises:
         ValueError: A document is not diggs-conformance evidence of this suite version,
@@ -267,6 +291,8 @@ def scorecard(documents: Iterable[Mapping[str, Any]]) -> tuple[Scorecard, ...]:
         ):
             raise ValueError("a malformed diggs-conformance document")
         verdicts = seen.setdefault((product["name"], product["version"]), {})
+        if "source_export" in document:
+            continue  # a pairwise result: the product is listed, the class is not decided
         verdicts[tested["id"]] = verdict
         # The core family has no class: it is the core stage of every challenge, and one
         # failing core stage in a direction is a failing core cell.

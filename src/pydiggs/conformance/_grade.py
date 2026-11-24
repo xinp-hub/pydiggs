@@ -21,7 +21,13 @@ from typing import Any, Final
 from pydiggs import __version__
 from pydiggs.conformance import _facts, _registry
 from pydiggs.conformance._catalogue import ClassInfo
-from pydiggs.conformance._challenge import SUITE_VERSION, Challenge, load
+from pydiggs.conformance._challenge import (
+    SUITE_VERSION,
+    Challenge,
+    SourceExport,
+    honours_null_value,
+    load,
+)
 from pydiggs.errors import DocumentError, InstanceReadError
 from pydiggs.findings.run import DEFAULT_MAX_BYTES
 
@@ -37,13 +43,13 @@ __all__ = [
     "verify",
 ]
 
-CONFORMANCE_SCHEMA_VERSION: Final = "1.0-beta.2"
+CONFORMANCE_SCHEMA_VERSION: Final = "1.0-beta.3"
 #: Every evidence schema version this release reads (verify, scorecard).
-READ_SCHEMA_VERSIONS: Final = ("1.0-beta.1", "1.0-beta.2")
+READ_SCHEMA_VERSIONS: Final = ("1.0-beta.1", "1.0-beta.2", "1.0-beta.3")
 CONFORMANCE_SCHEMA_URL: Final = (
-    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.2.schema.json"
+    "https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-1.0-beta.3.schema.json"
 )
-SCHEMA_RESOURCE: Final = "diggs-conformance-1.0-beta.2.schema.json"
+SCHEMA_RESOURCE: Final = "diggs-conformance-1.0-beta.3.schema.json"
 
 #: What a self-tested result does and does not show; every evidence document carries it.
 STATEMENT: Final = (
@@ -139,7 +145,10 @@ class Result:
     """The result of grading one submission.
 
     ``passed`` is the verdict: every required stage passed. :meth:`to_dict` is the
-    evidence, a diggs-conformance document.
+    evidence, a diggs-conformance document. ``suite_version`` is the suite that made the
+    challenge, whose rules graded the submission. ``source_export`` is None, except for
+    the answers to an import challenge made from another product's export: then it names
+    that export (:class:`SourceExport`), and the evidence carries it.
     """
 
     info: ClassInfo
@@ -153,6 +162,8 @@ class Result:
     submission_sha256: str
     submission_bytes: int
     stages: tuple[Stage, ...]
+    suite_version: str = SUITE_VERSION
+    source_export: SourceExport | None = None
 
     @property
     def passed(self) -> bool:
@@ -172,11 +183,11 @@ class Result:
 
     def to_dict(self) -> dict[str, Any]:
         """The evidence: a diggs-conformance document (see :func:`conformance_schema`)."""
-        return {
+        document: dict[str, Any] = {
             "$schema": CONFORMANCE_SCHEMA_URL,
             "format": "diggs-conformance",
             "schema_version": CONFORMANCE_SCHEMA_VERSION,
-            "suite_version": SUITE_VERSION,
+            "suite_version": self.suite_version,
             "tool": {"name": "pydiggs", "version": __version__},
             "tier": "self-tested",
             "statement": STATEMENT,
@@ -188,14 +199,19 @@ class Result:
                 "token": self.token,
                 "sha256": self.challenge_sha256,
             },
-            "submission": {
-                "name": self.submission_name,
-                "sha256": self.submission_sha256,
-                "bytes": self.submission_bytes,
-            },
-            "verdict": "pass" if self.passed else "fail",
-            "stages": [stage.to_dict() for stage in self.stages],
         }
+        if self.source_export is not None:
+            # Only a pairwise import result has it; without it a document means what
+            # it always has: the challenge's file was the suite's own.
+            document["source_export"] = self.source_export.to_dict()
+        document["submission"] = {
+            "name": self.submission_name,
+            "sha256": self.submission_sha256,
+            "bytes": self.submission_bytes,
+        }
+        document["verdict"] = "pass" if self.passed else "fail"
+        document["stages"] = [stage.to_dict() for stage in self.stages]
+        return document
 
     def to_json(self, *, indent: int | None = 2) -> str:
         """The evidence as JSON text."""
@@ -322,7 +338,9 @@ def _grade_export(
         ),
         len(errors),
     )
-    seen = _registry.observe(challenge.info.scenario, model)
+    # A challenge is graded by the rules of the suite that made it.
+    nulls = honours_null_value(challenge.suite_version)
+    seen = _registry.observe(challenge.info.scenario, model, nulls=nulls)
     return (
         Stage(
             "readable",
@@ -407,9 +425,7 @@ def _judge(question: _facts.Question, answer: str | None) -> _facts.Outcome:
 
 
 def _grade_import(challenge: Challenge, data: bytes) -> tuple[Stage, ...]:
-    from pydiggs.conformance._challenge import _stream  # noqa: PLC0415  # same module family
-
-    asked = _registry.questions(challenge.dataset(), _stream(challenge.info, challenge.seed))
+    asked = _registry.questions(challenge.dataset(), challenge.stream)
     given = _answers(data)
     judged = [_judge(q, given.get(q.id)) for q in asked]
     return (
@@ -434,6 +450,12 @@ def grade(
     an import in three (core, values, and robustness, which does not decide the verdict).
     The submission is untrusted: its size and the time spent on it are limited.
 
+    A challenge is graded by the rules of the suite version that made it, which the
+    evidence records: one made by an earlier suite this release still grades is graded
+    as that suite did. The answers to an import challenge made from another product's
+    export (``new(..., from_export=...)``) are graded like any other; the result and its
+    evidence then name that export in ``source_export``.
+
     Args:
         challenge: A challenge folder, its ``challenge.json``, or a :class:`Challenge`.
         submission: A path, or the bytes of the file.
@@ -445,8 +467,9 @@ def grade(
         result, not an exception.
 
     Raises:
-        DocumentError: The challenge cannot be read or is from another suite version, or
-            the answers of an import class cannot be read.
+        DocumentError: The challenge cannot be read or is from a suite version this
+            release does not grade, the export a pairwise challenge was made from is not
+            in its folder, or the answers of an import class cannot be read.
         InstanceReadError: The submission is missing, unreadable or too large.
 
     Examples:
@@ -456,7 +479,7 @@ def grade(
         >>> result.passed, [s.id for s in result.stages if s.status == "pass"]
         (True, ['readable', 'validation', 'core', 'fidelity'])
     """
-    loaded = load(challenge)
+    loaded = load(challenge, max_bytes=max_bytes, time_budget=time_budget)
     name, data = _read_submission(submission, max_bytes)
     if loaded.info.direction == "export":
         stages = _grade_export(loaded, name, data, time_budget)
@@ -474,6 +497,8 @@ def grade(
         submission_sha256=hashlib.sha256(data).hexdigest(),
         submission_bytes=len(data),
         stages=stages,
+        suite_version=loaded.suite_version,
+        source_export=loaded.source_export,
     )
 
 
@@ -492,6 +517,12 @@ def verify(
     The challenge is compared by its stable ``id``; a different digest of its files (which
     another pyDIGGS release may write differently) is a note, not a difference. Evidence
     of schema 1.0-beta.1, which has no ``id``, is compared by the digest as before.
+    ``source_export`` is compared too, against what the challenge records: evidence of a
+    pairwise import challenge cannot be edited to name another export, and evidence of
+    any other challenge cannot be given one.
+
+    Evidence of an earlier suite version this release still grades is graded again by
+    that suite's rules, so it is reproduced as it was written.
     Not compared: ``tool`` (the pyDIGGS release), the submission's file name, and the
     wording of messages, which for a validation error is the XML library's own.
 
@@ -565,6 +596,7 @@ _MEMBERS: Final = frozenset(
         "class",
         "product",
         "challenge",
+        "source_export",
         "submission",
         "verdict",
         "stages",
@@ -576,6 +608,7 @@ _COMPARED: Final = (
     "class",
     "product",
     "challenge",
+    "source_export",
     "submission",
     "verdict",
     "stages",

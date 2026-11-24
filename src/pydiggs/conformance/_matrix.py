@@ -4,25 +4,29 @@ Built from evidence documents, each verified first: a document counts only when 
 its challenge and its submission again gives it back (:func:`pydiggs.conformance.verify`).
 Evidence that cannot be verified is listed with the reason and never counted.
 
-What evidence can say today is "A passed the export class" and "B passed the import
-class", each against the suite's own challenge. Whether B reads *A's* export needs an
-import challenge made from A's export, which neither challenges nor evidence record yet,
-so every round-trip cell is ``not-tested-together``. The cell's format is fixed now so
-that such evidence, once it exists, fills it in (``read`` or ``not-read``).
+Most evidence says "A passed the export class" or "B passed the import class", each
+against the suite's own challenge. Testing B on *A's* export needs an import challenge
+made from A's export (``new(..., from_export=...)``); the evidence graded from one carries
+a ``source_export`` that names A's file by its SHA-256. That is B's statement, so it fills
+a round-trip cell in only beside A's own passing export evidence, in the same folder and
+verified: ``read`` when B's answers passed, ``not-read`` when they failed. A pair without
+both documents is ``not-tested-together``.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html import escape
 from pathlib import Path
 from typing import Any, Final
 
 from pydiggs.conformance._catalogue import DIRECTIONS, ClassInfo, classes
-from pydiggs.conformance._challenge import SUITE_VERSION
+from pydiggs.conformance._challenge import SUITE_VERSION, SourceExport
+from pydiggs.conformance._pairwise import plain_name
 from pydiggs.errors import PydiggsError
 from pydiggs.findings.run import DEFAULT_MAX_BYTES
 
@@ -52,11 +56,27 @@ MAX_EVIDENCE: Final = 1000
 _MAX_ENTRIES: Final = 200_000
 _MAX_EVIDENCE_BYTES: Final = 8 * 1024 * 1024
 
-#: Why every round-trip cell says ``not-tested-together``, in every report.
+#: Why every round-trip cell says ``not-tested-together``, when none says anything else.
 ROUND_TRIP_NOTE: Final = (
     "Each product passed its class separately, against the suite's own challenge. No"
     " evidence yet records an import challenge made from another product's export, so no"
     " cell shows that one product's export was read by another."
+)
+#: What the cells mean, when evidence of a pairwise import challenge fills one in.
+PAIRWISE_NOTE: Final = (
+    "read: the exporting product's file, named by its SHA-256, passed the export class;"
+    " that file was the one in the importing product's challenge; and the answers given"
+    " for the importing product are right for it. Each of the three is verified here from"
+    " evidence in this folder. not-read: the same, and none of the answers given passed."
+    " not-tested-together: no such evidence, or the exporter's own evidence is not in"
+    " this folder. Self-tested: a cell does not show which software opened the file, nor"
+    " that the answers were taken from that file rather than from another copy of the"
+    " same data."
+)
+#: On verified pairwise evidence that decides no cell, in place of "reproduced".
+UNBOUND: Final = (
+    "reproduced; it decides no round-trip cell: the passing export evidence it was made"
+    " from (same family, seed, evidence digest and export digest) is not in this folder"
 )
 
 _CELL: Final = {
@@ -72,7 +92,12 @@ class Entry:
 
     ``verified`` says whether grading again gave the document back; ``reason`` says why
     not. Product, class and verdict are as the document states them (empty when it is not
-    readable as evidence); only a verified entry counts.
+    readable as evidence); only a verified entry counts. ``sha256`` is the digest of the
+    document as found, and ``submission_sha256`` the digest it records for the file it
+    graded (both empty when it was not read); ``seed`` is the seed of its challenge.
+    ``source_export`` is None, except for evidence of an import challenge made from
+    another product's export: such an entry decides a round-trip cell and no class, and
+    its ``reason`` says so when the exporter's own evidence is not in the folder.
     """
 
     path: str
@@ -82,41 +107,59 @@ class Entry:
     product_version: str = ""
     class_id: str = ""
     verdict: str = ""
+    sha256: str = ""
+    submission_sha256: str = ""
+    source_export: SourceExport | None = None
+    seed: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """The entry as plain data."""
-        return {
+        out: dict[str, Any] = {
             "path": self.path,
             "verified": self.verified,
             "reason": self.reason,
             "product": {"name": self.product_name, "version": self.product_version},
             "class": self.class_id,
             "verdict": self.verdict,
+            "sha256": self.sha256,
         }
+        if self.source_export is not None:
+            out["source_export"] = self.source_export.to_dict()
+        return out
 
 
 @dataclass(frozen=True, slots=True)
 class RoundTrip:
     """One cell of a family's round-trip table: an exporter and an importer.
 
-    Only products that passed (verified) are paired. ``status`` is ``read`` or
-    ``not-read`` when evidence of an import challenge made from the exporter's file
-    exists, and ``not-tested-together`` until then, which is always today.
+    ``status`` is ``read`` when verified evidence of an import challenge made from the
+    exporter's file passed, ``not-read`` when such evidence exists and none passed, and
+    ``not-tested-together`` when there is none: then both products passed their class
+    separately, against the suite's own challenge. A ``read`` or ``not-read`` cell cites
+    what decided it: ``export_sha256``, the digest of the exported file in the challenge,
+    and ``evidence``, the path of the import evidence under the matrix folder.
     """
 
     family: str
     exporter: tuple[str, str]
     importer: tuple[str, str]
     status: str = "not-tested-together"
+    export_sha256: str | None = None
+    evidence: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """The cell as plain data."""
-        return {
+        out: dict[str, Any] = {
             "family": self.family,
             "export": {"name": self.exporter[0], "version": self.exporter[1]},
             "import": {"name": self.importer[0], "version": self.importer[1]},
             "status": self.status,
         }
+        if self.export_sha256 is not None:
+            out["export_sha256"] = self.export_sha256
+        if self.evidence is not None:
+            out["evidence"] = self.evidence
+        return out
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,12 +189,15 @@ class Matrix:
         """``pass``, ``fail`` or ``not-run`` for ``product`` in ``class_id``.
 
         A class passes when any verified evidence of it passed: a vendor may grade again
-        until the file passes, as the suite allows.
+        until the file passes, as the suite allows. Evidence of an import challenge made
+        from another product's export does not count here: it decides a round-trip cell
+        (:meth:`round_trips`), and a class is passed against the suite's own file.
         """
         verdicts = {
             e.verdict
             for e in self.entries
             if e.verified
+            and e.source_export is None
             and (e.product_name, e.product_version) == product
             and e.class_id == class_id
         }
@@ -159,14 +205,60 @@ class Matrix:
             return "pass"
         return "fail" if verdicts else "not-run"
 
+    def _pairwise(self, family: str) -> dict[tuple[tuple[str, str], tuple[str, str]], Entry]:
+        """For each (exporter, importer) of ``family``: the pairwise evidence that decides.
+
+        Pairwise evidence counts only when the export evidence it was made from is in the
+        folder too (:func:`_source_entry`). What it says of its source is the importing
+        party's own statement, so a name alone never decides a cell. A passing entry
+        decides before a failing one.
+        """
+        found: dict[tuple[tuple[str, str], tuple[str, str]], Entry] = {}
+        for entry in self.entries:
+            source = entry.source_export
+            if not entry.verified or source is None or entry.class_id != f"{family}-import":
+                continue
+            if _source_entry(entry, self.entries) is None:
+                continue
+            exporter = (source.product_name, source.product_version)
+            pair = (exporter, (entry.product_name, entry.product_version))
+            if pair not in found or (found[pair].verdict != "pass" and entry.verdict == "pass"):
+                found[pair] = entry
+        return found
+
     def round_trips(self) -> tuple[RoundTrip, ...]:
-        """Every (exporter, importer) pair of each family where both passed."""
+        """Every (exporter, importer) pair of each family, and whether they were tested together.
+
+        A pair is listed when both passed their class of the family. Its cell is ``read``
+        or ``not-read`` only when the folder holds both halves, each verified: evidence
+        of an import challenge made from the exporter's file, and the exporter's own
+        passing export evidence that the challenge was made from, matched by family,
+        seed, the digest of that evidence and the digest of the exported file. Pairwise
+        evidence whose other half is not in the folder decides nothing, and its entry
+        says so.
+        """
         out: list[RoundTrip] = []
         for family in dict.fromkeys(c.family for c in self.classes):
             exporters = [p for p in self.products if self.cell(p, f"{family}-export") == "pass"]
             importers = [p for p in self.products if self.cell(p, f"{family}-import") == "pass"]
-            out.extend(RoundTrip(family, a, b) for a in exporters for b in importers)
+            pairwise = self._pairwise(family)
+            pairs = dict.fromkeys((a, b) for a in exporters for b in importers)
+            pairs.update(dict.fromkeys(sorted(pairwise)))
+            for exporter, importer in pairs:
+                entry = pairwise.get((exporter, importer))
+                if entry is None or entry.source_export is None:
+                    out.append(RoundTrip(family, exporter, importer))
+                    continue
+                status = "read" if entry.verdict == "pass" else "not-read"
+                digest = entry.source_export.export_sha256
+                out.append(RoundTrip(family, exporter, importer, status, digest, entry.path))
         return tuple(out)
+
+    @property
+    def round_trip_note(self) -> str:
+        """What the round-trip cells of this matrix mean, in a sentence or two."""
+        tested = any(r.status != "not-tested-together" for r in self.round_trips())
+        return PAIRWISE_NOTE if tested else ROUND_TRIP_NOTE
 
     def to_dict(self) -> dict[str, Any]:
         """The matrix as a ``diggs-conformance-matrix`` document (preview).
@@ -189,7 +281,7 @@ class Matrix:
                 for name, version in self.products
             ],
             "round_trips": [r.to_dict() for r in self.round_trips()],
-            "round_trip_note": ROUND_TRIP_NOTE,
+            "round_trip_note": self.round_trip_note,
             "evidence": [e.to_dict() for e in self.entries],
         }
 
@@ -219,11 +311,11 @@ class Matrix:
         lines += [
             _safe(
                 f"  {r.family}: {r.exporter[0]} {r.exporter[1]} -> {r.importer[0]}"
-                f" {r.importer[1]}: {r.status}"
+                f" {r.importer[1]}: {r.status}{_cited(r)}"
             )
             for r in trips
         ] or ["  none: no family has a product that passed export and one that passed import"]
-        lines += ["", f"  {ROUND_TRIP_NOTE}"]
+        lines += ["", f"  {self.round_trip_note}"]
         if self.unverified:
             lines += ["", "Not verified, not counted:"]
             lines += [_safe(f"  {e.path}: {e.reason}") for e in self.unverified]
@@ -246,7 +338,20 @@ class Matrix:
             lines.append(
                 f"| {_markdown(f'{product[0]} {product[1]}')} | " + " | ".join(cells) + " |"
             )
-        lines += ["", _markdown(ROUND_TRIP_NOTE)]
+        tested = [r for r in self.round_trips() if r.status != "not-tested-together"]
+        if tested:
+            lines += [
+                "",
+                "| Family | Export by | Import by | Status | Export file (SHA-256) |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+            lines += [
+                f"| {r.family} | {_markdown(f'{r.exporter[0]} {r.exporter[1]}')}"
+                f" | {_markdown(f'{r.importer[0]} {r.importer[1]}')} | {r.status}"
+                f" | `{r.export_sha256}` |"
+                for r in tested
+            ]
+        lines += ["", _markdown(self.round_trip_note)]
         if self.unverified:
             lines += ["", "Not verified, not counted:", ""]
             lines += [f"- {_markdown(e.path)}: {_markdown(e.reason)}" for e in self.unverified]
@@ -275,12 +380,13 @@ class Matrix:
             f"<tr><td><code>{escape(r.family)}</code></td>"
             f"<td>{escape(f'{r.exporter[0]} {r.exporter[1]}')}</td>"
             f"<td>{escape(f'{r.importer[0]} {r.importer[1]}')}</td>"
-            f"<td>{escape(r.status)}</td></tr>"
+            f"<td>{escape(r.status)}</td>"
+            f"<td><code>{escape(r.export_sha256 or '')}</code></td></tr>"
             for r in self.round_trips()
         )
         trip_table = (
-            "<table><tr><th>Family</th><th>Export by</th><th>Import by</th><th>Status</th></tr>"
-            f"{trips}</table>"
+            "<table><tr><th>Family</th><th>Export by</th><th>Import by</th><th>Status</th>"
+            f"<th>Export file (SHA-256)</th></tr>{trips}</table>"
             if trips
             else "<p>No family has a product that passed export and one that passed import.</p>"
         )
@@ -304,12 +410,44 @@ class Matrix:
             " Only evidence that verified (grading its challenge and submission again gave it"
             " back) is counted.</p>"
             f"<h2>Classes passed</h2>{table}"
-            f"<h2>Round trips</h2><p>{escape(ROUND_TRIP_NOTE)}</p>{trip_table}"
+            f"<h2>Round trips</h2><p>{escape(self.round_trip_note)}</p>{trip_table}"
             f"{unverified}"
             '<p class="note">Not a certification by the DIGGS committee or the ASCE'
             " Geo-Institute. A product's name and version are as its vendor declared them.</p>"
             "</main></body></html>\n"
         )
+
+
+def _source_entry(entry: Entry, entries: tuple[Entry, ...]) -> Entry | None:
+    """The export evidence a pairwise ``entry`` was made from, when the folder holds it.
+
+    It must have verified and passed, be of the export class of the same family, for the
+    product the pairwise evidence names, of the same seed, and be the very document
+    (``evidence_sha256``) for the very file (``export_sha256``).
+    """
+    source = entry.source_export
+    if source is None or not entry.class_id.endswith("-import"):
+        return None
+    wanted = entry.class_id.removesuffix("-import") + "-export"
+    for other in entries:
+        if (
+            other.verified
+            and other.source_export is None
+            and other.verdict == "pass"
+            and other.class_id == wanted
+            and (other.product_name, other.product_version)
+            == (source.product_name, source.product_version)
+            and other.seed == entry.seed
+            and other.sha256 == source.evidence_sha256
+            and other.submission_sha256 == source.export_sha256
+        ):
+            return other
+    return None
+
+
+def _cited(trip: RoundTrip) -> str:
+    """What a tested round-trip cell cites, for the text report."""
+    return "" if trip.export_sha256 is None else f" (export sha256 {trip.export_sha256})"
 
 
 def _evidence_files(folder: Path) -> Iterator[Path]:
@@ -337,11 +475,10 @@ def _submission(folder: Path, name: object) -> Path | None:
 
     The name is untrusted: only a plain file name, never a path, and never a link.
     """
-    if not isinstance(name, str) or not name or name in (".", "..") or Path(name).name != name:
+    plain = plain_name(name)
+    if plain is None:
         return None
-    if "/" in name or "\\" in name or "\x00" in name:
-        return None
-    path = folder / name
+    path = folder / plain
     return path if path.is_file() and not path.is_symlink() else None
 
 
@@ -349,18 +486,20 @@ class _UnverifiedError(Exception):
     """Why an evidence document does not count."""
 
 
-def _document(path: Path) -> dict[str, Any]:
+def _document(path: Path) -> tuple[dict[str, Any], str]:
+    """The evidence document at ``path``, and the SHA-256 of the file as found."""
     try:
         if path.stat().st_size > _MAX_EVIDENCE_BYTES:
             raise _UnverifiedError("too large to be conformance evidence")
-        document = json.loads(path.read_bytes())
+        raw = path.read_bytes()
+        document = json.loads(raw)
     except OSError as exc:
         raise _UnverifiedError(f"cannot be read: {exc.strerror or exc}") from None
     except (ValueError, RecursionError):
         raise _UnverifiedError("not JSON") from None
     if not isinstance(document, dict) or document.get("format") != "diggs-conformance":
         raise _UnverifiedError("not a diggs-conformance document")
-    return document
+    return document, hashlib.sha256(raw).hexdigest()
 
 
 def _stated(document: dict[str, Any]) -> dict[str, str]:
@@ -388,14 +527,32 @@ def _entry(path: Path, base: Path, max_bytes: int, time_budget: float | None) ->
 
     shown = path.relative_to(base).as_posix()
     stated: dict[str, str] = {}
+    source: SourceExport | None = None
     try:
         if path.is_symlink():
             # Never followed: a link can point outside the folder being laid out.
             raise _UnverifiedError("a link, not read")
-        document = _document(path)
-        stated = _stated(document)
+        document, digest = _document(path)
+        stated = {**_stated(document), "sha256": digest}
+        if document.get("suite_version") != SUITE_VERSION:
+            # A matrix is of one suite version. The evidence may still be true of its
+            # own suite, and `verify` says so; it is not laid out beside this one's.
+            raise _UnverifiedError(
+                f"graded under suite {document.get('suite_version')!r}; this matrix counts"
+                f" suite {SUITE_VERSION} only"
+            )
         submission = document.get("submission")
         named = submission.get("name") if isinstance(submission, dict) else None
+        graded = submission.get("sha256") if isinstance(submission, dict) else None
+        stated["submission_sha256"] = graded if isinstance(graded, str) else ""
+        challenge = document.get("challenge")
+        seed = challenge.get("seed") if isinstance(challenge, dict) else None
+        stated["seed"] = seed if isinstance(seed, str) else ""
+        if "source_export" in document:
+            try:
+                source = SourceExport.from_dict(document["source_export"])
+            except ValueError as exc:
+                raise _UnverifiedError(f"a malformed diggs-conformance document: {exc}") from None
         found = _submission(path.parent, named)
         if found is None:
             raise _UnverifiedError(
@@ -411,8 +568,8 @@ def _entry(path: Path, base: Path, max_bytes: int, time_budget: float | None) ->
             parts = ", ".join(outcome.differences)
             raise _UnverifiedError(f"not reproduced: grading again differs in {parts}")
     except _UnverifiedError as exc:
-        return Entry(shown, False, str(exc), **stated)
-    return Entry(shown, True, "reproduced", **stated)
+        return Entry(shown, False, str(exc), **stated, source_export=source)
+    return Entry(shown, True, "reproduced", **stated, source_export=source)
 
 
 def matrix(
@@ -428,6 +585,13 @@ def matrix(
     first; evidence that does not verify (tampered, of another suite version, its file
     missing) is listed in :attr:`Matrix.unverified` and never counted. Links are not
     followed: an ``evidence.json`` that is a link is listed as not read.
+
+    Evidence of an import challenge made from another product's export
+    (``new(..., from_export=...)``) fills a round-trip cell in, when the exporter's own
+    passing export evidence is in the folder as well: see :meth:`Matrix.round_trips`.
+    Its challenge folder must still hold that export as ``challenge.xml``; verifying
+    checks its digest and grades it again as an export of the challenge's seed
+    (``max_bytes`` and ``time_budget`` apply to it too).
 
     Raises:
         ValueError: ``folder`` is not a folder, or holds too many files or evidence
@@ -449,4 +613,13 @@ def matrix(
     if not base.is_dir():
         raise ValueError(f"{base} is not a folder")
     entries = tuple(_entry(path, base, max_bytes, time_budget) for path in _evidence_files(base))
-    return Matrix(entries)
+    # Pairwise evidence without its other half is true of itself and claims nothing here.
+    noted = tuple(
+        replace(entry, reason=UNBOUND)
+        if entry.verified
+        and entry.source_export is not None
+        and _source_entry(entry, entries) is None
+        else entry
+        for entry in entries
+    )
+    return Matrix(noted)

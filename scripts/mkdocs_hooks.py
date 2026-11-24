@@ -58,9 +58,10 @@ DIFF = PACKAGE / "diff" / "diggs-diff-1.0.schema.json"
 CAPABILITIES = PACKAGE / "_capabilities" / "diggs-capabilities-1.0.schema.json"
 MAPPING = PACKAGE / "convert" / "convert-mapping-1.schema.json"
 #: A preview contract: published under schemas/preview/, as its ``$id`` says.
-CONFORMANCE = PACKAGE / "conformance" / "diggs-conformance-1.0-beta.2.schema.json"
-#: The earlier evidence schema: documents that name it must keep resolving.
+CONFORMANCE = PACKAGE / "conformance" / "diggs-conformance-1.0-beta.3.schema.json"
+#: The earlier evidence schemas: documents that name them must keep resolving.
 CONFORMANCE_EARLIER = PACKAGE / "conformance" / "diggs-conformance-1.0-beta.1.schema.json"
+CONFORMANCE_BETA_2 = PACKAGE / "conformance" / "diggs-conformance-1.0-beta.2.schema.json"
 #: Preview contracts: what `pydiggs conformance accept` and `matrix` write.
 CONFORMANCE_ACCEPTANCE = (
     PACKAGE / "conformance" / "diggs-conformance-acceptance-1.0-beta.1.schema.json"
@@ -79,6 +80,7 @@ DOCUMENTS: dict[Path, Path] = {
     MAPPING: Path("schemas") / MAPPING.name,
     CONFORMANCE: Path("schemas") / "preview" / CONFORMANCE.name,
     CONFORMANCE_EARLIER: Path("schemas") / "preview" / CONFORMANCE_EARLIER.name,
+    CONFORMANCE_BETA_2: Path("schemas") / "preview" / CONFORMANCE_BETA_2.name,
     CONFORMANCE_ACCEPTANCE: Path("schemas") / "preview" / CONFORMANCE_ACCEPTANCE.name,
     CONFORMANCE_MATRIX: Path("schemas") / "preview" / CONFORMANCE_MATRIX.name,
     VENDOR_MAPPING: Path("schemas") / "preview" / VENDOR_MAPPING.name,
