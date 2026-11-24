@@ -9,6 +9,9 @@ The [browser-worker example](https://github.com/xinp-hub/pydiggs/tree/master/exa
 is a complete page in four small files, with no build step and no dependency besides
 Pyodide. It runs pydiggs in a module Web Worker, so validation never blocks the page.
 
+The [conformance page](conformance/try/index.html) is built the same way: it runs
+`pydiggs conformance` in the visitor's tab ([Testing DIGGS support](conformance.md#in-your-browser)).
+
 <!-- tutorial: browser -->
 
 !!! warning "Every string field in a findings document is untrusted"

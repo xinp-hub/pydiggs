@@ -1,0 +1,94 @@
+/* The conformance page. Colours meet WCAG 2.2 AA contrast in both schemes. */
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #4f5660;
+  --line: #c9ced6;
+  --panel: #f5f7fa;
+  --accent: #3949ab;
+  --accent-fg: #ffffff;
+  --pass: #1b6e2a;
+  --fail: #b3261e;
+  --focus: #b45309;
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1d23;
+    --fg: #e6e8eb;
+    --muted: #b4bac4;
+    --line: #444a55;
+    --panel: #23262e;
+    --accent: #9fa8da;
+    --accent-fg: #11131a;
+    --pass: #7ddc8c;
+    --fail: #ff9b93;
+    --focus: #fbbf24;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); }
+a { color: var(--accent); }
+code, pre { font-family: ui-monospace, "Roboto Mono", Menlo, Consolas, monospace; font-size: 0.92em; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus { left: 1rem; top: 1rem; background: var(--bg); padding: 0.5rem; z-index: 1; }
+.top { background: var(--accent); padding: 0.6rem 1rem; }
+.top .brand { margin: 0; font-weight: 600; }
+.top a { color: var(--accent-fg); text-decoration: none; }
+.top a:hover, .top a:focus-visible { text-decoration: underline; }
+
+main { max-width: 52rem; margin: 0 auto; padding: 1rem; }
+h1 { font-size: 1.7rem; margin: 0.5rem 0 1rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.05rem; margin-bottom: 0.25rem; }
+
+.notice { border-left: 4px solid var(--accent); background: var(--panel); padding: 0.25rem 1rem; margin-bottom: 1rem; }
+.notice h2 { margin-top: 0.75rem; }
+.engine { font-weight: 600; padding: 0.5rem 0.75rem; border: 1px solid var(--line); border-radius: 4px; }
+.engine[data-state="failed"] { color: var(--fail); border-color: var(--fail); }
+
+[role="tablist"] { display: flex; flex-wrap: wrap; gap: 0.25rem; border-bottom: 2px solid var(--line); margin-top: 1rem; }
+[role="tab"] {
+  font: inherit; color: var(--fg); background: transparent; border: 0;
+  border-bottom: 3px solid transparent; padding: 0.6rem 0.9rem; cursor: pointer; min-height: 44px;
+}
+[role="tab"][aria-selected="true"] { border-bottom-color: var(--accent); font-weight: 600; }
+[role="tabpanel"] { padding: 0.5rem 0 1rem; }
+
+.field { margin: 0.9rem 0; }
+.field label { display: block; font-weight: 600; margin-bottom: 0.25rem; }
+.hint { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.92rem; }
+input[type="text"], select {
+  font: inherit; color: var(--fg); background: var(--bg); width: 100%; max-width: 28rem;
+  padding: 0.45rem 0.55rem; border: 1px solid var(--muted); border-radius: 4px; min-height: 44px;
+}
+input[type="file"] { font: inherit; color: var(--fg); max-width: 100%; }
+button {
+  font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--muted);
+  border-radius: 4px; padding: 0.5rem 1rem; cursor: pointer; min-height: 44px;
+}
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.result { border: 1px solid var(--line); border-radius: 4px; padding: 0 1rem 0.5rem; margin-top: 1rem; }
+.result h2:focus { outline: none; }
+.result h2:focus-visible { outline: 3px solid var(--focus); }
+#grade-result[data-verdict="pass"] h2, #verify-result[data-reproduced="true"] h2 { color: var(--pass); }
+#grade-result[data-verdict="fail"] h2, #verify-result[data-reproduced="false"] h2 { color: var(--fail); }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 1rem; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.stages { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.stages caption { text-align: left; font-weight: 600; }
+.stages th, .stages td { text-align: left; border-bottom: 1px solid var(--line); padding: 0.35rem 0.5rem; }
+.stages tr[data-status="fail"] td:nth-child(2) { color: var(--fail); font-weight: 600; }
+.stages tr[data-status="pass"] td:nth-child(2) { color: var(--pass); }
+#grade-items li { overflow-wrap: anywhere; }
+.statement { color: var(--muted); }
+pre { white-space: pre-wrap; background: var(--panel); padding: 0.75rem; border-radius: 4px; }
+.problem { color: var(--fail); font-weight: 600; border: 1px solid var(--fail); border-radius: 4px; padding: 0.5rem 0.75rem; }
+.versions { color: var(--muted); font-size: 0.9rem; margin-top: 2rem; }
