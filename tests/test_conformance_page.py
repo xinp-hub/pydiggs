@@ -244,6 +244,56 @@ def test_another_suite_versions_challenge_says_so(page: ModuleType) -> None:
     assert "0.1" in message
 
 
+@pytest.mark.parametrize(
+    "class_id", ["spt-export", "cpt-export", "lab-index-export", "deep-foundations-export"]
+)
+@pytest.mark.parametrize("given", ["manifest", "zip"])
+def test_a_challenge_of_the_earlier_suite_is_still_graded(
+    page: ModuleType, class_id: str, given: str
+) -> None:
+    # The page ran pyDIGGS 1.17 before: a challenge downloaded from it then is of suite
+    # 1.0-beta.2, and is graded and verified as that suite graded it.
+    from pydiggs.conformance import _challenge
+
+    assert "1.0-beta.2" in conformance.GRADED_SUITES
+    info = conformance.class_info(class_id)
+    earlier = _challenge._make(info, "MyLog", "4.2.1", "page", "1.0-beta.2")
+    assert earlier.token != conformance.new(class_id, product="P", version="1", seed="page").token
+    folder = _zip({f"{class_id}-page/{name}": data for name, data in earlier.files.items()})
+    challenge = earlier.files["challenge.json"] if given == "manifest" else folder
+    exported = base64.b64decode(_ok(page.reference(challenge))["data"])
+    assert exported == earlier.reference()
+    graded = _ok(page.grade(challenge, exported, "export.xml"))
+    assert graded["passed"] is True
+    assert graded["evidence"]["suite_version"] == "1.0-beta.2"
+    assert graded["evidence"]["challenge"]["token"] == earlier.token
+    outcome = _ok(page.verify(graded["evidence_json"].encode(), challenge, exported, "export.xml"))
+    assert outcome["reproduced"] is True
+    assert outcome["verdict"] == "pass"
+
+
+def test_a_pairwise_challenge_is_sent_to_the_command_line(page: ModuleType) -> None:
+    # Its challenge.xml is another product's export, which the page does not take; the
+    # refusal says where such a challenge is graded, whichever step it is given to.
+    source = conformance.new("spt-export", product="A", version="1", seed="page")
+    exported = source.reference()
+    evidence = conformance.grade(source, exported).to_json().encode()
+    pair = conformance.new(
+        "spt-import", product="B", version="2", from_export=evidence, export=exported
+    )
+    folder = _zip({f"pair/{name}": data for name, data in pair.files.items()})
+    answers = b"question_id,answer\r\n"
+    for given in (pair.files["challenge.json"], folder):
+        for message in (
+            _refused(page.grade(given, answers, "answers.csv")),
+            _refused(page.verify(b"{}", given, answers, "answers.csv")),
+            _refused(page.reference(given)),
+        ):
+            assert "pairwise challenge" in message
+            assert "command line" in message
+            assert "tmp" not in message.lower()
+
+
 def test_a_compressed_member_is_read_within_its_limit(page: ModuleType) -> None:
     # A member that claims a small size but inflates to more is cut at the limit.
     bomb = _zip({"c/challenge.json": _manifest() + b" " * (1024 * 1024)})
@@ -348,7 +398,7 @@ def test_the_worker_pins_one_released_wheel_by_digest() -> None:
     assert f"pyDIGGS {version}." in html
     assert f"Pyodide {FACTS['pyodide']}," in html
     if version == pydiggs.__version__:
-        assert sha256.group(1) == "cd17fbba99c789265a9fdb676d670c227f9bf8b0236414d2499c297804c33fc7"
+        assert sha256.group(1) == "9a352a1180e38b2f7843b35e9819cce7ad335915db2daa73292ae7c42028b243"
 
 
 def test_the_page_says_what_it_is_and_connects_nowhere() -> None:

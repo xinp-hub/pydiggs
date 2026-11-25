@@ -176,10 +176,25 @@ def _manifest(given: Any) -> bytes:
 
 
 def _load(challenge: bytes, scratch: Path) -> conformance.Challenge:
-    """The challenge the manifest describes, rebuilt from its seed by ``conformance.load``."""
+    """The challenge the manifest describes, rebuilt from its seed by ``conformance.load``.
+
+    A pairwise challenge (``new --from-export``) cannot be rebuilt from its manifest: it
+    needs the other product's export beside it. The page does not take one.
+    """
+    manifest = _manifest(challenge)
+    try:
+        described = json.loads(manifest)
+    except (ValueError, RecursionError):
+        described = None  # conformance.load says what is wrong with it
+    if isinstance(described, dict) and "source_export" in described:
+        raise _RefusedError(
+            "this is a pairwise challenge, made from another product's export; this page"
+            " does not grade or verify one: use pydiggs conformance grade (or verify) on"
+            " the command line, on the challenge folder"
+        )
     folder = scratch / "challenge"
     folder.mkdir()
-    (folder / _MANIFEST).write_bytes(_manifest(challenge))
+    (folder / _MANIFEST).write_bytes(manifest)
     return conformance.load(folder)
 
 

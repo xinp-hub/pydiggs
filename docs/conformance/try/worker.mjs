@@ -24,10 +24,10 @@ const PYODIDE_VERSION = "314.0.7";
 // sha384 of https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs.
 const PYODIDE_SRI = "sha384-Lp79fMwxa4n2BLtugpUAoQMlbxIdg8iCUiP1r3h7nJLkQjwlXT1JzZTeHVL+f4Dg";
 const PYODIDE_BASE = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-const PYDIGGS_VERSION = "1.17.0";
+const PYDIGGS_VERSION = "1.18.0";
 const PYDIGGS_WHEEL = {
-  url: "https://files.pythonhosted.org/packages/71/f3/7a5405f6f0bcb4027e0a24ebedef7456103dcc47fdc382509b1a1f9c1f11/pydiggs-1.17.0-py3-none-any.whl",
-  sha256: "cd17fbba99c789265a9fdb676d670c227f9bf8b0236414d2499c297804c33fc7",
+  url: "https://files.pythonhosted.org/packages/06/b0/4b2ca62cfe7735e52bc6f25ff9f354b5206880f99332b210cd078d3822b5/pydiggs-1.18.0-py3-none-any.whl",
+  sha256: "9a352a1180e38b2f7843b35e9819cce7ad335915db2daa73292ae7c42028b243",
 };
 const MAX_BYTES = 25 * 1024 * 1024; // conformance_page.MAX_BYTES
 

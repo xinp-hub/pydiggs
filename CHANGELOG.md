@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The in-browser conformance page runs pyDIGGS 1.18.0.**
+  [The page](https://xinp-hub.github.io/pydiggs/latest/conformance/try/) now makes, grades
+  and verifies challenges of suite 1.0-beta.3 and offers all 14 classes, with `mwd`,
+  `dissipation` and `in-situ-strength` (export and import) new to it. A pairwise challenge
+  (`new --from-export`) stays on the command line: the page does not make one, and it refuses
+  to grade or verify one with a message that names the command to use.
+
 ## [1.18.0] - 2026-11-24
 
 ### Added

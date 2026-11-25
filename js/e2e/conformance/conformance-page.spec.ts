@@ -8,7 +8,7 @@ import { type Download, expect, type Page, test } from "@playwright/test";
 // pyDIGGS is loaded, making, grading and verifying send no request at all, and no
 // request of the whole visit carries a body or anything from the files.
 
-const PYDIGGS_WHEEL = "pydiggs-1.17.0-py3-none-any.whl";
+const PYDIGGS_WHEEL = "pydiggs-1.18.0-py3-none-any.whl";
 const MARKUP = '<img src=x onerror="alert(document.domain)">';
 
 interface Seen {
@@ -46,7 +46,14 @@ test("make, grade and verify in the tab, with nothing sent anywhere", async ({ p
 
   await page.goto("/");
   await expect(page.locator("#engine")).toHaveAttribute("data-state", "ready");
-  await expect(page.locator("#engine")).toContainText("pyDIGGS 1.17.0 is ready");
+  await expect(page.locator("#engine")).toContainText("pyDIGGS 1.18.0 is ready");
+  await expect(page.locator("#engine")).toContainText("Suite 1.0-beta.3");
+  // The classes come from the pinned pyDIGGS: all 14 of this release.
+  await expect(page.locator("#make-class option")).toHaveCount(14);
+  for (const family of ["mwd", "dissipation", "in-situ-strength"]) {
+    await expect(page.locator(`#make-class option[value="${family}-export"]`)).toHaveCount(1);
+    await expect(page.locator(`#make-class option[value="${family}-import"]`)).toHaveCount(1);
+  }
   // The recorder sees the worker's own requests, so an upload from the worker would be
   // seen too.
   expect(seen.some((r) => r.url.endsWith(`/${PYDIGGS_WHEEL}`))).toBe(true);
@@ -128,6 +135,20 @@ test("make, grade and verify in the tab, with nothing sent anywhere", async ({ p
   await page.getByRole("button", { name: "Grade", exact: true }).click();
   await expect(page.locator("#grade-result-title")).toHaveText("spt-export: FAIL");
   await expect(page.locator("#grade-result img")).toHaveCount(0);
+
+  // A class new in this release: its challenge and pyDIGGS's own export of it grade too.
+  await page.getByRole("tab", { name: "1. Make a challenge" }).click();
+  await page.getByLabel("Class").selectOption("mwd-export");
+  await page.getByLabel("Seed (optional)").fill("e2e");
+  await page.getByRole("button", { name: "Make the challenge" }).click();
+  await expect(page.locator("#engine")).toContainText("Challenge mwd-export made, seed e2e");
+  const mwdZip = await saved(page, () => page.getByRole("button", { name: "Download the challenge (ZIP)" }).click(), testInfo.outputPath("mwd.zip"));
+  expect(mwdZip.name).toBe("mwd-export-e2e.zip");
+  await saved(page, () => page.getByRole("button", { name: /pyDIGGS's own export/ }).click(), testInfo.outputPath("mwd.xml"));
+  await page.getByRole("tab", { name: "2. Grade" }).click();
+  await page.getByLabel("Your DIGGS export, or the filled answers.csv").setInputFiles(testInfo.outputPath("mwd.xml"));
+  await page.getByRole("button", { name: "Grade", exact: true }).click();
+  await expect(page.locator("#grade-result-title")).toHaveText("mwd-export: PASS");
 
   // An import challenge, graded with no answers: it fails, and says why.
   await page.getByRole("tab", { name: "1. Make a challenge" }).click();
