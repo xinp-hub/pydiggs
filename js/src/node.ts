@@ -85,6 +85,15 @@ export interface PydiggsNodeOptions {
    */
   pydiggsWheelPath?: string;
   /**
+   * The sha256 of the wheel at `pydiggsWheelPath`, as 64 hex digits. The wheel is
+   * checked against it before it is unpacked; one that does not match is never
+   * installed, and loading fails. Default: no check of a wheel from disk (the default
+   * release from PyPI is always checked against its own pinned sha256). Without
+   * `pydiggsWheelPath` the default release must match it too, and a build of this
+   * package with no pinned wheel fails to load, since it has no wheel to check.
+   */
+  pydiggsWheelSha256?: string;
+  /**
    * Where `pyodide` is, when it cannot be found from this package (some monorepos): a
    * path or file URL of its `pyodide.mjs`. Default: the `pyodide` package.
    */
@@ -184,6 +193,7 @@ export class PydiggsNode extends SupervisedWorker {
     if (options.pyodideModule !== undefined) init.pyodideModuleUrl = fileUrl(options.pyodideModule);
     if (options.packageCacheDir !== undefined) init.packageCacheDir = options.packageCacheDir;
     if (options.pydiggsWheelPath !== undefined) init.pydiggsWheelPath = options.pydiggsWheelPath;
+    if (options.pydiggsWheelSha256 !== undefined) init.pydiggsWheelSha256 = options.pydiggsWheelSha256;
     if (options.startupSnapshotDir !== undefined) init.startupSnapshotDir = options.startupSnapshotDir;
     const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const workerUrl = options.workerUrl ?? new URL("./node-worker.js", import.meta.url);

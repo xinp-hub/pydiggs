@@ -1,13 +1,14 @@
 // Pyodide smoke for the npm package's worker (js/src/worker-core.ts): drive it with the
 // messages a page sends, against the pinned Pyodide and the locally built wheel, and
 // check that
-//   - "init" with a wheel URL installs that wheel, reports each load stage in order, and
-//     then the running versions;
+//   - "init" with a wheel URL and its sha256 installs that wheel, reports each load
+//     stage in order, and then the running versions;
 //   - every `validate` and `read` answer equals CPython's document (goldens from
 //     cases.py, same checkout), so the worker's Python glue adds and loses nothing;
 //   - `read` with select "none" keeps the tables and drops their values;
 //   - the service-layer requests equal CPython's service layer: SARIF, a subset of
-//     checks, one node's tables, versions, the rule list and one rule;
+//     checks, a finding cap with a time budget, one node's tables, versions, the rule
+//     list and one rule; a cap or budget pydiggs would not take is invalid-parameter;
 //   - HTML in an element value comes back verbatim, as data;
 //   - a malformed document is findings for `validate` and an invalid-document problem
 //     for `read`; a bad parameter is pydiggs's invalid-parameter problem;
@@ -32,6 +33,7 @@
 // fetches lxml and micropip from its CDN, so this needs network access.
 
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -94,7 +96,15 @@ const fixture = (name) => arrayBuffer(readFileSync(join(here, "fixtures", name))
 
 // 1. Configure, load, report.
 const interrupt = new Uint8Array(new SharedArrayBuffer(1));
-handle({ type: "init", maxBytes: MAX_BYTES, pydiggsWheelUrl: `emfs:/smoke/${wheelName}`, interruptBuffer: interrupt.buffer });
+// The wheel's own sha256, as a page that pins its wheel passes it: checked before unpacking.
+const wheelSha256 = createHash("sha256").update(readFileSync(args.wheel)).digest("hex");
+handle({
+  type: "init",
+  maxBytes: MAX_BYTES,
+  pydiggsWheelUrl: `emfs:/smoke/${wheelName}`,
+  pydiggsWheelSha256: wheelSha256,
+  interruptBuffer: interrupt.buffer,
+});
 const ready = await reply(0);
 assert.equal(ready.type, "ready", `the worker did not load: ${ready.message}`);
 assert.deepEqual(ready.versions, { pyodide: facts.pyodide, pydiggs: wheelMatch[1], lxml: facts.lxml });
@@ -118,6 +128,7 @@ const service = [];
 for (const name of FIXTURES) {
   service.push([`sarif:${name}`, send({ type: "validate", name, data: fixture(name), parameters: { format: "sarif" } })]);
   service.push([`checks:${name}`, send({ type: "validate", name, data: fixture(name), parameters: { checks: ["structure", "schema"] } })]);
+  service.push([`limits:${name}`, send({ type: "validate", name, data: fixture(name), parameters: { max_findings: 1, time_budget: 3600 } })]);
   service.push([`select:${name}`, send({ type: "read", name, data: fixture(name), parameters: { select: { results: ["ATTERBERG_B-01_4.0"] } } })]);
 }
 service.push(["versions", send({ type: "versions" })]);
@@ -158,6 +169,16 @@ const notZip = send({ type: "tables", data: arrayBuffer(Buffer.from("not a zip")
 const capabilitiesId = send({ type: "capabilities" });
 const notAgs4 = send({ type: "convert", name: "x.ags", data: fixture(FIXTURES[0]), parameters: { to: "diggs" } });
 const badChecks = send({ type: "validate", name: "a.xml", data: fixture(FIXTURES[0]), parameters: { checks: ["nope"] } });
+// Limits pyDIGGS's Request would raise on: the glue answers them as invalid-parameter.
+const BAD_LIMITS = [
+  [{ max_findings: 0 }, ["max_findings"]],
+  [{ max_findings: 1.5 }, ["max_findings"]],
+  [{ max_findings: true }, ["max_findings"]],
+  [{ time_budget: 0 }, ["time_budget"]],
+  [{ time_budget: 86401 }, ["time_budget"]],
+  [{ max_findings: "1", time_budget: "1" }, ["max_findings", "time_budget"]],
+];
+const badLimits = BAD_LIMITS.map(([parameters]) => send({ type: "validate", name: "a.xml", data: fixture(FIXTURES[0]), parameters }));
 const malformed = arrayBuffer(Buffer.from("<Diggs><unclosed></Diggs>"));
 const badValidate = send({ type: "validate", name: "bad.xml", data: malformed.slice(0) });
 const badRead = send({ type: "read", name: "bad.xml", data: malformed.slice(0) });
@@ -259,6 +280,16 @@ assert.equal(checksProblem.type, "error");
 assert.equal(checksProblem.problem.code, "invalid-parameter");
 assert.equal(checksProblem.problem.errors[0].parameter, "checks");
 console.log("ok  an unknown check is pydiggs's invalid-parameter problem");
+for (const [index, [parameters, named]] of BAD_LIMITS.entries()) {
+  const refused = answers.get(badLimits[index]);
+  assert.deepEqual([refused.type, refused.problem?.code], ["error", "invalid-parameter"], JSON.stringify(parameters));
+  assert.deepEqual(refused.problem.errors.map((error) => error.parameter), named, JSON.stringify(parameters));
+}
+console.log(`ok  ${BAD_LIMITS.length} bad finding caps and time budgets are invalid-parameter problems`);
+// The cap of one was reached: the list stops and says so.
+const capped = answers.get(service.find(([golden]) => golden === `limits:${FIXTURES[0]}`)[1]).document.files[0].findings;
+assert.ok(capped.some((finding) => finding.rule_id === "structure.findings-truncated"), "max_findings 1 must cut the list");
+console.log(`ok  max_findings 1 cuts ${FIXTURES[0]} to ${capped.length} finding(s), one of them structure.findings-truncated`);
 
 // 4. Markup in an element value is data: it reaches a message unchanged.
 const markupId = requests.find((r) => r.type === "validate" && r.name === "markup_in_value.xml").id;

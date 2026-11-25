@@ -143,6 +143,19 @@ export interface HybridRequestOptions {
 export interface HybridValidateOptions extends HybridRequestOptions {
   /** Steps to run. Default: all. */
   checks?: readonly ValidateCheck[];
+  /**
+   * Most findings reported when the document runs in the browser: a positive whole
+   * number. Default: pyDIGGS's, 10 000. A server keeps its own limit (pyDIGGS's
+   * `PYDIGGS_MAX_FINDINGS`), which no request can change; set this to the server's and
+   * both routes report the same.
+   */
+  maxFindings?: number;
+  /**
+   * Seconds pyDIGGS may spend when the document runs in the browser: more than 0, at
+   * most 86 400; running out still gives findings, with a `structure.timeout` finding.
+   * Default: no budget. A server keeps its own time limit.
+   */
+  timeBudgetSeconds?: number;
 }
 
 export interface HybridReadOptions extends HybridRequestOptions {
@@ -165,6 +178,14 @@ function sizeOf(input: BrowserDocumentInput): number {
 function nameOf(input: BrowserDocumentInput, options: HybridRequestOptions): string {
   if (options.name !== undefined) return options.name;
   return "name" in input && typeof input.name === "string" && input.name !== "" ? input.name : "input.xml";
+}
+
+// The limits only the engine in the tab takes; pyDIGGS's server has its own settings.
+function browserLimits(options: HybridValidateOptions): Pick<HybridValidateOptions, "maxFindings" | "timeBudgetSeconds"> {
+  return {
+    ...(options.maxFindings !== undefined ? { maxFindings: options.maxFindings } : {}),
+    ...(options.timeBudgetSeconds !== undefined ? { timeBudgetSeconds: options.timeBudgetSeconds } : {}),
+  };
 }
 
 // Waits for `promise`, unless `signal` aborts first.
@@ -212,7 +233,7 @@ export class PydiggsHybrid {
     return this.#run(
       input,
       options.signal,
-      () => this.#browser!.validate(input, request),
+      () => this.#browser!.validate(input, { ...request, ...browserLimits(options) }),
       () => this.#server!.validate(input, request),
     );
   }
@@ -224,7 +245,7 @@ export class PydiggsHybrid {
     return this.#run(
       input,
       options.signal,
-      () => browser!.validateSarif!(input, request),
+      () => browser!.validateSarif!(input, { ...request, ...browserLimits(options) }),
       () => this.#server!.validateSarif(input, request),
       browser?.validateSarif === undefined,
     );

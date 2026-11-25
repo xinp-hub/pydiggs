@@ -111,6 +111,7 @@ pyDIGGS's own service layer:
 
 ```ts
 await pydiggs.validate(file, { checks: ["structure", "schema"], diggsVersion: "2.6" });
+await pydiggs.validate(file, { maxFindings: 1000, timeBudgetSeconds: 20 }); // limits, below
 await pydiggs.validateSarif(file);                       // a SARIF 2.1.0 log
 await pydiggs.read(file, { results: "none" });           // tables without their values
 await pydiggs.read(file, { results: ["ATTERBERG_B-01_4.0"] }); // one test's values, fast
@@ -119,6 +120,24 @@ await pydiggs.explainRule("dictionary.5");
 await pydiggs.versions();
 await pydiggs.capabilities();                           // what this pyDIGGS can do
 ```
+
+`validate` and `validateSarif` take two limits of their own, on `PydiggsBrowser`,
+`PydiggsNode` and a `PydiggsPool` alike:
+
+- `maxFindings`: the most findings reported, a positive whole number. When it is
+  reached the list stops, with one `structure.findings-truncated` finding to say so.
+  Default: pyDIGGS's own, 10 000.
+- `timeBudgetSeconds`: the seconds pyDIGGS may spend, more than 0 and at most 86 400.
+  pyDIGGS checks the clock between steps, so a step that has started finishes first.
+  Running out is not an error: the findings document comes back with a
+  `structure.timeout` error and the verdict `not-valid`. Default: no budget.
+
+A value outside those ranges is refused as `invalid-parameter`, before the document is
+sent to the worker. The engine's `timeoutMs` is a different thing: it stops a request
+that runs too long, and that request fails with `code: "timeout"`. pyDIGGS's own HTTP
+server takes neither limit from a request (they are its settings, `PYDIGGS_MAX_FINDINGS`
+and `PYDIGGS_TIMEOUT_S`), so `PydiggsHttpClient` has no such options; set these to your
+server's values and a file reads the same in the tab as on the server.
 
 ### AGS4: convert both ways and check, in the tab
 
@@ -331,6 +350,9 @@ note.textContent = via === "browser" ? "Checked on this device" : `Checked on th
 - **An error about the document is not retried** on the server: a file that is not
   DIGGS fails the same way in both places. Both routes run the same pyDIGGS, and CI
   checks that the browser's output is byte-identical to CPython's.
+- **`maxFindings` and `timeBudgetSeconds`** on `validate` and `validateSarif` apply when
+  the document runs in the tab. A server keeps its own limits, which no request can
+  change; give the tab the server's values and both routes report the same.
 - **`route(size)`** tells you where a document of that size would go, without sending
   it, so the page can say so before the user commits.
 
@@ -464,6 +486,55 @@ const pydiggs = new PydiggsBrowser({
 and the worker's CSP needs no third-party origin (`connect-src 'self'`). CI runs this
 set-up in Chromium, Firefox and WebKit with exactly that policy.
 
+**Pin the wheel you host.** A wheel named with `pydiggsWheelUrl` is not checked unless
+you say what it must be. Pass its sha256 (64 hex digits: `pydiggs-vendor.json` lists it,
+and so do PyPI and a lock file) and the worker checks the download before it unpacks
+it:
+
+```ts
+const pydiggs = new PydiggsBrowser({
+  pyodideBaseUrl: "/pydiggs/",
+  pydiggsWheelUrl: "/pydiggs/pydiggs-1.18.0-py3-none-any.whl",
+  pydiggsWheelSha256: "<the wheel's sha256>",
+});
+```
+
+A wheel that does not match is never installed: loading fails, `ready` and every
+request reject with a `PydiggsBrowserError` that says so. So does a value that is not 64
+hex digits, before anything is downloaded.
+
+The check is on whichever wheel gets installed. Given without `pydiggsWheelUrl`, the
+default release from PyPI must match your sha256 as well as this package's own pin, so
+it loads only if you named that release's sha256. And when there is no wheel whose
+bytes the worker can check, loading fails instead of installing unchecked: that is a
+build of this package with no pinned wheel (`PYDIGGS_WHEEL` is `null` in the source
+between a pyDIGGS release and the client release that pins it), which installs
+pyDIGGS by version through micropip.
+
+**A Pyodide release other than the pinned one.** The worker checks Pyodide's loader
+(`pyodide.mjs`) against `PYODIDE_SRI`, the hash of release `PYODIDE_VERSION`, so a copy
+of any other release does not start. If you host another release yourself, name its
+loader's hash with `pyodideSri`, next to `pyodideBaseUrl`:
+
+```bash
+openssl dgst -sha384 -binary public/pyodide/pyodide.mjs | openssl base64 -A   # then prefix "sha384-"
+```
+
+```ts
+const pydiggs = new PydiggsBrowser({
+  pyodideBaseUrl: "/pyodide/",
+  pyodideSri: "sha384-<that hash>",
+});
+```
+
+The loader is still checked, against your hash; a value that is not a well-formed
+sha256, sha384 or sha512 integrity value, or one given without `pyodideBaseUrl`, is
+refused and nothing loads. **Only the pinned release is tested.** This package's CI
+proves that pyDIGGS gives CPython's answers on Pyodide `PYODIDE_VERSION` and its lxml,
+and on no other; with `pyodideSri` you take that on yourself (`ready` resolves with the
+versions that are running). `npx pydiggs-client vendor` assembles the pinned release
+only, and `PydiggsNode` still refuses any other.
+
 ### Offline
 
 `@pydiggs/client/sw` keeps Pyodide, lxml and the pydiggs wheel in the Cache
@@ -539,7 +610,9 @@ const findings = await pydiggs.validate(await readFile("BH-01.xml"), { name: "BH
   refuses any other, because CI proves pyDIGGS's answers for that release only.
 - **First start downloads** lxml from Pyodide's CDN, and pyDIGGS from PyPI (checked
   against its pinned sha256). With `packageCacheDir` and `pydiggsWheelPath` (a wheel on
-  disk), later starts need no network.
+  disk), later starts need no network. Add `pydiggsWheelSha256` (64 hex digits) and the
+  wheel from disk is checked before it is unpacked; one that does not match is never
+  installed.
 - **Faster starts (experimental).** `startupSnapshotDir: "/var/cache/pydiggs"` saves a
   snapshot of the freshly started Pyodide runtime on the first start and restores it on
   every later one, including the restart after a timeout: ready in about 1.2 s instead of
@@ -691,7 +764,7 @@ in the model encoder). That is the next thing to speed up in pyDIGGS itself.
 | This package | Works with |
 |---|---|
 | types, `/http` | any pyDIGGS server that speaks HTTP API `/v1` with diggs-findings 1.x; `read` needs pyDIGGS 1.7.0 or later, `diff` 1.13.0 or later, the tables methods 1.17.0 or later |
-| `/browser` | the pinned `PYODIDE_VERSION` and `PYDIGGS_VERSION`, both exported |
+| `/browser` | the pinned `PYODIDE_VERSION` and `PYDIGGS_VERSION`, both exported; another Pyodide release you host loads with `pyodideSri`, untested by this package |
 
 ## Development
 

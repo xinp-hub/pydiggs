@@ -10,8 +10,11 @@ import {
   createWorkerCore,
   type PyCallable,
   type PyodideLike,
+  pyodideIntegrity,
+  wheelSha256,
   wheelSource,
 } from "../src/worker-core.ts";
+import { PYODIDE_SRI } from "../src/generated/pins.ts";
 
 // The wheel every fake download serves, and a pin that matches it, passed to the worker
 // as its pinned wheel. The real pin is null between a pyDIGGS release PR and the
@@ -205,6 +208,95 @@ test("a pinned wheel that fails its sha256 is never installed", async () => {
   assert.equal(worker.replies[0]?.type, "failed");
   assert.match((worker.replies[0] as { message: string }).message, /does not match its pinned sha256/);
   assert.equal(log.some((line) => line.startsWith("unpackArchive")), false);
+});
+
+const OWN_WHEEL = "https://static.test/w/pydiggs-1.8.0-py3-none-any.whl";
+const failure = (worker: { replies: ReplyMessage[] }): string => {
+  const [reply] = worker.replies;
+  assert.equal(reply?.type, "failed");
+  return (reply as { message: string }).message;
+};
+const unpacked = (log: string[]): boolean => log.some((line) => line.startsWith("unpackArchive"));
+
+test("a wheel URL with its sha256 is checked before it is unpacked, in either letter case", async () => {
+  for (const sha256 of [PIN.sha256, PIN.sha256.toUpperCase()]) {
+    const worker = start();
+    worker.handle({ type: "init", maxBytes: 1, pydiggsWheelUrl: OWN_WHEEL, pydiggsWheelSha256: sha256 });
+    await settle();
+    assert.equal(worker.replies[0]?.type, "ready");
+    assert.ok(unpacked(worker.log));
+  }
+});
+
+test("a wheel that does not match pydiggsWheelSha256 is never installed", async () => {
+  const other = "0".repeat(64);
+  // Downloaded from the caller's URL, read from Pyodide's file system (Node's
+  // pydiggsWheelPath), and the pinned release, which must then match both digests.
+  for (const init of [{ pydiggsWheelUrl: OWN_WHEEL }, { pydiggsWheelUrl: "emfs:/w/pydiggs-1.8.0-py3-none-any.whl" }, {}]) {
+    const worker = start();
+    worker.handle({ type: "init", maxBytes: 1, ...init, pydiggsWheelSha256: other });
+    await settle();
+    assert.match(failure(worker), /does not match pydiggsWheelSha256; refusing to install it/);
+    assert.equal(unpacked(worker.log), false);
+    assert.equal(worker.log.includes("runPython"), false, "pydiggs is never imported");
+  }
+});
+
+test("a malformed pydiggsWheelSha256 is refused before anything is downloaded", async () => {
+  for (const sha256 of ["", "abc", PIN.sha256.slice(1), `${PIN.sha256}0`, `sha256-${PIN.sha256}`, "z".repeat(64), 5]) {
+    fetched.length = 0;
+    let loaded = false;
+    const worker = start(async () => {
+      loaded = true;
+      return fakePyodide([]);
+    });
+    worker.handle({ type: "init", maxBytes: 1, pydiggsWheelUrl: OWN_WHEEL, pydiggsWheelSha256: sha256 as string });
+    await settle();
+    assert.match(failure(worker), /pydiggsWheelSha256 must be a sha256 as 64 hex digits/);
+    assert.deepEqual([fetched, loaded], [[], false]);
+  }
+  assert.equal(wheelSha256({ type: "init", maxBytes: 1 }), undefined);
+});
+
+test("pydiggsWheelSha256 with no wheel bytes to check (a release installed by version) fails closed", async () => {
+  const log: string[] = [];
+  const replies: ReplyMessage[] = [];
+  const handle = createWorkerCore({
+    post: (message) => void (message.type === "progress" || replies.push(message)),
+    loadPyodide: async () => fakePyodide(log),
+    fetch: fakeFetch,
+    pin: null,
+  });
+  handle({ type: "init", maxBytes: 1, pydiggsWheelSha256: PIN.sha256 });
+  await settle();
+  assert.match(failure({ replies }), /pydiggsWheelSha256 needs a wheel to check/);
+  assert.deepEqual(log, [], "micropip is never asked to install");
+});
+
+test("the Pyodide loader's integrity is the pin, or the caller's for a Pyodide they host", () => {
+  const init = { type: "init", maxBytes: 1 } as const;
+  const hosted = { ...init, pyodideBaseUrl: "https://static.test/pyodide/" };
+  const sha384 = `sha384-${"A".repeat(64)}`;
+  const sha256 = `sha256-${"b".repeat(43)}=`;
+  const sha512 = `sha512-${"c".repeat(86)}==`;
+  assert.equal(pyodideIntegrity(init), PYODIDE_SRI);
+  assert.equal(pyodideIntegrity(hosted), PYODIDE_SRI, "self-hosting alone keeps the pin");
+  assert.equal(pyodideIntegrity({ ...hosted, pyodideSri: sha384 }), sha384);
+  assert.equal(pyodideIntegrity({ ...hosted, pyodideSri: ` ${sha256}  ${sha512}\n` }), `${sha256} ${sha512}`);
+  assert.equal(pyodideIntegrity({ ...hosted, pyodideSri: PYODIDE_SRI }), PYODIDE_SRI, "the pin itself is well-formed");
+  assert.throws(() => pyodideIntegrity({ ...init, pyodideSri: sha384 }), /pass pyodideBaseUrl with it/);
+  // A browser ignores what it cannot parse, and then checks nothing: each is refused.
+  for (const bad of ["", " ", "md5-abc", "sha384-short", `sha1-${"A".repeat(27)}=`, `${sha384} junk`, `sha384-${"A".repeat(63)}!`, `${sha384}?opt`, 7]) {
+    assert.throws(() => pyodideIntegrity({ ...hosted, pyodideSri: bad as string }), /must be a Subresource Integrity value/, String(bad));
+  }
+});
+
+test("validate's limits reach the glue with the other parameters", async () => {
+  const { log, handle } = start();
+  handle({ type: "init", maxBytes: 1000 });
+  handle({ id: 1, type: "validate", name: "a.xml", data: bytes(3), parameters: { checks: ["schema"], max_findings: 1000, time_budget: 20 } });
+  await settle();
+  assert.equal(log.at(-1), 'validate a.xml 3 1000 {"checks":["schema"],"max_findings":1000,"time_budget":20}');
 });
 
 test("an interrupt buffer is handed to Pyodide, and cleared before each request", async () => {

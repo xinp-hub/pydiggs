@@ -68,6 +68,17 @@ test("documents spread over the engines, least busy first", async () => {
   assert.equal(pool.pending, 0);
 });
 
+test("a pool hands validate's options to its engine untouched", async () => {
+  const seen: unknown[] = [];
+  const engine = fakeEngine(0, []);
+  engine.validate = engine.validateSarif = async (_input: unknown, opts?: object) => void seen.push(opts) as never;
+  const pool = new PydiggsPool(() => engine, { size: 1 });
+  const options = { name: "a.xml", maxFindings: 1000, timeBudgetSeconds: 20 };
+  await pool.validate(new Uint8Array(1), options);
+  await pool.validateSarif(new Uint8Array(1), options);
+  assert.deepEqual(seen, [options, options]);
+});
+
 test("an engine out of service is skipped; a restarting one is used only when needed", async () => {
   const log: string[] = [];
   const engines = [
