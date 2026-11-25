@@ -100,18 +100,23 @@ RUN set -eu; \
         fi; \
     done
 
-# Debian security fixes newer than the pinned base: CVE-2026-76844 and CVE-2026-85091 in
-# zlib1g, fixed in 1:1.3.dfsg+really1.3.1-1+deb13u1. Only the listed packages are
-# upgraded, and the build fails unless each reaches its fixed version. Drop an entry once
-# a base digest that already carries it lands (Dependabot, docker ecosystem).
+# Debian security fixes newer than the pinned base. Only the listed packages are upgraded,
+# and the build fails unless each reaches its fixed version. Drop an entry once a base
+# digest that already carries it lands (Dependabot, docker ecosystem).
+#   zlib1g    CVE-2026-76844, CVE-2026-85091   1:1.3.dfsg+really1.3.1-1+deb13u1
+#   libzstd1  CVE-2026-124851                  1.5.7+dfsg-1+deb13u1
 RUN set -eu; \
     apt-get update; \
-    apt-get install -y --no-install-recommends --only-upgrade zlib1g; \
+    apt-get install -y --no-install-recommends --only-upgrade zlib1g libzstd1; \
     rm -rf /var/lib/apt/lists/*; \
-    installed="$(dpkg-query -W -f '${Version}' zlib1g)"; \
-    if ! dpkg --compare-versions "$installed" ge "1:1.3.dfsg+really1.3.1-1+deb13u1"; then \
-        echo "zlib1g $installed is older than the fixed release" >&2; exit 1; \
-    fi
+    check() { \
+        installed="$(dpkg-query -W -f '${Version}' "$1")"; \
+        if ! dpkg --compare-versions "$installed" ge "$2"; then \
+            echo "$1 $installed is older than the fixed release $2" >&2; exit 1; \
+        fi; \
+    }; \
+    check zlib1g "1:1.3.dfsg+really1.3.1-1+deb13u1"; \
+    check libzstd1 "1.5.7+dfsg-1+deb13u1"
 
 COPY --from=builder /opt/venv /opt/venv
 
