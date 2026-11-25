@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-11-24
+
 ### Added
 
 - **Conformance classes for measurement while drilling (preview).** `pydiggs conformance`
@@ -31,31 +33,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   challenges are DIGGS tables profile packages, like SPT, CPT and the laboratory classes.
   Values are graded as reported: a t50 the source leaves empty, a reading the logger lost
   and a remoulded test that was not made must stay empty in the file (a `nullValue`
-  counts as empty). DIGGS 3.0.0 has no
-  property for a remoulded vane strength, so the suite looks for it as
-  `shear_strength_undrained_residual`. Pressuremeter, penetrometer and in-situ CBR tests
-  are in the catalogue but not yet graded. See
+  counts as empty). DIGGS 3.0.0 has no property for a remoulded vane strength, so the
+  suite looks for it as `shear_strength_undrained_residual`. Pressuremeter, penetrometer
+  and in-situ CBR tests are in the catalogue but not yet graded. See
   [the conformance suite](https://xinp-hub.github.io/pydiggs/latest/conformance/).
 - **Check a delivered DIGGS file (preview).** `pydiggs conformance accept FILE --class spt`
   (and `pydiggs.conformance.accept`) is the owner's check of one file received from a
   consultant or a laboratory: the file is valid DIGGS 3, and it holds what DIGGS defines
-  for the kind of data it is delivered as (any family with a class: `spt`, `cpt`, `lab-index`,
-  `deep-foundations`, `mwd`, `dissipation`, `in-situ-strength`). Each requirement is published with an id (`accept.present`,
-  `accept.located`, `accept.result`, `accept.position` …) and the part of DIGGS 3.0.0 or
-  of its dictionaries it comes from; `conformance.requirements(family)` lists them. The
+  for the kind of data it is delivered as (any family with a class: `spt`, `cpt`,
+  `lab-index`, `deep-foundations`, `mwd`, `dissipation`, `in-situ-strength`). Each
+  requirement is published with an id (`accept.present`, `accept.located`,
+  `accept.result`, `accept.position` …) and the part of DIGGS 3.0.0 or of its
+  dictionaries it comes from; `conformance.requirements(family)` lists them. The
   one-page HTML report (`--report`, `--format html`) names the file by its SHA-256 and says
   what the check does not show: it compares no value with the field or laboratory records
   and makes no engineering judgement. `--format json` gives the result as a
   `diggs-conformance-acceptance` 1.0-beta.1 document, with its JSON Schema published at
-  `schemas/preview/diggs-conformance-acceptance-1.0-beta.1.schema.json`. Exit status 0 when every requirement is met, 1
-  when one is not, 2 when the file cannot be read.
+  `schemas/preview/diggs-conformance-acceptance-1.0-beta.1.schema.json`. Exit status 0
+  when every requirement is met, 1 when one is not, 2 when the file cannot be read.
 - **Round-trip matrix (preview).** `pydiggs conformance matrix DIR` (and
   `pydiggs.conformance.matrix`) lays out the evidence of several products class by class,
   and lists each pair of a product that passed a family's export and one that passed its
   import. Every `evidence.json` is graded again first; evidence that does not verify
   (edited, of another suite version, or without the file it graded beside it) is listed
-  with the reason and never counted. Text, Markdown, HTML and JSON (a `diggs-conformance-matrix` 1.0-beta.1
-  document, schema at `schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json`). A pair says
+  with the reason and never counted. The output is text, Markdown, HTML or JSON (a
+  `diggs-conformance-matrix` 1.0-beta.1 document, schema at
+  `schemas/preview/diggs-conformance-matrix-1.0-beta.1.schema.json`). A pair says
   `not-tested-together` unless the folder holds the two documents of a pairwise test
   (next two entries).
 - **Test two products together: pairwise import challenges (preview).**
@@ -70,7 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   challenge is refused (exit status 2, nothing written) when the evidence does not
   verify, is for another family or an import class, did not pass, was graded under
   another suite version, when the file is not the one the evidence graded (by SHA-256),
-  or when either file is a link, unreadable or too large. The challenge and the evidence
+  or when either file is a link, unreadable or too large (100 MiB unless `--max-bytes`,
+  in Python `max_bytes`, says otherwise; `--time-budget` and `time_budget` limit the
+  seconds spent reading and validating the export). The challenge and the evidence
   graded from it record the source as `source_export`: the exporting product's name and
   version, the SHA-256 of the exported file and of the exporter's evidence, and the suite
   version. Digests, never paths. Afterwards, every `grade`, `verify` and `matrix` reads
@@ -111,16 +116,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   download; a third tab grades a file again and confirms its evidence. pyDIGGS runs on
   Pyodide in a Web Worker, so the page stays responsive, and the files you choose are
   never uploaded: once pyDIGGS has loaded, the page makes no request at all. It loads
-  Pyodide from jsDelivr and the pyDIGGS 1.17.0 wheel from PyPI, each pinned and checked
+  Pyodide from jsDelivr and a released pyDIGGS wheel from PyPI, each pinned and checked
   against its hash. A challenge made on the page is the folder `pydiggs conformance new`
   writes, and its evidence is the document `grade` writes, so the command line verifies
   a result from the page and the page verifies one from the command line. Results are
-  self-tested, as everywhere. See
+  self-tested, as everywhere. The page names the release it runs, and that is still
+  pyDIGGS 1.17.0: it offers the eight classes of that release (`spt`, `cpt`, `lab-index`
+  and `deep-foundations`, export and import) and makes challenges of suite 1.0-beta.2.
+  The six classes added above, suite 1.0-beta.3 and pairwise challenges are on the
+  command line only until the page moves to this release. See
   [In your browser](https://xinp-hub.github.io/pydiggs/latest/conformance/#in-your-browser).
 - **Agreement with the DIGGS validator.** A new docs page,
-  [Agreement with the DIGGS validator](https://xinp-hub.github.io/pydiggs/latest/conformance-agreement/), compares pyDIGGS's
-  verdict on every file of the public conformance corpus with the DIGGS project's own
-  XSLT validator ([DIGGSml/validation](https://github.com/DIGGSml/validation), pinned by
+  [Agreement with the DIGGS validator](https://xinp-hub.github.io/pydiggs/latest/conformance-agreement/),
+  compares pyDIGGS's verdict on every file of the public conformance corpus with the
+  DIGGS project's own XSLT validator ([DIGGSml/validation](https://github.com/DIGGSml/validation), pinned by
   commit and run with SaxonC-HE 12.7). It lists every file where the two differ and why:
   today 36 of 44 files, all of them files that pyDIGGS passes and the validator fails, for
   six documented reasons (code values without a DIGGS code list, CRS forms the validator
@@ -128,36 +137,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   validator runs offline, from pinned copies of the DIGGS schemas and dictionaries, and
   calls no outside service. A difference that nobody has explained fails the checks.
 - **Signing conformance evidence.** A new page,
-  [Signing conformance evidence](https://xinp-hub.github.io/pydiggs/latest/conformance-signing/), gives a GitHub Actions
-  workflow that runs `pydiggs conformance new` and `grade` in your own CI and signs
-  `evidence.json`, the challenge and your export with GitHub artifact attestations
-  (Sigstore). It also shows how anyone checks the result with `gh attestation verify` and
-  `pydiggs conformance verify`, what a signature proves and what it does not, and the same
-  steps with `cosign` for other CI systems. pyDIGGS itself still writes the evidence
-  unsigned and gains no signing dependency.
+  [Signing conformance evidence](https://xinp-hub.github.io/pydiggs/latest/conformance-signing/),
+  gives a GitHub Actions workflow that runs `pydiggs conformance new` and `grade` in
+  your own CI and signs `evidence.json`, the challenge and your export with GitHub
+  artifact attestations (Sigstore). It also shows how anyone checks the result with
+  `gh attestation verify` and `pydiggs conformance verify`, what a signature proves and
+  what it does not, and the same steps with `cosign` for other CI systems. pyDIGGS itself
+  still writes the evidence unsigned and gains no signing dependency.
 
 ### Changed
 
-- **Conformance suite 1.0-beta.3: a declared `nullValue` is an empty cell in every
-  class.** DIGGS lets a property declare the text that marks a missing value in its data
-  (`<nullValue>-999</nullValue>`). The `mwd`, `dissipation` and `in-situ-strength` classes
-  already read a cell with that mark as empty. The `spt`, `cpt`, `lab-index` and
-  `deep-foundations` classes now do too. What grades differently, in those four classes
-  only: an export that writes the declared mark where the source has no value (a liquid
-  limit of a non-plastic specimen, the stroke of a blow-less pile run, an unused second
-  column of a result table) used to fail with `conformance.value-invented` or
-  `conformance.value-differs`, and now passes. The same number with no `nullValue`
-  declared is still a value, and still fails. One kind of file that passed now fails:
-  a file that declares as `nullValue` a number it also reports as a real value (a
-  `nullValue` of 0 on a column with a real zero). DIGGS says that cell is missing, so
-  the value is reported as `conformance.fact-missing`.
-  A new suite version draws new data, so a seed gives other borings and values than it
-  did under 1.0-beta.2, and new challenges are of suite 1.0-beta.3.
-- **Challenges and evidence of suite 1.0-beta.2 keep working.** This release grades both
-  suites, each by its own rules: `grade` and `verify` on a 1.0-beta.2 challenge folder
-  give what pyDIGGS 1.16 and 1.17 gave, and the evidence says `1.0-beta.2`. A scorecard
-  and a matrix are of the current suite only, and refuse or list 1.0-beta.2 evidence
-  without counting it; grade against a new challenge to be counted there. See
+- **Conformance suite 1.0-beta.3 grades a declared `nullValue` differently in the
+  `spt`, `cpt`, `lab-index` and `deep-foundations` classes.** New challenges are of suite
+  1.0-beta.3. A new suite version draws new data, so a seed gives other borings and
+  values than it did under 1.0-beta.2. DIGGS lets a property declare the text that marks
+  a missing value in its data (`<nullValue>-999</nullValue>`). Under suite 1.0-beta.2
+  those four classes read a cell holding that mark as a value; under 1.0-beta.3 they
+  read it as an empty cell, as the new `mwd`, `dissipation` and `in-situ-strength`
+  classes do. Two results change:
+    - *Failed, now passes.* An export that writes the declared mark where the source has
+      no value (a liquid limit of a non-plastic specimen, the stroke of a blow-less pile
+      run, an unused second column of a result table) used to fail with
+      `conformance.value-invented` or `conformance.value-differs`. The same number with
+      no `nullValue` declared is still a value, and still fails.
+    - *Passed, now fails.* A file that declares as `nullValue` a number it also reports
+      as a real value (a `nullValue` of 0 on a column with a real zero). DIGGS says that
+      cell is missing, so the value is reported as `conformance.fact-missing`.
+- **Challenges and evidence of suite 1.0-beta.2 are still graded by their own rules.**
+  This release grades both suites: `grade` and `verify` on a 1.0-beta.2 challenge folder
+  give what pyDIGGS 1.16 and 1.17 gave (a declared `nullValue` mark is a value there),
+  and the evidence says `1.0-beta.2`. A challenge is never regraded under the other
+  suite's rules. A scorecard and a matrix are of the current suite only: a scorecard
+  refuses 1.0-beta.2 evidence and a matrix lists it without counting it, so grade against
+  a new challenge to be counted there. See
   [Versions](https://xinp-hub.github.io/pydiggs/latest/conformance/#versions).
 
 ## [1.17.0] - 2026-11-23
@@ -1731,7 +1743,10 @@ Stable release of the DIGGS 3.0 and packaging work first shipped as 1.0.0a1.
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/xinp-hub/pydiggs/compare/v1.17.0...v1.18.0
+[1.17.0]: https://github.com/xinp-hub/pydiggs/compare/v1.16.0...v1.17.0
+[1.16.0]: https://github.com/xinp-hub/pydiggs/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/xinp-hub/pydiggs/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/xinp-hub/pydiggs/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/xinp-hub/pydiggs/compare/v1.13.0...v1.13.1
