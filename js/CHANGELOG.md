@@ -8,6 +8,21 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-25
+
+### Changed
+
+- Runs pyDIGGS 1.18.0 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. Everything the client calls works as in 0.11.0, and the client gains no method.
+  What pyDIGGS 1.18.0 adds is all in its conformance suite for DIGGS software, a preview
+  offered as the `pydiggs conformance` command and the `pydiggs.conformance` Python
+  module, with no HTTP route or sidecar method: six new classes (measurement while
+  drilling, dissipation tests and in-situ strength tests, export and import), the check
+  of a delivered file (`conformance accept`), the round-trip matrix
+  (`conformance matrix`), pairwise import challenges made from another product's export,
+  and suite 1.0-beta.3. The operations `capabilities()` reports, the rules `listRules`
+  and `explainRule` know, and the findings, model and diff schemas are those of 1.17.0.
+
 ## [0.11.0] - 2026-11-23
 
 ### Added

@@ -10,7 +10,7 @@ export const PYDIGGS_VERSION: string = "1.18.0";
  * The published wheel of PYDIGGS_VERSION and its sha256, from PyPI; null until
  * js/pydiggs-wheel.json names that version (then micropip installs it by version).
  */
-export const PYDIGGS_WHEEL: { url: string; sha256: string } | null = null;
+export const PYDIGGS_WHEEL: { url: string; sha256: string } | null = { url: "https://files.pythonhosted.org/packages/06/b0/4b2ca62cfe7735e52bc6f25ff9f354b5206880f99332b210cd078d3822b5/pydiggs-1.18.0-py3-none-any.whl", sha256: "9a352a1180e38b2f7843b35e9819cce7ad335915db2daa73292ae7c42028b243" };
 /** Largest document the worker accepts, in bytes, unless configured lower. */
 export const DEFAULT_MAX_BYTES: number = 25 * 1024 * 1024;
 /** The diggs-findings schema these types were generated from. */
