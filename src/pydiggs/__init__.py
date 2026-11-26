@@ -47,7 +47,7 @@ from .pydiggs import validator
 
 __author__ = """Xin Peng"""
 __email__ = "xin_peng@outlook.com"
-__version__ = "1.18.0"
+__version__ = "1.18.1"
 
 # The adapters (pydiggs.server, pydiggs.sidecar, pydiggs.mcp_server) are never imported
 # here: ``import pydiggs`` stays free of their dependencies (and of rich).

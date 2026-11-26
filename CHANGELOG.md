@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-11-26
+
 ### Changed
 
 - **The in-browser conformance page runs pyDIGGS 1.18.0.**
@@ -21,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The container image upgrades libzstd1 to the Debian fix for CVE-2026-124851 (an
   information disclosure in Zstandard); the image build fails if the fixed version is not
   installed. The 1.18.0 image was built before Debian published the fix and has the older
-  libzstd1.
+  libzstd1; use the 1.18.1 image. The Python package is unchanged from 1.18.0.
 
 ## [1.18.0] - 2026-11-24
 
@@ -1759,7 +1761,8 @@ Stable release of the DIGGS 3.0 and packaging work first shipped as 1.0.0a1.
 ### Changed
 - License Apache-2.0; optional log output CLI control; docs updates.
 
-[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/xinp-hub/pydiggs/compare/v1.18.1...HEAD
+[1.18.1]: https://github.com/xinp-hub/pydiggs/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/xinp-hub/pydiggs/compare/v1.17.0...v1.18.0
 [1.17.0]: https://github.com/xinp-hub/pydiggs/compare/v1.16.0...v1.17.0
 [1.16.0]: https://github.com/xinp-hub/pydiggs/compare/v1.15.0...v1.16.0
