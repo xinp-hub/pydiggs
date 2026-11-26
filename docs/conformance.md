@@ -528,13 +528,16 @@ It is the same suite: a challenge made on the page is the folder `pydiggs confor
 writes (as a ZIP), its evidence is the document `grade` writes for the same files, and
 each side verifies the other's. A result is self-tested there too.
 
-The page names the pyDIGGS release it runs. While that is pyDIGGS 1.17, it offers the
-eight classes of that release (`spt`, `cpt`, `lab-index` and `deep-foundations`, export and
-import), and its challenges are of suite 1.0-beta.2: the command line of this release
-still grades and verifies them ([versions](#versions)). The `mwd`, `dissipation` and
-`in-situ-strength` classes, a challenge of suite 1.0-beta.3 and a
-[pairwise](#test-two-products-together) one are made and graded on the command line until
-the page runs a release that has them.
+The page names the pyDIGGS release it runs. That is pyDIGGS 1.18: it offers all 14
+classes of this release (`spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`,
+`lab-index` and `deep-foundations`, export and import), its challenges and evidence are of
+suite 1.0-beta.3, and it still grades and verifies a challenge of suite 1.0-beta.2
+([versions](#versions)).
+
+A [pairwise challenge](#test-two-products-together) is command-line only. The page does
+not make one (`new --from-export`), and it refuses to grade or verify one: such a
+challenge is graded with the other product's export as `challenge.xml` in its folder,
+which the page does not take.
 
 ## Scorecard
 
