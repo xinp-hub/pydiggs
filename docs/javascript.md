@@ -78,7 +78,8 @@ const findings = await pydiggs.validate(file); // a File from an <input type="fi
 The worker is the one described in [Browser (Pyodide)](browser.md), packaged: the same
 pinned Pyodide and integrity check, the same 25 MiB limit, one request at a time, and
 the pydiggs wheel checked against the sha256 PyPI published for it. To keep every
-download on your own origin, pass `pyodideBaseUrl` and `pydiggsWheelUrl`. The
+download on your own origin, pass `pyodideBaseUrl` and `pydiggsWheelUrl`, with
+`pydiggsWheelSha256` to have the wheel you host checked before it is unpacked. The
 [Content Security Policy](browser.md#content-security-policy) on that page applies,
 except that the package's worker never contacts `pypi.org`.
 

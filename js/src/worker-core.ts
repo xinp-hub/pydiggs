@@ -9,7 +9,7 @@
 // cache of recently read models, so asking again for some result tables of the same
 // file does not read it again.
 
-import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYDIGGS_WHEEL } from "./generated/pins.ts";
+import { DEFAULT_MAX_BYTES, PYDIGGS_VERSION, PYDIGGS_WHEEL, PYODIDE_SRI } from "./generated/pins.ts";
 import type {
   InitMessage,
   LoadStage,
@@ -78,16 +78,38 @@ def _too_old(what, version="1.10.0"):
 
 _DIFF_OPTIONS = ("match", "rel_tol", "abs_tol", "max_changes", "show_reformatted", "show_renamed", "max_result_bytes")
 
+# The limits are the adapter's own, so pydiggs's Request raises on a bad one instead of
+# answering. The page side checks them first; this gives a hand-made message the same
+# answer, in the same fixed texts.
+def _validate_limits(p):
+    limits, errors = {}, []
+    found = p.get("max_findings")
+    if found is not None:
+        if type(found) is int and found >= 1:
+            limits["max_findings"] = found
+        else:
+            errors.append(("max_findings", "must be a positive integer"))
+    budget = p.get("time_budget")
+    if budget is not None:
+        if type(budget) in (int, float) and 0 < budget <= _svc.MAX_SECONDS:
+            limits["time_budget"] = budget
+        else:
+            errors.append(("time_budget", f"must be a positive number of seconds, at most {_svc.MAX_SECONDS}"))
+    return limits, errors
+
 def run(kind, data, name, max_bytes, parameters, dictionary=None, new_data=None, new_name=None):
     if _svc is None:
         return _problem("internal", "this pydiggs is too old for @pydiggs/client (needs 1.7.0 or later)")
     p = json.loads(parameters) if parameters else {}
     try:
         if kind == "validate":
+            limits, errors = _validate_limits(p)
+            if errors:
+                return _problem("invalid-parameter", "invalid parameters", errors)
             return _outcome(_svc.validate(_svc.Request(
                 content=data.to_bytes(), name=name, checks=p.get("checks"),
                 diggs_version=p.get("diggs_version"), format=p.get("format", "findings"),
-                max_bytes=max_bytes)))
+                max_bytes=max_bytes, **limits)))
         if kind == "read":
             return _outcome(_svc.read(_svc.ReadRequest(
                 content=data.to_bytes(), name=name, diggs_version=p.get("diggs_version"),
@@ -167,6 +189,55 @@ const text = (error: unknown): string => (error instanceof Error ? error.message
 const hex = (buffer: ArrayBuffer): string =>
   [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
+// Whether the bytes have this sha256 (64 lower-case hex digits). Every digit is compared,
+// so the time taken does not say where two digests first differ.
+async function hasSha256(bytes: Uint8Array, sha256: string): Promise<boolean> {
+  const actual = hex(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
+  if (actual.length !== sha256.length) return false;
+  let different = 0;
+  for (let i = 0; i < actual.length; i++) different |= actual.charCodeAt(i) ^ sha256.charCodeAt(i);
+  return different === 0;
+}
+
+/**
+ * Exported for tests: the sha256 the caller requires of the pydiggs wheel, in lower
+ * case, or undefined when none was given. Anything that is not 64 hex digits is refused,
+ * so a mistyped digest never reads as "no check".
+ */
+export function wheelSha256(init: InitMessage): string | undefined {
+  const given: unknown = init.pydiggsWheelSha256;
+  if (given === undefined) return undefined;
+  if (typeof given !== "string" || !/^[0-9a-fA-F]{64}$/.test(given)) {
+    throw new Error("pydiggsWheelSha256 must be a sha256 as 64 hex digits");
+  }
+  return given.toLowerCase();
+}
+
+// One hash of Subresource Integrity: sha256, sha384 or sha512, in base64 of that length.
+const SRI_HASH = /^(?:sha256-[A-Za-z0-9+/]{43}=|sha384-[A-Za-z0-9+/]{64}|sha512-[A-Za-z0-9+/]{86}==)$/;
+
+/**
+ * Exported for tests: the Subresource Integrity value Pyodide's loader must match. It
+ * is the pinned release's (`PYODIDE_SRI`), unless the page hosts its own Pyodide
+ * (`pyodideBaseUrl`) and names that copy's hash in `pyodideSri`. A browser skips a hash
+ * it cannot parse and, with none left, checks nothing; so a value that is not one or
+ * more well-formed sha256, sha384 or sha512 hashes is refused here.
+ */
+export function pyodideIntegrity(init: InitMessage): string {
+  const given: unknown = init.pyodideSri;
+  if (given === undefined) return PYODIDE_SRI;
+  if (init.pyodideBaseUrl === undefined) {
+    throw new Error("pyodideSri is for a Pyodide you host: pass pyodideBaseUrl with it");
+  }
+  const hashes = typeof given === "string" ? given.trim().split(/\s+/) : [];
+  if (hashes.length === 0 || !hashes.every((hash) => SRI_HASH.test(hash))) {
+    throw new Error(
+      "pyodideSri must be a Subresource Integrity value: sha256-, sha384- or sha512- and the hash in base64",
+    );
+  }
+  return hashes.join(" ");
+}
+
 function checkWheelUrl(wheel: string): void {
   if (!/\/pydiggs-[^/]+-py3-none-any\.whl$/.test(new URL(wheel).pathname)) {
     throw new Error("pydiggsWheelUrl must name a pure pydiggs wheel (pydiggs-X.Y.Z-py3-none-any.whl)");
@@ -184,11 +255,11 @@ export type WheelSource = { bytes: Promise<Uint8Array> } | { file: string } | { 
 async function download(url: string, fetch: typeof globalThis.fetch, sha256?: string): Promise<Uint8Array> {
   const response = await fetch(url, sha256 ? { credentials: "omit", referrerPolicy: "no-referrer" } : {});
   if (!response.ok) throw new Error(`the pydiggs wheel: HTTP ${response.status}`);
-  const bytes = await response.arrayBuffer();
-  if (sha256 && hex(await crypto.subtle.digest("SHA-256", bytes)) !== sha256) {
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (sha256 && !(await hasSha256(bytes, sha256))) {
     throw new Error("the pydiggs wheel does not match its pinned sha256; refusing to install it");
   }
-  return new Uint8Array(bytes);
+  return bytes;
 }
 
 /** Exported for tests: where the wheel comes from for this configuration and pin. */
@@ -207,10 +278,17 @@ export function wheelSource(
 
 async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Loaded> {
   if (init.pydiggsWheelUrl !== undefined) checkWheelUrl(init.pydiggsWheelUrl); // before any download
+  const required = wheelSha256(init); // a malformed one is refused before any download too
   const stage = (name: LoadStage): void => options.post({ type: "progress", stage: name });
   const source = wheelSource(init, options.fetch ?? globalThis.fetch, options.pin === undefined ? PYDIGGS_WHEEL : options.pin);
   // Awaited below; until then a failed download must not count as unhandled.
   if ("bytes" in source) source.bytes.catch(() => {});
+  // micropip downloads a release by version itself: its bytes never pass through here.
+  if (required !== undefined && "spec" in source) {
+    throw new Error(
+      "pydiggsWheelSha256 needs a wheel to check: pass pydiggsWheelUrl (in Node, pydiggsWheelPath) with it",
+    );
+  }
   stage("runtime");
   const pyodide = await options.loadPyodide(init);
   stage("packages");
@@ -224,6 +302,9 @@ async function load(init: InitMessage, options: WorkerCoreOptions): Promise<Load
     await micropip.install.callKwargs(source.spec, { deps: false });
   } else {
     const bytes = "bytes" in source ? await source.bytes : pyodide.FS!.readFile(source.file);
+    if (required !== undefined && !(await hasSha256(bytes, required))) {
+      throw new Error("the pydiggs wheel does not match pydiggsWheelSha256; refusing to install it");
+    }
     pyodide.unpackArchive(bytes, "wheel");
   }
   stage("warm-up");

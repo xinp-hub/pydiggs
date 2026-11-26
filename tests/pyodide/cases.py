@@ -94,7 +94,8 @@ def run(fixture_dir: str, official_dir: str | None = None) -> dict[str, str]:
     fixture's diggs-model document (``read:<name>``: ``read_bytes(...).to_json()``, one
     string for JavaScript to ``JSON.parse``). Then the same through the service layer
     that @pydiggs/client's worker and the HTTP API use: SARIF (``sarif:<name>``), a
-    subset of steps (``checks:<name>``), one node's tables (``select:<name>``), and the
+    subset of steps (``checks:<name>``), a finding cap of one with a time budget
+    (``limits:<name>``), one node's tables (``select:<name>``), and the
     versions, rule list and one rule (``versions``, ``rules:schema``, ``explain``), the core
     operations of ``capabilities()``, two model comparisons (:func:`diff_cases`), and the
     tables profile both ways (:func:`tables_cases`).
@@ -241,6 +242,10 @@ def service_cases(fixture_dir: str) -> dict[str, str]:
         out[f"sarif:{name}"] = text(svc.validate(dataclasses.replace(request, format="sarif")))
         out[f"checks:{name}"] = text(
             svc.validate(dataclasses.replace(request, checks=list(CHECKS)))
+        )
+        # A finding cap of one, and a time budget that does not run out.
+        out[f"limits:{name}"] = text(
+            svc.validate(dataclasses.replace(request, max_findings=1, time_budget=3600))
         )
         select = {"results": list(SELECT_KEYS)}
         read = svc.ReadRequest(content=data, name=name, select=select, max_bytes=MAX_BYTES)

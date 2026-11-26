@@ -106,6 +106,29 @@ test("a ready browser takes the document, and the server is not called", async (
   assert.deepEqual(server.calls, []);
 });
 
+test("a finding cap and a time budget go to the browser only; a server keeps its own limits", async () => {
+  const seen: Record<string, unknown>[] = [];
+  const record = (from: string) => async (_input: unknown, options: Record<string, unknown>) => {
+    const { signal: _signal, ...rest } = options;
+    seen.push({ from, ...rest });
+    return { from };
+  };
+  const browser = Object.assign(new FakeBrowser(), { validate: record("browser"), validateSarif: record("browser") });
+  const server = Object.assign(new FakeServer(), { validate: record("server"), validateSarif: record("server") });
+  const limits = { maxFindings: 1000, timeBudgetSeconds: 20 };
+  const both = hybrid({ browser, server });
+  await both.validate(doc(1), limits);
+  await both.validateSarif(doc(1), { ...limits, checks: ["schema"] });
+  await both.validate(doc(1));
+  await hybrid({ browser, server, maxBrowserBytes: 1 }).validate(doc(2), limits);
+  assert.deepEqual(seen, [
+    { from: "browser", name: "BH-01.xml", ...limits },
+    { from: "browser", name: "BH-01.xml", checks: ["schema"], ...limits },
+    { from: "browser", name: "BH-01.xml" },
+    { from: "server", name: "BH-01.xml" },
+  ]);
+});
+
 test("a document over maxBrowserBytes goes to the server", async () => {
   const browser = new FakeBrowser();
   const server = new FakeServer();
