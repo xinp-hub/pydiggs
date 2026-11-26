@@ -8,6 +8,8 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-26
+
 ### Added
 
 - **`pydiggsWheelSha256`: a wheel you host is checked before it is installed.** Until
@@ -46,6 +48,12 @@ matching pyDIGGS version number.
   options: pyDIGGS's HTTP server takes these limits from its own settings
   (`PYDIGGS_MAX_FINDINGS`, `PYDIGGS_TIMEOUT_S`), never from a request, so in
   `PydiggsHybrid` they apply when the document runs in the tab.
+
+### Changed
+
+- Runs pyDIGGS 1.18.1 (`PYDIGGS_VERSION`), its wheel pinned by sha256 from PyPI's
+  record. pyDIGGS 1.18.1 is 1.18.0 with a new version number: the release exists for
+  its container image, and nothing the client calls differs.
 
 ## [0.12.0] - 2026-11-25
 
