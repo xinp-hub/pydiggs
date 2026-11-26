@@ -88,7 +88,25 @@ export interface WorkerValidateOptions extends WorkerRequestOptions {
   checks?: readonly ValidateCheck[];
   /** DIGGS version to check against. Default: detected. */
   diggsVersion?: DiggsVersion;
+  /**
+   * Most findings reported: a positive whole number. When it is reached the list
+   * stops, with one `structure.findings-truncated` finding to say so. Default:
+   * pyDIGGS's, 10 000. Anything else (`0`, a fraction, `Infinity`) is refused as
+   * `invalid-parameter`.
+   */
+  maxFindings?: number;
+  /**
+   * Seconds pyDIGGS may spend on the document: more than 0, at most 86 400 (anything
+   * else is refused as `invalid-parameter`). pyDIGGS checks the clock between steps,
+   * so a step that has started finishes first; running out still gives a findings
+   * document, with a `structure.timeout` error. Default: no budget. The engine's
+   * `timeoutMs` is separate: it stops the request with an error.
+   */
+  timeBudgetSeconds?: number;
 }
+
+/** The largest `timeBudgetSeconds`: one day, pyDIGGS's own ceiling. */
+export const MAX_TIME_BUDGET_SECONDS: number = 86_400;
 
 export interface WorkerReadOptions extends WorkerRequestOptions {
   /** DIGGS version to read as. Default: detected. */
@@ -351,13 +369,44 @@ export class WorkerClient {
    * back as findings, with the verdict in `files[0].verdict`.
    */
   validate(input: DocumentBytes, options: WorkerValidateOptions = {}): Promise<DiggsFindingsDocument> {
-    return this.#document("validate", input, options, validateParameters(options)) as Promise<DiggsFindingsDocument>;
+    return this.#validate(input, options, {}) as Promise<DiggsFindingsDocument>;
   }
 
   /** Validates a document and returns the findings as a SARIF 2.1.0 log. */
   validateSarif(input: DocumentBytes, options: WorkerValidateOptions = {}): Promise<SarifLog> {
-    const parameters: RequestParameters = { ...validateParameters(options), format: "sarif" };
-    return this.#document("validate", input, options, parameters) as Promise<SarifLog>;
+    return this.#validate(input, options, { format: "sarif" }) as Promise<SarifLog>;
+  }
+
+  async #validate(input: DocumentBytes, options: WorkerValidateOptions, extra: RequestParameters): Promise<unknown> {
+    const parameters: RequestParameters = { ...validateParameters(options), ...this.#validateLimits(options), ...extra };
+    return this.#document("validate", input, options, parameters);
+  }
+
+  // Checked here, in pyDIGGS's words: pyDIGGS takes these limits from its adapter and
+  // raises on a bad one, and JSON has no Infinity (it would arrive as null: no limit).
+  #validateLimits(options: WorkerValidateOptions): RequestParameters {
+    const parameters: RequestParameters = {};
+    const errors: { parameter: string; problem: string }[] = [];
+    const { maxFindings, timeBudgetSeconds } = options;
+    if (maxFindings !== undefined) {
+      if (Number.isSafeInteger(maxFindings) && maxFindings >= 1) parameters.max_findings = maxFindings;
+      else errors.push({ parameter: "max_findings", problem: "must be a positive integer" });
+    }
+    if (timeBudgetSeconds !== undefined) {
+      const valid =
+        typeof timeBudgetSeconds === "number" && timeBudgetSeconds > 0 && timeBudgetSeconds <= MAX_TIME_BUDGET_SECONDS;
+      if (valid) parameters.time_budget = timeBudgetSeconds;
+      else {
+        errors.push({
+          parameter: "time_budget",
+          problem: `must be a positive number of seconds, at most ${MAX_TIME_BUDGET_SECONDS}`,
+        });
+      }
+    }
+    if (errors.length > 0) {
+      throw this.#makeError("invalid parameters", { code: "invalid-parameter", detail: "invalid parameters", errors });
+    }
+    return parameters;
   }
 
   /**

@@ -124,6 +124,67 @@ test("validate passes checks and the DIGGS version; validateSarif asks for SARIF
   assert.deepEqual([second.type, second.parameters], ["validate", { format: "sarif" }]);
 });
 
+test("the integrity options reach the worker as given, and are absent by default", () => {
+  const sri = `sha384-${"A".repeat(64)}`;
+  const sha256 = "ab".repeat(32);
+  const { worker } = start({ pyodideBaseUrl: "/pyodide", pyodideSri: sri, pydiggsWheelSha256: sha256 });
+  assert.equal(worker.posted[0].message.pyodideSri, sri);
+  assert.equal(worker.posted[0].message.pydiggsWheelSha256, sha256);
+  const plain = start().worker.posted[0].message;
+  assert.equal("pyodideSri" in plain || "pydiggsWheelSha256" in plain, false);
+});
+
+test("validate and validateSarif pass a finding cap and a time budget", async () => {
+  const { worker, client } = start();
+  const all = Promise.all([
+    client.validate(new ArrayBuffer(1), { checks: ["schema"], maxFindings: 1000, timeBudgetSeconds: 20 }),
+    client.validateSarif(new ArrayBuffer(1), { maxFindings: 1, timeBudgetSeconds: 0.5 }),
+    client.validate(new ArrayBuffer(1), { timeBudgetSeconds: 86_400 }),
+  ]);
+  await answerAll(worker, 3);
+  await all;
+  assert.deepEqual(
+    worker.requests.map((request) => request.parameters),
+    [
+      { checks: ["schema"], max_findings: 1000, time_budget: 20 },
+      { max_findings: 1, time_budget: 0.5, format: "sarif" },
+      { time_budget: 86_400 },
+    ],
+  );
+});
+
+test("a finding cap or time budget pyDIGGS would not take is refused before it reaches the worker", async () => {
+  const { worker, client } = start();
+  const findings = { parameter: "max_findings", problem: "must be a positive integer" };
+  const budget = { parameter: "time_budget", problem: "must be a positive number of seconds, at most 86400" };
+  const cases: [object, object[]][] = [
+    [{ maxFindings: 0 }, [findings]],
+    [{ maxFindings: -1 }, [findings]],
+    [{ maxFindings: 1.5 }, [findings]],
+    [{ maxFindings: Number.POSITIVE_INFINITY }, [findings]],
+    [{ maxFindings: Number.NaN }, [findings]],
+    [{ maxFindings: "10" }, [findings]],
+    [{ maxFindings: null }, [findings]],
+    [{ timeBudgetSeconds: 0 }, [budget]],
+    [{ timeBudgetSeconds: -2 }, [budget]],
+    [{ timeBudgetSeconds: 86_401 }, [budget]],
+    [{ timeBudgetSeconds: Number.POSITIVE_INFINITY }, [budget]],
+    [{ timeBudgetSeconds: Number.NaN }, [budget]],
+    [{ timeBudgetSeconds: "20" }, [budget]],
+    [{ maxFindings: 0, timeBudgetSeconds: 0 }, [findings, budget]],
+  ];
+  for (const [options, errors] of cases) {
+    for (const call of [client.validate(new ArrayBuffer(1), options), client.validateSarif(new ArrayBuffer(1), options)]) {
+      await assert.rejects(call, (error: unknown) => {
+        assert.ok(error instanceof PydiggsBrowserError);
+        assert.deepEqual(error.problem, { code: "invalid-parameter", detail: "invalid parameters", errors });
+        return true;
+      });
+    }
+  }
+  assert.equal(worker.requests.length, 0);
+});
+
 test("versions, listRules and explainRule ask the worker, with no document", async () => {
   const { worker, client } = start();
   const all = Promise.all([client.versions(), client.listRules({ step: "schema" }), client.explainRule("schema.1")]);

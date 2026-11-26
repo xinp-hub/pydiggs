@@ -8,6 +8,45 @@ matching pyDIGGS version number.
 
 ## [Unreleased]
 
+### Added
+
+- **`pydiggsWheelSha256`: a wheel you host is checked before it is installed.** Until
+  now only the default release from PyPI was checked against a sha256; a wheel named
+  with `pydiggsWheelUrl` (`PydiggsBrowser`) or `pydiggsWheelPath` (`PydiggsNode`) was
+  installed as downloaded. Pass the wheel's sha256 as 64 hex digits and the worker
+  checks the bytes before it unpacks them. A wheel that does not match is never
+  installed: loading fails, and `ready` and every request reject with a
+  `PydiggsBrowserError` or `PydiggsNodeError` that says so. A value that is not 64 hex
+  digits is refused before anything is downloaded. The check is on whichever wheel is
+  installed: given with no wheel of your own, the default release from PyPI must match
+  it too, and a build with no pinned wheel (it would install pyDIGGS by version through
+  micropip, whose download the worker cannot check) fails to load. Without the option
+  nothing changes.
+- **`pyodideSri` (`PydiggsBrowser`): load a Pyodide release you host that is not the
+  pinned one.** The worker checks Pyodide's loader against `PYODIDE_SRI`, the hash of
+  release `PYODIDE_VERSION`, so a self-hosted copy of any other release (a newer patch
+  release, say) could not start. With `pyodideBaseUrl`, `pyodideSri` now names the
+  integrity value of your copy's `pyodide.mjs` (`sha384-...`; sha256 and sha512 are
+  taken too). The loader is still checked, against that value; one that is malformed,
+  or given without `pyodideBaseUrl`, is refused and nothing loads. The default is
+  unchanged. Only the pinned release is tested by this package: CI proves pyDIGGS's
+  answers on that Pyodide and its lxml alone, so with another release compatibility is
+  yours to check. `PydiggsNode` and `pydiggs-client vendor` still take the pinned
+  release only, and the `pyodide` peer dependency is unchanged.
+- **`maxFindings` and `timeBudgetSeconds` on `validate` and `validateSarif`**, for
+  `PydiggsBrowser`, `PydiggsNode`, a `PydiggsPool` of them and `PydiggsHybrid`.
+  `maxFindings` is the most findings reported (pyDIGGS's default, 10 000, applied until
+  now with no way to change it); when it is reached the list ends with a
+  `structure.findings-truncated` finding. `timeBudgetSeconds` is how long pyDIGGS may
+  spend, checked between steps; running out still gives a findings document, with a
+  `structure.timeout` error (no budget by default, as before). A value pyDIGGS would
+  not take (`0`, a fraction of a finding, `Infinity`, more than 86 400 seconds) is
+  refused as `invalid-parameter` before the document is sent. They work with every
+  pyDIGGS wheel the engine accepts (1.7.0 or later). `PydiggsHttpClient` has no such
+  options: pyDIGGS's HTTP server takes these limits from its own settings
+  (`PYDIGGS_MAX_FINDINGS`, `PYDIGGS_TIMEOUT_S`), never from a request, so in
+  `PydiggsHybrid` they apply when the document runs in the tab.
+
 ## [0.12.0] - 2026-11-25
 
 ### Changed

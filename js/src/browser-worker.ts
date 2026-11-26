@@ -8,9 +8,9 @@
 // repository. The differences: the page sends the configuration in an "init" message,
 // and `read` takes `results`.
 
-import { PYODIDE_SRI, PYODIDE_VERSION } from "./generated/pins.ts";
+import { PYODIDE_VERSION } from "./generated/pins.ts";
 import type { InitMessage, ReplyMessage } from "./protocol.ts";
-import { createWorkerCore, type PyodideLike } from "./worker-core.ts";
+import { createWorkerCore, pyodideIntegrity, type PyodideLike } from "./worker-core.ts";
 
 interface PyodideModule {
   loadPyodide(options: { indexURL: string }): Promise<PyodideLike>;
@@ -18,9 +18,9 @@ interface PyodideModule {
 
 // import() takes no integrity option and module workers have no import maps, so the
 // loader is fetched with Subresource Integrity and imported from a blob: URL.
-async function importPyodide(base: string): Promise<PyodideModule> {
+async function importPyodide(base: string, integrity: string): Promise<PyodideModule> {
   const response = await fetch(`${base}pyodide.mjs`, {
-    integrity: PYODIDE_SRI,
+    integrity,
     credentials: "omit",
     referrerPolicy: "no-referrer",
   });
@@ -37,8 +37,9 @@ async function importPyodide(base: string): Promise<PyodideModule> {
 const handle = createWorkerCore({
   post: (message: ReplyMessage): void => self.postMessage(message),
   loadPyodide: async (init: InitMessage): Promise<PyodideLike> => {
+    const integrity = pyodideIntegrity(init); // a malformed one is refused before any fetch
     const base = init.pyodideBaseUrl ?? `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
-    const { loadPyodide } = await importPyodide(base);
+    const { loadPyodide } = await importPyodide(base, integrity);
     return loadPyodide({ indexURL: base });
   },
 });

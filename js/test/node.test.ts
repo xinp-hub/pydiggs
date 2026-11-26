@@ -31,9 +31,11 @@ test("Node options reach the worker: module path as a file URL, cache, wheel, a 
     pyodideModule: "/opt/app/node_modules/pyodide/pyodide.mjs",
     packageCacheDir: "/var/cache/pyodide",
     pydiggsWheelPath: "/opt/app/pydiggs-1.8.0-py3-none-any.whl",
+    pydiggsWheelSha256: "ab".repeat(32),
   });
   try {
     const { init } = (await node.ready) as unknown as { init: Record<string, unknown> };
+    assert.equal(init.pydiggsWheelSha256, "ab".repeat(32));
     assert.equal(init.maxBytes, 200 * 1024 * 1024);
     assert.equal(init.pyodideModuleUrl, "file:///opt/app/node_modules/pyodide/pyodide.mjs");
     assert.equal(init.packageCacheDir, "/var/cache/pyodide");

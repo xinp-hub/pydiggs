@@ -77,15 +77,35 @@ export interface PydiggsBrowserOptions {
   /**
    * Directory of a self-hosted Pyodide "full" distribution of the pinned version
    * (`PYODIDE_VERSION`). Default: the jsDelivr CDN. The loader is checked against
-   * `PYODIDE_SRI` either way.
+   * `PYODIDE_SRI` either way, unless `pyodideSri` names another hash.
    */
   pyodideBaseUrl?: string | URL;
   /**
+   * The Subresource Integrity value of the loader (`pyodide.mjs`) in the Pyodide you
+   * host under `pyodideBaseUrl`, when it is not the pinned release: `sha384-...` (or
+   * sha256, sha512; several separated by spaces). Default: `PYODIDE_SRI`. Without
+   * `pyodideBaseUrl`, or malformed, it is refused and nothing loads. Only the pinned
+   * release (`PYODIDE_VERSION`) is tested by this package, which proves pyDIGGS's
+   * answers for that release alone: with any other, compatibility is yours to check.
+   */
+  pyodideSri?: string;
+  /**
    * URL of a pure pydiggs wheel you host (`pydiggs-X.Y.Z-py3-none-any.whl`). Default:
    * release `PYDIGGS_VERSION` from PyPI. Only pass a URL you control: the wheel's
-   * code runs next to the user's document.
+   * code runs next to the user's document. Pass `pydiggsWheelSha256` with it to have
+   * the download checked.
    */
   pydiggsWheelUrl?: string | URL;
+  /**
+   * The sha256 of the pydiggs wheel, as 64 hex digits (PyPI and lock files publish it).
+   * The wheel is checked against it before it is unpacked; one that does not match is
+   * never installed, and loading fails. Default: no check of a wheel you name with
+   * `pydiggsWheelUrl` (the default release from PyPI is always checked against its own
+   * pinned sha256). Without `pydiggsWheelUrl` the default release must match it too,
+   * and a build of this package with no pinned wheel fails to load, since it has no
+   * wheel to check.
+   */
+  pydiggsWheelSha256?: string;
   /** Largest document accepted, in bytes. Default and upper bound: 25 MiB. */
   maxBytes?: number;
   /**
@@ -161,6 +181,9 @@ export class PydiggsBrowser extends SupervisedWorker {
     if (options.pydiggsWheelUrl !== undefined) {
       init.pydiggsWheelUrl = absoluteUrl(options.pydiggsWheelUrl);
     }
+    // The worker checks both before it fetches anything, and fails to load on a bad one.
+    if (options.pyodideSri !== undefined) init.pyodideSri = options.pyodideSri;
+    if (options.pydiggsWheelSha256 !== undefined) init.pydiggsWheelSha256 = options.pydiggsWheelSha256;
     const timeout = options.timeoutMs ?? DEFAULT_BROWSER_TIMEOUT_MS;
     const makeError = (message: string, code?: WorkerErrorCode, problem?: ServiceProblem): PydiggsBrowserError =>
       new PydiggsBrowserError(message, code, problem);

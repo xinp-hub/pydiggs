@@ -18,8 +18,18 @@ export interface InitMessage {
   type: "init";
   /** Directory of a Pyodide "full" distribution, ending in "/". Default: the jsDelivr CDN. */
   pyodideBaseUrl?: string;
+  /**
+   * Browser only: the Subresource Integrity value the loader (`pyodide.mjs`) under
+   * `pyodideBaseUrl` must match, in place of the pinned release's `PYODIDE_SRI`.
+   */
+  pyodideSri?: string;
   /** URL of a pure pydiggs wheel. Default: the pinned release, checked against its sha256. */
   pydiggsWheelUrl?: string;
+  /**
+   * The sha256 (64 hex digits) the pydiggs wheel must have, wherever it comes from: a
+   * wheel that does not match is never unpacked.
+   */
+  pydiggsWheelSha256?: string;
   /** Largest document accepted, in bytes. */
   maxBytes: number;
   /**
@@ -58,6 +68,10 @@ export interface RequestParameters {
   checks?: string[];
   /** validate, read: the DIGGS version to use instead of the detected one. */
   diggs_version?: string;
+  /** validate: most findings reported. Default: pyDIGGS's, 10 000. */
+  max_findings?: number;
+  /** validate: seconds pyDIGGS may spend, checked between steps. Default: no budget. */
+  time_budget?: number;
   /** validate, ags4-check: "findings" (default) or "sarif". */
   format?: "findings" | "sarif";
   /** convert: the target format, "diggs" (the default) or "ags4". */
