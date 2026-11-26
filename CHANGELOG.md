@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`new --from-export`) stays on the command line: the page does not make one, and it refuses
   to grade or verify one with a message that names the command to use.
 
+### Security
+
+- The container image upgrades libzstd1 to the Debian fix for CVE-2026-124851 (an
+  information disclosure in Zstandard); the image build fails if the fixed version is not
+  installed. The 1.18.0 image was built before Debian published the fix and has the older
+  libzstd1.
+
 ## [1.18.0] - 2026-11-24
 
 ### Added
