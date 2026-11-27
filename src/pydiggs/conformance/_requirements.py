@@ -8,7 +8,8 @@ is plausible or enough.
 
 A family plugs in through :func:`pydiggs.conformance._registry.acceptance`: a family whose
 catalogue elements are test procedures gets :func:`test_profile`; a family with its own
-shape (piles and driving records) has its own profile here.
+shape (piles and driving records, drilling logs, monitoring series) has its own profile
+here.
 """
 
 from __future__ import annotations
@@ -31,6 +32,7 @@ __all__ = [
     "Profile",
     "Requirement",
     "defined_properties",
+    "monitoring_profile",
     "pile_profile",
     "test_profile",
 ]
@@ -373,6 +375,133 @@ def mwd_profile(family: Family) -> Profile:
                     " conditionalElementXpath naming MWDProcedure.",
                 ),
                 results,
+            ),
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------- monitoring
+
+#: The measurement element of a monitoring series.
+_MONITOR: Final = "Monitor"
+
+
+def monitoring_profile(family: Family) -> Profile:
+    """The requirements of the wells, instruments and monitoring family.
+
+    A monitoring series is a measurement element of its own (``Monitor``), whose results
+    are placed by time and whose procedure DIGGS leaves optional. So the profile asks for
+    a time per result row where a test profile asks for a depth, and it asks for a
+    property of the procedure's dictionary only when the dictionary defines some for
+    that procedure (it does for ``WaterLevelMonitoring``).
+    """
+
+    def series(model: Model) -> list[Measurement]:
+        return [m for m in model.measurements if m.element == _MONITOR]
+
+    def present(model: Model) -> Check:
+        failures = [] if series(model) else [("file", f"no {_MONITOR} measurement")]
+        return _check(failures, 1)
+
+    def located(model: Model) -> Check:
+        found = series(model)
+        failures = []
+        for monitor in found:
+            key = _facts._feature_key(model, monitor)
+            if not isinstance(model.get(key) if key else None, Feature):
+                failures.append(
+                    (
+                        _name(monitor),
+                        "the monitoring series names no well, borehole, station or other"
+                        " sampling feature in the file",
+                    )
+                )
+        return _check(failures, len(found))
+
+    def results(model: Model) -> Check:
+        found = series(model)
+        failures = []
+        for monitor in found:
+            procedure = monitor.procedure.type if monitor.procedure else ""
+            defined = defined_properties(_PROPERTIES, procedure) if procedure else frozenset()
+            columns = [
+                column
+                for table in monitor.results
+                for column in table.columns
+                if not defined or (column.key or column.name) in defined
+            ]
+            if any(_reports(column) for column in columns):
+                continue
+            what = (
+                f"a property the DIGGS properties dictionary defines for {procedure}"
+                if defined
+                else "any property"
+            )
+            failures.append((_name(monitor), f"the monitoring series reports no value of {what}"))
+        return _check(failures, len(found))
+
+    def timed(model: Model) -> Check:
+        failures = []
+        total = 0
+        for monitor in series(model):
+            tables = [t for t in monitor.results if any(_reports(c) for c in t.columns)]
+            if not tables:
+                continue
+            total += 1
+            if any(t.domain.shape != "temporal" for t in tables):
+                failures.append(
+                    (
+                        _name(monitor),
+                        "the result's time domain does not give one time (or elapsed time)"
+                        " for each result row",
+                    )
+                )
+        return _check(failures, total)
+
+    return Profile(
+        family,
+        (
+            (
+                Requirement(
+                    "accept.present",
+                    f"The file holds at least one monitoring series: a {_MONITOR} measurement.",
+                    f"DIGGS 3.0.0 Core.xsd: the measurement element {_MONITOR}.",
+                ),
+                present,
+            ),
+            (
+                Requirement(
+                    "accept.located",
+                    "Every monitoring series names the well, borehole, station or other"
+                    " sampling feature it was recorded in, and that feature is in the file.",
+                    "DIGGS 3.0.0 AbstractMeasurementType: samplingFeatureRef.",
+                ),
+                located,
+            ),
+            (
+                Requirement(
+                    "accept.result",
+                    "Every monitoring series reports at least one value. Where the DIGGS"
+                    " properties dictionary defines properties for the series' procedure (it"
+                    " does for WaterLevelMonitoring), the value is of one of them. A cell"
+                    " that is empty, or is the nullValue its property declares, is not a"
+                    " value.",
+                    "DIGGS 3.0.0 MonitorType: outcome (required), procedure (optional); DIGGS"
+                    " properties dictionary (properties.xml): each property's Occurrence"
+                    " conditionalElementXpath naming the procedure.",
+                ),
+                results,
+            ),
+            (
+                Requirement(
+                    "accept.time",
+                    "Every monitoring series that reports a value places its result rows in"
+                    " time: its time domain gives one time, or one elapsed time, for each"
+                    " row.",
+                    "DIGGS 3.0.0 MonitorType: outcome is a TemporalResult, whose timeDomain"
+                    " is required (TimePositionList, TimeIntervalList).",
+                ),
+                timed,
             ),
         ),
     )

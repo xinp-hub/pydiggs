@@ -197,6 +197,46 @@ speed) and `fluid_injection_pressure` (flushing pressure).
 - **A zero is a value.** The first reading of each log, at the collar, has a penetration
   rate and a rotation speed of 0; they must be in the file.
 
+### Monitoring
+
+The `monitoring` challenge is a [tables profile](tables.md) package too: two or three
+piezometers, each a borehole in `features.csv` with one `Monitor` in `measurements.csv`
+and its readings in `results_WaterLevelMonitoring.csv`, placed by `time`. The columns are
+the three properties the DIGGS property dictionary defines for a `WaterLevelMonitoring`
+procedure: `water_depth`, `water_elev` and `temperature`, in metres and degrees Celsius
+or in feet and degrees Fahrenheit. `components.csv` holds each series' sensor, the
+detector at the sensor depth, and the reference point the levels are measured from;
+`links.csv` says that the series' `monitorLocation` is that detector. Every value is
+carried as the logger reports it: the suite works out no level, head or pressure.
+
+- **Where values are looked up.** Each value is found by its property on a `Monitor` of
+  the borehole whose procedure is a `WaterLevelMonitoring`, at the time of its row: the
+  result's `timeDomain` must give one time per row (a `TimePositionList`).
+- **A time is an instant.** The tables write each time as an ISO 8601 date and time with
+  its offset from UTC: `Z` for about half the seeds, an offset such as `-05:00` for the
+  others. Times are compared as instants, to the second, so `2024-03-05T09:30:00-05:00`
+  and `2024-03-05T14:30:00Z` are the same reading and either form passes. A time with no
+  offset is local time somewhere and names no instant: a row placed by one is not read,
+  and its values are reported as `conformance.fact-missing`. Dropping the offset, or
+  changing it without moving the clock time with it, fails.
+- **Any unit DIGGS can convert.** Values are compared in SI: a length in metres, a
+  temperature in kelvin, so a file may state `degC`, `degF` or `K` as long as its numbers
+  are in the unit it states.
+- **The sensor depth** is the place the series' `monitorLocation` gives, along the
+  borehole: a one-dimensional `PointLocation` in the `monitorLocation` itself, or the
+  location of the part of the procedure it refers to (the `detectorLocation` of a
+  sensor's `Detector`, as in the suite's own file).
+- **No reading is invented.** A temperature the tables leave empty must be absent, or a
+  value the column's `nullValue` marks as missing; a zero fails. Each logger was stopped
+  once: the readings of two to six intervals are not there, and a file that gives a
+  value at one of those times (a series filled in or resampled to a regular interval)
+  fails with `conformance.value-invented`.
+- **A zero is a value.** One reading has the water at the reference point, a depth to
+  water of 0; it must be in the file.
+
+The import class asks for the reading at a time given in UTC, whatever offset the file
+writes: software that ignores the offset finds another reading, or none.
+
 ## Test your import
 
 An import class gives you a DIGGS file to open and questions to answer from what your
@@ -389,11 +429,15 @@ parts of DIGGS have scenario challenges, each in both directions:
 | `mwd` | Measurement while drilling: one drilling log per boring, with penetration rate, thrust, torque, rotation speed and flushing pressure; a pause for a rod change, readings with no flushing pressure, units such as m/h, bar and rpm |
 | `dissipation` | Dissipation tests in two piezocone soundings: u0, u50 and t50, and the u1 and u2 series by elapsed time in seconds or minutes; one test stopped before t50, one reading with no u2 |
 | `in-situ-strength` | Field vane tests (peak and remoulded torque and strength, vane size; one test with no remoulded reading) and a flat plate dilatometer sounding (A, B and C readings, C at a few depths only), in SI or US units |
+| `monitoring` | Water level series of two or three piezometers, each with a sensor at a depth: depth to water, water elevation and temperature at each time, in UTC or with an offset from UTC; a stretch where the logger was stopped, readings with no temperature, metres and degrees Celsius or feet and degrees Fahrenheit |
 
 The catalogue behind the classes covers the whole of DIGGS 3.0.0: every test procedure of
 the schema, piles and driving records, grouting, monitoring, geophysics and the rest. A part
 with no challenge yet is listed as **not yet testable**, here and on every scorecard, so a
-few passing classes are never mistaken for full DIGGS support.
+few passing classes are never mistaken for full DIGGS support. A family with a challenge
+may still grade only part of what it names, and its note in `pydiggs conformance classes`
+says which part: the `monitoring` family grades water level series, and not yet wells,
+well openings or stations.
 
 ## Known limits of this version
 
@@ -412,6 +456,16 @@ few passing classes are never mistaken for full DIGGS support.
 - **MWD readings below the last one.** A reading invented in the rod-change pause is
   caught, whichever cells it fills. A reading added below a log's last reading is not:
   the tables say nothing of those depths. (A total depth that moved with it is caught.)
+- **Monitoring series are piezometers in boreholes.** The `monitoring` challenge has
+  water level series only (`WaterLevelMonitoring`: depth to water, water elevation,
+  temperature), each on a `Borehole`. A `Well` with its openings, a `Station`, and a
+  series of any other procedure are in the family and are not graded yet. The sensor
+  depth is read only as a point: a file that gives the `monitorLocation` as an interval
+  (a response zone) has its sensor depth reported as missing.
+- **Monitoring readings outside the series.** A reading invented where the logger was
+  stopped is caught only at a time the logger would have read at (its regular interval);
+  one added at another time in the gap, before the first reading or after the last is
+  not: the tables say nothing of those times.
 - **A pairwise challenge keeps the suite's own defective file.** In an import challenge
   made from another product's export, `challenge.xml` is that product's file, and
   `defective.xml` is still the suite's own file with one planted defect: a defect is
@@ -487,7 +541,7 @@ version draws its own data, so a seed gives other borings and values in another 
 | --- | --- | --- |
 | `1.0-beta.1` | 1.15 | The first suite: `spt` and `cpt`. |
 | `1.0-beta.2` | 1.16, 1.17 | A value where the source leaves the cell empty fails (`conformance.value-invented`); a percentage may be a plain percent number; `lab-index` and `deep-foundations` were added. The `mwd`, `dissipation` and `in-situ-strength` classes joined this suite later, reading a declared `nullValue` as empty from the start. |
-| `1.0-beta.3` | 1.18 | A cell that holds the `nullValue` its property declares is empty in `spt`, `cpt`, `lab-index` and `deep-foundations` too: a correct export that marks an unmeasured value that way failed in those classes before, and passes now. A file that declares as `nullValue` a number it also reports as a real value (a `nullValue` of 0 on a column with a real zero) passed before and fails now: that cell is missing, as DIGGS defines it. |
+| `1.0-beta.3` | 1.18 | A cell that holds the `nullValue` its property declares is empty in `spt`, `cpt`, `lab-index` and `deep-foundations` too: a correct export that marks an unmeasured value that way failed in those classes before, and passes now. A file that declares as `nullValue` a number it also reports as a real value (a `nullValue` of 0 on a column with a real zero) passed before and fails now: that cell is missing, as DIGGS defines it. The `monitoring` classes joined this suite in the release after 1.18; no file of another class is graded differently for it. |
 
 **What an older suite version on evidence means.** Evidence states the suite that graded
 it (`suite_version`), and it stays true of that suite: the file passed, or failed, by
@@ -528,11 +582,12 @@ It is the same suite: a challenge made on the page is the folder `pydiggs confor
 writes (as a ZIP), its evidence is the document `grade` writes for the same files, and
 each side verifies the other's. A result is self-tested there too.
 
-The page names the pyDIGGS release it runs. That is pyDIGGS 1.18: it offers all 14
-classes of this release (`spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`,
+The page names the pyDIGGS release it runs. That is pyDIGGS 1.18: it offers the 14
+classes of that release (`spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`,
 `lab-index` and `deep-foundations`, export and import), its challenges and evidence are of
 suite 1.0-beta.3, and it still grades and verifies a challenge of suite 1.0-beta.2
-([versions](#versions)).
+([versions](#versions)). The `monitoring` classes are newer than that release: until the
+page runs a release that has them, make and grade their challenges on the command line.
 
 A [pairwise challenge](#test-two-products-together) is command-line only. The page does
 not make one (`new --from-export`), and it refuses to grade or verify one: such a
@@ -580,8 +635,8 @@ spt: ACCEPTED
   ...
 ```
 
-`--class` is one of `spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`, `lab-index`
-and `deep-foundations`. `--format json`
+`--class` is one of `spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`, `lab-index`,
+`deep-foundations` and `monitoring`. `--format json`
 prints the result as a
 [`diggs-conformance-acceptance-1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-acceptance-1.0-beta.1.schema.json)
 document (preview; also `conformance.conformance_schema("acceptance")`), `--format html` prints the one-page report, and `--report PATH` also writes
@@ -602,10 +657,11 @@ judgement. `pydiggs.conformance.requirements(family)` lists them with their sour
 | --- | --- | --- |
 | `accept.diggs-3` | The file is a DIGGS 3 document, read to its end. | DIGGS 3.0.0 root element and namespace |
 | `accept.valid` | No validation error (warnings allowed). | DIGGS 3.0.0 XML Schema, the DIGGS dictionaries, the DIGGS Schematron rules |
-| `accept.present` | At least one test of the family: a measurement whose procedure is one of the family's elements (`DrivenPenetrationTest` for `spt`; `StaticConePenetrationTest` for `cpt`; `PorePressureDissipationTest` for `dissipation`; `InsituVaneTest`, `FlatPlateDilatometerTest` or another of the family's procedures for `in-situ-strength`; the ten laboratory index procedures). For piles: at least one pile and one `PileDrivingRecord`. For `mwd`: at least one `MeasurementWhileDrilling` log. | The family's DIGGS 3.0.0 elements ([classes](#classes-and-what-cannot-be-tested-yet)) |
-| `accept.located` | Every such test names the borehole or sounding it was made in, directly or through its sample, and that feature is in the file. For `mwd`: every drilling log names its borehole or sounding. For piles: every driving record's `PileDrivingActivity` names one pile of the file, and its tip locations are on no other pile. | `samplingFeatureRef` and `sampleRef` of a measurement; `samplingFeatureRef` of a construction activity (exactly one) |
-| `accept.result` | Every such test reports at least one value of a property the DIGGS dictionary defines for its procedure (for SPT: `n_value`, `n60`, `n1_60` or `relative_density`). For piles: every driving record has a value of a pile-driving property at a pile tip depth. For `mwd`: every log has a value of a drilling channel, a property `mwd_properties.xml` defines other than `depth` and `time`. A cell that is empty, or is the `nullValue` its property declares, is not a value. | `outcome` of a test (required); the `Occurrence` entries of `properties.xml`, `pil_properties.xml` and `mwd_properties.xml`; `nullValue` of a `Property` |
-| `accept.position` | Every such result value is placed along its feature, in a length unit DIGGS can convert. (Not for piles: `accept.result` asks for the tip depth. Not for `mwd`: DIGGS lets a drilling log be placed by depth or by time.) | `outcome`: "the associated locations that the measurement results relate to" |
+| `accept.present` | At least one test of the family: a measurement whose procedure is one of the family's elements (`DrivenPenetrationTest` for `spt`; `StaticConePenetrationTest` for `cpt`; `PorePressureDissipationTest` for `dissipation`; `InsituVaneTest`, `FlatPlateDilatometerTest` or another of the family's procedures for `in-situ-strength`; the ten laboratory index procedures). For piles: at least one pile and one `PileDrivingRecord`. For `mwd`: at least one `MeasurementWhileDrilling` log. For `monitoring`: at least one `Monitor` series. | The family's DIGGS 3.0.0 elements ([classes](#classes-and-what-cannot-be-tested-yet)) |
+| `accept.located` | Every such test names the borehole or sounding it was made in, directly or through its sample, and that feature is in the file. For `mwd`: every drilling log names its borehole or sounding. For `monitoring`: every series names its well, borehole or station. For piles: every driving record's `PileDrivingActivity` names one pile of the file, and its tip locations are on no other pile. | `samplingFeatureRef` and `sampleRef` of a measurement; `samplingFeatureRef` of a construction activity (exactly one) |
+| `accept.result` | Every such test reports at least one value of a property the DIGGS dictionary defines for its procedure (for SPT: `n_value`, `n60`, `n1_60` or `relative_density`). For piles: every driving record has a value of a pile-driving property at a pile tip depth. For `mwd`: every log has a value of a drilling channel, a property `mwd_properties.xml` defines other than `depth` and `time`. For `monitoring`: every series has a value, and where the dictionary defines properties for the series' procedure (for `WaterLevelMonitoring`: `water_depth`, `water_elev`, `temperature`) it is of one of them. A cell that is empty, or is the `nullValue` its property declares, is not a value. | `outcome` of a test (required); the `Occurrence` entries of `properties.xml`, `pil_properties.xml` and `mwd_properties.xml`; `nullValue` of a `Property` |
+| `accept.position` | Every such result value is placed along its feature, in a length unit DIGGS can convert. (Not for piles: `accept.result` asks for the tip depth. Not for `mwd`: DIGGS lets a drilling log be placed by depth or by time. Not for `monitoring`: a series is placed by time, see `accept.time`.) | `outcome`: "the associated locations that the measurement results relate to" |
+| `accept.time` | For `monitoring` only: every series that reports a value gives one time, or one elapsed time, for each result row. | `outcome` of a `Monitor`: a `TemporalResult`, whose `timeDomain` is required |
 
 !!! warning "What an acceptance check does not show"
     It does not compare any value with the field or laboratory records, so a wrong blow

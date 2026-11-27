@@ -264,6 +264,7 @@ _DRIVER_OF: Final = {
 def _catalogue() -> tuple[_Entry, ...]:
     """Every operation, in the order an app would list them."""
     from pydiggs import ags4, frames, gis  # noqa: PLC0415
+    from pydiggs import conformance as suite  # noqa: PLC0415
     from pydiggs.ags4._io import DEFAULT_MAX_BYTES as AGS4_MAX_BYTES  # noqa: PLC0415
     from pydiggs.convert._api import AGS_VERSIONS as CONVERT_AGS  # noqa: PLC0415
     from pydiggs.detect import DEFAULT_PROFILE, SCHEMA_PATHS  # noqa: PLC0415
@@ -331,6 +332,27 @@ def _catalogue() -> tuple[_Entry, ...]:
             type="boolean", label="Results in SI units where the unit converts", default=False
         ),
     }
+    suite_classes = suite.classes()
+    suite_diggs = tuple(dict.fromkeys(f"diggs-{c.diggs_version}" for c in suite_classes))
+    challenge = "diggs-conformance-challenge"
+    evidence = f"diggs-conformance-{suite.CONFORMANCE_SCHEMA_VERSION}"
+    answers = "text/csv"
+    suite_options = {
+        "max_bytes": OptionSpec(
+            type="integer",
+            label="Largest file accepted, in bytes",
+            default=DEFAULT_MAX_BYTES,
+        ),
+        "time_budget": OptionSpec(
+            type="number",
+            label="Seconds for reading, and again for validating, an exported file",
+        ),
+    }
+    challenge_option = OptionSpec(
+        type="file",
+        label="The challenge: its folder, or its challenge.json",
+        required=True,
+    )
     gis_modules = ("geopandas", "shapely", "pyproj", "pandas")
     by_suffix = {driver: suffix for suffix, driver in gis.DRIVERS.items()}
 
@@ -690,6 +712,91 @@ def _catalogue() -> tuple[_Entry, ...]:
                 stability="preview",
                 inputs=(profile,),
                 outputs=("diggs-3.0.0", findings),
+            )
+        ),
+        _Entry(
+            Operation(
+                id="conformance.classes",
+                label=(
+                    "List the classes of the DIGGS conformance suite: the kinds of data a"
+                    " product can be tested on, exporting or importing"
+                ),
+                stability="preview",
+                outputs=("conformance-class",),
+            )
+        ),
+        _Entry(
+            Operation(
+                id="conformance.new",
+                label=(
+                    "Make a conformance challenge for a product: tables to export as DIGGS,"
+                    " or a DIGGS file to import with questions about it"
+                ),
+                stability="preview",
+                outputs=(challenge,),
+                options={
+                    "class_id": OptionSpec(
+                        type="string",
+                        label="The class to test, such as spt-export",
+                        choices=tuple(c.id for c in suite_classes),
+                        required=True,
+                    ),
+                    "product": OptionSpec(
+                        type="string",
+                        label="The name of the software under test, as the evidence states it",
+                        required=True,
+                    ),
+                    "version": OptionSpec(
+                        type="string", label="The exact version of that software", required=True
+                    ),
+                    "seed": OptionSpec(
+                        type="string",
+                        label=(
+                            "The seed to build the challenge from: the same seed gives the"
+                            " same files (a fresh one is drawn if not given)"
+                        ),
+                    ),
+                    "from_export": OptionSpec(
+                        type="file",
+                        label=(
+                            "For an import class: the evidence of another product's passing"
+                            " export, to test this product on the file that product wrote"
+                        ),
+                    ),
+                    "export": OptionSpec(type="file", label="The DIGGS file that evidence graded"),
+                    **suite_options,
+                },
+            )
+        ),
+        _Entry(
+            Operation(
+                id="conformance.grade",
+                label=(
+                    "Grade what a product made of a challenge (the DIGGS file it exported,"
+                    " or its answers about the file it imported) and give the evidence"
+                ),
+                stability="preview",
+                inputs=(*suite_diggs, answers),
+                outputs=(evidence,),
+                options={"challenge": challenge_option, **suite_options},
+            )
+        ),
+        _Entry(
+            Operation(
+                id="conformance.verify",
+                label=("Grade a submission again and say whether it gives the same evidence"),
+                stability="preview",
+                inputs=(*suite_diggs, answers),
+                outputs=("conformance-verification",),
+                options={
+                    "evidence": OptionSpec(
+                        type="file",
+                        label="The evidence to check: an evidence.json",
+                        required=True,
+                    ),
+                    "challenge": challenge_option,
+                    **suite_options,
+                },
             )
         ),
         _Entry(

@@ -2,8 +2,8 @@
 
 SPT and CPT share the generic answer key and reader of :mod:`._facts`. The laboratory
 scenario brings its own key; the pile scenario its own key, reader and file builder; so
-do the MWD, dissipation and in-situ strength scenarios (:data:`_OWN`). Everything else in the
-suite asks this module.
+do the MWD, dissipation, in-situ strength and monitoring scenarios (:data:`_OWN`).
+Everything else in the suite asks this module.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from pydiggs.conformance import (
     _facts,
     _insitu,
     _lab,
+    _monitoring,
     _mwd,
     _piles,
     _requirements,
@@ -45,6 +46,7 @@ _OWN: Final[dict[str, _Scenario]] = {
     _mwd.SCENARIO: _mwd,
     _dissipation.SCENARIO: _dissipation,
     _insitu.SCENARIO: _insitu,
+    _monitoring.SCENARIO: _monitoring,
 }
 
 
@@ -109,10 +111,13 @@ def acceptance(family: Family) -> Profile:
     """What a delivered file of ``family`` must hold (``pydiggs conformance accept``).
 
     A family whose catalogue elements are test procedures gets the generic test profile;
-    a family with another shape (piles, drilling logs) names its own profile here.
+    a family with another shape (piles, drilling logs, monitoring series) names its own
+    profile here.
     """
     if family.scenario == _piles.SCENARIO:
         return _requirements.pile_profile(family)
     if family.scenario == _mwd.SCENARIO:
         return _requirements.mwd_profile(family)
+    if family.scenario == _monitoring.SCENARIO:
+        return _requirements.monitoring_profile(family)
     return _requirements.test_profile(family)

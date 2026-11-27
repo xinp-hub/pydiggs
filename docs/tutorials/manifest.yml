@@ -84,6 +84,10 @@ features:
   - option:conformance new --product-version
   - option:conformance new --seed
   - option:conformance new --output
+  - operation:conformance.classes
+  - operation:conformance.new
+  - operation:conformance.grade
+  - operation:conformance.verify
   tutorial: conformance
 - id: conformance-from-export
   covers:

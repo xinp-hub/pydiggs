@@ -202,6 +202,8 @@ elements = [
 id = "monitoring"
 group = "Monitoring"
 title = "Wells, instruments and monitoring"
+scenario = "monitoring"
+note = "Graded: each piezometer's sensor depth and every reading of its water level series (water depth, water elevation, temperature) at its time. Wells, well openings and stations are not graded yet."
 elements = ["Well", "WellOpening", "Monitor", "WaterLevelMonitoring", "Station"]
 
 [[family]]

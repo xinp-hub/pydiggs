@@ -257,8 +257,17 @@ def _token(info: ClassInfo, seed: str, suite: str = SUITE_VERSION) -> str:
 #: Scenarios whose export challenge is a DIGGS tables profile package (pydiggs.tables).
 #: The pile scenario is not: the profile has no pile tables yet.
 PROFILE_SCENARIOS: Final = frozenset(
-    {"spt", "cpt", "lab", "mwd", "dissipation", "in-situ-strength"}
+    {"spt", "cpt", "lab", "mwd", "dissipation", "in-situ-strength", "monitoring"}
 )
+#: Scenario -> what its export challenge's README adds to "What is graded".
+_GRADED_TOO: Final = {
+    "monitoring": (
+        "- A reading is found by its time, compared as an instant: any offset from UTC that",
+        "  names the same instant is right, and a time with no offset names none.",
+        "- A time the tables have no reading at has none in the file either.",
+        "- The sensor depth is the place the series' `monitorLocation` gives.",
+    )
+}
 
 
 def _profile_package(reference: bytes) -> dict[str, bytes]:
@@ -350,6 +359,7 @@ def _readme(
             "  the table gives. You may export in any unit, as long as the file states it.",
             "- Where the file gives a source value more than once, every one must agree.",
             "- A value the tables leave empty is not in the file as a zero.",
+            *_GRADED_TOO.get(info.scenario, ()),
             "",
         ]
     elif info.direction == "export":

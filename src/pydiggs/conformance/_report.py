@@ -266,7 +266,7 @@ def scorecard(documents: Iterable[Mapping[str, Any]]) -> tuple[Scorecard, ...]:
         >>> evidence = conformance.grade(challenge, challenge.reference()).to_dict()
         >>> (card,) = conformance.scorecard([evidence])
         >>> card.passed, card.testable
-        (1, 14)
+        (1, 16)
         >>> next(r for r in card.rows if r.family == "geophysics").export
         'not-testable'
     """

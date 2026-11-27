@@ -244,8 +244,11 @@ def acceptance_families() -> tuple[Family, ...]:
 
     Examples:
         >>> from pydiggs import conformance
-        >>> [f.id for f in conformance.acceptance_families()]
-        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'mwd', 'lab-index', 'deep-foundations']
+        >>> ids = [f.id for f in conformance.acceptance_families()]
+        >>> ids[:5]
+        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'mwd']
+        >>> ids[5:]
+        ['lab-index', 'deep-foundations', 'monitoring']
     """
     return tuple(f for f in families() if f.testable and not f.embedded)
 

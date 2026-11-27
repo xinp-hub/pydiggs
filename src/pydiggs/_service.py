@@ -27,6 +27,13 @@ remote caller gets the same pinned settings:
 
 The protocol mappings (RFC 9457, JSON-RPC, MCP ``isError``) live in each adapter and
 start from :class:`Code`.
+
+The conformance suite (:mod:`pydiggs.conformance`, a preview) is here too, for an adapter
+that runs on the caller's own machine: :func:`conformance_classes`,
+:func:`conformance_new`, :func:`conformance_reference`, :func:`conformance_grade` and
+:func:`conformance_verify` take files as bytes, keep them within fixed limits in a
+private temporary folder, and answer one JSON document, with a file inside it as base64
+beside its sha256. No HTTP route, sidecar method or MCP tool offers them.
 """
 
 from __future__ import annotations
@@ -40,6 +47,7 @@ import json
 import logging
 import math
 import os
+import re
 import secrets
 import site
 import sys
@@ -47,11 +55,13 @@ import tempfile
 import threading
 import time
 import urllib.parse
+import zipfile
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
+from io import BytesIO
 from pathlib import Path, PurePath, PureWindowsPath
 from typing import TYPE_CHECKING, Any, Final, Literal
 
@@ -73,6 +83,11 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AGS4_MEDIA_TYPE",
+    "CONFORMANCE_KINDS",
+    "CONFORMANCE_MAX_EVIDENCE_BYTES",
+    "CONFORMANCE_MAX_MANIFEST_BYTES",
+    "CONFORMANCE_MAX_ZIP_MEMBERS",
+    "CONFORMANCE_TIME_BUDGET",
     "CONVERT_AGS_VERSIONS",
     "CONVERT_DIGGS_VERSIONS",
     "CONVERT_TARGETS",
@@ -89,6 +104,8 @@ __all__ = [
     "TABLES_UNPACK_FACTOR",
     "Ags4CheckRequest",
     "Code",
+    "ConformanceNewRequest",
+    "ConformanceRequest",
     "ConvertRequest",
     "DiffRequest",
     "Outcome",
@@ -100,6 +117,11 @@ __all__ = [
     "ags4_check_in_pool",
     "capabilities",
     "capabilities_schema",
+    "conformance_classes",
+    "conformance_grade",
+    "conformance_new",
+    "conformance_reference",
+    "conformance_verify",
     "convert",
     "convert_in_pool",
     "diff",
@@ -272,7 +294,9 @@ class Outcome:
     2.1.0 log when asked for, a diggs-model document from :func:`read`, or a
     conversion result from :func:`convert`). ``detail``
     never contains an absolute path or a value the caller sent, only the reported
-    basename.
+    basename. One exception: a conformance request's ``invalid-document`` carries the
+    suite's own message, which can quote a value of the files given (a suite version, a
+    digest), at a bounded length and never with the private folder's path.
     ``errors`` lists ``(parameter, problem)`` pairs for ``invalid-parameter``.
     ``correlation_id`` ties a ``resource-error`` or ``internal`` answer to the log line
     with the real text.
@@ -289,7 +313,8 @@ class Outcome:
     detail: str = ""
     errors: tuple[tuple[str, str], ...] = ()
     correlation_id: str | None = None
-    #: For ``invalid-document``: one of :data:`DOCUMENT_KINDS`.
+    #: For ``invalid-document``: one of :data:`DOCUMENT_KINDS`, or of
+    #: :data:`CONFORMANCE_KINDS` from a conformance request.
     kind: str | None = None
 
     @property
@@ -1934,6 +1959,599 @@ def _from_diggs_outcome(
     if limit is not None and len(body) > limit:
         return _tables_too_large(shown)
     return Outcome(document=body)
+
+
+# --- conformance ------------------------------------------------------------------------
+
+#: Seconds for reading, and again for validating, a file the suite grades (a pairwise
+#: challenge spends them twice: its ``challenge.xml`` is graded when it is loaded).
+CONFORMANCE_TIME_BUDGET: Final = 120.0
+#: Largest ``challenge.json`` accepted, alone or in a challenge ZIP.
+CONFORMANCE_MAX_MANIFEST_BYTES: Final = 64 * 1024
+#: Largest evidence document accepted.
+CONFORMANCE_MAX_EVIDENCE_BYTES: Final = 8 * 2**20
+#: Most members a challenge ZIP may hold.
+CONFORMANCE_MAX_ZIP_MEMBERS: Final = 200
+#: Why a conformance request may answer ``invalid-document`` (``Outcome.kind``): the
+#: ``kind`` of the suite's own :class:`~pydiggs.errors.DocumentError`.
+CONFORMANCE_KINDS: Final = ("not-a-challenge", "suite-version", "source-export", "not-evidence")
+#: Longest ``detail`` of a conformance refusal: the suite's message can quote a file.
+_CONFORMANCE_MAX_DETAIL: Final = 1000
+_CONFORMANCE_MANIFEST: Final = "challenge.json"
+_CONFORMANCE_IMPORT_FILE: Final = "challenge.xml"
+_CONFORMANCE_ZIP_TIME: Final = (1980, 1, 1, 0, 0, 0)
+_CONFORMANCE_NAME: Final = re.compile(r"[^A-Za-z0-9._ -]")
+_CONFORMANCE_NAME_CHARS: Final = 120
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ConformanceNewRequest:
+    """One request for a conformance challenge (:func:`conformance_new`).
+
+    ``class_id``, ``product``, ``version`` and ``seed`` may come from the caller and are
+    checked by :func:`conformance_new`. ``evidence`` and ``export`` make a pairwise
+    import challenge, from another product's graded export: the bytes of its
+    ``evidence.json`` and of the DIGGS file that evidence graded, both or neither. The
+    limits are the adapter's own and are checked here.
+
+    Examples:
+        >>> ConformanceNewRequest(class_id="spt-export", product="P", version="1").time_budget
+        120.0
+        >>> ConformanceNewRequest(class_id="spt-import", product="P", version="1", export=b"<x/>")
+        Traceback (most recent call last):
+        ...
+        ValueError: evidence and export are given together, or neither
+    """
+
+    class_id: str
+    product: str
+    version: str
+    seed: str | None = None
+    evidence: bytes | None = None
+    export: bytes | None = None
+    max_bytes: int = 25 * 2**20
+    time_budget: float = CONFORMANCE_TIME_BUDGET
+
+    def __post_init__(self) -> None:
+        for name in ("evidence", "export"):
+            _optional_bytes(getattr(self, name), name)
+        if (self.evidence is None) != (self.export is None):
+            raise ValueError("evidence and export are given together, or neither")
+        _conformance_limits(self.max_bytes, self.time_budget)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ConformanceRequest:
+    """One request about a challenge: its reference file, a grading or a verification.
+
+    ``challenge`` is the bytes of ``challenge.json``, or of the challenge's folder as a
+    ZIP (what :func:`conformance_new` gives). A pairwise challenge is taken as the ZIP
+    only: its ``challenge.xml``, the other product's export, is part of it.
+    ``submission`` is the DIGGS file a product exported, or the filled ``answers.csv``
+    of an import class, and ``name`` its file name, which the evidence records
+    (:func:`conformance_grade`, :func:`conformance_verify`). ``evidence`` is the
+    ``evidence.json`` to compare with (:func:`conformance_verify`). The limits are the
+    adapter's own and are checked here.
+
+    Examples:
+        >>> ConformanceRequest(challenge=b"{}").max_bytes
+        26214400
+        >>> ConformanceRequest(challenge=b"{}", time_budget=0)
+        Traceback (most recent call last):
+        ...
+        ValueError: time_budget must be a positive number of seconds, at most 86400
+    """
+
+    challenge: bytes
+    submission: bytes | None = None
+    evidence: bytes | None = None
+    name: str | None = None
+    max_bytes: int = 25 * 2**20
+    time_budget: float = CONFORMANCE_TIME_BUDGET
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.challenge, bytes):
+            raise TypeError(f"challenge must be bytes, not {type(self.challenge).__name__}")
+        for name in ("submission", "evidence"):
+            _optional_bytes(getattr(self, name), name)
+        _conformance_limits(self.max_bytes, self.time_budget)
+
+
+def _optional_bytes(value: object, name: str) -> None:
+    if value is not None and not isinstance(value, bytes):
+        raise TypeError(f"{name} must be bytes or None, not {type(value).__name__}")
+
+
+def _conformance_limits(max_bytes: object, time_budget: object) -> None:
+    if type(max_bytes) is not int or max_bytes < 1:
+        raise ValueError(f"max_bytes must be a positive int, got {max_bytes!r}")
+    if not _valid_seconds(time_budget):
+        raise ValueError(f"time_budget must be a positive number of seconds, at most {MAX_SECONDS}")
+
+
+class _ConformanceRefusedError(Exception):
+    """A file a conformance request cannot use; ``outcome`` is the answer."""
+
+    def __init__(self, outcome: Outcome) -> None:
+        super().__init__(outcome.detail)
+        self.outcome = outcome
+
+
+def _conformance_refused(kind: str, detail: str) -> _ConformanceRefusedError:
+    return _ConformanceRefusedError(Outcome(code=Code.INVALID_DOCUMENT, detail=detail, kind=kind))
+
+
+def _conformance_too_large(detail: str) -> _ConformanceRefusedError:
+    return _ConformanceRefusedError(Outcome(code=Code.INPUT_TOO_LARGE, detail=detail))
+
+
+def _conformance_detail(exc: BaseException, scratch: Path | None = None) -> str:
+    """The suite's message, with the private folder taken out of it, at a bounded length.
+
+    The caller never named the folder its files were written to. The message can quote
+    a value of a file it was given (a suite version, a digest, a seed): it is text to
+    show, never markup.
+    """
+    text = str(exc)
+    if scratch is not None:
+        for folder in ("challenge", "submission"):
+            text = text.replace(str(scratch / folder) + os.sep, "")
+        text = text.replace(str(scratch), ".")
+    text = _scrub(text)
+    if len(text) > _CONFORMANCE_MAX_DETAIL:
+        text = text[: _CONFORMANCE_MAX_DETAIL - 1] + "…"
+    return text
+
+
+def _conformance_failure(exc: Exception, scratch: Path | None = None) -> Outcome:
+    """The :class:`Outcome` of an error a conformance request met."""
+    if isinstance(exc, _ConformanceRefusedError):
+        return exc.outcome
+    if isinstance(exc, DocumentError):
+        return Outcome(
+            code=Code.INVALID_DOCUMENT, detail=_conformance_detail(exc, scratch), kind=exc.kind
+        )
+    if isinstance(exc, InstanceReadError):
+        return Outcome(code=Code.INPUT_UNREADABLE, detail=_conformance_detail(exc, scratch))
+    if isinstance(exc, ResourceError):
+        return _failure(Code.RESOURCE_ERROR, exc)
+    return _failure(Code.INTERNAL, exc)
+
+
+def _conformance_name(name: str | None) -> str:
+    """The last part of ``name``, with characters a file system may refuse replaced.
+
+    Examples:
+        >>> _conformance_name("up/../my export.xml"), _conformance_name("../..")
+        ('my export.xml', 'submission')
+    """
+    last = run._NAME_SEPARATORS.split(name or "")[-1].strip()
+    cleaned = _CONFORMANCE_NAME.sub("_", last)[:_CONFORMANCE_NAME_CHARS].strip(" .")
+    return cleaned or "submission"
+
+
+def _conformance_zip(folder: str, files: Mapping[str, bytes]) -> bytes:
+    """The files in one folder of a ZIP, written the same way every time."""
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name in sorted(files):
+            info = zipfile.ZipInfo(f"{folder}/{name}", date_time=_CONFORMANCE_ZIP_TIME)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            archive.writestr(info, files[name])
+    return buffer.getvalue()
+
+
+def _conformance_member(archive: zipfile.ZipFile, name: str, limit: int) -> bytes | None:
+    """The one member of ``archive`` whose file name is ``name``, read within ``limit``.
+
+    None when no member has that name. Only the last part of a member's path is looked
+    at, and it is never used as a path.
+    """
+    found = [
+        member
+        for member in archive.infolist()
+        if not member.is_dir() and member.filename.replace("\\", "/").split("/")[-1] == name
+    ]
+    if not found:
+        return None
+    if len(found) > 1:
+        raise _conformance_refused(
+            "not-a-challenge", f"The challenge ZIP must hold exactly one {name}."
+        )
+    if found[0].file_size > limit:
+        raise _conformance_too_large(f"The {name} in the challenge ZIP is larger than allowed.")
+    with archive.open(found[0]) as member:
+        data = member.read(limit + 1)  # a member can inflate to more than it states
+    if len(data) > limit:
+        raise _conformance_too_large(f"The {name} in the challenge ZIP is larger than allowed.")
+    return data
+
+
+def _pairwise(manifest: bytes) -> bool:
+    """Whether a manifest names another product's export (``source_export``)."""
+    try:
+        described = json.loads(manifest)
+    except (ValueError, RecursionError):
+        return False  # conformance.load says what is wrong with it
+    return isinstance(described, dict) and "source_export" in described
+
+
+def _conformance_files(challenge: bytes, max_bytes: int) -> tuple[bytes, bytes | None]:
+    """``challenge.json``, and the ``challenge.xml`` of a pairwise challenge, from what was given.
+
+    Raises:
+        _ConformanceRefusedError: The bytes are neither a manifest nor a challenge ZIP
+            within the limits, or a pairwise challenge came without its ``challenge.xml``.
+    """
+    if not challenge.startswith(b"PK"):
+        if len(challenge) > CONFORMANCE_MAX_MANIFEST_BYTES:
+            raise _conformance_too_large(
+                "The challenge is neither a ZIP nor a challenge.json, which is at most"
+                f" {CONFORMANCE_MAX_MANIFEST_BYTES} bytes."
+            )
+        if _pairwise(challenge):
+            raise _conformance_refused(
+                "source-export",
+                "This challenge was made from another product's export: give the challenge"
+                f" ZIP, which holds that export as {_CONFORMANCE_IMPORT_FILE}.",
+            )
+        return challenge, None
+    if len(challenge) > max_bytes:
+        raise _conformance_too_large("The challenge ZIP is larger than allowed.")
+    try:
+        with zipfile.ZipFile(BytesIO(challenge)) as archive:
+            if len(archive.infolist()) > CONFORMANCE_MAX_ZIP_MEMBERS:
+                raise _conformance_too_large(
+                    f"The challenge ZIP holds more than {CONFORMANCE_MAX_ZIP_MEMBERS} files."
+                )
+            manifest = _conformance_member(
+                archive, _CONFORMANCE_MANIFEST, CONFORMANCE_MAX_MANIFEST_BYTES
+            )
+            if manifest is None:
+                raise _conformance_refused(
+                    "not-a-challenge",
+                    f"The challenge ZIP must hold exactly one {_CONFORMANCE_MANIFEST}.",
+                )
+            if not _pairwise(manifest):
+                return manifest, None  # every other file is rebuilt from the seed
+            exported = _conformance_member(archive, _CONFORMANCE_IMPORT_FILE, max_bytes)
+    except (zipfile.BadZipFile, OSError, ValueError, NotImplementedError, RuntimeError) as exc:
+        # RuntimeError: an encrypted member. The reason can quote the archive, so it is
+        # not passed on.
+        raise _conformance_refused("not-a-challenge", "The challenge ZIP cannot be read.") from exc
+    if exported is None:
+        raise _conformance_refused(
+            "source-export",
+            "This challenge was made from another product's export, and its ZIP does not"
+            f" hold that export as {_CONFORMANCE_IMPORT_FILE}.",
+        )
+    return manifest, exported
+
+
+def _conformance_load(request: ConformanceRequest, scratch: Path) -> Any:
+    """The :class:`pydiggs.conformance.Challenge` of a request, by ``conformance.load``.
+
+    The manifest, and the ``challenge.xml`` of a pairwise challenge, are written under
+    fixed names in the private folder; ``conformance.load`` rebuilds every other file
+    from the seed, and checks and grades a pairwise ``challenge.xml`` again.
+    """
+    from pydiggs import conformance as suite  # noqa: PLC0415  # loads on first use
+
+    manifest, exported = _conformance_files(request.challenge, request.max_bytes)
+    folder = scratch / "challenge"
+    folder.mkdir()
+    (folder / _CONFORMANCE_MANIFEST).write_bytes(manifest)
+    if exported is not None:
+        (folder / _CONFORMANCE_IMPORT_FILE).write_bytes(exported)
+    return suite.load(folder, max_bytes=request.max_bytes, time_budget=request.time_budget)
+
+
+def _conformance_submission(request: ConformanceRequest, scratch: Path) -> Path:
+    """The submission as a file of its own (reduced) name, which the evidence records."""
+    data = request.submission
+    assert data is not None  # noqa: S101  # the caller checked
+    if len(data) > request.max_bytes:
+        raise _conformance_too_large("The submission is larger than allowed.")
+    folder = scratch / "submission"
+    folder.mkdir()
+    path = folder / _conformance_name(request.name)
+    path.write_bytes(data)
+    return path
+
+
+def _conformance_request_errors(
+    request: ConformanceRequest, needs: Sequence[str]
+) -> tuple[tuple[str, str], ...]:
+    errors = _name_errors(request.name)
+    errors += [(name, "is required") for name in needs if getattr(request, name) is None]
+    return tuple(errors)
+
+
+def _conformance_run(
+    request: ConformanceRequest,
+    needs: Sequence[str],
+    task: Callable[[ConformanceRequest, Path], Mapping[str, Any]],
+) -> Outcome:
+    """``task`` in a private temporary folder; whatever it meets becomes an :class:`Outcome`."""
+    errors = _conformance_request_errors(request, needs)
+    if errors:
+        return Outcome(code=Code.INVALID_PARAMETER, detail="invalid parameters", errors=errors)
+    try:
+        with tempfile.TemporaryDirectory() as scratch:
+            try:
+                return Outcome(document=_body(task(request, Path(scratch))))
+            except Exception as exc:  # fail closed: no traceback or path reaches the caller
+                return _conformance_failure(exc, Path(scratch))
+    except OSError as exc:  # the private folder could not be made or removed
+        return _failure(Code.INTERNAL, exc)
+
+
+def conformance_classes() -> dict[str, Any]:
+    """The classes a conformance challenge can be made for, and what is not testable yet.
+
+    ``suite_version``, ``pydiggs`` (this release), ``statement`` (what a result does and
+    does not show, as the evidence states it), ``classes`` (``id``, ``title``,
+    ``direction``, ``family``, as :func:`pydiggs.conformance.classes` lists them) and
+    ``untestable`` (the titles of the parts of DIGGS the suite has no class for yet).
+
+    Examples:
+        >>> listing = conformance_classes()
+        >>> listing["classes"][0]["id"], listing["classes"][0]["direction"]
+        ('spt-export', 'export')
+    """
+    from pydiggs import conformance as suite  # noqa: PLC0415  # loads on first use
+
+    return {
+        "suite_version": suite.SUITE_VERSION,
+        "pydiggs": pydiggs.__version__,
+        "statement": suite.STATEMENT,
+        "classes": [
+            {"id": c.id, "title": c.title, "direction": c.direction, "family": c.family}
+            for c in suite.classes()
+        ],
+        "untestable": [f.title for f in suite.families() if not f.testable and not f.embedded],
+    }
+
+
+def _conformance_new_errors(request: ConformanceNewRequest) -> tuple[tuple[str, str], ...]:
+    """Check the caller-supplied parameters; fixed texts that never echo the value."""
+    from pydiggs import conformance as suite  # noqa: PLC0415  # loads on first use
+    from pydiggs.conformance import _challenge  # noqa: PLC0415
+
+    errors: list[tuple[str, str]] = []
+    known = [c.id for c in suite.classes()]
+    if not isinstance(request.class_id, str) or request.class_id not in known:
+        errors.append(("class_id", f"expected one of {', '.join(known)}"))
+    for name in ("product", "version"):
+        try:
+            _challenge._clean(getattr(request, name), name)
+        except ValueError:
+            errors.append((name, f"must be 1 to {_challenge._MAX_TEXT} characters of text"))
+    seed = request.seed
+    if seed is not None and (not isinstance(seed, str) or not _challenge._SEED.fullmatch(seed)):
+        errors.append(("seed", "must be 1 to 64 letters, digits, '.', '_' or '-'"))
+    return tuple(errors)
+
+
+def conformance_new(request: ConformanceNewRequest) -> Outcome:
+    """Make a conformance challenge: :func:`pydiggs.conformance.new`, as a ZIP of its folder.
+
+    The document is one line of JSON: ``class_id``, ``title``, ``direction``, ``seed``,
+    ``token``, ``id``, ``folder`` (the folder's name, ``<class>-<seed>``), ``files`` (the
+    names in it), ``manifest`` (the text of ``challenge.json``), ``readme`` (the text of
+    ``README.md``), ``output_sha256`` and ``output_base64``: a ZIP of the folder
+    ``pydiggs conformance new`` writes, with fixed timestamps, so the same seed gives the
+    same bytes. With ``evidence`` and ``export`` the challenge is a pairwise one, and the
+    ZIP's ``challenge.xml`` is that export.
+
+    Args:
+        request: The class, the product and, for a pairwise challenge, the other
+            product's evidence and export.
+
+    Returns:
+        The document, or an error :class:`Code`: ``invalid-parameter`` (an unknown
+        class, a product, version or seed that cannot be used, or a pairwise challenge
+        asked of an export class or with another seed), ``input-too-large`` (the
+        evidence or the export), ``invalid-document`` (``kind`` ``not-evidence`` or
+        ``source-export``: the evidence is not passing evidence of this suite for the
+        export, or does not verify), ``resource-error`` or ``internal``. Never raises
+        for bad input.
+
+    Examples:
+        >>> request = ConformanceNewRequest(
+        ...     class_id="spt-export", product="MyLog", version="4.2.1", seed="demo"
+        ... )
+        >>> made = json.loads(conformance_new(request).document)
+        >>> made["folder"], made["direction"], len(made["output_sha256"])
+        ('spt-export-demo', 'export', 64)
+        >>> bad = ConformanceNewRequest(class_id="nope", product="P", version="1")
+        >>> conformance_new(bad).errors[0][0]
+        'class_id'
+    """
+    from pydiggs import conformance as suite  # noqa: PLC0415  # loads on first use
+
+    try:
+        errors = _conformance_new_errors(request)
+        if errors:
+            return Outcome(code=Code.INVALID_PARAMETER, detail="invalid parameters", errors=errors)
+        if request.evidence is not None and len(request.evidence) > CONFORMANCE_MAX_EVIDENCE_BYTES:
+            raise _conformance_too_large("The evidence is larger than allowed.")
+        if request.export is not None and len(request.export) > request.max_bytes:
+            raise _conformance_too_large("The export is larger than allowed.")
+        try:
+            challenge = suite.new(
+                request.class_id,
+                product=request.product,
+                version=request.version,
+                seed=request.seed,
+                from_export=request.evidence,
+                export=request.export,
+                max_bytes=request.max_bytes,
+                time_budget=request.time_budget,
+            )
+        except DocumentError:
+            raise
+        except ValueError as exc:  # a pairwise challenge of an export class, or another seed
+            return Outcome(code=Code.INVALID_PARAMETER, detail=_conformance_detail(exc))
+        folder = f"{challenge.info.id}-{challenge.seed}"
+        output = _conformance_zip(folder, challenge.files)
+        result = {
+            "class_id": challenge.info.id,
+            "title": challenge.info.title,
+            "direction": challenge.info.direction,
+            "seed": challenge.seed,
+            "token": challenge.token,
+            "id": challenge.id,
+            "folder": folder,
+            "files": sorted(challenge.files),
+            "manifest": challenge.files[_CONFORMANCE_MANIFEST].decode("utf-8"),
+            "readme": challenge.files["README.md"].decode("utf-8"),
+            "output_sha256": hashlib.sha256(output).hexdigest(),
+            "output_base64": base64.b64encode(output).decode("ascii"),
+        }
+        return Outcome(document=_body(result))
+    except Exception as exc:  # fail closed: no traceback or path reaches the caller
+        return _conformance_failure(exc)
+
+
+def _reference_task(request: ConformanceRequest, scratch: Path) -> Mapping[str, Any]:
+    loaded = _conformance_load(request, scratch)
+    output: bytes = loaded.reference()
+    return {
+        "output_name": f"{loaded.info.id}-{loaded.seed}-pydiggs.xml",
+        "output_sha256": hashlib.sha256(output).hexdigest(),
+        "output_base64": base64.b64encode(output).decode("ascii"),
+    }
+
+
+def conformance_reference(request: ConformanceRequest) -> Outcome:
+    """The known-good DIGGS file of a challenge: ``Challenge.reference()``.
+
+    It is pyDIGGS's own export of the challenge's data, a way to try the flow. The
+    document is one line of JSON: ``output_name``, ``output_sha256`` and
+    ``output_base64``. Only ``request.challenge`` is used.
+
+    Returns:
+        The document, or an error :class:`Code` as :func:`conformance_grade` answers
+        for its challenge.
+
+    Examples:
+        >>> manifest = b'{"format": "something else"}'
+        >>> refused = conformance_reference(ConformanceRequest(challenge=manifest))
+        >>> refused.code.value, refused.kind, refused.detail
+        ('invalid-document', 'not-a-challenge', 'challenge.json is not a challenge manifest')
+    """
+    return _conformance_run(request, (), _reference_task)
+
+
+def _grade_task(request: ConformanceRequest, scratch: Path) -> Mapping[str, Any]:
+    from pydiggs import conformance as suite  # noqa: PLC0415  # loads on first use
+
+    result = suite.grade(
+        _conformance_load(request, scratch),
+        _conformance_submission(request, scratch),
+        max_bytes=request.max_bytes,
+        time_budget=request.time_budget,
+    )
+    return {
+        "passed": result.passed,
+        "evidence": result.to_dict(),
+        "evidence_json": result.to_json() + "\n",
+        "report_html": result.to_html(),
+    }
+
+
+def conformance_grade(request: ConformanceRequest) -> Outcome:
+    """Grade a submission against a challenge: :func:`pydiggs.conformance.grade`.
+
+    The class of the challenge decides what the submission is: the DIGGS file a product
+    exported, or the filled ``answers.csv`` of an import class. The document is one line
+    of JSON: ``passed``, ``evidence`` (the diggs-conformance document), ``evidence_json``
+    (the exact text ``pydiggs conformance grade`` writes as ``evidence.json``) and
+    ``report_html`` (its ``report.html``). A file that fails, or is not DIGGS at all, is
+    a failing result, not an error.
+
+    Args:
+        request: The challenge, the submission and its file name.
+
+    Returns:
+        The document, or an error :class:`Code`: ``invalid-parameter`` (no submission,
+        or a name that cannot be used), ``input-too-large`` (the challenge, a member of
+        its ZIP, the number of its members, or the submission), ``invalid-document``
+        (``kind`` one of :data:`CONFORMANCE_KINDS`: the challenge is not one, is of a
+        suite version this release does not grade, or is a pairwise one without its
+        own ``challenge.xml``; or the answers cannot be read), ``input-unreadable``,
+        ``resource-error`` or ``internal``. ``detail`` is then the suite's own message,
+        which can quote a value of the files given. Never raises for bad input.
+
+    Examples:
+        >>> new = ConformanceNewRequest(
+        ...     class_id="spt-export", product="P", version="1", seed="demo"
+        ... )
+        >>> challenge = base64.b64decode(json.loads(conformance_new(new).document)["output_base64"])
+        >>> request = ConformanceRequest(challenge=challenge, submission=b"<x/>", name="a.xml")
+        >>> graded = json.loads(conformance_grade(request).document)
+        >>> graded["passed"], graded["evidence"]["submission"]["name"]
+        (False, 'a.xml')
+    """
+    return _conformance_run(request, ("submission",), _grade_task)
+
+
+def _verify_task(request: ConformanceRequest, scratch: Path) -> Mapping[str, Any]:
+    from pydiggs import conformance as suite  # noqa: PLC0415  # loads on first use
+
+    raw = request.evidence
+    assert raw is not None  # noqa: S101  # the caller checked
+    if len(raw) > CONFORMANCE_MAX_EVIDENCE_BYTES:
+        raise _conformance_too_large("The evidence is larger than allowed.")
+    try:
+        document = json.loads(raw.decode("utf-8-sig"))
+    except (ValueError, RecursionError) as exc:
+        raise _conformance_refused("not-evidence", "The evidence is not JSON.") from exc
+    if not isinstance(document, dict):
+        raise _conformance_refused(
+            "not-evidence", "The evidence is not a diggs-conformance document."
+        )
+    outcome = suite.verify(
+        document,
+        _conformance_load(request, scratch),
+        _conformance_submission(request, scratch),
+        max_bytes=request.max_bytes,
+        time_budget=request.time_budget,
+    )
+    return {
+        "reproduced": outcome.ok,
+        "differences": list(outcome.differences),
+        "notes": list(outcome.notes),
+        "verdict": "pass" if outcome.result.passed else "fail",
+        "class_id": outcome.result.info.id,
+    }
+
+
+def conformance_verify(request: ConformanceRequest) -> Outcome:
+    """Grade a submission again and compare with evidence: :func:`pydiggs.conformance.verify`.
+
+    The document is one line of JSON: ``reproduced`` (grading again gives the evidence),
+    ``differences`` (the parts of the evidence that differ), ``notes``, ``verdict``
+    (``pass`` or ``fail``, of the grading done now) and ``class_id``.
+
+    Args:
+        request: The evidence, the challenge, the submission and its file name.
+
+    Returns:
+        The document, or an error :class:`Code`: as :func:`conformance_grade`, and
+        ``invalid-parameter`` without evidence, ``input-too-large`` for evidence over
+        :data:`CONFORMANCE_MAX_EVIDENCE_BYTES`, ``invalid-document`` of ``kind``
+        ``not-evidence`` for evidence that is not a diggs-conformance document this
+        release reads. Never raises for bad input.
+
+    Examples:
+        >>> request = ConformanceRequest(challenge=b"{}", submission=b"<x/>")
+        >>> conformance_verify(request).errors
+        (('evidence', 'is required'),)
+    """
+    return _conformance_run(request, ("submission", "evidence"), _verify_task)
 
 
 # --- process isolation ------------------------------------------------------------------

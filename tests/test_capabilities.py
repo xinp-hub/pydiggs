@@ -19,7 +19,7 @@ import jsonschema
 import pytest
 
 import pydiggs
-from pydiggs import _capabilities, _service, ags4, frames, gis
+from pydiggs import _capabilities, _service, ags4, conformance, frames, gis
 from pydiggs import convert as convert_module
 from pydiggs import diff as diff_module
 from pydiggs import tables as tables_module
@@ -43,8 +43,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # --- what every public operation and surface maps to ------------------------------------
 #
-# Each public function (pydiggs, pydiggs.ags4, pydiggs.convert, pydiggs.diff,
-# pydiggs.frames, pydiggs.gis and pydiggs.tables), HTTP route,
+# Each public function (pydiggs, pydiggs.ags4, pydiggs.conformance, pydiggs.convert,
+# pydiggs.diff, pydiggs.frames, pydiggs.gis and pydiggs.tables), HTTP route,
 # MCP tool, sidecar method and CLI command is listed here with the operation it is, or
 # in a META set with the reason it is not one. A new name anywhere fails a test below
 # until it is listed, so a new operation cannot ship without a capabilities entry.
@@ -84,6 +84,13 @@ PUBLIC_FUNCTIONS: dict[str, tuple[str, ...]] = {
     # Where the tables come from, for each operation that takes them.
     "pydiggs.tables.read_package": ("tables.to-diggs", "tables.check", "tables.round-trip"),
     "pydiggs.tables.rows_from_cursor": ("tables.to-diggs", "tables.check", "tables.round-trip"),
+    "pydiggs.conformance.classes": ("conformance.classes",),
+    "pydiggs.conformance.class_info": ("conformance.classes",),  # one class of the list
+    "pydiggs.conformance.new": ("conformance.new",),
+    "pydiggs.conformance.grade": ("conformance.grade",),
+    "pydiggs.conformance.verify": ("conformance.verify",),
+    # Where the challenge comes from, for each operation that takes one.
+    "pydiggs.conformance.load": ("conformance.grade", "conformance.verify"),
 }
 #: Public callables that describe pydiggs rather than act on data.
 META_FUNCTIONS = {
@@ -97,6 +104,17 @@ META_FUNCTIONS = {
     "pydiggs.convert.mapping_info": "describes the mapping table, converts nothing",
     "pydiggs.diff.diff_schema": "a contract's schema",
     "pydiggs.tables.profile": "a contract's schema (the profile as a Data Package)",
+    "pydiggs.conformance.conformance_schema": "a contract's schema",
+    "pydiggs.conformance.families": "describes the suite: every part of DIGGS, testable or not",
+    "pydiggs.conformance.requirements": "describes the suite: what a family requires of a file",
+    "pydiggs.conformance.acceptance_families": "describes the suite: the families accept checks",
+}
+#: Public functions of the conformance suite (a preview) that act on data and are not
+#: listed yet: the catalogue has the four operations a product is tested with.
+UNLISTED_FUNCTIONS = {
+    "pydiggs.conformance.accept": "checks one delivered file, for the owner who receives it",
+    "pydiggs.conformance.matrix": "lays out folders of evidence of several products",
+    "pydiggs.conformance.scorecard": "lays out results a caller already has",
 }
 #: The function whose signature each operation's options must match.
 SIGNATURES: dict[str, tuple[str, ...]] = {
@@ -124,6 +142,10 @@ SIGNATURES: dict[str, tuple[str, ...]] = {
     "tables.from-diggs": ("pydiggs.tables.from_model",),
     "tables.check": ("pydiggs.tables.check",),
     "tables.round-trip": ("pydiggs.tables.round_trip",),
+    "conformance.classes": ("pydiggs.conformance.classes",),
+    "conformance.new": ("pydiggs.conformance.new",),
+    "conformance.grade": ("pydiggs.conformance.grade",),
+    "conformance.verify": ("pydiggs.conformance.verify",),
 }
 #: HTTP route -> operation(s), or None for a route that describes the server.
 HTTP_ROUTES: dict[str, str | tuple[str, ...] | None] = {
@@ -196,6 +218,7 @@ def _resolve(dotted: str):
         "pydiggs.convert": convert_module,
         "pydiggs.diff": diff_module,
         "pydiggs.tables": tables_module,
+        "pydiggs.conformance": conformance,
     }[module]
     return getattr(owner, name)
 
@@ -304,6 +327,7 @@ def _public_functions() -> set[str]:
         ("pydiggs.convert", convert_module),
         ("pydiggs.diff", diff_module),
         ("pydiggs.tables", tables_module),
+        ("pydiggs.conformance", conformance),
     ):
         for name in module.__all__:
             obj = getattr(module, name)
@@ -313,7 +337,10 @@ def _public_functions() -> set[str]:
 
 
 def test_every_public_function_is_an_operation_or_listed_as_meta(by_id):
-    assert _public_functions() == set(PUBLIC_FUNCTIONS) | set(META_FUNCTIONS)
+    listed = (PUBLIC_FUNCTIONS, META_FUNCTIONS, UNLISTED_FUNCTIONS)
+    assert _public_functions() == set().union(*listed)
+    assert sum(len(names) for names in listed) == len(_public_functions())  # one place each
+    assert all(name.startswith("pydiggs.conformance.") for name in UNLISTED_FUNCTIONS)
     for name, ops in PUBLIC_FUNCTIONS.items():
         assert set(ops) <= set(by_id), name
 
@@ -378,6 +405,8 @@ def test_choices_come_from_the_code(by_id):
     assert by_id["export.pandas"].options["view"].choices == frames.VIEWS
     from pydiggs.ags4._io import _ENCODINGS
 
+    class_ids = tuple(c.id for c in conformance.classes())
+    assert by_id["conformance.new"].options["class_id"].choices == class_ids
     encoding = by_id["ags4.check"].options["encoding"].choices
     assert encoding is not None
     assert {codecs.lookup(c).name for c in encoding} == {codecs.lookup(c).name for c in _ENCODINGS}
@@ -409,6 +438,10 @@ def test_inputs_and_outputs_name_the_real_versions(by_id):
     assert by_id["tables.to-diggs"].outputs == ("diggs-3.0.0", findings)
     assert by_id["tables.from-diggs"].inputs == (*_CORE_INPUTS, model)
     assert by_id["tables.from-diggs"].outputs == (profile, findings)
+    suite = by_id["conformance.grade"]
+    assert suite.inputs == ("diggs-3.0.0", "text/csv") == by_id["conformance.verify"].inputs
+    assert suite.outputs == (f"diggs-conformance-{conformance.CONFORMANCE_SCHEMA_VERSION}",)
+    assert by_id["conformance.new"].outputs == ("diggs-conformance-challenge",)
     # One file export per gis.write driver.
     exports = {i for i in by_id if i in _capabilities._DRIVER_OF}
     assert set(_capabilities._DRIVER_OF.values()) == set(gis.DRIVERS.values())
@@ -426,6 +459,11 @@ def test_stability_matches_what_the_docs_promise(by_id):
         "tables.from-diggs",
         "tables.check",
         "tables.round-trip",
+        # pydiggs.conformance is a preview while the suite is 1.0-beta.
+        "conformance.classes",
+        "conformance.new",
+        "conformance.grade",
+        "conformance.verify",
     }
     # pydiggs.convert is stable from 1.11, both ways.
     assert by_id["convert.ags4-to-diggs"].stability == "stable"
@@ -460,6 +498,10 @@ def test_needs_name_real_extras(by_id):
         "tables.from-diggs",
         "tables.check",
         "tables.round-trip",
+        "conformance.classes",
+        "conformance.new",
+        "conformance.grade",
+        "conformance.verify",
     }
 
 
