@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pydiggs.write` writes one back as a point. The official DIGGS piezometer example now
   goes from DIGGS to tables and back whole: its well, screen, sample, specimen and the
   water level series measured in the well.
+- **Stations and trench walls (preview).** The tables profile now writes a `features` row
+  whose `element` is `Station` or `TrenchWall`, the two kinds of feature DIGGS gives no
+  centerline: with its reference point, and with no centerline and no depth axis. A
+  station's `start` and `end` are when it was occupied (`whenOccupied`). A trench wall has
+  the outline of its face, which DIGGS requires, in the new `extent` column (a polygon as
+  well-known text, one closed ring, coordinates carried as given) with its reference
+  system in `extent_crs`. Both columns are optional, and the profile stays `1.0-beta.1`.
+  The round-trip check compares an outline position by position. A layer, a sample, a
+  test or a monitoring series on such a feature is reported and left out, since the
+  profile places them by a depth only; a depth unit, a total depth or a component's depth
+  on one is reported and not written. `pydiggs.write` now writes a feature's
+  `featureExtent` and `whenOccupied` from its `extra`, as given, where earlier it refused
+  any feature with `extra`. Of the official DIGGS examples, the station and the trench
+  wall (with its outline and how it was dug) now come back from tables; what is drawn on
+  the wall face, and geophysical surveys, still do not.
 
 - **Conformance classes for monitoring time series (preview).** `pydiggs conformance` has
   two new classes, `monitoring-export` and `monitoring-import`, for the water level series
@@ -78,6 +93,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   were not written back. Depths along another feature's system stay in `extra`. A feature
   that states its depth unit only by naming a method of the DIGGS registry now gets that
   unit in `features.depth_uom` even when nothing in the file is placed along it.
+- **A station's time and a trench wall's outline are read into columns.**
+  `tables.from_model` now gives a station's `whenOccupied` in `features.start` and `end`,
+  and a trench wall's `featureExtent`, when it is one plain ring, in `features.extent`
+  and `extent_crs`; earlier both went to the `extra` table. An outline with a hole, or
+  made of referenced curves, stays in `extra`. `tables.to_model` no longer reports a
+  station or a trench wall as a kind it cannot write, and assumes no depth unit for one.
 
 ## [1.18.1] - 2026-11-26
 

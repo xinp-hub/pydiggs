@@ -332,7 +332,7 @@ def coverage(mapping: MappingFile, source_schema: Mapping[str, Iterable[str]]) -
         >>> covered.source_mapped, covered.source_unmapped, covered.source_percent
         ({'holes': ('hole_id', 'easting', 'northing')}, {'holes': ('rig',)}, 75.0)
         >>> covered.profile_filled, covered.profile_percent
-        ({'features': ('key', 'x', 'y')}, 20.0)
+        ({'features': ('key', 'x', 'y')}, 17.6)
     """
     schema = _schema(source_schema)
     reads = mapping.reads()

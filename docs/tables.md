@@ -206,7 +206,7 @@ Package descriptor. In short:
 |---|---|---|
 | `document` | data set (at most one row) | |
 | `projects` | project | `key` |
-| `features` | borehole, sounding, trial pit, well | `key`; `project`, `parent` |
+| `features` | borehole, sounding, trial pit, well, station, trench wall | `key`; `project`, `parent` |
 | `sampling_activities` | sampling activity | `key`; `feature` |
 | `samples` | sample | `key`; `sampling_activity` or `feature` |
 | `observations` | lithology log of one feature | `key`; `feature` |
@@ -397,14 +397,82 @@ feature the row belongs to; they are read into `top`, `base` and `depth` as such
 `tables.assumed` says so. Depths along another feature's system, one the file does
 define, are not reinterpreted: they stay in `extra`.
 
+## Stations and trench walls
+
+DIGGS gives a station and a trench wall no centerline, so nothing is measured by a depth
+along them. Each is a `features` row; the profile writes it with its reference point and
+no depth axis.
+
+- **A station** is a row whose `element` is `Station`. It needs `x` and `y` (with `z`
+  when you have it) and their `crs`. `start` and `end` are when it was occupied (DIGGS
+  `whenOccupied`). What kind of station it is goes in `params`, name `type`.
+- **A trench wall** is a row whose `element` is `TrenchWall`. Beside its reference point
+  it needs `extent`, the outline of the wall face, which DIGGS requires: a polygon as
+  well-known text, `POLYGON ((x y, x y, …))` or `POLYGON Z ((x y z, …))`, with one closed
+  ring (the last position repeats the first), in the reference system `extent_crs` names.
+  The coordinates are written as you give them, digit for digit; an outline that is not
+  closed, has a hole or is not a polygon is reported and the wall is left out, never
+  repaired. `start` and `end` are when it was constructed. Its depth, length and width go
+  in `params` (`trenchDepth`, `trenchLength`, `trenchWidth`, each with its unit), and how
+  it was dug in a `components` row (`role` `constructionMethod`, `element`
+  `TrenchConstructionMethod`).
+
+```python
+site = {
+    "document": [{"creation_date": "2026-11-27"}],
+    "projects": [{"key": "P1", "name": "Riverside"}],
+    "features": [
+        {
+            "key": "ST-1",
+            "project": "P1",
+            "element": "Station",
+            "x": 451200,
+            "y": 206300,
+            "crs": "http://www.opengis.net/def/crs/EPSG/0/27700",
+            "start": "2026-05-01",
+        },
+        {
+            "key": "TW-1",
+            "project": "P1",
+            "element": "TrenchWall",
+            "x": 451210,
+            "y": 206310,
+            "crs": "http://www.opengis.net/def/crs/EPSG/0/27700",
+            "extent": "POLYGON ((451210 206310, 451228 206310, 451228 206312, 451210 206310))",
+            "extent_crs": "http://www.opengis.net/def/crs/EPSG/0/27700",
+        },
+    ],
+    "params": [{"node": "TW-1", "name": "trenchDepth", "value": "5.5", "uom": "m"}],
+}
+checked = tables.round_trip(site)
+assert checked.ok, checked.findings
+```
+
+**What is not written on them.** Such a feature has no depth axis, and the profile places
+a layer, a sample, a test and a monitoring series by a depth along its feature only. So a
+row of `layers`, `sampling_activities`, `samples` or `measurements` that names a station
+or a trench wall is reported (`tables.incomplete`) and left out; nothing is placed for
+it. A `depth_uom` or a `total_depth` on the feature's own row, and a depth on one of its
+`components` rows, is reported (`tables.not-carried`) and the row is written without it.
+The layers and faults drawn on a wall face, which DIGGS places by coordinates on the
+face, have no columns: reading the official DIGGS trench wall example gives the wall, its
+outline and how it was dug, and keeps what is drawn on the face in `extra`.
+
+**An outline in the wall's own coordinates.** A DIGGS file can define a reference system
+of its own for a wall face (along the wall, and down), and give the outline in it; the
+official example does. The tables do not carry such a definition. Reading gives the
+outline and the system's name (`#…`) as they are; writing them back writes that name,
+and `tables.no-crs` says the file no longer defines it. Give the outline in a published
+reference system when you write from your own data.
+
 ## What the first version does not do
 
 - It writes boreholes, soundings, trial pits and wells with their screens, samples,
-  specimens, lithology, tests, monitoring series and drilling logs. Features that DIGGS
-  gives no centerline (geophysical surveys, stations, trench walls) are read into tables
-  but not yet written; a row of such a kind is reported as `tables.incomplete`. A sample
-  located by coordinates, rather than by a depth along its feature, has no column for
-  them, and they are not carried.
+  specimens, lithology, tests, monitoring series and drilling logs, and stations and
+  trench walls by themselves (see [Stations and trench walls](#stations-and-trench-walls)).
+  Geophysical surveys are read into tables but not yet written; a row of such a kind is
+  reported as `tables.incomplete`. A sample or a test located by coordinates, rather than
+  by a depth along its feature, has no column for them, and they are not carried.
 - Content in the `extra` table is not written back. Keep the original file when you need
   to pass the same content on.
 - It reads all rows into memory (an Arrow stream is read batch by batch, but the rows
@@ -438,9 +506,9 @@ define, are not reinterpreted: they stay in `extra`.
 | `tables.assumed` | warning | DIGGS needs a value the tables lack and a documented default was written; or a file you read names a depth system it does not define, and its depths were read along the row's feature. |
 | `tables.value-reformatted` | info | The same number in another form (12.50 and 12.5). |
 | `tables.incomplete` | error | A row lacks something DIGGS requires, or is of a kind not yet written. |
-| `tables.no-crs` | warning | Coordinates are given without their coordinate reference system. |
+| `tables.no-crs` | warning | Coordinates are given without their coordinate reference system, or with one only a DIGGS file defines. |
 | `tables.extra-not-written` | warning | Rows of `extra` are not written back to DIGGS. |
-| `tables.not-carried` | warning | DIGGS content with no column in the profile. |
+| `tables.not-carried` | warning | DIGGS content with no column in the profile; or a value DIGGS has no place for on that kind of row, left out when writing. |
 
 ## Sensitive data
 

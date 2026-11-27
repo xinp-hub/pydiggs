@@ -106,14 +106,16 @@ _TABLES: Final = (
     ),
     Table(
         "features",
-        "One row per sampling feature: a borehole, sounding, trial pit, well or station.",
+        "One row per sampling feature: a borehole, sounding, trial pit, well, station or"
+        " trench wall.",
         (
             _key("Your stable identifier of the feature. It becomes its gml:id."),
             Field("project", description="Key of its project.", references="projects"),
             Field(
                 "element",
-                description="The DIGGS element: Borehole, Sounding, TrialPit, Well … "
-                "(Borehole when empty).",
+                description="The DIGGS element: Borehole, Sounding, TrialPit, Well, Station,"
+                " TrenchWall … (Borehole when empty). A Station and a TrenchWall have no"
+                " depth axis: nothing is placed by a depth along them.",
             ),
             Field("name", description="The feature's name (gml:name); its key when empty."),
             _DESCRIPTION,
@@ -121,13 +123,25 @@ _TABLES: Final = (
             Field("y", "number", "Second coordinate."),
             Field("z", "number", "Third coordinate, when the CRS has one."),
             Field("crs", description="The CRS of x, y and z, as an srsName."),
+            Field(
+                "extent",
+                description="For a TrenchWall, the outline of the wall face, which DIGGS"
+                " requires: POLYGON ((x y, x y, …)) or POLYGON Z ((x y z, …)), one closed"
+                " ring, coordinates as reported.",
+            ),
+            Field("extent_crs", description="The CRS of extent, as an srsName."),
             Field("total_depth", "number", "Total measured depth, as reported."),
             Field("total_depth_uom", description="Unit of total_depth.", uom_of="total_depth"),
             Field(
                 "depth_uom",
                 description="Unit of every depth along this feature: m, ft, ft[US], cm or in.",
             ),
-            *_TIMES,
+            Field(
+                "start",
+                description="Start time, ISO 8601, as reported (of a Station: when it was"
+                " occupied).",
+            ),
+            Field("end", description="End time, ISO 8601, as reported."),
             Field(
                 "parent",
                 description="Key of the feature it sits in (a well in a borehole).",

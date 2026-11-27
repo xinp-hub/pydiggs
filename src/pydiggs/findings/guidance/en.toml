@@ -682,8 +682,8 @@ fix = "Add what the message names. If the record is of a kind pyDIGGS does not y
 
 [rules."tables.no-crs"]
 title = "Coordinates without reference system"
-meaning = "A borehole has x and y coordinates but no coordinate reference system, so nobody who receives the file can tell where it is. The coordinates were written as given, and DIGGS validation will warn about them."
-fix = "Fill the crs column with the reference system of the coordinates, such as http://www.opengis.net/def/crs/EPSG/0/4326 for latitude and longitude on WGS 84, or your state plane or national grid EPSG code."
+meaning = "A feature has x and y coordinates, or a trench wall has an outline, with no coordinate reference system, or with one that only a DIGGS file defines (a name that starts with #), so nobody who receives the file can tell where it is. The coordinates were written as given, and DIGGS validation will warn about them."
+fix = "Fill the crs column (extent_crs for an outline) with the reference system of the coordinates, such as http://www.opengis.net/def/crs/EPSG/0/4326 for latitude and longitude on WGS 84, or your state plane or national grid EPSG code."
 
 [rules."tables.extra-not-written"]
 title = "Extra content not written"
@@ -692,8 +692,8 @@ fix = "Keep the original DIGGS file alongside your data. If you need this conten
 
 [rules."tables.not-carried"]
 title = "Content outside the profile"
-meaning = "The DIGGS file holds content that the tables profile has no column for. Reading into tables keeps it in the extra table; a reference that DIGGS has no direct place for is left out when writing."
-fix = "Nothing is lost when reading. Keep the original DIGGS file if you need to send the same content on."
+meaning = "Reading: the DIGGS file holds content the tables profile has no column for; it is kept in the extra table. Writing: a row holds a reference or a value DIGGS has no place for on that kind of record (a depth on a station, which has no depth axis); it is left out and the record is written."
+fix = "Nothing is lost when reading. Keep the original DIGGS file if you need to send the same content on. When writing, check that the value the message names belongs on that row."
 
 [rules."tables.unknown-property"]
 title = "Result column not recognised"

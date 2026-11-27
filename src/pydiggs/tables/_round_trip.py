@@ -19,6 +19,7 @@ from pydiggs.convert._values import parse_number
 from pydiggs.findings.model import Finding, Report
 from pydiggs.findings.run import validate_bytes
 from pydiggs.tables._arrow import Rows, rows_of
+from pydiggs.tables._flat import same_ring
 from pydiggs.tables._from_model import from_model
 from pydiggs.tables._profile import (
     RESULT_KEYS,
@@ -87,6 +88,12 @@ def _same(sent: Any, got: Any) -> bool:
         return False
 
 
+def _same_outline(sent: Any, got: Any) -> bool:
+    """True when two ``extent`` cells are polygons with the same positions."""
+    a, b = _text(sent), _text(got)
+    return a is not None and b is not None and same_ring(a, b)
+
+
 class _Comparison:
     def __init__(self, keys: Mapping[str, str]) -> None:
         self.keys = keys
@@ -114,6 +121,8 @@ class _Comparison:
                 self.found.append(Difference(name, given, _MISSING, given, None))
                 continue
             for column, value in row.items():
+                if column == "extent" and _same_outline(value, got.get(column)):
+                    continue  # the same positions, spaced as the profile writes them
                 if column in known and column != "key":
                     self.cell(name, given, column, value, got.get(column), ref=column in refs)
 

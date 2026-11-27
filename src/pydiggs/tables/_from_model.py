@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 
@@ -34,6 +34,7 @@ from pydiggs.model import (
     TimeSpan,
 )
 from pydiggs.model._model import _encode
+from pydiggs.tables import _flat
 from pydiggs.tables import _report as rep
 from pydiggs.tables._profile import (
     PROFILE_VERSION,
@@ -244,15 +245,18 @@ class _Flattener:
                 },
             )
 
-    def header(self, node: Node, *, skip: tuple[str, ...] = ()) -> Row:
-        """Write the node's params, remarks, other names and extra; give its name columns."""
+    def header(self, node: Node, *, skip: tuple[str, ...] = (), taken: Sequence[Any] = ()) -> Row:
+        """Write the node's params, remarks, other names and extra; give its name columns.
+
+        ``taken`` is the ``extra`` elements a column of the node's own row holds.
+        """
         self.params(node.key, {k: v for k, v in node.params.items() if k not in skip})
         for seq, name in enumerate(node.names[1:], start=1):
             self.add("remarks", {"node": node.key, "kind": "name", "seq": seq, "text": name})
         for seq, remark in enumerate(node.remarks):
             self.add("remarks", {"node": node.key, "kind": "remark", "seq": seq, "text": remark})
         for extra in node.extra:
-            if not _helper(node, extra):
+            if not _helper(node, extra) and not any(extra is held for held in taken):
                 self.keep(node.key, extra.qname, extra)
         return {"key": node.key, "name": node.name, "description": node.description}
 
@@ -417,7 +421,19 @@ class _Flattener:
             )
 
     def feature(self, feature: Feature) -> None:
-        row = self.header(feature)
+        # A trench wall's outline and a station's time are columns; the model keeps the
+        # elements as given, in ``extra``.
+        extent: tuple[str, str | None] | None = None
+        occupied = None
+        taken = []
+        for extra in feature.extra:
+            if feature.element == "TrenchWall" and extent is None:
+                extent = _flat.extent_of(extra)
+                taken += [extra] if extent is not None else []
+            elif feature.element == "Station" and occupied is None:
+                occupied = _flat.occupied_of(extra)
+                taken += [extra] if occupied is not None else []
+        row = self.header(feature, taken=taken)
         place = feature.location
         own = place is not None and place.crs == feature.lrs and place.dim == 1
         coordinates = () if place is None or own else place.coordinates
@@ -439,10 +455,12 @@ class _Flattener:
                 "y": coordinates[1] if len(coordinates) > 1 else None,
                 "z": coordinates[2] if len(coordinates) > 2 else None,  # noqa: PLR2004 - z
                 "crs": None if place is None or own else place.crs,
+                "extent": None if extent is None else extent[0],
+                "extent_crs": None if extent is None else extent[1],
                 "total_depth": self.num(depth, "features"),
                 "total_depth_uom": None if depth is None else depth.uom,
                 "depth_uom": _depth_unit(feature) if ref is None else ref.unit,
-                **self.span(feature.when_constructed),
+                **self.span(feature.when_constructed or occupied),
                 "parent": self.target(feature.key, "samplingFeature"),
             },
         )
