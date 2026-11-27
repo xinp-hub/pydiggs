@@ -127,7 +127,11 @@ class TimeSpan:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Interval:
-    """A depth or distance interval along a linear referencing system (``lrs``)."""
+    """A depth or distance interval along a linear referencing system (``lrs``).
+
+    A place that is one depth, such as where a sample was taken at a point, has a ``top``
+    and no ``base``.
+    """
 
     top: Quantity | None = None
     base: Quantity | None = None

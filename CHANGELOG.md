@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Wells with screens, samples taken at a point, and specimens (preview).** The tables
+  profile now carries a well's screen (a `components` row with `element` `WellOpening`,
+  its screened interval in `top` and `base`), a sample taken at one depth (the new
+  `depth` column of `sampling_activities` and `samples`, written as a point location and
+  read back into the same column), and the sample a laboratory specimen was cut from (a
+  `links` row with `relation` `sample`). `pydiggs.read` gives a sample taken at a point an
+  `interval` with a `top` and no `base`, where earlier it gave no interval at all, and
+  `pydiggs.write` writes one back as a point. The official DIGGS piezometer example now
+  goes from DIGGS to tables and back whole: its well, screen, sample, specimen and the
+  water level series measured in the well.
+
+### Changed
+
+- **Depths along a depth system the file does not define are read, and reported.** When a
+  DIGGS file names a depth reference system that is nowhere in it, `tables.from_model`
+  now reads those depths into `top`, `base` and `depth` as depths along the row's own
+  feature and says so with `tables.assumed`; earlier they went to the `extra` table and
+  were not written back. Depths along another feature's system stay in `extra`. A feature
+  that states its depth unit only by naming a method of the DIGGS registry now gets that
+  unit in `features.depth_uom` even when nothing in the file is placed along it.
+
 ## [1.18.1] - 2026-11-26
 
 ### Changed

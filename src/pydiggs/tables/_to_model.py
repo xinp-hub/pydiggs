@@ -662,6 +662,31 @@ class _Builder:
             lrs=lrs,
         )
 
+    def place(self, table: str, index: int, row: Row, holder: str) -> Interval | None:
+        """Where a sampling row is: its ``top`` and ``base``, or its one ``depth``.
+
+        A point is an interval with a top and no base, which DIGGS writes as a point
+        location. A row that gives both is written by its top and base, and says so.
+        """
+        interval = self.interval(table, index, row, holder)
+        depth = self.number(table, index, row, "depth")
+        if depth is None:
+            return interval
+        if interval is not None or any(_text(row.get(c)) is not None for c in ("top", "base")):
+            self.notes.add(
+                rep.NOT_CARRIED,
+                table,
+                f"Rows of {table} give a depth and also a top or a base: a place is a point or"
+                " an interval, so the depth was not converted ({times}).",
+                row=index,
+                column="depth",
+            )
+            return interval
+        lrs, unit = self.lrs[holder]
+        if not self.depth_unit(table, index, row, unit):
+            return None
+        return Interval(top=Quantity(text=depth[1], value=depth[0], uom=unit), lrs=lrs)
+
     def depth_unit(self, table: str, index: int, row: Row, unit: str) -> bool:
         """True when the row's depths are in the feature's unit (no depth is converted)."""
         given = _text(row.get("depth_uom"))
@@ -702,7 +727,7 @@ class _Builder:
                 "sampling_activity",
                 **header,
                 feature=feature,
-                interval=self.interval(table, index, row, key),
+                interval=self.place(table, index, row, key),
                 method=self.code(row, "method"),
                 recovery=recovery,
                 date=self.span(row),

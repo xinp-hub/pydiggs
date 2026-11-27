@@ -214,7 +214,7 @@ Package descriptor. In short:
 | `measurements` | test, monitoring series or drilling log | `key`; `feature`, `sample` |
 | `results_<procedure>` | result row of a test | `measurement`, `result`, `row` |
 | `result_columns` | result column (unit, property, type) | `procedure`, `measurement`, `column` |
-| `components` | nested record: casing, water strike, SPT drive set | `key`; `holder`, `parent` |
+| `components` | nested record: casing, well screen, water strike, SPT drive set, specimen | `key`; `holder`, `parent` |
 | `params` | value with no column of its own | `node`, `scope`, `name` |
 | `remarks` | remark, or name after the first | `node`, `kind`, `seq` |
 | `links` | reference no column holds | `source`, `relation` |
@@ -226,8 +226,8 @@ A few rules cover most questions:
   `gml:id` in the file. A key with characters an XML id cannot hold is adjusted, and
   `result.keys` lists each key with the id it got. Keys are unique across all tables.
 - **Only `features` is required.** A table you do not have is simply absent. A sample
-  with a `feature`, `top` and `base` gets its sampling activity made for it; a layer with
-  a `feature` gets its lithology log.
+  with a `feature` and its `top` and `base` (or its one `depth`) gets its sampling
+  activity made for it; a layer with a `feature` gets its lithology log.
 - **Units travel beside values.** A quantity column `x` has a unit column `x_uom`. Every
   depth along a feature is in that feature's `depth_uom` (`m`, `ft`, `ft[US]`, `cm` or
   `in`); a depth given in another unit is reported, not converted.
@@ -315,13 +315,96 @@ procedure: a `components` row with the test as `holder`, such as
 `role` `dissipationTimeSeries` and `element` `TemporalResult`. The `measurements` row's
 `depth`, `top` and `base` place result `0` only.
 
+## Wells, samples and specimens
+
+A monitoring well, the sample taken in its boring and the specimen a laboratory tested
+are rows of the same tables:
+
+- **A well** is a `features` row whose `element` is `Well`; `parent` names the boring it
+  sits in. A well has its own depths, so it has its own `depth_uom`.
+- **Its screen** is a `components` row held by the well: `role` `opening`, `element`
+  `WellOpening`, with the screened interval in `top` and `base`, along the well. DIGGS
+  requires the interval, so an opening without one is reported and the well is left out.
+- **A sample taken at a point** (a grab sample, a water sample at one depth) has that
+  depth in `depth`, on its `sampling_activities` row or, when you give no activity, on
+  its `samples` row. A sample taken over an interval has `top` and `base` as before. A row
+  gives one or the other: with both, the interval is written and the depth is reported.
+  Reading fills `depth` on both rows for a point and leaves `top` and `base` empty.
+- **A specimen** is a `components` row held by the test: `role` `specimen`, `element`
+  `SoilSpecimen` (or another DIGGS specimen element). It names the sample it was cut from
+  with a `links` row whose `relation` is `sample`. DIGGS requires that reference, so a
+  specimen without it is reported and its test is left out.
+
+```python
+well = {
+    "document": [{"creation_date": "2026-11-26"}],
+    "projects": [{"key": "P1", "name": "Riverside"}],
+    "features": [
+        {
+            "key": "BH-1",
+            "project": "P1",
+            "x": 1,
+            "y": 2,
+            "crs": "http://www.opengis.net/def/crs/EPSG/0/27700",
+            "depth_uom": "m",
+        },
+        {
+            "key": "PZ-1",
+            "project": "P1",
+            "element": "Well",
+            "parent": "BH-1",
+            "x": 1,
+            "y": 2,
+            "crs": "http://www.opengis.net/def/crs/EPSG/0/27700",
+            "depth_uom": "m",
+        },
+    ],
+    "sampling_activities": [{"key": "SA-1", "feature": "BH-1", "depth": 4.5}],
+    "samples": [{"key": "S-1", "sampling_activity": "SA-1"}],
+    "measurements": [
+        {"key": "WC-1", "feature": "BH-1", "procedure": "WaterContentTest", "depth": 4.5}
+    ],
+    "result_columns": [
+        {"procedure": "WaterContentTest", "column": "water_content_natural", "uom": "%"}
+    ],
+    "results_WaterContentTest": [{"measurement": "WC-1", "water_content_natural": 21.9}],
+    "components": [
+        {
+            "key": "SCREEN-1",
+            "holder": "PZ-1",
+            "role": "opening",
+            "element": "WellOpening",
+            "top": 12,
+            "base": 15,
+        },
+        {"key": "SPEC-1", "holder": "WC-1", "role": "specimen", "element": "SoilSpecimen"},
+    ],
+    "links": [{"source": "SPEC-1", "relation": "sample", "target": "S-1"}],
+}
+checked = tables.round_trip(well)
+assert checked.ok, checked.findings
+```
+
+A water level series measured in the well is a `Monitor` whose `feature` is the well and
+whose `monitorLocation` link names the screen (see [Time series](#time-series)). The
+official DIGGS piezometer example, which has all of these, goes from DIGGS to tables and
+back whole.
+
+**Depths along a system the file does not define.** A DIGGS file states which depth
+system each depth is measured along. When a file you read names one that is nowhere in
+it (the official piezometer example does, twice), the depths can only be along the
+feature the row belongs to; they are read into `top`, `base` and `depth` as such, and
+`tables.assumed` says so. Depths along another feature's system, one the file does
+define, are not reinterpreted: they stay in `extra`.
+
 ## What the first version does not do
 
-- It writes boreholes, soundings, trial pits and wells with their samples, lithology,
-  tests, monitoring series and drilling logs. Features that DIGGS gives no centerline
-  (geophysical surveys, stations, trench walls), the opening of a well, samples taken at
-  a point and specimens are read into tables but not yet written; a row of such a kind is
-  reported as `tables.incomplete`.
+- It writes boreholes, soundings, trial pits and wells with their screens, samples,
+  specimens, lithology, tests, monitoring series and drilling logs. Features that DIGGS
+  gives no centerline (geophysical surveys, stations, trench walls) are read into tables
+  but not yet written; a row of such a kind is reported as `tables.incomplete`. A sample
+  located by coordinates, rather than by a depth along its feature, has no column for
+  them, and they are not carried.
 - Content in the `extra` table is not written back. Keep the original file when you need
   to pass the same content on.
 - It reads all rows into memory (an Arrow stream is read batch by batch, but the rows
@@ -352,7 +435,7 @@ procedure: a `components` row with the test as `holder`, such as
 | `tables.duplicate-key` | error | A row repeats a key. |
 | `tables.key-rewritten` | info | A key is not a valid XML id; the id written differs. |
 | `tables.value-unparsed` | warning | A value is not the number or text DIGGS needs there. |
-| `tables.assumed` | warning | DIGGS needs a value the tables lack; a documented default was written. |
+| `tables.assumed` | warning | DIGGS needs a value the tables lack and a documented default was written; or a file you read names a depth system it does not define, and its depths were read along the row's feature. |
 | `tables.value-reformatted` | info | The same number in another form (12.50 and 12.5). |
 | `tables.incomplete` | error | A row lacks something DIGGS requires, or is of a kind not yet written. |
 | `tables.no-crs` | warning | Coordinates are given without their coordinate reference system. |

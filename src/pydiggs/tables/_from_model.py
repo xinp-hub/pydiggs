@@ -16,6 +16,7 @@ from typing import Any, Final
 from pydiggs._writer._emit import PART_SUFFIX
 from pydiggs.convert._from_model import _helper
 from pydiggs.convert._mapping import PROPERTIES_URL
+from pydiggs.crs import _lrm_units
 from pydiggs.findings.model import Finding
 from pydiggs.model import (
     Code,
@@ -137,13 +138,17 @@ def _depth_unit(feature: Feature) -> str | None:
     """The unit of a feature's own linear referencing system, read from where it is written.
 
     The reader lists a reference system in ``model.crs`` only when a location uses it; a
-    feature with no depths yet still states the unit of its depth axis.
+    feature with no depths yet still states the unit of its depth axis: in the method it
+    defines, or by the method of the DIGGS registry it names.
     """
     stack = [extra for extra in feature.extra if extra.qname.endswith("linearReferencing")]
     while stack:
         extra = stack.pop()
-        if extra.qname.rpartition(":")[2] == "units" and extra.text:
+        local = extra.qname.rpartition(":")[2]
+        if local == "units" and extra.text:
             return extra.text
+        if local == "lrm" and (unit := _lrm_units(extra.attrs.get("xlink:href", ""))):
+            return unit
         stack.extend(extra.children)
     return None
 
@@ -258,12 +263,41 @@ class _Flattener:
         empty: Row = {"top": None, "base": None, "depth_uom": None}
         if interval is None:
             return empty
-        if lrs is not None and interval.lrs not in (None, lrs):
+        other = lrs is not None and interval.lrs not in (None, lrs)
+        if other and not self.undefined(interval.lrs, table):
             self.keep(key, path, interval)
             return empty
         top, base = interval.top, interval.base
         uom = next((q.uom for q in (top, base) if q is not None and q.uom), None)
         return {"top": self.num(top, table), "base": self.num(base, table), "depth_uom": uom}
+
+    def undefined(self, srs: str | None, table: str) -> bool:
+        """True (and noted) when ``srs`` names a reference system the file does not define.
+
+        Depths along a system that is nowhere in the file can only be depths along the
+        feature the row belongs to; they are read as such, and a finding says so. Depths
+        along another system the file does define are not: they stay in ``extra``.
+        """
+        ref = self.model.crs.get(srs or "")
+        if ref is None or ref.form != "local" or ref.known:
+            return False
+        self.notes.add(
+            rep.ASSUMED,
+            table,
+            f"Depths of {table} name a depth reference system the DIGGS file does not"
+            " define; they were read as depths along the feature of the row ({times}).",
+            row=len(self.tables.get(table, ())),
+        )
+        return True
+
+    def placed(
+        self, interval: Interval | None, lrs: str | None, key: str, path: str, table: str
+    ) -> Row:
+        """``top`` and ``base``, or the one ``depth`` of a place that is a point."""
+        row = self.interval(interval, lrs, key, path, table)
+        if interval is None or interval.base is not None or row["top"] is None:
+            return {**row, "depth": None}
+        return {**row, "top": None, "depth": row["top"]}
 
     @staticmethod
     def span(span: TimeSpan | None) -> Row:
@@ -303,7 +337,7 @@ class _Flattener:
                 {
                     **row,
                     "feature": activity.feature,
-                    **self.interval(
+                    **self.placed(
                         activity.interval,
                         lrs_of[activity.key],
                         activity.key,
@@ -434,7 +468,7 @@ class _Flattener:
                 "type_code_space": kind.code_space if isinstance(kind, Code) else None,
                 "classification": None if sample.type is None else sample.type.value,
                 "feature": feature,
-                **self.interval(interval, lrs, sample.key, "samplingLocation", "samples"),
+                **self.placed(interval, lrs, sample.key, "samplingLocation", "samples"),
                 **self.span(None if activity is None else activity.date),
             },
         )
@@ -489,7 +523,12 @@ class _Flattener:
     ) -> None:
         row = self.header(component, skip=skip)
         place = component.location
-        along = place is not None and place.dim == 1 and place.crs == lrs and lrs is not None
+        along = (
+            place is not None
+            and place.dim == 1
+            and lrs is not None
+            and (place.crs == lrs or self.undefined(place.crs, "components"))
+        )
         if place is not None and not along:
             self.keep(component.key, "location", place)
         self.add(

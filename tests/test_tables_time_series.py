@@ -495,8 +495,7 @@ def test_time_series_come_back_row_for_row(
 
 #: Per official file: the nodes, by kind, that do not come back after
 #: ``tables.from_model(read(f))`` -> ``to_model`` -> ``write_bytes`` -> ``read_bytes``.
-#: Wells, point samples and specimens (Piezometer), and features with no centerline
-#: (stations, trench walls, geophysics) are still to come.
+#: Features with no centerline (stations, trench walls, geophysics) are still to come.
 LOST: dict[str, dict[str, int]] = {
     "Aeromag.xml": {
         "Component:BusinessAssociate": 1,
@@ -520,18 +519,7 @@ LOST: dict[str, dict[str, int]] = {
         "Measurement:GeophysicalFieldSurvey": 6,
     },
     "MWDExample.xml": {},
-    "Piezometer_Example.xml": {
-        "Component:Detector": 1,
-        "Component:ReferencePoint": 1,
-        "Component:Sensor": 1,
-        "Component:SoilSpecimen": 1,
-        "Component:WellOpening": 1,
-        "Feature:Well": 1,
-        "Measurement:Monitor": 1,  # it is in the well, and the well is not written yet
-        "Measurement:Test": 1,
-        "Sample:Sample": 1,
-        "SamplingActivity:SamplingActivity": 1,
-    },
+    "Piezometer_Example.xml": {},
     "PorePressureDissipation_Example.xml": {},
     "TrenchWallExample.xml": {
         "Component:Lithology": 3,
@@ -582,22 +570,15 @@ def test_the_official_dissipation_test_keeps_its_summary_and_its_series() -> Non
     assert not [r for r in sent.rows("extra") if str(r["path"]).startswith("results")]
 
 
-def test_the_official_monitoring_series_comes_back_whole_once_its_well_does() -> None:
-    """The Monitor needs its well, which the next release writes; here it hangs off the boring."""
+def test_the_official_monitoring_series_comes_back_whole_in_its_well() -> None:
     sent = tables.from_model(pydiggs.read(OFFICIAL / "Piezometer_Example.xml"))
-    data = copy.deepcopy(dict(sent.tables))
-    boring = next(f["key"] for f in data["features"] if f["element"] == "Borehole")
-    well = next(f["key"] for f in data["features"] if f["element"] == "Well")
-    series = next(m for m in data["measurements"] if m["element"] == "Monitor")
-    series["feature"] = boring
-    for link in data["links"]:
-        if link["target"] in (well, "wo1"):
-            link["target"] = boring
-    model, back = _there_and_back(data)
-    assert [m.element for m in model.measurements] == ["Monitor"]
+    model, back = _there_and_back(sent.tables)
+    (series,) = [m for m in model.measurements if m.element == "Monitor"]
+    (well,) = [f for f in model.features if f.element == "Well"]
+    assert series.feature == well.key
     rows = back.rows("results_WaterLevelMonitoring")
     assert len(rows) == 22_804
-    assert rows == data["results_WaterLevelMonitoring"]
+    assert rows == sent.rows("results_WaterLevelMonitoring")
 
 
 # --- scaling: a series over 10 MB of text is written in parts and reads back ----------------

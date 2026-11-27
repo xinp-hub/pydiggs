@@ -1313,7 +1313,7 @@ class _Reader:
         consumed = frozenset({"samplingLocation", "totalSampleRecoveryLength", "samplingDate"})
         node = self._header(obj, xpath, kind="sampling_activity", consumed=consumed)
         node["feature"] = None
-        node["interval"] = self._interval(_child(obj, "samplingLocation"))
+        node["interval"] = self._sampled(_child(obj, "samplingLocation"))
         node["method"] = _method(_child(obj, "samplingMethod"), self._took)
         recovery = _child(obj, "totalSampleRecoveryLength")
         node["recovery"] = None if recovery is None else self._quantity(recovery, xpath)
@@ -1328,7 +1328,7 @@ class _Reader:
             obj, xpath, kind="sample", consumed=frozenset({"samplingLocation", "classification"})
         )
         node.update(feature=None, sampling_activity=None, method=None, recovery=None)
-        node["interval"] = self._interval(_child(obj, "samplingLocation"))
+        node["interval"] = self._sampled(_child(obj, "samplingLocation"))
         node["type"] = _code(_child(obj, "classification"), self._took)
         return node
 
@@ -1481,6 +1481,27 @@ class _Reader:
         self._took(extent)
         top, base = ({"text": t, "value": _number(t), "uom": None, "si": None} for t in tokens)
         return {"top": top, "base": base, "lrs": srs}
+
+    def _sampled(self, holder: etree._Element | None) -> dict[str, Any] | None:
+        """Where a sample was taken: an interval, or one depth along a referencing system.
+
+        A sample taken at a point (a one-dimensional ``PointLocation``) is an interval
+        with a top and no base.
+        """
+        interval = self._interval(holder)
+        if interval is not None or holder is None:
+            return interval
+        point = _object(holder)
+        pos = None if point is None else self._first(point, "pos")
+        if point is None or pos is None or _local(point.tag) != "PointLocation":
+            return None
+        tokens = (pos.text or "").split()
+        if len(tokens) != 1 or self._dim(pos, 1, single=True) != 1:
+            return None
+        srs = self._srs(pos)
+        self._took(pos)
+        top = {"text": tokens[0], "value": _number(tokens[0]), "uom": None, "si": None}
+        return {"top": top, "base": None, "lrs": srs}
 
     @staticmethod
     def _first(el: etree._Element, local: str) -> etree._Element | None:
