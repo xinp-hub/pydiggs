@@ -834,7 +834,7 @@ _REFUSED: dict[str, tuple[Callable[[Model], Model], str]] = {
         lambda m: _swap(
             m,
             replace(
-                m.sampling_activities[0], interval=Interval(top=_quantity("1"), lrs="#BH01-lrs")
+                m.sampling_activities[0], interval=Interval(base=_quantity("1"), lrs="#BH01-lrs")
             ),
         ),
         "needs both a top and a base",

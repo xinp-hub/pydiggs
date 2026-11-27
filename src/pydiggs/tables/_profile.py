@@ -145,6 +145,11 @@ _TABLES: Final = (
             _NAME,
             _DESCRIPTION,
             *_depths("the sampled interval"),
+            Field(
+                "depth",
+                "number",
+                "The one depth sampled, for a sample taken at a point (in depth_uom).",
+            ),
             *_TIMES,
             Field("method", description="The sampling method, as a code."),
             Field("method_code_space", description="The code list method comes from."),
@@ -161,7 +166,7 @@ _TABLES: Final = (
             Field(
                 "sampling_activity",
                 description="Key of the activity that produced it. When empty, one is made"
-                " from feature, top, base, start and end.",
+                " from feature, top, base, depth, start and end.",
                 references="sampling_activities",
             ),
             Field("name", description="The sample's name (gml:name); its key when empty."),
@@ -178,6 +183,11 @@ _TABLES: Final = (
                 references="features",
             ),
             *_depths("the sample"),
+            Field(
+                "depth",
+                "number",
+                "The one depth of the sample, when it was taken at a point (in depth_uom).",
+            ),
             *_TIMES,
         ),
         ("key",),

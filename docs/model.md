@@ -328,7 +328,9 @@ means header, links, location and result tables, with the rest in `extra`.
   `construction` (method, casing, backfill, hole diameter, flush, advancement, events; a
   well's casing, openings and installation events) and `water_strikes` as components; a
   well's or installation's `parent` hole.
-- **Sampling activities:** `interval`, `method`, `recovery` and `date`. **Samples:**
+- **Sampling activities:** `interval`, `method`, `recovery` and `date`; a sample taken
+  at a point (one depth along its feature) has an `interval` with a `top` and no `base`.
+  **Samples:**
   `type` (their classification), and the `interval`, `method` and `recovery` of the
   activity that produced them.
 - **Lithology:** one layer per `LithologyObservation`, with `interval`, `geologic_unit`,

@@ -551,6 +551,32 @@ class _Emitter:
             uom_labels=_uom_labels([unit], implied, where),
         )
 
+    def _sampled(self, interval: Interval, base: str, where: str, prop: etree._Element) -> None:
+        """Where a sample was taken: an interval, or, with a top and no base, one depth.
+
+        The one depth is a one-dimensional ``PointLocation`` along the same system; it
+        is a bare number, as an interval's ends are.
+        """
+        top = interval.top
+        if top is None or interval.base is not None:
+            self._interval(interval, base, where, prop)
+            return
+        implied = self.lrs_unit.get(interval.lrs or "")
+        if top.uom != implied:
+            raise ValueError(
+                f"{where}: a depth in {top.uom!r:.40} along {interval.lrs!r:.80}, but"
+                f" reading back gives {implied!r:.40}"
+            )
+        self._geometry(
+            "PointLocation",
+            [_token(top.text, where)],
+            prop,
+            srs=interval.lrs,
+            dim=1,
+            gml_id=self.ids.new(base),
+            where=where,
+        )
+
     def _time(self, span: TimeSpan, base: str, where: str, prop: etree._Element) -> None:
         """``<prop><TimeInterval><start/><end/>``.
 
@@ -897,7 +923,7 @@ class _Emitter:
         parts = self._header(node, lay, where)
         if node.interval is not None:
             tag = self._child(lay, "samplingLocation", where)
-            fill = partial(self._interval, node.interval, f"{base}.samplingLocation", where)
+            fill = partial(self._sampled, node.interval, f"{base}.samplingLocation", where)
             parts.append((tag, fill))
         if node.method is not None:
             tag = self._child(lay, "samplingMethod", where)
@@ -925,7 +951,7 @@ class _Emitter:
         obj = etree.SubElement(prop, lay.tag)
         obj.set(self.gml_id, produced)
         if activity.interval is not None:
-            fill = partial(self._interval, activity.interval, f"{produced}.location", where)
+            fill = partial(self._sampled, activity.interval, f"{produced}.location", where)
             part = (self._child(lay, "location", where), fill)
         elif activity.date is not None:
             fill = partial(self._time, activity.date, f"{produced}.sampleTime", where)

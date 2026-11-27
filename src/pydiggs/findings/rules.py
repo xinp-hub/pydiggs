@@ -365,7 +365,10 @@ _DESCRIPTIONS: Final[dict[str, str]] = {
     "tables.duplicate-key": "A row repeats a key another row already has; not converted",
     "tables.key-rewritten": "A key is not a valid XML id, so the gml:id written differs from it",
     "tables.value-unparsed": "A value does not parse as the number or text DIGGS needs there",
-    "tables.assumed": "DIGGS needs a value the tables lack; a documented default was written",
+    "tables.assumed": (
+        "DIGGS needs a value the tables lack and a documented default was written, or depths"
+        " along a system the file does not define were read along the row's feature"
+    ),
     "tables.value-reformatted": "The same number is given in another form (not a loss)",
     "tables.incomplete": "A row was not converted: it lacks something DIGGS requires",
     "tables.no-crs": "Coordinates are given without their coordinate reference system",

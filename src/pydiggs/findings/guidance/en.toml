@@ -667,8 +667,8 @@ fix = "Correct the value in your export, or state the column's type in the resul
 
 [rules."tables.assumed"]
 title = "Missing value filled in"
-meaning = "DIGGS requires something your tables do not give (a project, a creation date, a location, a depth unit, a classification type), so a documented default was written to keep the file valid."
-fix = "Supply the value in your tables so that the file states what you mean. The message says which table and column."
+meaning = "DIGGS requires something your tables do not give (a project, a creation date, a location, a depth unit, a classification type), so a documented default was written to keep the file valid. Reading a file, it marks depths along a depth system the file does not define, read as depths along the row's feature."
+fix = "Supply the value in your tables so that the file states what you mean. The message says which table and column. For a file you read, check that the depths are measured along that feature."
 
 [rules."tables.value-reformatted"]
 title = "Number shown differently"
