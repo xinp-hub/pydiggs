@@ -1,5 +1,5 @@
 {
-  "$comment": "Where each operation of pydiggs.capabilities() stands in @pydiggs/client. Every operation id is listed in exactly one section; tests/test_js_client_coverage.py fails when pyDIGGS gains an operation that is not, so a new pyDIGGS feature is a decision for the client in the pull request that adds it. js/test/coverage.test.ts holds the 'offered' methods to the code. 'hybrid' is true when PydiggsHybrid offers the methods too (operations on a document). A 'planned' entry names the methods it will add and why; once they exist on every engine, js/test/coverage.test.ts fails until the entry moves to 'offered'.",
+  "$comment": "Where each operation of pydiggs.capabilities() stands in @pydiggs/client. Every operation id is listed in exactly one section; tests/test_js_client_coverage.py fails when pyDIGGS gains an operation that is not, so a new pyDIGGS feature is a decision for the client in the pull request that adds it. js/test/coverage.test.ts holds the 'offered' methods to the code. 'hybrid' is true when PydiggsHybrid offers the methods too (operations on a document). A 'planned' entry names the methods it will add and why; once they exist on every engine, js/test/coverage.test.ts fails until the entry moves to 'offered'. An entry with 'engines': 'pyodide' is for the engines that run pyDIGGS itself (PydiggsBrowser, PydiggsNode and PydiggsPool): PydiggsHttpClient and PydiggsHybrid do not have its methods, because pyDIGGS has no HTTP route for the operation, and 'every engine' then means those engines.",
   "offered": {
     "validate": { "methods": ["validate", "validateSarif"], "hybrid": true },
     "read": { "methods": ["read"], "hybrid": true },
@@ -14,7 +14,12 @@
     "tables.check": { "methods": ["checkTables"], "hybrid": true },
     "tables.round-trip": { "methods": ["tablesRoundTrip"], "hybrid": true }
   },
-  "planned": {},
+  "planned": {
+    "conformance.classes": { "methods": ["conformanceClasses"], "engines": "pyodide", "why": "The suite's operations are in pyDIGGS's service layer from the release after 1.18.1; the client's methods follow in the client release that pins it. On the engines that run pyDIGGS only: a result is graded on the caller's own machine, so pyDIGGS has no HTTP route for it." },
+    "conformance.new": { "methods": ["conformanceNew"], "engines": "pyodide", "why": "The suite's operations are in pyDIGGS's service layer from the release after 1.18.1; the client's methods follow in the client release that pins it. On the engines that run pyDIGGS only: a result is graded on the caller's own machine, so pyDIGGS has no HTTP route for it." },
+    "conformance.grade": { "methods": ["conformanceGrade"], "engines": "pyodide", "why": "The suite's operations are in pyDIGGS's service layer from the release after 1.18.1; the client's methods follow in the client release that pins it. On the engines that run pyDIGGS only: a result is graded on the caller's own machine, so pyDIGGS has no HTTP route for it." },
+    "conformance.verify": { "methods": ["conformanceVerify"], "engines": "pyodide", "why": "The suite's operations are in pyDIGGS's service layer from the release after 1.18.1; the client's methods follow in the client release that pins it. On the engines that run pyDIGGS only: a result is graded on the caller's own machine, so pyDIGGS has no HTTP route for it." }
+  },
   "not_offered": {
     "detect": "No HTTP route; validate and read detect the DIGGS version themselves and report it.",
     "ags4.read": "Returns Python AGS4 tables; in JavaScript, convert an AGS4 file to DIGGS and read that.",

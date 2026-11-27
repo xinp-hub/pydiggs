@@ -3,7 +3,9 @@
 ``js/capabilities-coverage.json`` places every operation in one section: offered by the
 npm client, planned for it, or not offered (with the reason). An operation added to the
 catalogue without a place there fails here, in the pull request that adds it, so a new
-pyDIGGS feature never reaches a release with the client silently behind.
+pyDIGGS feature never reaches a release with the client silently behind. An offered or
+planned entry may say ``"engines": "pyodide"``: its methods are on the engines that run
+pyDIGGS itself and not on the HTTP client, for an operation pyDIGGS has no HTTP route for.
 """
 
 from __future__ import annotations
@@ -63,3 +65,30 @@ def test_reasons_are_written_down():
         assert isinstance(entry.get("hybrid"), bool), (
             f"offered.{op_id}.hybrid must be true or false"
         )
+
+
+def test_an_entry_for_the_pyodide_engines_only_says_so_in_one_way():
+    coverage = _coverage()
+    for section in ("offered", "planned"):
+        for op_id, entry in coverage[section].items():
+            assert isinstance(entry, dict), op_id
+            assert entry.get("engines", "pyodide") == "pyodide", (
+                f"{section}.{op_id}.engines is 'pyodide' or is left out"
+            )
+            # PydiggsHybrid falls back to the HTTP client, which has no such method.
+            assert not ("engines" in entry and entry.get("hybrid")), (
+                f"{section}.{op_id}: an operation of the Pyodide engines only is not hybrid"
+            )
+
+
+def test_the_conformance_suite_is_for_the_pyodide_engines_only():
+    # pyDIGGS has no HTTP route for the suite, so no entry may promise an HTTP method.
+    coverage = _coverage()
+    placed = {**coverage["offered"], **coverage["planned"]}
+    suite = {op_id: entry for op_id, entry in placed.items() if op_id.startswith("conformance.")}
+    assert sorted(suite) == sorted(
+        op.id for op in pydiggs.capabilities().operations if op.id.startswith("conformance.")
+    )
+    for op_id, entry in suite.items():
+        assert isinstance(entry, dict), op_id
+        assert entry.get("engines") == "pyodide", op_id

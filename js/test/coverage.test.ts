@@ -14,6 +14,8 @@ import { SupervisedWorker } from "../src/worker-client.ts";
 interface Offered {
   methods: string[];
   hybrid: boolean;
+  /** "pyodide": on the engines that run pyDIGGS itself only (pyDIGGS has no HTTP route). */
+  engines?: "pyodide";
 }
 
 interface Planned {
@@ -21,6 +23,8 @@ interface Planned {
   methods: string[];
   /** Why it is not offered yet, and where it is planned. */
   why: string;
+  /** "pyodide": planned for the engines that run pyDIGGS itself only. */
+  engines?: "pyodide";
 }
 
 const coverage = JSON.parse(readFileSync(new URL("../capabilities-coverage.json", import.meta.url), "utf8")) as {
@@ -36,9 +40,19 @@ const engines: Record<string, object> = {
   PydiggsPool: PydiggsPool.prototype,
 };
 
+// The engines an entry is about: all of them, or those that run pyDIGGS itself.
+function enginesOf(op: string, entry: { engines?: string }): Record<string, object> {
+  if (entry.engines === undefined) return engines;
+  assert.equal(entry.engines, "pyodide", `${op}: engines is "pyodide" or is left out`);
+  const { PydiggsHttpClient: _http, ...pyodide } = engines;
+  return pyodide;
+}
+
 test("every offered operation is a method on every engine", () => {
   for (const [op, entry] of Object.entries(coverage.offered)) {
-    const where = entry.hybrid ? { ...engines, PydiggsHybrid: PydiggsHybrid.prototype } : engines;
+    assert.ok(!(entry.engines && entry.hybrid), `${op}: an operation of the Pyodide engines only is not hybrid`);
+    const among = enginesOf(op, entry);
+    const where = entry.hybrid ? { ...among, PydiggsHybrid: PydiggsHybrid.prototype } : among;
     for (const method of entry.methods) {
       for (const [engine, prototype] of Object.entries(where)) {
         assert.equal(
@@ -58,8 +72,24 @@ test("a planned operation is not already offered", () => {
     typeof (prototype as Record<string, unknown>)[method] === "function";
   for (const [op, entry] of Object.entries(coverage.planned)) {
     assert.ok(entry.methods.length > 0 && entry.why.trim() !== "", `planned.${op} needs methods and why`);
-    const built = entry.methods.every((method) => Object.values(engines).every((prototype) => has(prototype, method)));
+    const among = Object.values(enginesOf(op, entry));
+    const built = entry.methods.every((method) => among.every((prototype) => has(prototype, method)));
     assert.ok(!built, `planned.${op}: ${entry.methods.join(", ")} exist on every engine; move it to "offered"`);
+  }
+});
+
+// pyDIGGS has no HTTP route for an operation of the Pyodide engines only, so the HTTP
+// client must not grow a method for one by accident.
+test("an operation of the Pyodide engines only has no method on the HTTP client", () => {
+  for (const [op, entry] of Object.entries({ ...coverage.offered, ...coverage.planned })) {
+    if (entry.engines !== "pyodide") continue;
+    for (const method of entry.methods) {
+      assert.notEqual(
+        typeof (PydiggsHttpClient.prototype as unknown as Record<string, unknown>)[method],
+        "function",
+        `${op}: PydiggsHttpClient has ${method}(), and pyDIGGS has no HTTP route for it`,
+      );
+    }
   }
 });
 

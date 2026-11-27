@@ -107,6 +107,10 @@ exactly the operations the installed release offers. `needs` is the extra to ins
 | `tables.from-diggs` | preview |  | Turn a DIGGS file (or a read one) into tables of the profile, with a load plan |
 | `tables.check` | preview |  | Check tables of the profile against the DIGGS dictionaries without writing a file |
 | `tables.round-trip` | preview |  | Write tables of the profile as DIGGS, validate the file, read it back and list every value that came back changed |
+| `conformance.classes` | preview |  | List the classes of the DIGGS conformance suite: the kinds of data a product can be tested on, exporting or importing |
+| `conformance.new` | preview |  | Make a conformance challenge for a product: tables to export as DIGGS, or a DIGGS file to import with questions about it |
+| `conformance.grade` | preview |  | Grade what a product made of a challenge (the DIGGS file it exported, or its answers about the file it imported) and give the evidence |
+| `conformance.verify` | preview |  | Grade a submission again and say whether it gives the same evidence |
 | `export.pandas` | stable | `frames` | Tables of a read file as a pandas data frame |
 | `export.polars` | stable | `polars` | Tables of a read file as a polars data frame |
 | `gis.transform` | stable | `gis` | Add longitude and latitude to every location that has a known CRS |
@@ -136,6 +140,10 @@ Where each is in Python:
 | `tables.from-diggs` | `pydiggs.tables.from_model()`, `write_package()` |
 | `tables.check` | `pydiggs.tables.check()` |
 | `tables.round-trip` | `pydiggs.tables.round_trip()` |
+| `conformance.classes` | `pydiggs.conformance.classes()`, `class_info()` |
+| `conformance.new` | `pydiggs.conformance.new()` |
+| `conformance.grade` | `pydiggs.conformance.grade()` (the challenge from `load()`) |
+| `conformance.verify` | `pydiggs.conformance.verify()` |
 | `export.pandas` | `pydiggs.frames.to_pandas()` |
 | `export.polars` | `pydiggs.frames.to_polars()` |
 | `gis.transform` | `pydiggs.gis.transform()` |
@@ -150,7 +158,11 @@ sidecar's `convert` are either conversion operation, chosen by their `to` parame
 the MCP server does not offer it yet. The four `tables.*` operations
 ([Your database to DIGGS and back](tables.md)) are a preview, offered in Python, as
 `pydiggs tables` and `pydiggs map`, as `POST /v1/tables/*` and as the sidecar's
-`tables.*` methods (protocol 1.4); not by the MCP server. The
+`tables.*` methods (protocol 1.4); not by the MCP server. The four `conformance.*`
+operations ([Testing DIGGS support](conformance.md)) are a preview while the suite is
+`1.0-beta`, offered in Python and as `pydiggs conformance`. They have no HTTP route, sidecar
+method or MCP tool: a product is tested on your own machine, and nothing is uploaded. The
+suite's other tools (`accept`, `matrix`, the scorecard) are not listed. The
 experimental DIGGS `3.1-dev` profile is a choice of the `diggs_version` option (see
 [Validation checks](usage.md#experimental-diggs-31-dev)).
 

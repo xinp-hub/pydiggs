@@ -89,8 +89,11 @@ def families() -> tuple[Family, ...]:
 
     Examples:
         >>> from pydiggs import conformance
-        >>> [f.id for f in conformance.families() if f.testable]
-        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'mwd', 'lab-index', 'deep-foundations']
+        >>> testable = [f.id for f in conformance.families() if f.testable]
+        >>> testable[:5]
+        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'mwd']
+        >>> testable[5:]
+        ['lab-index', 'deep-foundations', 'monitoring']
         >>> next(f for f in conformance.families() if f.id == "geophysics").testable
         False
     """

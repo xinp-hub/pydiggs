@@ -25,6 +25,7 @@ FAMILIES = {
     "mwd": "mwd-export",
     "lab-index": "lab-index-export",
     "deep-foundations": "deep-foundations-export",
+    "monitoring": "monitoring-export",
 }
 FIRST_TEST = 'gml:id="ISPT-1">'
 #: In the first SPT test: its reference to the boring, and its one result value. The
@@ -71,7 +72,7 @@ def test_every_family_publishes_its_requirements_with_a_diggs_source(family: str
 
 def test_the_families_are_those_with_a_scenario() -> None:
     assert [f.id for f in conformance.acceptance_families()] == list(FAMILIES)
-    assert len(FAMILIES) == 7
+    assert len(FAMILIES) == 8
     with pytest.raises(ValueError, match="the families are: " + ", ".join(FAMILIES)):
         conformance.requirements("geophysics")
 

@@ -20,6 +20,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   goes from DIGGS to tables and back whole: its well, screen, sample, specimen and the
   water level series measured in the well.
 
+- **Conformance classes for monitoring time series (preview).** `pydiggs conformance` has
+  two new classes, `monitoring-export` and `monitoring-import`, for the water level series
+  of piezometers and data loggers (`Monitor`). A challenge holds two or three piezometers,
+  each a borehole with a sensor at a depth and one series: the depth to water, the water
+  elevation and the temperature at each time, in metres and degrees Celsius or in feet and
+  degrees Fahrenheit. These are the three properties the DIGGS dictionary defines for a
+  `WaterLevelMonitoring` procedure. The export challenge is a DIGGS tables profile
+  package, like the other families. Each value is looked up at the time of its reading,
+  and times are compared as instants: the tables write them in UTC or with an offset from
+  UTC, and any offset that names the same instant passes, while a time with no offset
+  names none and is not read. A temperature the tables leave empty must stay empty (a
+  `nullValue` counts as empty), the one reading with the water at the reference point (a
+  depth of 0) must be in the file, no reading may be added where the logger was stopped,
+  and the sensor depth is read from the series' `monitorLocation`. Values are carried as
+  the logger reports them; the suite works out no level, head or pressure. The suite
+  stays 1.0-beta.3: no file of another class is graded differently, and challenges of
+  1.0-beta.2 and 1.0-beta.3 are loaded, graded and verified as before. `pydiggs
+  conformance accept --class monitoring` checks a delivered file against the family's
+  requirements, with `accept.time` (a time for each result row) in place of
+  `accept.position`. Wells, well openings, stations and series of other procedures are in
+  the catalogue but not yet graded, and the in-browser page offers the new classes only
+  once it runs a release that has them. See
+  [Monitoring](https://xinp-hub.github.io/pydiggs/latest/conformance/#monitoring).
+- **The conformance suite is listed in `pydiggs.capabilities()` (preview).** Four new
+  operations, each marked `preview`: `conformance.classes`, `conformance.new`,
+  `conformance.grade` and `conformance.verify`, with their options and what they read and
+  give. `pydiggs capabilities`, `GET /v1/capabilities` and the MCP resource list them too.
+  The diggs-capabilities schema is unchanged (1.0): the entries are new operations in the
+  same shape, with new names among `inputs` and `outputs` (`text/csv`,
+  `diggs-conformance-challenge`, `diggs-conformance-1.0-beta.3`, `conformance-class` and
+  `conformance-verification`). They can be run in
+  Python and as `pydiggs conformance`, as before. There is no HTTP route, sidecar method or
+  MCP tool for them: a product is tested on your own machine, and nothing is uploaded.
+- **The suite's operations for programs that embed pyDIGGS (preview).** pyDIGGS's internal
+  service layer, which the npm client's browser and Node engines call, can now list the
+  classes, make a challenge, give its reference file, grade a submission and verify
+  evidence, with every file passed as bytes and every result one JSON document. It grades
+  exactly as `pydiggs conformance` does: the suite is still 1.0-beta.3, and the evidence is
+  the same document for the same files. A pairwise challenge (`new --from-export`) is
+  accepted as the ZIP of its folder, which holds the other product's export as
+  `challenge.xml`; the file is checked against the digest the challenge records and graded
+  again, as on the command line. Limits: `challenge.json` at most 64 KiB, evidence at most
+  8 MiB, a challenge ZIP of at most 200 files, each file within the caller's size limit
+  (25 MiB unless it sets another), and 120 seconds for reading and again for validating
+  an export. `@pydiggs/client` does not offer these as methods yet; they are planned for
+  its browser, Node and pool engines. The
+  [in-browser page](https://xinp-hub.github.io/pydiggs/latest/conformance/try/) is
+  unchanged.
+
 ### Changed
 
 - **Depths along a depth system the file does not define are read, and reported.** When a
