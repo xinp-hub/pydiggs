@@ -257,7 +257,7 @@ def _token(info: ClassInfo, seed: str, suite: str = SUITE_VERSION) -> str:
 #: Scenarios whose export challenge is a DIGGS tables profile package (pydiggs.tables).
 #: The pile scenario is not: the profile has no pile tables yet.
 PROFILE_SCENARIOS: Final = frozenset(
-    {"spt", "cpt", "lab", "mwd", "dissipation", "in-situ-strength", "monitoring"}
+    {"spt", "cpt", "lab", "mwd", "dissipation", "in-situ-strength", "pressuremeter", "monitoring"}
 )
 #: Scenario -> what its export challenge's README adds to "What is graded".
 _GRADED_TOO: Final = {
@@ -266,7 +266,13 @@ _GRADED_TOO: Final = {
         "  names the same instant is right, and a time with no offset names none.",
         "- A time the tables have no reading at has none in the file either.",
         "- The sensor depth is the place the series' `monitorLocation` gives.",
-    )
+    ),
+    "pressuremeter": (
+        "- An unload-reload loop is a `trial` of its test's `PressuremeterTest` (a",
+        "  `PressuremeterTestTrial`), found by its number, `trialNo`.",
+        "- A test the tables give no loop has none in the file, and a limit pressure the",
+        "  tables leave empty was not reached: it is not worked out from anything.",
+    ),
 }
 
 

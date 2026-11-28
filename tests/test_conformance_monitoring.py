@@ -93,12 +93,12 @@ def _right_answers(challenge: conformance.Challenge) -> dict[str, str]:
 
 def test_the_monitoring_classes_are_in_the_catalogue() -> None:
     ids = [c.id for c in conformance.classes()]
-    assert ids[-2:] == [EXPORT, IMPORT] and len(ids) == 16
+    assert ids[-2:] == [EXPORT, IMPORT] and len(ids) == 18
     family = next(f for f in conformance.families() if f.id == "monitoring")
     assert family.testable and family.scenario == _monitoring.SCENARIO
     assert {"Monitor", "WaterLevelMonitoring", "Well"} <= set(family.elements)
     assert family.note is not None and "not graded yet" in family.note
-    assert sum(f.testable for f in conformance.families()) == 8
+    assert sum(f.testable for f in conformance.families()) == 9
 
 
 def test_the_suite_version_did_not_change_with_the_new_classes() -> None:

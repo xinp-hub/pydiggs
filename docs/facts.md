@@ -311,8 +311,8 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --class FAMILY        what the file is delivered as: spt, cpt, dissipation,
-                        in-situ-strength, mwd, lab-index, deep-foundations,
-                        monitoring
+                        in-situ-strength, pressuremeter, mwd, lab-index, deep-
+                        foundations, monitoring
   --format {text,json,html}
                         what is printed: text (the default), the result as
                         JSON, or the HTML report
