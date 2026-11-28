@@ -197,6 +197,38 @@ speed) and `fluid_injection_pressure` (flushing pressure).
 - **A zero is a value.** The first reading of each log, at the collar, has a penetration
   rate and a rotation speed of 0; they must be in the file.
 
+### Pressuremeter tests
+
+The `pressuremeter` challenge is a [tables profile](tables.md) package too: two or three
+borings, each with three to five pressuremeter tests in `measurements.csv`, a `Test` at
+its depth whose procedure is a `PressuremeterTest`. `results_PressuremeterTest.csv` holds
+what each test reports: `insitu_horizontal_stress`, `menard_modulus` (the pressuremeter
+modulus) and `limit_pressure`, three of the properties the DIGGS property dictionary
+defines for a `PressuremeterTest`. `params.csv` holds the probe's `pressuremeterDiameter`
+and, for a test with unload-reload loops, the values of each loop; `components.csv` holds
+one `trial` row (a `PressuremeterTestTrial`) per loop. Pressures are in kPa beside moduli
+in MPa, or in psi beside moduli in tons-force per square foot. Every value is carried as
+the test report states it: the suite works out no modulus from a curve, extrapolates no
+limit pressure and derives nothing from a loop.
+
+- **Where values are looked up.** Each reported value is found by its property on a
+  `Test` of the boring whose procedure is a `PressuremeterTest`, at the test depth. The
+  probe diameter is the procedure's `pressuremeterDiameter`.
+- **Unload-reload loops.** A loop is a `trial` of the procedure, and DIGGS 3.0.0 gives a
+  `PressuremeterTestTrial` five values the suite grades: `shearModulus`, `meanStrain`,
+  `strainRange`, `meanPressure` and `pressureRange`. A loop is found by its number,
+  `trialNo`; a trial with no `trialNo` names no loop and is not read. The strains are
+  plain numbers (ratios), as DIGGS types them.
+- **Nothing is invented.** One test of each challenge was ended before the limit pressure
+  was reached: its `limit_pressure` must be absent, or a value the column's `nullValue`
+  marks as missing; a zero, or a value worked out from the test, fails with
+  `conformance.value-invented`. A test the tables give no loop has none in the file, and
+  a test with one loop has no second.
+- **The curve and the creep pressure are not carried.** The DIGGS property dictionary
+  defines no property for the pressure and volume readings of a pressuremeter test, and
+  none for a creep pressure, so the challenge holds neither and the suite grades neither.
+  A file may hold them; they are not checked.
+
 ### Monitoring
 
 The `monitoring` challenge is a [tables profile](tables.md) package too: two or three
@@ -429,6 +461,7 @@ parts of DIGGS have scenario challenges, each in both directions:
 | `mwd` | Measurement while drilling: one drilling log per boring, with penetration rate, thrust, torque, rotation speed and flushing pressure; a pause for a rod change, readings with no flushing pressure, units such as m/h, bar and rpm |
 | `dissipation` | Dissipation tests in two piezocone soundings: u0, u50 and t50, and the u1 and u2 series by elapsed time in seconds or minutes; one test stopped before t50, one reading with no u2 |
 | `in-situ-strength` | Field vane tests (peak and remoulded torque and strength, vane size; one test with no remoulded reading) and a flat plate dilatometer sounding (A, B and C readings, C at a few depths only), in SI or US units |
+| `pressuremeter` | Pressuremeter tests at several depths in two or three borings: in-situ horizontal stress, pressuremeter (Menard) modulus and limit pressure, the probe diameter, and the unload-reload loops of a test (shear modulus, strains, pressures); one test ended before its limit pressure, tests with no loop, kPa and MPa or psi and tons-force per square foot |
 | `monitoring` | Water level series of two or three piezometers, each with a sensor at a depth: depth to water, water elevation and temperature at each time, in UTC or with an offset from UTC; a stretch where the logger was stopped, readings with no temperature, metres and degrees Celsius or feet and degrees Fahrenheit |
 
 The catalogue behind the classes covers the whole of DIGGS 3.0.0: every test procedure of
@@ -437,7 +470,8 @@ with no challenge yet is listed as **not yet testable**, here and on every score
 few passing classes are never mistaken for full DIGGS support. A family with a challenge
 may still grade only part of what it names, and its note in `pydiggs conformance classes`
 says which part: the `monitoring` family grades water level series, and not yet wells,
-well openings or stations.
+well openings or stations; the `pressuremeter` family grades the values a test reports,
+and not the pressure-volume curve, for which DIGGS defines no property.
 
 ## Known limits of this version
 
@@ -487,10 +521,24 @@ well openings or stations.
 - **Remoulded vane strength.** DIGGS 3.0.0 has no property for it, so the suite's choice,
   `shear_strength_undrained_residual`, is a convention, not the standard's. An export that
   writes it under another property fails that value.
-- **Not graded in `in-situ-strength`.** Pressuremeter, pocket and in-situ penetrometer and
-  in-situ CBR tests are in the family but not yet in its challenge; a pass covers vane and
+- **Not graded in `in-situ-strength`.** Pocket and in-situ penetrometer and in-situ CBR
+  tests are in the family but not yet in its challenge; a pass covers vane and
   dilatometer tests only. Vane torque increments (the torque-rotation curve) and the
-  dilatometer's derived indices are not graded.
+  dilatometer's derived indices are not graded. Pressuremeter tests have their own
+  family, `pressuremeter`; the family's title still names them, because a class's title
+  is part of its evidence and the evidence of a suite version does not change.
+- **Pressuremeter: reported values only.** The `pressuremeter` challenge grades what a
+  test report states for each test (in-situ horizontal stress, pressuremeter modulus,
+  limit pressure, probe diameter) and for each unload-reload loop. The pressure-volume
+  curve, a creep pressure and the corrections applied to a test are not in the challenge:
+  the DIGGS property dictionary defines no property for them. The other properties the
+  dictionary defines for a `PressuremeterTest` (shear modulus, shear strengths, friction
+  and dilation angles, coefficient of earth pressure) and the kind of probe
+  (`pressuremeterType`) are not graded either.
+- **Pressuremeter loops by number, up to two.** A loop is matched by its `trialNo`, so a
+  file that numbers its loops otherwise, or gives none, has their values reported as
+  missing. A challenge's tests have at most two loops: a loop invented with the number 1
+  or 2 is caught, one numbered 3 or more is not. The `linearity` of a loop is not graded.
 
 ## Evidence anyone can re-run
 
@@ -541,7 +589,7 @@ version draws its own data, so a seed gives other borings and values in another 
 | --- | --- | --- |
 | `1.0-beta.1` | 1.15 | The first suite: `spt` and `cpt`. |
 | `1.0-beta.2` | 1.16, 1.17 | A value where the source leaves the cell empty fails (`conformance.value-invented`); a percentage may be a plain percent number; `lab-index` and `deep-foundations` were added. The `mwd`, `dissipation` and `in-situ-strength` classes joined this suite later, reading a declared `nullValue` as empty from the start. |
-| `1.0-beta.3` | 1.18 | A cell that holds the `nullValue` its property declares is empty in `spt`, `cpt`, `lab-index` and `deep-foundations` too: a correct export that marks an unmeasured value that way failed in those classes before, and passes now. A file that declares as `nullValue` a number it also reports as a real value (a `nullValue` of 0 on a column with a real zero) passed before and fails now: that cell is missing, as DIGGS defines it. The `monitoring` classes joined this suite in the release after 1.18; no file of another class is graded differently for it. |
+| `1.0-beta.3` | 1.18 | A cell that holds the `nullValue` its property declares is empty in `spt`, `cpt`, `lab-index` and `deep-foundations` too: a correct export that marks an unmeasured value that way failed in those classes before, and passes now. A file that declares as `nullValue` a number it also reports as a real value (a `nullValue` of 0 on a column with a real zero) passed before and fails now: that cell is missing, as DIGGS defines it. The `monitoring` and `pressuremeter` classes joined this suite in the release after 1.18; no file of another class is graded differently for them. |
 
 **What an older suite version on evidence means.** Evidence states the suite that graded
 it (`suite_version`), and it stays true of that suite: the file passed, or failed, by
@@ -586,8 +634,9 @@ The page names the pyDIGGS release it runs. That is pyDIGGS 1.18: it offers the 
 classes of that release (`spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`,
 `lab-index` and `deep-foundations`, export and import), its challenges and evidence are of
 suite 1.0-beta.3, and it still grades and verifies a challenge of suite 1.0-beta.2
-([versions](#versions)). The `monitoring` classes are newer than that release: until the
-page runs a release that has them, make and grade their challenges on the command line.
+([versions](#versions)). The `monitoring` and `pressuremeter` classes are newer than that
+release: until the page runs a release that has them, make and grade their challenges on
+the command line.
 
 A [pairwise challenge](#test-two-products-together) is command-line only. The page does
 not make one (`new --from-export`), and it refuses to grade or verify one: such a
@@ -635,8 +684,8 @@ spt: ACCEPTED
   ...
 ```
 
-`--class` is one of `spt`, `cpt`, `dissipation`, `in-situ-strength`, `mwd`, `lab-index`,
-`deep-foundations` and `monitoring`. `--format json`
+`--class` is one of `spt`, `cpt`, `dissipation`, `in-situ-strength`, `pressuremeter`,
+`mwd`, `lab-index`, `deep-foundations` and `monitoring`. `--format json`
 prints the result as a
 [`diggs-conformance-acceptance-1.0-beta.1`](https://xinp-hub.github.io/pydiggs/schemas/preview/diggs-conformance-acceptance-1.0-beta.1.schema.json)
 document (preview; also `conformance.conformance_schema("acceptance")`), `--format html` prints the one-page report, and `--report PATH` also writes
@@ -657,7 +706,7 @@ judgement. `pydiggs.conformance.requirements(family)` lists them with their sour
 | --- | --- | --- |
 | `accept.diggs-3` | The file is a DIGGS 3 document, read to its end. | DIGGS 3.0.0 root element and namespace |
 | `accept.valid` | No validation error (warnings allowed). | DIGGS 3.0.0 XML Schema, the DIGGS dictionaries, the DIGGS Schematron rules |
-| `accept.present` | At least one test of the family: a measurement whose procedure is one of the family's elements (`DrivenPenetrationTest` for `spt`; `StaticConePenetrationTest` for `cpt`; `PorePressureDissipationTest` for `dissipation`; `InsituVaneTest`, `FlatPlateDilatometerTest` or another of the family's procedures for `in-situ-strength`; the ten laboratory index procedures). For piles: at least one pile and one `PileDrivingRecord`. For `mwd`: at least one `MeasurementWhileDrilling` log. For `monitoring`: at least one `Monitor` series. | The family's DIGGS 3.0.0 elements ([classes](#classes-and-what-cannot-be-tested-yet)) |
+| `accept.present` | At least one test of the family: a measurement whose procedure is one of the family's elements (`DrivenPenetrationTest` for `spt`; `StaticConePenetrationTest` for `cpt`; `PorePressureDissipationTest` for `dissipation`; `InsituVaneTest`, `FlatPlateDilatometerTest` or another of the family's procedures for `in-situ-strength`; `PressuremeterTest` for `pressuremeter`; the ten laboratory index procedures). For piles: at least one pile and one `PileDrivingRecord`. For `mwd`: at least one `MeasurementWhileDrilling` log. For `monitoring`: at least one `Monitor` series. | The family's DIGGS 3.0.0 elements ([classes](#classes-and-what-cannot-be-tested-yet)) |
 | `accept.located` | Every such test names the borehole or sounding it was made in, directly or through its sample, and that feature is in the file. For `mwd`: every drilling log names its borehole or sounding. For `monitoring`: every series names its well, borehole or station. For piles: every driving record's `PileDrivingActivity` names one pile of the file, and its tip locations are on no other pile. | `samplingFeatureRef` and `sampleRef` of a measurement; `samplingFeatureRef` of a construction activity (exactly one) |
 | `accept.result` | Every such test reports at least one value of a property the DIGGS dictionary defines for its procedure (for SPT: `n_value`, `n60`, `n1_60` or `relative_density`). For piles: every driving record has a value of a pile-driving property at a pile tip depth. For `mwd`: every log has a value of a drilling channel, a property `mwd_properties.xml` defines other than `depth` and `time`. For `monitoring`: every series has a value, and where the dictionary defines properties for the series' procedure (for `WaterLevelMonitoring`: `water_depth`, `water_elev`, `temperature`) it is of one of them. A cell that is empty, or is the `nullValue` its property declares, is not a value. | `outcome` of a test (required); the `Occurrence` entries of `properties.xml`, `pil_properties.xml` and `mwd_properties.xml`; `nullValue` of a `Property` |
 | `accept.position` | Every such result value is placed along its feature, in a length unit DIGGS can convert. (Not for piles: `accept.result` asks for the tip depth. Not for `mwd`: DIGGS lets a drilling log be placed by depth or by time. Not for `monitoring`: a series is placed by time, see `accept.time`.) | `outcome`: "the associated locations that the measurement results relate to" |

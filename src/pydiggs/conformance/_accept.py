@@ -246,9 +246,9 @@ def acceptance_families() -> tuple[Family, ...]:
         >>> from pydiggs import conformance
         >>> ids = [f.id for f in conformance.acceptance_families()]
         >>> ids[:5]
-        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'mwd']
+        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'pressuremeter']
         >>> ids[5:]
-        ['lab-index', 'deep-foundations', 'monitoring']
+        ['mwd', 'lab-index', 'deep-foundations', 'monitoring']
     """
     return tuple(f for f in families() if f.testable and not f.embedded)
 

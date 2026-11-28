@@ -49,7 +49,7 @@ test("make, grade and verify in the tab, with nothing sent anywhere", async ({ p
   await expect(page.locator("#engine")).toContainText("pyDIGGS 1.18.0 is ready");
   await expect(page.locator("#engine")).toContainText("Suite 1.0-beta.3");
   // The classes come from the pinned pyDIGGS: the 14 of that release. Classes added
-  // since (monitoring) are on the page once it pins a release that has them.
+  // since (monitoring, pressuremeter) are on the page once it pins a release that has them.
   await expect(page.locator("#make-class option")).toHaveCount(14);
   for (const family of ["mwd", "dissipation", "in-situ-strength"]) {
     await expect(page.locator(`#make-class option[value="${family}-export"]`)).toHaveCount(1);

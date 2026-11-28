@@ -91,9 +91,9 @@ def families() -> tuple[Family, ...]:
         >>> from pydiggs import conformance
         >>> testable = [f.id for f in conformance.families() if f.testable]
         >>> testable[:5]
-        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'mwd']
+        ['spt', 'cpt', 'dissipation', 'in-situ-strength', 'pressuremeter']
         >>> testable[5:]
-        ['lab-index', 'deep-foundations', 'monitoring']
+        ['mwd', 'lab-index', 'deep-foundations', 'monitoring']
         >>> next(f for f in conformance.families() if f.id == "geophysics").testable
         False
     """
@@ -105,8 +105,10 @@ def classes() -> tuple[ClassInfo, ...]:
 
     Examples:
         >>> from pydiggs import conformance
-        >>> [c.id for c in conformance.classes()][:10:2]
-        ['spt-export', 'cpt-export', 'dissipation-export', 'in-situ-strength-export', 'mwd-export']
+        >>> [c.id for c in conformance.classes()][:8:2]
+        ['spt-export', 'cpt-export', 'dissipation-export', 'in-situ-strength-export']
+        >>> [c.id for c in conformance.classes()][8:12:2]
+        ['pressuremeter-export', 'mwd-export']
         >>> sorted({c.direction for c in conformance.classes()})
         ['export', 'import']
     """

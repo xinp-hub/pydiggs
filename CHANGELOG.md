@@ -83,6 +83,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its browser, Node and pool engines. The
   [in-browser page](https://xinp-hub.github.io/pydiggs/latest/conformance/try/) is
   unchanged.
+- **Conformance classes for pressuremeter tests (preview).** `pydiggs conformance` has two
+  new classes, `pressuremeter-export` and `pressuremeter-import`; the suite now has 18
+  classes in 9 families. A challenge holds two or three borings, each with three to five
+  pressuremeter tests: the in-situ horizontal stress, the pressuremeter (Menard) modulus
+  and the limit pressure each test reports (`insitu_horizontal_stress`, `menard_modulus`
+  and `limit_pressure`, properties the DIGGS dictionary defines for a `PressuremeterTest`),
+  the probe's diameter, and the unload-reload loops of a test, each a `trial` of the
+  procedure with its shear modulus, mean strain, strain range, mean pressure and pressure
+  range. Pressures are in kPa beside moduli in MPa, or in psi beside moduli in tons-force
+  per square foot; any declared unit passes and is compared in SI. The export challenge
+  is a DIGGS tables profile package, like the other families. One test of each challenge
+  was ended before its limit pressure was reached: the cell must stay empty (a
+  `nullValue` counts as empty), and a test the tables give no loop must have none. Values
+  are carried as the test report states them; the suite works out no modulus,
+  extrapolates no limit pressure and derives nothing from a loop. The pressure-volume
+  curve and a creep pressure are not in the challenge, because the DIGGS property
+  dictionary defines no property for them. In the class catalogue `PressuremeterTest`
+  moves from the `in-situ-strength` family to the new `pressuremeter` family, so `pydiggs
+  conformance accept --class pressuremeter` is now the check of a delivered pressuremeter
+  file, and `--class in-situ-strength` no longer counts a pressuremeter test as one of
+  its own. The suite stays 1.0-beta.3: no file of another class is graded differently,
+  and challenges of 1.0-beta.2 and 1.0-beta.3 are loaded, graded and verified as before.
+  The in-browser page offers the new classes only once it runs a release that has them.
+  See
+  [Pressuremeter tests](https://xinp-hub.github.io/pydiggs/latest/conformance/#pressuremeter-tests).
 
 ### Changed
 

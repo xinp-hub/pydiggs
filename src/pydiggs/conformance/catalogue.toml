@@ -53,11 +53,19 @@ id = "in-situ-strength"
 group = "In-situ tests"
 title = "Vane, pressuremeter, dilatometer and penetrometer tests"
 scenario = "in-situ-strength"
-note = "Graded: field vane tests (peak and remoulded strength and torque, vane size) and flat plate dilatometer readings (A, B, C, calibrations). Pressuremeter, penetrometer and in-situ CBR tests are not graded yet."
+note = "Graded: field vane tests (peak and remoulded strength and torque, vane size) and flat plate dilatometer readings (A, B, C, calibrations). Penetrometer and in-situ CBR tests are not graded yet. Pressuremeter tests have their own family, pressuremeter."
 elements = [
-  "InsituVaneTest", "PressuremeterTest", "FlatPlateDilatometerTest",
+  "InsituVaneTest", "FlatPlateDilatometerTest",
   "PocketPenetrometerTest", "InSituPenetrometerTest", "InsituCBRTest",
 ]
+
+[[family]]
+id = "pressuremeter"
+group = "In-situ tests"
+title = "Pressuremeter tests"
+scenario = "pressuremeter"
+note = "Graded: each test's in-situ horizontal stress, pressuremeter (Menard) modulus and limit pressure at its depth, the probe diameter, and each unload-reload loop (shear modulus, mean strain, strain range, mean pressure, pressure range). The pressure-volume curve and a creep pressure are not graded: the DIGGS property dictionary defines no property for them."
+elements = ["PressuremeterTest"]
 
 [[family]]
 id = "in-situ-density"

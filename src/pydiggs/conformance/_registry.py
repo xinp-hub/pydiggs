@@ -2,7 +2,8 @@
 
 SPT and CPT share the generic answer key and reader of :mod:`._facts`. The laboratory
 scenario brings its own key; the pile scenario its own key, reader and file builder; so
-do the MWD, dissipation, in-situ strength and monitoring scenarios (:data:`_OWN`).
+do the MWD, dissipation, in-situ strength, pressuremeter and monitoring scenarios
+(:data:`_OWN`).
 Everything else in the suite asks this module.
 """
 
@@ -18,6 +19,7 @@ from pydiggs.conformance import (
     _monitoring,
     _mwd,
     _piles,
+    _pressuremeter,
     _requirements,
     _scenario,
 )
@@ -46,6 +48,7 @@ _OWN: Final[dict[str, _Scenario]] = {
     _mwd.SCENARIO: _mwd,
     _dissipation.SCENARIO: _dissipation,
     _insitu.SCENARIO: _insitu,
+    _pressuremeter.SCENARIO: _pressuremeter,
     _monitoring.SCENARIO: _monitoring,
 }
 

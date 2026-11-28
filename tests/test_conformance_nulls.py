@@ -27,6 +27,7 @@ ADDED_LATER = {
     "dissipation": ("pore_pressure_u2", "t50"),
     "in-situ-strength": ("shear_strength_undrained_residual", "c_pressure"),
     "monitoring": ("temperature",),
+    "pressuremeter": ("limit_pressure",),
     "mwd": ("fluid_injection_pressure",),
 }
 #: The families released with suite 1.0-beta.2, which read the mark as a value then.
