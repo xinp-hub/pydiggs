@@ -495,7 +495,7 @@ def test_time_series_come_back_row_for_row(
 
 #: Per official file: the nodes, by kind, that do not come back after
 #: ``tables.from_model(read(f))`` -> ``to_model`` -> ``write_bytes`` -> ``read_bytes``.
-#: Features with no centerline (stations, trench walls, geophysics) are still to come.
+#: Geophysics is not written; a trench wall comes back, but not what is drawn on its face.
 LOST: dict[str, dict[str, int]] = {
     "Aeromag.xml": {
         "Component:BusinessAssociate": 1,
@@ -515,7 +515,6 @@ LOST: dict[str, dict[str, int]] = {
         "Component:PlatformMovement": 1,
         "Component:SensorSpacing": 1,
         "Feature:GP_MultiTrack": 1,
-        "Feature:Station": 1,
         "Measurement:GeophysicalFieldSurvey": 6,
     },
     "MWDExample.xml": {},
@@ -523,8 +522,6 @@ LOST: dict[str, dict[str, int]] = {
     "PorePressureDissipation_Example.xml": {},
     "TrenchWallExample.xml": {
         "Component:Lithology": 3,
-        "Component:TrenchConstructionMethod": 1,
-        "Feature:TrenchWall": 1,
         "LithologyLayer:LithologyObservation": 3,
         "Observation:DiscontinuitySystem": 1,
         "Observation:LithologySystem": 1,

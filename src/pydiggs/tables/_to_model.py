@@ -53,6 +53,7 @@ from pydiggs.model import (
     SourceInfo,
     TimeSpan,
 )
+from pydiggs.tables import _flat
 from pydiggs.tables import _report as rep
 from pydiggs.tables._arrow import Rows, rows_of
 from pydiggs.tables._profile import (
@@ -84,6 +85,8 @@ _MADE_LINKS: Final = frozenset(
         "referencePoint",
     }
 )
+#: The ``features`` columns that only a feature with a depth axis has a place for.
+_DEPTH_COLUMNS: Final = ("depth_uom", "total_depth", "total_depth_uom")
 _TRUE: Final = frozenset({"true", "1"})
 _FALSE: Final = frozenset({"false", "0"})
 
@@ -160,7 +163,7 @@ def _node(cls: type[Any], key: str, element: str, kind: str, **fields: Any) -> A
         remarks=tuple(fields.pop("remarks", ())),
         params=fields.pop("params", {}),
         provenance=Provenance(xpath=""),
-        extra=(),
+        extra=tuple(fields.pop("extra", ())),
         **fields,
     )
 
@@ -217,8 +220,9 @@ class _Builder:
         self._check_columns()
         #: Key as given in the tables -> key of the node in the model.
         self.keys: dict[str, str] = {}
-        #: Node key -> (lrs, depth unit) of the feature its depths are measured along.
-        self.lrs: dict[str, tuple[str, str]] = {}
+        #: Node key -> (lrs, depth unit) of the feature its depths are measured along;
+        #: None when the feature has no depth axis (a station, a trench wall).
+        self.lrs: dict[str, tuple[str, str] | None] = {}
         self.links: list[Link] = []
         self.crs: dict[str, CrsRef] = {}
         self.params: dict[tuple[str, str], dict[str, Param]] = {}
@@ -545,47 +549,19 @@ class _Builder:
             if element not in self.layout.elements:
                 self.need("features", index, f"a DIGGS element ({rep.shown(element)!r} is not one)")
                 continue
-            unit = _text(row.get("depth_uom")) or _text(row.get("total_depth_uom"))
-            if unit is None:
-                unit = _DEFAULT_DEPTH_UNIT
-                self.notes.add(
-                    rep.ASSUMED,
-                    "features",
-                    "Features with no depth_uom: their depths were written in metres ({times}).",
-                    row=index,
-                )
-            if unit not in _DEPTH_UNITS:
-                self.notes.add(
-                    rep.UNKNOWN_UNIT,
-                    "features",
-                    f"Features whose depth unit is {rep.shown(unit)!r}: DIGGS 3.0.0 measures"
-                    f" depth along a feature in {', '.join(_DEPTH_UNITS)}; not converted"
-                    " ({times}).",
-                    row=index,
-                    column="depth_uom",
-                )
+            flat = element in _flat.NO_DEPTH_AXIS
+            shape = self.flat_shape(index, row, element) if flat else None
+            unit = None if flat else self.feature_unit(index, row)
+            if shape is None and unit is None:
                 continue
             key = self.make_key("features", index, row)
             if key is None:
                 continue
             self.claim(given)
-            lrs = f"#{self.ids.make(f'{key}-lrs')}"
-            self.lrs[key] = (lrs, unit)
-            self.crs[lrs] = CrsRef(srs_name=lrs, form="local", unit=unit, known=True, local=lrs[1:])
-            location = self.location("features", index, row, lrs)
-            depth = self.quantity("features", index, row, "total_depth", "total_depth_uom")
-            if depth is not None and (depth.value or 0.0) <= 0:
-                self.notes.add(
-                    rep.UNPARSED,
-                    "features",
-                    "Values of total_depth in features are not positive, and DIGGS requires a"
-                    " positive total depth; not converted ({times}).",
-                    row=index,
-                    column="total_depth",
-                )
-                depth = None
-            if depth is not None and depth.uom is None:
-                depth = Quantity(text=depth.text, value=depth.value, uom=unit)
+            if shape is None and unit is not None:
+                shape = self.drilled_shape(index, row, key, unit)
+            else:
+                self.lrs[key] = None
             out.append(
                 _node(
                     Feature,
@@ -593,11 +569,7 @@ class _Builder:
                     element,
                     _kind(element),
                     **self.header(str(given), row),
-                    location=location,
-                    centerline=(location,),
-                    total_depth=depth,
-                    lrs=lrs,
-                    when_constructed=self.span(row),
+                    **(shape or {}),
                     parent=parent,
                 )
             )
@@ -607,23 +579,166 @@ class _Builder:
             self.link(key, "project", self.project_of[key])
         return out
 
-    def location(self, table: str, index: int, row: Row, lrs: str) -> Position:
-        found = [self.number(table, index, row, axis) for axis in ("x", "y", "z")]
-        if found[0] is not None and found[1] is not None:
-            coordinates = tuple(pair[0] for pair in found if pair is not None)
-            if _text(row.get("crs")) is None:
-                self.notes.add(
-                    rep.NO_CRS,
-                    table,
-                    "Features with x and y but no crs: the coordinates were written without a"
-                    " coordinate reference system, which DIGGS expects every location to name"
-                    " ({times}).",
-                    row=index,
-                    column="crs",
-                )
-            return Position(
-                coordinates=coordinates, dim=len(coordinates), crs=_text(row.get("crs"))
+    def feature_unit(self, index: int, row: Row) -> str | None:
+        """The unit of depths along a feature: metres when none is given; None when unknown."""
+        unit = _text(row.get("depth_uom")) or _text(row.get("total_depth_uom"))
+        if unit is None:
+            unit = _DEFAULT_DEPTH_UNIT
+            self.notes.add(
+                rep.ASSUMED,
+                "features",
+                "Features with no depth_uom: their depths were written in metres ({times}).",
+                row=index,
             )
+        if unit not in _DEPTH_UNITS:
+            self.notes.add(
+                rep.UNKNOWN_UNIT,
+                "features",
+                f"Features whose depth unit is {rep.shown(unit)!r}: DIGGS 3.0.0 measures"
+                f" depth along a feature in {', '.join(_DEPTH_UNITS)}; not converted"
+                " ({times}).",
+                row=index,
+                column="depth_uom",
+            )
+            return None
+        return unit
+
+    def drilled_shape(self, index: int, row: Row, key: str, unit: str) -> dict[str, Any]:
+        """The fields of a feature with a centerline: its place, depth axis and total depth."""
+        self.no_extent(index, row)
+        lrs = f"#{self.ids.make(f'{key}-lrs')}"
+        self.lrs[key] = (lrs, unit)
+        self.crs[lrs] = CrsRef(srs_name=lrs, form="local", unit=unit, known=True, local=lrs[1:])
+        location = self.location("features", index, row, lrs)
+        depth = self.quantity("features", index, row, "total_depth", "total_depth_uom")
+        if depth is not None and (depth.value or 0.0) <= 0:
+            self.notes.add(
+                rep.UNPARSED,
+                "features",
+                "Values of total_depth in features are not positive, and DIGGS requires a"
+                " positive total depth; not converted ({times}).",
+                row=index,
+                column="total_depth",
+            )
+            depth = None
+        if depth is not None and depth.uom is None:
+            depth = Quantity(text=depth.text, value=depth.value, uom=unit)
+        return {
+            "location": location,
+            "centerline": (location,),
+            "total_depth": depth,
+            "lrs": lrs,
+            "when_constructed": self.span(row),
+        }
+
+    def flat_shape(self, index: int, row: Row, element: str) -> dict[str, Any] | None:
+        """The fields of a feature with no centerline (a station, a trench wall), or None.
+
+        It has no depth axis, so its reference point must be given, and a depth unit or a
+        total depth has no place. A trench wall has the outline of its face, which DIGGS
+        requires; a station has the time it was occupied.
+        """
+        location = self.point("features", index, row)
+        if location is None:
+            self.need(
+                "features",
+                index,
+                f"an x and a y (a {element} has no depth axis to place it along)",
+            )
+            return None
+        extra = []
+        if element == "TrenchWall":
+            extent = self.extent(index, row)
+            if extent is None:
+                return None
+            extra.append(extent)
+        else:
+            self.no_extent(index, row)
+        given = [c for c in _DEPTH_COLUMNS if _text(row.get(c)) is not None]
+        if given:
+            self.notes.add(
+                rep.NOT_CARRIED,
+                "features",
+                "Features with no depth axis (a Station or a TrenchWall has none) give a depth"
+                " unit or a total depth, which DIGGS has no place for on them; not converted"
+                " ({times}).",
+                row=index,
+                column=given[0],
+            )
+        span = self.span(row)
+        if span is not None and element == "Station":
+            extra.append(_flat.occupied_node(span))
+            span = None
+        return {"location": location, "when_constructed": span, "extra": extra}
+
+    def extent(self, index: int, row: Row) -> Any:
+        """The outline of a trench wall, as the element DIGGS holds it in; None when unusable."""
+        text = _text(row.get("extent"))
+        if text is None:
+            self.need("features", index, "an extent (the outline of the wall face, as a POLYGON)")
+            return None
+        ring = _flat.ring_of(text)
+        if isinstance(ring, str):
+            self.need("features", index, f"an extent that is a polygon the profile reads ({ring})")
+            return None
+        crs = _text(row.get("extent_crs"))
+        if crs is None:
+            self.notes.add(
+                rep.NO_CRS,
+                "features",
+                "Features with an extent but no extent_crs: the outline was written without a"
+                " coordinate reference system, which DIGGS expects every location to name"
+                " ({times}).",
+                row=index,
+                column="extent_crs",
+            )
+        elif crs.startswith("#"):
+            self.notes.add(
+                rep.NO_CRS,
+                "features",
+                "Features whose extent_crs names a coordinate reference system by an id"
+                " inside a DIGGS file ('#…'): the tables do not carry its definition, so the"
+                " outline was written naming a system the file does not define ({times}).",
+                row=index,
+                column="extent_crs",
+            )
+        return _flat.extent_node(ring, crs)
+
+    def no_extent(self, index: int, row: Row) -> None:
+        """Name an extent given for a feature that is not a trench wall."""
+        given = [c for c in ("extent", "extent_crs") if _text(row.get(c)) is not None]
+        if given:
+            self.notes.add(
+                rep.NOT_CARRIED,
+                "features",
+                "Features that are not a TrenchWall give an extent, which the profile writes"
+                " for a TrenchWall only; not converted ({times}).",
+                row=index,
+                column=given[0],
+            )
+
+    def point(self, table: str, index: int, row: Row) -> Position | None:
+        """The reference point a row gives in ``x`` and ``y`` (and ``z``), or None."""
+        found = [self.number(table, index, row, axis) for axis in ("x", "y", "z")]
+        if found[0] is None or found[1] is None:
+            return None
+        coordinates = tuple(pair[0] for pair in found if pair is not None)
+        if _text(row.get("crs")) is None:
+            self.notes.add(
+                rep.NO_CRS,
+                table,
+                "Features with x and y but no crs: the coordinates were written without a"
+                " coordinate reference system, which DIGGS expects every location to name"
+                " ({times}).",
+                row=index,
+                column="crs",
+            )
+        return Position(coordinates=coordinates, dim=len(coordinates), crs=_text(row.get("crs")))
+
+    def location(self, table: str, index: int, row: Row, lrs: str) -> Position:
+        found = self.point(table, index, row)
+        if found is not None:
+            return found
         self.notes.add(
             rep.ASSUMED,
             table,
@@ -633,11 +748,39 @@ class _Builder:
         )
         return Position(coordinates=(0.0,), dim=1, crs=lrs)
 
+    def unplaced(self, table: str, index: int, what: str) -> None:
+        """Name a row that DIGGS wants placed, on a feature the profile cannot place it on."""
+        self.notes.add(
+            rep.INCOMPLETE,
+            table,
+            f"Rows of {table} are on a feature that has no depth axis (a Station or a"
+            f" TrenchWall): DIGGS requires {what} to say where it was taken, and the profile"
+            " gives a place as a depth along the feature only; not converted ({times}).",
+            row=index,
+        )
+
+    def no_axis(self, table: str, index: int, row: Row, columns: tuple[str, ...]) -> None:
+        """Name the depths a row gives along a feature that has no depth axis."""
+        given = [c for c in columns if _text(row.get(c)) is not None]
+        if given:
+            self.notes.add(
+                rep.NOT_CARRIED,
+                table,
+                f"Rows of {table} give a depth along a feature that has no depth axis (a"
+                " Station or a TrenchWall has none); the depth was not converted ({times}).",
+                row=index,
+                column=given[0],
+            )
+
     def interval(
         self, table: str, index: int, row: Row, holder: str, *, both: bool = False
     ) -> Interval | None:
         """The row's ``top`` and ``base`` along the feature of ``holder``, when it has both."""
-        lrs, unit = self.lrs[holder]
+        axis = self.lrs[holder]
+        if axis is None:
+            self.no_axis(table, index, row, ("top", "base"))
+            return None
+        lrs, unit = axis
         top = self.number(table, index, row, "top")
         base = self.number(table, index, row, "base")
         if top is None and base is None:
@@ -682,10 +825,10 @@ class _Builder:
                 column="depth",
             )
             return interval
-        lrs, unit = self.lrs[holder]
-        if not self.depth_unit(table, index, row, unit):
+        axis = self.lrs[holder]
+        if axis is None or not self.depth_unit(table, index, row, axis[1]):
             return None
-        return Interval(top=Quantity(text=depth[1], value=depth[0], uom=unit), lrs=lrs)
+        return Interval(top=Quantity(text=depth[1], value=depth[0], uom=axis[1]), lrs=axis[0])
 
     def depth_unit(self, table: str, index: int, row: Row, unit: str) -> bool:
         """True when the row's depths are in the feature's unit (no depth is converted)."""
@@ -711,6 +854,9 @@ class _Builder:
             if feature is None:
                 if _text(row.get("feature")) is None:
                     self.need(table, index, "a feature")
+                return False
+            if self.lrs[feature] is None:
+                self.unplaced(table, index, "a sample")
                 return False
             self.lrs[key] = self.lrs[feature]
             recovery = self.quantity(table, index, row, "recovery", "recovery_uom")
@@ -886,6 +1032,17 @@ class _Builder:
         return out
 
     def layer(self, index: int, row: Row, system: str) -> LithologyLayer | None:
+        if self.lrs[system] is None:
+            self.notes.add(
+                rep.INCOMPLETE,
+                "layers",
+                "Rows of layers are on a feature that has no depth axis (a Station or a"
+                " TrenchWall): a layer is written by its top and base along a depth axis, and"
+                " the profile has no columns for a layer drawn on a wall face; not converted"
+                " ({times}).",
+                row=index,
+            )
+            return None
         interval = self.interval("layers", index, row, system, both=True)
         description = _text(row.get("description"))
         if interval is None or description is None:
@@ -982,12 +1139,14 @@ class _Builder:
                 return None
             given = str(_text(row.get("key")))
             self.claim(given)
-            self.lrs[key] = self.lrs[feature]
-            lrs, unit = self.lrs[feature]
-            depth = self.number("components", index, row, "depth")
+            axis = self.lrs[key] = self.lrs[feature]
             location = None
-            if depth is not None and self.depth_unit("components", index, row, unit):
-                location = Position(coordinates=(depth[0],), dim=1, crs=lrs)
+            if axis is None:
+                self.no_axis("components", index, row, ("top", "base", "depth"))
+            else:
+                depth = self.number("components", index, row, "depth")
+                if depth is not None and self.depth_unit("components", index, row, axis[1]):
+                    location = Position(coordinates=(depth[0],), dim=1, crs=axis[0])
             nested = [build(i, r, feature) for i, r in children.get(given, ())]
             takes_id = self.layout.element(element).id is not None
             return _node(  # type: ignore[no-any-return]
@@ -998,7 +1157,7 @@ class _Builder:
                 gml_id=key if takes_id else None,
                 **self.header(given, row),
                 role=role,
-                interval=self.interval("components", index, row, key),
+                interval=None if axis is None else self.interval("components", index, row, key),
                 location=location,
                 time=self.span(row),
                 components=tuple(c for c in nested if c is not None),
@@ -1085,7 +1244,11 @@ class _Builder:
                 f" ({rep.shown(element)!r} is not one)",
             )
             return None
-        lrs, unit = self.lrs[feature]
+        axis = self.lrs[feature]
+        if axis is None:
+            self.unplaced("measurements", index, "a test or a monitoring series")
+            return None
+        lrs, unit = axis
         given = _text(row.get("key")) or ""
         return _Test(index, row, procedure, given, feature, lrs, unit, element)
 

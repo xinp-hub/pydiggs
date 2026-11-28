@@ -98,6 +98,9 @@ _LRM_NAMES: Final = {
     "in": "trueInches",
 }
 _LRM_TYPE: Final = "absolute"
+#: What a feature keeps in ``extra`` that the writer writes: a planar feature's extent and
+#: a station's time, which no typed field of the model reads.
+_FEATURE_EXTRA: Final = ("featureExtent", "whenOccupied")
 #: ``codeSpace`` of the identifiers the writer gives the reference systems it makes.
 _ID_CODE_SPACE: Final = "urn:x-pydiggs:id"
 
@@ -280,7 +283,7 @@ class _Emitter:
         for node in nodes:
             where = _where(node)
             if node.extra and not isinstance(node, Component):
-                raise ValueError(f"{where}: `extra` is not empty; this writer does not write it")
+                self._check_feature_extra(node, where)
             for extra in node.extra:
                 self._claim_extra(extra, _scope(extra), where)
             if node.gml_id is not None:
@@ -363,6 +366,24 @@ class _Emitter:
         if given is not None:
             self.ids.claim(given, f"{where} linearElement link")
             self.line_id[feature.key] = given
+
+    def _check_feature_extra(self, node: Node, where: str) -> None:
+        """Refuse a node's ``extra``, but for what a feature keeps there and nowhere else.
+
+        The reader has no typed field for a planar feature's ``featureExtent`` or a
+        station's ``whenOccupied``, and the writer derives neither, so each is written as
+        given, once.
+        """
+        names = [extra.qname.rpartition(":")[2] for extra in node.extra]
+        if (
+            not isinstance(node, Feature)
+            or any(name not in _FEATURE_EXTRA for name in names)
+            or len(set(names)) != len(names)
+        ):
+            raise ValueError(
+                f"{where}: `extra` is not empty; this writer writes a component's `extra`,"
+                f" and of a feature's only one {' and one '.join(_FEATURE_EXTRA)}"
+            )
 
     def _claim_extra(self, extra: ExtraNode, scope: dict[str, str], where: str) -> None:
         """Take the ``gml:id`` values a component's ``extra`` elements give (any prefix)."""
@@ -839,6 +860,7 @@ class _Emitter:
             parts.append((tag, partial(_set_quantity, node.total_depth, where)))
         for component in (*node.construction, *node.water_strikes):
             parts.append(self._component_part(lay, component, where))
+        parts.extend(self._extra_part(lay, extra, base, where) for extra in node.extra)
         self._node(node, parts, where, prop)
 
     def _centerline(

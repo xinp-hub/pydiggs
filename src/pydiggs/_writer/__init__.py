@@ -5,7 +5,8 @@
 
 The writer is the inverse of :func:`pydiggs.read` for the fields a converter builds:
 typed fields, ``params``, components, links and result tables. It writes DIGGS 3.0.0 only,
-never writes ``extra``, and is deterministic: the same model always gives the same bytes
+writes no ``extra`` but a component's and a feature's ``featureExtent`` and ``whenOccupied``,
+and is deterministic: the same model always gives the same bytes
 (ids it makes up come from the model's own ids, and it reads no clock). The order of an
 element's children comes from ``layout-3.0.0.toml``, generated from the bundled XSD by
 ``scripts/writer_layout.py``.
@@ -25,7 +26,8 @@ __all__ = ["DIGGS_VERSIONS", "write_model"]
 def write_model(model: Model, diggs_version: str = "3.0.0") -> bytes:
     """Write ``model`` as one DIGGS document: UTF-8 bytes with an XML declaration.
 
-    The model must be shaped as :func:`pydiggs.read` would return it, without ``extra``.
+    The model must be shaped as :func:`pydiggs.read` would return it, without ``extra``
+    (but a component's, and a feature's ``featureExtent`` and ``whenOccupied``).
     What reading derives is not written and need not be filled: keys, ``kind``,
     ``provenance``, SI values, ``Position.geographic``, the units of depths along a
     linear referencing system, ``source``, ``tool`` and ``notes``. References are written
@@ -42,8 +44,8 @@ def write_model(model: Model, diggs_version: str = "3.0.0") -> bytes:
 
     Raises:
         ValueError: ``diggs_version`` is not supported, or the model holds something
-            that cannot be written so that reading it back returns it: a non-empty
-            ``extra``, top-level ``associates`` or ``others``, an element or child
+            that cannot be written so that reading it back returns it: an ``extra``
+            it does not write, top-level ``associates`` or ``others``, an element or child
             element DIGGS 3.0.0 does not have, a child DIGGS 3.0.0 requires that the model
             does not give (a feature's location, a name, a ``project`` link …), a
             measurement that is not a ``Test``, a ``Monitor`` or a

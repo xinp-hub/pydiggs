@@ -25,8 +25,10 @@ def write_bytes(model: Model) -> bytes:
     other one in the next result object of its procedure. A result table too long for one
     element (over 10 MB of text) is written in parts: part ``n`` (from 2) is a
     measurement of its own, with the gml:id of the first and ``.part<n>``, which
-    :func:`pydiggs.tables.from_model` joins back. It does not write ``extra`` content or
-    top-level business associates, so a model read from an arbitrary DIGGS file is
+    :func:`pydiggs.tables.from_model` joins back. A feature with no centerline (a station,
+    a trench wall) is written without one; of a feature's ``extra`` it writes a
+    ``featureExtent`` and a ``whenOccupied``, as given. It does not write other ``extra``
+    content or top-level business associates, so a model read from an arbitrary DIGGS file is
     usually refused; send such a model through :func:`pydiggs.tables.from_model` and
     :func:`pydiggs.tables.to_model`, which report what they leave out.
 
